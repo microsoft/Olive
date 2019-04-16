@@ -97,3 +97,6 @@ Endpoints:                10.244.0.12:80,10.244.1.5:80,10.244.2.4:80
 ...
 ```
 The public IP address is listed right next to *LoadBalancer Ingress*. Open the IP address with a browser and navigate to Kubeflow Pipeline by clicking "Pipeline Dashboard".
+
+# ONNX Pipeline
+

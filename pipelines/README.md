@@ -2,7 +2,10 @@
 
 
 ## The requirements
-
+Install Kubeflow pipeline SDK:
+```
+pip install https://storage.googleapis.com/ml-pipeline/release/0.1.14/kfp.tar.gz --upgrade
+```
 
 ## Compiling the pipeline template
 
