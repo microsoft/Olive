@@ -15,10 +15,11 @@ python inference-pipeline.py
 
 ## Deploying the pipeline
 
-Open the Kubeflow pipelines UI. Create a new pipeline, and then upload the compiled specification (`.tar.gz` file) as a new pipeline template.
+Open the Kubeflow pipelines UI. Click "Upload" on the top right corner, and then upload the compiled specification (`.tar.gz` file) as a new pipeline template.
 
 
 ## Components source
+
 
 Converting:
   [source code](), 

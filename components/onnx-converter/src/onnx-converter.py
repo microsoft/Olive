@@ -1,6 +1,7 @@
 import argparse
 import subprocess
 from pathlib import Path
+from shutil import copyfile
 
 import coremltools
 import onnxmltools
@@ -41,19 +42,30 @@ def get_args():
     parser.add_argument(
         "--model_input_shapes", 
         required=False,
-        nargs="+",
-        type=int,
-        help="Optional. List of tuple. The input shape(s) of the model."
+        type=shape_type,
+        help="Optional. List of tuples. The input shape(s) of the model. Each dimension separated by ','. "
     )
     parser.add_argument(
         "--target_opset", 
         required=False,
-        type=int,
         help="Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3."
     )
     args = parser.parse_args()
 
     return args
+
+def shape_type(s):
+    import ast
+    if s == None or len(s) == 0:
+        return
+    try:
+        shapes_list = list(ast.literal_eval(s))
+        if isinstance(shapes_list[0], tuple) == False:
+            # Nest the shapes list to make it a list of tuples
+            return [tuple(shapes_list)]
+        return shapes_list
+    except:
+        raise argparse.ArgumentTypeError("Model input shapes must be a list of tuple. Each dimension separated by ','. ")
 
 def caffe2onnx(args):
     # Convert Caffe model to CoreML 
@@ -69,7 +81,7 @@ def caffe2onnx(args):
     coreml_model = coremltools.utils.load_spec(output_coreml_model)
 
     # Convert the Core ML model into ONNX
-    onnx_model = onnxmltools.convert_coreml(coreml_model, target_opset=args.target_opset)
+    onnx_model = onnxmltools.convert_coreml(coreml_model, target_opset=int(args.target_opset))
 
     # Save as protobuf
     onnxmltools.utils.save_model(onnx_model, args.output_onnx_path)
@@ -87,7 +99,7 @@ def coreml2onnx(args):
     coreml_model = coremltools.utils.load_spec(args.model)
 
     # Convert the CoreML model into ONNX
-    onnx_model = onnxmltools.convert_coreml(coreml_model, target_opset=args.target_opset)
+    onnx_model = onnxmltools.convert_coreml(coreml_model, target_opset=int(args.target_opset))
 
     # Save as protobuf
     onnxmltools.utils.save_model(onnx_model, args.output_onnx_path)
@@ -98,27 +110,41 @@ def keras2onnx(args):
     keras_model = keras.models.load_model(args.model)
 
     # Convert the Keras model into ONNX
-    onnx_model = onnxmltools.convert_keras(keras_model, target_opset=args.target_opset)
+    onnx_model = onnxmltools.convert_keras(keras_model, target_opset=int(args.target_opset))
 
     # Save as protobuf
     onnxmltools.utils.save_model(onnx_model, args.output_onnx_path)
 
 def libsvm2onnx(args):
     from svmutil import svm_load_model
+    import pickle
+    if get_extension(args.model) == "pkl":
+        with open(args.model, "rb") as f:
+            model = pickle.loads(f)
+    else:
+        model = args.model
     # Load your LibSVM model
-    libsvm_model = svm_load_model(args.model)
+    libsvm_model = svm_load_model(model)
     # Convert the LibSVM model into ONNX
-    onnx_model = onnxmltools.convert.convert_libsvm(libsvm_model, target_opset=args.target_opset)
+    onnx_model = onnxmltools.convert.convert_libsvm(libsvm_model, target_opset=int(args.target_opset))
     # Save as protobuf
     onnxmltools.utils.save_model(onnx_model, args.output_onnx_path)
 
 def lightgbm2onnx(args):
     import lightgbm as lgb
-    # Load your LightGBM model
-    lgb_model = lgb.Booster(model_file=args.model)
+    from onnxmltools.convert.common.data_types import FloatTensorType
+    import pickle
+    if get_extension(args.model) == "pkl":
+        with open(args.model, "rb") as f:
+            lgb_model = pickle.load(f)
+    else:
+        # Load your LightGBM model
+        lgb_model = lgb.Booster(model_file=args.model)
 
     # Convert the LightGBM model into ONNX
-    onnx_model = onnxmltools.convert_lightgbm(lgb_model, target_opset=args.target_opset)
+    onnx_model = onnxmltools.convert_lightgbm(lgb_model, 
+        initial_types=[('input', FloatTensorType(shape=[1, 'None']))],
+        target_opset=int(args.target_opset))
 
     # Save as protobuf
     onnxmltools.utils.save_model(onnx_model, args.output_onnx_path)
@@ -126,9 +152,17 @@ def lightgbm2onnx(args):
 def mxnet2onnx(args):
     import mxnet as mx
     import numpy as np
-    from mxnet.contrib.onnx import mxnet2onnx as onnx_mxnet
+    from mxnet.contrib import onnx as onnx_mxnet
+    # MXNet model format check 
+    if get_extension(args.model) != 'json':
+        raise ValueError("Please provide a valid .json model file for MXNet model conversion. ")
+    if args.model_params == None:
+        raise ValueError("Please provide a valid model params file for MXNet model conversion. ")
+    if args.model_input_shapes == None:
+        raise ValueError("Please provide a list of valid model input shapes for MXNet model conversion. ")
+    print(args.model_input_shapes)
     # Convert your MXNet model into ONNX and save as protobuf
-    onnx_mxnet.export_model(args.model, args.model_param, args.model_input_shapes, np.float32, args.output_onnx_path)
+    onnx_mxnet.export_model(args.model, args.model_params, args.model_input_shapes, np.float32, args.output_onnx_path)
 
 def pytorch2onnx(args):
     # PyTorch exports to ONNX without the need for an external converter
@@ -152,7 +186,7 @@ def sklearn2onnx(args):
     # Load your sklearn model
     skl_model = joblib.load(args.model)
     # Convert the sklearn model into ONNX
-    onnx_model = onnxmltools.convert_sklearn(skl_model, target_opset=args.target_opset)
+    onnx_model = onnxmltools.convert_sklearn(skl_model, target_opset=int(args.target_opset))
     # Save as protobuf
     onnxmltools.utils.save_model(onnx_model, args.output_onnx_path)
 
@@ -166,7 +200,7 @@ def tf2onnx(args):
             "--inputs", args.model_inputs,
             "--outputs", args.model_outputs])
     elif get_extension(args.model) == "meta":
-        if not args.inputs and not args.outputs:
+        if not args.model_inputs and not args.model_outputs:
             raise ValueError("Please provide --model_inputs and --model_outputs to convert Tensorflow checkpoint models.")
         subprocess.check_call(["python", "-m", "tf2onnx.convert", 
             "--checkpoint", args.model, 
@@ -181,12 +215,16 @@ def tf2onnx(args):
 def xgboost2onnx(args):
     import xgboost as xgb
     from onnxmltools.convert.common.data_types import FloatTensorType
-    # Load your XGBoost model
-    xgb_model = xgb.Booster(model_file=args.model)
+    import pickle
+    if get_extension(args.model) == "pkl":
+        with open(args.model, "rb") as f:
+            xgb_model = pickle.load(f)
+    else:
+        # Load your XGBoost model
+        xgb_model = xgb.Booster(model_file=args.model)
     # Convert the XGBoost model into ONNX
     onnx_model = onnxmltools.convert.convert_xgboost(xgb_model, 
-        initial_types=[('input', FloatTensorType(shape=[1, 'None']))], 
-        target_opset=args.target_opset)
+        initial_types=[('input', FloatTensorType(shape=[1, 'None']))])
     # Save as protobuf
     onnxmltools.utils.save_model(onnx_model, args.output_onnx_path)
 
@@ -214,12 +252,21 @@ converters = {
 }
 def main():
     args = get_args()
+    
+    # Quick format check
+    model_extension = get_extension(args.model)
+    if (args.model_type == "onnx" or model_extension == "onnx"):
+        print("Input model is already ONNX model. Skipping conversion.")
+        copyfile(args.model, args.output_onnx_path)
+        with open('/output.txt', 'w') as f:
+            f.write(args.output_onnx_path)
+        return
+    
     if converters.get(args.model_type) == None:
         raise ValueError('Model type {} is not currently supported. \n\
             Please select one of the following model types -\n\
                 caffe, cntk, coreml, keras, libsvm, lightgbm, mxnet, pytorch, scikit-learn, tensorflow or xgboost'.format(args.model_type))
-    # Quick format check
-    model_extension = get_extension(args.model)
+    
     suffix = suffix_format_map.get(model_extension)
     print(model_extension)
     if suffix != None and suffix != args.model_type:

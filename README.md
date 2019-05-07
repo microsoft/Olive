@@ -100,3 +100,6 @@ The public IP address is listed right next to *LoadBalancer Ingress*. Open the I
 
 # ONNX Pipeline
 
+ONNX pipeline consists of two parts. 
+        
+1) ONNX model conversion - Takes models from other frameworks and converts it to ONNX.
