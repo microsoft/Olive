@@ -5,3 +5,12 @@ coremltools
 sklearn
 
 cntk==2.6
+mxnet==1.4.0
+numpy==1.14.1
+
+torch==1.0.1
+torchvision==0.2.1
+
+xgboost==0.81
+lightgbm==2.2.3
+tf2onnx

@@ -102,4 +102,85 @@ The public IP address is listed right next to *LoadBalancer Ingress*. Open the I
 
 ONNX pipeline consists of two parts. 
         
-1) ONNX model conversion - Takes models from other frameworks and converts it to ONNX.
+1) ONNX model conversion - Take models from other frameworks and convert them to ONNX.
+2) ONNX performance tool - Run the converted model with ONNX Runtime and output the performance. 
+
+### Pipeline Storage
+Our pipeline consumes input from azure files. To upload desired input files, first we need to persist data to the pipeline using Azure files. 
+
+*i.* Create a storage class
+```
+kubectl apply -f azure-files/azure-file-sc.yaml
+```
+
+*ii.* Create cluster role and binding
+```
+kubectl apply -f azure-files/azure-pvc-roles.yaml
+```
+*iii.* Create a persistent volume claim(PVC) named "azurefile"
+```
+kubectl apply -f azure-files/azure-file-pvc.yaml
+```
+
+To verify the creation of azurefile pvc, run
+```
+kubectl get pvc azurefile -n kubeflow
+```
+If succeeded, you will see something similar to this.
+
+```
+NAME        STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+azurefile   Bound    pvc-73bb032f-6075-11e9-8806-9a0060c93a61   5Gi        RWX            azurefile      22d
+```
+
+For more details about configuring data volumes on AKS, refer to https://docs.microsoft.com/en-us/azure/aks/azure-files-dynamic-pv . Note that since our pipeline runs inside Kubeflow, the PVC should be created under the namespace "kubeflow". 
+
+### Deploy ONNX pipeline
+See [Pipelines](pipelines/README.md)
+
+Once you've upload the generated ".tar" file to pipeline, click on the pipeline. 
+
+
+# How to Run the Pipeline
+// TODO some pics. 
+
+## Run parameters
+
+**model**: string
+   
+   The path of the model that needs to be converted.
+
+**output_onnx_path**: string
+   
+   The path to store the converted onnx model. Should end with ".onnx". e.g. output.onnx
+
+**model_type**: string
+   
+   The name of original model framework. 
+   
+   Available types are caffe, cntk, coreml, keras, libsvm, mxnet, scikit-learn, tensorflow and pytorch.
+   
+**output_perf_result_path**: string
+   
+   The path to store the perf result text file. 
+
+**model_inputs**: string
+   
+   Optional. The model's input names. Required for tensorflow frozen models and checkpoints.
+
+**model_outputs**: string
+   
+   Optional. The model's output names. Required for tensorflow frozen models checkpoints.
+
+**model_params**: string
+
+Optional. The params of the model if needed.
+
+**model_input_shapes**: list of tuple
+   
+   Optional. List of tuples. The input shape(s) of the model. Each dimension separated by ','.
+
+**target_opset**: int
+
+Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3.
+

@@ -78,8 +78,9 @@ def onnx_pipeline(
   model_input_shapes,
   target_opset):
 
-  # Create a component named "Convert To Onnx".
-    
+  # Create a component named "Convert To Onnx" and "ONNXRuntime Perf". Edit the V1PersistentVolumeClaimVolumeSource 
+  # name to match the persistent volume claim you created if needed. By default the names match ../azure-files-sc.yaml 
+  # and ../azure-files-pvc.yaml
   convert_op = onnxConverterOp('Convert To Onnx', 
     '%s' % model, 
     '%s' % output_onnx_path, 

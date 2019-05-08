@@ -1,5 +1,5 @@
 ## Overview
-
+This Kubeflow pipeline is built using [Kubeflow pipeline SDK](https://www.kubeflow.org/docs/pipelines/sdk/). For conceptual understanding, please refer to [Kubeflow Concepts](https://www.kubeflow.org/docs/pipelines/concepts/)
 
 ## The requirements
 Install Kubeflow pipeline SDK:
@@ -19,8 +19,11 @@ Open the Kubeflow pipelines UI. Click "Upload" on the top right corner, and then
 
 
 ## Components source
+The pipeline components
+Converter:
+  [source code](../components/onnx-converter), 
+  [container]()
 
-
-Converting:
+Perf:
   [source code](), 
   [container]()
