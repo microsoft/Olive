@@ -1,7 +1,7 @@
 FROM python:3.6
 
 COPY requirements.txt requirements.txt
-COPY src/onnx-converter.py src/onnx-converter.py
+COPY src/onnx_converter.py src/onnx_converter.py
 
 # Install Python Requirements
 RUN pip3 install -r requirements.txt
