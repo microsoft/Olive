@@ -106,7 +106,7 @@ ONNX pipeline consists of two parts.
 2) ONNX performance tool - Run the converted model with ONNX Runtime and output the performance. 
 
 ### Pipeline Storage
-Our pipeline consumes input from azure files. To upload desired input files, first we need to persist data to the pipeline using Azure files. 
+Our pipeline consumes input from azure files. To pass any model files as inputs to the pipeline, we need to first upload them to azure file. Follow the steps below to persist data to the pipeline using Azure files. 
 
 *i.* Create a storage class
 ```
@@ -132,6 +132,16 @@ If succeeded, you will see something similar to this.
 NAME        STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
 azurefile   Bound    pvc-73bb032f-6075-11e9-8806-9a0060c93a61   5Gi        RWX            azurefile      22d
 ```
+
+Then you can find the Azure files under your resource group. 
+
+1) Click on the AKS resource group on your Azure portal (the resource group name is usually "MC_{YOUR AKS NAME}_{YOUR REGION}). 
+2) Find and click on the storage account under the resource group. 
+3) Click "Files"
+4) Find the file share with name matches your "kubectl get pvc azurefile -n kubeflow" output. 
+5) Upload/Create files in that file share.
+
+Our pipeline will automatically search for input files in this directory. You can see the file share folder as the "root directory" for any input path. For example, if you want to use a file name `model.pb` located just under file share, you would type `model.pb` as input path in the pipeline parameter field.
 
 For more details about configuring data volumes on AKS, refer to https://docs.microsoft.com/en-us/azure/aks/azure-files-dynamic-pv . Note that since our pipeline runs inside Kubeflow, the PVC should be created under the namespace "kubeflow". 
 

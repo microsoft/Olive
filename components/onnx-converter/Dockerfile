@@ -14,4 +14,4 @@ RUN cd ..
 EXPOSE 8888
 
 # Start program
-ENTRYPOINT ["python", "src/onnx-converter.py"]
+ENTRYPOINT ["python", "src/onnx_converter.py"]

@@ -6,7 +6,7 @@ sklearn
 
 cntk==2.6
 mxnet==1.4.0
-numpy==1.14.1
+numpy==1.16.0
 
 torch==1.0.1
 torchvision==0.2.1

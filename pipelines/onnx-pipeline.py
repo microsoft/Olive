@@ -28,10 +28,23 @@ class onnxConverterOp(dsl.ContainerOp):
       ],
     file_outputs={'output': '/output.txt'})
 
-class perfTestOp(dsl.ContainerOp):
+class createInputOp(dsl.ContainerOp):
 
   def __init__(self, name, 
-  model, output_perf_result_path):
+  model):
+
+    super(createInputOp, self).__init__(
+      name=name,
+      image='ziylregistry.azurecr.io/create-input:latest',
+      arguments=[
+        '--model', model
+      ],
+      file_outputs={'output': '/output.txt'})
+
+class perfTestOp(dsl.ContainerOp):
+
+  def __init__(self, name,  
+  model, input_generated, output_perf_result_path):
 
     super(perfTestOp, self).__init__(
       name=name,
@@ -93,8 +106,13 @@ def onnx_pipeline(
         k8s_client.V1Volume(name='pipeline-nfs', persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
             claim_name='azurefile'))).add_volume_mount(k8s_client.V1VolumeMount(mount_path='/mnt', name='pipeline-nfs'))
 
-  inference_op = perfTestOp('ONNXRuntime Perf', 
-    convert_op.output,
+  create_input_op = createInputOp('Generate Dummy Input', 
+    convert_op.output).add_volume(
+        k8s_client.V1Volume(name='pipeline-nfs', persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
+            claim_name='azurefile'))).add_volume_mount(k8s_client.V1VolumeMount(mount_path='/mnt', name='pipeline-nfs'))          
+
+  perf_op = perfTestOp('ONNXRuntime Perf', 
+    convert_op.output, create_input_op.output,
     '%s' % output_perf_result_path
     ).add_volume(
         k8s_client.V1Volume(name='pipeline-nfs', persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(

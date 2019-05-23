@@ -1,5 +1,0 @@
-tensorflow==1.12.0
-tf2onnx
-onnxmltools
-azure-storage-blob
-

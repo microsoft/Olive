@@ -1,4 +1,0 @@
-numpy==1.16.0
-onnx
-onnxruntime
-azure-storage-blob
