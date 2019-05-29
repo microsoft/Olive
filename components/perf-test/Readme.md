@@ -7,6 +7,7 @@ Prerequisites:
 - CUDA https://developer.nvidia.com/cuda-toolkit
 - cuDNN https://developer.nvidia.com/cudnn
 - TensorRT https://developer.nvidia.com/tensorrt
+- ONNX Runtime https://github.com/Microsoft/onnxruntime
 
 After required libraries are installed you can build onnxruntime using the command:  
 `
@@ -23,12 +24,14 @@ Prerequisites:
 - Python 3.7+ `sudo apt install python3.7`
 - CUDA https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#ubuntu-installation
 - TensorRT https://docs.nvidia.com/deeplearning/sdk/tensorrt-install-guide/index.html#installing-debian
+- ONNX Runtime https://github.com/Microsoft/onnxruntime
 
 Build command:  
-`python3 build_perf_test.py --onnxruntime_home /home/artr/repo/onnxruntime --use_cuda --cuda_home /usr/local/cuda --cudnn_home /usr --use_tensorrt --tensorrt_home /usr --use_ngraph`
+`python3 build_perf_test.py --onnxruntime_home <path_to_onnx_runtime> --use_cuda --cuda_home /usr/local/cuda --cudnn_home /usr --use_tensorrt --tensorrt_home /usr --use_ngraph`
 
+## Build and Run the Image
 To build Docker container:  
 `docker build -t perf_test -f Dockerfile.perftest .`
 
-To run perf_test:  
-`python3.7 perf_test.py <path_to_onnx_model> <path_to_results_file>`
+To run Docker perf_test Image:  
+`docker run perf_test <path_to_onnx_model> <path_to_results_file>`

@@ -2,7 +2,8 @@ import argparse
 import subprocess
 from pathlib import Path
 from shutil import copyfile
-
+from check_model import get_extension, check_model
+from create_input import generate_inputs
 import coremltools
 import onnxmltools
 
@@ -33,6 +34,11 @@ def get_args():
         "--model_outputs", 
         required=False,
         help="Optional. The model's output names. Required for tensorflow frozen models checkpoints. "
+    )
+    parser.add_argument(
+        "--inputs_as_nchw", 
+        required=False,
+        help="Optional. The model's input names. Required for tensorflow frozen models and checkpoints. "
     )
     parser.add_argument(
         "--model_params", 
@@ -174,7 +180,13 @@ def pytorch2onnx(args):
     # Create input with the correct dimensions of the input of your model
     if args.model_input_shapes == None:
         raise ValueError("Please provide --model_input_shapes to convert Pytorch models.")
-    dummy_model_input = Variable(torch.randn(*args.model_input_shapes))
+    dummy_model_input = []
+    if len(args.model_input_shapes) == 1:
+        dummy_model_input = Variable(torch.randn(*args.model_input_shapes))
+    else:
+        for shape in args.model_input_shapes:
+            dummy_model_input.append(Variable(torch.randn(*shape)))
+    # dummy_model_input = Variable(torch.randn(*args.model_input_shapes))
     # load the PyTorch model
     model = torch.load(args.model, map_location="cpu")
 
@@ -199,7 +211,8 @@ def tf2onnx(args):
             "--input", args.model, 
             "--output", args.output_onnx_path, 
             "--inputs", args.model_inputs,
-            "--outputs", args.model_outputs])
+            "--outputs", args.model_outputs, 
+            "--opset", args.target_opset])
     elif get_extension(args.model) == "meta":
         if not args.model_inputs and not args.model_outputs:
             raise ValueError("Please provide --model_inputs and --model_outputs to convert Tensorflow checkpoint models.")
@@ -207,11 +220,13 @@ def tf2onnx(args):
             "--checkpoint", args.model, 
             "--output", args.output_onnx_path, 
             "--inputs", args.model_inputs,
-            "--outputs", args.model_outputs])
+            "--outputs", args.model_outputs, 
+            "--opset", args.target_opset])
     else:
         subprocess.check_call(["python", "-m", "tf2onnx.convert", 
             "--saved-model", args.model, 
-            "--output", args.output_onnx_path])
+            "--output", args.output_onnx_path, 
+            "--opset", args.target_opset])
 
 def xgboost2onnx(args):
     import xgboost as xgb
@@ -276,11 +291,11 @@ def main():
     with open('/output.txt', 'w') as f:
         f.write(args.output_onnx_path)
     
-    # # Generate random inputs for the model if input files are not provided
-    # inputs_path = generate_inputs(args.output_onnx_path)
-
-    # # Test correctness
-    # check_model(args.model, args.output_onnx_path, inputs_path, args.model_type, args.model_inputs, args.model_outputs)
+    # Generate random inputs for the model if input files are not provided
+    inputs_path = generate_inputs(args.output_onnx_path)
+    print(inputs_path)
+    # Test correctness
+    check_model(args.model, args.output_onnx_path, inputs_path, args.model_type, args.model_inputs, args.model_outputs)
     
 if __name__ == "__main__":
     main()
