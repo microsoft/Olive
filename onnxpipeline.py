@@ -46,6 +46,20 @@ class Onnxpip:
             detach=True)
         self.print_docker_logs(stream)
 
+    def perf_test(self, result=None):
+        if result is None:
+            result = config.PERF_TEST_RESULT
+
+        img_name = (config.CONTAINER_NAME + 
+            config.FUNC_NAME['perf_test'] + ':latest')
+        arguments = config.MOUNT_MODEL + ' ' + result
+
+        stream = self.client.containers.run(image=img_name, 
+            command=arguments, 
+            volumes={self.path: {'bind': config.MOUNT_PATH, 'mode': 'rw'}},
+            detach=True)
+        self.print_docker_logs(stream)
+
     def print_docker_logs(self, stream):
         logs = stream.logs(stream=True)
         for line in logs:
