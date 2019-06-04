@@ -4,22 +4,49 @@ import docker
 import config
 
 class Onnxpip:
-    def __init__(self, directory):
-        #if not directory: raise Exception('no target directory')
-        if directory[0] == '/':
-            self.path = directory
-        else:
-            self.path = osp.join(os.getcwd(), directory)
+    def __init__(self, directory=None):
+        if directory is None:
+            raise RuntimeError('Please provide the path for mounting  in local.')
+
+        self.path = directory if directory[0] == '/' else osp.join(os.getcwd(), directory)
         self.client = docker.from_env()
 
-    def convert_model(self):
-        pass
 
-    def create_input(self):
+    # expired, has been merged into converter
+    def create_input(self, model_path=None):
+        if model_path is None:
+            model_path = config.MOUNT_MODEL
         img_name = (config.CONTAINER_NAME + 
             config.FUNC_NAME['create_input'] + ':latest')
+
+        arguments = config.arg('model', model_path)
+
+        stream = self.client.containers.run(image=img_name, 
+            command=arguments, 
+            volumes={self.path: {'bind': config.MOUNT_PATH, 'mode': 'rw'}},
+            detach=True)
+        self.print_docker_logs(stream)
     
-        mount_model = osp.join(config.MOUNT_PATH, config.CONVERTED_MODEL)
-        self.client.containers.run(image=img_name, 
-            command='--model ' + mount_model, 
-            volumes={self.path: {'bind': config.MOUNT_PATH, 'mode': 'rw'}})
+    def convert_model(self, output_onnx_path=None, model_type=None):
+        if model_type is None:
+            raise RuntimeError('The conveted model type needs to be provided.')
+        if output_onnx_path is None:
+            output_onnx_path = config.MOUNT_MODEL
+
+        img_name = (config.CONTAINER_NAME + 
+            config.FUNC_NAME['onnx_converter'] + ':latest')
+        arguments = (config.arg('model', config.MOUNT_PATH) +
+            config.arg('output_onnx_path', config.MOUNT_MODEL) +
+            config.arg('model_type', model_type)
+            )
+
+        stream = self.client.containers.run(image=img_name, 
+            command=arguments, 
+            volumes={self.path: {'bind': config.MOUNT_PATH, 'mode': 'rw'}},
+            detach=True)
+        self.print_docker_logs(stream)
+
+    def print_docker_logs(self, stream):
+        logs = stream.logs(stream=True)
+        for line in logs:
+            print(line)
