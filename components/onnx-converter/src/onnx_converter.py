@@ -54,7 +54,7 @@ def get_args():
     parser.add_argument(
         "--target_opset", 
         required=False,
-        default=7,
+        default="7",
         help="Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3."
     )
     args = parser.parse_args()
@@ -167,7 +167,6 @@ def mxnet2onnx(args):
         raise ValueError("Please provide a valid model params file for MXNet model conversion. ")
     if args.model_input_shapes == None:
         raise ValueError("Please provide a list of valid model input shapes for MXNet model conversion. ")
-    print(args.model_input_shapes)
     # Convert your MXNet model into ONNX and save as protobuf
     onnx_mxnet.export_model(args.model, args.model_params, args.model_input_shapes, np.float32, args.output_onnx_path)
 
@@ -282,7 +281,7 @@ def main():
                 caffe, cntk, coreml, keras, libsvm, lightgbm, mxnet, pytorch, scikit-learn, tensorflow or xgboost'.format(args.model_type))
     
     suffix = suffix_format_map.get(model_extension)
-    print(model_extension)
+
     if suffix != None and suffix != args.model_type:
         raise ValueError('model with extension {} do not come from {}'.format(model_extension, args.model_type))
     converter = converters.get(args.model_type)
@@ -293,7 +292,7 @@ def main():
     
     # Generate random inputs for the model if input files are not provided
     inputs_path = generate_inputs(args.output_onnx_path)
-    print(inputs_path)
+
     # Test correctness
     check_model(args.model, args.output_onnx_path, inputs_path, args.model_type, args.model_inputs, args.model_outputs)
     

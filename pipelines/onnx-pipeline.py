@@ -28,23 +28,10 @@ class onnxConverterOp(dsl.ContainerOp):
       ],
     file_outputs={'output': '/output.txt'})
 
-class createInputOp(dsl.ContainerOp):
-
-  def __init__(self, name, 
-  model):
-
-    super(createInputOp, self).__init__(
-      name=name,
-      image='ziylregistry.azurecr.io/create-input:latest',
-      arguments=[
-        '--model', model
-      ],
-      file_outputs={'output': '/output.txt'})
-
 class perfTestOp(dsl.ContainerOp):
 
   def __init__(self, name,  
-  model, input_generated, output_perf_result_path):
+  model, output_perf_result_path):
 
     super(perfTestOp, self).__init__(
       name=name,
@@ -89,7 +76,7 @@ def onnx_pipeline(
   model_outputs,
   model_params, 
   model_input_shapes,
-  target_opset):
+  target_opset=7):
 
   # Create a component named "Convert To Onnx" and "ONNXRuntime Perf". Edit the V1PersistentVolumeClaimVolumeSource 
   # name to match the persistent volume claim you created if needed. By default the names match ../azure-files-sc.yaml 
@@ -104,15 +91,10 @@ def onnx_pipeline(
     '%s' % model_input_shapes,
     '%s' % target_opset).add_volume(
         k8s_client.V1Volume(name='pipeline-nfs', persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
-            claim_name='azurefile'))).add_volume_mount(k8s_client.V1VolumeMount(mount_path='/mnt', name='pipeline-nfs'))
-
-  create_input_op = createInputOp('Generate Dummy Input', 
-    convert_op.output).add_volume(
-        k8s_client.V1Volume(name='pipeline-nfs', persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
-            claim_name='azurefile'))).add_volume_mount(k8s_client.V1VolumeMount(mount_path='/mnt', name='pipeline-nfs'))          
+            claim_name='azurefile'))).add_volume_mount(k8s_client.V1VolumeMount(mount_path='/mnt', name='pipeline-nfs'))   
 
   perf_op = perfTestOp('ONNXRuntime Perf', 
-    convert_op.output, create_input_op.output,
+    convert_op.output,
     '%s' % output_perf_result_path
     ).add_volume(
         k8s_client.V1Volume(name='pipeline-nfs', persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(

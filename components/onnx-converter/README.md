@@ -1,7 +1,8 @@
 ## Onnx-converter Image
 
-This image is used to convert model from major model frameworks to onnx. Supported frameworks are - 
-caffe, cntk, coreml, keras, libsvm, mxnet, scikit-learn, tensorflow and pytorch.
+This image is used to convert models from major model frameworks to onnx, generate input files if not provided, and then test the converted models' correctness. 
+Supported frameworks are - 
+   caffe, cntk, coreml, keras, libsvm, mxnet, scikit-learn, tensorflow and pytorch.
 
 
 ## How to Run 

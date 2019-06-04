@@ -4,7 +4,7 @@ onnxmltools
 coremltools
 sklearn
 
-cntk==2.6
+cntk
 mxnet==1.4.0
 numpy==1.16.0
 
@@ -14,3 +14,4 @@ torchvision==0.2.1
 xgboost==0.81
 lightgbm==2.2.3
 tf2onnx
+onnxruntime
