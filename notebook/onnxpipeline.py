@@ -10,22 +10,6 @@ class Onnxpip:
 
         self.path = directory if directory[0] == '/' else osp.join(os.getcwd(), directory)
         self.client = docker.from_env()
-
-
-    # expired, has been merged into converter
-    def create_input(self, model_path=None):
-        if model_path is None:
-            model_path = config.MOUNT_MODEL
-        img_name = (config.CONTAINER_NAME + 
-            config.FUNC_NAME['create_input'] + ':latest')
-
-        arguments = config.arg('model', model_path)
-
-        stream = self.client.containers.run(image=img_name, 
-            command=arguments, 
-            volumes={self.path: {'bind': config.MOUNT_PATH, 'mode': 'rw'}},
-            detach=True)
-        self.print_docker_logs(stream)
     
     def convert_model(self, output_onnx_path=None, model_type=None):
         if model_type is None:

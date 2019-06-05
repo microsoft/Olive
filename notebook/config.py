@@ -13,7 +13,6 @@ PERF_TEST_RESULT = osp.join(MOUNT_PATH, RESULT_FILENAME)
 
 FUNC_NAME = {
     'onnx_converter': 'onnx-converter',
-    'create_input': 'create-input',
     'perf_test':'perf_test'
 }
 
