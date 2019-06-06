@@ -1,7 +1,7 @@
 import os.path as osp
 
 CONTAINER_NAME = 'ziylregistry.azurecr.io/'
-#CONVERTED_MODEL = 'converted_model.onnx'
+
 CONVERTED_MODEL = 'model.onnx'
 RESULT_FILENAME = 'result.txt'
 
