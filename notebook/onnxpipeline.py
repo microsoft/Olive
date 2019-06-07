@@ -41,12 +41,15 @@ class Onnxpip:
             self.__print_docker_logs(stream)
         return output_onnx_path
 
-    def perf_test(self, model=None, result=config.PERF_TEST_RESULT):
+    def perf_test(self, model=None, result=None):
         
         if model is None:
             model = config.CONVERTED_MODEL
-            
         model = osp.join(config.MOUNT_PATH, model)
+
+        if result is None:
+            result = config.RESULT_FILENAME
+        result = osp.join(config.MOUNT_PATH, result)
 
         img_name = (config.CONTAINER_NAME + 
             config.FUNC_NAME['perf_test'] + ':latest')
