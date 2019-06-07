@@ -166,19 +166,23 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
     expected_outputs = gen_io_dict(inputs_path, None, False)
     if len(expected_outputs) > 0:
         print("Using output files provided for correctness test. ")
-        print("...\n")
+        print("...")
     else: 
         modelPredictor = runner.get(model_type)
         if (modelPredictor == None):
             print("No correctness verification method for %s model type" % model_type)
             return
         print("Running inference on original model with specified or random inputs. ")    
-        print("...\n")
-        if (model_type == "tensorflow"):
-            expected_outputs = tfRunner(original_model_path, inputs_path, input_names, output_names)
-        else:
-            
-            expected_outputs = modelPredictor(original_model_path, inputs_path)
+        print("...")
+        try:
+            if (model_type == "tensorflow"):
+                expected_outputs = tfRunner(original_model_path, inputs_path, input_names, output_names)
+            else:
+                expected_outputs = modelPredictor(original_model_path, inputs_path)
+        except Exception as e:
+            print(e)
+            print("\nCannot run original model under current context. Skipping correctness verification.")
+            return
 
     print("Running inference on the converted model with the same inputs")
     print("...\n")

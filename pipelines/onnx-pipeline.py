@@ -72,10 +72,10 @@ def onnx_pipeline(
   output_onnx_path, 
   model_type,
   output_perf_result_path,
-  model_inputs, 
-  model_outputs,
-  model_params, 
-  model_input_shapes,
+  model_inputs="", 
+  model_outputs="",
+  model_params="", 
+  model_input_shapes="",
   target_opset=7):
 
   # Create a component named "Convert To Onnx" and "ONNXRuntime Perf". Edit the V1PersistentVolumeClaimVolumeSource 

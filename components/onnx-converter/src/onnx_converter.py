@@ -211,7 +211,8 @@ def tf2onnx(args):
             "--output", args.output_onnx_path, 
             "--inputs", args.model_inputs,
             "--outputs", args.model_outputs, 
-            "--opset", args.target_opset])
+            "--opset", args.target_opset, 
+            "--fold_const"])
     elif get_extension(args.model) == "meta":
         if not args.model_inputs and not args.model_outputs:
             raise ValueError("Please provide --model_inputs and --model_outputs to convert Tensorflow checkpoint models.")
@@ -220,12 +221,14 @@ def tf2onnx(args):
             "--output", args.output_onnx_path, 
             "--inputs", args.model_inputs,
             "--outputs", args.model_outputs, 
-            "--opset", args.target_opset])
+            "--opset", args.target_opset, 
+            "--fold_const"])
     else:
         subprocess.check_call(["python", "-m", "tf2onnx.convert", 
             "--saved-model", args.model, 
             "--output", args.output_onnx_path, 
-            "--opset", args.target_opset])
+            "--opset", args.target_opset,
+            "--fold_const"])
 
 def xgboost2onnx(args):
     import xgboost as xgb
@@ -264,7 +267,7 @@ converters = {
 }
 def main():
     args = get_args()
-    
+    print("\n-------------\nModel Conversion\n")
     # Quick format check
     model_extension = get_extension(args.model)
     if (args.model_type == "onnx" or model_extension == "onnx"):
@@ -273,6 +276,9 @@ def main():
             copyfile(args.model, args.output_onnx_path)
         with open('/output.txt', 'w') as f:
             f.write(args.output_onnx_path)
+        # Generate random inputs for the model if input files are not provided
+        print("\n-------------\nMODEL INPUT GENERATION(if needed)\n")
+        inputs_path = generate_inputs(args.output_onnx_path)
         return
     
     if converters.get(args.model_type) == None:
@@ -290,9 +296,11 @@ def main():
     with open('/output.txt', 'w') as f:
         f.write(args.output_onnx_path)
     
+    print("\n-------------\nMODEL INPUT GENERATION(if needed)\n")
     # Generate random inputs for the model if input files are not provided
     inputs_path = generate_inputs(args.output_onnx_path)
 
+    print("\n-------------\nMODEL CORRECTNESS VERIFICATION\n")
     # Test correctness
     check_model(args.model, args.output_onnx_path, inputs_path, args.model_type, args.model_inputs, args.model_outputs)
     
