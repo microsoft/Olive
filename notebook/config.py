@@ -2,7 +2,7 @@ import os.path as osp
 
 CONTAINER_NAME = 'ziylregistry.azurecr.io/'
 
-CONVERTED_MODEL = 'model.onnx'
+CONVERTED_MODEL = 'test/model.onnx' # need to be under a clean directory for perf_test
 RESULT_FILENAME = 'result.txt'
 
 MOUNT_PATH = '/mnt/model'
