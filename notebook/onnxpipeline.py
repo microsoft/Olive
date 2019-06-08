@@ -16,7 +16,7 @@ class Onnxpip:
         self.mount_path = mount_path
     
     def convert_model(self, model_type=None, output_onnx_path=config.MOUNT_MODEL, 
-        model_inputs=None, model_outputs=None, model_params=None,
+        model="", model_inputs=None, model_outputs=None, model_params=None,
         model_input_shapes=None, target_opset=None):
 
         if model_type is None:
@@ -24,8 +24,15 @@ class Onnxpip:
         img_name = (config.CONTAINER_NAME + 
             config.FUNC_NAME['onnx_converter'] + ':latest')
 
+        model = osp.join(self.mount_path, model)
 
-        arguments = config.arg('model', self.mount_path)
+        if config.TEST_DIRECTORY is not None:
+            test_path = osp.join(self.path, config.TEST_DIRECTORY)
+            if not os.path.exists(test_path):
+                os.makedirs(test_path)
+
+
+        arguments = config.arg('model', model)
         argu_dict = locals()
         parameters = self.convert_model.__code__.co_varnames[1:self.convert_model.__code__.co_argcount]
         for p in parameters:
