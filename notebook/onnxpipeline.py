@@ -14,6 +14,7 @@ class Onnxpip:
         self.client = docker.from_env()
         self.print_logs = print_logs
         self.mount_path = mount_path
+        self.result = config.RESULT_FILENAME
     
     def convert_model(self, model_type=None, output_onnx_path=config.MOUNT_MODEL, 
         model="", model_inputs=None, model_outputs=None, model_params=None,
@@ -54,9 +55,9 @@ class Onnxpip:
             model = config.CONVERTED_MODEL
         model = osp.join(config.MOUNT_PATH, model)
 
-        if result is None:
-            result = config.RESULT_FILENAME
-        result = osp.join(config.MOUNT_PATH, result)
+        if result is not None:
+            self.result = result
+        result = osp.join(config.MOUNT_PATH, self.result)
 
         img_name = (config.CONTAINER_NAME + 
             config.FUNC_NAME['perf_test'] + ':latest')
@@ -68,7 +69,7 @@ class Onnxpip:
             detach=True)
         if self.print_logs:
             self.__print_docker_logs(stream)
-        return osp.join(self.path, config.RESULT_FILENAME)
+        return osp.join(self.path, self.result)
 
     def __print_docker_logs(self, stream):
         logs = stream.logs(stream=True)
@@ -77,7 +78,7 @@ class Onnxpip:
 
     def print_result(self, result=None):
         if result is None:
-            result = osp.join(self.path, config.RESULT_FILENAME)
+            result = osp.join(self.path, self.result)
         with open(result, 'r') as f:
             for line in f:  
                 print(line)
