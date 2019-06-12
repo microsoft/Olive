@@ -7,10 +7,11 @@ class onnxConverterOp(dsl.ContainerOp):
   model,
   output_onnx_path, 
   model_type,
-  model_inputs, 
-  model_outputs,
+  model_inputs_names, 
+  model_outputs_names,
   model_params, 
   model_input_shapes,
+  model_initial_types,
   target_opset):
 
     super(onnxConverterOp, self).__init__(
@@ -20,10 +21,11 @@ class onnxConverterOp(dsl.ContainerOp):
         '--model', str(PurePosixPath('/mnt', model)),
         '--output_onnx_path', str(PurePosixPath('/mnt', output_onnx_path)),
         '--model_type',model_type,
-        '--model_inputs', model_inputs,
-        '--model_outputs', model_outputs,
+        '--model_inputs_names', model_inputs_names,
+        '--model_outputs_names', model_outputs_names,
         '--model_params', model_params,
         '--model_input_shapes', model_input_shapes,
+        '--model_initial_types', model_initial_types,
         '--target_opset', target_opset
       ],
     file_outputs={'output': '/output.txt'})
@@ -57,9 +59,9 @@ class perfTestOp(dsl.ContainerOp):
 #   Available types are caffe, cntk, coreml, keras, libsvm, mxnet, scikit-learn, tensorflow and pytorch.
 # output_perf_result_path:
 #   The path to store the perf result text file. 
-# model_inputs: string
+# model_inputs_names: string
 #   Optional. The model's input names. Required for tensorflow frozen models and checkpoints.
-# model_outputs: string
+# model_outputs_names: string
 #   Optional. The model's output names. Required for tensorflow frozen models checkpoints.
 # model_params: string
 #   Optional. The params of the model if needed.
@@ -72,10 +74,11 @@ def onnx_pipeline(
   output_onnx_path, 
   model_type,
   output_perf_result_path,
-  model_inputs="", 
-  model_outputs="",
+  model_inputs_names="", 
+  model_outputs_names="",
   model_params="", 
   model_input_shapes="",
+  model_initial_types="",
   target_opset=7):
 
   # Create a component named "Convert To Onnx" and "ONNXRuntime Perf". Edit the V1PersistentVolumeClaimVolumeSource 
@@ -85,10 +88,11 @@ def onnx_pipeline(
     '%s' % model, 
     '%s' % output_onnx_path, 
     '%s' % model_type,
-    '%s' % model_inputs, 
-    '%s' % model_outputs,
+    '%s' % model_inputs_names, 
+    '%s' % model_outputs_names,
     '%s' % model_params,
     '%s' % model_input_shapes,
+    '%s' % model_initial_types,
     '%s' % target_opset).add_volume(
         k8s_client.V1Volume(name='pipeline-nfs', persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
             claim_name='azurefile'))).add_volume_mount(k8s_client.V1VolumeMount(mount_path='/mnt', name='pipeline-nfs'))   

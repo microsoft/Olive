@@ -24,19 +24,36 @@ def coremlRunner(model_path, inputs_path):
     return 
 
 def kerasRunner(model_path, inputs_path):
-    return
+    import keras
+    # Load your Keras model
+    keras_model = keras.models.load_model(model_path)
+    input_list = gen_input_list(inputs_path)
+    output = keras_model.predict(input_list)
+    return output
 
 def mxnetRunner(model_path, inputs_path):
     return
 
 def sklearnRunner(model_path, inputs_path):
-    return
+    from sklearn.externals import joblib
+    # Load your sklearn model
+    skl_model = joblib.load(model_path)
+    input_list = gen_input_list(inputs_path)
+    output = skl_model.predict(input_list)
+    if type(output) is not list:
+        output = [output]
+    try:
+        proba = skl_model.predict_proba(input_list)    
+        output.append(proba)
+    except:
+        print("Current sklearn model .predict_proba() is not available. ")
+    return output
 
 def pytorchRunner(model_path, inputs_path):
     # load the PyTorch model
     model = torch.load(model_path, map_location="cpu")
     model.eval()
-    output_pytorch = model(gen_input_list(inputs_path))
+    output_pytorch = model(gen_input_list(inputs_path, True))
     if output_pytorch is list:
         output_ndarray = [o.detach().numpy() for o in output_pytorch]
     else:
@@ -96,10 +113,8 @@ def onnxRunner(model, inputs_path):
     sess = onnxruntime.InferenceSession(model)
     outputs = {}
     input_names = [sess.get_inputs()[i].name for i in range(len(sess.get_inputs()))]
-    print("onnx inputs ", input_names)
     for i in sess.get_outputs():
         outputs[i.name] = sess.run([i.name], gen_io_dict(inputs_path, input_names, True))[0]
-    # print("onnx outputs: ", outputs)
     return outputs
 
 def readInputFromFile(full_path):
@@ -109,7 +124,7 @@ def readInputFromFile(full_path):
     return t
 
 # Generate a {input/output_name: input/output_arr} dictionary
-def gen_io_dict(input_path, names, isInput):
+def gen_io_dict(input_path, names=None, isInput=True):
     io_dict = {}
     i = 0
     filePrefix = "input" if isInput else "output"
@@ -123,13 +138,16 @@ def gen_io_dict(input_path, names, isInput):
     return io_dict
 
 # Generate input list from input_0.pb, input_1.pb ...
-def gen_input_list(input_path):
+def gen_input_list(input_path, isPytorch=False):
     inputs = []
     i = 0    
     print(input_path)
     full_path = os.path.join(input_path, "input_%s.pb" % i)
     while os.path.isfile(full_path):
-        inputs.append(torch.tensor(numpy_helper.to_array(readInputFromFile(full_path))))
+        if isPytorch:
+            inputs.append(torch.tensor(numpy_helper.to_array(readInputFromFile(full_path))))
+        else:
+            inputs.append(numpy_helper.to_array(readInputFromFile(full_path)))
         i += 1
         full_path = os.path.join(input_path, "input_%s.pb" % i)
     if len(inputs) == 1:
@@ -141,11 +159,11 @@ runner = {
     # "caffe": caffeRunner,
     "cntk": cntkRunner,
     # "coreml": coremlRunner,
-    # "keras": kerasRunner,
+    "keras": kerasRunner,
     # "libsvm": libsvmRunner,
     # "lightgbm": lightgbm2onnx,
     # "mxnet": mxnetRunner,    
-    # "scikit-learn": sklearnRunner,
+    "scikit-learn": sklearnRunner,
     "pytorch": pytorchRunner,
     "tensorflow": tfRunner,
     # "xgboost": xgboostRunner
@@ -171,7 +189,7 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
         modelPredictor = runner.get(model_type)
         if (modelPredictor == None):
             print("No correctness verification method for %s model type" % model_type)
-            return
+            return "UNSUPPORTED"
         print("Running inference on original model with specified or random inputs. ")    
         print("...")
         try:
@@ -182,7 +200,7 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
         except Exception as e:
             print(e)
             print("\nCannot run original model under current context. Skipping correctness verification.")
-            return
+            return "UNSUPPORTED"
 
     print("Running inference on the converted model with the same inputs")
     print("...\n")
@@ -191,8 +209,14 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
     # Compare two outputs 
     print("Comparing the outputs from two models. ")
     expected_decimal = 5
-    # If only one output, just compare them
-    if type(expected_outputs) is not dict:
+    if type(expected_outputs) is list:
+        # If no output name information can be extracted from original model, infer the names from onnx
+        sess = onnxruntime.InferenceSession(onnx_model_path)
+        output_names = sess.get_outputs()
+        for i in range(len(expected_outputs)):
+            np.testing.assert_almost_equal(expected_outputs[i], onnx_outputs.get(output_names[i].name), decimal=expected_decimal)
+    elif type(expected_outputs) is not dict:    
+        # If only one output, just compare them
         for onnx_output in onnx_outputs.values():
             np.testing.assert_almost_equal(expected_outputs, onnx_output, decimal=expected_decimal)
     else:
@@ -200,4 +224,4 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
             np.testing.assert_almost_equal(expected_outputs.get(output_name), onnx_outputs.get(output_name), decimal=expected_decimal)
     print("The converted model achieves {}-decimal precision compared to the original model.".format(expected_decimal))
     print("MODEL CONVERSION SUCCESS. ")
-    
+    return "SUCCESS"

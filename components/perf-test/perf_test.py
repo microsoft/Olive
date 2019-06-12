@@ -135,7 +135,7 @@ def parse_arguments():
                         help="Configuration to run.")
     parser.add_argument("-m", default="times",
                         choices=["duration", "times"],
-                        help="Specifies the test mode. Value coulde be 'duration' or 'times'.")
+                        help="Specifies the test mode. Value could be 'duration' or 'times'.")
     parser.add_argument("-e", default="",
                         help="Specifies the provider 'cpu','cuda','mkldnn'.")
     parser.add_argument("-r", default="20",
