@@ -7,10 +7,14 @@ import IPython
 class Onnxpip:
     def __init__(self, local_directory=None, mount_path=config.MOUNT_PATH, print_logs=True):
         
-        if local_directory is None:
-            raise RuntimeError('Please provide the path for mounting in local.')
-
-        self.path = local_directory if local_directory[0] == '/' else osp.join(os.getcwd(), local_directory)
+        if local_directory is not None and not os.path.isdir(local_directory):
+            raise RuntimeError('local_directory needs to be a directory for volume.')
+        elif local_directory is None:
+            self.path = os.getcwd()
+        elif local_directory[0] == '/':
+            self.path = local_directory
+        else:
+            self.path = osp.join(os.getcwd(), local_directory)
         self.client = docker.from_env()
         self.print_logs = print_logs
         self.mount_path = mount_path
