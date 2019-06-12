@@ -4,19 +4,24 @@ import docker
 import config
 import IPython
 
-class Onnxpip:
+class Pipeline:
     def __init__(self, local_directory=None, mount_path=config.MOUNT_PATH, print_logs=True):
         
-        if local_directory is None:
-            raise RuntimeError('Please provide the path for mounting in local.')
-
-        self.path = local_directory if local_directory[0] == '/' else osp.join(os.getcwd(), local_directory)
+        if local_directory is not None and not os.path.isdir(local_directory):
+            raise RuntimeError('local_directory needs to be a directory for volume.')
+        elif local_directory is None:
+            self.path = os.getcwd()
+        elif local_directory[0] == '/':
+            self.path = local_directory
+        else:
+            self.path = osp.join(os.getcwd(), local_directory)
         self.client = docker.from_env()
         self.print_logs = print_logs
         self.mount_path = mount_path
+        self.result = config.RESULT_FILENAME
     
     def convert_model(self, model_type=None, output_onnx_path=config.MOUNT_MODEL, 
-        model_inputs=None, model_outputs=None, model_params=None,
+        model="", model_inputs=None, model_outputs=None, model_params=None,
         model_input_shapes=None, target_opset=None):
 
         if model_type is None:
@@ -24,8 +29,15 @@ class Onnxpip:
         img_name = (config.CONTAINER_NAME + 
             config.FUNC_NAME['onnx_converter'] + ':latest')
 
+        model = osp.join(self.mount_path, model)
 
-        arguments = config.arg('model', self.mount_path)
+        if config.TEST_DIRECTORY is not None:
+            test_path = osp.join(self.path, config.TEST_DIRECTORY)
+            if not os.path.exists(test_path):
+                os.makedirs(test_path)
+
+
+        arguments = config.arg('model', model)
         argu_dict = locals()
         parameters = self.convert_model.__code__.co_varnames[1:self.convert_model.__code__.co_argcount]
         for p in parameters:
@@ -41,12 +53,15 @@ class Onnxpip:
             self.__print_docker_logs(stream)
         return output_onnx_path
 
-    def perf_test(self, model=None, result=config.PERF_TEST_RESULT):
+    def perf_test(self, model=None, result=None):
         
         if model is None:
             model = config.CONVERTED_MODEL
-            
         model = osp.join(config.MOUNT_PATH, model)
+
+        if result is not None:
+            self.result = result
+        result = osp.join(config.MOUNT_PATH, self.result)
 
         img_name = (config.CONTAINER_NAME + 
             config.FUNC_NAME['perf_test'] + ':latest')
@@ -58,7 +73,7 @@ class Onnxpip:
             detach=True)
         if self.print_logs:
             self.__print_docker_logs(stream)
-        return osp.join(self.path, config.RESULT_FILENAME)
+        return osp.join(self.path, self.result)
 
     def __print_docker_logs(self, stream):
         logs = stream.logs(stream=True)
@@ -67,7 +82,15 @@ class Onnxpip:
 
     def print_result(self, result=None):
         if result is None:
-            result = osp.join(self.path, config.RESULT_FILENAME)
+            result = osp.join(self.path, self.result)
         with open(result, 'r') as f:
             for line in f:  
                 print(line)
+    
+    def config(self):
+        print("-----------Config----------------")
+        print("           Container information: {}".format(self.client))
+        print(" Local directory path for volume: {}".format(self.path))
+        print("Volume directory path in dockers: {}".format(self.mount_path))
+        print("                     Result path: {}".format(self.result))
+        print("        Print logs in the docker: {}".format(self.print_logs))
