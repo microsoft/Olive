@@ -33,11 +33,11 @@ For detailed description of all available parameters, refer to the following.
    
    Available types are caffe, cntk, coreml, keras, libsvm, mxnet, scikit-learn, tensorflow and pytorch.
 
-**model_inputs**: string
+**model_inputs_names**: string
    
    Optional. The model's input names. Required for tensorflow frozen models and checkpoints.
 
-**model_outputs**: string
+**model_outputs_names**: string
    
    Optional. The model's output names. Required for tensorflow frozen models checkpoints.
 
@@ -49,6 +49,14 @@ Optional. The params of the model if needed.
    
    Optional. List of tuples. The input shape(s) of the model. Each dimension separated by ','.
 
+**initial_types**: list of tuple
+
+   Optional. List of tuples. The initial types of model for onnxmltools
+
+**caffe_model_prototxt**: string
+
+   Optional. The path of the .prototxt file for caffe model.
+ 
 **target_opset**: int
 
 Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3. Defaults to 7. 

@@ -43,11 +43,6 @@ def get_args():
         help="Optional. The model's output names. Required for tensorflow frozen models checkpoints. "
     )
     parser.add_argument(
-        "--inputs_as_nchw", 
-        required=False,
-        help="Optional. The model's input names. Required for tensorflow frozen models and checkpoints. "
-    )
-    parser.add_argument(
         "--model_params", 
         required=False,
         help="Optional. The params of the model. "
@@ -59,10 +54,20 @@ def get_args():
         help="Optional. List of tuples. The input shape(s) of the model. Each dimension separated by ','. "
     )
     parser.add_argument(
+        "--initial_types",
+        required=False,
+        help="Optional. List of tuples. Specifies the initial types for onnxmltools. "
+    )
+    parser.add_argument(
         "--target_opset", 
         required=False,
         default="7",
         help="Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3."
+    )
+    parser.add_argument(
+        "--caffe_model_prototxt", 
+        required=False,
+        help="Optional. prototxt file for caffe models. "
     )
     args = parser.parse_args()
     return args
@@ -88,6 +93,7 @@ class ConverterParamsFromJson():
         self.model_input_shapes = shape_type(loaded_json["model_input_shapes"]) if loaded_json.get("model_input_shapes") else None
         self.initial_types = eval(loaded_json["initial_types"]) if loaded_json.get("initial_types") else None
         self.target_opset = loaded_json["target_opset"] if loaded_json.get("target_opset") else "7"
+        self.caffe_model_prototxt = loaded_json["caffe_model_prototxt"] if loaded_json.get("caffe_model_prototxt") else None
 
 def shape_type(s):
     import ast
@@ -103,10 +109,13 @@ def shape_type(s):
         raise argparse.ArgumentTypeError("Model input shapes must be a list of tuple. Each dimension separated by ','. ")
 
 def caffe2onnx(args):
+    caffe_model = args.model
     # Convert Caffe model to CoreML 
-    coreml_model = coremltools.converters.caffe.convert(args.model)
+    if args.caffe_model_prototxt != None and len(args.caffe_model_prototxt)> 0:
+        caffe_model = (args.model, args.caffe_model_prototxt)
+    coreml_model = coremltools.converters.caffe.convert(caffe_model)
 
-    # Name and paht for intermediate coreml model
+    # Name and path for intermediate coreml model
     output_coreml_model = 'model.mlmodel'
 
     # Save CoreML model
@@ -349,8 +358,14 @@ def main():
     if args.input_json != None and len(args.input_json) > 0:
         args = ConverterParamsFromJson()
     else:
-        if not args.model or not args.model_type or not args.output_onnx_path:
-            raise ValueError("Please specify the required arguments- \"model\", \"model_type\" and \"output_onnx_path\" either in a json file or by --args")
+        if not args.model or len(args.model) == 0:
+            raise ValueError("Please specify the required argument \"model\" either in a json file or by --model")
+        if not args.model_type or len(args.model_type) == 0:
+            raise ValueError("Please specify the required argument \"model_type\" either in a json file or by --model_type")
+        if not args.output_onnx_path or len(args.output_onnx_path) == 0:
+            raise ValueError("Please specify the required argument \"output_onnx_path\" either in a json file or by --ouptut_onnx_path")
+        if args.initial_types and len(args.initial_types) > 0:
+            args.initial_types = eval(args.initial_types)
     # Create a test folder path
     output_dir = os.path.dirname(os.path.abspath(args.output_onnx_path))
     output_json_path = os.path.join(output_dir, "output.json")
