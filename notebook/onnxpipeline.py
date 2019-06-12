@@ -4,7 +4,7 @@ import docker
 import config
 import IPython
 
-class Onnxpip:
+class Pipeline:
     def __init__(self, local_directory=None, mount_path=config.MOUNT_PATH, print_logs=True):
         
         if local_directory is not None and not os.path.isdir(local_directory):
@@ -86,3 +86,11 @@ class Onnxpip:
         with open(result, 'r') as f:
             for line in f:  
                 print(line)
+    
+    def config(self):
+        print("-----------Config----------------")
+        print("           Container information: {}".format(self.client))
+        print(" Local directory path for volume: {}".format(self.path))
+        print("Volume directory path in dockers: {}".format(self.mount_path))
+        print("                     Result path: {}".format(self.result))
+        print("        Print logs in the docker: {}".format(self.print_logs))
