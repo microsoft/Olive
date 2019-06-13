@@ -23,7 +23,7 @@ class Pipeline:
     def convert_model(self, model_type=None, output_onnx_path=config.MOUNT_MODEL, 
         model="", model_inputs=None, model_outputs=None, model_params=None,
         model_input_shapes=None, target_opset=None, caffe_model_prototxt=None,
-        initial_types=None):
+        initial_types=None, input_json=None):
 
         if model_type is None:
             raise RuntimeError('The conveted model type needs to be provided.')
@@ -38,6 +38,10 @@ class Pipeline:
         # --initial_types
         if initial_types is not None:
             initial_types = '"[(\'' + initial_types[0] + '\','+initial_types[1]+')]\"'
+
+        # --input_json
+        if input_json is not None:
+            input_json = osp.join(self.mount_path, input_json)
 
         # create test directory for output
         if config.TEST_DIRECTORY is not None:
