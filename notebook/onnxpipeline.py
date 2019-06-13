@@ -22,15 +22,25 @@ class Pipeline:
     
     def convert_model(self, model_type=None, output_onnx_path=config.MOUNT_MODEL, 
         model="", model_inputs=None, model_outputs=None, model_params=None,
-        model_input_shapes=None, target_opset=None):
+        model_input_shapes=None, target_opset=None, caffe_model_prototxt=None,
+        initial_types=None):
 
         if model_type is None:
             raise RuntimeError('The conveted model type needs to be provided.')
         img_name = (config.CONTAINER_NAME + 
             config.FUNC_NAME['onnx_converter'] + ':latest')
-
+        
+        # --model
         model = osp.join(self.mount_path, model)
-
+        # --caffe_model_prototxt
+        if caffe_model_prototxt is not None:
+            caffe_model_prototxt = osp.join(self.mount_path, caffe_model_prototxt)
+        # --initial_types
+        if initial_types is not None:
+            initial_types = '"[(\'' + initial_types[0] + '\','+initial_types[1]+')]\"'
+        #initial_types="\"[('float_input',FloatTensorType([1,4]))]\""
+        #FloatTensorType([1,4])
+        # create test directory for output
         if config.TEST_DIRECTORY is not None:
             test_path = osp.join(self.path, config.TEST_DIRECTORY)
             if not os.path.exists(test_path):
@@ -43,7 +53,6 @@ class Pipeline:
         for p in parameters:
             if argu_dict[p] is not None:
                 arguments += config.arg(p, argu_dict[p])
-
 
         stream = self.client.containers.run(image=img_name, 
             command=arguments, 
