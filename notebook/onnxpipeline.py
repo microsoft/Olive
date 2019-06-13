@@ -38,8 +38,7 @@ class Pipeline:
         # --initial_types
         if initial_types is not None:
             initial_types = '"[(\'' + initial_types[0] + '\','+initial_types[1]+')]\"'
-        #initial_types="\"[('float_input',FloatTensorType([1,4]))]\""
-        #FloatTensorType([1,4])
+
         # create test directory for output
         if config.TEST_DIRECTORY is not None:
             test_path = osp.join(self.path, config.TEST_DIRECTORY)
