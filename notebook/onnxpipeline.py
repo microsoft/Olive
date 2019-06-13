@@ -2,7 +2,7 @@ import os
 import os.path as osp
 import docker
 import config
-import IPython
+import json
 
 class Pipeline:
     def __init__(self, local_directory=None, mount_path=config.MOUNT_PATH, print_logs=True):
@@ -23,7 +23,7 @@ class Pipeline:
     def convert_model(self, model_type=None, output_onnx_path=config.MOUNT_MODEL, 
         model="", model_inputs=None, model_outputs=None, model_params=None,
         model_input_shapes=None, target_opset=None, caffe_model_prototxt=None,
-        initial_types=None, input_json=None):
+        initial_types=None, input_json=None, convert_json=False):
 
         if model_type is None:
             raise RuntimeError('The conveted model type needs to be provided.')
@@ -37,11 +37,10 @@ class Pipeline:
             caffe_model_prototxt = osp.join(self.mount_path, caffe_model_prototxt)
         # --initial_types
         if initial_types is not None:
-            initial_types = '"[(\'' + initial_types[0] + '\','+initial_types[1]+')]\"'
-
-        # --input_json
-        if input_json is not None:
-            input_json = osp.join(self.mount_path, input_json)
+            if convert_json:
+                initial_types = '[(\'' + initial_types[0] + '\','+initial_types[1]+')]'
+            else:
+                initial_types = '"[(\'' + initial_types[0] + '\','+initial_types[1]+')]"'
 
         # create test directory for output
         if config.TEST_DIRECTORY is not None:
@@ -55,7 +54,18 @@ class Pipeline:
         parameters = self.convert_model.__code__.co_varnames[1:self.convert_model.__code__.co_argcount]
         for p in parameters:
             if argu_dict[p] is not None:
-                arguments += config.arg(p, argu_dict[p])
+                if p not in ('convert_json'): # not converter parameters
+                    arguments += config.arg(p, argu_dict[p])
+        
+        json_filename = input_json
+
+        # --input_json
+        if input_json is not None:
+            input_json = osp.join(self.mount_path, input_json)
+
+        if convert_json:
+            self.__convert_input_json(arguments, json_filename)
+            arguments = config.arg('input_json', input_json)
 
         stream = self.client.containers.run(image=img_name, 
             command=arguments, 
@@ -92,6 +102,18 @@ class Pipeline:
         for line in logs:
             print(line)
 
+    def __convert_input_json(self, arguments, input_json):
+        args = arguments.split('--')
+        dictionary = {}
+        for argv in args:
+            argv = argv.split(' ')
+            if argv[0] != "" and argv[0] != 'input_json':
+                dictionary[argv[0]] = argv[1]
+        json_path = osp.join(self.path, input_json)
+        json_string = json.dumps(dictionary)
+        with open(json_path, 'w') as f:
+            f.write(json_string)
+        
     def print_result(self, result=None):
         if result is None:
             result = osp.join(self.path, self.result)
