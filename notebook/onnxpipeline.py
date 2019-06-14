@@ -5,7 +5,9 @@ import config
 import json
 
 class Pipeline:
-    def __init__(self, local_directory=None, mount_path=config.MOUNT_PATH, print_logs=True):
+    def __init__(self, local_directory=None, mount_path=config.MOUNT_PATH, print_logs=True, 
+        convert_directory=config.TEST_DIRECTORY, convert_name=config.CONVERTED_MODEL_NAME, 
+        result=config.RESULT_FILENAME):
         
         if local_directory is not None and not os.path.isdir(local_directory):
             raise RuntimeError('local_directory needs to be a directory for volume.')
@@ -18,9 +20,12 @@ class Pipeline:
         self.client = docker.from_env()
         self.print_logs = print_logs
         self.mount_path = mount_path
-        self.result = config.RESULT_FILENAME
+        self.result = result
+        self.convert_directory = convert_directory
+        self.convert_name = convert_name
+        self.convert_path = osp.join(self.convert_directory, self.convert_name)
     
-    def convert_model(self, model_type=None, output_onnx_path=config.MOUNT_MODEL, 
+    def convert_model(self, model_type=None, output_onnx_path=None, 
         model="", model_inputs=None, model_outputs=None, model_params=None,
         model_input_shapes=None, target_opset=None, caffe_model_prototxt=None,
         initial_types=None, input_json=None, convert_json=False):
@@ -29,6 +34,11 @@ class Pipeline:
             raise RuntimeError('The conveted model type needs to be provided.')
         img_name = (config.CONTAINER_NAME + 
             config.FUNC_NAME['onnx_converter'] + ':latest')
+
+        # --output_onnx_path
+        if output_onnx_path is None:
+            output_onnx_path = self.convert_path
+        output_onnx_path = osp.join(self.mount_path, output_onnx_path)
         
         # --model
         model = osp.join(self.mount_path, model)
@@ -43,8 +53,8 @@ class Pipeline:
                 initial_types = '"[(\'' + initial_types[0] + '\','+initial_types[1]+')]"'
 
         # create test directory for output
-        if config.TEST_DIRECTORY is not None:
-            test_path = osp.join(self.path, config.TEST_DIRECTORY)
+        if self.convert_directory is not None:
+            test_path = osp.join(self.path, self.convert_directory)
             if not os.path.exists(test_path):
                 os.makedirs(test_path)
 
@@ -78,12 +88,12 @@ class Pipeline:
     def perf_test(self, model=None, result=None):
         
         if model is None:
-            model = config.CONVERTED_MODEL
-        model = osp.join(config.MOUNT_PATH, model)
+            model = self.convert_path
+        model = osp.join(self.mount_path, model)
 
         if result is not None:
             self.result = result
-        result = osp.join(config.MOUNT_PATH, self.result)
+        result = osp.join(self.mount_path, self.result)
 
         img_name = (config.CONTAINER_NAME + 
             config.FUNC_NAME['perf_test'] + ':latest')
@@ -127,4 +137,7 @@ class Pipeline:
         print(" Local directory path for volume: {}".format(self.path))
         print("Volume directory path in dockers: {}".format(self.mount_path))
         print("                     Result path: {}".format(self.result))
+        print("        Converted directory path: {}".format(self.convert_directory))
+        print("        Converted model filename: {}".format(self.convert_name))
+        print("            Converted model path: {}".format(self.convert_path))
         print("        Print logs in the docker: {}".format(self.print_logs))
