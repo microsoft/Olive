@@ -11,8 +11,7 @@ RESULT_FILENAME = 'result.txt'
 
 MOUNT_PATH = '/mnt/model'
 
-#MOUNT_MODEL = osp.join(MOUNT_PATH, CONVERTED_MODEL)
-#PERF_TEST_RESULT = osp.join(MOUNT_PATH, RESULT_FILENAME)
+OUTPUT_JSON = 'output.json'
 
 
 FUNC_NAME = {
