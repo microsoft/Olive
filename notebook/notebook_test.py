@@ -41,7 +41,7 @@ class notebook_test(unittest.TestCase):
         result = pipeline.perf_test(model=model, result="output.txt")
         return result
     """
-    
+
     def test_pytorch_pass(self):
         pipeline = onnxpipeline.Pipeline('pytorch', print_logs=False)
         def test_convert_pass():
@@ -83,6 +83,25 @@ class notebook_test(unittest.TestCase):
         pipeline = onnxpipeline.Pipeline('mnist/model', convert_directory='test_fail')
         def test_convert_fail_no_model():
             model = pipeline.convert_model(model_type='tensorflow', model='not_exist_path')
+            return model
+
+        model = test_convert_fail_no_model()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus('FAILED', self.check_converted_json(output_json))
+
+    def test_cntk_pass(self):
+        pipeline = onnxpipeline.Pipeline('cntk', print_logs=False)
+        def test_convert_pass():
+            model = pipeline.convert_model(model_type='cntk', model='ResNet50_ImageNet_Caffe.model')
+            return model
+        model = test_convert_pass()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus('SUCCESS', self.check_converted_json(output_json))
+
+    def test_cntk_fail(self):
+        pipeline = onnxpipeline.Pipeline('cntk', convert_directory='test_fail', print_logs=False)
+        def test_convert_fail_no_model():
+            model = pipeline.convert_model(model_type='cntk')
             return model
 
         model = test_convert_fail_no_model()
