@@ -11,7 +11,7 @@ class notebook_test(unittest.TestCase):
 
     def tearDown(self):
         pass
-        
+
     def test_constructor_pass(self):
         directory_name = 'pytorch'
         pipeline = onnxpipeline.Pipeline(directory_name, print_logs=False)
@@ -36,18 +36,22 @@ class notebook_test(unittest.TestCase):
         self.assertEquals(status, conversion_status)
         self.assertEquals(status, correctness_verified)
 
+    """
+    def get_perf_test(self, pipeline, model):
+        result = pipeline.perf_test(model=model, result="output.txt")
+        return result
+    """
+    
     def test_pytorch_pass(self):
         pipeline = onnxpipeline.Pipeline('pytorch', print_logs=False)
         def test_convert_pass():
             model = pipeline.convert_model(model_type='pytorch', model='saved_model.pb', model_input_shapes='(1,3,224,224)')
             return model
-        def test_perf_test(model):
-            result = pipeline.perf_test(model=model, result="output.txt")
-            return result
+
         model = test_convert_pass()
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
         self.check_json_staus('SUCCESS', self.check_converted_json(output_json))
-        #result = test_perf_test(model)
+        #result = self.test_perf_test(pipeline, model)
 
     def test_pytorch_fail(self):
         pipeline = onnxpipeline.Pipeline('pytorch', convert_directory='test_fail')
@@ -57,13 +61,29 @@ class notebook_test(unittest.TestCase):
         def test_convert_fail_no_model():
             model = pipeline.convert_model(model_type='pytorch', model_input_shapes='(1,3,224,224)')
             return model    
-        def test_perf_test(model):
-            result = pipeline.perf_test(model=model, result="output.txt")
-            return result
         
         model = test_convert_fail_no_shapes()
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
         self.check_json_staus('FAILED', self.check_converted_json(output_json))
+
+        model = test_convert_fail_no_model()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus('FAILED', self.check_converted_json(output_json))
+
+    def test_tensorflow_pass(self):
+        pipeline = onnxpipeline.Pipeline('mnist/model', print_logs=False)
+        def test_convert_pass():
+            model = pipeline.convert_model(model_type='tensorflow')
+            return model
+        model = test_convert_pass()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus('SUCCESS', self.check_converted_json(output_json))
+
+    def test_tensorflow_fail(self):
+        pipeline = onnxpipeline.Pipeline('mnist/model', convert_directory='test_fail')
+        def test_convert_fail_no_model():
+            model = pipeline.convert_model(model_type='tensorflow', model='not_exist_path')
+            return model
 
         model = test_convert_fail_no_model()
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
