@@ -368,6 +368,8 @@ def main():
             args.initial_types = eval(args.initial_types)
     # Create a test folder path
     output_dir = os.path.dirname(os.path.abspath(args.output_onnx_path))
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
     output_json_path = os.path.join(output_dir, "output.json")
     print("\n-------------\nModel Conversion\n")
     try:
@@ -376,7 +378,7 @@ def main():
         print("Conversion error occurred. Abort. ")
         output_template["conversion_status"] = "FAILED"
         output_template["correctness_verified"] = "FAILED"
-        output_template["error_message"] = e
+        output_template["error_message"] = str(e)
         print("\n-------------\nMODEL CONVERSION SUMMARY (.json file generated at %s )\n" % output_json_path)
         pprint.pprint(output_template)
         with open(output_json_path, "w") as f:

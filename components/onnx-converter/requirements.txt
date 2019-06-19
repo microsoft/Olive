@@ -3,6 +3,7 @@ onnxmltools
 
 coremltools
 sklearn
+pandas
 
 https://cntk.ai/PythonWheel/CPU-Only/cntk-2.6-cp36-cp36m-linux_x86_64.whl
 mxnet==1.4.0

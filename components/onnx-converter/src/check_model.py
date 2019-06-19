@@ -187,13 +187,17 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
         print("...")
     else: 
         modelPredictor = runner.get(model_type)
-        if (modelPredictor == None):
+        if model_type == "onnx" or get_extension(original_model_path) == "onnx":
+            # Skip model correctness conversion for onnx models
+            print("The original model is already onnx. Skipping correctness test. ")
+            return "SKIPPED"
+        if modelPredictor == None:
             print("No correctness verification method for %s model type" % model_type)
             return "UNSUPPORTED"
         print("Running inference on original model with specified or random inputs. ")    
         print("...")
         try:
-            if (model_type == "tensorflow"):
+            if model_type == "tensorflow":
                 expected_outputs = tfRunner(original_model_path, inputs_path, input_names, output_names)
             else:
                 expected_outputs = modelPredictor(original_model_path, inputs_path)
