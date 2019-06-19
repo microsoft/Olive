@@ -49,7 +49,7 @@ class notebook_test(unittest.TestCase):
 
         model = test_convert_pass()
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
-        self.check_json_staus('SUCCESS', self.check_converted_json(output_json))
+        self.check_json_staus(['SUCCESS', 'UNSUPPORTED'], self.check_converted_json(output_json))
 
 
     def test_pytorch_pass(self):
@@ -60,7 +60,7 @@ class notebook_test(unittest.TestCase):
 
         model = test_convert_pass()
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
-        self.check_json_staus('SUCCESS', self.check_converted_json(output_json))
+        self.check_json_staus(['SUCCESS', 'SUCCESS'], self.check_converted_json(output_json))
         #result = self.test_perf_test(pipeline, model)
 
     def test_pytorch_fail(self):
@@ -74,11 +74,11 @@ class notebook_test(unittest.TestCase):
         
         model = test_convert_fail_no_shapes()
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
-        self.check_json_staus('FAILED', self.check_converted_json(output_json))
+        self.check_json_staus(['FAILED', 'FAILED'], self.check_converted_json(output_json))
 
         model = test_convert_fail_no_model()
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
-        self.check_json_staus('FAILED', self.check_converted_json(output_json))
+        self.check_json_staus(['FAILED', 'FAILED'], self.check_converted_json(output_json))
 
     def test_tensorflow_pass(self):
         pipeline = onnxpipeline.Pipeline('mnist/model', print_logs=False)
@@ -87,7 +87,7 @@ class notebook_test(unittest.TestCase):
             return model
         model = test_convert_pass()
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
-        self.check_json_staus('SUCCESS', self.check_converted_json(output_json))
+        self.check_json_staus(['SUCCESS', 'SUCCESS'], self.check_converted_json(output_json))
 
     def test_tensorflow_fail(self):
         pipeline = onnxpipeline.Pipeline('mnist/model', convert_directory='test_fail')
@@ -97,7 +97,7 @@ class notebook_test(unittest.TestCase):
 
         model = test_convert_fail_no_model()
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
-        self.check_json_staus('FAILED', self.check_converted_json(output_json))
+        self.check_json_staus(['FAILED', 'FAILED'], self.check_converted_json(output_json))
 
     def test_cntk_pass(self):
         pipeline = onnxpipeline.Pipeline('cntk', print_logs=False)
@@ -106,7 +106,7 @@ class notebook_test(unittest.TestCase):
             return model
         model = test_convert_pass()
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
-        self.check_json_staus('SUCCESS', self.check_converted_json(output_json))
+        self.check_json_staus(['SUCCESS', 'SUCCESS'], self.check_converted_json(output_json))
 
     def test_cntk_fail(self):
         pipeline = onnxpipeline.Pipeline('cntk', convert_directory='test_fail', print_logs=False)
@@ -116,4 +116,4 @@ class notebook_test(unittest.TestCase):
 
         model = test_convert_fail_no_model()
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
-        self.check_json_staus('FAILED', self.check_converted_json(output_json))
+        self.check_json_staus(['FAILED', 'FAILED'], self.check_converted_json(output_json))
