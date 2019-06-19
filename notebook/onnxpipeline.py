@@ -95,13 +95,9 @@ class Pipeline:
 
         if result is not None:
             self.result = result
-
-
-        # create result directory for result
-        result_path = osp.join(self.path, self.result)
-        if not os.path.exists(result_path):
-            os.makedirs(result_path)
+            
         result = osp.join(self.mount_path, self.result)
+
 
         img_name = (docker_config.CONTAINER_NAME + 
             docker_config.FUNC_NAME['perf_test'] + ':latest')
