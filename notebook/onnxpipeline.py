@@ -1,13 +1,13 @@
 import os
 import os.path as osp
 import docker
-import config
+import config as docker_config
 import json
 
 class Pipeline:
-    def __init__(self, local_directory=None, mount_path=config.MOUNT_PATH, print_logs=True, 
-        convert_directory=config.TEST_DIRECTORY, convert_name=config.CONVERTED_MODEL_NAME, 
-        result=config.RESULT_FILENAME):
+    def __init__(self, local_directory=None, mount_path=docker_config.MOUNT_PATH, print_logs=True, 
+        convert_directory=docker_config.TEST_DIRECTORY, convert_name=docker_config.CONVERTED_MODEL_NAME, 
+        result=docker_config.RESULT_FILENAME):
         
         if local_directory is not None and not os.path.isdir(local_directory):
             raise RuntimeError('local_directory needs to be a directory for volume.')
@@ -32,8 +32,8 @@ class Pipeline:
 
         if model_type is None:
             raise RuntimeError('The conveted model type needs to be provided.')
-        img_name = (config.CONTAINER_NAME + 
-            config.FUNC_NAME['onnx_converter'] + ':latest')
+        img_name = (docker_config.CONTAINER_NAME + 
+            docker_config.FUNC_NAME['onnx_converter'] + ':latest')
 
         # --output_onnx_path
         if output_onnx_path is None:
@@ -59,13 +59,14 @@ class Pipeline:
                 os.makedirs(test_path)
 
 
-        arguments = config.arg('model', model)
+        #arguments = docker_config.arg('model', model)
+        arguments = ""
         argu_dict = locals()
         parameters = self.convert_model.__code__.co_varnames[1:self.convert_model.__code__.co_argcount]
         for p in parameters:
             if argu_dict[p] is not None:
                 if p not in ('convert_json'): # not converter parameters
-                    arguments += config.arg(p, argu_dict[p])
+                    arguments += docker_config.arg(p, argu_dict[p])
         
         json_filename = input_json
 
@@ -75,7 +76,7 @@ class Pipeline:
 
         if convert_json:
             self.__convert_input_json(arguments, json_filename)
-            arguments = config.arg('input_json', input_json)
+            arguments = docker_config.arg('input_json', input_json)
 
         stream = self.client.containers.run(image=img_name, 
             command=arguments, 
@@ -85,7 +86,8 @@ class Pipeline:
             self.__print_docker_logs(stream)
         return output_onnx_path
 
-    def perf_test(self, model=None, result=None):
+    def perf_test(self, model=None, result=None, config=None, m=None, e=None,
+        r=None, t=None, x=None, n=None, s=None):
         
         if model is None:
             model = self.convert_path
@@ -93,11 +95,25 @@ class Pipeline:
 
         if result is not None:
             self.result = result
+
+
+        # create result directory for result
+        result_path = osp.join(self.path, self.result)
+        if not os.path.exists(result_path):
+            os.makedirs(result_path)
         result = osp.join(self.mount_path, self.result)
 
-        img_name = (config.CONTAINER_NAME + 
-            config.FUNC_NAME['perf_test'] + ':latest')
-        arguments = model + ' ' + result
+        img_name = (docker_config.CONTAINER_NAME + 
+            docker_config.FUNC_NAME['perf_test'] + ':latest')
+
+
+
+        arguments = ""
+        argu_dict = locals()
+        parameters = self.perf_test.__code__.co_varnames[1:self.perf_test.__code__.co_argcount]
+        for p in parameters:
+            if argu_dict[p] is not None:
+                arguments += docker_config.arg(p, argu_dict[p])
 
         stream = self.client.containers.run(image=img_name, 
             command=arguments, 
@@ -132,7 +148,7 @@ class Pipeline:
                 print(line)
     
     def config(self):
-        print("-----------Config----------------")
+        print("-----------config----------------")
         print("           Container information: {}".format(self.client))
         print(" Local directory path for volume: {}".format(self.path))
         print("Volume directory path in dockers: {}".format(self.mount_path))
