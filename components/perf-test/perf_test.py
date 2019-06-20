@@ -48,6 +48,7 @@ class PerfTestParams:
 
         self.gpu = 0
         self.cpu = 0
+        self.memory = 0
     
     def get_common_args(self):
         common_args = []
@@ -126,16 +127,19 @@ def run_perf_test(test_params, percentiles=False):
             # Profile in case of success
             profile_name = os.path.join(test_params.result_dir, str(uuid.uuid4()))
             # print("memory info ", psutil.virtual_memory().percent)
-            m = Monitor(latencies[0] // 20)
+            m = Monitor(latencies[0])
             perf_test = subprocess.run(test_params.get_profile_args(profile_name, result_file), 
                 env=test_params.env,
                 stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
             m.stop()
-            print("cpu = ", m.recorded_cpu)
             m.recorded_gpu = [x for x in m.recorded_gpu if not x == 0]
-            print(m.recorded_gpu)
+            m.recorded_cpu = [x for x in m.recorded_cpu if not x == 0]            
+            # print("cpu = ", m.recorded_cpu)
+            # print(m.recorded_gpu)
+            # print(m.recorded_memory)
             test_params.gpu = sum(m.recorded_gpu)/len(m.recorded_gpu) if len(m.recorded_gpu) > 0 else 0
             test_params.cpu = sum(m.recorded_cpu) / len(m.recorded_cpu) if len(m.recorded_cpu) > 0 else 0
+            test_params.memory = sum(m.recorded_memory) / len(m.recorded_memory) if len(m.recorded_memory) > 0 else 0
             if perf_test.returncode == 0:
                 # Find profile result
                 files = glob.glob(profile_name + "*")
@@ -461,6 +465,7 @@ if __name__ == "__main__":
                 json_record["p95"] = test.latencies[int(num_latencies * .95)]
             json_record["cpu_usage"] = test.cpu / 100
             json_record["gpu_usage"] = test.gpu
+            json_record["memory_util"] = test.memory / 100
             json_record["code_snippet"] = test.gen_code_snippet()
             # if num_latencies >= 100:
             #     json_record["p99"] = test.latencies[int(num_latencies * .99)]
