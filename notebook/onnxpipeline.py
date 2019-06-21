@@ -28,7 +28,8 @@ class Pipeline:
     def convert_model(self, model_type=None, output_onnx_path=None, 
         model="", model_inputs=None, model_outputs=None, model_params=None,
         model_input_shapes=None, target_opset=None, caffe_model_prototxt=None,
-        initial_types=None, input_json=None, convert_json=False):
+        initial_types=None, input_json=None, convert_json=False
+        , model_inputs_names=None, model_outputs_names=None):
 
         if model_type is None:
             raise RuntimeError('The conveted model type needs to be provided.')
@@ -39,7 +40,7 @@ class Pipeline:
         if output_onnx_path is None:
             output_onnx_path = self.convert_path
         output_onnx_path = osp.join(self.mount_path, output_onnx_path)
-        
+
         # --model
         model = osp.join(self.mount_path, model)
         # --caffe_model_prototxt
@@ -58,6 +59,13 @@ class Pipeline:
             if not os.path.exists(test_path):
                 os.makedirs(test_path)
 
+        json_filename = input_json
+
+        # --input_json
+        if input_json is not None:
+            local_input_json = input_json
+            input_json = osp.join(self.mount_path, input_json)
+
 
         #arguments = docker_config.arg('model', model)
         arguments = ""
@@ -68,15 +76,17 @@ class Pipeline:
                 if p not in ('convert_json'): # not converter parameters
                     arguments += docker_config.arg(p, argu_dict[p])
         
-        json_filename = input_json
-
-        # --input_json
-        if input_json is not None:
-            input_json = osp.join(self.mount_path, input_json)
 
         if convert_json:
             self.__convert_input_json(arguments, json_filename)
             arguments = docker_config.arg('input_json', input_json)
+        elif input_json is not None:
+            with open(local_input_json) as F:
+                json_data = json.load(F)
+                if 'output_onnx_path' in json_data:
+                    output_onnx_path = json_data['output_onnx_path']
+
+
 
         stream = self.client.containers.run(image=img_name, 
             command=arguments, 
@@ -84,6 +94,7 @@ class Pipeline:
             detach=True)
         if self.print_logs:
             self.__print_docker_logs(stream)
+
         return output_onnx_path
 
     def perf_test(self, model=None, result=None, config=None, m=None, e=None,
@@ -95,7 +106,7 @@ class Pipeline:
 
         if result is not None:
             self.result = result
-            
+
         result = osp.join(self.mount_path, self.result)
 
 
@@ -114,6 +125,7 @@ class Pipeline:
         stream = self.client.containers.run(image=img_name, 
             command=arguments, 
             volumes={self.path: {'bind': self.mount_path, 'mode': 'rw'}},
+            runtime='nvidia',
             detach=True)
         if self.print_logs:
             self.__print_docker_logs(stream)

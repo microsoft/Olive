@@ -6,7 +6,7 @@ import os
 import json
 import shutil
 
-class notebook_test(unittest.TestCase):
+class pipeline_test(unittest.TestCase):
     def setUp(self):
         self.convert_dir_pass = 'test_success'
         self.convert_dir_fail = 'test_fail'
