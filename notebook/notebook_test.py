@@ -5,6 +5,7 @@ import os.path as osp
 import os
 import json
 import shutil
+import time
 
 class notebook_test(unittest.TestCase):
     def setUp(self):
@@ -14,20 +15,29 @@ class notebook_test(unittest.TestCase):
             'pytorch': 'pytorch',
             'tensorflow': 'mnist/model',
             'cntk': 'cntk', 
-            'onnx': 'onnx'
+            'onnx': 'onnx',
+            'caffe': 'caffe',
         }
         self.print_logs = False
+        self.time_out = 30
     def tearDown(self):
         # remove created test dirtectories
         def remove_all_subfiles(directory_path):
-            shutil.rmtree(directory_path)
+            if not os.path.exists(directory_path):
+                return 
+            for path, subdir, files in os.walk(directory_path):
+                for f in files:
+                    try:
+                        os.remove(osp.join(path, f))
+                    except:
+                        print("Cannot remove {}.".format(osp.join(path, f)))
+                for d in subdir:
+                    remove_all_subfiles(osp.join(path, d))
+
         for deep in self.deep_dir:
             for test_dir in [self.convert_dir_pass, self.convert_dir_fail]:
                 directory_path = osp.join(os.getcwd(), self.deep_dir[deep], test_dir)
-                try:
-                    remove_all_subfiles(directory_path)
-                except:
-                    print("Cannot remove {}.".format(directory_path))
+                remove_all_subfiles(directory_path)
         
         
     def test_constructor_pass(self):
@@ -44,6 +54,11 @@ class notebook_test(unittest.TestCase):
             self.assertRaises(RuntimeError)
 
     def check_converted_json(self, output_json):
+        start = time.time()
+        while not os.path.exists(output_json) and time.time() - start < self.time_out:
+            time.sleep(0.3)
+        if time.time() - start >= self.time_out:
+            raise Exception('Fail. Convert model over {} seconds...'.format(self.time_out))
         with open(output_json) as f:
             data = json.load(f)
             conversion_status = data['conversion_status']
@@ -137,6 +152,30 @@ class notebook_test(unittest.TestCase):
         pipeline = onnxpipeline.Pipeline(directory_name, convert_directory=self.convert_dir_fail, print_logs=self.print_logs)
         def test_convert_fail_no_model():
             model = pipeline.convert_model(model_type='cntk')
+            return model
+
+        model = test_convert_fail_no_model()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus(['FAILED', 'FAILED'], self.check_converted_json(output_json))
+
+    def test_caffe_pass(self):
+        directory_name = self.deep_dir['caffe']
+        pipeline = onnxpipeline.Pipeline(directory_name, convert_directory=self.convert_dir_pass, print_logs=self.print_logs)
+        def test_convert_pass():
+            model = pipeline.convert_model(model_type='caffe', model='bvlc_alexnet.caffemodel', caffe_model_prototxt ='deploy.prototxt')
+            return model
+        model = test_convert_pass()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus(['SUCCESS', 'UNSUPPORTED'], self.check_converted_json(output_json))
+
+    def test_caffe_fail(self):
+        directory_name = self.deep_dir['caffe']
+        pipeline = onnxpipeline.Pipeline(directory_name, convert_directory=self.convert_dir_fail, print_logs=self.print_logs)
+        def test_convert_fail_no_model():
+            model = pipeline.convert_model(model_type='caffe', caffe_model_prototxt ='deploy.prototxt')
+            return model
+        def test_convert_fail_no_prototxt():
+            model = pipeline.convert_model(model_type='caffe', model='bvlc_alexnet.caffemodel')
             return model
 
         model = test_convert_fail_no_model()

@@ -85,6 +85,7 @@ class Pipeline:
                 json_data = json.load(F)
                 if 'output_onnx_path' in json_data:
                     output_onnx_path = json_data['output_onnx_path']
+                    self.convert_path = output_onnx_path
 
 
 
