@@ -11,12 +11,13 @@ class Monitor(Thread):
         self.recorded_gpu = []
         self.recorded_cpu = []
         self.recorded_memory = []
+        self.gpu = GPUtil.getGPUs().pop() if GPUtil.getGPUs() else None
         self.start()
 
     def run(self):
-        gpu = GPUtil.getGPUs().pop()
         while not self.stopped:
-            self.recorded_gpu.append(gpu.load)
+            if self.gpu:
+                self.recorded_gpu.append(self.gpu.load)
             self.recorded_cpu.append(psutil.cpu_percent())
             self.recorded_memory.append(psutil.virtual_memory().percent)
             time.sleep(self.delay)

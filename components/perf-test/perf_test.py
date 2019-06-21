@@ -91,7 +91,7 @@ class PerfTestParams:
                 so.enable_sequential_execution = {} \
                 so.session_thread_pool_size({}) \
                 session = rt.Session(\"{}\", so) \
-                ".format(True if self.args.x == 1 else False, self.args.x, self.args.model)
+                ".format(False if self.args.P else True, self.args.x, self.args.model)
         }
         return code_snippet
 
@@ -164,7 +164,7 @@ def run_perf_test(test_params, percentiles=False):
 
     print(test_params.name, test_params.avg)
 
-def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, env, failed_tests, successful_tests):
+def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, failed_tests, successful_tests):
     lower = 1
     upper = num_cores
     mid = lower + (upper - lower) // 2
@@ -182,12 +182,9 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, env, 
         test_params.env,
         test_params.args
     )
-    if len(env) == 0:
-        # tune threads by args
-        param.test_args = test_params.test_args + ["-x", str(lower)]
-    else:
-        # tune threads by env variables
-        param.env[env] = str(lower)
+    # tune threads by args
+    param.test_args = test_params.test_args + ["-x", str(lower)]
+    
     run_perf_test(param)
     if not param.avg:
         # TODO: fall back to sequential???
@@ -198,7 +195,7 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, env, 
         best_latency = param.avg
         best_run = lower
     
-    while lower < upper:
+    while lower <= upper:
         mid = lower + (upper - lower) // 2
         print("lower: %d, mid: %d, upper: %d" % (lower, mid, upper))
         # Run perf test
@@ -210,12 +207,8 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, env, 
             test_params.env,
             test_params.args
         )
-        if len(env) == 0:
-            # tune threads by args
-            param.test_args = test_params.test_args + ["-x", str(mid)]
-        else:
-            # tune threads by env variables
-            param.env[env] = str(mid)
+        # tune threads by args
+        param.test_args = test_params.test_args + ["-x", str(mid)]
         run_perf_test(param)
         if param.avg:
             print("current latency: ", param.avg)
@@ -230,10 +223,11 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, env, 
         else:
             failed_tests.append(param)
             break
-        if lower >= upper and best_run == (1 + num_cores) // 2:
-            # Re-run search on the first half 
+        if lower > upper and best_run == (1 + num_cores) // 2:
+            # Re-run search on the first half if the best latency lies in the middle
             upper = mid - 1
             lower = 1
+    return best_run
 
 def select_graph_optimizer(ep):
     # Placeholder function for graph optimizer
@@ -264,9 +258,10 @@ class ConverterParamsFromJson():
         self.e = loaded_json["execution_provider"] if loaded_json.get("execution_provider") else ""
         self.r = loaded_json["repeated_times"] if loaded_json.get("repeated_times") else "20"
         self.t = loaded_json["duration_time"] if loaded_json.get("duration_time") else "10"
-        self.x = loaded_json["parallel"] if loaded_json.get("parallel") else ""
+        self.x = loaded_json["parallel"] if loaded_json.get("parallel") else str(cores)
         self.n = loaded_json["num_threads"] if loaded_json.get("num_threads") else str(cores)
         self.s = loaded_json["top_n"] if loaded_json.get("top_n") else "5"
+        self.P = True if loaded_json.get("P") else False
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -287,12 +282,14 @@ def parse_arguments():
                         help="Specifies the repeated times if running in 'times' test mode. Default:20.")
     parser.add_argument("-t", default="10",
                         help="Specifies the seconds to run for 'duration' mode. Default:10.")
-    parser.add_argument("-x",
+    parser.add_argument("-x", default=str(cores),
                         help="Use parallel executor, default (without -x): sequential executor.")
     parser.add_argument("-n", default=str(cores),
                         help="OMP_NUM_THREADS value.")
     parser.add_argument("-s", default="5",
                         help="Show percentiles for top n runs. Default:5.")
+    parser.add_argument("-P", default=False,
+                        help="Use parallel executor instead of sequential executor.")
     parser.add_argument("--model",
                         help="Model.")
     parser.add_argument("--result",
@@ -309,9 +306,6 @@ if __name__ == "__main__":
             raise ValueError("Please specify the required argument \"model\" either in a json file or by --model")
         if not args.result or len(args.result) == 0:
             raise ValueError("Please specify the required argument \"result\" either in a json file or by --result")
-
-    if not os.path.exists(args.result):
-        os.mkdir(args.result)
 
     providers = [p for p in args.e.split(",") if p != ""]
     
@@ -336,96 +330,102 @@ if __name__ == "__main__":
                     test_args = test_args + ["-e", "tensorrt"]
                 if "ngraph" in build_name:
                     test_args = test_args + ["-e", "ngraph"]
-
-                if args.x:
-                    # parallel
-                    # for cores in range(int(args.x), 1, -1):
-                    if "openmp" in build_name:
-                        # Tune OMP_WAIT_POLICY passive and active 
-                        # TODO: KMP_BLOCKTIME
-                        run_perf_test_binary(
-                            PerfTestParams(
-                                build_name + "_",
-                                build_name + " ",
+                
+                env_vars = ep_envvar_map.get(build_name)
+                if env_vars:
+                    # Tune environment variables
+                    # TODO: Combinations
+                    for env_name in env_vars:
+                        for env_option in env_vars[env_name]:
+                            best_run = -1
+                            if args.P:                 
+                                # Tune environment variables and thread pool size using parallel executor 
+                                best_run = run_perf_test_binary(
+                                    PerfTestParams(
+                                        build_name + "_parallel_",
+                                        build_name + " ",
+                                        build_path,
+                                        test_args + ["-P"],
+                                        {env_name: env_option},
+                                        args
+                                    ), int(args.x), "_threads_" + env_option, " threads, " + env_option, failed, successful)
+                            if best_run > 1:
+                                # Run the best thread pool candidate with environment variable on sequential executor
+                                param = PerfTestParams(
+                                    build_name + "_",
+                                    build_name + " ",
+                                    build_path,
+                                    test_args + ["-x", best_run],
+                                    {env_name: env_option},
+                                    args
+                                )
+                                tests.append(param)
+                            else:
+                                # Tune environment variables and thread pool size using sequential executor
+                                run_perf_test_binary(
+                                    PerfTestParams(
+                                        build_name + "_",
+                                        build_name + " ",
+                                        build_path,
+                                        test_args,
+                                        {env_name: env_option},
+                                        args
+                                    ), int(args.x), "_threads_" + env_option, " threads, " + env_option, failed, successful)
+                            # Tune environment variables using sequential executor
+                            params = PerfTestParams(
+                                build_name + "_" + env_option,
+                                build_name + " " + env_option,
                                 build_path,
                                 test_args,
-                                {"OMP_WAIT_POLICY": "PASSIVE"},
-                                args
-                            ), int(args.x), "_cores_passive", " cores, passive", "", failed, successful)
+                                {env_name: env_option},
+                                args)
+                            tests.append(params)                    
 
-                        run_perf_test_binary(
-                            PerfTestParams(
-                                build_name + "_",
-                                build_name + " ",
-                                build_path,
-                                test_args,
-                                {"OMP_WAIT_POLICY": "ACTIVE"},
-                                args
-                            ), int(args.x), "_cores_active", " cores, active", "", failed, successful)
-                    else:
-                        run_perf_test_binary(
-                            PerfTestParams(
-                                build_name + "_",
-                                build_name + " ",
-                                build_path,
-                                test_args,
-                                {},
-                                args
-                            ), int(args.x), "_cores", " cores", "", failed, successful)
-
-                if "openmp" in build_name and args.n:
-                    # parallel
-                    # Wait for OMP_NUM_THREADS moving to session option. 
-                    # binary tuning OMP_NUM_THREADS from 1 to args.n
-                    # Passive
-                    run_perf_test_binary(
+                # Tune performance with default env variables            
+                best_run = -1
+                if args.P and env_vars:
+                    # Tune only thread pool size using parallel executor
+                    # TODO: Generalize to non openmp
+                    best_run = run_perf_test_binary(
                         PerfTestParams(
-                            build_name + "_OMP_NUM_THREADS_",
-                            build_name + " OMP_NUM_THREADS=",
+                            build_name + "_parallel_",
+                            build_name + " ",
                             build_path,
-                            test_args,
-                            {"OMP_WAIT_POLICY": "PASSIVE"},
+                            test_args + ["-P"],
+                            {},
                             args
-                        ), int(args.n), "_passive", ", passive", "OMP_NUM_THREADS", failed, successful)
-                    # Active
-                    run_perf_test_binary(
-                        PerfTestParams(
-                            build_name + "_OMP_NUM_THREADS_",
-                            build_name + " OMP_NUM_THREADS=",
-                            build_path,
-                            test_args,
-                            {"OMP_WAIT_POLICY": "ACTIVE"},
-                            args
-                        ), int(args.n), "_active", ", active", "OMP_NUM_THREADS", failed, successful)
-
-                # sequential
-                if "openmp" in build_name:
-                    params = PerfTestParams(
-                        build_name + "_passive",
-                        build_name + " passive",
+                        ), int(args.x), "_threads", " threads", failed, successful)
+                if best_run > 1:
+                    # Run the best thread pool candidate on sequential executor
+                    param = PerfTestParams(
+                        build_name + "_",
+                        build_name + " ",
                         build_path,
-                        test_args,
-                        {"OMP_WAIT_POLICY": "PASSIVE"},
-                        args)
-                    tests.append(params)
-
-                    params = PerfTestParams(
-                        build_name + "_active",
-                        build_name + " active",
-                        build_path,
-                        test_args,
-                        {"OMP_WAIT_POLICY": "ACTIVE"},
-                        args)
-                    tests.append(params)
-                else:
-                    params = PerfTestParams(
-                        build_name,
-                        build_name,
+                        test_args + ["-x", best_run],
+                        {},
+                        args
+                    )
+                    tests.append(param)
+                # Tune only thread pool size using sequential executor
+                run_perf_test_binary(
+                    PerfTestParams(
+                        build_name + "_",
+                        build_name + " ",
                         build_path,
                         test_args,
                         {},
-                        args)
-                    tests.append(params)
+                        args
+                    ), int(args.x), "_threads", " threads", failed, successful)
+
+                # Run perf test using default settings
+                params = PerfTestParams(
+                    build_name,
+                    build_name,
+                    build_path,
+                    test_args,
+                    {},
+                    args)
+                tests.append(params)
 
     # Run the tests.
     for test in tests:
@@ -444,6 +444,10 @@ if __name__ == "__main__":
     print("")
     print("Results:")
     out_json = []
+
+    if not os.path.exists(args.result):
+        os.mkdir(args.result)
+
     with open(os.path.join(args.result, "latencies.txt"), "w") as out_file:
         for test in successful[:int(args.s)]:
             print(test.name, test.avg, "s")
@@ -453,12 +457,7 @@ if __name__ == "__main__":
             json_record["name"] = test.name
             json_record["command"] = test.command
             json_record["avg"] = test.avg
-            # json_record["min"] = test.latencies[0]
             num_latencies = len(test.latencies)
-            # json_record["max"] = test.latencies[num_latencies - 1]
-            # json_record["p50"] = round((test.latencies[num_latencies // 2] + test.latencies[(num_latencies - 1) // 2]) / 2, 9)
-            # if num_latencies >= 4:
-            #     json_record["p75"] = test.latencies[int(num_latencies * .75)]
             if num_latencies >= 10:
                 json_record["p90"] = test.latencies[int(num_latencies * .9)]
             if num_latencies >= 20:
@@ -467,9 +466,6 @@ if __name__ == "__main__":
             json_record["gpu_usage"] = test.gpu
             json_record["memory_util"] = test.memory / 100
             json_record["code_snippet"] = test.gen_code_snippet()
-            # if num_latencies >= 100:
-            #     json_record["p99"] = test.latencies[int(num_latencies * .99)]
-
             out_json.append(json_record)
 
         for test in failed:

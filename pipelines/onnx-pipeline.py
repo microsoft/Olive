@@ -12,6 +12,7 @@ class onnxConverterOp(dsl.ContainerOp):
   model_params, 
   model_input_shapes,
   model_initial_types,
+  caffe_model_prototxt,
   target_opset):
 
     super(onnxConverterOp, self).__init__(
@@ -25,7 +26,8 @@ class onnxConverterOp(dsl.ContainerOp):
         '--model_outputs_names', model_outputs_names,
         '--model_params', model_params,
         '--model_input_shapes', model_input_shapes,
-        '--model_initial_types', model_initial_types,
+        '--initial_types', model_initial_types,
+        '--caffe_model_prototxt', str(PurePosixPath('/mnt', caffe_model_prototxt)),
         '--target_opset', target_opset
       ],
     file_outputs={'output': '/output.txt'})
@@ -37,9 +39,10 @@ class perfTestOp(dsl.ContainerOp):
 
     super(perfTestOp, self).__init__(
       name=name,
-      image='ziylregistry.azurecr.io/perf_test:latest',
+      image='ziylregistry.azurecr.io/perf-test:latest',
       arguments=[
-        model, str(PurePosixPath('/mnt', output_perf_result_path))
+        "--model", model, 
+        "--result", str(PurePosixPath('/mnt', output_perf_result_path))
       ])
 
 @dsl.pipeline(
@@ -79,6 +82,7 @@ def onnx_pipeline(
   model_params="", 
   model_input_shapes="",
   model_initial_types="",
+  caffe_model_prototxt="",
   target_opset=7):
 
   # Create a component named "Convert To Onnx" and "ONNXRuntime Perf". Edit the V1PersistentVolumeClaimVolumeSource 
@@ -93,6 +97,7 @@ def onnx_pipeline(
     '%s' % model_params,
     '%s' % model_input_shapes,
     '%s' % model_initial_types,
+    '%s' % caffe_model_prototxt,
     '%s' % target_opset).add_volume(
         k8s_client.V1Volume(name='pipeline-nfs', persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
             claim_name='azurefile'))).add_volume_mount(k8s_client.V1VolumeMount(mount_path='/mnt', name='pipeline-nfs'))   
