@@ -8,7 +8,7 @@ import sys
 import uuid
 import psutil
 from monitor import Monitor
-from maps import ep_envvar_map
+from maps import ep_envvar_map, ep_graphOptimizer_map, model_ep_map
 
 # FNULL = open(os.devnull, 'w')
 def is_windows():
@@ -106,7 +106,7 @@ def run_perf_test(test_params, percentiles=False):
     else:
         test_args = test_params.get_args(result_file)
     
-    perf_test = subprocess.run(test_args, env=test_params.env, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    perf_test = subprocess.run(test_args, env=test_params.env, stderr=subprocess.STDOUT)
     
     # The first run was warmup.
     remove(result_file)
@@ -199,7 +199,7 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
     lower += 1
     while lower <= upper:
         mid = lower + (upper - lower) // 2
-        print("lower: %d, mid: %d, upper: %d" % (lower, mid, upper))
+        # print("lower: %d, mid: %d, upper: %d" % (lower, mid, upper))
         # Run perf test
         param = PerfTestParams(
             test_params.name + str(mid) + name_suffix,
@@ -213,8 +213,8 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
         param.test_args = test_params.test_args + ["-x", str(mid)]
         run_perf_test(param)
         if param.avg:
-            print("current latency: ", param.avg)
-            print("best latency: ", best_latency)
+            # print("current latency: ", param.avg)
+            # print("best latency: ", best_latency)
             successful_tests.append(param)
             if best_latency < param.avg:
                 upper = mid - 1
@@ -232,16 +232,17 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
     return best_run
 
 def get_env_var_combos(env_vars):
+    if env_vars == None:
+        return [[""]]
     import itertools
     env_options_list = env_vars.values()
     all_combos = []
     for options in env_options_list:
         if len(all_combos) == 0:
-            all_combos = options + [""]
+            all_combos = list(itertools.combinations(options + [""], 1))
         else:
             nested_combo = list(itertools.product(all_combos, options + [""]))
             # flatten if necessary
-            print(all_combos)
             all_combos = []
             for combo in nested_combo:
                 a = []
@@ -251,17 +252,27 @@ def get_env_var_combos(env_vars):
                     else:
                         a.append(el)
                 all_combos.append(a)
-
-    print(all_combos)
+    # print(all_combos)
     return all_combos
+
+# env_names: a list of environment variable names
+# env_options: the environment variable value corresponding to the env_names
+def gen_env_var_dict(env_names, env_option):
+    if len(env_names) == 0 or len(env_option) == 0:
+        return {}
+    env_var_dict = {}
+    for i in range(0, len(env_names)):
+        if len(str(env_option[i])) > 0:
+            env_var_dict.update({env_names[i]: str(env_option[i])})
+    return env_var_dict
 
 def select_graph_optimizer(ep):
     # Placeholder function for graph optimizer
-    return
+    return ep_graphOptimizer_map.get(ep)
 
 def select_ep(model):
     # Placeholder for selecting appropriate ep
-    return 
+    return model_ep_map.get(model)
 
 class ConverterParamsFromJson():
     def __init__(self):
@@ -361,110 +372,61 @@ if __name__ == "__main__":
                     test_args = test_args + ["-e", "ngraph"]
                 
                 env_vars = ep_envvar_map.get(build_name)
-                if env_vars:
-                    env_var_combos = get_env_var_combos(env_vars)
-                    env_names = list(env_vars.keys())
-                    # Tune environment variables
-                    for combo in env_var_combos:
-                        # generate env var dict
-                        env = {env_names[i]: str(combo[i]) for i in range(0, len(combo))}
-                        print(env)
-                        env_option = ""
-                        for e in env:
-                            env_option += e + "_" + str(env.get(e)) + "_" 
-                        print(env_option)
-                        # for env_name in env_vars:
-                        #     for env_option in env_vars[env_name]:
-                        best_run = -1
-                        if args.P:                 
-                            # Tune environment variables and thread pool size using parallel executor 
-                            best_run = run_perf_test_binary(
-                                PerfTestParams(
-                                    build_name + "_parallel_",
-                                    build_name + " ",
-                                    build_path,
-                                    test_args + ["-P"],
-                                    env,
-                                    args
-                                ), int(args.x), "_threads_" + env_option, " threads, " + env_option, failed, successful)
-                        if best_run != None and best_run > 1:
-                            # Run the best thread pool candidate with environment variable on sequential executor
-                            param = PerfTestParams(
-                                build_name + "_" + str(best_run) + "_threads_" + env_option,
-                                build_name + " " + str(best_run) + " threads, " + env_option,
+                env_var_combos = get_env_var_combos(env_vars)
+                env_names = list(env_vars.keys()) if env_vars is not None else []
+                # Tune all possible combinations of environment variables, including defaults
+                for combo in env_var_combos:
+                    print("current combo " , combo)
+                    # generate env var dict {env_var_name: env_var_option}. 
+                    env = gen_env_var_dict(env_names, combo)
+                    print(env)
+                    env_option = ""
+                    for e in env:
+                        env_option += "_" + e + "_" + env.get(e)
+                    print(env_option)
+                    best_run = -1
+                    if args.P:                 
+                        # Tune environment variables and thread pool size using parallel executor 
+                        best_run = run_perf_test_binary(
+                            PerfTestParams(
+                                build_name + "_parallel_",
+                                build_name + " ",
                                 build_path,
-                                test_args + ["-x", str(best_run)],
+                                test_args + ["-P"],
                                 env,
                                 args
-                            )
-                            tests.append(param)
-                        else:
-                            # Tune environment variables and thread pool size using sequential executor
-                            run_perf_test_binary(
-                                PerfTestParams(
-                                    build_name + "_",
-                                    build_name + " ",
-                                    build_path,
-                                    test_args,
-                                    env,
-                                    args
-                                ), int(args.x), "_threads_" + env_option, " threads, " + env_option, failed, successful)
-                        # Tune environment variables using sequential executor
-                        params = PerfTestParams(
-                            build_name + "_" + env_option,
-                            build_name + " " + env_option,
+                            ), int(args.x), "_threads" + env_option, " threads, " + env_option, failed, successful)
+                    if best_run != None and best_run > 1:
+                        # Run the best thread pool candidate with environment variable on sequential executor
+                        param = PerfTestParams(
+                            build_name + "_" + str(best_run) + "_threads" + env_option,
+                            build_name + " " + str(best_run) + " threads, " + env_option,
                             build_path,
-                            test_args,
+                            test_args + ["-x", str(best_run)],
                             env,
-                            args)
-                        tests.append(params)                    
-
-                # Tune performance with default env variables            
-                best_run = -1
-                if args.P and env_vars:
-                    # Tune only thread pool size using parallel executor
-                    # TODO: Generalize to non openmp
-                    best_run = run_perf_test_binary(
-                        PerfTestParams(
-                            build_name + "_parallel_",
-                            build_name + " ",
-                            build_path,
-                            test_args + ["-P"],
-                            {},
                             args
-                        ), int(args.x), "_threads", " threads", failed, successful)
-                if best_run != None and best_run > 1:
-                    # Run the best thread pool candidate on sequential executor
-                    param = PerfTestParams(
-                        build_name + "_" + str(best_run) + "_threads",
-                        build_name + " " + str(best_run) + " threads",
+                        )
+                        tests.append(param)
+                    else:
+                        # Tune environment variables and thread pool size using sequential executor
+                        run_perf_test_binary(
+                            PerfTestParams(
+                                build_name + "_",
+                                build_name + " ",
+                                build_path,
+                                test_args,
+                                env,
+                                args
+                            ), int(args.x), "_threads" + env_option, " threads, " + env_option, failed, successful)
+                    # Tune environment variables using sequential executor
+                    params = PerfTestParams(
+                        build_name + env_option,
+                        build_name + " " + env_option,
                         build_path,
-                        test_args + ["-x", str(best_run)],
-                        {},
-                        args
-                    )
-                    tests.append(param)
-                else:
-                    # Tune only thread pool size using sequential executor
-                    run_perf_test_binary(
-                        PerfTestParams(
-                            build_name + "_",
-                            build_name + " ",
-                            build_path,
-                            test_args,
-                            {},
-                            args
-                        ), int(args.x), "_threads", " threads", failed, successful)
-
-                # Run perf test using default settings
-                params = PerfTestParams(
-                    build_name,
-                    build_name,
-                    build_path,
-                    test_args,
-                    {},
-                    args)
-                tests.append(params)
+                        test_args,
+                        env,
+                        args)
+                    tests.append(params)                    
 
     # Run the tests.
     for test in tests:
@@ -486,7 +448,7 @@ if __name__ == "__main__":
 
 
     with open(os.path.join(args.result, "latencies.txt"), "w") as out_file:
-        for test in successful:
+        for test in successful[:int(args.s)]:
             print(test.name, test.avg, "s")
             print(test.name, test.avg, "s", file=out_file)
 

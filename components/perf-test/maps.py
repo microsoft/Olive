@@ -17,11 +17,8 @@ ep_envvar_map = {
     # Placeholder to tune environment variables based on execution provider
     "mkldnn_openmp": {
         "OMP_WAIT_POLICY": ["active", "passive"],
-        
         },
     "cpu_openmp": {
         "OMP_WAIT_POLICY": ["active", "passive"],
-        "THREADS": [1, 2],
-        "OTHERS": [3, 4, 5]
         }
 }

@@ -93,16 +93,16 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
 
-    build_onnxruntime(args.onnxruntime_home, args.config, [], "cpu", args)
+    build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel"], "cpu", args)
 
-    build_onnxruntime(args.onnxruntime_home, args.config, ["--use_openmp"], "cpu_openmp", args)
+    build_onnxruntime(args.onnxruntime_home, args.config, ["--use_openmp", "--parallel"], "cpu_openmp", args)
 
-    build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn"], "mkldnn", args)
+    build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--parallel"], "mkldnn", args)
 
-    build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--use_openmp"], "mkldnn_openmp", args)
+    build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--use_openmp", "--parallel"], "mkldnn_openmp", args)
 
     if args.use_cuda:
-        build_args = ["--use_cuda"]
+        build_args = ["--use_cuda", "--parallel"]
         if args.cuda_version:
             build_args = build_args + ["--cuda_version", args.cuda_version]
         if args.cuda_home:
@@ -112,7 +112,7 @@ if __name__ == "__main__":
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, "cuda", args)
 
     if args.use_tensorrt:
-        build_args = ["--use_tensorrt", "--use_full_protobuf"]
+        build_args = ["--use_tensorrt", "--use_full_protobuf", "--parallel"]
         if args.tensorrt_home:
             build_args = build_args + ["--tensorrt_home", args.tensorrt_home]
         if args.cuda_version:
@@ -124,5 +124,5 @@ if __name__ == "__main__":
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, "tensorrt", args)
 
     if args.use_ngraph:
-        build_args = ["--use_ngraph"]
+        build_args = ["--use_ngraph", "--parallel"]
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, "ngraph", args)
