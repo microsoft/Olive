@@ -17,6 +17,9 @@ class notebook_test(unittest.TestCase):
             'cntk': 'cntk', 
             'onnx': 'onnx',
             'caffe': 'caffe',
+            'mxnet': 'mxnet',
+            'sklearn': 'sklearn',
+            'keras': 'KerasToONNX'
         }
         self.print_logs = False
         self.time_out = 30
@@ -53,12 +56,17 @@ class notebook_test(unittest.TestCase):
         except:
             self.assertRaises(RuntimeError)
 
-    def check_converted_json(self, output_json):
+    def wait_output_timeout(self, output_name):
         start = time.time()
-        while not os.path.exists(output_json) and time.time() - start < self.time_out:
+        while not os.path.exists(output_name) and time.time() - start < self.time_out:
             time.sleep(0.3)
         if time.time() - start >= self.time_out:
+            return False
+        return True
+    def check_converted_json(self, output_json):        
+        if not self.wait_output_timeout(output_json):
             raise Exception('Fail. Convert model over {} seconds...'.format(self.time_out))
+
         with open(output_json) as f:
             data = json.load(f)
             conversion_status = data['conversion_status']
@@ -69,16 +77,33 @@ class notebook_test(unittest.TestCase):
         self.assertEquals(expected_status[0], conversion_status)
         self.assertEquals(expected_status[1], correctness_verified)
 
-    """
-    def get_perf_test(self, pipeline, model):
-        result = pipeline.perf_test(model=model, result="output.txt")
+    def check_latency_error(self, latency_name):
+        if not self.wait_output_timeout(latency_name):
+            raise Exception('Fail. Perf test over {} seconds...'.format(self.time_out))        
+        with open(latency_name) as f:
+            data = f.read()
+            return data.count('error')
+        
+    
+    def get_perftest(self, pipeline, model):
+        result = pipeline.perf_test(model=model, result="result")
         return result
-    """
+    
+    def test_perf_test(self):
+        directory_name = self.deep_dir['onnx']
+        pipeline = onnxpipeline.Pipeline(directory_name)
+        # generate input
+        model = pipeline.convert_model(model_type='onnx', model='perf-test/ImageQnA.onnx', output_onnx_path='perf-test/ImageQnA.onnx')
+        result_dir = pipeline.perf_test(model=model)
+        latency_path = osp.join(result_dir, config.LATENCIES_TXT)
+        self.assertEqual(self.check_latency_error(latency_path), 0) # 1 for cuda error, should be zerr
+
+
     def test_convert_from_onnx(self):
         directory_name = self.deep_dir['onnx']
         pipeline = onnxpipeline.Pipeline(directory_name, convert_directory=self.convert_dir_pass)
         def test_convert_pass():
-            model = pipeline.convert_model(model_type='onnx', model='model.onnx', model_input_shapes='(1,3,224,224)')
+            model = pipeline.convert_model(model_type='onnx', model='model.onnx')
             return model
 
         model = test_convert_pass()
@@ -181,3 +206,95 @@ class notebook_test(unittest.TestCase):
         model = test_convert_fail_no_model()
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
         self.check_json_staus(['FAILED', 'FAILED'], self.check_converted_json(output_json))
+
+        model = test_convert_fail_no_prototxt()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus(['FAILED', 'FAILED'], self.check_converted_json(output_json))
+    
+    
+    def test_sklearn_pass(self):
+        directory_name = self.deep_dir['sklearn']
+        pipeline = onnxpipeline.Pipeline(directory_name, convert_directory=self.convert_dir_pass, print_logs=self.print_logs)
+        def test_convert_pass():
+            model = pipeline.convert_model(model_type='scikit-learn', model='sklearn_svc.joblib', initial_types=("float_input", "FloatTensorType([1,4])"))
+            return model
+        model = test_convert_pass()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus(['SUCCESS', 'SUCCESS'], self.check_converted_json(output_json))
+
+    def test_sklearn_fail(self):
+        directory_name = self.deep_dir['sklearn']
+        pipeline = onnxpipeline.Pipeline(directory_name, convert_directory=self.convert_dir_fail, print_logs=self.print_logs)
+        def test_convert_fail_no_model():
+            model = pipeline.convert_model(model_type='scikit-learn', model='sklearn_svc.joblib')
+            return model
+        def test_convert_fail_no_type():
+            model = pipeline.convert_model(model_type='scikit-learn', initial_types=("float_input", "FloatTensorType([1,4])"))
+            return model
+
+        model = test_convert_fail_no_model()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus(['FAILED', 'FAILED'], self.check_converted_json(output_json))    
+
+        model = test_convert_fail_no_type()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus(['FAILED', 'FAILED'], self.check_converted_json(output_json)) 
+
+    def test_keras_pass(self):
+        directory_name = self.deep_dir['keras']
+        pipeline = onnxpipeline.Pipeline(directory_name, convert_directory=self.convert_dir_pass, print_logs=self.print_logs)
+        def test_convert_pass():
+            model = pipeline.convert_model(model_type='keras', model='keras_Average_ImageNet.keras')
+            return model
+        model = test_convert_pass()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus(['SUCCESS', 'SUCCESS'], self.check_converted_json(output_json))
+
+    def test_keras_fail(self):
+        directory_name = self.deep_dir['keras']
+        pipeline = onnxpipeline.Pipeline(directory_name, convert_directory=self.convert_dir_fail, print_logs=self.print_logs)
+        def test_convert_fail_no_model():
+            model = pipeline.convert_model(model_type='keras')
+            return model
+
+        model = test_convert_fail_no_model()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus(['FAILED', 'FAILED'], self.check_converted_json(output_json))
+    
+    # mxnet fails right now
+    def futuretest_mxnet_pass(self):
+        directory_name = self.deep_dir['mxnet']
+        pipeline = onnxpipeline.Pipeline(directory_name, convert_directory=self.convert_dir_pass, print_logs=self.print_logs)
+        def test_convert_pass():
+            model = pipeline.convert_model(model_type='mxnet', model='resnet.json', model_params='resnet.params', model_input_shapes='(1,3,224,224)')
+            return model
+        model = test_convert_pass()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus(['SUCCESS', 'SUCCESS'], self.check_converted_json(output_json))
+
+    def futuretest_mxnet_fail(self):
+        directory_name = self.deep_dir['mxnet']
+        pipeline = onnxpipeline.Pipeline(directory_name, convert_directory=self.convert_dir_fail, print_logs=self.print_logs)
+        def test_convert_fail_no_model():
+            model = pipeline.convert_model(model_type='mxnet', model_params='resnet.params', model_input_shapes='(1,3,224,224)')
+            return model
+        def test_convert_fail_no_shapes():
+            model = pipeline.convert_model(model_type='mxnet',  model='resnet.json', model_params='resnet.params')
+            return model
+
+        def test_convert_fail_no_params():
+            model = pipeline.convert_model(model_type='mxnet', model='resnet.json', model_input_shapes='(1,3,224,224)')
+            return model
+
+        model = test_convert_fail_no_model()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus(['FAILED', 'FAILED'], self.check_converted_json(output_json))
+
+        model = test_convert_fail_no_shapes()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus(['FAILED', 'FAILED'], self.check_converted_json(output_json))
+
+        model = test_convert_fail_no_params()
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus(['FAILED', 'FAILED'], self.check_converted_json(output_json))        
+    

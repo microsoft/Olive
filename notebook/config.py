@@ -12,6 +12,7 @@ MOUNT_PATH = '/mnt/model'
 
 OUTPUT_JSON = 'output.json'
 
+LATENCIES_TXT = 'latencies.txt'
 
 FUNC_NAME = {
     'onnx_converter': 'onnx-converter',

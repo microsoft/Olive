@@ -81,7 +81,7 @@ class Pipeline:
             self.__convert_input_json(arguments, json_filename)
             arguments = docker_config.arg('input_json', input_json)
         elif input_json is not None:
-            with open(local_input_json) as F:
+            with open(osp.join(self.path, local_input_json)) as F:
                 json_data = json.load(F)
                 if 'output_onnx_path' in json_data:
                     output_onnx_path = json_data['output_onnx_path']
