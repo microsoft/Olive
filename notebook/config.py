@@ -13,6 +13,7 @@ MOUNT_PATH = '/mnt/model'
 OUTPUT_JSON = 'output.json'
 
 LATENCIES_TXT = 'latencies.txt'
+LATENCIES_JSON = 'latencies.json'
 
 FUNC_NAME = {
     'onnx_converter': 'onnx-converter',
@@ -25,3 +26,4 @@ def arg(flag, var):
         return ' -' + flag + ' ' + str(var)
     else:
         return ' --' + flag + ' ' + str(var)
+
