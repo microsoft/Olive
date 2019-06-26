@@ -14,7 +14,7 @@ build.bat
 pip install docker
 ```
 
-### For linux
+### For Linux
 ```bash
 sh build.sh
 pip install docker
@@ -49,7 +49,7 @@ For instance:
 ```
 
 
-### For linux
+### For Linux
 Use Jupyter Notebook and see [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb)
 
 # Performance test tool
@@ -57,6 +57,7 @@ Use Jupyter Notebook and see [onnx-pipeline.ipynb](https://github.com/liuziyue/o
 ### For Windows
 
 Given the onnx model path which produced by the previous step, it can output the JSONs for performance test.
+Use cmd and type as below:
 
 ```bash
 python -c "import onnxpipeline ; p=onnxpipeline.Pipeline(); p.perf_test(model='[onnx_model_path]', result='[result_directory_path]', runtime='')"
@@ -78,5 +79,5 @@ python -c "import onnxpipeline ; p=onnxpipeline.Pipeline(); p.perf_test(model='/
 
 Then all the result JSONs will be produced under result/
 
-### For linux
+### For Linux
 Use Jupyter Notebook and see [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb)
