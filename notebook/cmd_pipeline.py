@@ -57,7 +57,7 @@ def main():
     args = get_args()
     pipeline = onnxpipeline.Pipeline()
     model=pipeline.convert_model(model_type=args.model_type, model=args.model, model_input_shapes=args.model_input_shapes,
-        model_inputs_names=args.model_inputs_names, model_outputs_names=model_outputs_names,
+        model_inputs_names=args.model_inputs_names, model_outputs_names=args.model_outputs_names,
         model_params=args.model_params, target_opset=args.target_opset)
     pipeline.perf_test(model=model, result=args.result, runtime=args.runtime)
   
