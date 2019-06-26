@@ -10,7 +10,7 @@ This repository shows how to deploy and use Onnx pipeline with dockers including
 # Prerequisites
 ### For Windows
 ```bash
-build.bat
+build.sh
 pip install docker
 ```
 
@@ -29,23 +29,22 @@ Supported frameworks are - caffe, cntk, coreml, keras, libsvm, mxnet, scikit-lea
 ### For Windows
 Use cmd and type as below:
 ```bash
-python -c "import onnxpipeline; p=onnxpipeline.Pipeline(); model=p.convert_model(model_type='[model_type]', model='[model_path]', [other_parameters]='[parameter_values]'); p.perf_test(model=model, result='[result_directory_path]', runtime='[runtime]')"
+python cmd_pipeline.py --model [model_path] --model_type [model_type] --result [result_directory_path] --runtime [runtime] [--other_parameters] [other parameters' value]
 ```
 
-1. [model_type]: support caffe, cntk, keras, scikit-learn, tensorflow and pytorch.
+1. [model_type]: Required. support caffe, cntk, keras, scikit-learn, tensorflow and pytorch.
 
-2. [model_path]: provide the local path of the model.
+2. [model_path]: Required. provide the local path of the model.
 
-3. [result_directory_path]: The directory path for results.
+3. [result_directory_path]: Optional. The directory path for results.
 
-4. [runtime]: type 'nvidia' for enabling GPU, otherwise ''. 
-
+4. [runtime]: Optional. type 'nvidia' for enabling GPU, otherwise ''. 
 
 Details of other parameters can be referenced here [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb)
 
 For example:
 ```bash
-python -c "import onnxpipeline; p=onnxpipeline.Pipeline(); model=p.convert_model(model_type='pytorch', model='pytorch/saved_model.pb',model_input_shapes='(1,3,224,224)'); p.perf_test(model=model, result='result/', runtime='')"
+python cmd_pipeline.py --model pytorch/saved_model.pb --model_type pytorch --model_input_shapes '(3,3,224,224)' --runtime ''
 ```
 
 Then all the result JSONs will be produced under result/
