@@ -31,10 +31,11 @@ Use cmd and type as below:
 python -c "import onnxpipeline ; p=onnxpipeline.Pipeline(); model=p.convert_model(model_type='[model_type]', model='[model_path]', [other_parameters]='[parameter_values]')"
 ```
 
-[model_type]: support caffe, cntk, keras, scikit-learn, tensorflow and pytorch.
-[model_path]: provide the local path of the model.
+1. [model_type]: support caffe, cntk, keras, scikit-learn, tensorflow and pytorch.
 
-Details of the parameters can be referenced here [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb)
+2. [model_path]: provide the local path of the model.
+
+Details of other parameters can be referenced here [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb)
 
 For example:
 ```bash
@@ -61,16 +62,21 @@ Given the onnx model path which produced by the previous step, it can output the
 python -c "import onnxpipeline ; p=onnxpipeline.Pipeline(); p.perf_test(model='[onnx_model_path]', result='[result_directory_path]', runtime='')"
 ```
 
-[onnx_model_path]: The path of the onnx model that wants to be performed. (produced by the previous step)
-[result_directory_path]: The directory path for results.
-[runtime]: type 'nvidia' for enabling GPU, otherwise ''. 
+1. [onnx_model_path]: The path of the onnx model that wants to be performed. (produced by the previous step)
 
+2. [result_directory_path]: The directory path for results.
+
+3. [runtime]: type 'nvidia' for enabling GPU, otherwise ''. 
+
+Details of other parameters can be referenced here [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb)
 
 For example:
 
 ```bash
 python -c "import onnxpipeline ; p=onnxpipeline.Pipeline(); p.perf_test(model='/mnt/model/test/model.onnx', result='result', runtime='')"
 ```
+
+Then all the result JSONs will be produced under result/
 
 ### For linux
 Use Jupyter Notebook and see [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb)
