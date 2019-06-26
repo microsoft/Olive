@@ -54,10 +54,11 @@ Details of other parameters can be referenced here [onnx-pipeline.ipynb](https:/
 
 For example:
 ```bash
-python cmd_pipeline.py --model pytorch/saved_model.pb --model_type pytorch --model_input_shapes '(3,3,224,224)' --runtime ''
+python cmd_pipeline.py --model pytorch/saved_model.pb --model_type pytorch --model_input_shapes '(3,3,224,224)' --runtime '' --result result/
 ```
 
-Then all the result JSONs will be produced under result/
+Then all the result JSONs will be produced under result/ .
+Also print the logs for the process in the terminal. Check if there is any error occurs.
 
 
 ### For Linux
