@@ -32,22 +32,33 @@ Use cmd and type as below:
 python cmd_pipeline.py --model [model_path] --model_type [model_type] --result [result_directory_path] --runtime [runtime] [--other_parameters] [other parameters' value]
 ```
 
-1. [model_type]: Required. support caffe, cntk, keras, scikit-learn, tensorflow and pytorch.
+1. --model_type: Required. support caffe, cntk, keras, scikit-learn, tensorflow and pytorch.
 
-2. [model_path]: Required. provide the local path of the model.
+2. --model_path: Required. provide the local path of the model.
 
-3. [result_directory_path]: Optional. The directory path for results.
+3. --result: Optional. The directory path for results.
 
-4. [runtime]: Optional. type 'nvidia' for enabling GPU, otherwise ''. 
+4. --runtime: Optional. type 'nvidia' for enabling GPU, otherwise ''. 
+
+5. --model_inputs_names: Optional. The model's input names. Required for tensorflow frozen models and checkpoints. 
+
+6. --model_outputs_names: Optional. The model's output names. Required for tensorflow frozen models checkpoints.
+
+7. --model_params: Optional. The params of the model.
+
+8. --model_input_shapes: Optional. List of tuples. The input shape(s) of the model. Each dimension separated by ','. 
+
+9. --target_opset: Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3.
 
 Details of other parameters can be referenced here [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb)
 
 For example:
 ```bash
-python cmd_pipeline.py --model pytorch/saved_model.pb --model_type pytorch --model_input_shapes '(3,3,224,224)' --runtime ''
+python cmd_pipeline.py --model pytorch/saved_model.pb --model_type pytorch --model_input_shapes '(3,3,224,224)' --runtime '' --result result/
 ```
 
-Then all the result JSONs will be produced under result/
+Then all the result JSONs will be produced under result/ .
+Also print the logs for the process in the terminal. Check if there is any error occurs.
 
 
 ### For Linux
