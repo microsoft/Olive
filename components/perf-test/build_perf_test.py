@@ -85,6 +85,7 @@ def parse_arguments():
     parser.add_argument("--tensorrt_home", help="Path to TensorRT installation dir")
 
     parser.add_argument("--use_ngraph", action='store_true', help="Build with nGraph")
+    parser.add_argument("--use_mklml", action='store_true', help="Build with mklml")
 
     parser.add_argument("--variants", help="Variants to build. Will build all by default")
 
@@ -100,6 +101,9 @@ if __name__ == "__main__":
     build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--parallel"], "mkldnn", args)
 
     build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--use_openmp", "--parallel"], "mkldnn_openmp", args)
+    
+    if args.use_mklml:
+        build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--use_mklml", "--parallel"], "mklml", args)
 
     if args.use_cuda:
         build_args = ["--use_cuda", "--parallel"]
@@ -124,5 +128,5 @@ if __name__ == "__main__":
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, "tensorrt", args)
 
     if args.use_ngraph:
-        build_args = ["--use_ngraph", "--parallel"]
+        build_args = ["--use_ngraph"]
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, "ngraph", args)

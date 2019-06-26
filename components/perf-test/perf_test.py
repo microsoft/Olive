@@ -20,7 +20,7 @@ def remove(file):
 
 
 class PerfTestParams:
-    def __init__(self, name, desc, path, test_args, env, args):
+    def __init__(self, name, desc, path, test_args, env, args, thread=0):
         if is_windows():
             self.exe = os.path.join(build_path, "onnxruntime_perf_test.exe")
         else:
@@ -49,7 +49,8 @@ class PerfTestParams:
         self.gpu = 0
         self.cpu = 0
         self.memory = 0
-    
+        self.thread = 0
+
     def get_common_args(self):
         common_args = []
         if self.args.m:
@@ -79,8 +80,6 @@ class PerfTestParams:
         print(" ".join(args))
 
     def gen_code_snippet(self):
-        # import onnxruntime as rt
-        # so = rt.SessionOptions()
         code_snippet = {
             "execution_provider": self.args.e,
             "environment_variables": self.env_to_set,
@@ -91,7 +90,7 @@ class PerfTestParams:
                 so.enable_sequential_execution = {} \
                 so.session_thread_pool_size({}) \
                 session = rt.Session(\"{}\", so) \
-                ".format(False if self.args.P else True, self.args.x, self.args.model)
+                ".format(False if self.args.P else True, self.thread, self.args.model)
         }
         return code_snippet
 
@@ -180,7 +179,8 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
         test_params.path,
         [],
         test_params.env_to_set,
-        test_params.args
+        test_params.args, 
+        lower
     )
     # tune threads by args
     param.test_args = test_params.test_args + ["-x", str(lower)]
@@ -207,7 +207,8 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
             test_params.path,
             [],
             test_params.env_to_set,
-            test_params.args
+            test_params.args,
+            mid
         )
         # tune threads by args
         param.test_args = test_params.test_args + ["-x", str(mid)]
@@ -376,16 +377,13 @@ if __name__ == "__main__":
                 env_names = list(env_vars.keys()) if env_vars is not None else []
                 # Tune all possible combinations of environment variables, including defaults
                 for combo in env_var_combos:
-                    print("current combo " , combo)
                     # generate env var dict {env_var_name: env_var_option}. 
                     env = gen_env_var_dict(env_names, combo)
-                    print(env)
                     env_option = ""
                     for e in env:
                         env_option += "_" + e + "_" + env.get(e)
-                    print(env_option)
                     best_run = -1
-                    if args.P:                 
+                    if args.P and "cuda" not in build_name and "tensorrt" not in build_name:                 
                         # Tune environment variables and thread pool size using parallel executor 
                         best_run = run_perf_test_binary(
                             PerfTestParams(
