@@ -18,3 +18,13 @@ pip install docker
 sh build.sh
 pip install docker
 ```
+
+# Convert model to ONNX
+
+### For Windows
+Use cmd and type as below:
+```bash
+python -c "import onnxpipeline ; p = onnxpipeline.Pipeline('cntk'); model=p.convert_model(model_type='cntk', model='ResNet50_ImageNet_Caffe.model')"
+```
+### For linux
+Use Jupyter Notebook and see [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb)
