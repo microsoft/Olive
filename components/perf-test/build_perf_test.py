@@ -58,7 +58,7 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
             if is_windows():
                 copy(os.path.join(args.tensorrt_home, "lib/nvinfer.dll"), target_dir)
             else:
-                copy(os.path.join(args.tensorrt_home, "lib/x86_64-linux-gnu/libnvinfer.so*"), target_dir)
+                copy(os.path.join(args.tensorrt_home, "lib/libnvinfer.so*"), target_dir)
         if "ngraph" in build_name:
             if is_windows():
                 pass
@@ -116,7 +116,7 @@ if __name__ == "__main__":
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, "cuda", args)
 
     if args.use_tensorrt:
-        build_args = ["--use_tensorrt", "--use_full_protobuf", "--parallel"]
+        build_args = ["--use_tensorrt", "--use_full_protobuf"]
         if args.tensorrt_home:
             build_args = build_args + ["--tensorrt_home", args.tensorrt_home]
         if args.cuda_version:
