@@ -58,7 +58,7 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
             if is_windows():
                 copy(os.path.join(args.tensorrt_home, "lib/nvinfer.dll"), target_dir)
             else:
-                copy(os.path.join(args.tensorrt_home, "lib/x86_64-linux-gnu/libnvinfer.so*"), target_dir)
+                copy(os.path.join(args.tensorrt_home, "lib/libnvinfer.so*"), target_dir)
         if "ngraph" in build_name:
             if is_windows():
                 pass
@@ -85,6 +85,7 @@ def parse_arguments():
     parser.add_argument("--tensorrt_home", help="Path to TensorRT installation dir")
 
     parser.add_argument("--use_ngraph", action='store_true', help="Build with nGraph")
+    parser.add_argument("--use_mklml", action='store_true', help="Build with mklml")
 
     parser.add_argument("--variants", help="Variants to build. Will build all by default")
 
@@ -93,16 +94,19 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
 
-    build_onnxruntime(args.onnxruntime_home, args.config, [], "cpu", args)
+    build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel"], "cpu", args)
 
-    build_onnxruntime(args.onnxruntime_home, args.config, ["--use_openmp"], "cpu_openmp", args)
+    build_onnxruntime(args.onnxruntime_home, args.config, ["--use_openmp", "--parallel"], "cpu_openmp", args)
 
-    build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn"], "mkldnn", args)
+    build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--parallel"], "mkldnn", args)
 
-    build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--use_openmp"], "mkldnn_openmp", args)
+    build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--use_openmp", "--parallel"], "mkldnn_openmp", args)
+    
+    if args.use_mklml:
+        build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--use_mklml", "--parallel"], "mkldnn_mklml", args)
 
     if args.use_cuda:
-        build_args = ["--use_cuda"]
+        build_args = ["--use_cuda", "--parallel"]
         if args.cuda_version:
             build_args = build_args + ["--cuda_version", args.cuda_version]
         if args.cuda_home:

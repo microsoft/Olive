@@ -1,7 +1,8 @@
 # FROM ubuntu:18.04
 FROM nvidia/cuda:10.0-base
 
-RUN apt-get update && apt-get install -y python3.7 libgomp1 cuda-cublas-10-0
+RUN apt-get update && apt-get install -y python3.7 python3.7-dev libgomp1 cuda-cublas-10-0 python3-pip 
+RUN python3.7 -m pip install psutil gputil
 
 RUN mkdir /testmodel
 COPY resnet50 /testmodel/resnet50
@@ -9,6 +10,8 @@ COPY resnet50 /testmodel/resnet50
 RUN mkdir /perf_test
 COPY bin /perf_test/bin
 COPY perf_test.py /perf_test
+COPY monitor.py /perf_test
+COPY maps.py /perf_test
 
 WORKDIR /
 
