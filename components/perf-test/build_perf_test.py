@@ -103,7 +103,7 @@ if __name__ == "__main__":
     build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--use_openmp", "--parallel"], "mkldnn_openmp", args)
     
     if args.use_mklml:
-        build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--use_mklml", "--parallel"], "mklml", args)
+        build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--use_mklml", "--parallel"], "mkldnn_mklml", args)
 
     if args.use_cuda:
         build_args = ["--use_cuda", "--parallel"]

@@ -7,6 +7,7 @@ import subprocess
 import sys
 import uuid
 import psutil
+import GPUtil
 from monitor import Monitor
 from maps import ep_envvar_map, ep_graphOptimizer_map, model_ep_map
 
@@ -105,7 +106,7 @@ def run_perf_test(test_params, percentiles=False):
     else:
         test_args = test_params.get_args(result_file)
     
-    perf_test = subprocess.run(test_args, env=test_params.env, stderr=subprocess.STDOUT)
+    perf_test = subprocess.run(test_args, env=test_params.env)
     
     # The first run was warmup.
     remove(result_file)
@@ -353,11 +354,20 @@ if __name__ == "__main__":
 
     if not os.path.exists(args.result):
         os.mkdir(args.result)
-
-    providers = [p for p in args.e.split(",") if p != ""]
     
     bin_dir = os.path.join(os.path.dirname(__file__), "bin", args.config)
     build_dirs = os.listdir(bin_dir)
+
+    providers = [p for p in args.e.split(",") if p != ""] if len(args.e) > 0 else build_dirs
+
+    if len(GPUtil.getGPUs()) == 0:
+        print("No GPU found on current device. Cuda and TensorRT performance tuning are not available. ")
+        if "cuda" in providers:
+            providers.remove("cuda") 
+        if "tensorrt" in providers:
+            providers.remove("tensorrt") 
+    print("providers ", providers)
+
     tests = []
     successful = []
     failed = []
@@ -366,7 +376,7 @@ if __name__ == "__main__":
         build_path = os.path.join(bin_dir, build_name)
         if os.path.isdir(build_path):
             # If current build is requested by user, run perf tuning
-            if build_name in providers or len(providers) == 0:
+            if build_name in providers:
                 test_args = []
 
                 if "mkldnn" in build_name:
@@ -458,7 +468,7 @@ if __name__ == "__main__":
 
 
     with open(os.path.join(args.result, "latencies.txt"), "w") as out_file:
-        for test in successful[:int(args.s)]:
+        for test in successful:
             print(test.name, test.avg, "s")
             print(test.name, test.avg, "s", file=out_file)
 
