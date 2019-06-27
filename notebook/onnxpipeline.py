@@ -101,7 +101,7 @@ class Pipeline:
         return output_onnx_path
 
     def perf_test(self, model=None, result=None, config=None, m=None, e=None,
-        r=None, t=None, x=None, n=None, s=None, runtime='nvidia'):
+        r=None, t=None, x=None, n=None, s=None, runtime=True):
         
         if model is None:
             model = self.convert_path
@@ -109,6 +109,9 @@ class Pipeline:
 
         if result is not None:
             self.result = result
+
+        runtime = 'nvidia' if runtime else ''
+            
 
         result = posixpath.join(self.mount_path, self.result)
 
