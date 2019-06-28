@@ -28,10 +28,9 @@ class Pipeline:
         self.convert_path = posixpath.join(self.convert_directory, self.convert_name)
     
     def convert_model(self, model_type=None, output_onnx_path=None, 
-        model="", model_inputs=None, model_outputs=None, model_params=None,
-        model_input_shapes=None, target_opset=None, caffe_model_prototxt=None,
-        initial_types=None, input_json=None, convert_json=False
-        , model_inputs_names=None, model_outputs_names=None):
+        model="", model_params=None, model_input_shapes=None, target_opset=None, 
+        caffe_model_prototxt=None, initial_types=None, input_json=None, convert_json=False,
+        model_inputs_names=None, model_outputs_names=None):
 
         if model_type is None:
             raise RuntimeError('The conveted model type needs to be provided.')
