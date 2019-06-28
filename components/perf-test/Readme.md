@@ -20,27 +20,27 @@ To build `perf-test` image locally, you must first build `onnxruntime` using `bu
 python3 build_perf_test.py --onnxruntime_home <path_to_onnxruntime> --use_cuda --cuda_home <path_to_cuda> --cudnn_home <path_to_cudnn> --use_tensorrt --tensorrt_home <path_to_tensorrt> --use_ngraph
 ```
 
-**build_perf_test.py args**
+### build_perf_test.py args
 
-`--onnxruntime_home`: Required. Your local ONNX Runtime source directory. 
+`--onnxruntime_home`:   Required. Your local ONNX Runtime source directory. 
 
 `--use_cuda`: Flag to build ONNX runtime with CUDA execution provider. Required if you'd like to tune performace with CUDA execution provider and GPU is available on your machine.
 
-`--cuda_home`:The path to your cuda installation. e.g. /usr/local/cuda . Required if --use_cuda is used. 
+`--cuda_home`: The path to your cuda installation. e.g. /usr/local/cuda . Required if --use_cuda is used. 
 
 `--cuda_version`: Optional. The version of CUDA toolkit to use. Auto-detect if not specified. e.g. 9.0
 
-`--cudnn_home`: The path to your cuDNN installation which contains libcudnn.so files. Required if --use_cuda is used. 
+`--cudnn_home`: The path to your cuDNN installation which contains libcudnn.so* files. Required if --use_cuda is used. 
 
 `--use_tensorrt`: Flag to build ONNX runtime with TensorRT execution provider. Required if you'd like to tune performace with TensorRT execution provider and GPU is available on your machine.
 
-`--tensorrt_home`: The path to your TensorRT installation, which contains lib/libnvinfer.so. Required if --use_tensorrt is used. 
+`--tensorrt_home`: The path to your TensorRT installation, which contains lib/libnvinfer.so*. Required if --use_tensorrt is used. 
 
-`--use_ngraph`: Flag to build ONNX runtime with nGraph execution provider.
+`--use_ngraph`: Flag to build ONNX runtime with nGraph execution provider. Required if you'd like to tune performance with nGraph. 
 
-`--use_mklml`: Flag to build ONNX runtime with MKLML execution provider. 
+`--use_mklml`: Flag to build ONNX runtime with MKLML execution provider. Required if you'd like to tune performance with MKLML. 
 
-`--variants`: Optional. Specify execution providers to build. Each execution provider is separated by ",". Available options are cpu, cpu_openmp, mkldnn, mkldnn_openmp, mkldnn_mklml, cuda, tensorrt, ngraph. If not specified, build all. 
+`--variants`: Optional. Specify execution providers to build. Each execution provider is separated by ",". For example, `--variants cpu,cuda`. Available options are cpu, cpu_openmp, mkldnn, mkldnn_openmp, mkldnn_mklml, cuda, tensorrt, ngraph. If not specified, build all. 
 
 `--config`: Optional. ONNX runtime build configuration. Available options are "Debug", "MinSizeRel", "Release", "RelWithDebInfo". Default is "RelWithDebInfo". 
 
