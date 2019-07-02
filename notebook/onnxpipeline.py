@@ -183,15 +183,13 @@ class Pipeline:
 
         def __print_json(self, json_data, orient):
             data = json.dumps(json_data)
-            return pd.read_json(data, orient=orient)
+            return pd.read_json(data, orient=orient, precise_float=True)
             
         def __check_profiling_index(self, i):
             if i > self.profiling_max:
                 raise ValueError('Only provide top {} profiling.'.format(self.profiling_max))
 
-        def prints(self, top=None, orient='colums'):
-            if top is None:
-                top = len(self.latency) 
+        def prints(self, top=5, orient='colums'):
             return self.__print_json(self.latency[:top], orient)
         
         def print_profiling(self, i, orient='colums'):
@@ -212,7 +210,7 @@ class Pipeline:
             self.__check_profiling_index(i)
             return self.__print_json([p['args'] for p in self.profiling[i]], orient)
         """
-        
+
         def print_environment(self, i, orient='index'):
             return self.__print_json([self.latency[i]['code_snippet']['environment_variables']], orient)
 
