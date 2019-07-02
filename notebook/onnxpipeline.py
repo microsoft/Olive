@@ -181,19 +181,40 @@ class Pipeline:
                 with open(osp.join(result_directory, profiling_name)) as json_file:  
                     self.profiling.append(json.load(json_file))
 
-        def print(self, top=None, orient='colums'):
+        def __print_json(self, json_data, orient):
+            data = json.dumps(json_data)
+            return pd.read_json(data, orient=orient)
+            
+        def __check_profiling_index(self, i):
+            if i > self.profiling_max:
+                raise ValueError('Only provide top {} profiling.'.format(self.profiling_max))
+
+        def prints(self, top=None, orient='colums'):
             if top is None:
                 top = len(self.latency) 
-            data = json.dumps(self.latency[:top])
-            return pd.read_json(data, orient=orient)
+            return self.__print_json(self.latency[:top], orient)
         
         def print_profiling(self, i, orient='colums'):
-            data = json.dumps(self.profiling[i])
-            return pd.read_json(data, orient=orient)
-
-        def print_code_snippet(self, i, orient='colums'):
-            data = json.dumps(self.latency[i]['code_snippet'])
-            return pd.read_json(data, orient=orient)
+            self.__check_profiling_index(i)
+            unfold_profiling_list = []
+            for p in self.profiling[i]:
+                unfold_profiling = {}
+                for key in p:
+                    if key == 'args':
+                        for args_key in p[key]:
+                            unfold_profiling[args_key] = p[key][args_key]
+                    else:
+                        unfold_profiling[key] = p[key]
+                unfold_profiling_list.append(unfold_profiling)
+            return self.__print_json(unfold_profiling_list, orient)
+        """
+        def print_profiling_args(self, i, orient='index'):
+            self.__check_profiling_index(i)
+            return self.__print_json([p['args'] for p in self.profiling[i]], orient)
+        """
+        
+        def print_environment(self, i, orient='index'):
+            return self.__print_json([self.latency[i]['code_snippet']['environment_variables']], orient)
 
         def get_code(self, i):
             code = self.latency[i]['code_snippet']['code']
