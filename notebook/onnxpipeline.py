@@ -27,11 +27,21 @@ class Pipeline:
         self.convert_directory = convert_directory
         self.convert_name = convert_name
         self.convert_path = posixpath.join(self.convert_directory, self.convert_name)
+        self.none_params = {'convert_json', 'input_json', 'runtime'} # no need to write into json
     
+
+    def __params2args(self, argu_dict, params):
+        arguments = ""
+        for p in params:
+            if argu_dict[p] is not None:
+                if p not in self.none_params:
+                    arguments += docker_config.arg(p, argu_dict[p])
+        return arguments
+
     def convert_model(self, model_type=None, output_onnx_path=None, 
         model="", model_params=None, model_input_shapes=None, target_opset=None, 
-        caffe_model_prototxt=None, initial_types=None, input_json=None, convert_json=False,
-        model_inputs_names=None, model_outputs_names=None):
+        caffe_model_prototxt=None, initial_types=None, model_inputs_names=None, model_outputs_names=None,
+        input_json=None, convert_json=False):
 
         if model_type is None:
             raise RuntimeError('The conveted model type needs to be provided.')
@@ -68,14 +78,8 @@ class Pipeline:
             local_input_json = input_json
             input_json = posixpath.join(self.mount_path, input_json)
 
-        #arguments = docker_config.arg('model', model)
-        arguments = ""
-        argu_dict = locals()
         parameters = self.convert_model.__code__.co_varnames[1:self.convert_model.__code__.co_argcount]
-        for p in parameters:
-            if argu_dict[p] is not None:
-                if p not in ('convert_json'): # not converter parameters
-                    arguments += docker_config.arg(p, argu_dict[p])
+        arguments = self.__params2args(locals(), parameters)
         
         if convert_json:
             self.__convert_input_json(arguments, json_filename)
@@ -91,13 +95,13 @@ class Pipeline:
             command=arguments, 
             volumes={self.path: {'bind': self.mount_path, 'mode': 'rw'}},
             detach=True)
-        if self.print_logs:
-            self.__print_docker_logs(stream)
+        if self.print_logs: self.__print_docker_logs(stream)
 
         return output_onnx_path
 
-    def perf_test(self, model=None, result=None, config=None, m=None, e=None,
-        r=None, t=None, x=None, n=None, s=None, runtime=True):
+    def perf_test(self, model=None, result=None, config=None, mode=None, execution_provider=None,
+        repeated_times=None, duration_times=None, threadpool_size=None, num_threads=None, top_n=None, 
+        parallel=None, runtime=True, input_json=None, convert_json=False):
         
         if model is None:
             model = self.convert_path
@@ -112,21 +116,32 @@ class Pipeline:
         img_name = (docker_config.CONTAINER_NAME + 
             docker_config.FUNC_NAME['perf_test'] + ':latest')
 
-        arguments = ""
-        argu_dict = locals()
+        json_filename = input_json
+        # --input_json
+        if input_json is not None:
+            local_input_json = input_json
+            input_json = posixpath.join(self.mount_path, input_json)
+
         parameters = self.perf_test.__code__.co_varnames[1:self.perf_test.__code__.co_argcount]
-        for p in parameters:
-            if argu_dict[p] is not None:
-                if p not in ('runtime'): # not perf-test parameters
-                    arguments += docker_config.arg(p, argu_dict[p])
+        arguments = self.__params2args(locals(), parameters)
+
+        if convert_json:
+            self.__convert_input_json(arguments, json_filename)
+            arguments = docker_config.arg('input_json', input_json)
+        elif input_json is not None:
+            with open(posixpath.join(self.path, local_input_json)) as F:
+                json_data = json.load(F)
+                if 'result' in json_data:
+                    result = json_data['result']
+                    self.result = result
 
         stream = self.client.containers.run(image=img_name, 
             command=arguments, 
             volumes={self.path: {'bind': self.mount_path, 'mode': 'rw'}},
             runtime=runtime,
             detach=True)
-        if self.print_logs:
-            self.__print_docker_logs(stream)
+        if self.print_logs: self.__print_docker_logs(stream)
+
         return posixpath.join(self.path, self.result)
 
     def __print_docker_logs(self, stream):
@@ -139,7 +154,7 @@ class Pipeline:
         dictionary = {}
         for argv in args:
             argv = argv.split(' ')
-            if argv[0] != "" and argv[0] != 'input_json':
+            if argv[0] != "" and argv[0] not in self.none_params:
                 dictionary[argv[0]] = argv[1]
         json_path = posixpath.join(self.path, input_json)
         json_string = json.dumps(dictionary)
