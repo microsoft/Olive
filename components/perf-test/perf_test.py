@@ -54,14 +54,14 @@ class PerfTestParams:
 
     def get_common_args(self):
         common_args = []
-        if self.args.m:
-            common_args = common_args + ["-m", self.args.m]
-        if args.m == "times":
-            if self.args.r:
-                common_args = common_args + ["-r", args.r]
+        if self.args.mode:
+            common_args = common_args + ["-m", self.args.mode]
+        if args.mode == "times":
+            if self.args.repeated_times:
+                common_args = common_args + ["-r", args.repeated_times]
         else:
-            if self.args.t:
-                common_args = common_args + ["-t", args.t]
+            if self.args.duration_time:
+                common_args = common_args + ["-t", args.duration_time]
         return common_args
 
     def get_args(self, result_file):
@@ -82,7 +82,7 @@ class PerfTestParams:
 
     def gen_code_snippet(self):
         code_snippet = {
-            "execution_provider": self.args.e,
+            "execution_provider": self.args.execution_provider,
             "environment_variables": self.env_to_set,
             "code": "\
                 import onnxruntime as ort \
@@ -91,7 +91,7 @@ class PerfTestParams:
                 so.enable_sequential_execution = {} \
                 so.session_thread_pool_size({}) \
                 session = rt.Session(\"{}\", so) \
-                ".format(False if self.args.P else True, self.thread, self.args.model)
+                ".format(False if self.args.parallel else True, self.thread, self.args.model)
         }
         return code_snippet
 
@@ -299,14 +299,14 @@ class ConverterParamsFromJson():
         self.model = loaded_json["model"]
         self.result = loaded_json["result"]
         self.config = loaded_json["config"] if loaded_json.get("config") else "RelWithDebInfo"
-        self.m = loaded_json["mode"] if loaded_json.get("mode") else "times"
-        self.e = loaded_json["execution_provider"] if loaded_json.get("execution_provider") else ""
-        self.r = loaded_json["repeated_times"] if loaded_json.get("repeated_times") else "20"
-        self.t = loaded_json["duration_time"] if loaded_json.get("duration_time") else "10"
-        self.x = loaded_json["parallel"] if loaded_json.get("parallel") else str(cores)
-        self.n = loaded_json["num_threads"] if loaded_json.get("num_threads") else str(cores)
-        self.s = loaded_json["top_n"] if loaded_json.get("top_n") else "5"
-        self.P = True if loaded_json.get("P") else False
+        self.mode = loaded_json["mode"] if loaded_json.get("mode") else "times"
+        self.execution_provider = loaded_json["execution_provider"] if loaded_json.get("execution_provider") else ""
+        self.repeated_times = loaded_json["repeated_times"] if loaded_json.get("repeated_times") else "20"
+        self.duration_time = loaded_json["duration_time"] if loaded_json.get("duration_time") else "10"
+        self.threadpool_size = loaded_json["threadpool_size"] if loaded_json.get("threadpool_size") else str(cores)
+        self.num_threads = loaded_json["num_threads"] if loaded_json.get("num_threads") else str(cores)
+        self.top_n = loaded_json["top_n"] if loaded_json.get("top_n") else "5"
+        self.parallel = True if loaded_json.get("parallel") else False
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -318,22 +318,22 @@ def parse_arguments():
     parser.add_argument("--config", default="RelWithDebInfo",
                         choices=["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
                         help="Configuration to run.")
-    parser.add_argument("-m", default="times",
+    parser.add_argument("-m", "--mode", default="times",
                         choices=["duration", "times"],
                         help="Specifies the test mode. Value could be 'duration' or 'times'.")
-    parser.add_argument("-e", default="",
+    parser.add_argument("-e", "--execution_provider", default="",
                         help="Specifies the provider 'cpu','cuda','mkldnn'.")
-    parser.add_argument("-r", default="20",
+    parser.add_argument("-r", "--repeated_times", default="20",
                         help="Specifies the repeated times if running in 'times' test mode. Default:20.")
-    parser.add_argument("-t", default="10",
+    parser.add_argument("-t", "--duration_times", default="10",
                         help="Specifies the seconds to run for 'duration' mode. Default:10.")
-    parser.add_argument("-x", default=str(cores),
+    parser.add_argument("-x", "--threadpool_size", default=str(cores),
                         help="Use parallel executor, default (without -x): sequential executor.")
-    parser.add_argument("-n", default=str(cores),
+    parser.add_argument("-n", "--num_threads", default=str(cores),
                         help="OMP_NUM_THREADS value.")
-    parser.add_argument("-s", default="5",
+    parser.add_argument("-s", "--top_n", default="5",
                         help="Show percentiles for top n runs. Default:5.")
-    parser.add_argument("-P", default=False,
+    parser.add_argument("-P", "--parallel", default=False,
                         help="Use parallel executor instead of sequential executor.")
     parser.add_argument("--model",
                         help="Model.")
@@ -358,7 +358,7 @@ if __name__ == "__main__":
     bin_dir = os.path.join(os.path.dirname(__file__), "bin", args.config)
     build_dirs = os.listdir(bin_dir)
 
-    providers = [p for p in args.e.split(",") if p != ""] if len(args.e) > 0 else build_dirs
+    providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else build_dirs
 
     if len(GPUtil.getGPUs()) == 0:
         print("No GPU found on current device. Cuda and TensorRT performance tuning are not available. ")
@@ -401,7 +401,8 @@ if __name__ == "__main__":
 
                     best_run = -1
                     is_omp = "openmp" in build_name
-                    if args.P and "cuda" not in build_name and "tensorrt" not in build_name:                 
+                    num_threads = int(args.num_threads) if is_omp else int(args.threadpool_size)
+                    if args.parallel and "cuda" not in build_name and "tensorrt" not in build_name:                 
                         # Tune environment variables and thread pool size using parallel executor 
                         best_run = run_perf_test_binary(
                             PerfTestParams(
@@ -411,7 +412,7 @@ if __name__ == "__main__":
                                 test_args + ["-P"],
                                 env,
                                 args
-                            ), int(args.x), "_threads" + env_option, " threads, " + env_option, failed, successful, is_omp)
+                            ), num_threads, "_threads" + env_option, " threads, " + env_option, failed, successful, is_omp)
                     if best_run != None and best_run > 1:
                         # Run the best thread pool candidate with environment variable on sequential executor
                         param = PerfTestParams(
@@ -437,7 +438,7 @@ if __name__ == "__main__":
                                 test_args,
                                 env,
                                 args
-                            ), int(args.x), "_threads" + env_option, " threads, " + env_option, failed, successful, is_omp)
+                            ), num_threads, "_threads" + env_option, " threads, " + env_option, failed, successful, is_omp)
                     # Tune environment variables using sequential executor
                     params = PerfTestParams(
                         build_name + env_option,
@@ -455,7 +456,7 @@ if __name__ == "__main__":
     successful.extend([x for x in tests if x.avg])
     successful = sorted(successful, key=lambda e:e.avg)
     # Re-run fastest tests to calculate percentiles.
-    for test in successful[:int(args.s)]:
+    for test in successful[:int(args.top_n)]:
         run_perf_test(test, percentiles=True)
     
     failed.extend([x for x in tests if not x.avg])
