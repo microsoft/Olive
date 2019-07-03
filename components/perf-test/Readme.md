@@ -118,7 +118,7 @@ If an ONNX Runtime Linux build is completed in step 1, you can build the image w
 docker build -t perf-test -f Dockerfile.perftest .
 ```
 
-If ONNX Runtime is built on Windows, jump to [Run perf-test Without Docker](#4.-(Run-`perf-test`-Without-Docker))
+If ONNX Runtime is built on Windows, jump to [Run perf-test Without Docker](#4.-(Run-perf-test-Without-Docker))
 
 ### 3. Run Docker Image
 ```
