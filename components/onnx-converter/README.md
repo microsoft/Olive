@@ -21,7 +21,7 @@ With the correct credentials, you can pull the image directly using
 docker pull ziylregistry.azurecr.io/onnx-converter
 ```
 
-Upon success, run Docker perf-test image by
+Upon success, run Docker onnx-converter image by
 ```
 docker run ziylregistry.azurecr.io/onnx-converter --model <model_path> --output_onnx_path <output_path_to_.onnx> --model_type <input_model_framework_name> [optional args]
 ```
@@ -31,17 +31,19 @@ First build image with docker. Under this directory, run
 ```
 docker build -t onnx-converter .
 ```
-Upon success, you can run the docker image with customized parameters. 
+Then, you can run the docker image with customized parameters. 
 
 ```
 docker run onnx-converter --model <model_path> --output_onnx_path <output_path_to_.onnx> --model_type <input_model_framework_name> [optional args]
 ```
 
+### Run With Python
 Alternatively, you can run without docker by 
 ```
 python onnx_converter.py --model <model_path> --output_onnx_path <output_path_to_.onnx> --model_type <input_model_framework_name> [optional args]
 ```
 For detailed description of all available parameters, refer to the following. 
+
 ## Run parameters
 
 `--input_json`: A JSON file that contains all neccessary run specs. For example:
@@ -55,9 +57,9 @@ For detailed description of all available parameters, refer to the following.
 
 `--model`: Required or specified in input json. The path of the model that needs to be converted.
 
-`--output_onnx_path`: Required or specified in input json. The path to store the converted onnx model. Should end with ".onnx". e.g. "output.onnx". 
+`--output_onnx_path`: Required or specified in input json. The path to store the converted onnx model. Should end with ".onnx". e.g. "/newdir/output.onnx". A cleaned directory is recommended. 
 
-`--model_type`: Required or specified in input json. The name of original model framework. Available types are caffe, cntk, coreml, keras, libsvm, mxnet, scikit-learn, tensorflow and pytorch.
+`--model_type`: Required or specified in input json. The name of original model framework. Available types are cntk, coreml, keras, scikit-learn, tensorflow and pytorch.
 
 `--model_inputs_names`: Optional. The model's input names. Required for tensorflow frozen models and checkpoints.
 
