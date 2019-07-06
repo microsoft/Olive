@@ -5,7 +5,9 @@ import config as docker_config
 import json
 import posixpath
 import pandas as pd
-
+import functools 
+from collections import OrderedDict
+import csv
 
 class Pipeline:
     def __init__(self, local_directory=None, mount_path=docker_config.MOUNT_PATH, print_logs=True, 
@@ -188,7 +190,7 @@ class Pipeline:
         def __init__(self, result_directory):
             latency_json = osp.join(result_directory, docker_config.LATENCIES_JSON)
             with open(latency_json) as json_file:  
-                self.latency = json.load(json_file)            
+                self.latency = json.load(json_file, object_pairs_hook=OrderedDict)            
             self.profiling_max = 5
             self.profiling = []
             for i in range(self.profiling_max):
@@ -203,14 +205,35 @@ class Pipeline:
         def __check_profiling_index(self, i):
             if i > self.profiling_max:
                 raise ValueError('Only provide top {} profiling.'.format(self.profiling_max))
-
-        def prints(self, top=5, orient='colums'):
-            return self.__print_json(self.latency[:top], orient)
         
-        def print_profiling(self, i, orient='colums'):
-            self.__check_profiling_index(i)
+        def __json_to_csv(self, json_data, erase_keys):
+    
+            csv_name = 'temp.csv'
+            with open(csv_name, 'w') as f:
+                writer = csv.writer(f)
+                keys = []
+                for key in json_data[0]:
+                    if key not in erase_keys:
+                        keys.append(key)
+                writer.writerow(keys)
+                for j in json_data:
+                    values = []
+                    for key in j:
+                        if key not in erase_keys:
+                            values.append(j[key])
+                    writer.writerow(values)
+            return csv_name
+
+        def prints(self, top=5, orient='table'):
+            json_data = self.latency[:top]
+            csv_file = self.__json_to_csv(json_data, {'command'})
+            
+            return pd.read_csv(csv_file) 
+        
+        def print_profiling(self, index, top=10, orient='colums'):
+            self.__check_profiling_index(index)
             unfold_profiling_list = []
-            for p in self.profiling[i]:
+            for p in self.profiling[index]:
                 unfold_profiling = {}
                 for key in p:
                     if key == 'args':
@@ -219,18 +242,18 @@ class Pipeline:
                     else:
                         unfold_profiling[key] = p[key]
                 unfold_profiling_list.append(unfold_profiling)
-            return self.__print_json(unfold_profiling_list, orient)
+            return self.__print_json(unfold_profiling_list[:top], orient)
         """
         def print_profiling_args(self, i, orient='index'):
             self.__check_profiling_index(i)
             return self.__print_json([p['args'] for p in self.profiling[i]], orient)
         """
 
-        def print_environment(self, i, orient='index'):
-            return self.__print_json([self.latency[i]['code_snippet']['environment_variables']], orient)
+        def print_environment(self, index, orient='index'):
+            return self.__print_json([self.latency[index]['code_snippet']['environment_variables']], orient)
 
-        def get_code(self, i):
-            code = self.latency[i]['code_snippet']['code']
+        def get_code(self, index):
+            code = self.latency[index]['code_snippet']['code']
             refined_code = code.replace('                 ', '\n').replace('                ', '\n') # 4 tabs
             return refined_code
             
