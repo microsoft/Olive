@@ -5,10 +5,13 @@ This guide shows how to deploy and use ONNX Automation pipeline with Kubernetes 
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
     - [Create a Kubernetes Cluster](#Create-a-Kubernetes-Cluster)
-    - [Install and Deploy Kubeflow](#Deploy-Kubeflow)
-    - [Deploy Kubeflow Pipeline UI]()
-2. [Deploy Onnx Automation Pipeline]()
-3. [Run Onnx Automation Pipeline]()
+    - [Install and Deploy Kubeflow](#Install-And-Deploy-Kubeflow)
+2. [Deploy Onnx Automation Pipeline](#Deploy-Onnx-Automation-Pipeline)
+    - [Pipeline Storage](#Pipeline-Storage)
+    - [Deploy ONNX Pipeline](#Deploy-ONNX-Pipeline)
+3. [Run Onnx Automation Pipeline](#Run-Onnx-Automation-Pipeline)
+    - [Run Parameters](#Run-Parameters)
+    - [Components Source](#Components-Source)
 
 ## Prerequisites
 Before using Kubeflow pipeline, you'll need a Kubernetes cluster. This quickstart provides instruction on how to set up 
@@ -64,7 +67,7 @@ Capacity:
 > Note: In some scenarios, you might not see GPU resources under Capacity. To resolve this, you must install a daemonset as described in the troubleshooting section here: https://docs.microsoft.com/en-us/azure/aks/gpu-cluster
 
 
-### Deploy Kubeflow
+### Install and Deploy Kubeflow
 
 Follow the "Installation on existing Kubernetes" section in [Kubeflow official documentation](https://www.kubeflow.org/docs/started/getting-started/) to install Kubeflow. 
 
@@ -154,7 +157,7 @@ Our pipeline will automatically search for input files in this directory. You ca
 
 For more details about configuring data volumes on AKS, refer to https://docs.microsoft.com/en-us/azure/aks/azure-files-dynamic-pv . Note that since our pipeline runs inside Kubeflow, the PVC should be created under the namespace "kubeflow". 
 
-### Deploy ONNX pipeline
+### Deploy ONNX pipeline to Kubeflow
 
 The Kubeflow pipeline is built using [Kubeflow pipeline SDK](https://www.kubeflow.org/docs/pipelines/sdk/). For conceptual understanding, please refer to [Kubeflow Concepts](https://www.kubeflow.org/docs/pipelines/concepts/)
 
@@ -176,12 +179,13 @@ Open the Kubeflow pipelines UI. Click "Upload" on the top right corner, and then
 
 Create a new pipeline by clicking on the uploaded pipeline, and follow the UI instructions. 
 
-## Run parameters
+## Run Onnx Automation Pipeline
+### Run parameters
 
 
 `--model`: Required or specified in input json. The path of the model that needs to be converted.
 
-`--output_onnx_path`: Required or specified in input json. The path to store the converted onnx model. Should end with ".onnx". e.g. "/newdir/output.onnx". A cleaned directory is recommended. 
+`--output_onnx_path`: Required or specified in input json. The path to store the converted onnx model. Should end with ".onnx". e.g. "/newdir/output.onnx". A clean directory is recommended. 
    
 `--output_perf_result_path`: The path to store the perf result text file. 
 
@@ -201,12 +205,15 @@ Create a new pipeline by clicking on the uploaded pipeline, and follow the UI in
 
 `--target_opset`: Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3.
 
-## Components source
-The pipeline components
-Converter:
-  [source code](../components/onnx-converter), 
-  [container]()
+### Components source
+- ONNX Converter:
 
-Perf:
-  [source code](../components/perf_test), 
-  [container]()
+  [Source code](../components/onnx-converter)
+  
+  Container: TBD
+
+- Perf Tuning:
+
+  [Source code](../components/perf_test)
+
+  Container: TBD
