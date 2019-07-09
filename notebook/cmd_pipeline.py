@@ -68,8 +68,8 @@ def get_args():
     parser.add_argument('--nvidia', action="store_true", default=False,
                         help="Optional. Add it for enabling GPU. ")
 
-    parser.add_argument('--windows', action="store_true", default=True,
-                        help="Optional. For print in Windows")                        
+    parser.add_argument('--linux', action="store_true", default=False,
+                        help="Optional. For print in Windows or Linux. Default is disable for Windows.")                        
 
     args = parser.parse_args()
 
@@ -85,14 +85,14 @@ def main():
     model=pipeline.convert_model(model_type=args.model_type, model=win_path_to_linux_relative(args.model), model_input_shapes=args.model_input_shapes,
         model_inputs_names=args.model_inputs_names, model_outputs_names=args.model_outputs_names,
         model_params=args.model_params, target_opset=args.target_opset, input_json=args.input_json,
-        initial_types=args.initial_types, caffe_model_prototxt=args.caffe_model_prototxt, windows=args.windows)
+        initial_types=args.initial_types, caffe_model_prototxt=args.caffe_model_prototxt, windows=not args.linux)
     if 'Runtimes' in pipeline.client.info() and 'nvidia' in pipeline.client.info()['Runtimes']:
-        pipeline.perf_test(model=model, result=win_path_to_linux_relative(args.result), runtime=args.nvidia, windows=args.windows)
+        pipeline.perf_test(model=model, result=win_path_to_linux_relative(args.result), runtime=args.nvidia, windows=not args.linux)
     else:
         if args.nvidia:
             print('Not support Nvidia in local machine. Need to be installed.')
         args.nvidia = False
-        pipeline.perf_test(model=model, result=args.result, runtime=args.nvidia, windows=args.windows)
+        pipeline.perf_test(model=model, result=args.result, runtime=args.nvidia, windows=not args.linux)
   
 if __name__== "__main__":
     main()
