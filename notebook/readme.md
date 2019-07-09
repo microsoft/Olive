@@ -19,13 +19,16 @@ pip install docker
 ```bash
 sh build.sh
 pip install docker
+pip install jupyter
 ```
 Install Jupyter Notebook and use the Notebook [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb)
 
 # Convert model to ONNX and Performance test tool
 This command is used to convert model from major model frameworks to onnx and then performance test that onnx model.
 
-Supported frameworks are - caffe, cntk, coreml, keras, libsvm, mxnet, scikit-learn, tensorflow and pytorch.
+**IMPORTANT Only support the model path which is under the current directory.
+
+Supported frameworks are - tensorflow, pytorch, cntk, coreml, keras and scikit-learn.
 
 ### For Windows
 Use cmd and type as below:
@@ -65,7 +68,7 @@ python cmd_pipeline.py --model pytorch/saved_model.pb --model_type pytorch --mod
 ```
 
 Then all the result JSONs will be produced under result/ .
-Also print the logs for the process in the terminal. Check if there is any error occurs.
+Also print the logs for the process in the terminal. Check if there is any error.
 
 
 ### For Linux
