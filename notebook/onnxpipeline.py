@@ -28,8 +28,11 @@ class Pipeline:
         self.result = result
         self.convert_directory = convert_directory
         self.convert_name = convert_name
-        self.convert_path = posixpath.join(self.convert_directory, self.convert_name)
-        self.none_params = {'convert_json', 'input_json', 'runtime'} # no need to write into json
+        self.convert_path = posixpath.join(self.convert_directory, 
+                            self.convert_name)
+        self.none_params = {'convert_json', 'input_json', 
+                            'runtime', 'windows'} 
+                            # no need to write into json
     
 
     def __params2args(self, argu_dict, params):
@@ -43,7 +46,7 @@ class Pipeline:
     def convert_model(self, model_type=None, output_onnx_path=None, 
         model="", model_params=None, model_input_shapes=None, target_opset=None, 
         caffe_model_prototxt=None, initial_types=None, model_inputs_names=None, model_outputs_names=None,
-        input_json=None, convert_json=False):
+        input_json=None, convert_json=False, windows=False):
 
         if model_type is None:
             raise RuntimeError('The conveted model type needs to be provided.')
@@ -97,13 +100,13 @@ class Pipeline:
             command=arguments, 
             volumes={self.path: {'bind': self.mount_path, 'mode': 'rw'}},
             detach=True)
-        if self.print_logs: self.__print_docker_logs(stream)
+        if self.print_logs: self.__print_docker_logs(stream, windows)
 
         return output_onnx_path
 
     def perf_test(self, model=None, result=None, config=None, mode=None, execution_provider=None,
         repeated_times=None, duration_times=None, threadpool_size=None, num_threads=None, top_n=None, 
-        parallel=None, runtime=True, input_json=None, convert_json=False):
+        parallel=None, runtime=True, input_json=None, convert_json=False, windows=False):
         
         if model is None:
             model = self.convert_path
@@ -142,13 +145,17 @@ class Pipeline:
             volumes={self.path: {'bind': self.mount_path, 'mode': 'rw'}},
             runtime=runtime,
             detach=True)
-        if self.print_logs: self.__print_docker_logs(stream)
+        if self.print_logs: self.__print_docker_logs(stream, windows)
 
         return posixpath.join(self.path, self.result)
 
-    def __print_docker_logs(self, stream):
+    def __print_docker_logs(self, stream, windows=False):
         logs = stream.logs(stream=True)
         for line in logs:
+            if windows:
+                if type(line) is not str:
+                    line = line.decode(encoding='UTF-8')
+                line = line.replace('\n', '\r\n')
             print(line)
 
     def __convert_input_json(self, arguments, input_json):
