@@ -26,6 +26,8 @@ Install Jupyter Notebook and use the Notebook [onnx-pipeline.ipynb](https://gith
 # Convert model to ONNX and Performance test tool
 This command is used to convert model from major model frameworks to onnx and then performance test that onnx model.
 
+**IMPORTANT Only support the model path which is under the current directory.
+
 Supported frameworks are - tensorflow, pytorch, cntk, coreml, keras and scikit-learn.
 
 ### For Windows
@@ -66,7 +68,7 @@ python cmd_pipeline.py --model pytorch/saved_model.pb --model_type pytorch --mod
 ```
 
 Then all the result JSONs will be produced under result/ .
-Also print the logs for the process in the terminal. Check if there is any error occurs.
+Also print the logs for the process in the terminal. Check if there is any error.
 
 
 ### For Linux
