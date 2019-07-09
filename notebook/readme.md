@@ -13,6 +13,7 @@ Install [Docker](https://docs.docker.com/install/).
 ```bash
 build.sh
 pip install docker
+pip install jupyter
 ```
 
 ### For Linux
@@ -21,7 +22,12 @@ sh build.sh
 pip install docker
 pip install jupyter
 ```
-Install Jupyter Notebook and use the Notebook [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb)
+
+Type belows in command line, and then choose [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb) to use the notebook.
+
+```
+jupyter notebook
+```
 
 # Convert model to ONNX and Performance test tool
 This command is used to convert model from major model frameworks to onnx and then performance test that onnx model.
