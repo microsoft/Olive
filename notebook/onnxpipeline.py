@@ -34,6 +34,9 @@ class Pipeline:
                             'runtime', 'windows'} 
                             # no need to write into json
     
+    def __join_with_mount(self, path):
+        if path: path = osp.relpath(path)
+        return posixpath.join(self.mount_path, path)
 
     def __params2args(self, argu_dict, params):
         arguments = ""
@@ -56,13 +59,13 @@ class Pipeline:
         # --output_onnx_path
         if output_onnx_path is None:
             output_onnx_path = self.convert_path
-        output_onnx_path = posixpath.join(self.mount_path, output_onnx_path)
+        output_onnx_path = self.__join_with_mount(output_onnx_path)
 
         # --model
-        model = posixpath.join(self.mount_path, model)
+        model = self.__join_with_mount(model)
         # --caffe_model_prototxt
         if caffe_model_prototxt is not None:
-            caffe_model_prototxt = posixpath.join(self.mount_path, caffe_model_prototxt)
+            caffe_model_prototxt = self.__join_with_mount(caffe_model_prototxt)
         # --initial_types
         if initial_types is not None:
             if convert_json:
@@ -81,7 +84,7 @@ class Pipeline:
         # --input_json
         if input_json is not None:
             local_input_json = input_json
-            input_json = posixpath.join(self.mount_path, input_json)
+            input_json = self.__join_with_mount(input_json)
 
         parameters = self.convert_model.__code__.co_varnames[1:self.convert_model.__code__.co_argcount]
         arguments = self.__params2args(locals(), parameters)
@@ -110,13 +113,13 @@ class Pipeline:
         
         if model is None:
             model = self.convert_path
-        model = posixpath.join(self.mount_path, model)
+        model = self.__join_with_mount(model)
 
         if result is not None:
             self.result = result
 
         runtime = 'nvidia' if runtime else ''
-        result = posixpath.join(self.mount_path, self.result)
+        result = self.__join_with_mount(self.result)
 
         img_name = (docker_config.CONTAINER_NAME + 
             docker_config.FUNC_NAME['perf_test'] + ':latest')
@@ -125,7 +128,7 @@ class Pipeline:
         # --input_json
         if input_json is not None:
             local_input_json = input_json
-            input_json = posixpath.join(self.mount_path, input_json)
+            input_json = self.__join_with_mount(input_json)
 
         parameters = self.perf_test.__code__.co_varnames[1:self.perf_test.__code__.co_argcount]
         arguments = self.__params2args(locals(), parameters)

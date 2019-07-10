@@ -1,3 +1,5 @@
+import sys
+sys.path.append('../')
 import argparse
 import onnxpipeline
 from pathlib import PurePosixPath, PureWindowsPath
@@ -66,7 +68,7 @@ def get_args():
                         help="Optional. Result folder.")
 
     parser.add_argument('--nvidia', action="store_true", default=False,
-                        help="Optional. Add it for enabling GPU. ")
+                        help="Optional. Add it to enable GPU. ")
 
     parser.add_argument('--linux', action="store_true", default=False,
                         help="Optional. For print in Windows or Linux. Default is disable for Windows.")                        

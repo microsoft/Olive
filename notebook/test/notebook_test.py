@@ -1,3 +1,5 @@
+import sys
+sys.path.append('../')
 import unittest
 import onnxpipeline
 import config
