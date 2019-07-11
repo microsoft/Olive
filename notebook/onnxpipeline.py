@@ -30,8 +30,7 @@ class Pipeline:
         self.convert_name = convert_name
         self.convert_path = posixpath.join(self.convert_directory, 
                             self.convert_name)
-        self.none_params = {'convert_json', 'input_json', 
-                            'runtime', 'windows'} 
+        self.none_params = {'convert_json', 'runtime', 'windows'} 
                             # no need to write into json
     
     def __join_with_mount(self, path):
@@ -54,9 +53,11 @@ class Pipeline:
         
         def mount_parameters(output_onnx_path, model, caffe_model_prototxt, input_json):
             # --output_onnx_path
-            if output_onnx_path is None:
+            if output_onnx_path is None or output_onnx_path == u'':
                 output_onnx_path = self.convert_path
+
             output_onnx_path = self.__join_with_mount(output_onnx_path)
+
             # --model
             model = self.__join_with_mount(model)
             # --caffe_model_prototxt
@@ -64,7 +65,7 @@ class Pipeline:
                 caffe_model_prototxt = self.__join_with_mount(caffe_model_prototxt)
             return output_onnx_path, model, caffe_model_prototxt, input_json
         
-        if model_type is None:
+        if model_type is None and input_json is None:
             raise RuntimeError('The conveted model type needs to be provided.')
         img_name = (docker_config.CONTAINER_NAME + 
             docker_config.FUNC_NAME['onnx_converter'] + ':latest')
@@ -103,7 +104,7 @@ class Pipeline:
         elif input_json is not None:
             with open(posixpath.join(self.path, local_input_json), 'r') as f:
                 json_data = json.load(f)
-                if 'output_onnx_path' in json_data:
+                if 'output_onnx_path' in json_data and (json_data['output_onnx_path'] is not None and json_data['output_onnx_path'] != ''):
                     output_onnx_path = json_data['output_onnx_path']
                     self.convert_path = output_onnx_path
                     params = mount_parameters(
@@ -118,8 +119,7 @@ class Pipeline:
                 _, model, caffe_model_prototxt, _ = mount_parameters(
                     output_onnx_path, model, caffe_model_prototxt, input_json)
                 
-                if 'output_onnx_path' in json_data:
-                    json_data['output_onnx_path'] = output_onnx_path
+                json_data['output_onnx_path'] = output_onnx_path
                 if 'model' in json_data:
                     json_data['model'] = model
                 if 'caffe_model_prototxt' in json_data:
@@ -132,7 +132,7 @@ class Pipeline:
             volumes={self.path: {'bind': self.mount_path, 'mode': 'rw'}},
             detach=True)
         if self.print_logs: self.__print_docker_logs(stream, windows)
-
+        
         return output_onnx_path
 
     def perf_test(self, model=None, result=None, config=None, mode=None, execution_provider=None,

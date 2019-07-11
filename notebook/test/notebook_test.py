@@ -25,6 +25,7 @@ class notebook_test(unittest.TestCase):
         }
         self.print_logs = False
         self.time_out = 30
+
     def tearDown(self):
         # remove created test dirtectories
         def remove_all_subfiles(directory_path):
@@ -99,12 +100,12 @@ class notebook_test(unittest.TestCase):
         result_dir = pipeline.perf_test(model=model)
         latency_path = osp.join(result_dir, config.LATENCIES_TXT)
         self.assertEqual(self.check_latency_error(latency_path), 0) # 1 for cuda error, should be zerr
-    """
-    def test_convert_input_json(self):
+    
+    def test_convert_input_json_caffe(self):
         directory_name = self.deep_dir['caffe']
         pipeline = onnxpipeline.Pipeline(directory_name, convert_directory=self.convert_dir_pass, print_logs=self.print_logs)
         json_data = {
-            'model_type':'caffe',
+            'model_type': 'caffe',
             'model':'bvlc_alexnet.caffemodel',
             'caffe_model_prototxt':'deploy.prototxt'
         }
@@ -114,20 +115,26 @@ class notebook_test(unittest.TestCase):
         with open(input_json_path, 'w') as f:
             json.dump(json_data, f)
         def test_convert_pass(input_json):
-            model = pipeline.convert_model(input_json=input_json, model_type='caffe')
+            model = pipeline.convert_model(input_json=input_json)
             return model
 
+        # test convert relatve path to /[mount_path]/path in input_json
         model = test_convert_pass(input_json)
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
         self.check_json_staus(['SUCCESS', 'UNSUPPORTED'], self.check_converted_json(output_json))
-    """
-
-    def test_convert_input_json(self):
+        # input_json with /mount_path
+        model = test_convert_pass(input_json)
+        output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
+        self.check_json_staus(['SUCCESS', 'UNSUPPORTED'], self.check_converted_json(output_json))
+    
+    def test_convert_input_json_output_path(self):
         directory_name = self.deep_dir['pytorch']
         pipeline = onnxpipeline.Pipeline(directory_name, convert_directory=self.convert_dir_pass, print_logs=self.print_logs)
         json_data = {
-            'model':'saved_model.pb',
-            'model_input_shapes':'(1,3,224,224)'
+            'model_type': 'pytorch',
+            'model': osp.join(pipeline.mount_path, 'saved_model.pb'),
+            'model_input_shapes':'(1,3,224,224)',
+            'output_onnx_path': ''
         }
 
         input_json = 'input.json'
@@ -141,7 +148,7 @@ class notebook_test(unittest.TestCase):
         model = test_convert_pass(input_json)
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
         self.check_json_staus(['SUCCESS', 'SUCCESS'], self.check_converted_json(output_json))
-
+    
 
     def test_convert_from_onnx(self):
         directory_name = self.deep_dir['onnx']
