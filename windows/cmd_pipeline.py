@@ -1,5 +1,5 @@
 import sys
-sys.path.append('../')
+sys.path.append('../notebook')
 import argparse
 import onnxpipeline
 from pathlib import PurePosixPath, PureWindowsPath
@@ -42,7 +42,7 @@ def get_args():
     parser.add_argument(
         "--target_opset", 
         required=False,
-        default=7,
+        default="7",
         help="Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3."
     )
 

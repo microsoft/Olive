@@ -35,6 +35,7 @@ class Pipeline:
                             # no need to write into json
     
     def __join_with_mount(self, path):
+        if path[:len(self.mount_path)] == self.mount_path: return path
         if path: path = osp.relpath(path)
         return posixpath.join(self.mount_path, path)
 
@@ -50,22 +51,27 @@ class Pipeline:
         model="", model_params=None, model_input_shapes=None, target_opset=None, 
         caffe_model_prototxt=None, initial_types=None, model_inputs_names=None, model_outputs_names=None,
         input_json=None, convert_json=False, windows=False):
-
+        
+        def mount_parameters(output_onnx_path, model, caffe_model_prototxt, input_json):
+            # --output_onnx_path
+            if output_onnx_path is None:
+                output_onnx_path = self.convert_path
+            output_onnx_path = self.__join_with_mount(output_onnx_path)
+            # --model
+            model = self.__join_with_mount(model)
+            # --caffe_model_prototxt
+            if caffe_model_prototxt is not None:
+                caffe_model_prototxt = self.__join_with_mount(caffe_model_prototxt)
+            return output_onnx_path, model, caffe_model_prototxt, input_json
+        
         if model_type is None:
             raise RuntimeError('The conveted model type needs to be provided.')
         img_name = (docker_config.CONTAINER_NAME + 
             docker_config.FUNC_NAME['onnx_converter'] + ':latest')
 
-        # --output_onnx_path
-        if output_onnx_path is None:
-            output_onnx_path = self.convert_path
-        output_onnx_path = self.__join_with_mount(output_onnx_path)
-
-        # --model
-        model = self.__join_with_mount(model)
-        # --caffe_model_prototxt
-        if caffe_model_prototxt is not None:
-            caffe_model_prototxt = self.__join_with_mount(caffe_model_prototxt)
+        output_onnx_path, model, caffe_model_prototxt, input_json = mount_parameters(
+            output_onnx_path, model, caffe_model_prototxt, input_json)
+        
         # --initial_types
         if initial_types is not None:
             if convert_json:
@@ -89,15 +95,37 @@ class Pipeline:
         parameters = self.convert_model.__code__.co_varnames[1:self.convert_model.__code__.co_argcount]
         arguments = self.__params2args(locals(), parameters)
         
+        # convert the input parameters into json file
         if convert_json:
             self.__convert_input_json(arguments, json_filename)
             arguments = docker_config.arg('input_json', input_json)
+        # load by JSON file
         elif input_json is not None:
-            with open(posixpath.join(self.path, local_input_json)) as F:
-                json_data = json.load(F)
+            with open(posixpath.join(self.path, local_input_json), 'r') as f:
+                json_data = json.load(f)
                 if 'output_onnx_path' in json_data:
                     output_onnx_path = json_data['output_onnx_path']
                     self.convert_path = output_onnx_path
+                    params = mount_parameters(
+                        output_onnx_path, model, caffe_model_prototxt, input_json)
+                    output_onnx_path = params[0]
+                    
+                if 'model' in json_data:
+                    model = json_data['model']
+                if 'caffe_model_prototxt' in json_data:
+                    caffe_model_prototxt = json_data['caffe_model_prototxt']
+
+                _, model, caffe_model_prototxt, _ = mount_parameters(
+                    output_onnx_path, model, caffe_model_prototxt, input_json)
+                
+                if 'output_onnx_path' in json_data:
+                    json_data['output_onnx_path'] = output_onnx_path
+                if 'model' in json_data:
+                    json_data['model'] = model
+                if 'caffe_model_prototxt' in json_data:
+                    json_data['caffe_model_prototxt'] = caffe_model_prototxt
+            with open(posixpath.join(self.path, local_input_json), 'w') as f:
+                json.dump(json_data, f)
 
         stream = self.client.containers.run(image=img_name, 
             command=arguments, 
@@ -132,10 +160,12 @@ class Pipeline:
 
         parameters = self.perf_test.__code__.co_varnames[1:self.perf_test.__code__.co_argcount]
         arguments = self.__params2args(locals(), parameters)
-
+        
+        # convert the input parameters into json file
         if convert_json:
             self.__convert_input_json(arguments, json_filename)
             arguments = docker_config.arg('input_json', input_json)
+        # load by JSON file
         elif input_json is not None:
             with open(posixpath.join(self.path, local_input_json)) as F:
                 json_data = json.load(F)
@@ -253,11 +283,6 @@ class Pipeline:
                         unfold_profiling[key] = p[key]
                 unfold_profiling_list.append(unfold_profiling)
             return self.__print_json(unfold_profiling_list[:top], orient)
-        """
-        def print_profiling_args(self, i, orient='index'):
-            self.__check_profiling_index(i)
-            return self.__print_json([p['args'] for p in self.profiling[i]], orient)
-        """
 
         def print_environment(self, index, orient='index'):
             return self.__print_json([self.latency[index]['code_snippet']['environment_variables']], orient)
