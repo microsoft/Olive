@@ -53,7 +53,7 @@ class Pipeline:
         
         def mount_parameters(output_onnx_path, model, caffe_model_prototxt, input_json):
             # --output_onnx_path
-            if output_onnx_path is None or output_onnx_path == u'':
+            if output_onnx_path is None or output_onnx_path == '':
                 output_onnx_path = self.convert_path
 
             output_onnx_path = self.__join_with_mount(output_onnx_path)
@@ -63,12 +63,20 @@ class Pipeline:
             # --caffe_model_prototxt
             if caffe_model_prototxt is not None:
                 caffe_model_prototxt = self.__join_with_mount(caffe_model_prototxt)
+                
+            if input_json is not None:
+                input_json = self.__join_with_mount(input_json)
             return output_onnx_path, model, caffe_model_prototxt, input_json
         
         if model_type is None and input_json is None:
             raise RuntimeError('The conveted model type needs to be provided.')
+
         img_name = (docker_config.CONTAINER_NAME + 
             docker_config.FUNC_NAME['onnx_converter'] + ':latest')
+
+        # --input_json
+        if input_json is not None:
+            local_input_json = input_json
 
         output_onnx_path, model, caffe_model_prototxt, input_json = mount_parameters(
             output_onnx_path, model, caffe_model_prototxt, input_json)
@@ -88,10 +96,6 @@ class Pipeline:
 
         json_filename = input_json
 
-        # --input_json
-        if input_json is not None:
-            local_input_json = input_json
-            input_json = self.__join_with_mount(input_json)
 
         parameters = self.convert_model.__code__.co_varnames[1:self.convert_model.__code__.co_argcount]
         arguments = self.__params2args(locals(), parameters)
@@ -110,15 +114,14 @@ class Pipeline:
                     params = mount_parameters(
                         output_onnx_path, model, caffe_model_prototxt, input_json)
                     output_onnx_path = params[0]
-                    
                 if 'model' in json_data:
                     model = json_data['model']
                 if 'caffe_model_prototxt' in json_data:
                     caffe_model_prototxt = json_data['caffe_model_prototxt']
-
+                # convert to mount path
                 _, model, caffe_model_prototxt, _ = mount_parameters(
                     output_onnx_path, model, caffe_model_prototxt, input_json)
-                
+                # write back to JSON
                 json_data['output_onnx_path'] = output_onnx_path
                 if 'model' in json_data:
                     json_data['model'] = model
@@ -138,25 +141,38 @@ class Pipeline:
     def perf_test(self, model=None, result=None, config=None, mode=None, execution_provider=None,
         repeated_times=None, duration_times=None, threadpool_size=None, num_threads=None, top_n=None, 
         parallel=None, runtime=True, input_json=None, convert_json=False, windows=False):
-        
-        if model is None:
-            model = self.convert_path
-        model = self.__join_with_mount(model)
 
-        if result is not None:
-            self.result = result
 
-        runtime = 'nvidia' if runtime else ''
-        result = self.__join_with_mount(self.result)
+        def mount_parameters(model, result, input_json):
+            # --model
+            if model is None:
+                model = self.convert_path
+            model = self.__join_with_mount(model)
 
-        img_name = (docker_config.CONTAINER_NAME + 
-            docker_config.FUNC_NAME['perf_test'] + ':latest')
+            result = self.__join_with_mount(self.result)
+
+            # --input_json
+            if input_json is not None:
+                input_json = self.__join_with_mount(input_json)
+
+            return model, result, input_json
 
         json_filename = input_json
         # --input_json
         if input_json is not None:
             local_input_json = input_json
-            input_json = self.__join_with_mount(input_json)
+        
+        if result is not None:
+            self.result = result
+
+        model, result, input_json = mount_parameters(model, result, input_json)
+
+
+        runtime = 'nvidia' if runtime else ''
+
+        img_name = (docker_config.CONTAINER_NAME + 
+            docker_config.FUNC_NAME['perf_test'] + ':latest')
+
 
         parameters = self.perf_test.__code__.co_varnames[1:self.perf_test.__code__.co_argcount]
         arguments = self.__params2args(locals(), parameters)
@@ -167,11 +183,33 @@ class Pipeline:
             arguments = docker_config.arg('input_json', input_json)
         # load by JSON file
         elif input_json is not None:
-            with open(posixpath.join(self.path, local_input_json)) as F:
-                json_data = json.load(F)
+            with open(posixpath.join(self.path, local_input_json)) as f:
+                json_data = json.load(f)
                 if 'result' in json_data:
                     result = json_data['result']
-                    self.result = result
+                    if result[:len(self.mount_path)] == self.mount_path:
+                        self.result = str(result[len(self.mount_path)+1:])
+                    else:
+                        self.result = result
+
+                    params = mount_parameters(
+                        model, None, input_json)
+                    result = params[1]
+
+
+                if 'model' in json_data:
+                    model = json_data['model']
+
+                # convert to mount path
+                model, _, _ = mount_parameters(
+                    model, result, input_json)
+                # write back to JSON
+                json_data['result'] = result
+
+                if 'model' in json_data:
+                    json_data['model'] = model
+            with open(posixpath.join(self.path, local_input_json), 'w') as f:
+                json.dump(json_data, f)
 
         stream = self.client.containers.run(image=img_name, 
             command=arguments, 

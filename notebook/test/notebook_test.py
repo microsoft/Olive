@@ -69,7 +69,6 @@ class notebook_test(unittest.TestCase):
     def check_converted_json(self, output_json):        
         if not self.wait_output_timeout(output_json):
             raise Exception('Fail. Convert model over {} seconds...'.format(self.time_out))
-
         with open(output_json) as f:
             data = json.load(f)
             conversion_status = data['conversion_status']
@@ -99,7 +98,7 @@ class notebook_test(unittest.TestCase):
         model = pipeline.convert_model(model_type='onnx', model='perf-test/ImageQnA.onnx', output_onnx_path='perf-test/ImageQnA.onnx')
         result_dir = pipeline.perf_test(model=model)
         latency_path = osp.join(result_dir, config.LATENCIES_TXT)
-        self.assertEqual(self.check_latency_error(latency_path), 0) # 1 for cuda error, should be zerr
+        self.assertEqual(self.check_latency_error(latency_path), 0) # 1 for cuda error, should be zero
     
     def test_convert_input_json_caffe(self):
         directory_name = self.deep_dir['caffe']
@@ -144,11 +143,36 @@ class notebook_test(unittest.TestCase):
         def test_convert_pass(input_json):
             model = pipeline.convert_model(input_json=input_json, model_type='pytorch')
             return model
-
+    
         model = test_convert_pass(input_json)
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
         self.check_json_staus(['SUCCESS', 'SUCCESS'], self.check_converted_json(output_json))
-    
+
+    def test_perf_input_json_output_path(self):
+
+        directory_name = self.deep_dir['onnx']
+        pipeline = onnxpipeline.Pipeline(directory_name, print_logs=False)
+        # generate input
+        model = pipeline.convert_model(model_type='onnx', model='perf-test/ImageQnA.onnx', output_onnx_path='perf-test/ImageQnA.onnx')
+        
+        json_data = {
+            'result': 'result',
+            'model': model
+        }
+        input_json = 'input.json'
+        input_json_path = osp.join(directory_name, input_json)
+        with open(input_json_path, 'w') as f:
+            json.dump(json_data, f)        
+        # test convert relatve path to /[mount_path]/path in input_json
+        result_dir = pipeline.perf_test(input_json=input_json)
+        latency_path = osp.join(result_dir, config.LATENCIES_TXT)
+        self.assertEqual(self.check_latency_error(latency_path), 0) # 1 for cuda error, should be zero
+        # input_json with /mount_path
+        result_dir = pipeline.perf_test(input_json=input_json)
+        latency_path = osp.join(result_dir, config.LATENCIES_TXT)
+        self.assertEqual(self.check_latency_error(latency_path), 0) # 1 for cuda error, should be zero
+
+
 
     def test_convert_from_onnx(self):
         directory_name = self.deep_dir['onnx']
