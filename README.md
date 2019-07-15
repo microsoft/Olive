@@ -4,7 +4,7 @@ ONNX Automation Pipeline is a sequence of docker images that automates the proce
 
 There are three ways to use the pipeline:
 
-1. [Use Pipeline With Kubeflow](/pipeline): Portable and rapid solution with Kubeflow on Kubernetes to deploy easily manageable end-to-end workflow.
+1. [Use Pipeline With Kubeflow](/pipelines): Portable and rapid solution with Kubeflow on Kubernetes to deploy easily manageable end-to-end workflow.
 
 2. [Use With Jupyter Notebook](/notebook): Quickstart of the pipeline with tutorial using Jupyter Notebook. 
 
