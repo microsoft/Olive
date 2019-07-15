@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "bootstrap": "^4.3.1",
+    "bootstrap-vue": "^2.0.0-rc.26",
     "vue": "^2.5.2",
     "vue-router": "^3.0.1"
   },
