@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div style="white-space: pre-line;">
     <b-alert variant="success" show>{{ message }}</b-alert>
     <br>
   </div>
@@ -10,3 +10,5 @@ export default {
   props: ['message'],
 };
 </script>
+
+white-space: pre-line;

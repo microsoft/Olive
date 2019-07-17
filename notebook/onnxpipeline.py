@@ -35,7 +35,7 @@ class Pipeline:
     
     def __join_with_mount(self, path):
         if path[:len(self.mount_path)] == self.mount_path: return path
-        if path: path = osp.relpath(path)
+        if path: path = self.win_path_to_linux_relative(osp.relpath(path))
         return posixpath.join(self.mount_path, path)
 
     def __params2args(self, argu_dict, params):
@@ -80,7 +80,8 @@ class Pipeline:
 
         output_onnx_path, model, caffe_model_prototxt, input_json = mount_parameters(
             output_onnx_path, model, caffe_model_prototxt, input_json)
-        
+
+
         # --initial_types
         if initial_types is not None:
             if convert_json:
@@ -108,6 +109,7 @@ class Pipeline:
         elif input_json is not None:
             with open(posixpath.join(self.path, local_input_json), 'r') as f:
                 json_data = json.load(f)
+
                 if 'output_onnx_path' in json_data and (json_data['output_onnx_path'] is not None and json_data['output_onnx_path'] != ''):
                     output_onnx_path = json_data['output_onnx_path']
                     self.convert_path = output_onnx_path
@@ -127,6 +129,8 @@ class Pipeline:
                     json_data['model'] = model
                 if 'caffe_model_prototxt' in json_data:
                     json_data['caffe_model_prototxt'] = caffe_model_prototxt
+
+
             with open(posixpath.join(self.path, local_input_json), 'w') as f:
                 json.dump(json_data, f)
 
@@ -134,9 +138,9 @@ class Pipeline:
             command=arguments, 
             volumes={self.path: {'bind': self.mount_path, 'mode': 'rw'}},
             detach=True)
-        if self.print_logs: self.__print_docker_logs(stream, windows)
+        output = self.__print_docker_logs(stream, windows)
         
-        return output_onnx_path
+        return output_onnx_path, output
 
     def perf_test(self, model=None, result=None, config=None, mode=None, execution_provider=None,
         repeated_times=None, duration_times=None, threadpool_size=None, num_threads=None, top_n=None, 
@@ -216,18 +220,22 @@ class Pipeline:
             volumes={self.path: {'bind': self.mount_path, 'mode': 'rw'}},
             runtime=runtime,
             detach=True)
-        if self.print_logs: self.__print_docker_logs(stream, windows)
+        output = self.__print_docker_logs(stream, windows)
 
         return posixpath.join(self.path, self.result)
 
     def __print_docker_logs(self, stream, windows=False):
         logs = stream.logs(stream=True)
+        output = ""
         for line in logs:
             if windows:
                 if type(line) is not str:
                     line = line.decode(encoding='UTF-8')
                 line = line.replace('\n', '\r\n')
-            print(line)
+            output += str(line)
+            if self.print_logs:
+                print(line)
+        return output
 
     def __convert_input_json(self, arguments, input_json):
         args = arguments.split('--')
@@ -263,6 +271,10 @@ class Pipeline:
         print("        Converted model filename: {}".format(self.convert_name))
         print("            Converted model path: {}".format(self.convert_path))
         print("        Print logs in the docker: {}".format(self.print_logs))
+
+    def win_path_to_linux_relative(self, path):
+        return osp.relpath(path).replace("\\", "/")
+
 
     class Result:
         def __init__(self, result_directory):
@@ -329,4 +341,4 @@ class Pipeline:
             code = self.latency[index]['code_snippet']['code']
             refined_code = code.replace('                 ', '\n').replace('                ', '\n') # 4 tabs
             return refined_code
-            
+        

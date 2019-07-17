@@ -77,19 +77,16 @@ def get_args():
 
     return args
 
-def win_path_to_linux_relative(path):
-    return osp.relpath(path).replace("\\", "/")
-
 
 def main():
     args = get_args()
     pipeline = onnxpipeline.Pipeline()
-    model=pipeline.convert_model(model_type=args.model_type, model=win_path_to_linux_relative(args.model), model_input_shapes=args.model_input_shapes,
+    model=pipeline.convert_model(model_type=args.model_type, model=pipeline.win_path_to_linux_relative(args.model), model_input_shapes=args.model_input_shapes,
         model_inputs_names=args.model_inputs_names, model_outputs_names=args.model_outputs_names,
         model_params=args.model_params, target_opset=args.target_opset, input_json=args.input_json,
         initial_types=args.initial_types, caffe_model_prototxt=args.caffe_model_prototxt, windows=not args.linux)
     if 'Runtimes' in pipeline.client.info() and 'nvidia' in pipeline.client.info()['Runtimes']:
-        pipeline.perf_test(model=model, result=win_path_to_linux_relative(args.result), runtime=args.nvidia, windows=not args.linux)
+        pipeline.perf_test(model=model, result=pipeline.win_path_to_linux_relative(args.result), runtime=args.nvidia, windows=not args.linux)
     else:
         if args.nvidia:
             print('Not support Nvidia in local machine. Need to be installed.')

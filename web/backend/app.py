@@ -1,6 +1,9 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import uuid
+import uuid, sys, json
+sys.path.append('../../notebook')
+import onnxpipeline
+from werkzeug.utils import secure_filename
 
 BOOKS = [
     {
@@ -40,20 +43,45 @@ CORS(app)
 def ping_pong():
     return jsonify('pong!')
 
-@app.route('/books', methods=['GET', 'POST'])
-def all_books():
+@app.route('/convert', methods=['GET', 'POST'])
+def convert():
     response_object = {'status': 'success'}
     if request.method == 'POST':
-        post_data = request.get_json()
+
+        temp_model = request.files['file']
+
+        model_name = temp_model.filename
+        temp_json = 'temp.json'
+
+        request.files['file'].save(model_name)
+        request.files['metadata'].save(temp_json)
+        
+        with open(temp_json, 'r') as f:
+            json_data = json.load(f)
+
+        json_data['model'] = model_name
+        json_data['model_type'] = 'onnx'
+
+        with open(temp_json, 'w') as f:
+            json.dump(json_data, f)
+
+        pipeline = onnxpipeline.Pipeline()
+        model, output = pipeline.convert_model(model=model_name, input_json=temp_json)
+
+        response_object['logs'] = output
+        print('logs')
+        print('---------------')
+        """
         BOOKS.append({
             'id': uuid.uuid4().hex,
             'title': post_data.get('title'),
             'author': post_data.get('author'),
             'read': post_data.get('read')
         })
-        response_object['message'] = 'Book added!'
-    else:
-        response_object['books'] = BOOKS
+        """
+        #response_object['message'] = 'Book added!'
+    #else:
+        #response_object['books'] = BOOKS
     return jsonify(response_object)
 
 @app.route('/books/<book_id>', methods=['PUT', 'DELETE'])

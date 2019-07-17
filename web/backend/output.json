@@ -1,0 +1,7 @@
+{
+    "output_onnx_path": "",
+    "conversion_status": "FAILED",
+    "correctness_verified": "FAILED",
+    "input_folder": "",
+    "error_message": "[Errno 22] Invalid argument: '/mnt/model/test\\\\model.onnx'"
+}
