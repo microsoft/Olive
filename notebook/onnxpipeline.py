@@ -50,7 +50,11 @@ class Pipeline:
         model="", model_params=None, model_input_shapes=None, target_opset=None, 
         caffe_model_prototxt=None, initial_types=None, model_inputs_names=None, model_outputs_names=None,
         input_json=None, convert_json=False, windows=False):
-        
+
+        # is Windows
+        if os.name == 'nt':
+            windows = True
+
         def mount_parameters(output_onnx_path, model, caffe_model_prototxt, input_json):
             # --output_onnx_path
             if output_onnx_path is None or output_onnx_path == '':
@@ -145,7 +149,11 @@ class Pipeline:
     def perf_test(self, model=None, result=None, config=None, mode=None, execution_provider=None,
         repeated_times=None, duration_times=None, threadpool_size=None, num_threads=None, top_n=None, 
         parallel=None, runtime=True, input_json=None, convert_json=False, windows=False):
-
+        
+        # is Windows, there is no runtime
+        if os.name == 'nt':
+            runtime = False
+            windows = True
 
         def mount_parameters(model, result, input_json):
             # --model
