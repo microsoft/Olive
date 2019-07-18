@@ -1,3 +1,4 @@
 
 *.pyc
 *.onnx
+web/frontend/node_modules/*
