@@ -361,11 +361,11 @@ if __name__ == "__main__":
     providers = [p for p in args.e.split(",") if p != ""] if len(args.e) > 0 else build_dirs
 
     if len(GPUtil.getGPUs()) == 0:
-        print("No GPU found on current device. Cuda and TensorRT performance tuning are not available. ")
-        if "cuda" in providers:
-            providers.remove("cuda") 
-        if "tensorrt" in providers:
-            providers.remove("tensorrt") 
+        print("No GPU found on current device. Cuda and TensorRT performance tuning might not be available. ")
+        # if "cuda" in providers:
+        #     providers.remove("cuda") 
+        # if "tensorrt" in providers:
+        #     providers.remove("tensorrt") 
     print("providers ", providers)
 
     tests = []
@@ -461,7 +461,7 @@ if __name__ == "__main__":
     failed.extend([x for x in tests if not x.avg])
     
     # Re-sort tests based on 100 runs
-    successful = sorted(successful, key=lambda e:e.avg)
+    successful = sorted(successful[:int(args.s)], key=lambda e:e.avg)
     print("")
     print("Results:")
     out_json = []
