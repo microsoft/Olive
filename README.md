@@ -8,4 +8,4 @@ There are three ways to use the pipeline:
 
 2. [Use With Jupyter Notebook](/notebook): Quickstart of the pipeline with tutorial using Jupyter Notebook. 
 
-3. [Use With Command Line Tool](/cmdline): Run the pipeline with command line using Python. 
+3. [Use With Command Line Tool](/windows): Run the pipeline with command line using Python. 
