@@ -1,1 +1,1 @@
-{"title": "123213", "read": false, "model": "/mnt/model/model.onnx", "model_type": "onnx", "output_onnx_path": "/mnt/model/test/model.onnx"}
+{"model_type": "onnx", "model_inputs_names": "", "options": [{"value": "pytorch", "text": "pytorch"}, {"value": "tensorflow", "text": "tensorflow"}, {"value": "onnx", "text": "onnx"}], "model": "/mnt/model/mnist.onnx", "read": [], "output_onnx_path": "/mnt/model/test/model.onnx"}

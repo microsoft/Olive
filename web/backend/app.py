@@ -4,6 +4,7 @@ import uuid, sys, json
 sys.path.append('../../notebook')
 import onnxpipeline
 from werkzeug.utils import secure_filename
+import netron
 
 BOOKS = [
     {
@@ -37,11 +38,19 @@ app.config.from_object(__name__)
 # enable CORS
 CORS(app)
 
+@app.route('/visualize', methods=['POST'])
+def visualize():
+    response_object = {'status': 'failure'}
+    if request.method == 'POST':
+        response_object = {'status': 'success'}
+        temp_model = request.files['file']
+        model_name = temp_model.filename
 
-# sanity check route
-@app.route('/ping', methods=['GET'])
-def ping_pong():
-    return jsonify('pong!')
+        request.files['file'].save(model_name)
+
+        netron.start(model_name)
+
+    return jsonify(response_object)
 
 @app.route('/convert', methods=['GET', 'POST'])
 def convert():
@@ -60,7 +69,6 @@ def convert():
             json_data = json.load(f)
 
         json_data['model'] = model_name
-        json_data['model_type'] = 'onnx'
 
         with open(temp_json, 'w') as f:
             json.dump(json_data, f)
@@ -69,19 +77,7 @@ def convert():
         model, output = pipeline.convert_model(model=model_name, input_json=temp_json)
 
         response_object['logs'] = output
-        print('logs')
-        print('---------------')
-        """
-        BOOKS.append({
-            'id': uuid.uuid4().hex,
-            'title': post_data.get('title'),
-            'author': post_data.get('author'),
-            'read': post_data.get('read')
-        })
-        """
-        #response_object['message'] = 'Book added!'
-    #else:
-        #response_object['books'] = BOOKS
+
     return jsonify(response_object)
 
 @app.route('/books/<book_id>', methods=['PUT', 'DELETE'])
