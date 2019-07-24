@@ -32,6 +32,7 @@ class Pipeline:
                             self.convert_name)
         self.none_params = {'convert_json', 'runtime', 'windows'} 
                             # no need to write into json
+        self.output = ""
     
     def __join_with_mount(self, path):
         if path[:len(self.mount_path)] == self.mount_path: return path
@@ -50,7 +51,11 @@ class Pipeline:
         model="", model_params=None, model_input_shapes=None, target_opset=None, 
         caffe_model_prototxt=None, initial_types=None, model_inputs_names=None, model_outputs_names=None,
         input_json=None, convert_json=False, windows=False):
-        
+
+        # is Windows
+        if os.name == 'nt':
+            windows = True
+
         def mount_parameters(output_onnx_path, model, caffe_model_prototxt, input_json):
             # --output_onnx_path
             if output_onnx_path is None or output_onnx_path == '':
@@ -138,14 +143,18 @@ class Pipeline:
             command=arguments, 
             volumes={self.path: {'bind': self.mount_path, 'mode': 'rw'}},
             detach=True)
-        output = self.__print_docker_logs(stream, windows)
+        if self.print_logs: self.__print_docker_logs(stream, windows)
         
-        return output_onnx_path, output
+        return output_onnx_path
 
     def perf_test(self, model=None, result=None, config=None, mode=None, execution_provider=None,
         repeated_times=None, duration_times=None, threadpool_size=None, num_threads=None, top_n=None, 
         parallel=None, runtime=True, input_json=None, convert_json=False, windows=False):
-
+        
+        # is Windows, there is no runtime
+        if os.name == 'nt':
+            runtime = False
+            windows = True
 
         def mount_parameters(model, result, input_json):
             # --model
@@ -220,22 +229,21 @@ class Pipeline:
             volumes={self.path: {'bind': self.mount_path, 'mode': 'rw'}},
             runtime=runtime,
             detach=True)
-        output = self.__print_docker_logs(stream, windows)
+        if self.print_logs: self.__print_docker_logs(stream, windows)
 
         return posixpath.join(self.path, self.result)
 
     def __print_docker_logs(self, stream, windows=False):
         logs = stream.logs(stream=True)
-        output = ""
+        self.output = ""
         for line in logs:
+            if type(line) is not str:
+                line = line.decode(encoding='UTF-8')
             if windows:
-                if type(line) is not str:
-                    line = line.decode(encoding='UTF-8')
                 line = line.replace('\n', '\r\n')
-            output += str(line)
-            if self.print_logs:
-                print(line)
-        return output
+            self.output += line
+            if self.print_logs: print(line)
+
 
     def __convert_input_json(self, arguments, input_json):
         args = arguments.split('--')
@@ -341,4 +349,3 @@ class Pipeline:
             code = self.latency[index]['code_snippet']['code']
             refined_code = code.replace('                 ', '\n').replace('                ', '\n') # 4 tabs
             return refined_code
-        

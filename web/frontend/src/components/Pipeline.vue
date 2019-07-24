@@ -3,39 +3,33 @@
     <div class="row">
       <div class="col-sm-10">
         <h1>ONNX pipeline</h1>
-        <hr><br><br>
+        <hr>
+        <button type="button" class="btn btn-success btn-sm button_right" v-b-modal.convert-modal>Convert</button>
+        <button type="button" class="btn btn-info btn-sm button_right" v-b-modal.perf_test-modal>Pert Test</button>
+        <button type="button" class="btn btn-primary btn-sm" v-b-modal.visualizeModal>Visualize</button>
+        <hr/>
         <alert :message=message v-if="showMessage"></alert>
-        <button type="button" class="btn btn-success btn-sm" v-b-modal.book-modal>Convert</button>
-        <br><br>
-        <b-form-group id="visualize_model"
-                      label="Model for visualization:"
-                      label-for="form-visualize_model-input">
-            <b-form-file id="form-visualize_model-input"
-                          v-model="visualize_model"
-                          required
-                          placeholder="Choose a model..."
-                          drop-placeholder="Drop model here...">
-            </b-form-file>
-          </b-form-group>
-        <button v-on:click="visualize" type="button" class="btn btn-primary btn-sm">Visualize</button>
-        <iframe src="http://localhost:8080" v-if="showVisualization"></iframe>
+        <br/>
+        <div>
+          <iframe src="http://localhost:8080" width="600" height="500" v-if="showVisualization"></iframe>
+        </div>
       </div>
     </div>
     <b-modal ref="convertModal"
-             id="book-modal"
+             id="convert-modal"
              title="Convert model"
              hide-footer>
-      <b-form @submit="onSubmit" @reset="onReset" class="w-100">
+      <b-form @submit="convert" @reset="onReset" class="w-100">
 
       <b-form-select v-model="convertForm.model_type"
                      required
                      :options="convertForm.options"
                      label="model_type:"
                      class="mb-3">
-            <template slot="first">
-              <option :value="null" disabled>-- Please select an option --</option>
-            </template>
-          </b-form-select>
+          <template slot="first">
+            <option :value="null" disabled>-- Please select an option --</option>
+          </template>
+        </b-form-select>
 
       <b-form-group v-if="convertForm.model_type === 'tensorflow'"
                     id="form-model_inputs_names-group"
@@ -137,6 +131,88 @@
         <b-button type="reset" variant="danger">Reset</b-button>
       </b-form>
     </b-modal>
+    <!-- perf test-->
+    <b-modal ref="perf_testModal"
+             id="perf_test-modal"
+             title="Perf Test"
+             hide-footer>
+      <b-form @submit="perf_test" class="w-100">
+
+      <b-form-group v-if="perf_testForm.model_type === 'tensorflow'"
+                    id="form-model_inputs_names-group"
+                    label="model_inputs_names:"
+                    label-for="form-model_inputs_names-input">
+          <b-form-input id="form-model_inputs_names-input"
+                        type="text"
+                        v-model="perf_testForm.model_inputs_names"
+                        placeholder="Enter model_inputs_names">
+          </b-form-input>
+        </b-form-group>
+      <b-form-group id="form-model-group"
+                    label="Model:"
+                    label-for="form-model-input">
+          <b-form-file id="form-model-input"
+                        v-model="perf_testForm.model"
+                        required
+                        placeholder="Choose a model..."
+                        drop-placeholder="Drop model here...">
+          </b-form-file>
+        </b-form-group>
+
+      <b-form-group id="form-input_json-group"
+                    label="input_json:"
+                    label-for="form-input_json-input">
+          <b-form-file id="form-input_json-input"
+                        v-model="perf_testForm.input_json"
+                        placeholder="Choose a json file for input..."
+                        drop-placeholder="Drop json here...">
+          </b-form-file>
+        </b-form-group>
+
+      <b-form-select v-model="perf_testForm.config"
+                     required
+                     :options="perf_testForm.options_config"
+                     label="config:"
+                     class="mb-3">
+          <template slot="first">
+            <option :value="null" disabled>-- Please select an option --</option>
+          </template>
+        </b-form-select>
+
+      <b-form-group id="form-mode-group"
+                    label="mode:"
+                    label-for="form-mode-input">
+          <b-form-input id="form-mode-input"
+                        type="text"
+                        v-model="perf_testForm.mode"
+                        placeholder="Enter mode">
+          </b-form-input>
+        </b-form-group>
+
+
+        <b-button type="submit" variant="primary">Submit</b-button>
+        <b-button type="reset" variant="danger">Reset</b-button>
+      </b-form>
+    </b-modal>
+
+  <b-modal ref="visualizeModal"
+            id="visualizeModal"
+            title="Visualization"
+            hide-footer>
+    <b-form @submit="visualize" class="w-100">
+      <b-form-group id="visualize_model"
+                    label="Model for visualization:"
+                    label-for="form-visualize_model-input">
+          <b-form-file id="form-visualize_model-input"
+                        v-model="visualize_model"
+                        required
+                        placeholder="Choose a model..."
+                        drop-placeholder="Drop model here...">
+          </b-form-file>
+        </b-form-group>
+        <b-button type="submit" variant="primary">Submit</b-button>
+      </b-form>
+    </b-modal>
 
 
   </div>
@@ -167,9 +243,26 @@ export default {
           { value: 'caffe', text: 'caffe' },
           { value: 'scikit-learn', text: 'scikit-learn' }
         ],
-        model: null,
-        visualize_model: null
+        model: null
       },
+      perf_testForm: {
+        model: '',
+        options_config: ["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
+        options_mode: ["duration", "times"],
+        options_execution_provider: ["cpu", "cuda", "mkldnn"],
+        config: '',
+        mode: '',
+        execution_provider: '',
+        repeated_times: '',
+        duration_times: '',
+        parallel: false,
+        threadpool_size: '',
+        num_threads: '',
+        top_n: '',
+        runtime: true,
+        input_json: ''
+      },
+      visualize_model: null,
       message: '',
       showMessage: false,
       showVisualization: false
@@ -179,7 +272,9 @@ export default {
     alert: Alert,
   },
   methods: {
-    visualize(){
+    visualize(evt){
+      evt.preventDefault();
+      this.$refs.visualizeModal.hide();
       const path = 'http://localhost:5000/visualize';
       const data = new FormData();
       data.append("file", this.visualize_model);
@@ -194,8 +289,15 @@ export default {
           console.log(error);
         });
     },
-    convert(metadata, file) {
-      const path = 'http://localhost:5000/convert';
+    submitForm(metadata, file, action) {
+      console.log(action === 'perf_test');
+      var path;
+      if (action === 'convert') {
+        path = 'http://localhost:5000/convert';
+      }
+      else if (action === 'perf_test') {
+        path = 'http://localhost:5000/perf_test';
+      }
       const json = JSON.stringify(metadata);
 
       const blob = new Blob([json], {
@@ -209,8 +311,8 @@ export default {
       .then((res) => {
           if(res.data['status'] == 'success'){
             var data = res.data['logs'];
-            this.message = res.data['logs'].replace("\n", "<br/>");
             this.showMessage = true;
+            this.message = data;
           }
         })
         .catch((error) => {
@@ -230,19 +332,19 @@ export default {
       this.convertForm.model_params = '';
       this.convertForm.model = null;
     },
-    onSubmit(evt) {
+    convert(evt) {
       evt.preventDefault();
       this.$refs.convertModal.hide();
       const metadata = this.convertForm;
-      /*
-      const metadata = {
-        model_type: this.convertForm.model_type,
-        model_input_shapes: this.convertForm.model_input_shapes,
-        model_inputs_names: this.convertForm.model_inputs_names,
-      };*/
-
-      this.convert(metadata, this.convertForm.model);
+      this.submitForm(metadata, this.convertForm.model, 'convert');
       this.initForm();
+    },
+    perf_test(evt) {
+      evt.preventDefault();
+      this.$refs.perf_testModal.hide();
+      const metadata = this.perf_testForm;
+      this.submitForm(metadata, this.perf_testForm.model, 'perf_test');
+      //this.initForm();
     },
     onReset(evt) {
       evt.preventDefault();
@@ -260,3 +362,8 @@ export default {
   },
 };
 </script>
+<style>
+.button_right{
+  margin-right: 15px;
+}
+</style>
