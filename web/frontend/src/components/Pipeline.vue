@@ -6,7 +6,8 @@
         <hr>
         <button type="button" class="btn btn-success btn-sm button_right" v-b-modal.convert-modal>Convert</button>
         <button type="button" class="btn btn-info btn-sm button_right" v-b-modal.perf_test-modal>Pert Test</button>
-        <button type="button" class="btn btn-primary btn-sm" v-b-modal.visualizeModal>Visualize</button>
+        <button type="button" class="btn btn-primary btn-sm button_right">Result</button>
+        <button type="button" class="btn btn-light btn-sm" v-b-modal.visualizeModal>Visualize</button>
         <hr/>
         <alert :message=message v-if="showMessage"></alert>
         <br/>
@@ -20,16 +21,20 @@
              title="Convert model"
              hide-footer>
       <b-form @submit="convert" @reset="onReset" class="w-100">
+        <b-form-group id="form-model_type-group"
+                      label="model_type:"
+                      label-for="form-model_type-input">
 
-      <b-form-select v-model="convertForm.model_type"
-                     required
-                     :options="convertForm.options"
-                     label="model_type:"
-                     class="mb-3">
-          <template slot="first">
-            <option :value="null" disabled>-- Please select an option --</option>
-          </template>
-        </b-form-select>
+        <b-form-select v-model="convertForm.model_type"
+                      required
+                      :options="convertForm.options"
+                      label="model_type:"
+                      class="mb-3">
+            <template slot="first">
+              <option :value="null" disabled>-- Please select an option --</option>
+            </template>
+          </b-form-select>
+          </b-form-group>
 
       <b-form-group v-if="convertForm.model_type === 'tensorflow'"
                     id="form-model_inputs_names-group"
@@ -137,17 +142,6 @@
              title="Perf Test"
              hide-footer>
       <b-form @submit="perf_test" class="w-100">
-
-      <b-form-group v-if="perf_testForm.model_type === 'tensorflow'"
-                    id="form-model_inputs_names-group"
-                    label="model_inputs_names:"
-                    label-for="form-model_inputs_names-input">
-          <b-form-input id="form-model_inputs_names-input"
-                        type="text"
-                        v-model="perf_testForm.model_inputs_names"
-                        placeholder="Enter model_inputs_names">
-          </b-form-input>
-        </b-form-group>
       <b-form-group id="form-model-group"
                     label="Model:"
                     label-for="form-model-input">
@@ -169,26 +163,108 @@
           </b-form-file>
         </b-form-group>
 
-      <b-form-select v-model="perf_testForm.config"
-                     required
-                     :options="perf_testForm.options_config"
-                     label="config:"
-                     class="mb-3">
-          <template slot="first">
-            <option :value="null" disabled>-- Please select an option --</option>
-          </template>
-        </b-form-select>
-
+      <b-form-group id="form-config-group"
+                    label="config:"
+                    label-for="form-config-input">
+        <b-form-select v-model="perf_testForm.config"
+                      required
+                      :options="perf_testForm.options_config"
+                      label="config:"
+                      class="mb-3">
+            <template slot="first">
+            </template>
+          </b-form-select>
+      </b-form-group>
       <b-form-group id="form-mode-group"
                     label="mode:"
                     label-for="form-mode-input">
-          <b-form-input id="form-mode-input"
+        <b-form-select v-model="perf_testForm.mode"
+                      required
+                      :options="perf_testForm.options_mode"
+                      label="mode:"
+                      class="mb-3">
+            <template slot="first">
+            </template>
+          </b-form-select>
+      </b-form-group>
+
+      <b-form-group id="form-execution_provider-group"
+                    label="execution_provider:"
+                    label-for="form-execution_provider-input">
+        <b-form-select v-model="perf_testForm.execution_provider"
+                      required
+                      :options="perf_testForm.options_execution_provider"
+                      label="execution_provider:"
+                      class="mb-3">
+            <template slot="first">
+            </template>
+          </b-form-select>
+      </b-form-group>
+
+      <b-form-group id="form-repeated_times-group"
+                    label="repeated_times:"
+                    label-for="form-repeated_times-input">
+          <b-form-input id="form-repeated_times-input"
                         type="text"
-                        v-model="perf_testForm.mode"
-                        placeholder="Enter mode">
+                        v-model="perf_testForm.repeated_times">
           </b-form-input>
         </b-form-group>
 
+      <b-form-group id="form-duration_times-group"
+                    label="duration_times:"
+                    label-for="form-duration_times-input">
+          <b-form-input id="form-duration_times-input"
+                        type="text"
+                        v-model="perf_testForm.duration_times"
+                        placeholder="Enter duration_times">
+          </b-form-input>
+        </b-form-group>
+
+      <b-form-checkbox
+        id="parallel"
+        v-model="perf_testForm.parallel"
+        name="parallel">
+        parallel
+        </b-form-checkbox>
+
+      <b-form-checkbox
+        id="runtime"
+        v-model="perf_testForm.runtime"
+        name="runtime">
+        runtime
+        </b-form-checkbox>
+
+      <b-form-group v-if="perf_testForm.parallel"
+                    id="form-threadpool_size-group"
+                    label="threadpool_size:"
+                    label-for="form-threadpool_size-input">
+          <b-form-input id="form-threadpool_size-input"
+                        type="text"
+                        v-model="perf_testForm.threadpool_size"
+                        placeholder="Enter threadpool_size">
+          </b-form-input>
+        </b-form-group>
+      <b-form-group id="form-num_threads-group"
+                    label="num_threads:"
+                    label-for="form-num_threads-input">
+          <b-form-input id="form-num_threads-input"
+                        type="text"
+                        v-model="perf_testForm.num_threads"
+                        value="20"
+                        placeholder="Enter num_threads">
+          </b-form-input>
+        </b-form-group>
+
+      <b-form-group id="form-top_n-group"
+                    label="top_n:"
+                    label-for="form-top_n-input">
+          <b-form-input id="form-top_n-input"
+                        type="text"
+                        v-model="perf_testForm.top_n"
+                        value="20"
+                        placeholder="Enter top_n">
+          </b-form-input>
+        </b-form-group>
 
         <b-button type="submit" variant="primary">Submit</b-button>
         <b-button type="reset" variant="danger">Reset</b-button>
@@ -249,17 +325,17 @@ export default {
         model: '',
         options_config: ["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
         options_mode: ["duration", "times"],
-        options_execution_provider: ["cpu", "cuda", "mkldnn"],
-        config: '',
-        mode: '',
+        options_execution_provider: ["cpu", "cuda", "mkldnn", ""],
+        config: 'RelWithDebInfo',
+        mode: 'times',
         execution_provider: '',
-        repeated_times: '',
-        duration_times: '',
+        repeated_times: '20',
+        duration_times: '10',
         parallel: false,
         threadpool_size: '',
         num_threads: '',
-        top_n: '',
-        runtime: true,
+        top_n: '5',
+        runtime: false,
         input_json: ''
       },
       visualize_model: null,
@@ -290,7 +366,6 @@ export default {
         });
     },
     submitForm(metadata, file, action) {
-      console.log(action === 'perf_test');
       var path;
       if (action === 'convert') {
         path = 'http://localhost:5000/convert';

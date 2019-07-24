@@ -65,9 +65,9 @@ def perf_test():
     response_object = {'status': 'success'}
 
     model_name, temp_json = get_params(request)
-
+    
     pipeline = onnxpipeline.Pipeline()
-    model = pipeline.perf_test(model=model_name, input_json=temp_json)
+    result = pipeline.perf_test(model=model_name, input_json=temp_json)
 
     response_object['logs'] = pipeline.output
 

@@ -1,7 +1,0 @@
-{
-    "output_onnx_path": "/mnt/model/test/model.onnx",
-    "conversion_status": "SUCCESS",
-    "correctness_verified": "SKIPPED",
-    "input_folder": "/mnt/model/test/test_data_set_0",
-    "error_message": ""
-}

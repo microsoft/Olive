@@ -181,7 +181,6 @@ class Pipeline:
         model, result, input_json = mount_parameters(model, result, input_json)
 
 
-        runtime = 'nvidia' if runtime else ''
 
         img_name = (docker_config.CONTAINER_NAME + 
             docker_config.FUNC_NAME['perf_test'] + ':latest')
@@ -190,6 +189,8 @@ class Pipeline:
         parameters = self.perf_test.__code__.co_varnames[1:self.perf_test.__code__.co_argcount]
         arguments = self.__params2args(locals(), parameters)
         
+
+
         # convert the input parameters into json file
         if convert_json:
             self.__convert_input_json(arguments, json_filename)
@@ -208,8 +209,9 @@ class Pipeline:
                     params = mount_parameters(
                         model, None, input_json)
                     result = params[1]
-
-
+                if 'runtime' in json_data:
+                    runtime = json_data['runtime']
+                    
                 if 'model' in json_data:
                     model = json_data['model']
 
@@ -223,6 +225,8 @@ class Pipeline:
                     json_data['model'] = model
             with open(posixpath.join(self.path, local_input_json), 'w') as f:
                 json.dump(json_data, f)
+
+        runtime = 'nvidia' if runtime else ''
 
         stream = self.client.containers.run(image=img_name, 
             command=arguments, 
