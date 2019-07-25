@@ -39,10 +39,9 @@ class perfTestOp(dsl.ContainerOp):
 
     super(perfTestOp, self).__init__(
       name=name,
-      image='ziylregistry.azurecr.io/perf-test:latest',
+      image='ziylregistry.azurecr.io/perf_test:latest',
       arguments=[
-        "--model", model, 
-        "--result", str(PurePosixPath('/mnt', output_perf_result_path))
+        model, str(PurePosixPath('/mnt', output_perf_result_path))
       ])
 
 @dsl.pipeline(
