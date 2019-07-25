@@ -53,7 +53,7 @@ class PerfTestParams:
         self.thread = 0
 
     def get_common_args(self):
-        common_args = []
+        common_args = ["-o", self.args.optimization_level]
         if self.args.mode:
             common_args = common_args + ["-m", self.args.mode]
         if args.mode == "times":
@@ -87,11 +87,11 @@ class PerfTestParams:
             "code": "\
                 import onnxruntime as ort \
                 so = rt.SessionOptions() \
-                so.set_graph_optimization_level(2) \
+                so.set_graph_optimization_level({}) \
                 so.enable_sequential_execution = {} \
                 so.session_thread_pool_size({}) \
                 session = rt.Session(\"{}\", so) \
-                ".format(False if self.args.parallel else True, self.thread, self.args.model)
+                ".format(self.args.optimization_level, False if self.args.parallel else True, self.thread, self.args.model)
         }
         return code_snippet
 
@@ -307,6 +307,7 @@ class ConverterParamsFromJson():
         self.num_threads = loaded_json["num_threads"] if loaded_json.get("num_threads") else str(cores)
         self.top_n = loaded_json["top_n"] if loaded_json.get("top_n") else "5"
         self.parallel = True if loaded_json.get("parallel") else False
+        self.optimization_level = loaded_json["optimization_level"] if loaded_json.get("optimization_level") else "3"
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -335,6 +336,8 @@ def parse_arguments():
                         help="Show percentiles for top n runs. Default:5.")
     parser.add_argument("-P", "--parallel", default=False,
                         help="Use parallel executor instead of sequential executor.")
+    parser.add_argument("-o", "--optimization_level", default="3", 
+                        help="0: disable optimization, 1: basic optimization, 2: extended optimization, 3: extended+layout optimization.")
     parser.add_argument("--model",
                         help="Model.")
     parser.add_argument("--result",
