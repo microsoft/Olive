@@ -53,7 +53,7 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
             if is_windows():
                 copy(os.path.join(args.cudnn_home, "bin/cudnn*.dll"), target_dir)
             else:
-                copy(os.path.join(args.cudnn_home, "lib/x86_64-linux-gnu/libcudnn.so*"), target_dir)
+                copy(os.path.join(args.cudnn_home, "lib64/libcudnn.so*"), target_dir)
         if "tensorrt" in build_name:
             if is_windows():
                 copy(os.path.join(args.tensorrt_home, "lib/nvinfer.dll"), target_dir)
