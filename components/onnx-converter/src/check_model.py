@@ -178,6 +178,11 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
     print("\nCheck the ONNX model for validity ")
     onnx.checker.check_model(model)
     print('The ONNX model is valid.\n')
+    modelPredictor = runner.get(model_type)
+    if model_type == "onnx" or get_extension(original_model_path) == "onnx":
+        # Skip model correctness conversion for onnx models
+        print("The original model is already onnx. Skipping correctness test. ")
+        return "SKIPPED"    
 
     print("Check ONNX model for correctness. ")
     # Check if expected output file exists
@@ -186,11 +191,6 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
         print("Using output files provided for correctness test. ")
         print("...")
     else: 
-        modelPredictor = runner.get(model_type)
-        if model_type == "onnx" or get_extension(original_model_path) == "onnx":
-            # Skip model correctness conversion for onnx models
-            print("The original model is already onnx. Skipping correctness test. ")
-            return "SKIPPED"
         if modelPredictor == None:
             print("No correctness verification method for %s model type" % model_type)
             return "UNSUPPORTED"

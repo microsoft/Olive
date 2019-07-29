@@ -21,7 +21,7 @@ def remove(file):
 
 
 class PerfTestParams:
-    def __init__(self, name, desc, path, test_args, env, args, thread=0):
+    def __init__(self, name, desc, path, test_args, env, args, build_name, thread=0):
         if is_windows():
             self.exe = os.path.join(build_path, "onnxruntime_perf_test.exe")
         else:
@@ -43,6 +43,7 @@ class PerfTestParams:
         self.result_dir = args.result
 
         self.args = args
+        self.build_name = build_name
 
         self.command = None
         self.avg = None
@@ -68,7 +69,7 @@ class PerfTestParams:
         return self.test_args + self.get_common_args() + [self.model, result_file]
 
     def get_percentiles_args(self, result_file):
-        return self.test_args + ["-m", "times", "-r", "200", self.model, result_file]
+        return self.test_args + ["-o", self.args.optimization_level, "-m", "times", "-r", "200", self.model, result_file]
 
     def get_profile_args(self, profile_file, result_file):
         return self.test_args + self.get_common_args() + ["-p", profile_file, self.model, result_file]
@@ -82,7 +83,7 @@ class PerfTestParams:
 
     def gen_code_snippet(self):
         code_snippet = {
-            "execution_provider": self.args.execution_provider,
+            "execution_provider": self.build_name,
             "environment_variables": self.env_to_set,
             "code": "\
                 import onnxruntime as ort \
@@ -379,7 +380,7 @@ if __name__ == "__main__":
         build_path = os.path.join(bin_dir, build_name)
         if os.path.isdir(build_path):
             # If current build is requested by user, run perf tuning
-            if build_name in providers:
+            if build_name in providers:        
                 test_args = []
 
                 if "mkldnn" in build_name:
@@ -414,7 +415,8 @@ if __name__ == "__main__":
                                 build_path,
                                 test_args + ["-P"],
                                 env,
-                                args
+                                args,
+                                build_name,
                             ), num_threads, "_threads" + env_option, " threads, " + env_option, failed, successful, is_omp)
                     if best_run != None and best_run > 1:
                         # Run the best thread pool candidate with environment variable on sequential executor
@@ -425,6 +427,7 @@ if __name__ == "__main__":
                             test_args,
                             env,
                             args, 
+                            build_name
                         )
                         if is_omp:
                             param.env.update({"OMP_NUM_THREADS": str(best_run)})
@@ -440,7 +443,8 @@ if __name__ == "__main__":
                                 build_path,
                                 test_args,
                                 env,
-                                args
+                                args,
+                                build_name
                             ), num_threads, "_threads" + env_option, " threads, " + env_option, failed, successful, is_omp)
                     # Tune environment variables using sequential executor
                     params = PerfTestParams(
@@ -449,7 +453,8 @@ if __name__ == "__main__":
                         build_path,
                         test_args,
                         env,
-                        args)
+                        args,
+                        build_name)
                     tests.append(params)                    
 
     # Run the tests.
@@ -465,7 +470,7 @@ if __name__ == "__main__":
     failed.extend([x for x in tests if not x.avg])
     
     # Re-sort tests based on 100 runs
-    successful = sorted(successful[:int(args.s)], key=lambda e:e.avg)
+    successful = sorted(successful[:int(args.top_n)], key=lambda e:e.avg)
     print("")
     print("Results:")
     out_json = []
