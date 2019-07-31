@@ -6,12 +6,53 @@
         <hr>
         <button type="button" class="btn btn-success btn-sm button_right" v-b-modal.convert-modal>Convert</button>
         <button type="button" class="btn btn-info btn-sm button_right" v-b-modal.perf_test-modal>Pert Test</button>
-        <button type="button" class="btn btn-primary btn-sm button_right">Result</button>
+        <button type="button" class="btn btn-primary btn-sm button_right" v-on:click="show_result">Result</button>
         <button type="button" class="btn btn-light btn-sm" v-b-modal.visualizeModal>Visualize</button>
         <hr/>
-
-        <b-table striped hover :items="items"></b-table>
-
+        <table v-if="showResult">
+          <th>name</th>
+          <th>avg</th>
+          <th>p90</th>
+          <th>p95</th>
+          <th>cpu_usage</th>
+          <th>gpu_usage</th>
+          <th>memory_util</th>
+          <!--<th>code_snippet.execution_provider</th>-->
+          <th>code_snippet</th>
+          <tr v-for="(r, index) in result">
+              <td>{{r.name}}</td>
+              <td>{{r.avg}}</td>
+              <td>{{r.p90}}</td>
+              <td>{{r.p95}}</td>
+              <td>{{r.cpu_usage}}</td>
+              <td>{{r.gpu_usage}}</td>
+              <td>{{r.memory_util}}</td>
+              <td>
+                <table class="lit_table">
+                  <tr class="lit_tr" v-for="(value, key) in r.code_snippet">
+                    <div v-if="key === 'code'">
+                      <td v-on:click="selected = index" v-bind:class="{open: !(selected == index)}" class="lit_td">{{key}}</td>
+                      <td class="lit_td td2" v-bind:class="{ hide: !(selected == index)}" ref="code">{{value}}</td>
+                    </div>
+                    <div v-else-if="key === 'environment_variables'">
+                      <table class="lit_table">
+                        <tr class="lit_tr" v-for="(value, key) in r.code_snippet.environment_variables">
+                          <td class="lit_td">{{key}}</td>
+                          <td class="lit_td td2">{{value}}</td>
+                        </tr>
+                      </table>
+                    </div>
+                    <div v-else-if="key === 'execution_provider'">
+                    </div>
+                    <div v-else>
+                      <td class="lit_td">{{key}}</td>
+                      <td class="lit_td td2">{{value}}</td>
+                    </div>
+                  </tr>
+                </table>  
+              </td>
+          </tr>
+        </table>
         <alert :message=message v-if="showMessage"></alert>
         <br/>
         <div>
@@ -305,7 +346,9 @@ import Alert from './Alert';
 export default {
   data() {
     return {
-      items: [],
+      showResult: false,
+      selected: -1,
+      result: [],
       convertForm: {
         model_type: '',
         model_inputs_names: '',
@@ -442,6 +485,7 @@ export default {
             var data = res.data['logs'];
             this.showMessage = true;
             this.message = data;
+            this.result = res.data['result'];
           }
         })
         .catch((error) => {
@@ -460,6 +504,9 @@ export default {
       this.$refs.editBookModal.hide();
       this.initForm();
     },
+    show_result(evt) {
+      this.showResult = !this.showResult;
+    }
   },
   created() {
     //this.getBooks();
@@ -473,5 +520,49 @@ export default {
 .missing{
   margin-left: 15px;
   color: red;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  text-align: left;
+  padding: 8px;
+}
+.lit_table{
+    margin: 4px 2px;
+    background-color: #f0f0ff;
+    border-collapse: collapse;
+}
+.lit_th, .lit_td {
+    vertical-align: top;
+    margin: 0px;
+    padding: 2px 6px;
+    border-width: 2px;
+    border-color: #669;
+    border-style: solid;
+}
+.lit_th {
+    text-align: left;
+    background-color: white;
+}
+.lit_td {
+    text-align: left;
+    background-color: #eef;
+}
+tr:nth-child(even) {background-color: #f2f2f2;}
+.hide{
+  display: none;
+}
+.open{
+  cursor: pointer;
+}
+.open::after{ 
+  content: "(+)";
+  font-weight: bold;
+}
+.td2{
+  background-color: white;
 }
 </style>

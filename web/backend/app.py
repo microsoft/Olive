@@ -73,7 +73,9 @@ def perf_test():
     result = pipeline.perf_test(input_json=temp_json)
 
     response_object['logs'] = pipeline.output
-
+    r = pipeline.get_result(result)
+    response_object['result'] = r.latency
+    response_object['profiling'] = r.profiling
     return jsonify(response_object)
 
 
