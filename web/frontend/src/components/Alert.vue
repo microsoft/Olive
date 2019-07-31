@@ -10,5 +10,3 @@ export default {
   props: ['message'],
 };
 </script>
-
-white-space: pre-line;

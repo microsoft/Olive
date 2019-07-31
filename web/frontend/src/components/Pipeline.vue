@@ -9,6 +9,9 @@
         <button type="button" class="btn btn-primary btn-sm button_right">Result</button>
         <button type="button" class="btn btn-light btn-sm" v-b-modal.visualizeModal>Visualize</button>
         <hr/>
+
+        <b-table striped hover :items="items"></b-table>
+
         <alert :message=message v-if="showMessage"></alert>
         <br/>
         <div>
@@ -142,17 +145,20 @@
              title="Perf Test"
              hide-footer>
       <b-form @submit="perf_test" class="w-100">
-      <b-form-group id="form-model-group"
-                    label="Model:"
-                    label-for="form-model-input">
-          <b-form-file id="form-model-input"
-                        v-model="perf_testForm.model"
-                        required
-                        placeholder="Choose a model..."
-                        drop-placeholder="Drop model here...">
-          </b-form-file>
-        </b-form-group>
 
+
+      <b-form-group id="form-model-group"
+                    label="model:"
+                    label-for="form-model-input">
+          <b-form-input id="form-model-input"
+                        type="text"
+                        v-model="perf_testForm.model"
+                        readonly>
+          </b-form-input>
+        </b-form-group>
+      <b-row class="missing">
+        {{ model_missing }}
+        </b-row>
       <b-form-group id="form-input_json-group"
                     label="input_json:"
                     label-for="form-input_json-input">
@@ -289,8 +295,6 @@
         <b-button type="submit" variant="primary">Submit</b-button>
       </b-form>
     </b-modal>
-
-
   </div>
 </template>
 
@@ -301,6 +305,7 @@ import Alert from './Alert';
 export default {
   data() {
     return {
+      items: [],
       convertForm: {
         model_type: '',
         model_inputs_names: '',
@@ -341,7 +346,8 @@ export default {
       visualize_model: null,
       message: '',
       showMessage: false,
-      showVisualization: false
+      showVisualization: false,
+      model_missing: ''
     };
   },
   components: {
@@ -365,36 +371,6 @@ export default {
           console.log(error);
         });
     },
-    submitForm(metadata, file, action) {
-      var path;
-      if (action === 'convert') {
-        path = 'http://localhost:5000/convert';
-      }
-      else if (action === 'perf_test') {
-        path = 'http://localhost:5000/perf_test';
-      }
-      const json = JSON.stringify(metadata);
-
-      const blob = new Blob([json], {
-        type: 'application/json'
-      });
-      const data = new FormData();
-      data.append("metadata", blob);
-      data.append("file", file);
-
-      axios.post(path, data)
-      .then((res) => {
-          if(res.data['status'] == 'success'){
-            var data = res.data['logs'];
-            this.showMessage = true;
-            this.message = data;
-          }
-        })
-        .catch((error) => {
-          // eslint-disable-next-line
-          console.log(error);
-        });
-    },
     initForm() {
       this.convertForm.model_type = '';
       this.convertForm.model_inputs_names = '';
@@ -411,15 +387,68 @@ export default {
       evt.preventDefault();
       this.$refs.convertModal.hide();
       const metadata = this.convertForm;
-      this.submitForm(metadata, this.convertForm.model, 'convert');
+      const json = JSON.stringify(metadata);
+      const blob = new Blob([json], {
+        type: 'application/json'
+      });
+
+      const data = new FormData();
+      data.append("metadata", blob);
+      data.append("file", this.convertForm.model);
+
+      this.showMessage = true;
+      this.message = 'Running...';
+
+      axios.post('http://localhost:5000/convert', data)
+      .then((res) => {
+          if(res.data['status'] == 'success'){
+            var data = res.data['logs'];
+            this.showMessage = true;
+            this.message = data;
+            this.perf_testForm.model = res.data['converted_model'];
+          }
+        })
+        .catch((error) => {
+          // eslint-disable-next-line
+          console.log(error);
+        });
+
       this.initForm();
     },
     perf_test(evt) {
       evt.preventDefault();
+      if(this.perf_testForm.model === ""){
+        this.model_missing = 'You need to convert first.';
+        return;
+      }
+      else this.model_missing = '';
       this.$refs.perf_testModal.hide();
       const metadata = this.perf_testForm;
-      this.submitForm(metadata, this.perf_testForm.model, 'perf_test');
-      //this.initForm();
+
+      const json = JSON.stringify(metadata);
+
+      const blob = new Blob([json], {
+        type: 'application/json'
+      });
+      const data = new FormData();
+      data.append("metadata", blob);
+
+      this.showMessage = true;
+      this.message = 'Running...';
+
+      axios.post('http://localhost:5000/perf_test', data)
+      .then((res) => {
+          if(res.data['status'] == 'success'){
+            var data = res.data['logs'];
+            this.showMessage = true;
+            this.message = data;
+          }
+        })
+        .catch((error) => {
+          // eslint-disable-next-line
+          console.log(error);
+        });
+
     },
     onReset(evt) {
       evt.preventDefault();
@@ -440,5 +469,9 @@ export default {
 <style>
 .button_right{
   margin-right: 15px;
+}
+.missing{
+  margin-left: 15px;
+  color: red;
 }
 </style>

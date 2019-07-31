@@ -32,18 +32,20 @@ def visualize():
     return jsonify(response_object)
 
 def get_params(request):
-    temp_model = request.files['file']
 
-    model_name = temp_model.filename
     temp_json = 'temp.json'
+    model_name = None
 
-    request.files['file'].save(model_name)
     request.files['metadata'].save(temp_json)
     
     with open(temp_json, 'r') as f:
         json_data = json.load(f)
 
-    json_data['model'] = model_name
+    if 'file' in request.files:
+        temp_model = request.files['file']
+        model_name = temp_model.filename
+        request.files['file'].save(model_name)
+        json_data['model'] = model_name
 
     with open(temp_json, 'w') as f:
         json.dump(json_data, f)
@@ -57,6 +59,7 @@ def convert():
     model = pipeline.convert_model(model=model_name, input_json=temp_json)
 
     response_object['logs'] = pipeline.output
+    response_object['converted_model'] = model
 
     return jsonify(response_object)
 
@@ -64,10 +67,10 @@ def convert():
 def perf_test():
     response_object = {'status': 'success'}
 
-    model_name, temp_json = get_params(request)
+    _, temp_json = get_params(request)
     
     pipeline = onnxpipeline.Pipeline()
-    result = pipeline.perf_test(model=model_name, input_json=temp_json)
+    result = pipeline.perf_test(input_json=temp_json)
 
     response_object['logs'] = pipeline.output
 
