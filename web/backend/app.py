@@ -17,20 +17,6 @@ app.config.from_object(__name__)
 # enable CORS
 CORS(app)
 
-@app.route('/visualize', methods=['POST'])
-def visualize():
-    response_object = {'status': 'failure'}
-    if request.method == 'POST':
-        response_object = {'status': 'success'}
-        temp_model = request.files['file']
-        model_name = temp_model.filename
-
-        request.files['file'].save(model_name)
-
-        netron.start(model_name)
-
-    return jsonify(response_object)
-
 def get_params(request):
 
     temp_json = 'temp.json'
@@ -50,6 +36,21 @@ def get_params(request):
     with open(temp_json, 'w') as f:
         json.dump(json_data, f)
     return model_name, temp_json
+
+@app.route('/visualize', methods=['POST'])
+def visualize():
+    response_object = {'status': 'failure'}
+    if request.method == 'POST':
+        response_object = {'status': 'success'}
+        temp_model = request.files['file']
+        model_name = temp_model.filename
+
+        request.files['file'].save(model_name)
+
+        netron.start(model_name)
+
+    return jsonify(response_object)
+
 @app.route('/convert', methods=['POST'])
 def convert():
     response_object = {'status': 'success'}
@@ -78,8 +79,6 @@ def perf_test():
     response_object['profiling'] = r.profiling
     #response_object['profiling'] = []
     return jsonify(response_object)
-
-
 
 
 if __name__ == '__main__':

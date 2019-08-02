@@ -8,7 +8,7 @@
         <button type="button" class="btn btn-info btn-sm button_right" v-b-modal.perf_test-modal>Pert Test</button>
         <button type="button" class="btn btn-primary btn-sm" v-b-modal.visualizeModal>Visualize</button>
         <hr/>
-        <table>
+        <table v-if="result.length > 0">
           <th>name</th>
           <th>avg</th>
           <th>p90</th>
@@ -17,7 +17,7 @@
           <th>gpu_usage</th>
           <th>memory_util</th>
           <!--<th>code_snippet.execution_provider</th>-->
-          <th width="40%">code_snippet</th>
+          <th width="200px">code_snippet</th>
           <th width="40%">profiling</th>
           <tr v-for="(r, index) in result">
               <td>{{r.name}}</td>
@@ -53,7 +53,7 @@
                 </table>  
               </td>
               <!--profiling-->
-              <div v-on:click="open_profiling(index)" v-bind:class="{open: !(selected_profiling == index)}" class="before_open">profiling </div>
+              <div v-on:click="open_profiling(index)" v-bind:class="{open: !(selected_profiling == index)}" class="before_open">op </div>
               <table class="lit_table" v-if="index < profiling.length" v-bind:class="{hide: !(selected_profiling == index)}">
                 <tr class="lit_tr" v-for="(op_info, i) in profiling[index].slice(0, 5)">
                     <td class="lit_td">{{i+1}}</td>
@@ -96,7 +96,7 @@
 
         <b-form-select v-model="convertForm.model_type"
                       required
-                      :options="convertForm.options"
+                      :options="options.model_type"
                       label="model_type:"
                       class="mb-3">
             <template slot="first">
@@ -179,16 +179,6 @@
           </b-form-file>
         </b-form-group>
 
-      <b-form-group id="form-input_json-group"
-                    label="input_json:"
-                    label-for="form-input_json-input">
-          <b-form-file id="form-input_json-input"
-                        v-model="convertForm.input_json"
-                        placeholder="Choose a json file for input..."
-                        drop-placeholder="Drop json here...">
-          </b-form-file>
-        </b-form-group>
-
       <b-form-group id="form-target_opset-group"
                     label="target_opset:"
                     label-for="form-target_opset-input">
@@ -209,7 +199,7 @@
              id="perf_test-modal"
              title="Perf Test"
              hide-footer>
-      <b-form @submit="perf_test" class="w-100">
+      <b-form @submit="perf_test" @reset="onReset_perf_test" class="w-100">
 
 
       <b-form-group id="form-model-group"
@@ -224,22 +214,13 @@
       <b-row class="missing">
         {{ model_missing }}
         </b-row>
-      <b-form-group id="form-input_json-group"
-                    label="input_json:"
-                    label-for="form-input_json-input">
-          <b-form-file id="form-input_json-input"
-                        v-model="perf_testForm.input_json"
-                        placeholder="Choose a json file for input..."
-                        drop-placeholder="Drop json here...">
-          </b-form-file>
-        </b-form-group>
 
       <b-form-group id="form-config-group"
                     label="config:"
                     label-for="form-config-input">
         <b-form-select v-model="perf_testForm.config"
                       required
-                      :options="perf_testForm.options_config"
+                      :options="options.config"
                       label="config:"
                       class="mb-3">
             <template slot="first">
@@ -251,7 +232,7 @@
                     label-for="form-mode-input">
         <b-form-select v-model="perf_testForm.mode"
                       required
-                      :options="perf_testForm.options_mode"
+                      :options="options.mode"
                       label="mode:"
                       class="mb-3">
             <template slot="first">
@@ -264,7 +245,7 @@
                     label-for="form-execution_provider-input">
         <b-form-select v-model="perf_testForm.execution_provider"
                       required
-                      :options="perf_testForm.options_execution_provider"
+                      :options="options.execution_provider"
                       label="execution_provider:"
                       class="mb-3">
             <template slot="first">
@@ -366,6 +347,11 @@
 <script>
 import axios from 'axios';
 import Alert from './Alert';
+import {convertForm} from '../utils/const';
+import {perf_testForm} from '../utils/const';
+
+var origin_convertForm = Object.assign({}, convertForm); 
+var origin_perf_testForm = Object.assign({}, perf_testForm); 
 
 export default {
   data() {
@@ -374,42 +360,20 @@ export default {
       selected_profiling: -1,
       result: [],
       profiling: [],
-      convertForm: {
-        model_type: 'tensorflow',
-        model_inputs_names: '',
-        model_outputs_names: '',
-        target_opset: '',
-        model_input_shapes: '',
-        caffe_model_prototxt: '',
-        initial_types: '',
-        input_json: '',
-        model_params: '',
-        options: [
-          { value: 'pytorch', text: 'pytorch' },
-          { value: 'tensorflow', text: 'tensorflow' },
-          { value: 'onnx', text: 'onnx' },
-          { value: 'keras', text: 'keras' },
-          { value: 'caffe', text: 'caffe' },
-          { value: 'scikit-learn', text: 'scikit-learn' }
+      convertForm,
+      perf_testForm,
+      options: {
+        model_type: [
+        { value: 'pytorch', text: 'pytorch' },
+        { value: 'tensorflow', text: 'tensorflow' },
+        { value: 'onnx', text: 'onnx' },
+        { value: 'keras', text: 'keras' },
+        { value: 'caffe', text: 'caffe' },
+        { value: 'scikit-learn', text: 'scikit-learn' }
         ],
-        model: null
-      },
-      perf_testForm: {
-        model: '',
-        options_config: ["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
-        options_mode: ["duration", "times"],
-        options_execution_provider: ["cpu", "cuda", "mkldnn", ""],
-        config: 'RelWithDebInfo',
-        mode: 'times',
-        execution_provider: '',
-        repeated_times: '20',
-        duration_times: '10',
-        parallel: false,
-        threadpool_size: '',
-        num_threads: '',
-        top_n: '5',
-        runtime: false,
-        input_json: ''
+        config: ["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
+        mode: ["duration", "times"],
+        execution_provider: ["cpu", "cuda", "mkldnn", ""]
       },
       visualize_model: null,
       message: '',
@@ -423,6 +387,7 @@ export default {
   },
   methods: {
     visualize(evt){
+      this.closeAll();
       evt.preventDefault();
       this.$refs.visualizeModal.hide();
       const path = 'http://localhost:5000/visualize';
@@ -440,18 +405,13 @@ export default {
         });
     },
     initForm() {
-      this.convertForm.model_type = '';
-      this.convertForm.model_inputs_names = '';
-      this.convertForm.model_input_shapes = '';
-      this.convertForm.model_outputs_names = '';
-      this.convertForm.target_opset ='';
-      this.convertForm.caffe_model_prototxt = '';
-      this.convertForm.initial_types = '';
-      this.convertForm.input_json ='';
-      this.convertForm.model_params = '';
-      this.convertForm.model = null;
+      this.convertForm = Object.assign({}, origin_convertForm); 
+    },
+    init_perf_testForm() {
+      this.perf_testForm = Object.assign({}, origin_perf_testForm); 
     },
     convert(evt) {
+      this.closeAll();
       evt.preventDefault();
       this.$refs.convertModal.hide();
       const metadata = this.convertForm;
@@ -484,6 +444,7 @@ export default {
       this.initForm();
     },
     perf_test(evt) {
+      this.closeAll();
       evt.preventDefault();
       if(this.perf_testForm.model === ""){
         this.model_missing = 'You need to convert first.';
@@ -522,13 +483,11 @@ export default {
     },
     onReset(evt) {
       evt.preventDefault();
-      this.$refs.convertModal.hide();
       this.initForm();
     },
-    onResetUpdate(evt) {
+    onReset_perf_test(evt){
       evt.preventDefault();
-      this.$refs.editBookModal.hide();
-      this.initForm();
+      this.init_perf_testForm();
     },
     open_details(index){
       if(this.selected == index)
@@ -541,6 +500,11 @@ export default {
         this.selected_profiling = -1;
       else
         this.selected_profiling = index;
+    },
+    closeAll(){
+      this.result = [];
+      this.showVisualization = false;
+      this.showMessage = false;
     }
   },
   created() {
@@ -615,6 +579,6 @@ tr:nth-child(even) {background-color: #f2f2f2;}
     border-width: 2px;
     border-color: #669;
     border-style: solid;  
-    background-color:  rgb(26, 183, 231);;
+    background-color: white;
 }
 </style>
