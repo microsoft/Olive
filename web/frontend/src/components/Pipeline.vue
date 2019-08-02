@@ -2,14 +2,13 @@
   <div class="container">
     <div class="row">
       <div class="col-sm-10">
-        <h1>ONNX pipeline</h1>
+        <h1>OLIVE (ONNX LIVE)</h1>
         <hr>
         <button type="button" class="btn btn-success btn-sm button_right" v-b-modal.convert-modal>Convert</button>
         <button type="button" class="btn btn-info btn-sm button_right" v-b-modal.perf_test-modal>Pert Test</button>
-        <button type="button" class="btn btn-primary btn-sm button_right" v-on:click="show_result">Result</button>
-        <button type="button" class="btn btn-light btn-sm" v-b-modal.visualizeModal>Visualize</button>
+        <button type="button" class="btn btn-primary btn-sm" v-b-modal.visualizeModal>Visualize</button>
         <hr/>
-        <table v-if="showResult">
+        <table>
           <th>name</th>
           <th>avg</th>
           <th>p90</th>
@@ -18,7 +17,8 @@
           <th>gpu_usage</th>
           <th>memory_util</th>
           <!--<th>code_snippet.execution_provider</th>-->
-          <th>code_snippet</th>
+          <th width="40%">code_snippet</th>
+          <th width="40%">profiling</th>
           <tr v-for="(r, index) in result">
               <td>{{r.name}}</td>
               <td>{{r.avg}}</td>
@@ -28,17 +28,18 @@
               <td>{{r.gpu_usage}}</td>
               <td>{{r.memory_util}}</td>
               <td>
-                <table class="lit_table">
+                <div v-on:click="open_details(index)" v-bind:class="{open: !(selected == index)}" class="before_open">details </div>
+                <table class="lit_table" v-bind:class="{hide: !(selected == index)}">
                   <tr class="lit_tr" v-for="(value, key) in r.code_snippet">
                     <div v-if="key === 'code'">
-                      <td v-on:click="selected = index" v-bind:class="{open: !(selected == index)}" class="lit_td">{{key}}</td>
-                      <td class="lit_td td2" v-bind:class="{ hide: !(selected == index)}" ref="code">{{value}}</td>
+                      <td class="lit_td">{{key}}</td>
+                      <td class="lit_td">{{value}}</td>
                     </div>
                     <div v-else-if="key === 'environment_variables'">
                       <table class="lit_table">
                         <tr class="lit_tr" v-for="(value, key) in r.code_snippet.environment_variables">
                           <td class="lit_td">{{key}}</td>
-                          <td class="lit_td td2">{{value}}</td>
+                          <td class="lit_td">{{value}}</td>
                         </tr>
                       </table>
                     </div>
@@ -46,11 +47,35 @@
                     </div>
                     <div v-else>
                       <td class="lit_td">{{key}}</td>
-                      <td class="lit_td td2">{{value}}</td>
+                      <td class="lit_td">{{value}}</td>
                     </div>
                   </tr>
                 </table>  
               </td>
+              <!--profiling-->
+              <div v-on:click="open_profiling(index)" v-bind:class="{open: !(selected_profiling == index)}" class="before_open">profiling </div>
+              <table class="lit_table" v-if="index < profiling.length" v-bind:class="{hide: !(selected_profiling == index)}">
+                <tr class="lit_tr" v-for="(op_info, i) in profiling[index].slice(0, 5)">
+                    <td class="lit_td">{{i+1}}</td>
+                    <td class="lit_td op_table">
+                      <table v-for="(value, key) in op_info">
+                        <td class="lit_td" style="width:55px;">{{key}}</td>
+                        <td class="lit_td">
+                          <div v-if="key === 'args'">
+                              <table  v-for="(args_value, args_key) in value">
+                                <td class="args_td" style="width:30px;">{{args_key}}</td>
+                                <td class="args_td">{{args_value}}</td>
+                                </table>
+                            </div>
+                          <div v-else>
+                              {{value}}
+                            </div>  
+                          </td> 
+                        </table>                  
+                    </td>
+                </tr>
+              </table>
+
           </tr>
         </table>
         <alert :message=message v-if="showMessage"></alert>
@@ -75,7 +100,6 @@
                       label="model_type:"
                       class="mb-3">
             <template slot="first">
-              <option :value="null" disabled>-- Please select an option --</option>
             </template>
           </b-form-select>
           </b-form-group>
@@ -346,11 +370,12 @@ import Alert from './Alert';
 export default {
   data() {
     return {
-      showResult: false,
       selected: -1,
+      selected_profiling: -1,
       result: [],
+      profiling: [],
       convertForm: {
-        model_type: '',
+        model_type: 'tensorflow',
         model_inputs_names: '',
         model_outputs_names: '',
         target_opset: '',
@@ -486,6 +511,7 @@ export default {
             this.showMessage = true;
             this.message = data;
             this.result = res.data['result'];
+            this.profiling = res.data['profiling'];
           }
         })
         .catch((error) => {
@@ -504,8 +530,17 @@ export default {
       this.$refs.editBookModal.hide();
       this.initForm();
     },
-    show_result(evt) {
-      this.showResult = !this.showResult;
+    open_details(index){
+      if(this.selected == index)
+        this.selected = -1;
+      else
+        this.selected = index;
+    },
+    open_profiling(index){
+      if(this.selected_profiling == index)
+        this.selected_profiling = -1;
+      else
+        this.selected_profiling = index;
     }
   },
   created() {
@@ -547,6 +582,9 @@ th, td {
     text-align: left;
     background-color: white;
 }
+.lit_table:nth-child(even){
+    background-color: white;
+}
 .lit_td {
     text-align: left;
     background-color: #eef;
@@ -555,14 +593,28 @@ tr:nth-child(even) {background-color: #f2f2f2;}
 .hide{
   display: none;
 }
-.open{
+.before_open{
   cursor: pointer;
 }
-.open::after{ 
-  content: "(+)";
+.before_open::after{
+  content: "(-)";
   font-weight: bold;
 }
-.td2{
-  background-color: white;
+
+.open::after{ 
+  content: "(+)";
+}
+.op_table{
+  padding: 10px;
+  background: white;
+}
+.args_td{
+    vertical-align: top;
+    margin: 0px;
+    padding: 2px 6px;
+    border-width: 2px;
+    border-color: #669;
+    border-style: solid;  
+    background-color:  rgb(26, 183, 231);;
 }
 </style>
