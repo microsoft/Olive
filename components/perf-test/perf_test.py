@@ -339,7 +339,7 @@ def parse_arguments():
                         help="OMP_NUM_THREADS value.")
     parser.add_argument("-s", "--top_n", default="5",
                         help="Show percentiles for top n runs. Default:5.")
-    parser.add_argument("-P", "--parallel", default=False,
+    parser.add_argument("-P", "--parallel", default=True,
                         help="Use parallel executor instead of sequential executor.")
     parser.add_argument("-o", "--optimization_level", default="3", 
                         help="0: disable optimization, 1: basic optimization, 2: extended optimization, 3: extended+layout optimization.")
