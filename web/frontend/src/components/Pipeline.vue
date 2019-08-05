@@ -8,6 +8,10 @@
         <button type="button" class="btn btn-info btn-sm button_right" v-b-modal.perf_test-modal>Pert Test</button>
         <button type="button" class="btn btn-primary btn-sm" v-b-modal.visualizeModal>Visualize</button>
         <hr/>
+        <div v-if="convert_result">
+          <h5>Conversion Status: <b-badge variant="danger">{{convert_result['conversion_status']}}</b-badge></h5>
+          <h5>Correctness Verified: <b-badge variant="danger">{{convert_result['correctness_verified']}}</b-badge></h5>
+        </div>
         <table v-if="result.length > 0">
           <th>name</th>
           <th>avg</th>
@@ -29,38 +33,38 @@
               <td>{{r.memory_util}}</td>
               <td>
                 <div v-on:click="open_details(index)" v-bind:class="{open: !(selected == index)}" class="before_open">details </div>
-                <table class="lit_table" v-bind:class="{hide: !(selected == index)}">
-                  <tr class="lit_tr" v-for="(value, key) in r.code_snippet">
+                <table class="lil_table" v-bind:class="{hide: !(selected == index)}">
+                  <tr class="lil_tr" v-for="(value, key) in r.code_snippet">
                     <div v-if="key === 'code'">
-                      <td class="lit_td">{{key}}</td>
-                      <td class="lit_td">{{value}}</td>
+                      <td class="lil_td">{{key}}</td>
+                      <td class="lil_td">{{value}}</td>
                     </div>
                     <div v-else-if="key === 'environment_variables'">
-                      <table class="lit_table">
-                        <tr class="lit_tr" v-for="(value, key) in r.code_snippet.environment_variables">
-                          <td class="lit_td">{{key}}</td>
-                          <td class="lit_td">{{value}}</td>
+                      <table class="lil_table">
+                        <tr class="lil_tr" v-for="(value, key) in r.code_snippet.environment_variables">
+                          <td class="lil_td">{{key}}</td>
+                          <td class="lil_td">{{value}}</td>
                         </tr>
                       </table>
                     </div>
                     <div v-else-if="key === 'execution_provider'">
                     </div>
                     <div v-else>
-                      <td class="lit_td">{{key}}</td>
-                      <td class="lit_td">{{value}}</td>
+                      <td class="lil_td">{{key}}</td>
+                      <td class="lil_td">{{value}}</td>
                     </div>
                   </tr>
                 </table>  
               </td>
               <!--profiling-->
               <div v-on:click="open_profiling(index)" v-bind:class="{open: !(selected_profiling == index)}" class="before_open">op </div>
-              <table class="lit_table" v-if="index < profiling.length" v-bind:class="{hide: !(selected_profiling == index)}">
-                <tr class="lit_tr" v-for="(op_info, i) in profiling[index].slice(0, 5)">
-                    <td class="lit_td">{{i+1}}</td>
-                    <td class="lit_td op_table">
+              <table class="lil_table" v-if="index < profiling.length" v-bind:class="{hide: !(selected_profiling == index)}">
+                <tr class="lil_tr" v-for="(op_info, i) in profiling[index].slice(0, 5)">
+                    <td class="lil_td">{{i+1}}</td>
+                    <td class="lil_td op_table">
                       <table v-for="(value, key) in op_info">
-                        <td class="lit_td" style="width:55px;">{{key}}</td>
-                        <td class="lit_td">
+                        <td class="lil_td" style="width:55px;">{{key}}</td>
+                        <td class="lil_td">
                           <div v-if="key === 'args'">
                               <table  v-for="(args_value, args_key) in value">
                                 <td class="args_td" style="width:30px;">{{args_key}}</td>
@@ -78,10 +82,13 @@
 
           </tr>
         </table>
-        <alert :message=message v-if="showMessage"></alert>
+        <div class="show_logs" v-on:click="open_logs()" v-if="show_logs">
+          <hr/>Show logs
+          </div>
+        <alert :message=message v-if="show_message"></alert>
         <br/>
         <div>
-          <iframe src="http://localhost:8080" width="600" height="500" v-if="showVisualization"></iframe>
+          <iframe src="http://localhost:8080" width="600" height="500" v-if="show_visualization"></iframe>
         </div>
       </div>
     </div>
@@ -347,8 +354,7 @@
 <script>
 import axios from 'axios';
 import Alert from './Alert';
-import {convertForm} from '../utils/const';
-import {perf_testForm} from '../utils/const';
+import {convertForm, perf_testForm} from '../utils/const';
 
 var origin_convertForm = Object.assign({}, convertForm); 
 var origin_perf_testForm = Object.assign({}, perf_testForm); 
@@ -377,9 +383,11 @@ export default {
       },
       visualize_model: null,
       message: '',
-      showMessage: false,
-      showVisualization: false,
-      model_missing: ''
+      show_message: false,
+      show_visualization: false,
+      show_logs: false,
+      model_missing: '',
+      convert_result: null
     };
   },
   components: {
@@ -387,7 +395,7 @@ export default {
   },
   methods: {
     visualize(evt){
-      this.closeAll();
+      this.close_all();
       evt.preventDefault();
       this.$refs.visualizeModal.hide();
       const path = 'http://localhost:5000/visualize';
@@ -396,7 +404,7 @@ export default {
       axios.post(path, data)
       .then((res) => {
           if(res.data['status'] == 'success'){
-            this.showVisualization = true;
+            this.show_visualization = true;
           }
         })
         .catch((error) => {
@@ -411,7 +419,7 @@ export default {
       this.perf_testForm = Object.assign({}, origin_perf_testForm); 
     },
     convert(evt) {
-      this.closeAll();
+      this.close_all();
       evt.preventDefault();
       this.$refs.convertModal.hide();
       const metadata = this.convertForm;
@@ -424,15 +432,17 @@ export default {
       data.append("metadata", blob);
       data.append("file", this.convertForm.model);
 
-      this.showMessage = true;
+      this.show_message = true;
       this.message = 'Running...';
+
 
       axios.post('http://localhost:5000/convert', data)
       .then((res) => {
+          this.show_message = false;
           if(res.data['status'] == 'success'){
-            var data = res.data['logs'];
-            this.showMessage = true;
-            this.message = data;
+            this.message = res.data['logs'];
+            this.show_logs = true;
+            this.convert_result = res.data['output_json'];
             this.perf_testForm.model = res.data['converted_model'];
           }
         })
@@ -444,7 +454,7 @@ export default {
       this.initForm();
     },
     perf_test(evt) {
-      this.closeAll();
+      this.close_all();
       evt.preventDefault();
       if(this.perf_testForm.model === ""){
         this.model_missing = 'You need to convert first.';
@@ -462,14 +472,15 @@ export default {
       const data = new FormData();
       data.append("metadata", blob);
 
-      this.showMessage = true;
+      this.show_message = true;
       this.message = 'Running...';
 
       axios.post('http://localhost:5000/perf_test', data)
       .then((res) => {
+        this.show_message = false;
           if(res.data['status'] == 'success'){
             var data = res.data['logs'];
-            this.showMessage = true;
+            this.show_logs = true;
             this.message = data;
             this.result = res.data['result'];
             this.profiling = res.data['profiling'];
@@ -501,10 +512,15 @@ export default {
       else
         this.selected_profiling = index;
     },
-    closeAll(){
+    close_all(){
       this.result = [];
-      this.showVisualization = false;
-      this.showMessage = false;
+      this.show_visualization = false;
+      this.show_message = false;
+      this.show_logs = false;
+      this.convert_result = false;
+    },
+    open_logs(){
+      this.show_message = true;
     }
   },
   created() {
@@ -529,12 +545,12 @@ th, td {
   text-align: left;
   padding: 8px;
 }
-.lit_table{
+.lil_table{
     margin: 4px 2px;
     background-color: #f0f0ff;
     border-collapse: collapse;
 }
-.lit_th, .lit_td {
+.lil_th, .lil_td {
     vertical-align: top;
     margin: 0px;
     padding: 2px 6px;
@@ -542,14 +558,14 @@ th, td {
     border-color: #669;
     border-style: solid;
 }
-.lit_th {
+.lil_th {
     text-align: left;
     background-color: white;
 }
-.lit_table:nth-child(even){
+.lil_table:nth-child(even){
     background-color: white;
 }
-.lit_td {
+.lil_td {
     text-align: left;
     background-color: #eef;
 }
@@ -558,6 +574,7 @@ tr:nth-child(even) {background-color: #f2f2f2;}
   display: none;
 }
 .before_open{
+  text-decoration: underline;
   cursor: pointer;
 }
 .before_open::after{
@@ -580,5 +597,9 @@ tr:nth-child(even) {background-color: #f2f2f2;}
     border-color: #669;
     border-style: solid;  
     background-color: white;
+}
+.show_logs{
+  cursor: pointer;
+  text-decoration: underline;
 }
 </style>

@@ -5,7 +5,7 @@ sys.path.append('../../notebook')
 import onnxpipeline
 from werkzeug.utils import secure_filename
 import netron
-
+import posixpath
 
 # configuration
 DEBUG = True
@@ -58,6 +58,9 @@ def convert():
 
     pipeline = onnxpipeline.Pipeline()
     model = pipeline.convert_model(model=model_name, input_json=temp_json)
+    with open(posixpath.join(pipeline.convert_directory, 'output.json')) as f:
+        json_data = json.load(f)
+        response_object['output_json'] = json_data
 
     response_object['logs'] = pipeline.output
     response_object['converted_model'] = model
