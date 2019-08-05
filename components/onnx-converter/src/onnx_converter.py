@@ -61,7 +61,7 @@ def get_args():
     parser.add_argument(
         "--target_opset", 
         required=False,
-        default="7",
+        default="10",
         help="Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3."
     )
     parser.add_argument(
@@ -264,7 +264,8 @@ def tf2onnx(args):
             "--inputs", args.model_inputs_names,
             "--outputs", args.model_outputs_names, 
             "--opset", args.target_opset, 
-            "--fold_const"])
+            "--fold_const",
+            "--target", "rs6"])
     elif get_extension(args.model) == "meta":
         if not args.model_inputs_names and not args.model_outputs_names:
             raise ValueError("Please provide --model_inputs_names and --model_outputs_names to convert Tensorflow checkpoint models.")
@@ -274,13 +275,15 @@ def tf2onnx(args):
             "--inputs", args.model_inputs_names,
             "--outputs", args.model_outputs_names, 
             "--opset", args.target_opset, 
-            "--fold_const"])
+            "--fold_const",
+            "--target", "rs6"])
     else:
         subprocess.check_call(["python", "-m", "tf2onnx.convert", 
             "--saved-model", args.model, 
             "--output", args.output_onnx_path, 
             "--opset", args.target_opset,
-            "--fold_const"])
+            "--fold_const",
+            "--target", "rs6"])
 
 def xgboost2onnx(args):
     import xgboost as xgb

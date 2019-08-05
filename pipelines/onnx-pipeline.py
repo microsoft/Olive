@@ -35,13 +35,15 @@ class onnxConverterOp(dsl.ContainerOp):
 class perfTestOp(dsl.ContainerOp):
 
   def __init__(self, name,  
-  model, output_perf_result_path):
+  model, output_perf_result_path, execution_providers):
 
     super(perfTestOp, self).__init__(
       name=name,
-      image='ziylregistry.azurecr.io/perf_test:latest',
+      image='ziylregistry.azurecr.io/perf-test:latest',
       arguments=[
-        model, str(PurePosixPath('/mnt', output_perf_result_path))
+        "--model", model, 
+        "--result", str(PurePosixPath('/mnt', output_perf_result_path)),
+        "-e", execution_providers
       ])
 
 @dsl.pipeline(
@@ -76,6 +78,7 @@ def onnx_pipeline(
   output_onnx_path, 
   model_type,
   output_perf_result_path,
+  execution_providers="",
   model_inputs_names="", 
   model_outputs_names="",
   model_params="", 
@@ -103,7 +106,8 @@ def onnx_pipeline(
 
   perf_op = perfTestOp('ONNXRuntime Perf', 
     convert_op.output,
-    '%s' % output_perf_result_path
+    '%s' % output_perf_result_path,
+    '%s' % execution_providers,
     ).add_volume(
         k8s_client.V1Volume(name='pipeline-nfs', persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
             claim_name='azurefile'))).add_volume_mount(

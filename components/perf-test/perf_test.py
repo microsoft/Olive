@@ -22,22 +22,24 @@ def remove(file):
 
 class PerfTestParams:
     def __init__(self, name, desc, path, test_args, env, args, build_name, thread=0):
+        
+        self.name = name
+        self.desc = desc
+        self.path = path
+        
+        self.env = os.environ.copy()
         if is_windows():
             self.exe = os.path.join(build_path, "onnxruntime_perf_test.exe")
         else:
             self.exe = os.path.join(build_path, "onnxruntime_perf_test")
-            env["LD_LIBRARY_PATH"] = build_path
-
-        self.name = name
-        self.desc = desc
-        self.path = path
-        self.test_args = [self.exe] + test_args
+            self.env["LD_LIBRARY_PATH"] = build_path
         
-        self.env = os.environ.copy()
+        self.test_args = [self.exe] + test_args
         self.env.pop("OMP_WAIT_POLICY", None)
         self.env.pop("OMP_NUM_THREADS", None)
         self.env.update(env)
         self.env_to_set = env
+        print(self.env_to_set)
         
         self.model = args.model
         self.result_dir = args.result
@@ -156,7 +158,7 @@ def run_perf_test(test_params, percentiles=False):
 
     latencies.sort()
 
-    test_params.latencies = latencies
+    test_params.latencies = latencies * 1000
 
     if len(latencies) > 0:
         test_params.avg = round(sum(latencies) / len(latencies), 9)
@@ -181,7 +183,8 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
         test_params.path,
         [],
         test_params.env_to_set,
-        test_params.args, 
+        test_params.args,
+        build_name,
         lower
     )
     # tune threads by args
@@ -213,6 +216,7 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
             [],
             test_params.env_to_set,
             test_params.args,
+            build_name,
             mid
         )
         # tune threads by args
@@ -236,7 +240,7 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
             break
         if lower > upper and best_run == (1 + num_cores) // 2:
             # Re-run search on the first half if the best latency lies in the middle
-            upper = mid - 1
+            upper = (1 + num_cores) // 2 - 1
             lower = 2
     return best_run
 
@@ -478,8 +482,8 @@ if __name__ == "__main__":
 
     with open(os.path.join(args.result, "latencies.txt"), "w") as out_file:
         for test in successful:
-            print(test.name, test.avg, "s")
-            print(test.name, test.avg, "s", file=out_file)
+            print(test.name, test.avg, "ms")
+            print(test.name, test.avg, "ms", file=out_file)
 
             json_record = dict()
             json_record["name"] = test.name
