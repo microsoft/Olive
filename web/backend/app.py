@@ -74,10 +74,10 @@ def convert():
     input_root = os.path.join(app_config.STATIC_DIR, target_dir)
     # compress input directory
     compress_path = os.path.join(pipeline.convert_directory, app_config.INPUT_DIR)
-    input_path = os.path.join(input_root, app_config.COMPRESS_NAME)
-    tar = tarfile.open(input_path, "w:gz")
+    input_path = os.path.join(input_root)
     if not os.path.exists(input_path):
         os.makedirs(input_path)
+    tar = tarfile.open(os.path.join(input_path, app_config.COMPRESS_NAME), "w:gz")
     tar.add(compress_path, arcname=app_config.INPUT_DIR)
     tar.close()
 
