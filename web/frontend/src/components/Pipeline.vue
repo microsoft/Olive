@@ -2,27 +2,31 @@
   <div class="container">
     <div class="row">
       <div class="col-sm-10">
-        <h1>OLIVE (ONNX LIVE)</h1>
+        <h1>OLive (ONNX Live)</h1>
         <hr>
         <button type="button" class="btn btn-success btn-sm button_right" v-b-modal.convert-modal>Convert</button>
         <button type="button" class="btn btn-info btn-sm button_right" v-b-modal.perf_test-modal>Pert Test</button>
         <button type="button" class="btn btn-primary btn-sm" v-b-modal.visualizeModal>Visualize</button>
         <hr/>
         <div v-if="convert_result">
-          <h5>Conversion Status: <b-badge variant="danger">{{convert_result['conversion_status']}}</b-badge></h5>
-          <h5>Correctness Verified: <b-badge variant="danger">{{convert_result['correctness_verified']}}</b-badge></h5>
+          <h5>Conversion Status: <b-badge variant="danger">{{convert_result['output_json']['conversion_status']}}</b-badge></h5>
+          <h5>Correctness Verified: <b-badge variant="danger">{{convert_result['output_json']['correctness_verified']}}</b-badge></h5>
+          <h5>Download</h5>
+          <a :href="convert_result['input_path']" download>[input]</a>
+          <br/>
+          <a :href="convert_result['model_path']" download>[model]</a>
         </div>
         <table v-if="result.length > 0">
           <th>name</th>
-          <th>avg</th>
-          <th>p90</th>
-          <th>p95</th>
-          <th>cpu_usage</th>
-          <th>gpu_usage</th>
-          <th>memory_util</th>
+          <th>avg (sec)</th>
+          <th>p90 (sec)</th>
+          <th>p95 (sec)</th>
+          <th>cpu_usage (%)</th>
+          <th>gpu_usage (%)</th>
+          <th>memory_util (%)</th>
           <!--<th>code_snippet.execution_provider</th>-->
-          <th width="200px">code_snippet</th>
-          <th width="40%">profiling</th>
+          <th>code_snippet</th>
+          <th>profiling</th>
           <tr v-for="(r, index) in result">
               <td>{{r.name}}</td>
               <td>{{r.avg}}</td>
@@ -32,7 +36,7 @@
               <td>{{r.gpu_usage}}</td>
               <td>{{r.memory_util}}</td>
               <td>
-                <div v-on:click="open_details(index)" v-bind:class="{open: !(selected == index)}" class="before_open">details </div>
+                <div v-on:click="open_details(index)" v-bind:class="{open: !(selected == index)}" class="before_open open_button">details </div>
                 <table class="lil_table" v-bind:class="{hide: !(selected == index)}">
                   <tr class="lil_tr" v-for="(value, key) in r.code_snippet">
                     <div v-if="key === 'code'">
@@ -57,32 +61,34 @@
                 </table>  
               </td>
               <!--profiling-->
-              <div v-on:click="open_profiling(index)" v-bind:class="{open: !(selected_profiling == index)}" class="before_open">op </div>
-              <table class="lil_table" v-if="index < profiling.length" v-bind:class="{hide: !(selected_profiling == index)}">
-                <tr class="lil_tr" v-for="(op_info, i) in profiling[index].slice(0, 5)">
-                    <td class="lil_td">{{i+1}}</td>
-                    <td class="lil_td op_table">
-                      <table v-for="(value, key) in op_info">
-                        <td class="lil_td" style="width:55px;">{{key}}</td>
-                        <td class="lil_td">
-                          <div v-if="key === 'args'">
-                              <table  v-for="(args_value, args_key) in value">
-                                <td class="args_td" style="width:30px;">{{args_key}}</td>
-                                <td class="args_td">{{args_value}}</td>
-                                </table>
-                            </div>
-                          <div v-else>
-                              {{value}}
-                            </div>  
-                          </td> 
-                        </table>                  
-                    </td>
-                </tr>
-              </table>
+              <td>
+                <div v-on:click="open_profiling(index)" v-bind:class="{open: !(selected_profiling == index)}" class="before_open open_button">op </div>
+                <table class="lil_table" v-if="index < profiling.length" v-bind:class="{hide: !(selected_profiling == index)}">
+                  <tr class="lil_tr" v-for="(op_info, i) in profiling[index].slice(0, 5)">
+                      <td class="lil_td">{{i+1}}</td>
+                      <td class="lil_td op_table">
+                        <table v-for="(value, key) in op_info">
+                          <td class="lil_td" style="width:55px;">{{key}}</td>
+                          <td class="lil_td">
+                            <div v-if="key === 'args'">
+                                <table  v-for="(args_value, args_key) in value">
+                                  <td class="args_td" style="width:30px;">{{args_key}}</td>
+                                  <td class="args_td">{{args_value}}</td>
+                                  </table>
+                              </div>
+                            <div v-else>
+                                {{value}}
+                              </div>  
+                            </td> 
+                          </table>                  
+                      </td>
+                  </tr>
+                </table>
+              </td>
 
           </tr>
         </table>
-        <div class="show_logs" v-on:click="open_logs()" v-if="show_logs">
+        <div class="open_button" v-on:click="show_message = !show_message" v-if="show_logs">
           <hr/>Show logs
           </div>
         <alert :message=message v-if="show_message"></alert>
@@ -221,110 +227,114 @@
       <b-row class="missing">
         {{ model_missing }}
         </b-row>
-
-      <b-form-group id="form-config-group"
-                    label="config:"
-                    label-for="form-config-input">
-        <b-form-select v-model="perf_testForm.config"
-                      required
-                      :options="options.config"
+      <div class="open_button" v-on:click="adv_setting = !adv_setting">
+        Advanced Setting
+        </div>
+        <br/>
+      <div v-if="adv_setting">
+        <b-form-group id="form-config-group"
                       label="config:"
-                      class="mb-3">
-            <template slot="first">
-            </template>
-          </b-form-select>
-      </b-form-group>
-      <b-form-group id="form-mode-group"
-                    label="mode:"
-                    label-for="form-mode-input">
-        <b-form-select v-model="perf_testForm.mode"
-                      required
-                      :options="options.mode"
+                      label-for="form-config-input">
+          <b-form-select v-model="perf_testForm.config"
+                        required
+                        :options="options.config"
+                        label="config:"
+                        class="mb-3">
+              <template slot="first">
+              </template>
+            </b-form-select>
+        </b-form-group>
+        <b-form-group id="form-mode-group"
                       label="mode:"
-                      class="mb-3">
-            <template slot="first">
-            </template>
-          </b-form-select>
-      </b-form-group>
+                      label-for="form-mode-input">
+          <b-form-select v-model="perf_testForm.mode"
+                        required
+                        :options="options.mode"
+                        label="mode:"
+                        class="mb-3">
+              <template slot="first">
+              </template>
+            </b-form-select>
+        </b-form-group>
 
-      <b-form-group id="form-execution_provider-group"
-                    label="execution_provider:"
-                    label-for="form-execution_provider-input">
-        <b-form-select v-model="perf_testForm.execution_provider"
-                      required
-                      :options="options.execution_provider"
+        <b-form-group id="form-execution_provider-group"
                       label="execution_provider:"
-                      class="mb-3">
-            <template slot="first">
-            </template>
-          </b-form-select>
-      </b-form-group>
-
-      <b-form-group id="form-repeated_times-group"
-                    label="repeated_times:"
-                    label-for="form-repeated_times-input">
-          <b-form-input id="form-repeated_times-input"
-                        type="text"
-                        v-model="perf_testForm.repeated_times">
-          </b-form-input>
+                      label-for="form-execution_provider-input">
+          <b-form-select v-model="perf_testForm.execution_provider"
+                        required
+                        :options="options.execution_provider"
+                        label="execution_provider:"
+                        class="mb-3">
+              <template slot="first">
+              </template>
+            </b-form-select>
         </b-form-group>
 
-      <b-form-group id="form-duration_times-group"
-                    label="duration_times:"
-                    label-for="form-duration_times-input">
-          <b-form-input id="form-duration_times-input"
-                        type="text"
-                        v-model="perf_testForm.duration_times"
-                        placeholder="Enter duration_times">
-          </b-form-input>
-        </b-form-group>
+        <b-form-group id="form-repeated_times-group"
+                      label="repeated_times:"
+                      label-for="form-repeated_times-input">
+            <b-form-input id="form-repeated_times-input"
+                          type="text"
+                          v-model="perf_testForm.repeated_times">
+            </b-form-input>
+          </b-form-group>
 
-      <b-form-checkbox
-        id="parallel"
-        v-model="perf_testForm.parallel"
-        name="parallel">
-        parallel
-        </b-form-checkbox>
+        <b-form-group id="form-duration_times-group"
+                      label="duration_times:"
+                      label-for="form-duration_times-input">
+            <b-form-input id="form-duration_times-input"
+                          type="text"
+                          v-model="perf_testForm.duration_times"
+                          placeholder="Enter duration_times">
+            </b-form-input>
+          </b-form-group>
 
-      <b-form-checkbox
-        id="runtime"
-        v-model="perf_testForm.runtime"
-        name="runtime">
-        runtime
-        </b-form-checkbox>
+        <b-form-checkbox
+          id="parallel"
+          v-model="perf_testForm.parallel"
+          name="parallel">
+          parallel
+          </b-form-checkbox>
 
-      <b-form-group v-if="perf_testForm.parallel"
-                    id="form-threadpool_size-group"
-                    label="threadpool_size:"
-                    label-for="form-threadpool_size-input">
-          <b-form-input id="form-threadpool_size-input"
-                        type="text"
-                        v-model="perf_testForm.threadpool_size"
-                        placeholder="Enter threadpool_size">
-          </b-form-input>
-        </b-form-group>
-      <b-form-group id="form-num_threads-group"
-                    label="num_threads:"
-                    label-for="form-num_threads-input">
-          <b-form-input id="form-num_threads-input"
-                        type="text"
-                        v-model="perf_testForm.num_threads"
-                        value="20"
-                        placeholder="Enter num_threads">
-          </b-form-input>
-        </b-form-group>
+        <b-form-checkbox
+          id="runtime"
+          v-model="perf_testForm.runtime"
+          name="runtime">
+          runtime
+          </b-form-checkbox>
 
-      <b-form-group id="form-top_n-group"
-                    label="top_n:"
-                    label-for="form-top_n-input">
-          <b-form-input id="form-top_n-input"
-                        type="text"
-                        v-model="perf_testForm.top_n"
-                        value="20"
-                        placeholder="Enter top_n">
-          </b-form-input>
-        </b-form-group>
+        <b-form-group v-if="perf_testForm.parallel"
+                      id="form-threadpool_size-group"
+                      label="threadpool_size:"
+                      label-for="form-threadpool_size-input">
+            <b-form-input id="form-threadpool_size-input"
+                          type="text"
+                          v-model="perf_testForm.threadpool_size"
+                          placeholder="Enter threadpool_size">
+            </b-form-input>
+          </b-form-group>
+        <b-form-group id="form-num_threads-group"
+                      label="num_threads:"
+                      label-for="form-num_threads-input">
+            <b-form-input id="form-num_threads-input"
+                          type="text"
+                          v-model="perf_testForm.num_threads"
+                          value="20"
+                          placeholder="Enter num_threads">
+            </b-form-input>
+          </b-form-group>
 
+        <b-form-group id="form-top_n-group"
+                      label="top_n:"
+                      label-for="form-top_n-input">
+            <b-form-input id="form-top_n-input"
+                          type="text"
+                          v-model="perf_testForm.top_n"
+                          value="20"
+                          placeholder="Enter top_n">
+            </b-form-input>
+          </b-form-group>
+        </div>
         <b-button type="submit" variant="primary">Submit</b-button>
         <b-button type="reset" variant="danger">Reset</b-button>
       </b-form>
@@ -387,7 +397,8 @@ export default {
       show_visualization: false,
       show_logs: false,
       model_missing: '',
-      convert_result: null
+      convert_result: null,
+      adv_setting: false
     };
   },
   components: {
@@ -442,7 +453,9 @@ export default {
           if(res.data['status'] == 'success'){
             this.message = res.data['logs'];
             this.show_logs = true;
-            this.convert_result = res.data['output_json'];
+            this.convert_result = {'output_json': res.data['output_json'],
+              'input_path': '../static/' +res.data['input_path'],
+              'model_path': '../static/' +res.data['model_path']};
             this.perf_testForm.model = res.data['converted_model'];
           }
         })
@@ -517,10 +530,7 @@ export default {
       this.show_visualization = false;
       this.show_message = false;
       this.show_logs = false;
-      this.convert_result = false;
-    },
-    open_logs(){
-      this.show_message = true;
+      this.convert_result = null;
     }
   },
   created() {
@@ -544,6 +554,7 @@ table {
 th, td {
   text-align: left;
   padding: 8px;
+  white-space: nowrap;
 }
 .lil_table{
     margin: 4px 2px;
@@ -573,10 +584,6 @@ tr:nth-child(even) {background-color: #f2f2f2;}
 .hide{
   display: none;
 }
-.before_open{
-  text-decoration: underline;
-  cursor: pointer;
-}
 .before_open::after{
   content: "(-)";
   font-weight: bold;
@@ -598,8 +605,9 @@ tr:nth-child(even) {background-color: #f2f2f2;}
     border-style: solid;  
     background-color: white;
 }
-.show_logs{
+.open_button{
   cursor: pointer;
   text-decoration: underline;
+  color: #669;
 }
 </style>

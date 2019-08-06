@@ -6,8 +6,13 @@ import onnxpipeline
 from werkzeug.utils import secure_filename
 import netron
 import posixpath
+import tarfile
+import app_config 
+import os
+from shutil import copyfile
 
-# configuration
+
+# app_configuration
 DEBUG = True
 
 # instantiate the app
@@ -65,6 +70,23 @@ def convert():
     response_object['logs'] = pipeline.output
     response_object['converted_model'] = model
 
+    target_dir = app_config.DOWNLOAD_DIR
+    input_root = os.path.join(app_config.STATIC_DIR, target_dir)
+    # compress input directory
+    compress_path = os.path.join(pipeline.convert_directory, app_config.INPUT_DIR)
+    input_path = os.path.join(input_root, app_config.COMPRESS_NAME)
+    tar = tarfile.open(input_path, "w:gz")
+    if not os.path.exists(input_path):
+        os.makedirs(input_path)
+    tar.add(compress_path, arcname=app_config.INPUT_DIR)
+    tar.close()
+
+    # copy converted onnx model
+    copyfile(pipeline.convert_path, os.path.join(input_root, pipeline.convert_name))
+
+    response_object['input_path'] = posixpath.join(target_dir, app_config.COMPRESS_NAME)
+    response_object['model_path'] = posixpath.join(target_dir, pipeline.convert_name)
+
     return jsonify(response_object)
 
 @app.route('/perf_test', methods=['POST'])
@@ -81,6 +103,7 @@ def perf_test():
     response_object['result'] = r.latency
     response_object['profiling'] = r.profiling
     #response_object['profiling'] = []
+
     return jsonify(response_object)
 
 
