@@ -3,8 +3,9 @@ onnxmltools
 
 coremltools
 sklearn
+pandas
 
-cntk==2.6
+https://cntk.ai/PythonWheel/CPU-Only/cntk-2.6-cp36-cp36m-linux_x86_64.whl
 mxnet==1.4.0
 numpy==1.16.0
 
@@ -14,3 +15,4 @@ torchvision==0.2.1
 xgboost==0.81
 lightgbm==2.2.3
 tf2onnx
+onnxruntime
