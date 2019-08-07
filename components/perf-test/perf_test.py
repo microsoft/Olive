@@ -474,14 +474,15 @@ if __name__ == "__main__":
         failed = [x for x in failed if "cuda" not in x.name and "tensorrt" not in x.name]
 
     # Re-sort tests based on 100 runs
-    successful = sorted(successful[:int(args.top_n)], key=lambda e:e.avg)
+    successful_not_profiled = successful[int(args.top_n):]
+    successful_profiled = sorted(successful[:int(args.top_n)], key=lambda e:e.avg)
     print("")
     print("Results:")
     out_json = []
 
 
     with open(os.path.join(args.result, "latencies.txt"), "w") as out_file:
-        for test in successful:
+        for test in successful_profiled:
             print(test.name, test.avg, "ms")
             print(test.name, test.avg, "ms", file=out_file)
 
@@ -500,6 +501,18 @@ if __name__ == "__main__":
             json_record["code_snippet"] = test.gen_code_snippet()
             out_json.append(json_record)
 
+        for test in successful_not_profiled:
+            json_record = dict()
+            json_record["name"] = test.name
+            json_record["command"] = test.command
+            json_record["avg"] = test.avg
+            num_latencies = len(test.latencies)
+            if num_latencies >= 10:
+                json_record["p90"] = test.latencies[int(num_latencies * .9)] * 1000
+            if num_latencies >= 20:
+                json_record["p95"] = test.latencies[int(num_latencies * .95)] * 1000
+            out_json.append(json_record)
+            
         for test in failed:
             print(test.name, "error")
             print(test.name, "error", file=out_file)
