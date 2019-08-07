@@ -39,7 +39,6 @@ class PerfTestParams:
         self.env.pop("OMP_NUM_THREADS", None)
         self.env.update(env)
         self.env_to_set = env
-        print(self.env_to_set)
         
         self.model = args.model
         self.result_dir = args.result
@@ -108,9 +107,7 @@ def run_perf_test(test_params, percentiles=False):
         test_args = test_params.get_percentiles_args(result_file)
     else:
         test_args = test_params.get_args(result_file)
-    
     perf_test = subprocess.run(test_args, env=test_params.env)
-    
     # The first run was warmup.
     remove(result_file)
     test_params.print_args(test_args)
@@ -158,10 +155,10 @@ def run_perf_test(test_params, percentiles=False):
 
     latencies.sort()
 
-    test_params.latencies = latencies * 1000
+    test_params.latencies = latencies
 
     if len(latencies) > 0:
-        test_params.avg = round(sum(latencies) / len(latencies), 9)
+        test_params.avg = round(sum(latencies) / len(latencies), 9) * 1000
     else:
         test_params.avg = None
 
@@ -473,6 +470,9 @@ if __name__ == "__main__":
     
     failed.extend([x for x in tests if not x.avg])
     
+    if len(GPUtil.getGPUs()) == 0:
+        failed = [x for x in failed if "cuda" not in x.name and "tensorrt" not in x.name]
+
     # Re-sort tests based on 100 runs
     successful = sorted(successful[:int(args.top_n)], key=lambda e:e.avg)
     print("")
@@ -491,9 +491,9 @@ if __name__ == "__main__":
             json_record["avg"] = test.avg
             num_latencies = len(test.latencies)
             if num_latencies >= 10:
-                json_record["p90"] = test.latencies[int(num_latencies * .9)]
+                json_record["p90"] = test.latencies[int(num_latencies * .9)] * 1000
             if num_latencies >= 20:
-                json_record["p95"] = test.latencies[int(num_latencies * .95)]
+                json_record["p95"] = test.latencies[int(num_latencies * .95)] * 1000
             json_record["cpu_usage"] = test.cpu / 100
             json_record["gpu_usage"] = test.gpu
             json_record["memory_util"] = test.memory / 100
