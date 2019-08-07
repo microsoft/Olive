@@ -12,8 +12,7 @@
           <h5>Conversion Status: <b-badge variant="danger">{{convert_result['output_json']['conversion_status']}}</b-badge></h5>
           <h5>Correctness Verified: <b-badge variant="danger">{{convert_result['output_json']['correctness_verified']}}</b-badge></h5>
           <h5>Download</h5>
-          <a :href="convert_result['input_path']" download>[input]</a>
-          <br/>
+          <a :href="convert_result['input_path']" download>[input] </a>
           <a :href="convert_result['model_path']" download>[model]</a>
         </div>
         <table v-if="result.length > 0">
@@ -27,7 +26,7 @@
           <!--<th>code_snippet.execution_provider</th>-->
           <th>code_snippet</th>
           <th>profiling</th>
-          <tr v-for="(r, index) in result">
+          <tr v-for="(r, index) in result" :key="r">
               <td>{{r.name}}</td>
               <td>{{r.avg}}</td>
               <td>{{r.p90}}</td>
@@ -38,16 +37,16 @@
               <td>
                 <div v-on:click="open_details(index)" v-bind:class="{open: !(selected == index)}" class="before_open open_button">details </div>
                 <table class="lil_table" v-bind:class="{hide: !(selected == index)}">
-                  <tr class="lil_tr" v-for="(value, key) in r.code_snippet">
+                  <tr class="lil_tr" v-for="(value, key) in r.code_snippet" :key="key">
                     <div v-if="key === 'code'">
                       <td class="lil_td">{{key}}</td>
                       <td class="lil_td">{{value}}</td>
                     </div>
                     <div v-else-if="key === 'environment_variables'">
                       <table class="lil_table">
-                        <tr class="lil_tr" v-for="(value, key) in r.code_snippet.environment_variables">
+                        <tr class="lil_tr" v-for="(value, key) in r.code_snippet.environment_variables" :key="key">
                           <td class="lil_td">{{key}}</td>
-                          <td class="lil_td">{{value}}</td>
+                          <td class="lil_td" v-bind:class="{nextline: key == 'code'}">{{value}}</td>
                         </tr>
                       </table>
                     </div>
@@ -58,29 +57,33 @@
                       <td class="lil_td">{{value}}</td>
                     </div>
                   </tr>
-                </table>  
+                </table>
               </td>
               <!--profiling-->
               <td>
-                <div v-on:click="open_profiling(index)" v-bind:class="{open: !(selected_profiling == index)}" class="before_open open_button">op </div>
-                <table class="lil_table" v-if="index < profiling.length" v-bind:class="{hide: !(selected_profiling == index)}">
-                  <tr class="lil_tr" v-for="(op_info, i) in profiling[index].slice(0, 5)">
+                <div v-on:click="open_profiling(index)"
+                     v-bind:class="{open: !(selected_profiling == index)}"
+                     class="before_open open_button">op </div>
+                <table class="lil_table"
+                       v-if="index < profiling.length"
+                       v-bind:class="{hide: !(selected_profiling == index)}">
+                  <tr class="lil_tr" v-for="(op_info, i) in profiling[index].slice(0, 5)" :key="op_info">
                       <td class="lil_td">{{i+1}}</td>
                       <td class="lil_td op_table">
-                        <table v-for="(value, key) in op_info">
+                        <table v-for="(value, key) in op_info" :key="key">
                           <td class="lil_td" style="width:55px;">{{key}}</td>
                           <td class="lil_td">
                             <div v-if="key === 'args'">
-                                <table  v-for="(args_value, args_key) in value">
+                                <table v-for="(args_value, args_key) in value" :key="args_key">
                                   <td class="args_td" style="width:30px;">{{args_key}}</td>
                                   <td class="args_td">{{args_value}}</td>
                                   </table>
                               </div>
                             <div v-else>
                                 {{value}}
-                              </div>  
-                            </td> 
-                          </table>                  
+                              </div>
+                            </td>
+                          </table>
                       </td>
                   </tr>
                 </table>
@@ -170,7 +173,6 @@
           </b-form-input>
         </b-form-group>
 
-
       <b-form-group v-if="convertForm.model_type === 'pytorch'"
                     id="form-model_input_shapes-group"
                     label="model_input_shapes:"
@@ -202,7 +204,6 @@
           </b-form-input>
         </b-form-group>
 
-
         <b-button type="submit" variant="primary">Submit</b-button>
         <b-button type="reset" variant="danger">Reset</b-button>
       </b-form>
@@ -213,7 +214,6 @@
              title="Perf Test"
              hide-footer>
       <b-form @submit="perf_test" @reset="onReset_perf_test" class="w-100">
-
 
       <b-form-group id="form-model-group"
                     label="model:"
@@ -366,11 +366,11 @@ import axios from 'axios';
 import Alert from './Alert';
 import {convertForm, perf_testForm} from '../utils/const';
 
-var origin_convertForm = Object.assign({}, convertForm); 
-var origin_perf_testForm = Object.assign({}, perf_testForm); 
+var origin_convertForm = Object.assign({}, convertForm);
+var origin_perf_testForm = Object.assign({}, perf_testForm);
 
 export default {
-  data() {
+  data () {
     return {
       selected: -1,
       selected_profiling: -1,
@@ -380,16 +380,16 @@ export default {
       perf_testForm,
       options: {
         model_type: [
-        { value: 'pytorch', text: 'pytorch' },
-        { value: 'tensorflow', text: 'tensorflow' },
-        { value: 'onnx', text: 'onnx' },
-        { value: 'keras', text: 'keras' },
-        { value: 'caffe', text: 'caffe' },
-        { value: 'scikit-learn', text: 'scikit-learn' }
+          { value: 'pytorch', text: 'pytorch' },
+          { value: 'tensorflow', text: 'tensorflow' },
+          { value: 'onnx', text: 'onnx' },
+          { value: 'keras', text: 'keras' },
+          { value: 'caffe', text: 'caffe' },
+          { value: 'scikit-learn', text: 'scikit-learn' }
         ],
-        config: ["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
-        mode: ["duration", "times"],
-        execution_provider: ["cpu", "cuda", "mkldnn", ""]
+        config: ['Debug', 'MinSizeRel', 'Release', 'RelWithDebInfo'],
+        mode: ['duration", "times'],
+        execution_provider: ['cpu', 'cuda', 'mkldnn', '']
       },
       visualize_model: null,
       message: '',
@@ -402,19 +402,19 @@ export default {
     };
   },
   components: {
-    alert: Alert,
+    alert: Alert
   },
   methods: {
-    visualize(evt){
+    visualize (evt) {
       this.close_all();
       evt.preventDefault();
       this.$refs.visualizeModal.hide();
       const path = 'http://localhost:5000/visualize';
       const data = new FormData();
-      data.append("file", this.visualize_model);
+      data.append('file', this.visualize_model);
       axios.post(path, data)
-      .then((res) => {
-          if(res.data['status'] == 'success'){
+        .then((res) => {
+          if (res.data['status'] === 'success') {
             this.show_visualization = true;
           }
         })
@@ -423,13 +423,13 @@ export default {
           console.log(error);
         });
     },
-    initForm() {
-      this.convertForm = Object.assign({}, origin_convertForm); 
+    initForm () {
+      this.convertForm = Object.assign({}, origin_convertForm);
     },
-    init_perf_testForm() {
-      this.perf_testForm = Object.assign({}, origin_perf_testForm); 
+    init_perf_testForm () {
+      this.perf_testForm = Object.assign({}, origin_perf_testForm);
     },
-    convert(evt) {
+    convert (evt) {
       this.close_all();
       evt.preventDefault();
       this.$refs.convertModal.hide();
@@ -440,22 +440,21 @@ export default {
       });
 
       const data = new FormData();
-      data.append("metadata", blob);
-      data.append("file", this.convertForm.model);
+      data.append('metadata', blob);
+      data.append('file', this.convertForm.model);
 
       this.show_message = true;
       this.message = 'Running...';
 
-
       axios.post('http://localhost:5000/convert', data)
-      .then((res) => {
+        .then((res) => {
           this.show_message = false;
-          if(res.data['status'] == 'success'){
+          if (res.data['status'] === 'success') {
             this.message = res.data['logs'];
             this.show_logs = true;
             this.convert_result = {'output_json': res.data['output_json'],
-              'input_path': '../static/' +res.data['input_path'],
-              'model_path': '../static/' +res.data['model_path']};
+              'input_path': '../static/' + res.data['input_path'],
+              'model_path': '../static/' + res.data['model_path']};
             this.perf_testForm.model = res.data['converted_model'];
           }
         })
@@ -466,14 +465,15 @@ export default {
 
       this.initForm();
     },
-    perf_test(evt) {
+    perf_test (evt) {
       this.close_all();
       evt.preventDefault();
-      if(this.perf_testForm.model === ""){
+      if (this.perf_testForm.model === '') {
         this.model_missing = 'You need to convert first.';
         return;
+      } else {
+        this.model_missing = '';
       }
-      else this.model_missing = '';
       this.$refs.perf_testModal.hide();
       const metadata = this.perf_testForm;
 
@@ -483,15 +483,15 @@ export default {
         type: 'application/json'
       });
       const data = new FormData();
-      data.append("metadata", blob);
+      data.append('metadata', blob);
 
       this.show_message = true;
       this.message = 'Running...';
 
       axios.post('http://localhost:5000/perf_test', data)
-      .then((res) => {
-        this.show_message = false;
-          if(res.data['status'] == 'success'){
+        .then((res) => {
+          this.show_message = false;
+          if (res.data['status'] === 'success') {
             var data = res.data['logs'];
             this.show_logs = true;
             this.message = data;
@@ -503,39 +503,37 @@ export default {
           // eslint-disable-next-line
           console.log(error);
         });
-
     },
-    onReset(evt) {
+    onReset (evt) {
       evt.preventDefault();
       this.initForm();
     },
-    onReset_perf_test(evt){
+    onReset_perf_test (evt) {
       evt.preventDefault();
       this.init_perf_testForm();
     },
-    open_details(index){
-      if(this.selected == index)
+    open_details (index) {
+      if (this.selected === index) {
         this.selected = -1;
-      else
+      } else {
         this.selected = index;
+      }
     },
-    open_profiling(index){
-      if(this.selected_profiling == index)
+    open_profiling (index) {
+      if (this.selected_profiling === index) {
         this.selected_profiling = -1;
-      else
+      } else {
         this.selected_profiling = index;
+      }
     },
-    close_all(){
+    close_all () {
       this.result = [];
       this.show_visualization = false;
       this.show_message = false;
       this.show_logs = false;
       this.convert_result = null;
     }
-  },
-  created() {
-    //this.getBooks();
-  },
+  }
 };
 </script>
 <style>
@@ -555,6 +553,9 @@ th, td {
   text-align: left;
   padding: 8px;
   white-space: nowrap;
+}
+.nextline{
+  white-space: normal;
 }
 .lil_table{
     margin: 4px 2px;
@@ -580,7 +581,9 @@ th, td {
     text-align: left;
     background-color: #eef;
 }
-tr:nth-child(even) {background-color: #f2f2f2;}
+tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
 .hide{
   display: none;
 }
@@ -588,8 +591,7 @@ tr:nth-child(even) {background-color: #f2f2f2;}
   content: "(-)";
   font-weight: bold;
 }
-
-.open::after{ 
+.open::after{
   content: "(+)";
 }
 .op_table{
@@ -602,7 +604,7 @@ tr:nth-child(even) {background-color: #f2f2f2;}
     padding: 2px 6px;
     border-width: 2px;
     border-color: #669;
-    border-style: solid;  
+    border-style: solid;
     background-color: white;
 }
 .open_button{
