@@ -1,53 +1,76 @@
 ## Onnx-converter Image
 
-This image is used to convert model from major model frameworks to onnx. Supported frameworks are - 
-caffe, cntk, coreml, keras, libsvm, mxnet, scikit-learn, tensorflow and pytorch.
+This image is used to convert models from major model frameworks to onnx, generate input files if not provided, and then test the converted models' correctness. 
+Supported frameworks are - 
+   - cntk
+   - coreml
+   - keras
+   - scikit-learn
+   - tensorflow
+   - pytorch
 
 
 ## How to Run 
-First build image with docker
+
+### Azure Registry
+
+A pre-built version of the image is available at Azure Registry. Once you have docker installed, you can easily pull and run the image on Linux as well as on Windows. 
+
+With the correct credentials, you can pull the image directly using 
+```
+docker pull ziylregistry.azurecr.io/onnx-converter
+```
+
+Upon success, run Docker onnx-converter image by
+```
+docker run ziylregistry.azurecr.io/onnx-converter --model <model_path> --output_onnx_path <output_path_to_.onnx> --model_type <input_model_framework_name> [optional args]
+```
+
+### Run With Docker
+First build image with docker. Under this directory, run
 ```
 docker build -t onnx-converter .
 ```
-Upon success, you should see you can run the docker image with customized parameters. 
+Then, you can run the docker image with customized parameters. 
 
 ```
-docker run onnx-converter --model [YOUR MODEL FILE] --output_onnx_path [OUTPUT PATH TO STORE CONVERTED .ONNX] --model_type [TYPE OF THE INPUT MODEL]
+docker run onnx-converter --model <model_path> --output_onnx_path <output_path_to_.onnx> --model_type <input_model_framework_name> [optional args]
 ```
 
+### Run With Python
+Alternatively, you can run without docker by 
+```
+python onnx_converter.py --model <model_path> --output_onnx_path <output_path_to_.onnx> --model_type <input_model_framework_name> [optional args]
+```
 For detailed description of all available parameters, refer to the following. 
+
 ## Run parameters
 
-**model**: string
-   
-   Required. The path of the model that needs to be converted.
+`--input_json`: A JSON file that contains all neccessary run specs. For example:
+```
+{
+    "model": "/mnist/",
+    "model_type": "tensorflow",
+    "output_onnx_path": "mnist.onnx"
+}
+```
 
-**output_onnx_path**: string
-   
-   Required. The path to store the converted onnx model. Should end with ".onnx". e.g. output.onnx
+`--model`: Required or specified in input json. The path of the model that needs to be converted.
 
-**model_type**: string
-   
-   Required. The name of original model framework. 
-   
-   Available types are caffe, cntk, coreml, keras, libsvm, mxnet, scikit-learn, tensorflow and pytorch.
+`--output_onnx_path`: Required or specified in input json. The path to store the converted onnx model. Should end with ".onnx". e.g. "/newdir/output.onnx". A cleaned directory is recommended. 
 
-**model_inputs**: string
-   
-   Optional. The model's input names. Required for tensorflow frozen models and checkpoints.
+`--model_type`: Required or specified in input json. The name of original model framework. Available types are cntk, coreml, keras, scikit-learn, tensorflow and pytorch.
 
-**model_outputs**: string
-   
-   Optional. The model's output names. Required for tensorflow frozen models checkpoints.
+`--model_inputs_names`: Optional. The model's input names. Required for tensorflow frozen models and checkpoints.
 
-**model_params**: string
+`--model_outputs_names`: Optional. The model's output names. Required for tensorflow frozen models checkpoints.
 
-Optional. The params of the model if needed.
+`--model_params`: Optional. The params of the model if needed.
 
-**model_input_shapes**: list of tuple
-   
-   Optional. List of tuples. The input shape(s) of the model. Each dimension separated by ','.
+`--model_input_shapes`: Optional. List of tuples. The input shape(s) of the model. Each dimension separated by ','.
 
-**target_opset**: int
+`--initial_types`: Optional. List of tuples. The initial types of model for onnxmltools
 
-Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3. Defaults to 7. 
+`--caffe_model_prototxt`: Optional. The path of the .prototxt file for caffe model.
+ 
+`--target_opset`: Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3. Defaults to 7. 
