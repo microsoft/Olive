@@ -9,7 +9,7 @@ import posixpath
 import tarfile
 import app_config 
 import os
-from shutil import copyfile
+from shutil import copyfile, rmtree
 
 
 # app_configuration
@@ -62,6 +62,11 @@ def convert():
     model_name, temp_json = get_params(request)
 
     pipeline = onnxpipeline.Pipeline()
+
+    # may not work in Unix OS cuz the permission
+    if os.path.exists(pipeline.convert_directory):
+        rmtree(pipeline.convert_directory)
+
     model = pipeline.convert_model(model=model_name, input_json=temp_json)
     with open(posixpath.join(pipeline.convert_directory, 'output.json')) as f:
         json_data = json.load(f)
@@ -81,6 +86,7 @@ def convert():
     tar.add(compress_path, arcname=app_config.INPUT_DIR)
     tar.close()
 
+
     # copy converted onnx model
     copyfile(pipeline.convert_path, os.path.join(input_root, pipeline.convert_name))
 
@@ -91,11 +97,13 @@ def convert():
 
 @app.route('/perf_test', methods=['POST'])
 def perf_test():
+
     response_object = {'status': 'success'}
 
     _, temp_json = get_params(request)
     
     pipeline = onnxpipeline.Pipeline()
+
     result = pipeline.perf_test(input_json=temp_json)
 
     response_object['logs'] = pipeline.output

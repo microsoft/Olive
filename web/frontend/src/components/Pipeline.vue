@@ -6,7 +6,7 @@
         <hr>
         <button type="button" class="btn btn-success btn-sm button_right" v-b-modal.convert-modal>Convert</button>
         <button type="button" class="btn btn-info btn-sm button_right" v-b-modal.perf_test-modal>Pert Test</button>
-        <button type="button" class="btn btn-primary btn-sm" v-b-modal.visualizeModal>Visualize</button>
+        <button type="button" class="btn btn-primary btn-sm" v-b-modal.visualizeModal>Model Visualize</button>
         <hr/>
         <div v-if="convert_result">
           <h5>Conversion Status: <b-badge variant="danger">{{convert_result['output_json']['conversion_status']}}</b-badge></h5>
@@ -16,6 +16,7 @@
           <a :href="convert_result['model_path']" download>[model]</a>
         </div>
         <table v-if="result.length > 0">
+          <th>#</th>
           <th>name</th>
           <th>avg (sec)</th>
           <th>p90 (sec)</th>
@@ -26,7 +27,8 @@
           <!--<th>code_snippet.execution_provider</th>-->
           <th>code_snippet</th>
           <th>profiling</th>
-          <tr v-for="(r, index) in result" :key="r">
+          <tr v-for="(r, index) in result" :key="index">
+              <td>{{index+1}}</td>
               <td>{{r.name}}</td>
               <td>{{r.avg}}</td>
               <td>{{r.p90}}</td>
@@ -36,17 +38,17 @@
               <td>{{r.memory_util}}</td>
               <td>
                 <div v-on:click="open_details(index)" v-bind:class="{open: !(selected == index)}" class="before_open open_button">details </div>
-                <table class="lil_table" v-bind:class="{hide: !(selected == index)}">
-                  <tr class="lil_tr" v-for="(value, key) in r.code_snippet" :key="key">
+                <table class="lil_table" v-bind:class="{hide: !(selected === index)}">
+                  <tr class="lil_tr" v-for="(value, key, index) in r.code_snippet" :key="index">
                     <div v-if="key === 'code'">
                       <td class="lil_td">{{key}}</td>
                       <td class="lil_td">{{value}}</td>
                     </div>
                     <div v-else-if="key === 'environment_variables'">
                       <table class="lil_table">
-                        <tr class="lil_tr" v-for="(value, key) in r.code_snippet.environment_variables" :key="key">
+                        <tr class="lil_tr" v-for="(value, key, index) in r.code_snippet.environment_variables" :key="index">
                           <td class="lil_td">{{key}}</td>
-                          <td class="lil_td" v-bind:class="{nextline: key == 'code'}">{{value}}</td>
+                          <td class="lil_td" v-bind:class="{nextline: key === 'code'}">{{value}}</td>
                         </tr>
                       </table>
                     </div>
@@ -67,14 +69,14 @@
                 <table class="lil_table"
                        v-if="index < profiling.length"
                        v-bind:class="{hide: !(selected_profiling == index)}">
-                  <tr class="lil_tr" v-for="(op_info, i) in profiling[index].slice(0, 5)" :key="op_info">
+                  <tr class="lil_tr" v-for="(op_info, i) in profiling[index].slice(0, 5)" :key="i">
                       <td class="lil_td">{{i+1}}</td>
                       <td class="lil_td op_table">
-                        <table v-for="(value, key) in op_info" :key="key">
+                        <table v-for="(value, key, index) in op_info" :key="index">
                           <td class="lil_td" style="width:55px;">{{key}}</td>
                           <td class="lil_td">
                             <div v-if="key === 'args'">
-                                <table v-for="(args_value, args_key) in value" :key="args_key">
+                                <table v-for="(args_value, args_key, index) in value" :key="index">
                                   <td class="args_td" style="width:30px;">{{args_key}}</td>
                                   <td class="args_td">{{args_value}}</td>
                                   </table>
@@ -97,7 +99,7 @@
         <alert :message=message v-if="show_message"></alert>
         <br/>
         <div>
-          <iframe src="http://localhost:8080" width="600" height="500" v-if="show_visualization"></iframe>
+          <iframe src="http://localhost:8080" width="1200" height="800" v-if="show_visualization"></iframe>
         </div>
       </div>
     </div>

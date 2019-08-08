@@ -297,8 +297,10 @@ class Pipeline:
             self.profiling = []
             for i in range(self.profiling_max):
                 profiling_name = "profile_" + self.latency[i]["name"] + ".json"
-                with open(osp.join(result_directory, profiling_name)) as json_file:  
-                    self.profiling.append(json.load(json_file))
+                profiling_path = osp.join(result_directory, profiling_name)
+                if osp.exists(profiling_path):
+                    with open(profiling_path) as json_file:  
+                        self.profiling.append(json.load(json_file))
 
         def __print_json(self, json_data, orient):
             data = json.dumps(json_data)
