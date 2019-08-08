@@ -308,15 +308,14 @@ class Pipeline:
             profiling_ops = []
             for index in range(self.profiling_max):
                 ops = []
-                for p in self.profiling[index]:
-                    if p['cat'] == 'Node':
-                        filtered_op = {}
-                        filtered_op['name'] = p['name'].replace('_kernel_time', '')
-                        filtered_op['dur'] = p['dur']
-                        filtered_op['tid'] = p['tid']
-                        ops.append(filtered_op)
-                ops.sort(key=lambda x: x['dur'], reverse=True)
-                profiling_ops.append(ops)
+                if index < len(self.profiling):
+                    for p in self.profiling[index]:
+                        if p['cat'] == 'Node':
+                            filtered_op = p
+                            filtered_op['name'] = p['name'].replace('_kernel_time', '')
+                            ops.append(filtered_op)
+                    ops.sort(key=lambda x: x['dur'], reverse=True)
+                    profiling_ops.append(ops)
             return profiling_ops
 
 

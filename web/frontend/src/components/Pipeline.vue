@@ -37,58 +37,18 @@
               <td>{{r.gpu_usage}}</td>
               <td>{{r.memory_util}}</td>
               <td>
-                <div v-on:click="open_details(index)" v-bind:class="{open: !(selected == index)}" class="before_open open_button">details </div>
-                <table class="lil_table" v-bind:class="{hide: !(selected === index)}">
-                  <tr class="lil_tr" v-for="(value, key, index) in r.code_snippet" :key="index">
-                    <div v-if="key === 'code'">
-                      <td class="lil_td">{{key}}</td>
-                      <td class="lil_td">{{value}}</td>
-                    </div>
-                    <div v-else-if="key === 'environment_variables'">
-                      <table class="lil_table">
-                        <tr class="lil_tr" v-for="(value, key, index) in r.code_snippet.environment_variables" :key="index">
-                          <td class="lil_td">{{key}}</td>
-                          <td class="lil_td" v-bind:class="{nextline: key === 'code'}">{{value}}</td>
-                        </tr>
-                      </table>
-                    </div>
-                    <div v-else-if="key === 'execution_provider'">
-                    </div>
-                    <div v-else>
-                      <td class="lil_td">{{key}}</td>
-                      <td class="lil_td">{{value}}</td>
-                    </div>
-                  </tr>
-                </table>
+                <div v-if="index < PROFILING_MAX"
+                     v-on:click="code_details = r.code_snippet.code"
+                     v-bind:class="{open: !(selected == index)}"
+                     class="before_open open_button"
+                     v-b-modal.codeModal>details </div>
               </td>
               <!--profiling-->
               <td>
-                <div v-on:click="open_profiling(index)"
+                <div v-if="index < PROFILING_MAX"
+                     v-on:click="open_profiling(profiling[index].slice(0, PROFILING_MAX))"
                      v-bind:class="{open: !(selected_profiling == index)}"
-                     class="before_open open_button">op </div>
-                <table class="lil_table"
-                       v-if="index < profiling.length"
-                       v-bind:class="{hide: !(selected_profiling == index)}">
-                  <tr class="lil_tr" v-for="(op_info, i) in profiling[index].slice(0, 5)" :key="i">
-                      <td class="lil_td">{{i+1}}</td>
-                      <td class="lil_td op_table">
-                        <table v-for="(value, key, index) in op_info" :key="index">
-                          <td class="lil_td" style="width:55px;">{{key}}</td>
-                          <td class="lil_td">
-                            <div v-if="key === 'args'">
-                                <table v-for="(args_value, args_key, index) in value" :key="index">
-                                  <td class="args_td" style="width:30px;">{{args_key}}</td>
-                                  <td class="args_td">{{args_value}}</td>
-                                  </table>
-                              </div>
-                            <div v-else>
-                                {{value}}
-                              </div>
-                            </td>
-                          </table>
-                      </td>
-                  </tr>
-                </table>
+                     class="before_open open_button" v-b-modal.opsModal>op </div>
               </td>
 
           </tr>
@@ -360,6 +320,19 @@
         <b-button type="submit" variant="primary">Submit</b-button>
       </b-form>
     </b-modal>
+  <b-modal ref="opsModal"
+            id="opsModal"
+            title="Top 5 ops"
+            hide-footer>
+        <b-table striped hover :items="op_info" :fields="fields"></b-table>
+    </b-modal>
+  <b-modal ref="codeModal"
+            id="codeModal"
+            title="Code details"
+            hide-footer>
+        <div style="width: 370px;">{{code_details}}</div>
+    </b-modal>
+
   </div>
 </template>
 
@@ -374,6 +347,7 @@ var origin_perf_testForm = Object.assign({}, perf_testForm);
 export default {
   data () {
     return {
+      PROFILING_MAX: 5,
       selected: -1,
       selected_profiling: -1,
       result: [],
@@ -400,7 +374,10 @@ export default {
       show_logs: false,
       model_missing: '',
       convert_result: null,
-      adv_setting: false
+      adv_setting: false,
+      op_info: {},
+      fields: ['name', 'duration', 'op_name', 'tid'],
+      code_details: ''
     };
   },
   components: {
@@ -458,6 +435,7 @@ export default {
               'input_path': '../static/' + res.data['input_path'],
               'model_path': '../static/' + res.data['model_path']};
             this.perf_testForm.model = res.data['converted_model'];
+            // TODO cache model for model visualize
           }
         })
         .catch((error) => {
@@ -476,6 +454,9 @@ export default {
       } else {
         this.model_missing = '';
       }
+
+      // TODO cache model for model visualize
+
       this.$refs.perf_testModal.hide();
       const metadata = this.perf_testForm;
 
@@ -521,11 +502,15 @@ export default {
         this.selected = index;
       }
     },
-    open_profiling (index) {
-      if (this.selected_profiling === index) {
-        this.selected_profiling = -1;
-      } else {
-        this.selected_profiling = index;
+    open_profiling (ops) {
+      this.op_info = [];
+      for (var i = 0; i < ops.length; ++i) {
+        this.op_info.push({
+          'name': ops[i]['name'],
+          'duration': ops[i]['dur'],
+          'op_name': ops[i]['args']['op_name'],
+          'tid': ops[i]['tid']
+        });
       }
     },
     close_all () {
@@ -555,9 +540,6 @@ th, td {
   text-align: left;
   padding: 8px;
   white-space: nowrap;
-}
-.nextline{
-  white-space: normal;
 }
 .lil_table{
     margin: 4px 2px;
@@ -613,5 +595,9 @@ tr:nth-child(even) {
   cursor: pointer;
   text-decoration: underline;
   color: #669;
+}
+.modal-content{
+  width: 960px !important;
+  /*dirty method to adjust the modal for longer name in ops*/
 }
 </style>
