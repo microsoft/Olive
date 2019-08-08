@@ -32,5 +32,5 @@ cd backend
 python app.py
 ```
 
-Use ONNX pipeline via the website as below:
+Then the local server has been built. Use ONNX pipeline via the website as:
 http://localhost:1223/
