@@ -299,8 +299,26 @@ class Pipeline:
                 profiling_name = "profile_" + self.latency[i]["name"] + ".json"
                 profiling_path = osp.join(result_directory, profiling_name)
                 if osp.exists(profiling_path):
-                    with open(profiling_path) as json_file:  
+                    with open(profiling_path) as json_file:
                         self.profiling.append(json.load(json_file))
+            self.profiling_ops = self.__filter_ops()
+
+        
+        def __filter_ops(self):
+            profiling_ops = []
+            for index in range(self.profiling_max):
+                ops = []
+                for p in self.profiling[index]:
+                    if p['cat'] == 'Node':
+                        filtered_op = {}
+                        filtered_op['name'] = p['name'].replace('_kernel_time', '')
+                        filtered_op['dur'] = p['dur']
+                        filtered_op['tid'] = p['tid']
+                        ops.append(filtered_op)
+                ops.sort(key=lambda x: x['dur'], reverse=True)
+                profiling_ops.append(ops)
+            return profiling_ops
+
 
         def __print_json(self, json_data, orient):
             data = json.dumps(json_data)

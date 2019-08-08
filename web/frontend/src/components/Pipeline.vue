@@ -390,7 +390,7 @@ export default {
           { value: 'scikit-learn', text: 'scikit-learn' }
         ],
         config: ['Debug', 'MinSizeRel', 'Release', 'RelWithDebInfo'],
-        mode: ['duration", "times'],
+        mode: ['duration', 'times'],
         execution_provider: ['cpu', 'cuda', 'mkldnn', '']
       },
       visualize_model: null,
