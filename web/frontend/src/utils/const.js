@@ -1,5 +1,5 @@
 export const convertForm = {
-  target_opset: 10,
+  target_opset: '10',
   model_type: 'tensorflow',
   model_inputs_names: '',
   model_input_shapes: '',

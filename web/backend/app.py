@@ -68,12 +68,16 @@ def convert():
         rmtree(pipeline.convert_directory)
 
     model = pipeline.convert_model(model=model_name, input_json=temp_json)
-    with open(posixpath.join(pipeline.convert_directory, 'output.json')) as f:
-        json_data = json.load(f)
-        response_object['output_json'] = json_data
+    try:
+        with open(posixpath.join(pipeline.convert_directory, 'output.json')) as f:
+            json_data = json.load(f)
+            response_object['output_json'] = json_data
 
-    response_object['logs'] = pipeline.output
-    response_object['converted_model'] = model
+        response_object['logs'] = pipeline.output
+        response_object['converted_model'] = model
+    except:
+        #fail to convert
+        pass
 
     target_dir = app_config.DOWNLOAD_DIR
     input_root = os.path.join(app_config.STATIC_DIR, target_dir)
@@ -83,12 +87,18 @@ def convert():
     if not os.path.exists(input_path):
         os.makedirs(input_path)
     tar = tarfile.open(os.path.join(input_path, app_config.COMPRESS_NAME), "w:gz")
-    tar.add(compress_path, arcname=app_config.INPUT_DIR)
+    try:
+        tar.add(compress_path, arcname=app_config.INPUT_DIR)
+    except:
+        # fail to generate input
+        pass
+
     tar.close()
 
 
     # copy converted onnx model
-    copyfile(pipeline.convert_path, os.path.join(input_root, pipeline.convert_name))
+    if os.path.exists(pipeline.convert_path):
+        copyfile(pipeline.convert_path, os.path.join(input_root, pipeline.convert_name))
 
     response_object['input_path'] = posixpath.join(target_dir, app_config.COMPRESS_NAME)
     response_object['model_path'] = posixpath.join(target_dir, pipeline.convert_name)
@@ -107,9 +117,12 @@ def perf_test():
     result = pipeline.perf_test(input_json=temp_json)
 
     response_object['logs'] = pipeline.output
-    r = pipeline.get_result(result)
-    response_object['result'] = r.latency
-    response_object['profiling'] = r.profiling_ops
+    try:
+        r = pipeline.get_result(result)
+        response_object['result'] = r.latency
+        response_object['profiling'] = r.profiling_ops
+    except RuntimeError:
+        pass
 
     return jsonify(response_object)
 

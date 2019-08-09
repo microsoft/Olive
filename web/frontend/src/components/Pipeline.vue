@@ -9,8 +9,9 @@
         <button type="button" class="btn btn-primary btn-sm" v-b-modal.visualizeModal>Model Visualize</button>
         <hr/>
         <div v-if="convert_result">
-          <h5>Conversion Status: <b-badge variant="danger">{{convert_result['output_json']['conversion_status']}}</b-badge></h5>
-          <h5>Correctness Verified: <b-badge variant="danger">{{convert_result['output_json']['correctness_verified']}}</b-badge></h5>
+          <h5>Conversion Status: <b-badge variant="primary">{{convert_result['output_json']['conversion_status']}}</b-badge></h5>
+          <h5>Correctness Verified: <b-badge variant="primary">{{convert_result['output_json']['correctness_verified']}}</b-badge></h5>
+          <h5>Error: <b-badge variant="danger">{{convert_result['output_json']['error_message']}}</b-badge></h5>
           <h5>Download</h5>
           <a :href="convert_result['input_path']" download>[input] </a>
           <a :href="convert_result['model_path']" download>[model]</a>
