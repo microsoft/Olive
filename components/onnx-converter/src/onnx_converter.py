@@ -402,7 +402,7 @@ def main():
         output_template["input_folder"] = inputs_path
     except Exception as e:
         output_template["error_message"]= str(e)
-        output_template["correctness_verified"] = "FAILED"
+        output_template["correctness_verified"] = "SKIPPED"
         print("\n-------------\nMODEL CONVERSION SUMMARY (.json file generated at %s )\n" % output_json_path)
         pprint.pprint(output_template)
         with open(output_json_path, "w") as f:
