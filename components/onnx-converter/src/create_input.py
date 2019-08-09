@@ -49,7 +49,6 @@ def generate_inputs(model):
     if not os.path.exists(test_path):
         os.mkdir(test_path)
         os.chmod(test_path, 0o644)
-
     # Get the input model
     sess = rt.InferenceSession(model)
 
@@ -61,8 +60,9 @@ def generate_inputs(model):
         print("input name: %s, shape: %s, type: %s" % (inputs[i].name, inputs[i].shape, inputs[i].type))
         # If the input has None dimensions, replace with 1
         shape_corrected = [1 if x == None else x for x in inputs[i].shape]
-        if inputs[i].type == "tensor(string)":
-            raise ValueError("Cannot auto generate string inputs. Please provide your own input .pb file. ")
+        if inputs[i].type == "tensor(string)" or not all(isinstance(dim, int) for dim in shape_corrected):
+            os.rmdir(test_path)
+            raise ValueError("Cannot auto generate inputs. Please provide your own input .pb files under output_onnx_path folder. ")
         # Create random input and write to .pb
         create_tensor("input_%s.pb" % i, shape_corrected, inputs[i].name, test_path, TYPE_MAP.get(inputs[i].type))
 

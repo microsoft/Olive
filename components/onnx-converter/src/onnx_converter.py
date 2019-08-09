@@ -61,7 +61,7 @@ def get_args():
     parser.add_argument(
         "--target_opset", 
         required=False,
-        default="7",
+        default="10",
         help="Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3."
     )
     parser.add_argument(
@@ -92,7 +92,7 @@ class ConverterParamsFromJson():
         self.model_params = loaded_json["model_params"] if loaded_json.get("model_params") else None
         self.model_input_shapes = shape_type(loaded_json["model_input_shapes"]) if loaded_json.get("model_input_shapes") else None
         self.initial_types = eval(loaded_json["initial_types"]) if loaded_json.get("initial_types") else None
-        self.target_opset = loaded_json["target_opset"] if loaded_json.get("target_opset") else "7"
+        self.target_opset = loaded_json["target_opset"] if loaded_json.get("target_opset") else "10"
         self.caffe_model_prototxt = loaded_json["caffe_model_prototxt"] if loaded_json.get("caffe_model_prototxt") else None
 
 def shape_type(s):
@@ -264,7 +264,8 @@ def tf2onnx(args):
             "--inputs", args.model_inputs_names,
             "--outputs", args.model_outputs_names, 
             "--opset", args.target_opset, 
-            "--fold_const"])
+            "--fold_const",
+            "--target", "rs6"])
     elif get_extension(args.model) == "meta":
         if not args.model_inputs_names and not args.model_outputs_names:
             raise ValueError("Please provide --model_inputs_names and --model_outputs_names to convert Tensorflow checkpoint models.")
@@ -274,13 +275,15 @@ def tf2onnx(args):
             "--inputs", args.model_inputs_names,
             "--outputs", args.model_outputs_names, 
             "--opset", args.target_opset, 
-            "--fold_const"])
+            "--fold_const",
+            "--target", "rs6"])
     else:
         subprocess.check_call(["python", "-m", "tf2onnx.convert", 
             "--saved-model", args.model, 
             "--output", args.output_onnx_path, 
             "--opset", args.target_opset,
-            "--fold_const"])
+            "--fold_const",
+            "--target", "rs6"])
 
 def xgboost2onnx(args):
     import xgboost as xgb
@@ -324,7 +327,7 @@ converters = {
 output_template = {
     "output_onnx_path": "", # The output path where the converted .onnx file is stored. 
     "conversion_status": "", # SUCCEED, FAILED
-    "correctness_verified": "", # SUCCEED, NOT SUPPORTED, FAILED
+    "correctness_verified": "", # SUCCEED, NOT SUPPORTED, SKIPPED
     "input_folder": "", 
     "error_message": ""
 }
@@ -394,13 +397,23 @@ def main():
 
     print("\n-------------\nMODEL INPUT GENERATION(if needed)\n")
     # Generate random inputs for the model if input files are not provided
-    inputs_path = generate_inputs(args.output_onnx_path)
-    output_template["input_folder"] = inputs_path
+    try:
+        inputs_path = generate_inputs(args.output_onnx_path)
+        output_template["input_folder"] = inputs_path
+    except Exception as e:
+        output_template["error_message"]= str(e)
+        output_template["correctness_verified"] = "SKIPPED"
+        print("\n-------------\nMODEL CONVERSION SUMMARY (.json file generated at %s )\n" % output_json_path)
+        pprint.pprint(output_template)
+        with open(output_json_path, "w") as f:
+            json.dump(output_template, f, indent=4)
+        raise e
 
     print("\n-------------\nMODEL CORRECTNESS VERIFICATION\n")
     # Test correctness
     verify_status = check_model(args.model, args.output_onnx_path, inputs_path, args.model_type, args.model_inputs_names, args.model_outputs_names)
     output_template["correctness_verified"] = verify_status
+
     print("\n-------------\nMODEL CONVERSION SUMMARY (.json file generated at %s )\n" % output_json_path)
     pprint.pprint(output_template)
     with open(output_json_path, "w") as f:
