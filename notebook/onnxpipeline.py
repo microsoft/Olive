@@ -32,6 +32,7 @@ class Pipeline:
                             self.convert_name)
         self.none_params = {'convert_json', 'runtime', 'windows'} 
                             # no need to write into json
+        self.output = ""
     
     def __join_with_mount(self, path):
         if path[:len(self.mount_path)] == self.mount_path: return path
@@ -180,7 +181,6 @@ class Pipeline:
         model, result, input_json = mount_parameters(model, result, input_json)
 
 
-        runtime = 'nvidia' if runtime else ''
 
         img_name = (docker_config.CONTAINER_NAME + 
             docker_config.FUNC_NAME['perf_test'] + ':latest')
@@ -189,6 +189,8 @@ class Pipeline:
         parameters = self.perf_test.__code__.co_varnames[1:self.perf_test.__code__.co_argcount]
         arguments = self.__params2args(locals(), parameters)
         
+
+
         # convert the input parameters into json file
         if convert_json:
             self.__convert_input_json(arguments, json_filename)
@@ -207,8 +209,9 @@ class Pipeline:
                     params = mount_parameters(
                         model, None, input_json)
                     result = params[1]
-
-
+                if 'runtime' in json_data:
+                    runtime = json_data['runtime']
+                    
                 if 'model' in json_data:
                     model = json_data['model']
 
@@ -223,6 +226,8 @@ class Pipeline:
             with open(posixpath.join(self.path, local_input_json), 'w') as f:
                 json.dump(json_data, f)
 
+        runtime = 'nvidia' if runtime else ''
+
         stream = self.client.containers.run(image=img_name, 
             command=arguments, 
             volumes={self.path: {'bind': self.mount_path, 'mode': 'rw'}},
@@ -234,12 +239,15 @@ class Pipeline:
 
     def __print_docker_logs(self, stream, windows=False):
         logs = stream.logs(stream=True)
+        self.output = ""
         for line in logs:
+            if type(line) is not str:
+                line = line.decode(encoding='UTF-8')
             if windows:
-                if type(line) is not str:
-                    line = line.decode(encoding='UTF-8')
                 line = line.replace('\n', '\r\n')
-            print(line)
+            self.output += line
+            if self.print_logs: print(line)
+
 
     def __convert_input_json(self, arguments, input_json):
         args = arguments.split('--')
@@ -256,9 +264,13 @@ class Pipeline:
     def print_performance(self, result=None):
         if result is None:
             result = posixpath.join(self.path, self.result)
-        with open(posixpath.join(result, docker_config.LATENCIES_TXT), 'r') as f:
-            for line in f:  
-                print(line)
+        latency_json = posixpath.join(result, docker_config.LATENCIES_TXT)
+        if osp.exists(latency_json):
+            with open(latency_json, 'r') as f:
+                for line in f:  
+                    print(line)
+        else:
+            raise RuntimeError('Cannot find result directory.')
     
     def get_result(self, result=None):
         if result is None:
@@ -283,14 +295,36 @@ class Pipeline:
     class Result:
         def __init__(self, result_directory):
             latency_json = osp.join(result_directory, docker_config.LATENCIES_JSON)
-            with open(latency_json) as json_file:  
-                self.latency = json.load(json_file, object_pairs_hook=OrderedDict)            
+            if osp.exists(latency_json):
+                with open(latency_json) as json_file:  
+                    self.latency = json.load(json_file, object_pairs_hook=OrderedDict) 
+            else:
+                raise RuntimeError('Cannot find result directory.')           
             self.profiling_max = 5
             self.profiling = []
             for i in range(self.profiling_max):
                 profiling_name = "profile_" + self.latency[i]["name"] + ".json"
-                with open(osp.join(result_directory, profiling_name)) as json_file:  
-                    self.profiling.append(json.load(json_file))
+                profiling_path = osp.join(result_directory, profiling_name)
+                if osp.exists(profiling_path):
+                    with open(profiling_path) as json_file:
+                        self.profiling.append(json.load(json_file))
+            self.profiling_ops = self.__filter_ops()
+
+        
+        def __filter_ops(self):
+            profiling_ops = []
+            for index in range(self.profiling_max):
+                ops = []
+                if index < len(self.profiling):
+                    for p in self.profiling[index]:
+                        if p['cat'] == 'Node':
+                            filtered_op = p
+                            filtered_op['name'] = p['name'].replace('_kernel_time', '')
+                            ops.append(filtered_op)
+                    ops.sort(key=lambda x: x['dur'], reverse=True)
+                    profiling_ops.append(ops)
+            return profiling_ops
+
 
         def __print_json(self, json_data, orient):
             data = json.dumps(json_data)
@@ -326,17 +360,7 @@ class Pipeline:
         
         def print_profiling(self, index, top=10, orient='colums'):
             self.__check_profiling_index(index)
-            unfold_profiling_list = []
-            for p in self.profiling[index]:
-                unfold_profiling = {}
-                for key in p:
-                    if key == 'args':
-                        for args_key in p[key]:
-                            unfold_profiling[args_key] = p[key][args_key]
-                    else:
-                        unfold_profiling[key] = p[key]
-                unfold_profiling_list.append(unfold_profiling)
-            return self.__print_json(unfold_profiling_list[:top], orient)
+            return self.__print_json(self.profiling_ops[:top][0], orient)
 
         def print_environment(self, index, orient='index'):
             return self.__print_json([self.latency[index]['code_snippet']['environment_variables']], orient)
@@ -345,4 +369,3 @@ class Pipeline:
             code = self.latency[index]['code_snippet']['code']
             refined_code = code.replace('                 ', '\n').replace('                ', '\n') # 4 tabs
             return refined_code
-        
