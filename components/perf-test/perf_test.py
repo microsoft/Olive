@@ -21,19 +21,20 @@ def remove(file):
 
 
 class PerfTestParams:
-    def __init__(self, name, desc, path, test_args, env, args, thread=0):
+    def __init__(self, name, desc, path, test_args, env, args, build_name, thread=0):
+        
+        self.name = name
+        self.desc = desc
+        self.path = path
+        
+        self.env = os.environ.copy()
         if is_windows():
             self.exe = os.path.join(build_path, "onnxruntime_perf_test.exe")
         else:
             self.exe = os.path.join(build_path, "onnxruntime_perf_test")
-            env["LD_LIBRARY_PATH"] = build_path
-
-        self.name = name
-        self.desc = desc
-        self.path = path
-        self.test_args = [self.exe] + test_args
+            self.env["LD_LIBRARY_PATH"] = build_path
         
-        self.env = os.environ.copy()
+        self.test_args = [self.exe] + test_args
         self.env.pop("OMP_WAIT_POLICY", None)
         self.env.pop("OMP_NUM_THREADS", None)
         self.env.update(env)
@@ -43,6 +44,7 @@ class PerfTestParams:
         self.result_dir = args.result
 
         self.args = args
+        self.build_name = build_name
 
         self.command = None
         self.avg = None
@@ -53,7 +55,7 @@ class PerfTestParams:
         self.thread = 0
 
     def get_common_args(self):
-        common_args = []
+        common_args = ["-o", self.args.optimization_level]
         if self.args.mode:
             common_args = common_args + ["-m", self.args.mode]
         if args.mode == "times":
@@ -68,7 +70,7 @@ class PerfTestParams:
         return self.test_args + self.get_common_args() + [self.model, result_file]
 
     def get_percentiles_args(self, result_file):
-        return self.test_args + ["-m", "times", "-r", "200", self.model, result_file]
+        return self.test_args + ["-o", self.args.optimization_level, "-m", "times", "-r", "200", self.model, result_file]
 
     def get_profile_args(self, profile_file, result_file):
         return self.test_args + self.get_common_args() + ["-p", profile_file, self.model, result_file]
@@ -82,16 +84,16 @@ class PerfTestParams:
 
     def gen_code_snippet(self):
         code_snippet = {
-            "execution_provider": self.args.execution_provider,
+            "execution_provider": self.build_name,
             "environment_variables": self.env_to_set,
             "code": "\
                 import onnxruntime as ort \
                 so = rt.SessionOptions() \
-                so.set_graph_optimization_level(2) \
+                so.set_graph_optimization_level({}) \
                 so.enable_sequential_execution = {} \
                 so.session_thread_pool_size({}) \
                 session = rt.Session(\"{}\", so) \
-                ".format(False if self.args.parallel else True, self.thread, self.args.model)
+                ".format(self.args.optimization_level, False if self.args.parallel else True, self.thread, self.args.model)
         }
         return code_snippet
 
@@ -105,9 +107,7 @@ def run_perf_test(test_params, percentiles=False):
         test_args = test_params.get_percentiles_args(result_file)
     else:
         test_args = test_params.get_args(result_file)
-    
     perf_test = subprocess.run(test_args, env=test_params.env)
-    
     # The first run was warmup.
     remove(result_file)
     test_params.print_args(test_args)
@@ -158,7 +158,7 @@ def run_perf_test(test_params, percentiles=False):
     test_params.latencies = latencies
 
     if len(latencies) > 0:
-        test_params.avg = round(sum(latencies) / len(latencies), 9)
+        test_params.avg = round(sum(latencies) / len(latencies), 9) * 1000
     else:
         test_params.avg = None
 
@@ -180,7 +180,8 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
         test_params.path,
         [],
         test_params.env_to_set,
-        test_params.args, 
+        test_params.args,
+        build_name,
         lower
     )
     # tune threads by args
@@ -212,6 +213,7 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
             [],
             test_params.env_to_set,
             test_params.args,
+            build_name,
             mid
         )
         # tune threads by args
@@ -235,7 +237,7 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
             break
         if lower > upper and best_run == (1 + num_cores) // 2:
             # Re-run search on the first half if the best latency lies in the middle
-            upper = mid - 1
+            upper = (1 + num_cores) // 2 - 1
             lower = 2
     return best_run
 
@@ -306,7 +308,8 @@ class ConverterParamsFromJson():
         self.threadpool_size = loaded_json["threadpool_size"] if loaded_json.get("threadpool_size") else str(cores)
         self.num_threads = loaded_json["num_threads"] if loaded_json.get("num_threads") else str(cores)
         self.top_n = loaded_json["top_n"] if loaded_json.get("top_n") else "5"
-        self.parallel = True if loaded_json.get("parallel") else False
+        self.parallel = loaded_json.get["parallel"] if loaded_json.get("parallel") else True
+        self.optimization_level = loaded_json["optimization_level"] if loaded_json.get("optimization_level") else "3"
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -333,8 +336,10 @@ def parse_arguments():
                         help="OMP_NUM_THREADS value.")
     parser.add_argument("-s", "--top_n", default="5",
                         help="Show percentiles for top n runs. Default:5.")
-    parser.add_argument("-P", "--parallel", default=False,
+    parser.add_argument("-P", "--parallel", default=True,
                         help="Use parallel executor instead of sequential executor.")
+    parser.add_argument("-o", "--optimization_level", default="3", 
+                        help="0: disable optimization, 1: basic optimization, 2: extended optimization, 3: extended+layout optimization.")
     parser.add_argument("--model",
                         help="Model.")
     parser.add_argument("--result",
@@ -361,11 +366,11 @@ if __name__ == "__main__":
     providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else build_dirs
 
     if len(GPUtil.getGPUs()) == 0:
-        print("No GPU found on current device. Cuda and TensorRT performance tuning are not available. ")
-        if "cuda" in providers:
-            providers.remove("cuda") 
-        if "tensorrt" in providers:
-            providers.remove("tensorrt") 
+        print("No GPU found on current device. Cuda and TensorRT performance tuning might not be available. ")
+        # if "cuda" in providers:
+        #     providers.remove("cuda") 
+        # if "tensorrt" in providers:
+        #     providers.remove("tensorrt") 
     print("providers ", providers)
 
     tests = []
@@ -376,7 +381,7 @@ if __name__ == "__main__":
         build_path = os.path.join(bin_dir, build_name)
         if os.path.isdir(build_path):
             # If current build is requested by user, run perf tuning
-            if build_name in providers:
+            if build_name in providers:        
                 test_args = []
 
                 if "mkldnn" in build_name:
@@ -411,7 +416,8 @@ if __name__ == "__main__":
                                 build_path,
                                 test_args + ["-P"],
                                 env,
-                                args
+                                args,
+                                build_name,
                             ), num_threads, "_threads" + env_option, " threads, " + env_option, failed, successful, is_omp)
                     if best_run != None and best_run > 1:
                         # Run the best thread pool candidate with environment variable on sequential executor
@@ -422,6 +428,7 @@ if __name__ == "__main__":
                             test_args,
                             env,
                             args, 
+                            build_name
                         )
                         if is_omp:
                             param.env.update({"OMP_NUM_THREADS": str(best_run)})
@@ -437,7 +444,8 @@ if __name__ == "__main__":
                                 build_path,
                                 test_args,
                                 env,
-                                args
+                                args,
+                                build_name
                             ), num_threads, "_threads" + env_option, " threads, " + env_option, failed, successful, is_omp)
                     # Tune environment variables using sequential executor
                     params = PerfTestParams(
@@ -446,7 +454,8 @@ if __name__ == "__main__":
                         build_path,
                         test_args,
                         env,
-                        args)
+                        args,
+                        build_name)
                     tests.append(params)                    
 
     # Run the tests.
@@ -461,17 +470,21 @@ if __name__ == "__main__":
     
     failed.extend([x for x in tests if not x.avg])
     
+    if len(GPUtil.getGPUs()) == 0:
+        failed = [x for x in failed if "cuda" not in x.name and "tensorrt" not in x.name]
+
     # Re-sort tests based on 100 runs
-    successful = sorted(successful, key=lambda e:e.avg)
+    successful_not_profiled = successful[int(args.top_n):]
+    successful_profiled = sorted(successful[:int(args.top_n)], key=lambda e:e.avg)
     print("")
     print("Results:")
     out_json = []
 
 
     with open(os.path.join(args.result, "latencies.txt"), "w") as out_file:
-        for test in successful:
-            print(test.name, test.avg, "s")
-            print(test.name, test.avg, "s", file=out_file)
+        for test in successful_profiled:
+            print(test.name, test.avg, "ms")
+            print(test.name, test.avg, "ms", file=out_file)
 
             json_record = dict()
             json_record["name"] = test.name
@@ -479,15 +492,27 @@ if __name__ == "__main__":
             json_record["avg"] = test.avg
             num_latencies = len(test.latencies)
             if num_latencies >= 10:
-                json_record["p90"] = test.latencies[int(num_latencies * .9)]
+                json_record["p90"] = test.latencies[int(num_latencies * .9)] * 1000
             if num_latencies >= 20:
-                json_record["p95"] = test.latencies[int(num_latencies * .95)]
+                json_record["p95"] = test.latencies[int(num_latencies * .95)] * 1000
             json_record["cpu_usage"] = test.cpu / 100
             json_record["gpu_usage"] = test.gpu
             json_record["memory_util"] = test.memory / 100
             json_record["code_snippet"] = test.gen_code_snippet()
             out_json.append(json_record)
 
+        for test in successful_not_profiled:
+            json_record = dict()
+            json_record["name"] = test.name
+            json_record["command"] = test.command
+            json_record["avg"] = test.avg
+            num_latencies = len(test.latencies)
+            if num_latencies >= 10:
+                json_record["p90"] = test.latencies[int(num_latencies * .9)] * 1000
+            if num_latencies >= 20:
+                json_record["p95"] = test.latencies[int(num_latencies * .95)] * 1000
+            out_json.append(json_record)
+            
         for test in failed:
             print(test.name, "error")
             print(test.name, "error", file=out_file)

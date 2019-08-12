@@ -44,7 +44,9 @@ docker run [--runtime=nvidia] ziylregistry.azurecr.io/perf-test --input_json <in
 
 `--top_n`: Show percentiles for top n runs. Default:5.
 
-`--parallel`: Use parallel executor instead of sequential executor. Default (without --parallel) use sequential executor. 
+`--parallel`: Tune performance using parallel executor. Default is True. 
+
+`--optimization_level`: Default=3. 0: disable optimization, 1: basic optimization, 2: extended optimization, 3: extended+layout optimization.
 
 `--input_json`: A JSON file specifying the run specs above. For example, 
 ```
