@@ -119,7 +119,7 @@ python3.7 build_perf_test.py \
 ### 2. Build Docker Image
 If an ONNX Runtime Linux build is completed in step 1, you can build the image with docker by running 
 ```
-docker build -t perf-test -f Dockerfile.perftest .
+docker build -t perf-test .
 ```
 
 If ONNX Runtime is built on Windows, jump to [Run perf-test Without Docker](#4-run-perf-test-without-docker)
