@@ -27,19 +27,19 @@ Follow "6. Open Kubeflow Dashboard" in [Install Kubeflow](https://www.kubeflow.o
 
 Get the public IP address by running 
 ```
-kubectl describe services -n kubeflow ambassador
+kubectl describe services -n kubeflow kubeflow
 ```
 which will produce output like this
 ```
-Name:                     ambassador
+Name:                     kubeflow
 Namespace:                kubeflow
-Labels:                   app.kubernetes.io/
+Labels:                   app.kubernetes.io/deploy-manager=ksonnet
 ...
 Selector:                 service=ambassador
 Type:                     LoadBalancer
 IP:                       10.0.32.215
 LoadBalancer Ingress:     40.124.2.23
-Port:                     ambassador  80/TCP
+Port:                     <unset>  80/TCP
 TargetPort:               80/TCP
 NodePort:                 ambassador  32599/TCP
 Endpoints:                10.244.0.12:80,10.244.1.5:80,10.244.2.4:80
