@@ -9,9 +9,9 @@ COPY resnet50 /testmodel/resnet50
 
 RUN mkdir /perf_test
 COPY bin /perf_test/bin
-COPY perf_test.py /perf_test
-COPY monitor.py /perf_test
-COPY maps.py /perf_test
+COPY src/perf_test.py /perf_test
+COPY src/monitor.py /perf_test
+COPY src/maps.py /perf_test
 
 WORKDIR /
 
