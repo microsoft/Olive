@@ -1,8 +1,10 @@
-# Perf-test Image
+# Performance Tuning Image
 
-This image is for automating the process of performance tuning for onnxruntime. Given a model you'd like to optimize its performance, the image will iterate through all combinations of available execution providers, environment variables, and run options. The outputs of the image are a JSON file which summarizes the latency results for all combinations the image has searched, and profiling files for the combinations with top 5 performance.
+This image is for automating the process of performance tuning in ONNX Runtime. Given an ONNX model you'd like to optimize the performance, the image will strategically search through all combinations of available execution providers, environment variables, and run options. Finally it outputs a JSON file that summarizes the latency results for all combinations the image has searched, and profiling files for the combinations with top 5 performance.
 
-Currently the execution providers available are cpu, cpu_openmp, mkldnn, mkldnn_openmp, mkldnn_mklml, cuda, tensorrt, and ngraph.  
+Currently the execution providers available are cpu, cpu_openmp, mkldnn, mkldnn_openmp, mklml, cuda, tensorrt, and ngraph.  
+
+To use the image, you can either [pull from Azure Registry](#Pull-and-Run-the-Image-From-Azure-Registry) or [build and run locally](#Build-and-Run-the-Image-Locally) from this repo.
 
 ## Pull and Run the Image From Azure Registry
 
@@ -139,4 +141,4 @@ You can run perf_test using command
 ```
 python perf_test.py --model <path_to_onnx_model> --result <path_to_results_dir> [other optional args]
 ```
-You can use the same arguments as for perf-test images. By default it will try all providers available.
+The optional arguments are the same as for perf-test images. By default it will try all providers available.

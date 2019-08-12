@@ -1,13 +1,13 @@
-## Onnx-converter Image
+## ONNX Converter Image
 
 This image is used to convert models from major model frameworks to onnx, generate input files if not provided, and then test the converted models' correctness. 
 Supported frameworks are - 
-   - cntk
-   - coreml
-   - keras
+   - CNTK
+   - CoreML
+   - Keras
    - scikit-learn
-   - tensorflow
-   - pytorch
+   - Tensorflow
+   - PyTorch
 
 
 ## How to Run 
@@ -73,4 +73,4 @@ For detailed description of all available parameters, refer to the following.
 
 `--caffe_model_prototxt`: Optional. The path of the .prototxt file for caffe model.
  
-`--target_opset`: Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3. Defaults to 7. 
+`--target_opset`: Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3. Defaults to 10. 
