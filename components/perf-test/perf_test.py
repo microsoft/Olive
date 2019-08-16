@@ -373,12 +373,12 @@ if __name__ == "__main__":
         #     providers.remove("tensorrt") 
     print("providers ", providers)
 
-    tests = []
-    successful = []
+    successful_by_ep = dict()
+    profile_candidates = []
     failed = []
     # Loop for every pre-built execution provider
     for build_name in providers:
-        if "mklml" in build_name:
+        if "mklml" in build_name or "ngraph" in build_name:
             build_path = os.path.join(bin_dir, build_name)
         else:
             build_path = os.path.join(bin_dir, "all_eps")
@@ -386,6 +386,8 @@ if __name__ == "__main__":
             # # If current build is requested by user, run perf tuning
             # if build_name in providers:        
             test_args = []
+            successful = []
+            tests = []
 
             if "mkldnn" in build_name:
                 test_args = test_args + ["-e", "mkldnn"]
@@ -461,60 +463,72 @@ if __name__ == "__main__":
                     build_name)
                 tests.append(params)                    
 
-    # Run the tests.
-    for test in tests:
-        run_perf_test(test)
+            # Run the tests under current execution provider.
+            for test in tests:
+                run_perf_test(test)
+            
+            # keep the best to run profiling
+            successful.extend([x for x in tests if x.avg]) 
+            successful = sorted(successful, key=lambda e: e.avg)[:3]
+            if len(successful) > 0:
+                successful_by_ep[build_name] = successful
+                profile_candidates.append(successful_by_ep[build_name][0])
+            failed.extend([x for x in tests if not x.avg])
 
-    successful.extend([x for x in tests if x.avg])
-    successful = sorted(successful, key=lambda e:e.avg)
+    # successful.extend([x for x in tests if x.avg])
+    # successful = sorted(successful, key=lambda e:e.avg)
     # Re-run fastest tests to calculate percentiles.
-    for test in successful[:int(args.top_n)]:
+    for test in profile_candidates[:int(args.top_n)]:
         run_perf_test(test, percentiles=True)
-    
-    failed.extend([x for x in tests if not x.avg])
     
     if len(GPUtil.getGPUs()) == 0:
         failed = [x for x in failed if "cuda" not in x.name and "tensorrt" not in x.name]
 
     # Re-sort tests based on 100 runs
-    successful_not_profiled = successful[int(args.top_n):]
-    successful_profiled = sorted(successful[:int(args.top_n)], key=lambda e:e.avg)
+    profile_candidates = sorted(profile_candidates, key=lambda e: e.avg)
+    # successful_not_profiled = successful[int(args.top_n):]
+    # successful_profiled = sorted(successful[:int(args.top_n)], key=lambda e:e.avg)
     print("")
     print("Results:")
     out_json = []
 
 
     with open(os.path.join(args.result, "latencies.txt"), "w") as out_file:
-        for test in successful_profiled:
-            print(test.name, test.avg, "ms")
-            print(test.name, test.avg, "ms", file=out_file)
+        for ep_candidate in profile_candidates:                
+            json_entry = dict()                
+            json_list = []
+            for test in successful_by_ep[ep_candidate.build_name]:
+                print(test.name, test.avg, "ms")
+                print(test.name, test.avg, "ms", file=out_file)
 
-            json_record = dict()
-            json_record["name"] = test.name
-            json_record["command"] = test.command
-            json_record["avg"] = test.avg
-            num_latencies = len(test.latencies)
-            if num_latencies >= 10:
-                json_record["p90"] = test.latencies[int(num_latencies * .9)] * 1000
-            if num_latencies >= 20:
-                json_record["p95"] = test.latencies[int(num_latencies * .95)] * 1000
-            json_record["cpu_usage"] = test.cpu / 100
-            json_record["gpu_usage"] = test.gpu
-            json_record["memory_util"] = test.memory / 100
-            json_record["code_snippet"] = test.gen_code_snippet()
-            out_json.append(json_record)
+                json_record = dict()
+                json_record["name"] = test.name
+                json_record["command"] = test.command
+                json_record["avg"] = test.avg
+                num_latencies = len(test.latencies)
+                if num_latencies >= 10:
+                    json_record["p90"] = test.latencies[int(num_latencies * .9)] * 1000
+                if num_latencies >= 20:
+                    json_record["p95"] = test.latencies[int(num_latencies * .95)] * 1000
+                json_record["cpu_usage"] = test.cpu / 100
+                json_record["gpu_usage"] = test.gpu
+                json_record["memory_util"] = test.memory / 100
+                json_record["code_snippet"] = test.gen_code_snippet()
+                json_list.append(json_record)
+                json_entry[test.build_name] = json_list
+            out_json.append(json_entry)
 
-        for test in successful_not_profiled:
-            json_record = dict()
-            json_record["name"] = test.name
-            json_record["command"] = test.command
-            json_record["avg"] = test.avg
-            num_latencies = len(test.latencies)
-            if num_latencies >= 10:
-                json_record["p90"] = test.latencies[int(num_latencies * .9)] * 1000
-            if num_latencies >= 20:
-                json_record["p95"] = test.latencies[int(num_latencies * .95)] * 1000
-            out_json.append(json_record)
+        # for test in successful_not_profiled:
+        #     json_record = dict()
+        #     json_record["name"] = test.name
+        #     json_record["command"] = test.command
+        #     json_record["avg"] = test.avg
+        #     num_latencies = len(test.latencies)
+        #     if num_latencies >= 10:
+        #         json_record["p90"] = test.latencies[int(num_latencies * .9)] * 1000
+        #     if num_latencies >= 20:
+        #         json_record["p95"] = test.latencies[int(num_latencies * .95)] * 1000
+        #     out_json.append(json_record)
             
         for test in failed:
             print(test.name, "error")
