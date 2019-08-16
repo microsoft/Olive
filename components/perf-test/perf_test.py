@@ -107,13 +107,13 @@ def run_perf_test(test_params, percentiles=False):
         test_args = test_params.get_percentiles_args(result_file)
     else:
         test_args = test_params.get_args(result_file)
-    perf_test = subprocess.run(test_args, env=test_params.env)
+    perf_test = subprocess.run(test_args, env=test_params.env, capture_output=True)
     # The first run was warmup.
     remove(result_file)
     test_params.print_args(test_args)
     if not test_params.command:
         test_params.command = " ".join(test_args)
-    perf_test = subprocess.run(test_args, env=test_params.env, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    perf_test = subprocess.run(test_args, env=test_params.env)
     latencies = []
     if perf_test.returncode == 0 and os.path.exists(result_file):
         with open(result_file) as result:
@@ -189,6 +189,7 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
         param.test_args = test_params.test_args + ["-x", str(lower)]
     else:
         param.env.update({"OMP_NUM_THREADS": str(lower)})
+        param.test_args = test_params.test_args
 
     run_perf_test(param)
     if not param.avg:
@@ -221,6 +222,7 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
             param.test_args = test_params.test_args + ["-x", str(mid)]
         else:
             param.env.update({"OMP_NUM_THREADS": str(mid)})
+            param.test_args = test_params.test_args
         run_perf_test(param)
         if param.avg:
             # print("current latency: ", param.avg)
