@@ -1,6 +1,6 @@
 # Performance Tuning Image
 
-This image is for automating the process of performance tuning in ONNX Runtime. Given an ONNX model you'd like to optimize the performance, the image will strategically search through all combinations of available execution providers, environment variables, and run options. Finally it outputs a JSON file that summarizes the latency results for all combinations the image has searched, and profiling files for the combinations with top 5 performance.
+This image is for automating the process of performance tuning in ONNX Runtime. Given an ONNX model you'd like to optimize the performance, the image will strategically search through all combinations of available execution providers, environment variables, and run options. Finally it outputs a JSON file that summarizes the latency results for the best combinations the image has searched, and profiling files for the combinations with top performance for each execution provider.
 
 Currently the execution providers available are cpu, cpu_openmp, mkldnn, mkldnn_openmp, mklml, cuda, tensorrt, and ngraph.  
 
@@ -44,7 +44,7 @@ docker run [--runtime=nvidia] ziylregistry.azurecr.io/perf-test --input_json <in
 
 `--num_threads`: OMP_NUM_THREADS value. Default is the number of cores. 
 
-`--top_n`: Show percentiles for top n runs. Default:5.
+`--top_n`: Show percentiles for top n runs in each execution provider. Default:3.
 
 `--parallel`: Tune performance using parallel executor. Default is True. 
 

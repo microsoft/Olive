@@ -309,7 +309,7 @@ class ConverterParamsFromJson():
         self.duration_time = loaded_json["duration_time"] if loaded_json.get("duration_time") else "10"
         self.threadpool_size = loaded_json["threadpool_size"] if loaded_json.get("threadpool_size") else str(cores)
         self.num_threads = loaded_json["num_threads"] if loaded_json.get("num_threads") else str(cores)
-        self.top_n = loaded_json["top_n"] if loaded_json.get("top_n") else "5"
+        self.top_n = loaded_json["top_n"] if loaded_json.get("top_n") else "3"
         self.parallel = loaded_json.get["parallel"] if loaded_json.get("parallel") else True
         self.optimization_level = loaded_json["optimization_level"] if loaded_json.get("optimization_level") else "3"
 
@@ -336,8 +336,8 @@ def parse_arguments():
                         help="Use parallel executor, default (without -x): sequential executor.")
     parser.add_argument("-n", "--num_threads", default=str(cores),
                         help="OMP_NUM_THREADS value.")
-    parser.add_argument("-s", "--top_n", default="5",
-                        help="Show percentiles for top n runs. Default:5.")
+    parser.add_argument("-s", "--top_n", default="3",
+                        help="Show percentiles for top n runs in each execution provider. Default:3.")
     parser.add_argument("-P", "--parallel", default=True,
                         help="Use parallel executor instead of sequential executor.")
     parser.add_argument("-o", "--optimization_level", default="3", 
@@ -471,16 +471,14 @@ if __name__ == "__main__":
             
             # keep the best to run profiling
             successful.extend([x for x in tests if x.avg]) 
-            successful = sorted(successful, key=lambda e: e.avg)[:3]
+            successful = sorted(successful, key=lambda e: e.avg)[:int(args.top_n)]
             if len(successful) > 0:
                 successful_by_ep[build_name] = successful
                 profile_candidates.append(successful_by_ep[build_name][0])
             failed.extend([x for x in tests if not x.avg])
 
-    # successful.extend([x for x in tests if x.avg])
-    # successful = sorted(successful, key=lambda e:e.avg)
-    # Re-run fastest tests to calculate percentiles.
-    for test in profile_candidates[:int(args.top_n)]:
+    # Re-run fastest tests in each ep to calculate percentiles.
+    for test in profile_candidates:
         run_perf_test(test, percentiles=True)
     
     if len(GPUtil.getGPUs()) == 0:
@@ -488,12 +486,9 @@ if __name__ == "__main__":
 
     # Re-sort tests based on 100 runs
     profile_candidates = sorted(profile_candidates, key=lambda e: e.avg)
-    # successful_not_profiled = successful[int(args.top_n):]
-    # successful_profiled = sorted(successful[:int(args.top_n)], key=lambda e:e.avg)
     print("")
     print("Results:")
     out_json = []
-
 
     with open(os.path.join(args.result, "latencies.txt"), "w") as out_file:
         for ep_candidate in profile_candidates:                
@@ -519,18 +514,6 @@ if __name__ == "__main__":
                 json_list.append(json_record)
                 json_entry[test.build_name] = json_list
             out_json.append(json_entry)
-
-        # for test in successful_not_profiled:
-        #     json_record = dict()
-        #     json_record["name"] = test.name
-        #     json_record["command"] = test.command
-        #     json_record["avg"] = test.avg
-        #     num_latencies = len(test.latencies)
-        #     if num_latencies >= 10:
-        #         json_record["p90"] = test.latencies[int(num_latencies * .9)] * 1000
-        #     if num_latencies >= 20:
-        #         json_record["p95"] = test.latencies[int(num_latencies * .95)] * 1000
-        #     out_json.append(json_record)
             
         for test in failed:
             print(test.name, "error")
