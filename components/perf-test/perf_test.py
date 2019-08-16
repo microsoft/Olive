@@ -390,7 +390,6 @@ if __name__ == "__main__":
             test_args = []
 
             if "mkldnn" in build_name:
-                print(build_name)
                 test_args = test_args + ["-e", "mkldnn"]
             if "cuda" in build_name:
                 test_args = test_args + ["-e", "cuda"]
