@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import uuid
+import collections
 import psutil
 import GPUtil
 from monitor import Monitor
@@ -498,8 +499,8 @@ if __name__ == "__main__":
     out_json = []
 
     with open(os.path.join(args.result, "latencies.txt"), "w") as out_file:
+        out_json = collections.OrderedDict()                
         for ep_candidate in profile_candidates:                
-            json_entry = dict()                
             json_list = []
             for test in successful_by_ep[ep_candidate.build_name]:
                 print(test.name, test.avg, "ms")
@@ -519,8 +520,8 @@ if __name__ == "__main__":
                 json_record["memory_util"] = test.memory / 100
                 json_record["code_snippet"] = test.gen_code_snippet()
                 json_list.append(json_record)
-                json_entry[test.build_name] = json_list
-            out_json.append(json_entry)
+                out_json[test.build_name] = json_list
+            # out_json.append(json_entry)
             
         for test in failed:
             print(test.name, "error")
@@ -530,7 +531,7 @@ if __name__ == "__main__":
             json_record["name"] = test.name
             json_record["command"] = test.command
             json_record["result"] = "error"
-            out_json.append(json_record)
+            out_json["failed"] = json_record
     
     with open(os.path.join(args.result, "latencies.json"), "w") as json_file:
         json.dump(out_json, json_file, indent=2)
