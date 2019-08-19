@@ -203,9 +203,10 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
     
     # Start binary search best thread pool size candidate
     lower += 1
+    rerun = False 
     while lower <= upper:
         mid = lower + (upper - lower) // 2
-        # print("lower: %d, mid: %d, upper: %d" % (lower, mid, upper))
+        print("lower: %d, mid: %d, upper: %d" % (lower, mid, upper))
         # Run perf test
         param = PerfTestParams(
             test_params.name + str(mid) + name_suffix,
@@ -237,10 +238,11 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
         else:
             failed_tests.append(param)
             break
-        if lower > upper and best_run == (1 + num_cores) // 2:
+        if lower > upper and best_run == (1 + num_cores) // 2 and not rerun:
             # Re-run search on the first half if the best latency lies in the middle
             upper = (1 + num_cores) // 2 - 1
             lower = 2
+            rerun = True
     return best_run
 
 def get_env_var_combos(env_vars):
@@ -365,7 +367,8 @@ if __name__ == "__main__":
     bin_dir = os.path.join(os.path.dirname(__file__), "bin", args.config)
     build_dirs = os.listdir(bin_dir)
 
-    providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else ["mklml", "cpu_openmp", "mkldnn", "mkldnn_openmp", "cpu", "tensorrt", "ngraph", "cuda"]
+    allProviders = ["mklml", "cpu_openmp", "mkldnn", "mkldnn_openmp", "cpu", "tensorrt", "ngraph", "cuda"]
+    providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else allProviders
 
     if len(GPUtil.getGPUs()) == 0:
         print("No GPU found on current device. Cuda and TensorRT performance tuning might not be available. ")
@@ -382,8 +385,12 @@ if __name__ == "__main__":
     for build_name in providers:
         if "mklml" in build_name or "ngraph" in build_name:
             build_path = os.path.join(bin_dir, build_name)
-        else:
+        elif build_name in allProviders:
             build_path = os.path.join(bin_dir, "all_eps")
+        else:
+            raise ValueError("Provider %s is not currently supported. \
+                Please choose one of cpu, cpu_openmp, mkldnn, mkldnn_openmp, mklml, cuda, tensorrt or ngraph",
+                build_name)
         if os.path.isdir(build_path):
             # # If current build is requested by user, run perf tuning
             # if build_name in providers:        
