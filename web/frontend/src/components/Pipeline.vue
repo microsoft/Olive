@@ -4,14 +4,30 @@
       <div class="col-sm-10">
         <h1>OLive (ONNX Live)</h1>
         <hr>
-        <button type="button" class="btn btn-success btn-sm button_right" v-b-modal.convert-modal>Convert</button>
-        <button type="button" class="btn btn-info btn-sm button_right" v-b-modal.perf_test-modal>Pert Test</button>
-        <button type="button" class="btn btn-primary btn-sm" v-b-modal.visualizeModal>Model Visualize</button>
+        <button type="button" class="btn btn-success btn-sm button_right" v-b-modal.convert-modal>
+          Convert
+        </button>
+        <button type="button" class="btn btn-info btn-sm button_right" v-b-modal.perf_test-modal>
+          Pert Test
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" v-b-modal.visualizeModal>
+          Model Visualize
+        </button>
         <hr/>
         <div v-if="convert_result">
-          <h5>Conversion Status: <b-badge variant="primary">{{convert_result['output_json']['conversion_status']}}</b-badge></h5>
-          <h5>Correctness Verified: <b-badge variant="primary">{{convert_result['output_json']['correctness_verified']}}</b-badge></h5>
-          <h5>Error: <b-badge variant="danger">{{convert_result['output_json']['error_message']}}</b-badge></h5>
+          <h5>Conversion Status:
+            <b-badge variant="primary">
+              {{convert_result['output_json']['conversion_status']}}
+            </b-badge>
+          </h5>
+          <h5>Correctness Verified:
+            <b-badge variant="primary">
+              {{convert_result['output_json']['correctness_verified']}}
+            </b-badge>
+          </h5>
+          <h5>Error:
+            <b-badge variant="danger">{{convert_result['output_json']['error_message']}}</b-badge>
+          </h5>
           <h5>Download</h5>
           <a :href="convert_result['input_path']" download>[input] </a>
           <a :href="convert_result['model_path']" download>[model]</a>
@@ -339,14 +355,14 @@
 
 <script>
 import axios from 'axios';
-import Alert from './Alert';
-import {convertForm, perf_testForm} from '../utils/const';
+import Alert from './Alert.vue';
+import { convertForm, perf_testForm } from '../utils/const';
 
-var origin_convertForm = Object.assign({}, convertForm);
-var origin_perf_testForm = Object.assign({}, perf_testForm);
+const origin_convertForm = Object.assign({}, convertForm);
+const origin_perf_testForm = Object.assign({}, perf_testForm);
 
 export default {
-  data () {
+  data() {
     return {
       PROFILING_MAX: 5,
       selected: -1,
@@ -362,11 +378,11 @@ export default {
           { value: 'onnx', text: 'onnx' },
           { value: 'keras', text: 'keras' },
           { value: 'caffe', text: 'caffe' },
-          { value: 'scikit-learn', text: 'scikit-learn' }
+          { value: 'scikit-learn', text: 'scikit-learn' },
         ],
         config: ['Debug', 'MinSizeRel', 'Release', 'RelWithDebInfo'],
         mode: ['duration', 'times'],
-        execution_provider: ['cpu', 'cuda', 'mkldnn', '']
+        execution_provider: ['cpu', 'cuda', 'mkldnn', ''],
       },
       visualize_model: null,
       message: '',
@@ -378,14 +394,14 @@ export default {
       adv_setting: false,
       op_info: {},
       fields: ['name', 'duration', 'op_name', 'tid'],
-      code_details: ''
+      code_details: '',
     };
   },
   components: {
-    alert: Alert
+    alert: Alert,
   },
   methods: {
-    visualize (evt) {
+    visualize(evt) {
       this.close_all();
       evt.preventDefault();
       this.$refs.visualizeModal.hide();
@@ -394,7 +410,7 @@ export default {
       data.append('file', this.visualize_model);
       axios.post(path, data)
         .then((res) => {
-          if (res.data['status'] === 'success') {
+          if (res.data.status === 'success') {
             this.show_visualization = true;
           }
         })
@@ -403,20 +419,20 @@ export default {
           console.log(error);
         });
     },
-    initForm () {
+    initForm() {
       this.convertForm = Object.assign({}, origin_convertForm);
     },
-    init_perf_testForm () {
+    init_perf_testForm() {
       this.perf_testForm = Object.assign({}, origin_perf_testForm);
     },
-    convert (evt) {
+    convert(evt) {
       this.close_all();
       evt.preventDefault();
       this.$refs.convertModal.hide();
       const metadata = this.convertForm;
       const json = JSON.stringify(metadata);
       const blob = new Blob([json], {
-        type: 'application/json'
+        type: 'application/json',
       });
 
       const data = new FormData();
@@ -429,13 +445,15 @@ export default {
       axios.post('http://localhost:5000/convert', data)
         .then((res) => {
           this.show_message = false;
-          if (res.data['status'] === 'success') {
-            this.message = res.data['logs'];
+          if (res.data.status === 'success') {
+            this.message = res.data.logs;
             this.show_logs = true;
-            this.convert_result = {'output_json': res.data['output_json'],
-              'input_path': '../static/' + res.data['input_path'],
-              'model_path': '../static/' + res.data['model_path']};
-            this.perf_testForm.model = res.data['converted_model'];
+            this.convert_result = {
+              output_json: res.data.output_json,
+              input_path: `../static/${res.data.input_path}`,
+              model_path: `../static/${res.data.model_path}`,
+            };
+            this.perf_testForm.model = res.data.converted_model;
             // TODO cache model for model visualize
           }
         })
@@ -446,15 +464,15 @@ export default {
 
       this.initForm();
     },
-    perf_test (evt) {
+    perf_test(evt) {
       this.close_all();
       evt.preventDefault();
       if (this.perf_testForm.model === '') {
         this.model_missing = 'You need to convert first.';
         return;
-      } else {
-        this.model_missing = '';
       }
+      this.model_missing = '';
+
 
       // TODO cache model for model visualize
 
@@ -464,7 +482,7 @@ export default {
       const json = JSON.stringify(metadata);
 
       const blob = new Blob([json], {
-        type: 'application/json'
+        type: 'application/json',
       });
       const data = new FormData();
       data.append('metadata', blob);
@@ -475,12 +493,12 @@ export default {
       axios.post('http://localhost:5000/perf_test', data)
         .then((res) => {
           this.show_message = false;
-          if (res.data['status'] === 'success') {
-            var data = res.data['logs'];
+          if (res.data.status === 'success') {
+            const data = res.data.logs;
             this.show_logs = true;
             this.message = data;
-            this.result = res.data['result'];
-            this.profiling = res.data['profiling'];
+            this.result = res.data.result;
+            this.profiling = res.data.profiling;
           }
         })
         .catch((error) => {
@@ -488,40 +506,40 @@ export default {
           console.log(error);
         });
     },
-    onReset (evt) {
+    onReset(evt) {
       evt.preventDefault();
       this.initForm();
     },
-    onReset_perf_test (evt) {
+    onReset_perf_test(evt) {
       evt.preventDefault();
       this.init_perf_testForm();
     },
-    open_details (index) {
+    open_details(index) {
       if (this.selected === index) {
         this.selected = -1;
       } else {
         this.selected = index;
       }
     },
-    open_profiling (ops) {
+    open_profiling(ops) {
       this.op_info = [];
-      for (var i = 0; i < ops.length; ++i) {
+      for (let i = 0; i < ops.length; ++i) {
         this.op_info.push({
-          'name': ops[i]['name'],
-          'duration': ops[i]['dur'],
-          'op_name': ops[i]['args']['op_name'],
-          'tid': ops[i]['tid']
+          name: ops[i].name,
+          duration: ops[i].dur,
+          op_name: ops[i].args.op_name,
+          tid: ops[i].tid,
         });
       }
     },
-    close_all () {
+    close_all() {
       this.result = [];
       this.show_visualization = false;
       this.show_message = false;
       this.show_logs = false;
       this.convert_result = null;
-    }
-  }
+    },
+  },
 };
 </script>
 <style>

@@ -8,7 +8,7 @@ export const convertForm = {
   initial_types: '',
   input_json: '',
   model_params: '',
-  model: null
+  model: null,
 };
 export const perf_testForm = {
   model: '',
@@ -21,5 +21,5 @@ export const perf_testForm = {
   threadpool_size: '',
   num_threads: '',
   top_n: '5',
-  runtime: false
+  runtime: false,
 };
