@@ -207,7 +207,7 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
     rerun = False 
     while lower <= upper:
         mid = lower + (upper - lower) // 2
-        print("lower: %d, mid: %d, upper: %d" % (lower, mid, upper))
+        # print("lower: %d, mid: %d, upper: %d" % (lower, mid, upper))
         # Run perf test
         param = PerfTestParams(
             test_params.name + str(mid) + name_suffix,
@@ -512,26 +512,27 @@ if __name__ == "__main__":
                 json_record["avg"] = test.avg
                 num_latencies = len(test.latencies)
                 if num_latencies >= 10:
-                    json_record["p90"] = test.latencies[int(num_latencies * .9)] * 1000
+                    json_record["p90"] = round(test.latencies[int(num_latencies * .9)] * 1000, 5)
                 if num_latencies >= 20:
-                    json_record["p95"] = test.latencies[int(num_latencies * .95)] * 1000
-                json_record["cpu_usage"] = test.cpu / 100
-                json_record["gpu_usage"] = test.gpu
-                json_record["memory_util"] = test.memory / 100
+                    json_record["p95"] = round(test.latencies[int(num_latencies * .95)] * 1000, 5)
+                json_record["cpu_usage"] = round(test.cpu / 100, 5)
+                json_record["gpu_usage"] = round(test.gpu, 5)
+                json_record["memory_util"] = round(test.memory / 100, 5)
                 json_record["code_snippet"] = test.gen_code_snippet()
                 json_list.append(json_record)
                 out_json[test.build_name] = json_list
             # out_json.append(json_entry)
             
+        json_list = []
         for test in failed:
             print(test.name, "error")
             print(test.name, "error", file=out_file)
-
             json_record = dict()
             json_record["name"] = test.name
             json_record["command"] = test.command
             json_record["result"] = "error"
-            out_json["failed"] = json_record
+            json_list.append(json_record)
+            out_json["failed"] = json_list
     
     with open(os.path.join(args.result, "latencies.json"), "w") as json_file:
         json.dump(out_json, json_file, indent=2)
