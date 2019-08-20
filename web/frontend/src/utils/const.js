@@ -20,6 +20,6 @@ export const perf_testForm = {
   parallel: false,
   threadpool_size: '',
   num_threads: '',
-  top_n: '5',
+  top_n: '3',
   runtime: false,
 };

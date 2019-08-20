@@ -1,7 +1,7 @@
 <template>
   <div class="container">
-    <div class="row">
-      <div class="col-sm-10">
+    <div class="row flex-xl-nowrap">
+      <main class="col-18 col-md-12" role="main">
         <h1>OLive (ONNX Live)</h1>
         <hr>
         <button type="button" class="btn btn-success btn-sm button_right" v-b-modal.convert-modal>
@@ -32,44 +32,59 @@
           <a :href="convert_result['input_path']" download>[input] </a>
           <a :href="convert_result['model_path']" download>[model]</a>
         </div>
-        <table v-if="result.length > 0">
-          <th>#</th>
-          <th>name</th>
-          <th>avg (sec)</th>
-          <th>p90 (sec)</th>
-          <th>p95 (sec)</th>
-          <th>cpu_usage (%)</th>
-          <th>gpu_usage (%)</th>
-          <th>memory_util (%)</th>
-          <!--<th>code_snippet.execution_provider</th>-->
-          <th>code_snippet</th>
-          <th>profiling</th>
-          <tr v-for="(r, index) in result" :key="index">
-              <td>{{index+1}}</td>
-              <td>{{r.name}}</td>
-              <td>{{r.avg}}</td>
-              <td>{{r.p90}}</td>
-              <td>{{r.p95}}</td>
-              <td>{{r.cpu_usage}}</td>
-              <td>{{r.gpu_usage}}</td>
-              <td>{{r.memory_util}}</td>
-              <td>
-                <div v-if="index < PROFILING_MAX"
-                     v-on:click="code_details = r.code_snippet.code"
-                     v-bind:class="{open: !(selected == index)}"
-                     class="before_open open_button"
-                     v-b-modal.codeModal>details </div>
-              </td>
-              <!--profiling-->
-              <td>
-                <div v-if="index < PROFILING_MAX"
-                     v-on:click="open_profiling(profiling[index].slice(0, PROFILING_MAX))"
-                     v-bind:class="{open: !(selected_profiling == index)}"
-                     class="before_open open_button" v-b-modal.opsModal>op </div>
-              </td>
+        <ul class="list-group" v-for="(ep, index) in Object.keys(result)" :key="index">
+          <li class="list-group-item" v-if="result[ep].length > 0">
+            <h5>{{index+1}}. {{ep}} </h5> 
+            <table class="table-responsive-lg" style="table-layout: fixed">
+              <thead>
+                <tr>
+                  <th scope="col">name</th>
+                  <th scope="col">avg (ms)</th>
+                  <th scope="col">p90 (ms)</th>
+                  <th scope="col">p95 (ms)</th>
+                  <th scope="col">cpu (%)</th>
+                  <th scope="col">gpu (%)</th>
+                  <th scope="col">memory (%)</th>
+                  <!--<th>code_snippet.execution_provider</th>-->
+                  <th>code_snippet</th>
+                  <th>profiling</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                    <td>{{result[ep][0].name}}</td>
+                    <td>{{result[ep][0].avg}}</td>
+                    <td>{{result[ep][0].p90}}</td>
+                    <td>{{result[ep][0].p95}}</td>
+                    <td>{{result[ep][0].cpu_usage}}</td>
+                    <td>{{result[ep][0].gpu_usage}}</td>
+                    <td>{{result[ep][0].memory_util}}</td>
+                    <td>
+                      <div v-on:click="code_details = result[ep][0].code_snippet.code"
+                          v-bind:class="{open: !(selected == index)}"
+                          class="before_open open_button"
+                          v-b-modal.codeModal>details </div>
+                    </td>
+                    <!--profiling-->
+                    <td>
+                      <div v-on:click="open_profiling(profiling[index].slice(0, PROFILING_MAX))"
+                          v-bind:class="{open: !(selected_profiling == index)}"
+                          class="before_open open_button" v-b-modal.opsModal>op </div>
+                    </td>
 
-          </tr>
-        </table>
+                </tr>
+              </tbody>
+            </table>
+            <details style="margin: 10px">
+              <summary>
+                More options with good performance
+              </summary>
+              <div v-for="(item, index) in result[ep]" :key="index">
+                <p v-if="index > 0">{{item.name}}</p>
+              </div>
+            </details>
+          </li>
+        </ul>
         <div class="open_button" v-on:click="show_message = !show_message" v-if="show_logs">
           <hr/>Show logs
           </div>
@@ -78,7 +93,7 @@
         <div>
           <iframe src="http://localhost:8080" width="1200" height="800" v-if="show_visualization"></iframe>
         </div>
-      </div>
+      </main>
     </div>
     <b-modal ref="convertModal"
              id="convert-modal"
@@ -367,7 +382,7 @@ export default {
       PROFILING_MAX: 5,
       selected: -1,
       selected_profiling: -1,
-      result: [],
+      result: {},
       profiling: [],
       convertForm,
       perf_testForm,
@@ -494,9 +509,9 @@ export default {
         .then((res) => {
           this.show_message = false;
           if (res.data.status === 'success') {
-            const data = res.data.logs;
+            const { logs } = res.data;
             this.show_logs = true;
-            this.message = data;
+            this.message = logs;
             this.result = res.data.result;
             this.profiling = res.data.profiling;
           }
@@ -558,7 +573,7 @@ table {
 th, td {
   text-align: left;
   padding: 8px;
-  white-space: nowrap;
+  word-wrap: break-word;
 }
 .lil_table{
     margin: 4px 2px;
