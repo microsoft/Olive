@@ -52,7 +52,7 @@ def visualize():
 
         request.files['file'].save(model_name)
 
-        netron.start(model_name)
+        netron.start(model_name, browse=False)
 
     return jsonify(response_object)
 

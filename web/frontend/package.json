@@ -36,7 +36,10 @@
     ],
     "rules": {
       "generator-star-spacing": "off",
-      "semi": [2, "always"],
+      "semi": [
+        2,
+        "always"
+      ],
       "camelcase": "off",
       "no-plusplus": "off"
     },

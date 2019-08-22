@@ -21,5 +21,5 @@ export const perf_testForm = {
   threadpool_size: '',
   num_threads: '',
   top_n: '3',
-  runtime: false,
+  optimization_level: '3',
 };

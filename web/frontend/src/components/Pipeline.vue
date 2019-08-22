@@ -1,10 +1,10 @@
 <template>
   <div class="container">
-    <div class="row flex-xl-nowrap">
+    <!-- <div class="row flex-xl-nowrap">
       <main class="col-18 col-md-12" role="main">
         <h1>OLive (ONNX Live)</h1>
         <hr>
-        <button type="button" class="btn btn-success btn-sm button_right" v-b-modal.convert-modal>
+        <button type="button" class="btn btn-success btn-sm button_right" >
           Convert
         </button>
         <button type="button" class="btn btn-info btn-sm button_right" v-b-modal.perf_test-modal>
@@ -13,8 +13,8 @@
         <button type="button" class="btn btn-primary btn-sm" v-b-modal.visualizeModal>
           Model Visualize
         </button>
-        <hr/>
-        <div v-if="convert_result">
+        <hr/> -->
+        <!-- <div v-if="convert_result">
           <h5>Conversion Status:
             <b-badge variant="primary">
               {{convert_result['output_json']['conversion_status']}}
@@ -31,10 +31,10 @@
           <h5>Download</h5>
           <a :href="convert_result['input_path']" download>[input] </a>
           <a :href="convert_result['model_path']" download>[model]</a>
-        </div>
+        </div> -->
         <ul class="list-group" v-for="(ep, index) in Object.keys(result)" :key="index">
           <li class="list-group-item" v-if="result[ep].length > 0">
-            <h5>{{index+1}}. {{ep}} </h5> 
+            <h5>{{index+1}}. {{ep}} </h5>
             <table class="table-responsive-lg" style="table-layout: fixed">
               <thead>
                 <tr>
@@ -93,9 +93,9 @@
         <div>
           <iframe src="http://localhost:8080" width="1200" height="800" v-if="show_visualization"></iframe>
         </div>
-      </main>
-    </div>
-    <b-modal ref="convertModal"
+      <!-- </main>
+    </div> -->
+    <!-- <b-modal ref="convertModal"
              id="convert-modal"
              title="Convert model"
              hide-footer>
@@ -201,7 +201,7 @@
         <b-button type="submit" variant="primary">Submit</b-button>
         <b-button type="reset" variant="danger">Reset</b-button>
       </b-form>
-    </b-modal>
+    </b-modal> -->
     <!-- perf test-->
     <b-modal ref="perf_testModal"
              id="perf_test-modal"
@@ -521,10 +521,10 @@ export default {
           console.log(error);
         });
     },
-    onReset(evt) {
-      evt.preventDefault();
-      this.initForm();
-    },
+    // onReset(evt) {
+    //   evt.preventDefault();
+    //   this.initForm();
+    // },
     onReset_perf_test(evt) {
       evt.preventDefault();
       this.init_perf_testForm();
