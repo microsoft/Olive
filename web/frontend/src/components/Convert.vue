@@ -6,32 +6,50 @@
                 hide-footer>
         <b-form @submit="convert" @reset="onReset" class="w-100">
             <b-form-group id="form-model_type-group"
-                        label="model_type:"
+                        label="Model type:"
                         label-for="form-model_type-input">
 
             <b-form-select v-model="convertForm.model_type"
                         required
                         :options="options.model_type"
-                        label="model_type:"
+                        label="Model type:"
                         class="mb-3">
                 <template slot="first">
                 </template>
             </b-form-select>
             </b-form-group>
 
+            <b-form-group id="form-model-group"
+                        label="Model:"
+                        label-for="form-model-input">
+            <b-form-file id="form-model-input"
+                            v-model="convertForm.model"
+                            required
+                            placeholder="Choose a model...">
+            </b-form-file>
+            </b-form-group>
+
+            <!-- <b-form-group id="form-model-group"
+                        label="Model Input Test Data Files:"
+                        label-for="form-model-input">
+            <b-form-file multiple id="form-model-input"
+                            v-model="test_data"
+                            placeholder="Select your input/output.pbs...">
+            </b-form-file>
+            </b-form-group> -->
         <b-form-group v-if="convertForm.model_type === 'tensorflow'"
                         id="form-model_inputs_names-group"
-                        label="model_inputs_names:"
+                        label="Model inputs names:"
                         label-for="form-model_inputs_names-input">
             <b-form-input id="form-model_inputs_names-input"
                             type="text"
                             v-model="convertForm.model_inputs_names"
-                            placeholder="Enter model_inputs_names">
+                            placeholder="Enter model inputs names">
             </b-form-input>
             </b-form-group>
         <b-form-group v-if="convertForm.model_type === 'tensorflow'"
                         id="form-model_outputs_names-group"
-                        label="model_outputs_names:"
+                        label="Model outputs names:"
                         label-for="form-model_outputs_names-input">
             <b-form-input id="form-model_outputs_names-input"
                             type="text"
@@ -41,69 +59,60 @@
             </b-form-group>
         <b-form-group v-if="convertForm.model_type === 'mxnet'"
                         id="form-model_params-group"
-                        label="model_params:"
+                        label="Model params:"
                         label-for="form-model_params-input">
             <b-form-input id="form-model_params-input"
                             type="text"
                             v-model="convertForm.model_params"
-                            placeholder="Enter model_params">
+                            placeholder="Enter model params">
             </b-form-input>
             </b-form-group>
 
         <b-form-group v-if="convertForm.model_type === 'caffe'"
                         id="form-caffe_model_prototxt-group"
-                        label="caffe_model_prototxt:"
+                        label="Caffe model prototxt:"
                         label-for="form-caffe_model_prototxt-input">
             <b-form-input id="form-caffe_model_prototxt-input"
                             type="text"
                             v-model="convertForm.caffe_model_prototxt"
-                            placeholder="Enter caffe_model_prototxt">
+                            placeholder="Enter caffe model prototxt">
             </b-form-input>
             </b-form-group>
 
         <b-form-group v-if="convertForm.model_type === 'scikit-learn'"
                         id="form-initial_types-group"
-                        label="initial_types:"
+                        label="Initial types:"
                         label-for="form-initial_types-input">
             <b-form-input id="form-initial_types-input"
                             type="text"
                             v-model="convertForm.initial_types"
-                            placeholder="Enter initial_types">
+                            placeholder="Enter initial types">
             </b-form-input>
             </b-form-group>
 
         <b-form-group v-if="convertForm.model_type === 'pytorch'"
                         id="form-model_input_shapes-group"
-                        label="model_input_shapes:"
+                        label="Model input shapes:"
                         label-for="form-model_input_shapes-input">
             <b-form-input id="form-model_input_shapes-input"
                             type="text"
                             v-model="convertForm.model_input_shapes"
-                            placeholder="Enter model_input_shapes">
+                            placeholder="Enter model input shapes">
             </b-form-input>
             </b-form-group>
-        <b-form-group id="form-model-group"
-                        label="Model:"
-                        label-for="form-model-input">
-            <b-form-file id="form-model-input"
-                            v-model="convertForm.model"
-                            required
-                            placeholder="Choose a model..."
-                            drop-placeholder="Drop model here...">
-            </b-form-file>
-            </b-form-group>
+
 
         <b-form-group id="form-target_opset-group"
-                        label="target_opset:"
+                        label="Target Opset:"
                         label-for="form-target_opset-input">
             <b-form-input id="form-target_opset-input"
                             type="text"
                             v-model="convertForm.target_opset"
-                            placeholder="Enter target_opset">
+                            placeholder="Enter target opset">
             </b-form-input>
             </b-form-group>
 
-            <b-button type="submit" variant="primary">Submit</b-button>
+            <b-button type="submit" variant="primary" class="button_right">Submit</b-button>
             <b-button type="reset" variant="danger">Reset</b-button>
         </b-form>
         </div>
@@ -144,6 +153,7 @@ export default {
     return {
       result: {},
       convertForm,
+      test_data: [],
       options: {
         model_type: [
           { value: 'pytorch', text: 'pytorch' },
@@ -174,7 +184,7 @@ export default {
       this.convert_result = null;
     },
     convert(evt) {
-      //   this.close_all();
+      this.close_all();
       evt.preventDefault();
       //   this.$refs.convertModal.hide();
       const metadata = this.convertForm;
@@ -185,9 +195,13 @@ export default {
 
       const data = new FormData();
       data.append('metadata', blob);
+      // const files_to_upload = [this.convertForm.model];
+      // console.log(this.test_data);
+      // if (this.test_data.length > 0) {
+      //   files_to_upload.push.apply(files_to_upload, this.test_data);
+      // }
+      // console.log(files_to_upload);
       data.append('file', this.convertForm.model);
-      console.log(this.convertForm);
-      console.log(data);
       this.show_message = true;
       this.message = 'Running...';
 
@@ -208,9 +222,27 @@ export default {
           }
         })
         .catch((error) => {
-          // eslint-disable-next-line
-                    console.log(error);
+          // eslint-disable-next-line]
+          this.message = error;
+          console.log(error);
         });
+    },
+
+    // upload() {
+    //   const blob = new Blob([json], {
+    //     type: 'application/json',
+    //   });
+
+    //   const data = new FormData();
+    //   data.append('metadata', blob);
+
+
+    // },
+    close_all() {
+      this.result = [];
+      this.show_message = false;
+      this.show_logs = false;
+      this.convert_result = null;
     },
   },
 };

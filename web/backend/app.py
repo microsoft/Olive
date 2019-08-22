@@ -22,6 +22,9 @@ app.config.from_object(__name__)
 # enable CORS
 CORS(app)
 
+# reserve an input folder
+RESERVED_INPUT_PATH = './inputs'
+
 def get_params(request):
 
     temp_json = 'temp.json'
@@ -32,11 +35,24 @@ def get_params(request):
     with open(temp_json, 'r') as f:
         json_data = json.load(f)
 
+    if not os.path.exists(RESERVED_INPUT_PATH):
+        os.mkdir(RESERVED_INPUT_PATH)
+
+    print(request.files)
     if 'file' in request.files:
         temp_model = request.files['file']
-        model_name = temp_model.filename
+        model_name = os.path.join(RESERVED_INPUT_PATH, temp_model.filename)
+        print(temp_model)
         request.files['file'].save(model_name)
         json_data['model'] = model_name
+    if 'test_data' in request.files:
+        # Upload test data
+        test_data_dir = os.path.join(RESERVED_INPUT_PATH, 'test_data_set_0')
+        if not os.path.exists(test_data_dir):
+            os.mkdir(test_data_dir)
+        for td in request.files['test_data']:
+            print(td)
+            request.files['test_data'].save(os.path.join(test_data_dir, td.filename))
 
     with open(temp_json, 'w') as f:
         json.dump(json_data, f)
@@ -119,7 +135,7 @@ def perf_test():
     response_object['logs'] = pipeline.output
     try:
         r = pipeline.get_result(result)
-        response_object['result'] = r.latency
+        response_object['result'] = json.dumps(r.latency)
         response_object['profiling'] = r.profiling_ops
     except RuntimeError:
         pass

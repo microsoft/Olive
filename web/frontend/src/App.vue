@@ -1,21 +1,21 @@
 <template>
   <div class="container" id="app">
     <div class="row flex-xl-nowrap">
-      <main class="col-18 col-md-12" role="main">
+      <main class="col-20 col-md-12" role="main">
         <h1>OLive (ONNX Live)</h1>
         <hr>
         <router-link to="/convert">
-          <button type="button" class="btn btn-success btn-sm button_right" >
+          <button type="button" class="btn btn-success btn-md button_right" >
             Convert
           </button>
         </router-link>
         <router-link to="/perf" >
-          <button type="button" class="btn btn-info btn-sm button_right">
+          <button type="button" class="btn btn-info btn-md button_right">
             Pert Test
           </button>
         </router-link>
         <router-link to="/visualize">
-          <button type="button" class="btn btn-primary btn-sm">
+          <button type="button" class="btn btn-primary btn-md">
             Model Visualize
           </button>
         </router-link>
@@ -49,4 +49,23 @@ export default {
 #app {
   margin-top: 60px
 }
+
+.button_right{
+  margin-right: 15px;
+}
+.missing{
+  margin-left: 15px;
+  color: red;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  text-align: left;
+  padding: 8px;
+  word-wrap: break-word;
+}
+
 </style>

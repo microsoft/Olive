@@ -8,12 +8,15 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
+    "@xkeshi/image-compressor": "^0.5.3",
     "axios": "^0.19.0",
     "bootstrap": "^4.3.1",
     "bootstrap-vue": "^2.0.0-rc.28",
     "core-js": "^2.6.5",
+    "cropperjs": "^1.5.5",
     "vue": "^2.6.10",
-    "vue-router": "^3.0.3"
+    "vue-router": "^3.0.3",
+    "vue-upload-component": "^2.8.20"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "^3.10.0",

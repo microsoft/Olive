@@ -33,7 +33,7 @@
                         </template>
                         </b-form-select>
                     </b-form-group>
-                    
+
                     <b-form-group id="form-num_threads-group"
                                 label="num_threads:"
                                 label-for="form-num_threads-input">
@@ -117,14 +117,15 @@
                                     placeholder="Enter threadpool_size">
                         </b-form-input>
                     </b-form-group>
-                    
+
                 </div>
-                <b-button type="submit" variant="primary">Submit</b-button>
+                <b-button type="submit" variant="primary" class="button_right">Submit</b-button>
                 <b-button type="reset" variant="danger">Reset</b-button>
             </b-form>
         </div>
         <hr/>
-        <alert :message=message v-if="show_message"></alert>
+        <!-- <alert :message=message v-if="show_message"></alert> -->
+        <div v-if="Object.keys(result).length > 0">
         <ul class="list-group" v-for="(ep, index) in Object.keys(result)" :key="index">
             <li class="list-group-item" v-if="result[ep].length > 0">
                 <h5>{{index+1}}. {{ep}} </h5>
@@ -179,21 +180,27 @@
                 </details>
             </li>
         </ul>
+        </div>
         <div class="open_button" v-on:click="show_message = !show_message" v-if="show_logs">
             <hr/>Show logs
         </div>
+        <alert :message=message v-if="show_message"></alert>
         <br/>
         <b-modal ref="opsModal"
                 id="opsModal"
                 title="Top 5 ops"
+                size="lg"
                 hide-footer>
-            <b-table striped hover :items="op_info" :fields="fields"></b-table>
+            <b-container fluid>
+            <b-table class="table-responsive-lg" style="table-layout: fixed"
+                striped hover :items="op_info" :fields="fields"></b-table>
+            </b-container>
         </b-modal>
         <b-modal ref="codeModal"
                 id="codeModal"
-                title="Code details"
+                title="Code details" style="width: 100%;"
                 hide-footer>
-            <div style="width: 370px;">{{code_details}}</div>
+            <div >{{code_details}}</div>
         </b-modal>
     </div>
 </template>
@@ -218,26 +225,25 @@ export default {
       perf_testForm,
       options: {
         mode: ['duration', 'times'],
-        execution_provider:  ["", "mklml", "cpu_openmp", "mkldnn", "mkldnn_openmp", "cpu", "tensorrt", "ngraph", "cuda"],
+        execution_provider: ['', 'mklml', 'cpu_openmp', 'mkldnn', 'mkldnn_openmp', 'cpu', 'tensorrt', 'ngraph', 'cuda'],
       },
       message: '',
       show_message: false,
       show_logs: false,
       model_missing: '',
-      // convert_result: null,
       adv_setting: false,
       op_info: {},
       fields: ['name', 'duration', 'op_name', 'tid'],
       code_details: '',
     };
   },
-  
+
   components: {
     alert: Alert,
   },
 
   watch: {
-    converted_model: function (newVal, oldVal) {
+    converted_model(newVal, oldVal) {
       this.perf_testForm.model = newVal;
     },
   },
@@ -248,7 +254,7 @@ export default {
     },
 
     perf_test(evt) {
-    //   this.close_all();
+      this.close_all();
       evt.preventDefault();
       if (this.perf_testForm.model === '') {
         this.model_missing = 'You need to convert first.';
@@ -277,13 +283,14 @@ export default {
             const { logs } = res.data;
             this.show_logs = true;
             this.message = logs;
-            this.result = res.data.result;
+            this.result = JSON.parse(res.data.result);
             this.profiling = res.data.profiling;
           }
         })
         .catch((error) => {
           // eslint-disable-next-line
-            console.log(error);
+          this.message = error;
+          console.log(error);
         });
     },
     onReset_perf_test(evt) {
@@ -293,8 +300,10 @@ export default {
     open_details(index) {
       if (this.selected === index) {
         this.selected = -1;
+        console.log('if ', this.selected);
       } else {
         this.selected = index;
+        console.log('else ', this.selected);
       }
     },
     open_profiling(ops) {
@@ -308,6 +317,30 @@ export default {
         });
       }
     },
+    close_all() {
+      this.result = [];
+      this.show_message = false;
+      this.show_logs = false;
+    },
   },
 };
 </script>
+
+<style scoped>
+.before_open::after{
+  content: "(-)";
+  font-weight: bold;
+}
+.open::after{
+  content: "(+)";
+}
+.op_table{
+  padding: 10px;
+  background: white;
+}
+.open_button{
+  cursor: pointer;
+  text-decoration: underline;
+  color: #669;
+}
+</style>

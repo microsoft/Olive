@@ -1,6 +1,5 @@
 import Vue from 'vue';
 import Router from 'vue-router';
-import Pipeline from '@/components/Pipeline.vue';
 import Convert from '@/components/Convert.vue';
 import Perf from '@/components/Perf.vue';
 import Visualize from '@/components/Visualize.vue';
@@ -14,7 +13,6 @@ export default new Router({
     {
       path: '/',
       name: 'Pipeline',
-      component: Pipeline,
     },
     {
       path: '/convert',
