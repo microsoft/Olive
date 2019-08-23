@@ -37,23 +37,30 @@ def get_params(request):
 
     if not os.path.exists(RESERVED_INPUT_PATH):
         os.mkdir(RESERVED_INPUT_PATH)
+    else: 
+        rmtree(RESERVED_INPUT_PATH)
+        os.mkdir(RESERVED_INPUT_PATH)
 
-    print(request.files)
     if 'file' in request.files:
         temp_model = request.files['file']
         model_name = os.path.join(RESERVED_INPUT_PATH, temp_model.filename)
-        print(temp_model)
         request.files['file'].save(model_name)
         json_data['model'] = model_name
-    if 'test_data' in request.files:
+    if 'test_data[]' in request.files:
         # Upload test data
         test_data_dir = os.path.join(RESERVED_INPUT_PATH, 'test_data_set_0')
         if not os.path.exists(test_data_dir):
             os.mkdir(test_data_dir)
-        for td in request.files['test_data']:
-            print(td)
-            request.files['test_data'].save(os.path.join(test_data_dir, td.filename))
-
+        for td in request.files.getlist('test_data[]'):
+            td.save(os.path.join(test_data_dir, td.filename))
+    if 'savedModel[]' in request.files:
+        # Upload test data
+        variables_dir = os.path.join(RESERVED_INPUT_PATH, 'variables')
+        if not os.path.exists(variables_dir):
+            os.mkdir(variables_dir)
+        for vf in request.files.getlist('savedModel[]'):
+            vf.save(os.path.join(variables_dir, vf.filename))
+        json_data['model'] = os.path.dirname(os.path.abspath(json_data['model']))
     with open(temp_json, 'w') as f:
         json.dump(json_data, f)
     return model_name, temp_json

@@ -19,6 +19,22 @@
             </b-form-select>
             </b-form-group>
 
+            <b-form-group v-if="convertForm.model_type == 'tensorflow'"
+                        id="form-tf_model_type-group"
+                        label="Tensorflow model type:"
+                        label-for="form-tf_model_type-input">
+
+            <b-form-select v-model="tf_model_type"
+                        required
+                        :options="options.tf_model_type"
+                        label="Tensorflow model type:"
+                        class="mb-3">
+                <template slot="first">
+                </template>
+            </b-form-select>
+
+            </b-form-group>
+
             <b-form-group id="form-model-group"
                         label="Model:"
                         label-for="form-model-input">
@@ -29,15 +45,27 @@
             </b-form-file>
             </b-form-group>
 
-            <!-- <b-form-group id="form-model-group"
+            <b-form-group v-if="convertForm.model_type === 'tensorflow' && tf_model_type === 'savedModel'"
+                        id="form-model-group"
+                        label="Tensorflow SavedModel Variable Files:"
+                        label-for="form-model-input">
+            <b-form-file id="form-model-input"
+                        multiple
+                        v-model="savedModel_vars"
+                        required
+                        placeholder="Select Tensorflow saved model variable files...">
+            </b-form-file>
+            </b-form-group>
+            <b-form-group id="form-model-group"
                         label="Model Input Test Data Files:"
                         label-for="form-model-input">
             <b-form-file multiple id="form-model-input"
                             v-model="test_data"
                             placeholder="Select your input/output.pbs...">
             </b-form-file>
-            </b-form-group> -->
-        <b-form-group v-if="convertForm.model_type === 'tensorflow'"
+            </b-form-group>
+        <b-form-group v-if="convertForm.model_type === 'tensorflow' 
+                        && tf_model_type != 'savedModel' && tf_model_type.length > 0"
                         id="form-model_inputs_names-group"
                         label="Model inputs names:"
                         label-for="form-model_inputs_names-input">
@@ -47,7 +75,8 @@
                             placeholder="Enter model inputs names">
             </b-form-input>
             </b-form-group>
-        <b-form-group v-if="convertForm.model_type === 'tensorflow'"
+        <b-form-group v-if="convertForm.model_type === 'tensorflow' 
+                        && tf_model_type != 'savedModel' && tf_model_type.length > 0"
                         id="form-model_outputs_names-group"
                         label="Model outputs names:"
                         label-for="form-model_outputs_names-input">
@@ -154,6 +183,7 @@ export default {
       result: {},
       convertForm,
       test_data: [],
+      savedModel_vars: [],
       options: {
         model_type: [
           { value: 'pytorch', text: 'pytorch' },
@@ -163,7 +193,13 @@ export default {
           { value: 'caffe', text: 'caffe' },
           { value: 'scikit-learn', text: 'scikit-learn' },
         ],
+        tf_model_type: [
+          "savedModel",
+          "frozen graph",
+          "checkpoint",
+        ]
       },
+      tf_model_type: "",
       message: '',
       show_message: false,
       model_missing: '',
@@ -195,13 +231,13 @@ export default {
 
       const data = new FormData();
       data.append('metadata', blob);
-      // const files_to_upload = [this.convertForm.model];
-      // console.log(this.test_data);
-      // if (this.test_data.length > 0) {
-      //   files_to_upload.push.apply(files_to_upload, this.test_data);
-      // }
-      // console.log(files_to_upload);
       data.append('file', this.convertForm.model);
+      for (var i = 0; i < this.test_data.length; i++) {
+        data.append('test_data[]', this.test_data[i]);
+      }
+      for (var i = 0; i < this.savedModel_vars.length; i++) {
+        data.append('savedModel[]', this.savedModel_vars[i]);
+      }
       this.show_message = true;
       this.message = 'Running...';
 
