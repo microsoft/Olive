@@ -1,4 +1,4 @@
-apt install forever
+npm install -g forever
 forever start python backend/app.py
 cd frontend
 npm run serve
