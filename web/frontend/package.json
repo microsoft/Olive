@@ -13,15 +13,16 @@
     "bootstrap-vue": "^2.0.0-rc.28",
     "core-js": "^2.6.5",
     "cropperjs": "^1.5.5",
+    "jquery": "^3.4.1",
     "portfinder": "^1.0.23",
-    "vue": "^2.6.10",
+    "vue": "^2.6.10",    
+    "@vue/cli-service": "^3.10.0",
     "vue-router": "^3.0.3",
     "vue-upload-component": "^2.8.20"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "^3.10.0",
     "@vue/cli-plugin-eslint": "^3.10.0",
-    "@vue/cli-service": "^3.10.0",
     "@vue/eslint-config-airbnb": "^4.0.0",
     "babel-eslint": "^10.0.1",
     "eslint": "^5.16.0",
