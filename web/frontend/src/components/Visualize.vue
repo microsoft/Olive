@@ -19,7 +19,9 @@
             </b-form>
         </div>
         <hr/>
-        <iframe src="http://localhost:8080" width="100%" height="800" v-if="show_visualization"></iframe>
+        <iframe :src="this.host + ':8080'" width="100%" height="800" v-if="show_visualization">
+
+        </iframe>
         <hr/>
     </div>
 </template>
@@ -32,12 +34,13 @@ export default {
     return {
       visualize_model: null,
       show_visualization: false,
+      host: `${window.location.protocol}//${window.location.host.split(':')[0]}`,
     };
   },
   methods: {
     visualize(evt) {
       evt.preventDefault();
-      const path = 'http://localhost:5000/visualize';
+      const path = `${this.host}:5000/visualize`;
       const data = new FormData();
       data.append('file', this.visualize_model);
       axios.post(path, data)

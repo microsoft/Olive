@@ -1,11 +1,11 @@
 {
-  "name": "client",
+  "name": "olive",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve --port 8000",
-    "build": "vue-cli-service build frontend",
-    "lint": "vue-cli-service lint frontend"
+    "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint"
   },
   "dependencies": {
     "@vue/cli-service": "^3.10.0",
@@ -14,7 +14,6 @@
     "bootstrap-vue": "^2.0.0-rc.28",
     "core-js": "^2.6.5",
     "cropperjs": "^1.5.5",
-    "forever": "^1.0.0",
     "jquery": "^3.4.1",
     "portfinder": "^1.0.23",
     "vue": "^2.6.10",

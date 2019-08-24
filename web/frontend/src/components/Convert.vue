@@ -240,8 +240,8 @@ export default {
       }
       this.show_message = true;
       this.message = 'Running...';
-
-      axios.post('http://localhost:5000/convert', data)
+      const host = `${window.location.protocol}//${window.location.host.split(':')[0]}`;
+      axios.post(`${host}:5000/convert`, data)
         .then((res) => {
           this.show_message = false;
           if (res.data.status === 'success') {

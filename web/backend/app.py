@@ -78,7 +78,7 @@ def visualize():
 
         request.files['file'].save(model_name)
 
-        netron.start(model_name, browse=False)
+        netron.start(model_name, browse=False, host='0.0.0.0')
 
     return jsonify(response_object)
 
@@ -139,7 +139,10 @@ def perf_test():
     response_object = {'status': 'success'}
 
     pipeline = onnxpipeline.Pipeline()
-    _, temp_json = get_params(request, RESERVED_INPUT_PATH)
+    if 'file' in request.files:
+        _, temp_json = get_params(request, RESERVED_INPUT_PATH)
+    else:
+        _, temp_json = get_params(request, './test')
 
     result = pipeline.perf_test(input_json=temp_json)
 
@@ -155,4 +158,4 @@ def perf_test():
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(host='0.0.0.0')
