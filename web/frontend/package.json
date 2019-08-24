@@ -4,19 +4,20 @@
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve --port 8000",
-    "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "build": "vue-cli-service build frontend",
+    "lint": "vue-cli-service lint frontend"
   },
   "dependencies": {
+    "@vue/cli-service": "^3.10.0",
     "axios": "^0.19.0",
     "bootstrap": "^4.3.1",
     "bootstrap-vue": "^2.0.0-rc.28",
     "core-js": "^2.6.5",
     "cropperjs": "^1.5.5",
+    "forever": "^1.0.0",
     "jquery": "^3.4.1",
     "portfinder": "^1.0.23",
-    "vue": "^2.6.10",    
-    "@vue/cli-service": "^3.10.0",
+    "vue": "^2.6.10",
     "vue-router": "^3.0.3",
     "vue-template-compiler": "^2.6.10",
     "vue-upload-component": "^2.8.20"
@@ -26,6 +27,7 @@
     "@vue/cli-plugin-eslint": "^3.10.0",
     "@vue/eslint-config-airbnb": "^4.0.0",
     "babel-eslint": "^10.0.1",
+    "babel-loader": "^8.0.6",
     "eslint": "^5.16.0",
     "eslint-plugin-vue": "^5.0.0"
   },
@@ -45,7 +47,8 @@
         "always"
       ],
       "camelcase": "off",
-      "no-plusplus": "off"
+      "no-plusplus": "off",
+      "eqeqeq": "off"
     },
     "parserOptions": {
       "parser": "babel-eslint"
