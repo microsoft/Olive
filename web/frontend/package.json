@@ -3,17 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "serve": "vue-cli-service serve",
+    "serve": "vue-cli-service serve --port 8000",
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
-    "@xkeshi/image-compressor": "^0.5.3",
     "axios": "^0.19.0",
     "bootstrap": "^4.3.1",
     "bootstrap-vue": "^2.0.0-rc.28",
     "core-js": "^2.6.5",
     "cropperjs": "^1.5.5",
+    "portfinder": "^1.0.23",
     "vue": "^2.6.10",
     "vue-router": "^3.0.3",
     "vue-upload-component": "^2.8.20"

@@ -25,7 +25,7 @@ CORS(app)
 # reserve an input folder
 RESERVED_INPUT_PATH = './inputs'
 
-def get_params(request):
+def get_params(request, convert_output_path):
 
     temp_json = 'temp.json'
     model_name = None
@@ -48,10 +48,13 @@ def get_params(request):
         json_data['model'] = model_name
     if 'test_data[]' in request.files:
         # Upload test data
-        test_data_dir = os.path.join(RESERVED_INPUT_PATH, 'test_data_set_0')
+        
+        test_data_dir = os.path.join(convert_output_path, 'test_data_set_0')
         if not os.path.exists(test_data_dir):
             os.mkdir(test_data_dir)
+        print("test dir ", test_data_dir)
         for td in request.files.getlist('test_data[]'):
+            print("getting test data ", td)
             td.save(os.path.join(test_data_dir, td.filename))
     if 'savedModel[]' in request.files:
         # Upload test data
@@ -82,13 +85,15 @@ def visualize():
 @app.route('/convert', methods=['POST'])
 def convert():
     response_object = {'status': 'success'}
-    model_name, temp_json = get_params(request)
 
     pipeline = onnxpipeline.Pipeline()
 
     # may not work in Unix OS cuz the permission
     if os.path.exists(pipeline.convert_directory):
         rmtree(pipeline.convert_directory)
+    os.mkdir(pipeline.convert_directory)
+        
+    model_name, temp_json = get_params(request, pipeline.convert_directory)
 
     model = pipeline.convert_model(model=model_name, input_json=temp_json)
     try:
@@ -133,9 +138,8 @@ def perf_test():
 
     response_object = {'status': 'success'}
 
-    _, temp_json = get_params(request)
-    
     pipeline = onnxpipeline.Pipeline()
+    _, temp_json = get_params(request, RESERVED_INPUT_PATH)
 
     result = pipeline.perf_test(input_json=temp_json)
 

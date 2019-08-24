@@ -21,9 +21,12 @@
         </router-link>
         <hr/>
         <keep-alive >
-          <router-view v-on:update_model="updateModelHandler" :converted_model="converted_model"/>
+          <router-view
+            v-on:update_model="updateModelHandler"
+            :converted_model="converted_model"/>
         </keep-alive>
       </main>
+      <footer></footer>
     </div>
   </div>
 </template>

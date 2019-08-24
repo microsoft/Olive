@@ -25,7 +25,6 @@
                         label-for="form-tf_model_type-input">
 
             <b-form-select v-model="tf_model_type"
-                        required
                         :options="options.tf_model_type"
                         label="Tensorflow model type:"
                         class="mb-3">
@@ -45,7 +44,8 @@
             </b-form-file>
             </b-form-group>
 
-            <b-form-group v-if="convertForm.model_type === 'tensorflow' && tf_model_type === 'savedModel'"
+            <b-form-group v-if="convertForm.model_type === 'tensorflow'
+                          && tf_model_type === 'savedModel'"
                         id="form-model-group"
                         label="Tensorflow SavedModel Variable Files:"
                         label-for="form-model-input">
@@ -64,7 +64,7 @@
                             placeholder="Select your input/output.pbs...">
             </b-form-file>
             </b-form-group>
-        <b-form-group v-if="convertForm.model_type === 'tensorflow' 
+        <b-form-group v-if="convertForm.model_type === 'tensorflow'
                         && tf_model_type != 'savedModel' && tf_model_type.length > 0"
                         id="form-model_inputs_names-group"
                         label="Model inputs names:"
@@ -75,7 +75,7 @@
                             placeholder="Enter model inputs names">
             </b-form-input>
             </b-form-group>
-        <b-form-group v-if="convertForm.model_type === 'tensorflow' 
+        <b-form-group v-if="convertForm.model_type === 'tensorflow'
                         && tf_model_type != 'savedModel' && tf_model_type.length > 0"
                         id="form-model_outputs_names-group"
                         label="Model outputs names:"
@@ -194,12 +194,12 @@ export default {
           { value: 'scikit-learn', text: 'scikit-learn' },
         ],
         tf_model_type: [
-          "savedModel",
-          "frozen graph",
-          "checkpoint",
-        ]
+          'savedModel',
+          'frozen graph',
+          'checkpoint',
+        ],
       },
-      tf_model_type: "",
+      tf_model_type: '',
       message: '',
       show_message: false,
       model_missing: '',
@@ -221,8 +221,8 @@ export default {
     },
     convert(evt) {
       this.close_all();
+      this.$emit('update_model', '');
       evt.preventDefault();
-      //   this.$refs.convertModal.hide();
       const metadata = this.convertForm;
       const json = JSON.stringify(metadata);
       const blob = new Blob([json], {
@@ -232,10 +232,10 @@ export default {
       const data = new FormData();
       data.append('metadata', blob);
       data.append('file', this.convertForm.model);
-      for (var i = 0; i < this.test_data.length; i++) {
+      for (let i = 0; i < this.test_data.length; i++) {
         data.append('test_data[]', this.test_data[i]);
       }
-      for (var i = 0; i < this.savedModel_vars.length; i++) {
+      for (let i = 0; i < this.savedModel_vars.length; i++) {
         data.append('savedModel[]', this.savedModel_vars[i]);
       }
       this.show_message = true;

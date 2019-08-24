@@ -5,17 +5,48 @@
                 id="perf_test-modal"
                 title="Perf Test"
                 hide-footer>
-            <b-form @submit="perf_test" @reset="onReset_perf_test" class="w-100">
+
+            <b-form-select v-model="runOption">
+              <template slot="first"></template>
+              <option value=0>Run With Model Converted From Previous Step</option>
+              <option value=1>Run With Customized Model</option>
+            </b-form-select>
+            <b-form @submit="perf_test" @reset="onReset_perf_test" style="margin-top: 2%">
                 <b-form-group id="form-model-group"
-                                label="model:"
-                                label-for="form-model-input">
+                              v-if="runOption == 0"
+                              label="Model From Previous Step:"
+                              label-for="form-model-input">
                     <b-form-input id="form-model-input"
                                     type="text"
-                                    v-model="perf_testForm.model">
+                                    v-model="converted_model"
+                                    readonly>
                     </b-form-input>
                 </b-form-group>
+                <b-form-group id="form-model-group"
+                        v-if="runOption == 1"
+                        label="Model:"
+                        label-for="form-model-input">
+                  <b-form-file id="form-model-input"
+                                  v-model="customized_model"
+                                  required
+                                  placeholder="Choose a model...">
+                  </b-form-file>
+                </b-form-group>
+
+                <b-form-group id="form-model-group"
+                        label="Model Input Test Data Files:"
+                        label-for="form-model-input">
+                <b-form-file multiple id="form-model-input"
+                                v-model="test_data"
+                                placeholder="Select your input/output.pbs...">
+                </b-form-file>
+                </b-form-group>
+
                 <b-row class="missing">
                     {{ model_missing }}
+                </b-row>
+                <b-row class="missing">
+                    {{ test_data_missing }}
                 </b-row>
                 <div class="open_button" v-on:click="adv_setting = !adv_setting">
                     Advanced Settings
@@ -23,36 +54,37 @@
                 <br/>
                 <div v-if="adv_setting">
                     <b-form-group id="form-execution_provider-group"
-                                label="execution_provider:"
+                                label="Execution Providers (choose multiple):"
                                 label-for="form-execution_provider-input">
-                    <b-form-select multiple class="form-control" v-model="perf_testForm.execution_provider"
+                    <b-form-select multiple class="form-control" v-model="selected_eps"
                                     required
                                     :options="options.execution_provider"
-                                    label="execution_provider:">
+                                    label="Execution Providers (choose multiple):">
                         <template slot="first">
                         </template>
                         </b-form-select>
                     </b-form-group>
 
                     <b-form-group id="form-num_threads-group"
-                                label="num_threads:"
+                                label="Number of Threads:"
                                 label-for="form-num_threads-input">
                         <b-form-input id="form-num_threads-input"
-                                    type="text"
-                                    v-model="perf_testForm.num_threads"
-                                    value="20"
-                                    placeholder="Enter num_threads">
+                            type="text"
+                            v-model="perf_testForm.num_threads"
+                            value="20"
+                            placeholder="Enter num_threads.
+                            If leave blank, number of cores will be used.">
                         </b-form-input>
                     </b-form-group>
 
                     <b-form-group id="form-top_n-group"
-                                label="top_n:"
+                                label="Top N results:"
                                 label-for="form-top_n-input">
                         <b-form-input id="form-top_n-input"
                                     type="text"
                                     v-model="perf_testForm.top_n"
                                     value="20"
-                                    placeholder="Enter top_n">
+                                    placeholder="Enter top_n. ">
                         </b-form-input>
                     </b-form-group>
 
@@ -66,12 +98,12 @@
                     </b-form-group>
 
                     <b-form-group id="form-mode-group"
-                                label="mode:"
+                                label="Mode:"
                                 label-for="form-mode-input">
                     <b-form-select v-model="perf_testForm.mode"
                                     required
                                     :options="options.mode"
-                                    label="mode:"
+                                    label="Mode:"
                                     class="mb-3">
                         <template slot="first">
                         </template>
@@ -79,7 +111,7 @@
                     </b-form-group>
 
                     <b-form-group id="form-repeated_times-group"
-                                label="repeated_times:"
+                                label="Repeated times:"
                                 label-for="form-repeated_times-input"
                                 v-if="perf_testForm.mode == 'times'">
                         <b-form-input id="form-repeated_times-input"
@@ -89,7 +121,7 @@
                     </b-form-group>
 
                     <b-form-group id="form-duration_times-group"
-                                label="duration_times:"
+                                label="Duration times:"
                                 label-for="form-duration_times-input"
                                 v-if="perf_testForm.mode == 'mode'">
                         <b-form-input id="form-duration_times-input"
@@ -103,22 +135,24 @@
                     id="parallel"
                     v-model="perf_testForm.parallel"
                     name="parallel">
-                    parallel
+                    Use parallel executor
                     </b-form-checkbox>
 
 
                     <b-form-group v-if="perf_testForm.parallel"
                                 id="form-threadpool_size-group"
-                                label="threadpool_size:"
+                                label="Threadpool size:"
                                 label-for="form-threadpool_size-input">
                         <b-form-input id="form-threadpool_size-input"
-                                    type="text"
-                                    v-model="perf_testForm.threadpool_size"
-                                    placeholder="Enter threadpool_size">
+                          type="text"
+                          v-model="perf_testForm.threadpool_size"
+                          placeholder="Enter threadpool_size.
+                            If leave blank, number of cores will be used.">
                         </b-form-input>
                     </b-form-group>
 
                 </div>
+                <hr/>
                 <b-button type="submit" variant="primary" class="button_right">Submit</b-button>
                 <b-button type="reset" variant="danger">Reset</b-button>
             </b-form>
@@ -222,7 +256,11 @@ export default {
       selected_profiling: -1,
       result: {},
       profiling: [],
+      runOption: 1,
       perf_testForm,
+      selected_eps: [],
+      test_data: [],
+      customized_model: null,
       options: {
         mode: ['duration', 'times'],
         execution_provider: ['', 'mklml', 'cpu_openmp', 'mkldnn', 'mkldnn_openmp', 'cpu', 'tensorrt', 'ngraph', 'cuda'],
@@ -231,6 +269,7 @@ export default {
       show_message: false,
       show_logs: false,
       model_missing: '',
+      test_data_missing: '',
       adv_setting: false,
       op_info: {},
       fields: ['name', 'duration', 'op_name', 'tid'],
@@ -243,24 +282,51 @@ export default {
   },
 
   watch: {
-    converted_model(newVal, oldVal) {
+    converted_model(newVal) {
       this.perf_testForm.model = newVal;
+      if (newVal.length > 0) {
+        this.runOption = 0;
+      }
+    },
+    runOption() {
+      this.model_missing = '';
+      this.test_data_missing = '';
     },
   },
   methods: {
     init_perf_testForm() {
       this.perf_testForm = Object.assign({}, origin_perf_testForm);
       this.perf_testForm.model = this.converted_model;
+      this.customized_model = null;
+      this.selected_eps = [];
+      this.test_data = [];
     },
 
     perf_test(evt) {
       this.close_all();
       evt.preventDefault();
-      if (this.perf_testForm.model === '') {
-        this.model_missing = 'You need to convert first.';
+      if ((this.runOption == 0 && this.perf_testForm.model == '')
+          || (this.runOption == 1 && this.customized_model == null)) {
+        this.model_missing = 'Please provide an ONNX model to start performance tuning.';
+        return;
+      }
+      if (this.runOption == 1 && this.test_data.length == 0) {
+        this.test_data_missing = 'Please provide input data .pb files for customized models. ';
         return;
       }
       this.model_missing = '';
+      this.test_data_missing = '';
+
+      // run with selected execution providers
+      if (this.selected_eps.length > 0) {
+        this.perf_testForm.execution_provider = '';
+        for (let i = 0; i < this.selected_eps.length; i++) {
+          this.perf_testForm.execution_provider += this.selected_eps[i];
+          if (i < this.selected_eps.length - 1) {
+            this.perf_testForm.execution_provider += ',';
+          }
+        }
+      }
 
       // TODO cache model for model visualize
       const metadata = this.perf_testForm;
@@ -272,6 +338,12 @@ export default {
       });
       const data = new FormData();
       data.append('metadata', blob);
+      if (this.customized_model) {
+        data.append('file', this.customized_model);
+      }
+      for (let i = 0; i < this.test_data.length; i++) {
+        data.append('test_data[]', this.test_data[i]);
+      }
 
       this.show_message = true;
       this.message = 'Running...';
@@ -298,12 +370,10 @@ export default {
       this.init_perf_testForm();
     },
     open_details(index) {
-      if (this.selected === index) {
+      if (this.selected == index) {
         this.selected = -1;
-        console.log('if ', this.selected);
       } else {
         this.selected = index;
-        console.log('else ', this.selected);
       }
     },
     open_profiling(ops) {
