@@ -221,8 +221,9 @@ export default {
     },
     convert(evt) {
       this.close_all();
+      evt.preventDefault();      
       this.$emit('update_model', '');
-      evt.preventDefault();
+
       const metadata = this.convertForm;
       const json = JSON.stringify(metadata);
       const blob = new Blob([json], {
@@ -249,12 +250,13 @@ export default {
             this.show_logs = true;
             this.convert_result = {
               output_json: res.data.output_json,
-              input_path: `../static/${res.data.input_path}`,
-              model_path: `../static/${res.data.model_path}`,
+              input_path: `static/${res.data.input_path}`,
+              model_path: `static/${res.data.model_path}`,
             };
             this.$emit('update_model', res.data.converted_model);
             // this.perf_testForm.model = res.data.converted_model;
             // TODO cache model for model visualize
+            console.log(this.convert_result);
           }
         })
         .catch((error) => {

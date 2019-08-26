@@ -1,4 +1,2 @@
 start python ./backend/app.py
-cd frontend
-npm run serve
-cd ..
+npm run --prefix frontend serve

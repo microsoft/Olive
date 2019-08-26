@@ -184,11 +184,11 @@
                         <td>{{result[ep][0].avg}}</td>
                         <td>{{result[ep][0].p90}}</td>
                         <td>{{result[ep][0].p95}}</td>
-                        <td>{{result[ep][0].cpu_usage}}</td>
-                        <td>{{result[ep][0].gpu_usage}}</td>
-                        <td>{{result[ep][0].memory_util}}</td>
+                        <td>{{result[ep][0].cpu_usage * 100}}%</td>
+                        <td>{{result[ep][0].gpu_usage * 100}}%</td>
+                        <td>{{result[ep][0].memory_util * 100}}%</td>
                         <td>
-                        <div v-on:click="code_details = result[ep][0].code_snippet.code"
+                        <div v-on:click="format_code_snippet(result[ep][0].code_snippet.code)"
                             v-bind:class="{open: !(selected == index)}"
                             class="before_open open_button"
                             v-b-modal.codeModal>details </div>
@@ -234,7 +234,7 @@
                 id="codeModal"
                 title="Code details" style="width: 100%;"
                 hide-footer>
-            <div >{{code_details}}</div>
+            <div style="white-space: pre-wrap">{{code_details}}</div>
         </b-modal>
     </div>
 </template>
@@ -263,7 +263,7 @@ export default {
       customized_model: null,
       options: {
         mode: ['duration', 'times'],
-        execution_provider: ['', 'mklml', 'cpu_openmp', 'mkldnn', 'mkldnn_openmp', 'cpu', 'tensorrt', 'ngraph', 'cuda'],
+        execution_provider: ['', 'cpu', 'mklml', 'mkldnn', 'cuda', 'tensorrt', 'ngraph', 'cpu_openmp', 'mkldnn_openmp'],
       },
       message: '',
       show_message: false,
@@ -283,6 +283,7 @@ export default {
 
   watch: {
     converted_model(newVal) {
+      console.log("watched ", newVal);
       this.perf_testForm.model = newVal;
       if (newVal.length > 0) {
         this.runOption = 0;
@@ -300,6 +301,7 @@ export default {
       this.customized_model = null;
       this.selected_eps = [];
       this.test_data = [];
+      this.runOption = 0;
     },
 
     perf_test(evt) {
@@ -338,7 +340,7 @@ export default {
       });
       const data = new FormData();
       data.append('metadata', blob);
-      if (this.customized_model) {
+      if (this.customized_model && this.runOption == 1) {
         data.append('file', this.customized_model);
       }
       for (let i = 0; i < this.test_data.length; i++) {
@@ -364,6 +366,9 @@ export default {
           this.message = error;
           console.log(error);
         });
+    },
+    format_code_snippet(code) {
+      this.code_details = code.trim().replace(/\s\s+/g, '\n');
     },
     onReset_perf_test(evt) {
       evt.preventDefault();

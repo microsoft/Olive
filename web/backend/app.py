@@ -1,14 +1,14 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import uuid, sys, json
-sys.path.append('../../notebook')
+import os
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../notebook'))
 import onnxpipeline
 from werkzeug.utils import secure_filename
 import netron
 import posixpath
 import tarfile
 import app_config 
-import os
 from shutil import copyfile, rmtree
 
 
@@ -73,15 +73,12 @@ def visualize():
     response_object = {'status': 'failure'}
     if request.method == 'POST':
         response_object = {'status': 'success'}
-        if 'file' in request.files:
-            temp_model = request.files['file']
-            model_name = temp_model.filename
+        temp_model = request.files['file']
+        model_name = temp_model.filename
 
-            request.files['file'].save(model_name)
+        request.files['file'].save(model_name)
 
-            netron.start(model_name, browse=False, host='0.0.0.0')
-        else:
-            netron.stop(host='0.0.0.0')
+        netron.start(model_name, browse=False, host='0.0.0.0')
 
     return jsonify(response_object)
 
@@ -115,7 +112,9 @@ def convert():
     # compress input directory
     compress_path = os.path.join(pipeline.convert_directory, app_config.INPUT_DIR)
     input_path = os.path.join(input_root)
+    print('input_path ', input_path)
     if not os.path.exists(input_path):
+        print('create input path. ')
         os.makedirs(input_path)
     tar = tarfile.open(os.path.join(input_path, app_config.COMPRESS_NAME), "w:gz")
     try:
