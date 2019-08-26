@@ -55,5 +55,20 @@ export default {
         });
     },
   },
+  destroyed() {
+    const path = `${this.host}:5000/visualize`;
+    const data = new FormData();
+    // close netron server
+    axios.post(path, data)
+        .then((res) => {
+          if (res.data.status === 'success') {
+            this.show_visualization = false;
+          }
+        })
+        .catch((error) => {
+          // eslint-disable-next-line
+            console.log(error);
+        });
+  },
 };
 </script>

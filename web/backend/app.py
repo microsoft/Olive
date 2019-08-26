@@ -73,12 +73,15 @@ def visualize():
     response_object = {'status': 'failure'}
     if request.method == 'POST':
         response_object = {'status': 'success'}
-        temp_model = request.files['file']
-        model_name = temp_model.filename
+        if 'file' in request.files:
+            temp_model = request.files['file']
+            model_name = temp_model.filename
 
-        request.files['file'].save(model_name)
+            request.files['file'].save(model_name)
 
-        netron.start(model_name, browse=False, host='0.0.0.0')
+            netron.start(model_name, browse=False, host='0.0.0.0')
+        else:
+            netron.stop(host='0.0.0.0')
 
     return jsonify(response_object)
 

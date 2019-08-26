@@ -1,6 +1,6 @@
 # install vue packages
 cd frontend
-npm install --only=prod
+npm install
 cd ..
 # install python packages
 pip install flask flask-cors pandas docker netron
