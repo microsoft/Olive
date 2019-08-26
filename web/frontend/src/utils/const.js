@@ -22,4 +22,5 @@ export const perf_testForm = {
   num_threads: '',
   top_n: '3',
   optimization_level: '3',
+  runtime:'nvidia',
 };
