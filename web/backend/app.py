@@ -162,7 +162,6 @@ def download(filename):
         path = os.path.join(app.root_path, app_config.STATIC_DIR, app_config.DOWNLOAD_DIR)
         return send_file(os.path.join(path, filename), filename)
     except Exception as e:
-        print("error! ", e)
         return str(e)
 
 if __name__ == '__main__':

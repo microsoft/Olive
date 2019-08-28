@@ -18,7 +18,7 @@
                               label-for="form-model-input">
                     <b-form-input id="form-model-input"
                                     type="text"
-                                    v-model="perf_testForm.model"
+                                    v-model="converted_model"
                                     readonly>
                     </b-form-input>
                 </b-form-group>
@@ -305,7 +305,7 @@ export default {
 
     perf_test(evt) {
       this.close_all();
-      this.model_running = true;
+      
       evt.preventDefault();
       if ((this.runOption == 0 && this.perf_testForm.model == '')
           || (this.runOption == 1 && this.customized_model == null)) {
@@ -349,6 +349,7 @@ export default {
 
       this.show_message = true;
       this.message = 'Running...';
+      this.model_running = true;
       const host = `${window.location.protocol}//${window.location.host.split(':')[0]}`;
       axios.post(`${host}:5000/perf_test`, data)
         .then((res) => {
