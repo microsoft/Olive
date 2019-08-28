@@ -153,12 +153,11 @@
 
                 </div>
                 <hr/>
-                <b-button type="submit" variant="primary" class="button_right">Submit</b-button>
-                <b-button type="reset" variant="danger">Reset</b-button>
+                <b-button type="submit" :disabled="model_running" variant="primary" class="button_right">Submit</b-button>
+                <b-button type="reset" :disabled="model_running" variant="danger">Reset</b-button>
             </b-form>
         </div>
         <hr/>
-        <!-- <alert :message=message v-if="show_message"></alert> -->
         <div v-if="Object.keys(result).length > 0">
         <ul class="list-group" v-for="(ep, index) in Object.keys(result)" :key="index">
             <li class="list-group-item" v-if="result[ep].length > 0">
@@ -274,6 +273,7 @@ export default {
       op_info: {},
       fields: ['name', 'duration', 'op_name', 'tid'],
       code_details: '',
+      model_running: false,
     };
   },
 
@@ -282,9 +282,9 @@ export default {
   },
 
   watch: {
-    converted_model(newVal) {
-      this.perf_testForm.model = newVal;
-      if (newVal.length > 0) {
+    converted_model: function() {
+      this.perf_testForm.model = this.converted_model;
+      if (this.converted_model.length > 0) {
         this.runOption = 0;
       }
     },
@@ -305,6 +305,7 @@ export default {
 
     perf_test(evt) {
       this.close_all();
+      this.model_running = true;
       evt.preventDefault();
       if ((this.runOption == 0 && this.perf_testForm.model == '')
           || (this.runOption == 1 && this.customized_model == null)) {
@@ -351,7 +352,8 @@ export default {
       const host = `${window.location.protocol}//${window.location.host.split(':')[0]}`;
       axios.post(`${host}:5000/perf_test`, data)
         .then((res) => {
-          this.show_message = false;
+          this.show_message = false;            
+          this.model_running = false;
           if (res.data.status === 'success') {
             const { logs } = res.data;
             this.show_logs = true;
@@ -363,6 +365,7 @@ export default {
         .catch((error) => {
           // eslint-disable-next-line
           this.message = error;
+          this.model_running = false;
           console.log(error);
         });
     },

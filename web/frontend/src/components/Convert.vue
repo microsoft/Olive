@@ -141,8 +141,8 @@
             </b-form-input>
             </b-form-group>
 
-            <b-button type="submit" variant="primary" class="button_right">Submit</b-button>
-            <b-button type="reset" variant="danger">Reset</b-button>
+            <b-button type="submit" :disabled="model_running" variant="primary" class="button_right">Submit</b-button>
+            <b-button type="reset" :disabled="model_running" variant="danger">Reset</b-button>
         </b-form>
         </div>
         <hr/>
@@ -205,6 +205,7 @@ export default {
       convert_result: null,
       converted_model: '',
       host: `${window.location.protocol}//${window.location.host.split(':')[0]}`,
+      model_running: false,
     };
   },
   components: {
@@ -221,6 +222,7 @@ export default {
     },
     convert(evt) {
       this.close_all();
+      this.model_running = true;
       evt.preventDefault();
       const metadata = this.convertForm;
       const json = JSON.stringify(metadata);
@@ -243,6 +245,7 @@ export default {
       axios.post(`${this.host}:5000/convert`, data)
         .then((res) => {
           this.show_message = false;
+          this.model_running = false;
           if (res.data.status === 'success') {
             this.message = res.data.logs;
             this.show_logs = true;
@@ -256,6 +259,7 @@ export default {
         })
         .catch((error) => {
           // eslint-disable-next-line]
+          this.model_running = false;
           this.message = error;
           console.log(error);
         });

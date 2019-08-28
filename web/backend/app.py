@@ -112,9 +112,7 @@ def convert():
     # compress input directory
     compress_path = os.path.join(pipeline.convert_directory, app_config.INPUT_DIR)
     input_path = os.path.join(input_root)
-    print('input_path ', input_path)
     if not os.path.exists(input_path):
-        print('create input path. ')
         os.makedirs(input_path)
     tar = tarfile.open(os.path.join(input_path, app_config.COMPRESS_NAME), "w:gz")
     try:
