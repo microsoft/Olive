@@ -147,7 +147,6 @@
         </div>
         <hr/>
         <alert :message=message v-if="show_message"></alert>
-
         <div v-if="convert_result">
             <h5>Conversion Status:
             <b-badge variant="primary">
@@ -163,8 +162,8 @@
             <b-badge variant="danger">{{convert_result['output_json']['error_message']}}</b-badge>
             </h5>
             <h5>Download</h5>
-            <a :href="convert_result['input_path']" download>[input] </a>
-            <a :href="convert_result['model_path']" download>[model]</a>
+            <a :href="host + ':5000/download/input.tar.gz'" download>[input] </a>
+            <a :href="host + ':5000/download/model.onnx'" download>[model]</a>
         </div>
     </div>
 </template>
@@ -205,6 +204,7 @@ export default {
       model_missing: '',
       convert_result: null,
       converted_model: '',
+      host: `${window.location.protocol}//${window.location.host.split(':')[0]}`,
     };
   },
   components: {
@@ -221,9 +221,7 @@ export default {
     },
     convert(evt) {
       this.close_all();
-      evt.preventDefault();      
-      this.$emit('update_model', '');
-
+      evt.preventDefault();
       const metadata = this.convertForm;
       const json = JSON.stringify(metadata);
       const blob = new Blob([json], {
@@ -241,8 +239,8 @@ export default {
       }
       this.show_message = true;
       this.message = 'Running...';
-      const host = `${window.location.protocol}//${window.location.host.split(':')[0]}`;
-      axios.post(`${host}:5000/convert`, data)
+      // const host = `${window.location.protocol}//${window.location.host.split(':')[0]}`;
+      axios.post(`${this.host}:5000/convert`, data)
         .then((res) => {
           this.show_message = false;
           if (res.data.status === 'success') {
@@ -250,13 +248,10 @@ export default {
             this.show_logs = true;
             this.convert_result = {
               output_json: res.data.output_json,
-              input_path: `static/${res.data.input_path}`,
-              model_path: `static/${res.data.model_path}`,
+              input_path: `../../static/${res.data.input_path}`,
+              model_path: `../../static/${res.data.model_path}`,
             };
             this.$emit('update_model', res.data.converted_model);
-            // this.perf_testForm.model = res.data.converted_model;
-            // TODO cache model for model visualize
-            console.log(this.convert_result);
           }
         })
         .catch((error) => {
@@ -266,16 +261,6 @@ export default {
         });
     },
 
-    // upload() {
-    //   const blob = new Blob([json], {
-    //     type: 'application/json',
-    //   });
-
-    //   const data = new FormData();
-    //   data.append('metadata', blob);
-
-
-    // },
     close_all() {
       this.result = [];
       this.show_message = false;

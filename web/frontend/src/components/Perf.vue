@@ -18,7 +18,7 @@
                               label-for="form-model-input">
                     <b-form-input id="form-model-input"
                                     type="text"
-                                    v-model="converted_model"
+                                    v-model="perf_testForm.model"
                                     readonly>
                     </b-form-input>
                 </b-form-group>
@@ -283,7 +283,6 @@ export default {
 
   watch: {
     converted_model(newVal) {
-      console.log("watched ", newVal);
       this.perf_testForm.model = newVal;
       if (newVal.length > 0) {
         this.runOption = 0;

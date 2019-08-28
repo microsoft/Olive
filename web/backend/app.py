@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 import uuid, sys, json
 import os
@@ -70,7 +70,7 @@ def get_params(request, convert_output_path):
 
 @app.route('/visualize', methods=['POST'])
 def visualize():
-    response_object = {'status': 'failure'}
+    
     if request.method == 'POST':
         response_object = {'status': 'success'}
         temp_model = request.files['file']
@@ -158,6 +158,14 @@ def perf_test():
 
     return jsonify(response_object)
 
+@app.route('/download/<path:filename>', methods=['POST', 'GET'])
+def download(filename):
+    try:
+        path = os.path.join(app.root_path, app_config.STATIC_DIR, app_config.DOWNLOAD_DIR)
+        return send_file(os.path.join(path, filename), filename)
+    except Exception as e:
+        print("error! ", e)
+        return str(e)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')
