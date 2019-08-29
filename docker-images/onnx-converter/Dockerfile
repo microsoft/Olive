@@ -23,11 +23,6 @@ ENV LD_LIBRARY_PATH /usr/local/mpi/lib:$LD_LIBRARY_PATH
 RUN pip3 install --upgrade pip \ 
     && pip3 install -r requirements.txt
 
-RUN git clone --recursive https://github.com/cjlin1/libsvm libsvm 
-RUN cd libsvm \
-    && make lib
-RUN cd ..
-
 EXPOSE 8888
 
 # Start program
