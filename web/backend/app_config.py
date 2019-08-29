@@ -3,7 +3,7 @@ import os
 
 # is Windows
 if os.name == 'nt':
-    STATIC_DIR = '..\\frontend\\static'
+    STATIC_DIR = 'static'
 else:
     STATIC_DIR = '../frontend/static'
 

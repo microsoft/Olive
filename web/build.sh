@@ -1,6 +1,8 @@
 # install vue packages
-npm run --prefix frontend build
+cd frontend
+npm install
+cd ..
 # install python packages
-pip install flask docker netron
+pip install flask flask-cors pandas docker netron
 # pull docker images
 sh ../notebook/build.sh
