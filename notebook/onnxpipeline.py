@@ -364,19 +364,21 @@ class Pipeline:
             return csv_name
 
         def prints(self, top=5, orient='table'):
-            json_data = self.latency[:top]
+            json_data = []
+            for ep_name in self.latency.keys():
+                json_data.append(self.latency[ep_name][0])
             csv_file = self.__json_to_csv(json_data, {'command'})
             
             return pd.read_csv(csv_file) 
         
-        def print_profiling(self, index, top=10, orient='colums'):
+        def print_profiling(self, index=0, top=10, orient='colums'):
             self.__check_profiling_index(index)
-            return self.__print_json(self.profiling_ops[:top][0], orient)
+            return self.__print_json(self.profiling_ops[index][:top], orient)
 
         def print_environment(self, ep, index, orient='index'):
             return self.__print_json([self.latency[ep][index]['code_snippet']['environment_variables']], orient)
 
-        def get_code(self, ep, index):
+        def get_code(self, ep, index=0):
             code = self.latency[ep][index]['code_snippet']['code']
             refined_code = code.replace('                 ', '\n').replace('                ', '\n') # 4 tabs
             return refined_code
