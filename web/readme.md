@@ -16,6 +16,14 @@ sh build.sh
 ```
 
 # Start the Web App
+### Windows
+On Windows you can run to start both frontend and backend servers
+```
+sh start-windows.sh
+
+```
+
+### On Linux
 Open front-end server.
 ```
 npm run --prefix frontend serve
@@ -23,12 +31,7 @@ npm run --prefix frontend serve
 
 In a separate command prompt, open back-end server.
 ```
-python backend/app.py
-```
-
-Alternatively, on Windows you can run 
-```
-sh start-windows.sh
+sudo python backend/app.py
 ```
 
 Then the local server has been built on http://localhost:8000/
