@@ -23,7 +23,8 @@ pip install docker
 pip install jupyter
 ```
 
-Type belows in command line, and then choose [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb) to use the notebook.
+# Start Notebook
+Type the below in command line, and then choose [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb) to use the notebook.
 
 ```
 jupyter notebook
