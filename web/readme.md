@@ -3,34 +3,35 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 
 
-# OLive (ONNX Live)
+# OLive (ONNX Live) Web App
 
 This repository shows how to use ONNX pipeline by a web interface in built local server.
 
 # Prerequisites
 Install [Docker](https://docs.docker.com/install/).
-### For Windows
-```bash
-build.sh
-```
 
-### For Linux
+Install project dependencies by running 
 ```bash
 sh build.sh
 ```
 
+# Start the Web App
+### Windows
+On Windows you can run to start both frontend and backend servers
+```
+sh start-windows.sh
 
+```
+
+### On Linux
 Open front-end server.
 ```
-cd frontend
-npm run dev
+npm run --prefix frontend serve
 ```
 
-Open back-end server.
+In a separate command prompt, open back-end server.
 ```
-cd backend
-python app.py
+sudo python backend/app.py
 ```
 
-Then the local server has been built. Use ONNX pipeline via the website as:
-http://localhost:1223/
+Then the local server has been built on http://localhost:8000/

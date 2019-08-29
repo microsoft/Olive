@@ -1,14 +1,14 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 import uuid, sys, json
-sys.path.append('../../notebook')
+import os
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../notebook'))
 import onnxpipeline
 from werkzeug.utils import secure_filename
 import netron
 import posixpath
 import tarfile
 import app_config 
-import os
 from shutil import copyfile, rmtree
 
 
@@ -22,7 +22,10 @@ app.config.from_object(__name__)
 # enable CORS
 CORS(app)
 
-def get_params(request):
+# reserve an input folder
+RESERVED_INPUT_PATH = './inputs'
+
+def get_params(request, convert_output_path):
 
     temp_json = 'temp.json'
     model_name = None
@@ -32,19 +35,42 @@ def get_params(request):
     with open(temp_json, 'r') as f:
         json_data = json.load(f)
 
+    if not os.path.exists(RESERVED_INPUT_PATH):
+        os.mkdir(RESERVED_INPUT_PATH)
+    else: 
+        rmtree(RESERVED_INPUT_PATH)
+        os.mkdir(RESERVED_INPUT_PATH)
+
     if 'file' in request.files:
         temp_model = request.files['file']
-        model_name = temp_model.filename
+        model_name = os.path.join(RESERVED_INPUT_PATH, temp_model.filename)
         request.files['file'].save(model_name)
         json_data['model'] = model_name
-
+    if 'test_data[]' in request.files:
+        # Upload test data
+        
+        test_data_dir = os.path.join(convert_output_path, 'test_data_set_0')
+        if not os.path.exists(test_data_dir):
+            os.mkdir(test_data_dir)
+        print("test dir ", test_data_dir)
+        for td in request.files.getlist('test_data[]'):
+            print("getting test data ", td)
+            td.save(os.path.join(test_data_dir, td.filename))
+    if 'savedModel[]' in request.files:
+        # Upload test data
+        variables_dir = os.path.join(RESERVED_INPUT_PATH, 'variables')
+        if not os.path.exists(variables_dir):
+            os.mkdir(variables_dir)
+        for vf in request.files.getlist('savedModel[]'):
+            vf.save(os.path.join(variables_dir, vf.filename))
+        json_data['model'] = os.path.dirname(os.path.abspath(json_data['model']))
     with open(temp_json, 'w') as f:
         json.dump(json_data, f)
     return model_name, temp_json
 
 @app.route('/visualize', methods=['POST'])
 def visualize():
-    response_object = {'status': 'failure'}
+    
     if request.method == 'POST':
         response_object = {'status': 'success'}
         temp_model = request.files['file']
@@ -52,20 +78,22 @@ def visualize():
 
         request.files['file'].save(model_name)
 
-        netron.start(model_name)
+        netron.start(model_name, browse=False, host='0.0.0.0')
 
     return jsonify(response_object)
 
 @app.route('/convert', methods=['POST'])
 def convert():
     response_object = {'status': 'success'}
-    model_name, temp_json = get_params(request)
 
     pipeline = onnxpipeline.Pipeline()
 
     # may not work in Unix OS cuz the permission
     if os.path.exists(pipeline.convert_directory):
         rmtree(pipeline.convert_directory)
+    os.mkdir(pipeline.convert_directory)
+        
+    model_name, temp_json = get_params(request, pipeline.convert_directory)
 
     model = pipeline.convert_model(model=model_name, input_json=temp_json)
     try:
@@ -110,22 +138,31 @@ def perf_test():
 
     response_object = {'status': 'success'}
 
-    _, temp_json = get_params(request)
-    
     pipeline = onnxpipeline.Pipeline()
+    if 'file' in request.files:
+        _, temp_json = get_params(request, RESERVED_INPUT_PATH)
+    else:
+        _, temp_json = get_params(request, './test')
 
     result = pipeline.perf_test(input_json=temp_json)
 
     response_object['logs'] = pipeline.output
     try:
         r = pipeline.get_result(result)
-        response_object['result'] = r.latency
+        response_object['result'] = json.dumps(r.latency)
         response_object['profiling'] = r.profiling_ops
     except RuntimeError:
         pass
 
     return jsonify(response_object)
 
+@app.route('/download/<path:filename>', methods=['POST', 'GET'])
+def download(filename):
+    try:
+        path = os.path.join(app.root_path, app_config.STATIC_DIR, app_config.DOWNLOAD_DIR)
+        return send_file(os.path.join(path, filename), filename)
+    except Exception as e:
+        return str(e)
 
 if __name__ == '__main__':
-    app.run()
+    app.run(host='0.0.0.0')

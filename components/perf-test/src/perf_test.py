@@ -107,13 +107,13 @@ def run_perf_test(test_params, percentiles=False):
         test_args = test_params.get_percentiles_args(result_file)
     else:
         test_args = test_params.get_args(result_file)
-    perf_test = subprocess.run(test_args, env=test_params.env)
+    perf_test = subprocess.run(test_args, env=test_params.env, capture_output=True)
     # The first run was warmup.
     remove(result_file)
     test_params.print_args(test_args)
     if not test_params.command:
         test_params.command = " ".join(test_args)
-    perf_test = subprocess.run(test_args, env=test_params.env, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    perf_test = subprocess.run(test_args, env=test_params.env)
     latencies = []
     if perf_test.returncode == 0 and os.path.exists(result_file):
         with open(result_file) as result:
@@ -189,6 +189,7 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
         param.test_args = test_params.test_args + ["-x", str(lower)]
     else:
         param.env.update({"OMP_NUM_THREADS": str(lower)})
+        param.test_args = test_params.test_args
 
     run_perf_test(param)
     if not param.avg:
@@ -221,6 +222,7 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
             param.test_args = test_params.test_args + ["-x", str(mid)]
         else:
             param.env.update({"OMP_NUM_THREADS": str(mid)})
+            param.test_args = test_params.test_args
         run_perf_test(param)
         if param.avg:
             # print("current latency: ", param.avg)
@@ -363,7 +365,7 @@ if __name__ == "__main__":
     bin_dir = os.path.join(os.path.dirname(__file__), "bin", args.config)
     build_dirs = os.listdir(bin_dir)
 
-    providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else build_dirs
+    providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else ["mklml", "cpu_openmp", "mkldnn", "mkldnn_openmp", "cpu", "tensorrt", "ngraph", "cuda"]
 
     if len(GPUtil.getGPUs()) == 0:
         print("No GPU found on current device. Cuda and TensorRT performance tuning might not be available. ")
@@ -377,86 +379,89 @@ if __name__ == "__main__":
     successful = []
     failed = []
     # Loop for every pre-built execution provider
-    for build_name in build_dirs:
-        build_path = os.path.join(bin_dir, build_name)
+    for build_name in providers:
+        if "mklml" in build_name or "ngraph" in build_name:
+            build_path = os.path.join(bin_dir, build_name)
+        else:
+            build_path = os.path.join(bin_dir, "all_eps")
         if os.path.isdir(build_path):
-            # If current build is requested by user, run perf tuning
-            if build_name in providers:        
-                test_args = []
+            # # If current build is requested by user, run perf tuning
+            # if build_name in providers:        
+            test_args = []
 
-                if "mkldnn" in build_name:
-                    test_args = test_args + ["-e", "mkldnn"]
-                if "cuda" in build_name:
-                    test_args = test_args + ["-e", "cuda"]
-                if "tensorrt" in build_name:
-                    test_args = test_args + ["-e", "tensorrt"]
-                if "ngraph" in build_name:
-                    test_args = test_args + ["-e", "ngraph"]
-                
-                env_vars = ep_envvar_map.get(build_name)
-                env_var_combos = get_env_var_combos(env_vars)
-                env_names = list(env_vars.keys()) if env_vars is not None else []
-                # Tune all possible combinations of environment variables, including defaults
-                for combo in env_var_combos:
-                    # generate env var dict {env_var_name: env_var_option}. 
-                    env = gen_env_var_dict(env_names, combo)
-                    env_option = ""
-                    for e in env:
-                        env_option += "_" + e + "_" + env.get(e)
+            if "mkldnn" in build_name:
+                test_args = test_args + ["-e", "mkldnn"]
+            if "cuda" in build_name:
+                test_args = test_args + ["-e", "cuda"]
+            if "tensorrt" in build_name:
+                test_args = test_args + ["-e", "tensorrt"]
+            if "ngraph" in build_name:
+                test_args = test_args + ["-e", "ngraph"]
+            
+            env_vars = ep_envvar_map.get(build_name)
+            env_var_combos = get_env_var_combos(env_vars)
+            env_names = list(env_vars.keys()) if env_vars is not None else []
+            # Tune all possible combinations of environment variables, including defaults
+            for combo in env_var_combos:
+                # generate env var dict {env_var_name: env_var_option}. 
+                env = gen_env_var_dict(env_names, combo)
+                env_option = ""
+                for e in env:
+                    env_option += "_" + e + "_" + env.get(e)
 
-                    best_run = -1
-                    is_omp = "openmp" in build_name
-                    num_threads = int(args.num_threads) if is_omp else int(args.threadpool_size)
-                    if args.parallel and "cuda" not in build_name and "tensorrt" not in build_name:                 
-                        # Tune environment variables and thread pool size using parallel executor 
-                        best_run = run_perf_test_binary(
-                            PerfTestParams(
-                                build_name + "_parallel_",
-                                build_name + " ",
-                                build_path,
-                                test_args + ["-P"],
-                                env,
-                                args,
-                                build_name,
-                            ), num_threads, "_threads" + env_option, " threads, " + env_option, failed, successful, is_omp)
-                    if best_run != None and best_run > 1:
-                        # Run the best thread pool candidate with environment variable on sequential executor
-                        param = PerfTestParams(
-                            build_name + "_" + str(best_run) + "_threads" + env_option,
-                            build_name + " " + str(best_run) + " threads, " + env_option,
+                best_run = -1
+                is_omp = "openmp" in build_name
+                num_threads = int(args.num_threads) if is_omp else int(args.threadpool_size)
+                if args.parallel and "cuda" not in build_name and "tensorrt" not in build_name:                 
+                    # Tune environment variables and thread pool size using parallel executor 
+                    best_run = run_perf_test_binary(
+                        PerfTestParams(
+                            build_name + "_parallel_",
+                            build_name + " ",
                             build_path,
-                            test_args,
+                            test_args + ["-P"],
                             env,
-                            args, 
-                            build_name
-                        )
-                        if is_omp:
-                            param.env.update({"OMP_NUM_THREADS": str(best_run)})
-                        else:
-                            param.test_args += ["-x", str(best_run)]
-                        tests.append(param)
-                    else:
-                        # Tune environment variables and thread pool size using sequential executor
-                        run_perf_test_binary(
-                            PerfTestParams(
-                                build_name + "_",
-                                build_name + " ",
-                                build_path,
-                                test_args,
-                                env,
-                                args,
-                                build_name
-                            ), num_threads, "_threads" + env_option, " threads, " + env_option, failed, successful, is_omp)
-                    # Tune environment variables using sequential executor
-                    params = PerfTestParams(
-                        build_name + env_option,
-                        build_name + " " + env_option,
+                            args,
+                            build_name,
+                        ), num_threads, "_threads" + env_option, " threads, " + env_option, failed, successful, is_omp)
+                if best_run != None and best_run > 1:
+                    # Run the best thread pool candidate with environment variable on sequential executor
+                    param = PerfTestParams(
+                        build_name + "_" + str(best_run) + "_threads" + env_option,
+                        build_name + " " + str(best_run) + " threads, " + env_option,
                         build_path,
                         test_args,
                         env,
-                        args,
-                        build_name)
-                    tests.append(params)                    
+                        args, 
+                        build_name
+                    )
+                    if is_omp:
+                        param.env.update({"OMP_NUM_THREADS": str(best_run)})
+                    else:
+                        param.test_args += ["-x", str(best_run)]
+                    tests.append(param)
+                else:
+                    # Tune environment variables and thread pool size using sequential executor
+                    run_perf_test_binary(
+                        PerfTestParams(
+                            build_name + "_",
+                            build_name + " ",
+                            build_path,
+                            test_args,
+                            env,
+                            args,
+                            build_name
+                        ), num_threads, "_threads" + env_option, " threads, " + env_option, failed, successful, is_omp)
+                # Tune environment variables using sequential executor
+                params = PerfTestParams(
+                    build_name + env_option,
+                    build_name + " " + env_option,
+                    build_path,
+                    test_args,
+                    env,
+                    args,
+                    build_name)
+                tests.append(params)                    
 
     # Run the tests.
     for test in tests:
