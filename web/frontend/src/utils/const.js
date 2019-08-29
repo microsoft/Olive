@@ -17,10 +17,9 @@ export const perf_testForm = {
   execution_provider: '',
   repeated_times: '20',
   duration_times: '10',
-  parallel: false,
+  parallel: true,
   threadpool_size: '',
   num_threads: '',
   top_n: '3',
   optimization_level: '3',
-  runtime: 'nvidia',
 };

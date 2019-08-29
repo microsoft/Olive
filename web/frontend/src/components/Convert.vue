@@ -141,7 +141,8 @@
             </b-form-input>
             </b-form-group>
 
-            <b-button type="submit" :disabled="model_running" variant="primary" class="button_right">Submit</b-button>
+            <b-button type="submit"
+              :disabled="model_running" variant="primary" class="button_right">Submit</b-button>
             <b-button type="reset" :disabled="model_running" variant="danger">Reset</b-button>
         </b-form>
         </div>
