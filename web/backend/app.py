@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 import uuid, sys, json
 import os
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../notebook'))
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../utils'))
 import onnxpipeline
 from werkzeug.utils import secure_filename
 import netron
@@ -106,7 +106,7 @@ def convert():
         pass
 
     target_dir = app_config.DOWNLOAD_DIR
-    input_root = os.path.join(app_config.STATIC_DIR, target_dir)
+    input_root = os.path.join(app.root_path, app_config.STATIC_DIR, target_dir)
     # compress input directory
     compress_path = os.path.join(pipeline.convert_directory, app_config.INPUT_DIR)
     input_path = os.path.join(input_root)

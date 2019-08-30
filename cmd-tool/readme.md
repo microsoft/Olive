@@ -11,7 +11,7 @@ This repository shows how to deploy and use OLive on Windows by running commands
 Install [Docker](https://docs.docker.com/install/).
 ### For Windows
 ```bash
-..\notebook\build.sh
+..\utils\build.sh
 pip install docker
 ```
 

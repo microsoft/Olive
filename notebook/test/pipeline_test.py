@@ -1,5 +1,5 @@
 import sys
-sys.path.append('../')
+sys.path.append('../../utils')
 import unittest
 import onnxpipeline
 import config

@@ -1,6 +1,7 @@
 import sys
-sys.path.append('../notebook')
 import argparse
+import os
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../utils'))
 import onnxpipeline
 from pathlib import PurePosixPath, PureWindowsPath
 import os.path as osp
