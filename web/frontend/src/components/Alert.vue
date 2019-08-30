@@ -2,7 +2,7 @@
   <div style="white-space: pre-line;">
     <b-alert variant="success" show>{{ message }}</b-alert>
     <b-progress 
-      :v-if=model_running
+      :v-if=loading
       :value="100" variant="success" striped class="mt-2"></b-progress>
     <br>
   </div>
@@ -10,6 +10,6 @@
 
 <script>
 export default {
-  props: ['message', 'model_running'],
+  props: ['message', 'loading'],
 };
 </script>
