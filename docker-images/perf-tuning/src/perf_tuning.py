@@ -135,7 +135,7 @@ def run_perf_tuning(test_params, percentiles=False):
             m.recorded_cpu = [x for x in m.recorded_cpu if not x == 0]            
             test_params.gpu = sum(m.recorded_gpu)/len(m.recorded_gpu) if len(m.recorded_gpu) > 0 else 0
             test_params.cpu = sum(m.recorded_cpu) / len(m.recorded_cpu) if len(m.recorded_cpu) > 0 else 0
-            test_params.memory = sum(m.recorded_memory) / len(m.recorded_memory) if len(m.recorded_memory) > 0 else 0
+            test_params.memory = round(sum(m.recorded_memory) / len(m.recorded_memory), 5) if len(m.recorded_memory) > 0 else 0
             if perf_tuning.returncode == 0:
                 # Find profile result
                 files = glob.glob(profile_name + "*")
