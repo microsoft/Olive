@@ -264,7 +264,7 @@ export default {
       customized_model: null,
       options: {
         mode: ['duration', 'times'],
-        execution_provider: ['', 'cpu', 'mklml', 'mkldnn', 'cuda', 'tensorrt', 'ngraph', 'cpu_openmp', 'mkldnn_openmp'],
+        execution_provider: ['', 'cpu', 'mklml', 'mkldnn', 'cuda', 'tensorrt', 'ngraph', 'cpu_openmp'],
       },
       message: '',
       show_message: false,
