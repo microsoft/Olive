@@ -7,12 +7,12 @@ RUN python3.7 -m pip install psutil gputil
 RUN mkdir /testmodel
 COPY resnet50 /testmodel/resnet50
 
-RUN mkdir /perf_test
-COPY bin /perf_test/bin
-COPY src/perf_test.py /perf_test
-COPY src/monitor.py /perf_test
-COPY src/maps.py /perf_test
+RUN mkdir /perf_tuning
+COPY bin /perf_tuning/bin
+COPY src/perf_tuning.py /perf_tuning
+COPY src/monitor.py /perf_tuning
+COPY src/maps.py /perf_tuning
 
 WORKDIR /
 
-ENTRYPOINT [ "python3.7", "/perf_test/perf_test.py"]
+ENTRYPOINT [ "python3.7", "/perf_tuning/perf_tuning.py"]

@@ -3,7 +3,7 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 
 
-# OLive (ONNX Live) Web App
+# OLive (ONNX Go Live) Web App
 
 This repository shows how to use ONNX pipeline by a web interface in built local server.
 
@@ -23,7 +23,7 @@ sh start-windows.sh
 
 ```
 
-### On Linux
+### Linux
 Open front-end server.
 ```
 npm run --prefix frontend serve

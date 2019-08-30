@@ -9,7 +9,7 @@
                         label="Model type:"
                         label-for="form-model_type-input">
 
-            <b-form-select v-model="convertForm.model_type"
+            <b-form-select v-model="convert_form.model_type"
                         required
                         :options="options.model_type"
                         label="Model type:"
@@ -19,7 +19,7 @@
             </b-form-select>
             </b-form-group>
 
-            <b-form-group v-if="convertForm.model_type == 'tensorflow'"
+            <b-form-group v-if="convert_form.model_type == 'tensorflow'"
                         id="form-tf_model_type-group"
                         label="Tensorflow model type:"
                         label-for="form-tf_model_type-input">
@@ -38,13 +38,13 @@
                         label="Model:"
                         label-for="form-model-input">
             <b-form-file id="form-model-input"
-                            v-model="convertForm.model"
+                            v-model="convert_form.model"
                             required
                             placeholder="Choose a model...">
             </b-form-file>
             </b-form-group>
 
-            <b-form-group v-if="convertForm.model_type === 'tensorflow'
+            <b-form-group v-if="convert_form.model_type === 'tensorflow'
                           && tf_model_type === 'savedModel'"
                         id="form-model-group"
                         label="Tensorflow SavedModel Variable Files:"
@@ -64,68 +64,68 @@
                             placeholder="Select your input/output.pbs...">
             </b-form-file>
             </b-form-group>
-        <b-form-group v-if="convertForm.model_type === 'tensorflow'
+        <b-form-group v-if="convert_form.model_type === 'tensorflow'
                         && tf_model_type != 'savedModel' && tf_model_type.length > 0"
                         id="form-model_inputs_names-group"
                         label="Model inputs names:"
                         label-for="form-model_inputs_names-input">
             <b-form-input id="form-model_inputs_names-input"
                             type="text"
-                            v-model="convertForm.model_inputs_names"
+                            v-model="convert_form.model_inputs_names"
                             placeholder="Enter model inputs names">
             </b-form-input>
             </b-form-group>
-        <b-form-group v-if="convertForm.model_type === 'tensorflow'
+        <b-form-group v-if="convert_form.model_type === 'tensorflow'
                         && tf_model_type != 'savedModel' && tf_model_type.length > 0"
                         id="form-model_outputs_names-group"
                         label="Model outputs names:"
                         label-for="form-model_outputs_names-input">
             <b-form-input id="form-model_outputs_names-input"
                             type="text"
-                            v-model="convertForm.model_outputs_names"
+                            v-model="convert_form.model_outputs_names"
                             placeholder="Enter model_outputs_names">
             </b-form-input>
             </b-form-group>
-        <b-form-group v-if="convertForm.model_type === 'mxnet'"
+        <b-form-group v-if="convert_form.model_type === 'mxnet'"
                         id="form-model_params-group"
                         label="Model params:"
                         label-for="form-model_params-input">
             <b-form-input id="form-model_params-input"
                             type="text"
-                            v-model="convertForm.model_params"
+                            v-model="convert_form.model_params"
                             placeholder="Enter model params">
             </b-form-input>
             </b-form-group>
 
-        <b-form-group v-if="convertForm.model_type === 'caffe'"
+        <b-form-group v-if="convert_form.model_type === 'caffe'"
                         id="form-caffe_model_prototxt-group"
                         label="Caffe model prototxt:"
                         label-for="form-caffe_model_prototxt-input">
             <b-form-input id="form-caffe_model_prototxt-input"
                             type="text"
-                            v-model="convertForm.caffe_model_prototxt"
+                            v-model="convert_form.caffe_model_prototxt"
                             placeholder="Enter caffe model prototxt">
             </b-form-input>
             </b-form-group>
 
-        <b-form-group v-if="convertForm.model_type === 'scikit-learn'"
+        <b-form-group v-if="convert_form.model_type === 'scikit-learn'"
                         id="form-initial_types-group"
                         label="Initial types:"
                         label-for="form-initial_types-input">
             <b-form-input id="form-initial_types-input"
                             type="text"
-                            v-model="convertForm.initial_types"
+                            v-model="convert_form.initial_types"
                             placeholder="Enter initial types">
             </b-form-input>
             </b-form-group>
 
-        <b-form-group v-if="convertForm.model_type === 'pytorch'"
+        <b-form-group v-if="convert_form.model_type === 'pytorch'"
                         id="form-model_input_shapes-group"
                         label="Model input shapes:"
                         label-for="form-model_input_shapes-input">
             <b-form-input id="form-model_input_shapes-input"
                             type="text"
-                            v-model="convertForm.model_input_shapes"
+                            v-model="convert_form.model_input_shapes"
                             placeholder="Enter model input shapes">
             </b-form-input>
             </b-form-group>
@@ -136,7 +136,7 @@
                         label-for="form-target_opset-input">
             <b-form-input id="form-target_opset-input"
                             type="text"
-                            v-model="convertForm.target_opset"
+                            v-model="convert_form.target_opset"
                             placeholder="Enter target opset">
             </b-form-input>
             </b-form-group>
@@ -172,16 +172,16 @@
 <script>
 import axios from 'axios';
 import Alert from './Alert.vue';
-import { convertForm } from '../utils/const';
+import { convert_form } from '../utils/const';
 
-const origin_convertForm = Object.assign({}, convertForm);
+const origin_convert_form = Object.assign({}, convert_form);
 
 export default {
   name: 'Convert',
   data() {
     return {
       result: {},
-      convertForm,
+      convert_form,
       test_data: [],
       savedModel_vars: [],
       options: {
@@ -214,7 +214,7 @@ export default {
   },
   methods: {
     initForm() {
-      this.convertForm = Object.assign({}, origin_convertForm);
+      this.convert_form = Object.assign({}, origin_convert_form);
     },
     onReset(evt) {
       evt.preventDefault();
@@ -225,7 +225,7 @@ export default {
       this.close_all();
       this.model_running = true;
       evt.preventDefault();
-      const metadata = this.convertForm;
+      const metadata = this.convert_form;
       const json = JSON.stringify(metadata);
       const blob = new Blob([json], {
         type: 'application/json',
@@ -233,7 +233,7 @@ export default {
 
       const data = new FormData();
       data.append('metadata', blob);
-      data.append('file', this.convertForm.model);
+      data.append('file', this.convert_form.model);
       for (let i = 0; i < this.test_data.length; i++) {
         data.append('test_data[]', this.test_data[i]);
       }

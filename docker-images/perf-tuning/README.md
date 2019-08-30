@@ -12,19 +12,19 @@ A pre-built version of the image is available at Azure Registry. Once you have d
 
 With the correct credentials, you can pull the image directly using 
 ```
-docker pull ziylregistry.azurecr.io/perf-test
+docker pull ziylregistry.azurecr.io/perf-tuning
 ```
 
-Upon success, run Docker perf-test image by
+Upon success, run Docker perf-tuning image by
 ```
-docker run [--runtime=nvidia] ziylregistry.azurecr.io/perf-test --model <path_to_onnx_model> --result <path_to_result_dir> [other optional args]
+docker run [--runtime=nvidia] ziylregistry.azurecr.io/perf-tuning --model <path_to_onnx_model> --result <path_to_result_dir> [other optional args]
 ```
 or 
 ```
-docker run [--runtime=nvidia] ziylregistry.azurecr.io/perf-test --input_json <input_json_file>
+docker run [--runtime=nvidia] ziylregistry.azurecr.io/perf-tuning --input_json <input_json_file>
 ```
 
-### Perf-test Image Arguments
+### perf-tuning Image Arguments
 
 `--model`: Requried or specify in --input_json. The ONNX model to perform performance tuning. 
 
@@ -34,7 +34,7 @@ docker run [--runtime=nvidia] ziylregistry.azurecr.io/perf-test --input_json <in
 
 `--mode`: Specifies the test mode. Value could be "duration" or "time".
 
-`--execution_provider`: Execution Provider. Available options are "cpu", "cpu_openmp", "cuda", "tensorrt", "ngraph", "mkldnn", "mkldnn_openmp", and "mkldnn_mklml"
+`--execution_provider`: Execution Provider. Available options are "cpu", "cpu_openmp", "cuda", "tensorrt", "ngraph", "mkldnn", "mkldnn_openmp", and "mklml"
 
 `--repeated_times`: The repeated times if running in 'times' test mode. Default:20.
 
@@ -69,10 +69,10 @@ docker run [--runtime=nvidia] ziylregistry.azurecr.io/perf-test --input_json <in
 
 ## Build and Run the Image Locally
 
-Alternatively, you can build and run perf-test image locally by following the steps below. 
+Alternatively, you can build and run perf-tuning image locally by following the steps below. 
 
 ### 1. Build ONNX Runtime
-To use `perf-test` locally, you must first build `onnxruntime` using `build_perf_test.py` to create builds for different execution providers. If you prefer to build `perf-test` with docker, then you need to run `build_perf_test.py` on Linux.  
+To use `perf-tuning` locally, you must first build `onnxruntime` using `build_perf_tuning.py` to create builds for different execution providers. If you prefer to build `perf-tuning` with docker, then you need to run `build_perf_tuning.py` on Linux.  
 
 #### Prerequisites:
 - Python 3.7+ `sudo apt install python3.7`
@@ -84,7 +84,7 @@ To use `perf-test` locally, you must first build `onnxruntime` using `build_perf
 
 #### Example build command:  
 ```
-python3.7 build_perf_test.py \
+python3.7 build_perf_tuning.py \
  --onnxruntime_home <path_to_onnxruntime> \
  --use_cuda --cuda_home <path_to_cuda> --cudnn_home <path_to_cudnn> \
  --use_tensorrt --tensorrt_home <path_to_tensorrt> \
@@ -92,11 +92,11 @@ python3.7 build_perf_test.py \
  --use_mklml
 ```
 
-#### build_perf_test.py args
+#### build_perf_tuning.py args
 
 `--onnxruntime_home`:   Required. Your local ONNX Runtime source directory. 
 
-`--use_cuda`: Flag to build ONNX runtime with CUDA execution provider. Required to tune performace with CUDA execution provider. A GPU must be available on your machine.
+`--use_cuda`: Flag to build ONNX Runtime with CUDA execution provider. Required to tune performace with CUDA execution provider. A GPU must be available on your machine.
 
 `--cuda_home`: The path to your cuda installation. e.g. /usr/local/cuda . Required if --use_cuda is used. 
 
@@ -104,41 +104,41 @@ python3.7 build_perf_test.py \
 
 `--cudnn_home`: The path to your CuDNN installation. The path should  contain libcudnn.so* files if on Linux, or contiain bin/cudnn*.dll files if on Windows. Required if --use_cuda is used. 
 
-`--use_tensorrt`: Flag to build ONNX runtime with TensorRT execution provider. Required to tune performace with TensorRT execution provider. A GPU must be available on your machine.
+`--use_tensorrt`: Flag to build ONNX Runtime with TensorRT execution provider. Required to tune performace with TensorRT execution provider. A GPU must be available on your machine.
 
 `--tensorrt_home`: The path to your TensorRT installation. The path should contain lib/libnvinfer.so* if on Linux, or contain lib/nvinfer.dll if on Windows. Required if --use_tensorrt is used. 
 
-`--use_ngraph`: Flag to build ONNX runtime with nGraph execution provider. Required to tune performance with nGraph. 
+`--use_ngraph`: Flag to build ONNX Runtime with nGraph execution provider. Required to tune performance with nGraph. 
 
-`--use_mklml`: Flag to build ONNX runtime with MKLML execution provider. Required to tune performance with MKLML. 
+`--use_mklml`: Flag to build ONNX Runtime with MKLML execution provider. Required to tune performance with MKLML. 
 
-`--variants`: Optional. Specify execution providers to build. Each execution provider is separated by ",". For example, `--variants cpu,cuda`. Available options are cpu, cpu_openmp, mkldnn, mkldnn_openmp, mkldnn_mklml, cuda, tensorrt, and nraph. If not specified, build all. 
+`--variants`: Optional. Specify execution providers to build. Each execution provider is separated by ",". For example, `--variants cpu,cuda`. Available options are cpu, cpu_openmp, mkldnn, mkldnn_openmp, mklml, cuda, tensorrt, and nraph. If not specified, build all. 
 
-`--config`: Optional. ONNX runtime build configuration. Available options are "Debug", "MinSizeRel", "Release", "RelWithDebInfo". Default is "RelWithDebInfo". 
+`--config`: Optional. ONNX Runtime build configuration. Available options are "Debug", "MinSizeRel", "Release", "RelWithDebInfo". Default is "RelWithDebInfo". 
 
 ### 2. Build Docker Image
 If an ONNX Runtime Linux build is completed in step 1, you can build the image with docker by running 
 ```
-docker build -t perf-test .
+docker build -t perf-tuning .
 ```
 
-If ONNX Runtime is built on Windows, jump to [Run perf-test Without Docker](#4-run-perf-test-without-docker)
+If ONNX Runtime is built on Windows, jump to [Run perf-tuning Without Docker](#4-run-perf-tuning-without-docker)
 
 ### 3. Run Docker Image
 ```
-docker run [--runtime=nvidia] perf-test --model <path_to_onnx_model> --result <path_to_result_dir> [other optional args]
+docker run [--runtime=nvidia] perf-tuning --model <path_to_onnx_model> --result <path_to_result_dir> [other optional args]
 ```
 or
 ```
-docker run [--runtime=nvidia] perf-test --input_json <input_json_file>
+docker run [--runtime=nvidia] perf-tuning --input_json <input_json_file>
 ```
 
-### 4. Run `perf-test` Without Docker
+### 4. Run `perf-tuning` Without Docker
 
-You can choose to run `perf_test.py` locally if docker is not available or ONNX Runtime is built on Windows. 
+You can choose to run `perf_tuning.py` locally if docker is not available or ONNX Runtime is built on Windows. 
 
-You can run perf_test using command 
+You can run perf_tuning using command 
 ```
-python perf_test.py --model <path_to_onnx_model> --result <path_to_results_dir> [other optional args]
+python perf_tuning.py --model <path_to_onnx_model> --result <path_to_results_dir> [other optional args]
 ```
-The optional arguments are the same as for perf-test images. By default it will try all providers available.
+The optional arguments are the same as for perf-tuning images. By default it will try all providers available.

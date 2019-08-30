@@ -39,7 +39,7 @@ class perfTestOp(dsl.ContainerOp):
 
     super(perfTestOp, self).__init__(
       name=name,
-      image='ziylregistry.azurecr.io/perf-test:latest',
+      image='ziylregistry.azurecr.io/perf-tuning:latest',
       arguments=[
         "--model", model, 
         "--result", str(PurePosixPath('/mnt', output_perf_result_path)),
@@ -51,13 +51,13 @@ class perfTestOp(dsl.ContainerOp):
   description='A tool that allows ONNX model conversion and inference.'
 )
 
-# Create Onnx pipeline
+# Create ONNX pipeline
 # Parameters
 # ----------
 # model: string
 #   The path of the model that needs to be converted
 # output_onnx_path: string
-#   The path to store the converted onnx model. Should end with ".onnx". e.g. output.onnx
+#   The path to store the converted ONNX model. Should end with ".onnx". e.g. output.onnx
 # model_type: string
 #   The name of original model framework. 
 #   Available types are caffe, cntk, coreml, keras, libsvm, mxnet, scikit-learn, tensorflow and pytorch.
@@ -87,10 +87,10 @@ def onnx_pipeline(
   caffe_model_prototxt="",
   target_opset=7):
 
-  # Create a component named "Convert To Onnx" and "ONNXRuntime Perf". Edit the V1PersistentVolumeClaimVolumeSource 
+  # Create a component named "Convert To ONNX" and "ONNX Runtime Perf". Edit the V1PersistentVolumeClaimVolumeSource 
   # name to match the persistent volume claim you created if needed. By default the names match ../azure-files-sc.yaml 
   # and ../azure-files-pvc.yaml
-  convert_op = onnxConverterOp('Convert To Onnx', 
+  convert_op = onnxConverterOp('Convert To ONNX', 
     '%s' % model, 
     '%s' % output_onnx_path, 
     '%s' % model_type,
@@ -104,7 +104,7 @@ def onnx_pipeline(
         k8s_client.V1Volume(name='pipeline-nfs', persistent_volume_claim=k8s_client.V1PersistentVolumeClaimVolumeSource(
             claim_name='azurefile'))).add_volume_mount(k8s_client.V1VolumeMount(mount_path='/mnt', name='pipeline-nfs'))   
 
-  perf_op = perfTestOp('ONNXRuntime Perf', 
+  perf_op = perfTestOp('ONNX Runtime Perf', 
     convert_op.output,
     '%s' % output_perf_result_path,
     '%s' % execution_providers,

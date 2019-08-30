@@ -147,7 +147,7 @@ class Pipeline:
         
         return output_onnx_path
 
-    def perf_test(self, model=None, result=None, config=None, mode=None, execution_provider=None,
+    def perf_tuning(self, model=None, result=None, config=None, mode=None, execution_provider=None,
         repeated_times=None, duration_times=None, threadpool_size=None, num_threads=None, top_n=None, 
         parallel=None, runtime=True, input_json=None, convert_json=False, windows=False):
         
@@ -183,10 +183,10 @@ class Pipeline:
 
 
         img_name = (docker_config.CONTAINER_NAME + 
-            docker_config.FUNC_NAME['perf_test'] + ':latest')
+            docker_config.FUNC_NAME['perf_tuning'] + ':latest')
 
 
-        parameters = self.perf_test.__code__.co_varnames[1:self.perf_test.__code__.co_argcount]
+        parameters = self.perf_tuning.__code__.co_varnames[1:self.perf_tuning.__code__.co_argcount]
         arguments = self.__params2args(locals(), parameters)
         
 

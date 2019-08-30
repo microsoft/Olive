@@ -98,7 +98,7 @@ class PerfTestParams:
         return code_snippet
 
 
-def run_perf_test(test_params, percentiles=False):
+def run_perf_tuning(test_params, percentiles=False):
     print()
 
     result_file = os.path.join(test_params.result_dir, str(uuid.uuid4()))
@@ -107,15 +107,15 @@ def run_perf_test(test_params, percentiles=False):
         test_args = test_params.get_percentiles_args(result_file)
     else:
         test_args = test_params.get_args(result_file)
-    perf_test = subprocess.run(test_args, env=test_params.env, capture_output=True)
+    perf_tuning = subprocess.run(test_args, env=test_params.env, capture_output=True)
     # The first run was warmup.
     remove(result_file)
     test_params.print_args(test_args)
     if not test_params.command:
         test_params.command = " ".join(test_args)
-    perf_test = subprocess.run(test_args, env=test_params.env)
+    perf_tuning = subprocess.run(test_args, env=test_params.env)
     latencies = []
-    if perf_test.returncode == 0 and os.path.exists(result_file):
+    if perf_tuning.returncode == 0 and os.path.exists(result_file):
         with open(result_file) as result:
             for line in result.readlines():
                 line = line.strip()
@@ -126,21 +126,17 @@ def run_perf_test(test_params, percentiles=False):
         if percentiles:
             # Profile in case of success
             profile_name = os.path.join(test_params.result_dir, str(uuid.uuid4()))
-            # print("memory info ", psutil.virtual_memory().percent)
             m = Monitor(latencies[0])
-            perf_test = subprocess.run(test_params.get_profile_args(profile_name, result_file), 
+            perf_tuning = subprocess.run(test_params.get_profile_args(profile_name, result_file), 
                 env=test_params.env,
                 stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
             m.stop()
             m.recorded_gpu = [x for x in m.recorded_gpu if not x == 0]
             m.recorded_cpu = [x for x in m.recorded_cpu if not x == 0]            
-            # print("cpu = ", m.recorded_cpu)
-            # print(m.recorded_gpu)
-            # print(m.recorded_memory)
             test_params.gpu = sum(m.recorded_gpu)/len(m.recorded_gpu) if len(m.recorded_gpu) > 0 else 0
             test_params.cpu = sum(m.recorded_cpu) / len(m.recorded_cpu) if len(m.recorded_cpu) > 0 else 0
             test_params.memory = sum(m.recorded_memory) / len(m.recorded_memory) if len(m.recorded_memory) > 0 else 0
-            if perf_test.returncode == 0:
+            if perf_tuning.returncode == 0:
                 # Find profile result
                 files = glob.glob(profile_name + "*")
                 if len(files) == 1:
@@ -164,7 +160,7 @@ def run_perf_test(test_params, percentiles=False):
 
     print(test_params.name, test_params.avg)
 
-def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, failed_tests, successful_tests, is_omp=False):
+def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, failed_tests, successful_tests, is_omp=False):
     lower = 1
     upper = num_cores
     mid = lower + (upper - lower) // 2
@@ -191,7 +187,7 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
         param.env.update({"OMP_NUM_THREADS": str(lower)})
         param.test_args = test_params.test_args
 
-    run_perf_test(param)
+    run_perf_tuning(param)
     if not param.avg:
         # TODO: fall back to sequential???
         failed_tests.append(param)
@@ -205,7 +201,6 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
     lower += 1
     while lower <= upper:
         mid = lower + (upper - lower) // 2
-        # print("lower: %d, mid: %d, upper: %d" % (lower, mid, upper))
         # Run perf test
         param = PerfTestParams(
             test_params.name + str(mid) + name_suffix,
@@ -223,10 +218,8 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
         else:
             param.env.update({"OMP_NUM_THREADS": str(mid)})
             param.test_args = test_params.test_args
-        run_perf_test(param)
+        run_perf_tuning(param)
         if param.avg:
-            # print("current latency: ", param.avg)
-            # print("best latency: ", best_latency)
             successful_tests.append(param)
             if best_latency < param.avg:
                 upper = mid - 1
@@ -264,7 +257,6 @@ def get_env_var_combos(env_vars):
                     else:
                         a.append(el)
                 all_combos.append(a)
-    # print(all_combos)
     return all_combos
 
 # env_names: a list of environment variable names
@@ -310,7 +302,7 @@ class ConverterParamsFromJson():
         self.threadpool_size = loaded_json["threadpool_size"] if loaded_json.get("threadpool_size") else str(cores)
         self.num_threads = loaded_json["num_threads"] if loaded_json.get("num_threads") else str(cores)
         self.top_n = loaded_json["top_n"] if loaded_json.get("top_n") else "5"
-        self.parallel = loaded_json.get["parallel"] if loaded_json.get("parallel") else True
+        self.parallel = loaded_json["parallel"] if loaded_json.get("parallel") else True
         self.optimization_level = loaded_json["optimization_level"] if loaded_json.get("optimization_level") else "3"
 
 def parse_arguments():
@@ -369,10 +361,6 @@ if __name__ == "__main__":
 
     if len(GPUtil.getGPUs()) == 0:
         print("No GPU found on current device. Cuda and TensorRT performance tuning might not be available. ")
-        # if "cuda" in providers:
-        #     providers.remove("cuda") 
-        # if "tensorrt" in providers:
-        #     providers.remove("tensorrt") 
     print("providers ", providers)
 
     tests = []
@@ -414,7 +402,7 @@ if __name__ == "__main__":
                 num_threads = int(args.num_threads) if is_omp else int(args.threadpool_size)
                 if args.parallel and "cuda" not in build_name and "tensorrt" not in build_name:                 
                     # Tune environment variables and thread pool size using parallel executor 
-                    best_run = run_perf_test_binary(
+                    best_run = run_perf_tuning_binary(
                         PerfTestParams(
                             build_name + "_parallel_",
                             build_name + " ",
@@ -442,7 +430,7 @@ if __name__ == "__main__":
                     tests.append(param)
                 else:
                     # Tune environment variables and thread pool size using sequential executor
-                    run_perf_test_binary(
+                    run_perf_tuning_binary(
                         PerfTestParams(
                             build_name + "_",
                             build_name + " ",
@@ -465,13 +453,13 @@ if __name__ == "__main__":
 
     # Run the tests.
     for test in tests:
-        run_perf_test(test)
+        run_perf_tuning(test)
 
     successful.extend([x for x in tests if x.avg])
     successful = sorted(successful, key=lambda e:e.avg)
     # Re-run fastest tests to calculate percentiles.
     for test in successful[:int(args.top_n)]:
-        run_perf_test(test, percentiles=True)
+        run_perf_tuning(test, percentiles=True)
     
     failed.extend([x for x in tests if not x.avg])
     

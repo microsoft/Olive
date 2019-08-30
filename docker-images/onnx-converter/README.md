@@ -1,6 +1,6 @@
 ## ONNX Converter Image
 
-This image is used to convert models from major model frameworks to onnx, generate input files if not provided, and then test the converted models' correctness. 
+This image is used to convert models from major model frameworks to ONNX, generate input files if not provided, and then test the converted models' correctness. 
 Supported frameworks are - 
    - CNTK
    - CoreML
@@ -57,7 +57,7 @@ For detailed description of all available parameters, refer to the following.
 
 `--model`: Required or specified in input json. The path of the model that needs to be converted.
 
-`--output_onnx_path`: Required or specified in input json. The path to store the converted onnx model. Should end with ".onnx". e.g. "/newdir/output.onnx". A cleaned directory is recommended. 
+`--output_onnx_path`: Required or specified in input json. The path to store the converted ONNX model. Should end with ".onnx". e.g. "/newdir/output.onnx". A cleaned directory is recommended. 
 
 `--model_type`: Required or specified in input json. The name of original model framework. Available types are cntk, coreml, keras, scikit-learn, tensorflow and pytorch.
 
