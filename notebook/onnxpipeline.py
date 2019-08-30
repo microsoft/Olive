@@ -299,18 +299,29 @@ class Pipeline:
                 with open(latency_json) as json_file:  
                     self.latency = json.load(json_file, object_pairs_hook=OrderedDict) 
             else:
-                raise RuntimeError('Cannot find result directory.')           
-            self.profiling_max = 5
+                raise RuntimeError('Cannot find result directory.')
+            
             self.profiling = []
-            for i in range(self.profiling_max):
-                profiling_name = "profile_" + self.latency[i]["name"] + ".json"
-                profiling_path = osp.join(result_directory, profiling_name)
-                if osp.exists(profiling_path):
-                    with open(profiling_path) as json_file:
-                        self.profiling.append(json.load(json_file))
+            self.latency.pop("failed", None)
+            # print(self.latency)
+            # Print profiling results for every execution provider
+            for ep_name in self.latency.keys():
+                # print("key ", ep_name)
+                for pf in self.latency[ep_name]:
+                    profiling_name = "profile_" + pf["name"] + ".json"
+                    profiling_path = osp.join(result_directory, profiling_name)
+                    if osp.exists(profiling_path):
+                        with open(profiling_path) as json_file:
+                            self.profiling.append(json.load(json_file))
+            self.profiling_max = 7
+            # for i in range(self.profiling_max):
+            #     profiling_name = "profile_" + self.latency[i]["name"] + ".json"
+            #     profiling_path = osp.join(result_directory, profiling_name)
+            #     if osp.exists(profiling_path):
+            #         with open(profiling_path) as json_file:
+            #             self.profiling.append(json.load(json_file))
             self.profiling_ops = self.__filter_ops()
 
-        
         def __filter_ops(self):
             profiling_ops = []
             for index in range(self.profiling_max):
@@ -353,19 +364,21 @@ class Pipeline:
             return csv_name
 
         def prints(self, top=5, orient='table'):
-            json_data = self.latency[:top]
+            json_data = []
+            for ep_name in self.latency.keys():
+                json_data.append(self.latency[ep_name][0])
             csv_file = self.__json_to_csv(json_data, {'command'})
             
             return pd.read_csv(csv_file) 
         
-        def print_profiling(self, index, top=10, orient='colums'):
+        def print_profiling(self, index=0, top=10, orient='colums'):
             self.__check_profiling_index(index)
-            return self.__print_json(self.profiling_ops[:top][0], orient)
+            return self.__print_json(self.profiling_ops[index][:top], orient)
 
-        def print_environment(self, index, orient='index'):
-            return self.__print_json([self.latency[index]['code_snippet']['environment_variables']], orient)
+        def print_environment(self, ep, index, orient='index'):
+            return self.__print_json([self.latency[ep][index]['code_snippet']['environment_variables']], orient)
 
-        def get_code(self, index):
-            code = self.latency[index]['code_snippet']['code']
+        def get_code(self, ep, index=0):
+            code = self.latency[ep][index]['code_snippet']['code']
             refined_code = code.replace('                 ', '\n').replace('                ', '\n') # 4 tabs
             return refined_code
