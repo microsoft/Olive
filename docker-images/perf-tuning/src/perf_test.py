@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import uuid
+import collections
 import psutil
 import GPUtil
 from monitor import Monitor
@@ -203,6 +204,7 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
     
     # Start binary search best thread pool size candidate
     lower += 1
+    rerun = False 
     while lower <= upper:
         mid = lower + (upper - lower) // 2
         # print("lower: %d, mid: %d, upper: %d" % (lower, mid, upper))
@@ -237,10 +239,11 @@ def run_perf_test_binary(test_params, num_cores, name_suffix, desc_suffix, faile
         else:
             failed_tests.append(param)
             break
-        if lower > upper and best_run == (1 + num_cores) // 2:
+        if lower > upper and best_run == (1 + num_cores) // 2 and not rerun:
             # Re-run search on the first half if the best latency lies in the middle
             upper = (1 + num_cores) // 2 - 1
             lower = 2
+            rerun = True
     return best_run
 
 def get_env_var_combos(env_vars):
@@ -309,7 +312,7 @@ class ConverterParamsFromJson():
         self.duration_time = loaded_json["duration_time"] if loaded_json.get("duration_time") else "10"
         self.threadpool_size = loaded_json["threadpool_size"] if loaded_json.get("threadpool_size") else str(cores)
         self.num_threads = loaded_json["num_threads"] if loaded_json.get("num_threads") else str(cores)
-        self.top_n = loaded_json["top_n"] if loaded_json.get("top_n") else "5"
+        self.top_n = loaded_json["top_n"] if loaded_json.get("top_n") else "3"
         self.parallel = loaded_json.get["parallel"] if loaded_json.get("parallel") else True
         self.optimization_level = loaded_json["optimization_level"] if loaded_json.get("optimization_level") else "3"
 
@@ -336,8 +339,8 @@ def parse_arguments():
                         help="Use parallel executor, default (without -x): sequential executor.")
     parser.add_argument("-n", "--num_threads", default=str(cores),
                         help="OMP_NUM_THREADS value.")
-    parser.add_argument("-s", "--top_n", default="5",
-                        help="Show percentiles for top n runs. Default:5.")
+    parser.add_argument("-s", "--top_n", default="3",
+                        help="Show percentiles for top n runs in each execution provider. Default:3.")
     parser.add_argument("-P", "--parallel", default=True,
                         help="Use parallel executor instead of sequential executor.")
     parser.add_argument("-o", "--optimization_level", default="3", 
@@ -365,7 +368,8 @@ if __name__ == "__main__":
     bin_dir = os.path.join(os.path.dirname(__file__), "bin", args.config)
     build_dirs = os.listdir(bin_dir)
 
-    providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else ["mklml", "cpu_openmp", "mkldnn", "mkldnn_openmp", "cpu", "tensorrt", "ngraph", "cuda"]
+    allProviders = ["mklml", "cpu_openmp", "mkldnn", "mkldnn_openmp", "cpu", "tensorrt", "ngraph", "cuda"]
+    providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else allProviders
 
     if len(GPUtil.getGPUs()) == 0:
         print("No GPU found on current device. Cuda and TensorRT performance tuning might not be available. ")
@@ -375,19 +379,25 @@ if __name__ == "__main__":
         #     providers.remove("tensorrt") 
     print("providers ", providers)
 
-    tests = []
-    successful = []
+    successful_by_ep = dict()
+    profile_candidates = []
     failed = []
     # Loop for every pre-built execution provider
     for build_name in providers:
         if "mklml" in build_name or "ngraph" in build_name:
             build_path = os.path.join(bin_dir, build_name)
-        else:
+        elif build_name in allProviders:
             build_path = os.path.join(bin_dir, "all_eps")
+        else:
+            raise ValueError("Provider %s is not currently supported. \
+                Please choose one of cpu, cpu_openmp, mkldnn, mkldnn_openmp, mklml, cuda, tensorrt or ngraph",
+                build_name)
         if os.path.isdir(build_path):
             # # If current build is requested by user, run perf tuning
             # if build_name in providers:        
             test_args = []
+            successful = []
+            tests = []
 
             if "mkldnn" in build_name:
                 test_args = test_args + ["-e", "mkldnn"]
@@ -463,70 +473,66 @@ if __name__ == "__main__":
                     build_name)
                 tests.append(params)                    
 
-    # Run the tests.
-    for test in tests:
-        run_perf_test(test)
+            # Run the tests under current execution provider.
+            for test in tests:
+                run_perf_test(test)
+            
+            # keep the best to run profiling
+            successful.extend([x for x in tests if x.avg]) 
+            successful = sorted(successful, key=lambda e: e.avg)[:int(args.top_n)]
+            if len(successful) > 0:
+                successful_by_ep[build_name] = successful
+                profile_candidates.append(successful_by_ep[build_name][0])
+            failed.extend([x for x in tests if not x.avg])
 
-    successful.extend([x for x in tests if x.avg])
-    successful = sorted(successful, key=lambda e:e.avg)
-    # Re-run fastest tests to calculate percentiles.
-    for test in successful[:int(args.top_n)]:
+    # Re-run fastest tests in each ep to calculate percentiles.
+    for test in profile_candidates:
         run_perf_test(test, percentiles=True)
-    
-    failed.extend([x for x in tests if not x.avg])
     
     if len(GPUtil.getGPUs()) == 0:
         failed = [x for x in failed if "cuda" not in x.name and "tensorrt" not in x.name]
 
     # Re-sort tests based on 100 runs
-    successful_not_profiled = successful[int(args.top_n):]
-    successful_profiled = sorted(successful[:int(args.top_n)], key=lambda e:e.avg)
+    profile_candidates = sorted(profile_candidates, key=lambda e: e.avg)
     print("")
     print("Results:")
     out_json = []
 
-
     with open(os.path.join(args.result, "latencies.txt"), "w") as out_file:
-        for test in successful_profiled:
-            print(test.name, test.avg, "ms")
-            print(test.name, test.avg, "ms", file=out_file)
+        out_json = collections.OrderedDict()                
+        for ep_candidate in profile_candidates:                
+            json_list = []
+            for test in successful_by_ep[ep_candidate.build_name]:
+                print(test.name, test.avg, "ms")
+                print(test.name, test.avg, "ms", file=out_file)
 
-            json_record = dict()
-            json_record["name"] = test.name
-            json_record["command"] = test.command
-            json_record["avg"] = test.avg
-            num_latencies = len(test.latencies)
-            if num_latencies >= 10:
-                json_record["p90"] = test.latencies[int(num_latencies * .9)] * 1000
-            if num_latencies >= 20:
-                json_record["p95"] = test.latencies[int(num_latencies * .95)] * 1000
-            json_record["cpu_usage"] = test.cpu / 100
-            json_record["gpu_usage"] = test.gpu
-            json_record["memory_util"] = test.memory / 100
-            json_record["code_snippet"] = test.gen_code_snippet()
-            out_json.append(json_record)
-
-        for test in successful_not_profiled:
-            json_record = dict()
-            json_record["name"] = test.name
-            json_record["command"] = test.command
-            json_record["avg"] = test.avg
-            num_latencies = len(test.latencies)
-            if num_latencies >= 10:
-                json_record["p90"] = test.latencies[int(num_latencies * .9)] * 1000
-            if num_latencies >= 20:
-                json_record["p95"] = test.latencies[int(num_latencies * .95)] * 1000
-            out_json.append(json_record)
+                json_record = dict()
+                json_record["name"] = test.name
+                json_record["command"] = test.command
+                json_record["avg"] = test.avg
+                num_latencies = len(test.latencies)
+                if num_latencies >= 10:
+                    json_record["p90"] = round(test.latencies[int(num_latencies * .9)] * 1000, 5)
+                if num_latencies >= 20:
+                    json_record["p95"] = round(test.latencies[int(num_latencies * .95)] * 1000, 5)
+                json_record["cpu_usage"] = round(test.cpu / 100, 5)
+                json_record["gpu_usage"] = round(test.gpu, 5)
+                json_record["memory_util"] = round(test.memory / 100, 5)
+                json_record["code_snippet"] = test.gen_code_snippet()
+                json_list.append(json_record)
+                out_json[test.build_name] = json_list
+            # out_json.append(json_entry)
             
+        json_list = []
         for test in failed:
             print(test.name, "error")
             print(test.name, "error", file=out_file)
-
             json_record = dict()
             json_record["name"] = test.name
             json_record["command"] = test.command
             json_record["result"] = "error"
-            out_json.append(json_record)
+            json_list.append(json_record)
+            out_json["failed"] = json_list
     
     with open(os.path.join(args.result, "latencies.json"), "w") as json_file:
         json.dump(out_json, json_file, indent=2)
