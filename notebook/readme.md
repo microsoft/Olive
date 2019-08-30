@@ -3,9 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 
 
-# ONNX Pipeline
+# OLive Notebook Demo
 
-This repository shows how to deploy and use ONNX pipeline with dockers including convert model, generate input and performance test.
+This repository provides quick demo and visualization of how to deploy and use OLive in Jupyter notebook.
 
 # Prerequisites
 Install [Docker](https://docs.docker.com/install/).

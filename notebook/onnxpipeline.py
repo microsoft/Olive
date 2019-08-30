@@ -303,10 +303,8 @@ class Pipeline:
             
             self.profiling = []
             self.latency.pop("failed", None)
-            # print(self.latency)
             # Print profiling results for every execution provider
             for ep_name in self.latency.keys():
-                # print("key ", ep_name)
                 for pf in self.latency[ep_name]:
                     profiling_name = "profile_" + pf["name"] + ".json"
                     profiling_path = osp.join(result_directory, profiling_name)
@@ -314,12 +312,6 @@ class Pipeline:
                         with open(profiling_path) as json_file:
                             self.profiling.append(json.load(json_file))
             self.profiling_max = 7
-            # for i in range(self.profiling_max):
-            #     profiling_name = "profile_" + self.latency[i]["name"] + ".json"
-            #     profiling_path = osp.join(result_directory, profiling_name)
-            #     if osp.exists(profiling_path):
-            #         with open(profiling_path) as json_file:
-            #             self.profiling.append(json.load(json_file))
             self.profiling_ops = self.__filter_ops()
 
         def __filter_ops(self):

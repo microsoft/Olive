@@ -147,7 +147,7 @@
         </b-form>
         </div>
         <hr/>
-        <alert :message=message v-if="show_message"></alert>
+        <alert :message=message :loading=model_running v-if="show_message"></alert>
         <div v-if="convert_result">
             <h5>Conversion Status:
             <b-badge variant="primary">

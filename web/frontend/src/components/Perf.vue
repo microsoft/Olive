@@ -219,7 +219,7 @@
         <div class="open_button" v-on:click="show_message = !show_message" v-if="show_logs">
             <hr/>Show logs
         </div>
-        <alert :message=message v-if="show_message"></alert>
+        <alert :message=message :loading=model_running v-if="show_message"></alert>
         <br/>
         <b-modal ref="opsModal"
                 id="opsModal"

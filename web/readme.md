@@ -8,7 +8,8 @@ Licensed under the MIT License.
 This repository shows how to use ONNX pipeline by a web interface in built local server.
 
 # Prerequisites
-Install [Docker](https://docs.docker.com/install/).
+- Install [Docker](https://docs.docker.com/install/).
+- Python 3.6 or higher
 
 Install project dependencies by running 
 ```bash
