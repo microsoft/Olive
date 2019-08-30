@@ -7,8 +7,10 @@ Licensed under the MIT License.
 
 This repository shows how to deploy and use OLive on Windows by running commands.
 
-# Prerequisites
+## Prerequisites
 Install [Docker](https://docs.docker.com/install/).
+
+## How to use
 ### For Windows
 ```bash
 ..\utils\build.sh
@@ -19,10 +21,12 @@ Use cmd and type as below:
 ```bash
 python cmd_pipeline.py --model [model_path] --model_type [model_type] --result [result_directory_path] [--other_parameters] [other parameters' value]
 ```
+**IMPORTANT:** Any path in the parameter must be under the current directory (/cmd-tool).
+
 
 1. --model_type: Required. support caffe, cntk, keras, scikit-learn, tensorflow and pytorch.
 
-2. --model_path: Required. provide the local path of the model.
+2. --model_path: Required. provide the local path of the model. 
 
 3. --result: Optional. The directory path for results.
 
@@ -51,5 +55,5 @@ For example:
 python cmd_pipeline.py --model pytorch/saved_model.pb --model_type pytorch --model_input_shapes (3,3,224,224) --result result/
 ```
 
-Then all the result JSONs will be produced under result/ .
+Then all the result JSONs will be produced under /result.
 Also print the logs for the process in the terminal. Check if there is any error.
