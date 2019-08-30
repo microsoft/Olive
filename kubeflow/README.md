@@ -5,10 +5,10 @@ This guide shows how to deploy and use ONNX Automation pipeline with Kubernetes 
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
     - [Access Kubeflow Pipeline Dashboard](#Access-Kubeflow-Pipeline-Dashboard)
-2. [Deploy Onnx Automation Pipeline](#Deploy-Onnx-Automation-Pipeline)
+2. [Deploy ONNX Automation Pipeline](#Deploy-ONNX-Automation-Pipeline)
     - [Pipeline Storage](#Pipeline-Storage)
     - [Deploy ONNX Pipeline](#Deploy-ONNX-Pipeline)
-3. [Run Onnx Automation Pipeline](#Run-Onnx-Automation-Pipeline)
+3. [Run ONNX Automation Pipeline](#Run-ONNX-Automation-Pipeline)
     - [Run Parameters](#Run-Parameters)
     - [Components Source](#Components-Source)
 
@@ -116,13 +116,13 @@ Open the Kubeflow pipelines UI. Click "Upload" on the top right corner, and then
 
 Create a new pipeline by clicking on the uploaded pipeline, and follow the UI instructions. 
 
-## Run Onnx Automation Pipeline
+## Run ONNX Automation Pipeline
 ### Run parameters
 
 
 `--model`: Required or specified in input json. The path of the model that needs to be converted.
 
-`--output_onnx_path`: Required or specified in input json. The path to store the converted onnx model. Should end with ".onnx". e.g. "/newdir/output.onnx". A clean directory is recommended. 
+`--output_onnx_path`: Required or specified in input json. The path to store the converted ONNX model. Should end with ".onnx". e.g. "/newdir/output.onnx". A clean directory is recommended. 
    
 `--output_perf_result_path`: The path to store the perf result text file. 
 
@@ -151,6 +151,6 @@ Create a new pipeline by clicking on the uploaded pipeline, and follow the UI in
 
 - Perf Tuning:
 
-  [Source code](../components/perf_test)
+  [Source code](../components/perf_tuning)
 
   Container: TBD

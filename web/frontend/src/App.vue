@@ -2,7 +2,7 @@
   <div class="container" id="app">
     <div class="row flex-xl-nowrap">
       <main class="col-20 col-md-12" role="main">
-        <h1>OLive (ONNX Live)</h1>
+        <h1>OLive (ONNX Go Live)</h1>
         <hr>
         <router-link to="/convert">
           <button type="button" class="btn btn-success btn-md button_right" >

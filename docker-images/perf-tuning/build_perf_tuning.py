@@ -97,13 +97,6 @@ if __name__ == "__main__":
     args = parse_arguments()
 
     build_args = ["--parallel", "--use_mkldnn", "--use_openmp"]
-    # build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel"], "cpu", args)
-
-    # build_onnxruntime(args.onnxruntime_home, args.config, ["--use_openmp", "--parallel"], "cpu_openmp", args)
-
-    # build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--parallel"], "mkldnn", args)
-
-    # build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mkldnn", "--use_openmp", "--parallel"], "mkldnn_openmp", args)
     
     if args.use_mklml:
         build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mklml", "--parallel"], "mklml", args)
@@ -112,7 +105,6 @@ if __name__ == "__main__":
         build_onnxruntime(args.onnxruntime_home, args.config, ["--use_ngraph"], "ngraph", args)
 
     if args.use_cuda:
-        # build_args = ["--use_cuda", "--parallel"]
         build_args += ["--use_cuda"]
         if args.cuda_version:
             build_args = build_args + ["--cuda_version", args.cuda_version]
@@ -120,7 +112,6 @@ if __name__ == "__main__":
             build_args = build_args + ["--cuda_home", args.cuda_home]
         if args.cudnn_home:
             build_args = build_args + ["--cudnn_home", args.cudnn_home]
-        # build_onnxruntime(args.onnxruntime_home, args.config, build_args, "cuda", args)
 
     if args.use_tensorrt:
         build_args += ["--use_tensorrt", "--use_full_protobuf"]
@@ -132,6 +123,5 @@ if __name__ == "__main__":
             build_args = build_args + ["--cuda_home", args.cuda_home]
         if args.cudnn_home:
             build_args = build_args + ["--cudnn_home", args.cudnn_home]
-        # build_onnxruntime(args.onnxruntime_home, args.config, build_args, "tensorrt", args)
     
     build_onnxruntime(args.onnxruntime_home, args.config, build_args, "all_eps", args)

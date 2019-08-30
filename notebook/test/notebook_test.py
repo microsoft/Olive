@@ -88,15 +88,15 @@ class notebook_test(unittest.TestCase):
         
     
     def get_perftest(self, pipeline, model):
-        result = pipeline.perf_test(model=model, result="result")
+        result = pipeline.perf_tuning(model=model, result="result")
         return result
     
-    def test_perf_test(self):
+    def test_perf_tuning(self):
         directory_name = self.deep_dir['onnx']
         pipeline = onnxpipeline.Pipeline(directory_name)
         # generate input
-        model = pipeline.convert_model(model_type='onnx', model='perf-test/ImageQnA.onnx', output_onnx_path='perf-test/ImageQnA.onnx')
-        result_dir = pipeline.perf_test(model=model)
+        model = pipeline.convert_model(model_type='onnx', model='perf-tuning/ImageQnA.onnx', output_onnx_path='perf-tuning/ImageQnA.onnx')
+        result_dir = pipeline.perf_tuning(model=model)
         latency_path = osp.join(result_dir, config.LATENCIES_TXT)
         self.assertEqual(self.check_latency_error(latency_path), 0) # 1 for cuda error, should be zero
     
@@ -153,7 +153,7 @@ class notebook_test(unittest.TestCase):
         directory_name = self.deep_dir['onnx']
         pipeline = onnxpipeline.Pipeline(directory_name, print_logs=False)
         # generate input
-        model = pipeline.convert_model(model_type='onnx', model='perf-test/ImageQnA.onnx', output_onnx_path='perf-test/ImageQnA.onnx')
+        model = pipeline.convert_model(model_type='onnx', model='perf-tuning/ImageQnA.onnx', output_onnx_path='perf-tuning/ImageQnA.onnx')
         
         json_data = {
             'result': 'result',
@@ -164,11 +164,11 @@ class notebook_test(unittest.TestCase):
         with open(input_json_path, 'w') as f:
             json.dump(json_data, f)        
         # test convert relatve path to /[mount_path]/path in input_json
-        result_dir = pipeline.perf_test(input_json=input_json)
+        result_dir = pipeline.perf_tuning(input_json=input_json)
         latency_path = osp.join(result_dir, config.LATENCIES_TXT)
         self.assertEqual(self.check_latency_error(latency_path), 0) # 1 for cuda error, should be zero
         # input_json with /mount_path
-        result_dir = pipeline.perf_test(input_json=input_json)
+        result_dir = pipeline.perf_tuning(input_json=input_json)
         latency_path = osp.join(result_dir, config.LATENCIES_TXT)
         self.assertEqual(self.check_latency_error(latency_path), 0) # 1 for cuda error, should be zero
 

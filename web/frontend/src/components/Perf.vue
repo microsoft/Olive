@@ -1,19 +1,19 @@
 <template>
     <div class="container">
         <!-- perf test-->
-        <div ref="perf_testModal"
-                id="perf_test-modal"
+        <div ref="perf_tuningModal"
+                id="perf_tuning-modal"
                 title="Perf Test"
                 hide-footer>
 
-            <b-form-select v-model="runOption">
+            <b-form-select v-model="run_option">
               <template slot="first"></template>
               <option value=0>Run With Model Converted From Previous Step</option>
               <option value=1>Run With Customized Model</option>
             </b-form-select>
-            <b-form @submit="perf_test" @reset="onReset_perf_test" style="margin-top: 2%">
+            <b-form @submit="perf_tuning" @reset="onReset_perf_tuning" style="margin-top: 2%">
                 <b-form-group id="form-model-group"
-                              v-if="runOption == 0"
+                              v-if="run_option == 0"
                               label="Model From Previous Step:"
                               label-for="form-model-input">
                     <b-form-input id="form-model-input"
@@ -23,7 +23,7 @@
                     </b-form-input>
                 </b-form-group>
                 <b-form-group id="form-model-group"
-                        v-if="runOption == 1"
+                        v-if="run_option == 1"
                         label="Model:"
                         label-for="form-model-input">
                   <b-form-file id="form-model-input"
@@ -70,7 +70,7 @@
                                 label-for="form-num_threads-input">
                         <b-form-input id="form-num_threads-input"
                             type="text"
-                            v-model="perf_testForm.num_threads"
+                            v-model="perf_tuning_form.num_threads"
                             value="20"
                             placeholder="Enter num_threads.
                             If leave blank, number of cores will be used.">
@@ -82,7 +82,7 @@
                                 label-for="form-top_n-input">
                         <b-form-input id="form-top_n-input"
                                     type="text"
-                                    v-model="perf_testForm.top_n"
+                                    v-model="perf_tuning_form.top_n"
                                     value="20"
                                     placeholder="Enter top_n. ">
                         </b-form-input>
@@ -93,14 +93,14 @@
                                 label-for="form-optimization_level-input">
                         <b-form-input id="form-optimization_level-input"
                                     type="text"
-                                    v-model="perf_testForm.optimization_level">
+                                    v-model="perf_tuning_form.optimization_level">
                         </b-form-input>
                     </b-form-group>
 
                     <b-form-group id="form-mode-group"
                                 label="Mode:"
                                 label-for="form-mode-input">
-                    <b-form-select v-model="perf_testForm.mode"
+                    <b-form-select v-model="perf_tuning_form.mode"
                                     required
                                     :options="options.mode"
                                     label="Mode:"
@@ -113,39 +113,39 @@
                     <b-form-group id="form-repeated_times-group"
                                 label="Repeated times:"
                                 label-for="form-repeated_times-input"
-                                v-if="perf_testForm.mode == 'times'">
+                                v-if="perf_tuning_form.mode == 'times'">
                         <b-form-input id="form-repeated_times-input"
                                     type="text"
-                                    v-model="perf_testForm.repeated_times">
+                                    v-model="perf_tuning_form.repeated_times">
                         </b-form-input>
                     </b-form-group>
 
                     <b-form-group id="form-duration_times-group"
                                 label="Duration times:"
                                 label-for="form-duration_times-input"
-                                v-if="perf_testForm.mode == 'mode'">
+                                v-if="perf_tuning_form.mode == 'mode'">
                         <b-form-input id="form-duration_times-input"
                                     type="text"
-                                    v-model="perf_testForm.duration_times"
+                                    v-model="perf_tuning_form.duration_times"
                                     placeholder="Enter duration_times">
                         </b-form-input>
                     </b-form-group>
 
                     <b-form-checkbox
                     id="parallel"
-                    v-model="perf_testForm.parallel"
+                    v-model="perf_tuning_form.parallel"
                     name="parallel">
                     Use parallel executor
                     </b-form-checkbox>
 
 
-                    <b-form-group v-if="perf_testForm.parallel"
+                    <b-form-group v-if="perf_tuning_form.parallel"
                                 id="form-threadpool_size-group"
                                 label="Threadpool size:"
                                 label-for="form-threadpool_size-input">
                         <b-form-input id="form-threadpool_size-input"
                           type="text"
-                          v-model="perf_testForm.threadpool_size"
+                          v-model="perf_tuning_form.threadpool_size"
                           placeholder="Enter threadpool_size.
                             If leave blank, number of cores will be used.">
                         </b-form-input>
@@ -219,7 +219,7 @@
         <div class="open_button" v-on:click="show_message = !show_message" v-if="show_logs">
             <hr/>Show logs
         </div>
-        <alert :message=message v-if="show_message"></alert>
+        <alert :message=message :loading=model_running v-if="show_message"></alert>
         <br/>
         <b-modal ref="opsModal"
                 id="opsModal"
@@ -243,9 +243,9 @@
 <script>
 import axios from 'axios';
 import Alert from './Alert.vue';
-import { perf_testForm } from '../utils/const';
+import { perf_tuning_form } from '../utils/const';
 
-const origin_perf_testForm = Object.assign({}, perf_testForm);
+const origin_perf_tuning_form = Object.assign({}, perf_tuning_form);
 
 export default {
   name: 'Perf',
@@ -257,8 +257,8 @@ export default {
       selected_profiling: -1,
       result: {},
       profiling: [],
-      runOption: 1,
-      perf_testForm,
+      run_option: 1,
+      perf_tuning_form,
       selected_eps: [],
       test_data: [],
       customized_model: null,
@@ -285,36 +285,36 @@ export default {
 
   watch: {
     converted_model() {
-      this.perf_testForm.model = this.converted_model;
+      this.perf_tuning_form.model = this.converted_model;
       if (this.converted_model.length > 0) {
-        this.runOption = 0;
+        this.run_option = 0;
       }
     },
-    runOption() {
+    run_option() {
       this.model_missing = '';
       this.test_data_missing = '';
     },
   },
   methods: {
-    init_perf_testForm() {
-      this.perf_testForm = Object.assign({}, origin_perf_testForm);
-      this.perf_testForm.model = this.converted_model;
+    init_perf_tuning_form() {
+      this.perf_tuning_form = Object.assign({}, origin_perf_tuning_form);
+      this.perf_tuning_form.model = this.converted_model;
       this.customized_model = null;
       this.selected_eps = [];
       this.test_data = [];
-      this.runOption = 0;
+      this.run_option = 0;
     },
 
-    perf_test(evt) {
+    perf_tuning(evt) {
       this.close_all();
 
       evt.preventDefault();
-      if ((this.runOption == 0 && this.perf_testForm.model == '')
-          || (this.runOption == 1 && this.customized_model == null)) {
+      if ((this.run_option == 0 && this.perf_tuning_form.model == '')
+          || (this.run_option == 1 && this.customized_model == null)) {
         this.model_missing = 'Please provide an ONNX model to start performance tuning.';
         return;
       }
-      if (this.runOption == 1 && this.test_data.length == 0) {
+      if (this.run_option == 1 && this.test_data.length == 0) {
         this.test_data_missing = 'Please provide input data .pb files for customized models. ';
         return;
       }
@@ -323,17 +323,17 @@ export default {
 
       // run with selected execution providers
       if (this.selected_eps.length > 0) {
-        this.perf_testForm.execution_provider = '';
+        this.perf_tuning_form.execution_provider = '';
         for (let i = 0; i < this.selected_eps.length; i++) {
-          this.perf_testForm.execution_provider += this.selected_eps[i];
+          this.perf_tuning_form.execution_provider += this.selected_eps[i];
           if (i < this.selected_eps.length - 1) {
-            this.perf_testForm.execution_provider += ',';
+            this.perf_tuning_form.execution_provider += ',';
           }
         }
       }
 
       // TODO cache model for model visualize
-      const metadata = this.perf_testForm;
+      const metadata = this.perf_tuning_form;
 
       const json = JSON.stringify(metadata);
 
@@ -342,7 +342,7 @@ export default {
       });
       const data = new FormData();
       data.append('metadata', blob);
-      if (this.customized_model && this.runOption == 1) {
+      if (this.customized_model && this.run_option == 1) {
         data.append('file', this.customized_model);
       }
       for (let i = 0; i < this.test_data.length; i++) {
@@ -353,7 +353,7 @@ export default {
       this.message = 'Running...';
       this.model_running = true;
       const host = `${window.location.protocol}//${window.location.host.split(':')[0]}`;
-      axios.post(`${host}:5000/perf_test`, data)
+      axios.post(`${host}:5000/perf_tuning`, data)
         .then((res) => {
           this.show_message = false;
           this.model_running = false;
@@ -375,9 +375,9 @@ export default {
     format_code_snippet(code) {
       this.code_details = code.trim().replace(/\s\s+/g, '\n');
     },
-    onReset_perf_test(evt) {
+    onReset_perf_tuning(evt) {
       evt.preventDefault();
-      this.init_perf_testForm();
+      this.init_perf_tuning_form();
     },
     open_details(index) {
       if (this.selected == index) {

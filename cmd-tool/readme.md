@@ -3,9 +3,9 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 
 
-# Onnx Pipeline
+# OLive Command Line Tool
 
-This repository shows how to deploy and use Onnx pipeline with dockers including convert model, generate input and performance test in Windows by cmd.
+This repository shows how to deploy and use OLive on Windows by running commands.
 
 # Prerequisites
 Install [Docker](https://docs.docker.com/install/).

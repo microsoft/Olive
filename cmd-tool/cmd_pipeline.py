@@ -86,12 +86,12 @@ def main():
         model_params=args.model_params, target_opset=args.target_opset, input_json=args.input_json,
         initial_types=args.initial_types, caffe_model_prototxt=args.caffe_model_prototxt, windows=not args.linux)
     if 'Runtimes' in pipeline.client.info() and 'nvidia' in pipeline.client.info()['Runtimes']:
-        pipeline.perf_test(model=model, result=pipeline.win_path_to_linux_relative(args.result), runtime=args.nvidia, windows=not args.linux)
+        pipeline.perf_tuning(model=model, result=pipeline.win_path_to_linux_relative(args.result), runtime=args.nvidia, windows=not args.linux)
     else:
         if args.nvidia:
             print('Not support Nvidia in local machine. Need to be installed.')
         args.nvidia = False
-        pipeline.perf_test(model=model, result=args.result, runtime=args.nvidia, windows=not args.linux)
+        pipeline.perf_tuning(model=model, result=args.result, runtime=args.nvidia, windows=not args.linux)
   
 if __name__== "__main__":
     main()

@@ -147,7 +147,7 @@ class Pipeline:
         
         return output_onnx_path
 
-    def perf_test(self, model=None, result=None, config=None, mode=None, execution_provider=None,
+    def perf_tuning(self, model=None, result=None, config=None, mode=None, execution_provider=None,
         repeated_times=None, duration_times=None, threadpool_size=None, num_threads=None, top_n=None, 
         parallel=None, runtime=True, input_json=None, convert_json=False, windows=False):
         
@@ -183,10 +183,10 @@ class Pipeline:
 
 
         img_name = (docker_config.CONTAINER_NAME + 
-            docker_config.FUNC_NAME['perf_test'] + ':latest')
+            docker_config.FUNC_NAME['perf_tuning'] + ':latest')
 
 
-        parameters = self.perf_test.__code__.co_varnames[1:self.perf_test.__code__.co_argcount]
+        parameters = self.perf_tuning.__code__.co_varnames[1:self.perf_tuning.__code__.co_argcount]
         arguments = self.__params2args(locals(), parameters)
         
 
@@ -303,10 +303,8 @@ class Pipeline:
             
             self.profiling = []
             self.latency.pop("failed", None)
-            # print(self.latency)
             # Print profiling results for every execution provider
             for ep_name in self.latency.keys():
-                # print("key ", ep_name)
                 for pf in self.latency[ep_name]:
                     profiling_name = "profile_" + pf["name"] + ".json"
                     profiling_path = osp.join(result_directory, profiling_name)
@@ -314,12 +312,6 @@ class Pipeline:
                         with open(profiling_path) as json_file:
                             self.profiling.append(json.load(json_file))
             self.profiling_max = 7
-            # for i in range(self.profiling_max):
-            #     profiling_name = "profile_" + self.latency[i]["name"] + ".json"
-            #     profiling_path = osp.join(result_directory, profiling_name)
-            #     if osp.exists(profiling_path):
-            #         with open(profiling_path) as json_file:
-            #             self.profiling.append(json.load(json_file))
             self.profiling_ops = self.__filter_ops()
 
         def __filter_ops(self):
