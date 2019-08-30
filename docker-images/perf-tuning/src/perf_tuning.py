@@ -190,7 +190,6 @@ def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, fai
 
     run_perf_tuning(param)
     if not param.avg:
-        # TODO: fall back to sequential???
         failed_tests.append(param)
         return
     else:
@@ -360,7 +359,7 @@ if __name__ == "__main__":
     bin_dir = os.path.join(os.path.dirname(__file__), "bin", args.config)
     build_dirs = os.listdir(bin_dir)
 
-    allProviders = ["mklml", "cpu_openmp", "mkldnn", "mkldnn_openmp", "cpu", "tensorrt", "ngraph", "cuda"]
+    allProviders = ["mklml", "cpu_openmp", "mkldnn", "cpu", "tensorrt", "ngraph", "cuda"]
     providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else allProviders
 
     if len(GPUtil.getGPUs()) == 0:
@@ -378,7 +377,7 @@ if __name__ == "__main__":
             build_path = os.path.join(bin_dir, "all_eps")
         else:
             raise ValueError("Provider %s is not currently supported. \
-                Please choose one of cpu, cpu_openmp, mkldnn, mkldnn_openmp, mklml, cuda, tensorrt or ngraph",
+                Please choose one of cpu, cpu_openmp, mkldnn, mklml, cuda, tensorrt or ngraph",
                 build_name)
         if os.path.isdir(build_path):
             # # If current build is requested by user, run perf tuning

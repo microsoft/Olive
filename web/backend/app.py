@@ -29,7 +29,8 @@ def get_params(request, convert_output_path):
 
     temp_json = 'temp.json'
     model_name = None
-
+    if os.path.exists(temp_json):
+        os.remove(temp_json)
     request.files['metadata'].save(temp_json)
     
     with open(temp_json, 'r') as f:

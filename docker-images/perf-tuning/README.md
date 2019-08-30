@@ -2,7 +2,7 @@
 
 This image is for automating the process of performance tuning in ONNX Runtime. Given an ONNX model you'd like to optimize the performance, the image will strategically search through all combinations of available execution providers, environment variables, and run options. Finally it outputs a JSON file that summarizes the latency results for the best combinations the image has searched, and profiling files for the combinations with top performance for each execution provider.
 
-Currently the execution providers available are cpu, cpu_openmp, mkldnn, mkldnn_openmp, mklml, cuda, tensorrt, and ngraph.  
+Currently the execution providers available are cpu, cpu_openmp, mkldnn, mklml, cuda, tensorrt, and ngraph.  
 
 To use the image, you can either [pull from Azure Registry](#Pull-and-Run-the-Image-From-Azure-Registry) or [build and run locally](#Build-and-Run-the-Image-Locally) from this repo.
 
@@ -34,7 +34,7 @@ docker run [--runtime=nvidia] ziylregistry.azurecr.io/perf-tuning --input_json <
 
 `--mode`: Specifies the test mode. Value could be "duration" or "time".
 
-`--execution_provider`: Execution Provider. Available options are "cpu", "cpu_openmp", "cuda", "tensorrt", "ngraph", "mkldnn", "mkldnn_openmp", and "mklml"
+`--execution_provider`: Execution Provider. Available options are "cpu", "cpu_openmp", "cuda", "tensorrt", "ngraph", "mkldnn", and "mklml"
 
 `--repeated_times`: The repeated times if running in 'times' test mode. Default:20.
 
@@ -112,7 +112,7 @@ python3.7 build_perf_tuning.py \
 
 `--use_mklml`: Flag to build ONNX Runtime with MKLML execution provider. Required to tune performance with MKLML. 
 
-`--variants`: Optional. Specify execution providers to build. Each execution provider is separated by ",". For example, `--variants cpu,cuda`. Available options are cpu, cpu_openmp, mkldnn, mkldnn_openmp, mklml, cuda, tensorrt, and nraph. If not specified, build all. 
+`--variants`: Optional. Specify execution providers to build. Each execution provider is separated by ",". For example, `--variants cpu,cuda`. Available options are cpu, cpu_openmp, mkldnn, mklml, cuda, tensorrt, and nraph. If not specified, build all. 
 
 `--config`: Optional. ONNX Runtime build configuration. Available options are "Debug", "MinSizeRel", "Release", "RelWithDebInfo". Default is "RelWithDebInfo". 
 

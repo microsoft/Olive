@@ -5,7 +5,7 @@ Licensed under the MIT License.
 
 # OLive (ONNX Go Live) Web App
 
-This repository shows how to use ONNX pipeline by a web interface in built local server.
+This repository shows how to use ONNX pipeline by a web interface in built local server. Note: Job scheduling is not supported yet. 
 
 # Prerequisites
 - Install [Docker](https://docs.docker.com/install/).
