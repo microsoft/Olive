@@ -9,14 +9,7 @@ This repository provides quick demo and visualization of how to deploy and use O
 
 ## Prerequisites
 Install [Docker](https://docs.docker.com/install/).
-### For Windows
-```bash
-build.sh
-pip install docker
-pip install jupyter
-```
 
-### For Linux
 ```bash
 sh build.sh
 pip install docker
