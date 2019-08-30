@@ -9,9 +9,8 @@ This repository shows how to use ONNX pipeline by a web interface in built local
 
 # Prerequisites
 - Install [Docker](https://docs.docker.com/install/).
-- Python 3.6 or higher
 
-Install project dependencies by running 
+- Install project dependencies by running 
 ```bash
 sh build.sh
 ```

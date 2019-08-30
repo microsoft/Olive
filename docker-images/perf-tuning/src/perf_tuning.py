@@ -30,9 +30,9 @@ class PerfTestParams:
         
         self.env = os.environ.copy()
         if is_windows():
-            self.exe = os.path.join(build_path, "onnxruntime_perf_tuning.exe")
+            self.exe = os.path.join(build_path, "onnxruntime_perf_test.exe")
         else:
-            self.exe = os.path.join(build_path, "onnxruntime_perf_tuning")
+            self.exe = os.path.join(build_path, "onnxruntime_perf_test")
             self.env["LD_LIBRARY_PATH"] = build_path
         
         self.test_args = [self.exe] + test_args
