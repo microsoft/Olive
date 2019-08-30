@@ -18,7 +18,7 @@
                               label-for="form-model-input">
                     <b-form-input id="form-model-input"
                                     type="text"
-                                    v-model="converted_model"
+                                    v-model="perf_tuning_form.model"
                                     readonly>
                     </b-form-input>
                 </b-form-group>
@@ -290,9 +290,12 @@ export default {
         this.run_option = 0;
       }
     },
-    run_option() {
+    run_option(newVal) {
       this.model_missing = '';
       this.test_data_missing = '';
+      if (newVal == 0) {
+        this.perf_tuning_form.model = this.converted_model;
+      }
     },
   },
   methods: {
@@ -332,7 +335,6 @@ export default {
         }
       }
 
-      // TODO cache model for model visualize
       const metadata = this.perf_tuning_form;
 
       const json = JSON.stringify(metadata);
