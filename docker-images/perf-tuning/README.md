@@ -69,7 +69,7 @@ docker run [--runtime=nvidia] ziylregistry.azurecr.io/perf-tuning --input_json <
 
 ## Build and Run the Image Locally
 
-Alternatively, you can build and run perf-tuning image locally by following the steps below. 
+You can also build and run perf-tuning image based on your local ONNX Runtime locally by following the steps below. 
 
 ### 1. Build ONNX Runtime
 To use `perf-tuning` locally, you must first build `onnxruntime` using `build_perf_tuning.py` to create builds for different execution providers. If you prefer to build `perf-tuning` with docker, then you need to run `build_perf_tuning.py` on Linux.  

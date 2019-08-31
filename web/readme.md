@@ -11,6 +11,12 @@ This repository shows how to use ONNX pipeline by a web interface in built local
 - Install [Docker](https://docs.docker.com/install/).
 
 - Install project dependencies by running 
+## Windows
+```bash
+build.sh
+```
+
+## Linux
 ```bash
 sh build.sh
 ```
@@ -19,7 +25,7 @@ sh build.sh
 ### Windows
 On Windows you can run to start both frontend and backend servers
 ```
-sh start-windows.sh
+start-windows.sh
 
 ```
 

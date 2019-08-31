@@ -35,39 +35,34 @@ def get_args():
     parser.add_argument(
         "--model_inputs_names", 
         required=False,
-        help="Optional. The model's input names. Required for tensorflow frozen models and checkpoints. "
+        help="Required for tensorflow frozen models and checkpoints. The model's input names."
     )
     parser.add_argument(
         "--model_outputs_names", 
         required=False,
-        help="Optional. The model's output names. Required for tensorflow frozen models checkpoints. "
-    )
-    parser.add_argument(
-        "--model_params", 
-        required=False,
-        help="Optional. The params of the model. "
+        help="Required for tensorflow frozen models and checkpoints. The model's output names. "
     )
     parser.add_argument(
         "--model_input_shapes", 
         required=False,
         type=shape_type,
-        help="Optional. List of tuples. The input shape(s) of the model. Each dimension separated by ','. "
+        help="Required for Pytorch models. List of tuples. The input shape(s) of the model. Each dimension separated by ','."
     )
     parser.add_argument(
         "--initial_types",
         required=False,
-        help="Optional. List of tuples. Specifies the initial types for onnxmltools. "
+        help="Optional. List of tuples. Specifies the initial types for scikit-learn, keras and coreml. "
     )
     parser.add_argument(
         "--target_opset", 
         required=False,
         default="10",
-        help="Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3."
+        help="Optional. The opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3. Latest Opset is Opset 10."
     )
     parser.add_argument(
         "--caffe_model_prototxt", 
         required=False,
-        help="Optional. prototxt file for caffe models. "
+        help="Required for Caffe models. prototxt file for caffe models. "
     )
     args = parser.parse_args()
     return args
@@ -89,7 +84,6 @@ class ConverterParamsFromJson():
         self.output_onnx_path = loaded_json["output_onnx_path"]
         self.model_inputs_names = loaded_json["model_inputs_names"] if loaded_json.get("model_inputs_names") else None
         self.model_outputs_names = loaded_json["model_outputs_names"] if loaded_json.get("model_outputs_names") else None
-        self.model_params = loaded_json["model_params"] if loaded_json.get("model_params") else None
         self.model_input_shapes = shape_type(loaded_json["model_input_shapes"]) if loaded_json.get("model_input_shapes") else None
         self.initial_types = eval(loaded_json["initial_types"]) if loaded_json.get("initial_types") else None
         self.target_opset = loaded_json["target_opset"] if loaded_json.get("target_opset") else "10"
@@ -163,59 +157,6 @@ def keras2onnx(args):
     # Save as protobuf
     onnxmltools.utils.save_model(onnx_model, args.output_onnx_path)
 
-def libsvm2onnx(args):
-    from svmutil import svm_load_model
-    import pickle
-    if get_extension(args.model) == "pkl":
-        with open(args.model, "rb") as f:
-            model = pickle.loads(f)
-    else:
-        model = args.model
-    # Load your LibSVM model
-    libsvm_model = svm_load_model(model)
-    # Convert the LibSVM model into ONNX
-    onnx_model = onnxmltools.convert.convert_libsvm(libsvm_model, 
-        initial_types = args.initial_types, 
-        target_opset=int(args.target_opset))
-    # Save as protobuf
-    onnxmltools.utils.save_model(onnx_model, args.output_onnx_path)
-
-def lightgbm2onnx(args):
-    import lightgbm as lgb
-    from onnxmltools.convert.common.data_types import FloatTensorType
-    # Check for required arguments
-    if not args.initial_types:
-        raise ValueError("Please provide --initial_types to convert scikit learn models.")
-    import pickle
-    if get_extension(args.model) == "pkl":
-        with open(args.model, "rb") as f:
-            lgb_model = pickle.load(f)
-    else:
-        # Load your LightGBM model
-        lgb_model = lgb.Booster(model_file=args.model)
-
-    # Convert the LightGBM model into ONNX
-    onnx_model = onnxmltools.convert_lightgbm(lgb_model, 
-        initial_types = args.initial_types,
-        target_opset=int(args.target_opset))
-
-    # Save as protobuf
-    onnxmltools.utils.save_model(onnx_model, args.output_onnx_path)
-
-def mxnet2onnx(args):
-    import mxnet as mx
-    import numpy as np
-    from mxnet.contrib import onnx as onnx_mxnet
-    # MXNet model format check 
-    if get_extension(args.model) != 'json':
-        raise ValueError("Please provide a valid .json model file for MXNet model conversion. ")
-    if args.model_params == None:
-        raise ValueError("Please provide a valid model params file for MXNet model conversion. ")
-    if args.model_input_shapes == None:
-        raise ValueError("Please provide a list of valid model input shapes for MXNet model conversion. ")
-    # Convert your MXNet model into ONNX and save as protobuf
-    onnx_mxnet.export_model(args.model, args.model_params, args.model_input_shapes, np.float32, args.output_onnx_path)
-
 def pytorch2onnx(args):
     # PyTorch exports to ONNX without the need for an external converter
     import torch
@@ -285,25 +226,6 @@ def tf2onnx(args):
             "--fold_const",
             "--target", "rs6"])
 
-def xgboost2onnx(args):
-    import xgboost as xgb
-    # Check for required arguments
-    if not args.initial_types:
-        raise ValueError("Please provide --initial_types to convert scikit learn models.")
-    import pickle
-    if get_extension(args.model) == "pkl":
-        with open(args.model, "rb") as f:
-            xgb_model = pickle.load(f)
-    else:
-        # Load your XGBoost model
-        xgb_model = xgb.Booster(model_file=args.model)
-    # Convert the XGBoost model into ONNX
-    onnx_model = onnxmltools.convert.convert_xgboost(xgb_model, 
-        initial_types = args.initial_types, 
-        target_opset=int(args.target_opset))
-    # Save as protobuf
-    onnxmltools.utils.save_model(onnx_model, args.output_onnx_path)
-
 suffix_format_map = {
     "h5": "keras",
     "keras": "keras",
@@ -315,13 +237,9 @@ converters = {
     "cntk": cntk2onnx,
     "coreml": coreml2onnx,
     "keras": keras2onnx,
-    "libsvm": libsvm2onnx,
-    "lightgbm": lightgbm2onnx,
-    "mxnet": mxnet2onnx,    
     "scikit-learn": sklearn2onnx,
     "pytorch": pytorch2onnx,
-    "tensorflow": tf2onnx,
-    "xgboost": xgboost2onnx
+    "tensorflow": tf2onnx
 }
 
 output_template = {

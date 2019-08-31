@@ -30,25 +30,30 @@ python cmd_pipeline.py --model [model_path] --model_type [model_type] --result [
 
 3. --result: Optional. The directory path for results.
 
-4. --nvidia: Optional. Use this boolean flag to enable GPU if you have one.
+4. --target_opset: Latest Opset is recommanded. Refer to [ONNX Opset](https://github.com/microsoft/onnxruntime/blob/master/docs/Versioning.md#version-matrix) for the latest Opset. 
 
-5. --model_inputs_names: Optional. The model's input names. Required for tensorflow frozen models and checkpoints. 
+5. --nvidia: Optional. Use this boolean flag to enable GPU if you have one.
 
-6. --model_outputs_names: Optional. The model's output names. Required for tensorflow frozen models checkpoints.
+6. --model_inputs_names: Required for tensorflow frozen models and checkpoints. The model's input names.  
 
-7. --model_params: Optional. The params of the model.
+7. --model_outputs_names: Required for tensorflow frozen models and checkpoints. The model's output names. 
 
-8. --model_input_shapes: Optional. List of tuples. The input shape(s) of the model. Each dimension separated by ','. 
+8. --model_input_shapes: Required for Pytorch models. List of tuples. The input shape(s) of the model. Each dimension separated by ','.  
 
-9. --target_opset: Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3.
+9. --initial_types: Required for scikit-learn. List of tuples.
 
-10. --initial_types: Optional. List of tuples. Specifies the initial types for onnxmltools.
+10. --caffe_model_prototxt: Required for Caffe models. Prototxt files for caffe models. 
 
-11. --caffe_model_prototxt: Optional. prototxt file for caffe models. 
+11. --input_json: A JSON file that contains all neccessary run specs. For example:
+```
+{
+    "model": "/mnist/",
+    "model_type": "tensorflow",
+    "output_onnx_path": "mnist.onnx"
+}
+```
 
-12. --input_json: Optional. Provide a JSON file with arguments.
-
-Details of other parameters can be referenced here [onnx-pipeline.ipynb](https://github.com/liuziyue/onnx-pipeline/blob/master/notebook/onnx-pipeline.ipynb)
+Details of other parameters can be referenced "Convert model to ONNX section" in [onnx-pipeline.ipynb](../notebook/onnx-pipeline.ipynb)
 
 For example:
 ```bash
