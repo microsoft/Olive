@@ -1,4 +1,4 @@
-export const convertForm = {
+export const convert_form = {
   target_opset: '10',
   model_type: 'tensorflow',
   model_inputs_names: '',
@@ -10,7 +10,7 @@ export const convertForm = {
   model_params: '',
   model: null,
 };
-export const perf_testForm = {
+export const perf_tuning_form = {
   model: '',
   config: 'RelWithDebInfo',
   mode: 'times',

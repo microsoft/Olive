@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 import uuid, sys, json
 import os
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../notebook'))
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../utils'))
 import onnxpipeline
 from werkzeug.utils import secure_filename
 import netron
@@ -29,7 +29,8 @@ def get_params(request, convert_output_path):
 
     temp_json = 'temp.json'
     model_name = None
-
+    if os.path.exists(temp_json):
+        os.remove(temp_json)
     request.files['metadata'].save(temp_json)
     
     with open(temp_json, 'r') as f:
@@ -52,9 +53,7 @@ def get_params(request, convert_output_path):
         test_data_dir = os.path.join(convert_output_path, 'test_data_set_0')
         if not os.path.exists(test_data_dir):
             os.mkdir(test_data_dir)
-        print("test dir ", test_data_dir)
         for td in request.files.getlist('test_data[]'):
-            print("getting test data ", td)
             td.save(os.path.join(test_data_dir, td.filename))
     if 'savedModel[]' in request.files:
         # Upload test data
@@ -108,7 +107,7 @@ def convert():
         pass
 
     target_dir = app_config.DOWNLOAD_DIR
-    input_root = os.path.join(app_config.STATIC_DIR, target_dir)
+    input_root = os.path.join(app.root_path, app_config.STATIC_DIR, target_dir)
     # compress input directory
     compress_path = os.path.join(pipeline.convert_directory, app_config.INPUT_DIR)
     input_path = os.path.join(input_root)
@@ -133,8 +132,8 @@ def convert():
 
     return jsonify(response_object)
 
-@app.route('/perf_test', methods=['POST'])
-def perf_test():
+@app.route('/perf_tuning', methods=['POST'])
+def perf_tuning():
 
     response_object = {'status': 'success'}
 
@@ -144,7 +143,7 @@ def perf_test():
     else:
         _, temp_json = get_params(request, './test')
 
-    result = pipeline.perf_test(input_json=temp_json)
+    result = pipeline.perf_tuning(input_json=temp_json)
 
     response_object['logs'] = pipeline.output
     try:

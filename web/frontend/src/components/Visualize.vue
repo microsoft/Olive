@@ -15,7 +15,7 @@
                                 drop-placeholder="Drop model here...">
                 </b-form-file>
                 </b-form-group>
-                <b-button type="submit" variant="primary">Submit</b-button>
+                <b-button type="submit" :disabled="model_running" variant="primary">Submit</b-button>
             </b-form>
         </div>
         <hr/>
@@ -35,11 +35,13 @@ export default {
       visualize_model: null,
       show_visualization: false,
       host: `${window.location.protocol}//${window.location.host.split(':')[0]}`,
+      model_running: false,
     };
   },
   methods: {
     visualize(evt) {
       evt.preventDefault();
+      this.model_running = true;
       const path = `${this.host}:5000/visualize`;
       const data = new FormData();
       data.append('file', this.visualize_model);
@@ -47,10 +49,12 @@ export default {
         .then((res) => {
           if (res.data.status === 'success') {
             this.show_visualization = true;
+            this.model_running = false;
           }
         })
         .catch((error) => {
           // eslint-disable-next-line
+          this.model_running = false;
             console.log(error);
         });
     },

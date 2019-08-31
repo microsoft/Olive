@@ -1,5 +1,5 @@
 import sys
-sys.path.append('../')
+sys.path.append('../../utils')
 import unittest
 import onnxpipeline
 import config
@@ -57,8 +57,8 @@ class pipeline_test(unittest.TestCase):
         self.assertEquals(expected_status[1], correctness_verified)
 
     """
-    def get_perf_test(self, pipeline, model):
-        result = pipeline.perf_test(model=model, result="output.txt")
+    def get_perf_tuning(self, pipeline, model):
+        result = pipeline.perf_tuning(model=model, result="output.txt")
         return result
     """
     def test_convert_from_onnx(self):
@@ -83,7 +83,7 @@ class pipeline_test(unittest.TestCase):
         model = test_convert_pass()
         output_json = osp.join(pipeline.path, pipeline.convert_directory, config.OUTPUT_JSON)
         self.check_json_staus(['SUCCESS', 'SUCCESS'], self.check_converted_json(output_json))
-        #result = self.test_perf_test(pipeline, model)
+        #result = self.test_perf_tuning(pipeline, model)
 
     def test_pytorch_fail(self):
         directory_name = self.deep_dir['pytorch']
