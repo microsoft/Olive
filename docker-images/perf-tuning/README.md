@@ -4,11 +4,11 @@ This image is for automating the process of performance tuning in ONNX Runtime. 
 
 Currently the execution providers available are cpu, cpu_openmp, mkldnn, mklml, cuda, tensorrt, and ngraph.  
 
-To use the image, you can either [pull from Azure Registry](#Pull-and-Run-the-Image-From-Azure-Registry) or [build and run locally](#Build-and-Run-the-Image-Locally) from this repo.
+To use the image, you can either [pull from Microsoft Container Registry](#Pull-and-Run-the-Image-From-Microsoft-Container-Registry) or [build and run locally](#Build-and-Run-the-Image-Locally) from this repo.
 
-## Pull and Run the Image From Azure Registry
+## Pull and Run the Image From Microsoft Container Registry
 
-A pre-built version of the image is available at Azure Registry. Once you have docker installed, you can easily pull and run the image on Linux as well as on Windows. 
+A pre-built version of the image is available at Microsoft Container Registry. Once you have docker installed, you can easily pull and run the image on Linux as well as on Windows. 
 
 With the correct credentials, you can pull the image directly using 
 ```

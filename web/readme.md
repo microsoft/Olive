@@ -26,7 +26,6 @@ sh build.sh
 On Windows you can run to start both frontend and backend servers
 ```
 start-windows.sh
-
 ```
 
 ### Linux
