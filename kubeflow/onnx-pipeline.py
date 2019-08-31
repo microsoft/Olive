@@ -17,7 +17,7 @@ class onnxConverterOp(dsl.ContainerOp):
 
     super(onnxConverterOp, self).__init__(
       name=name,
-      image='ziylregistry.azurecr.io/onnx-converter:latest',
+      image='mcr.microsoft.com/onnxruntime/onnx-converter:latest',
       arguments=[
         '--model', str(PurePosixPath('/mnt', model)),
         '--output_onnx_path', str(PurePosixPath('/mnt', output_onnx_path)),
@@ -39,7 +39,7 @@ class perfTestOp(dsl.ContainerOp):
 
     super(perfTestOp, self).__init__(
       name=name,
-      image='ziylregistry.azurecr.io/perf-tuning:latest',
+      image='mcr.microsoft.com/onnxruntime/perf-tuning:latest',
       arguments=[
         "--model", model, 
         "--result", str(PurePosixPath('/mnt', output_perf_result_path)),

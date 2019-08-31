@@ -12,16 +12,16 @@ A pre-built version of the image is available at Azure Registry. Once you have d
 
 With the correct credentials, you can pull the image directly using 
 ```
-docker pull ziylregistry.azurecr.io/perf-tuning
+docker pull mcr.microsoft.com/onnxruntime/perf-tuning
 ```
 
 Upon success, run Docker perf-tuning image by
 ```
-docker run [--runtime=nvidia] ziylregistry.azurecr.io/perf-tuning --model <path_to_onnx_model> --result <path_to_result_dir> [other optional args]
+docker run [--runtime=nvidia] mcr.microsoft.com/onnxruntime/perf-tuning --model <path_to_onnx_model> --result <path_to_result_dir> [other optional args]
 ```
 or 
 ```
-docker run [--runtime=nvidia] ziylregistry.azurecr.io/perf-tuning --input_json <input_json_file>
+docker run [--runtime=nvidia] mcr.microsoft.com/onnxruntime/perf-tuning --input_json <input_json_file>
 ```
 
 ### perf-tuning Image Arguments

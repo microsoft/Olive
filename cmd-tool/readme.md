@@ -32,7 +32,7 @@ python cmd_pipeline.py --model [model_path] --model_type [model_type] --result [
 
 4. --target_opset: Latest Opset is recommanded. Refer to [ONNX Opset](https://github.com/microsoft/onnxruntime/blob/master/docs/Versioning.md#version-matrix) for the latest Opset. 
 
-5. --nvidia: Optional. Use this boolean flag to enable GPU if you have one.
+5. --gpu: Optional. Use this boolean flag to enable GPU if you have one.
 
 6. --model_inputs_names: Required for tensorflow frozen models and checkpoints. The model's input names.  
 

@@ -18,12 +18,12 @@ A pre-built version of the image is available at Azure Registry. Once you have d
 
 With the correct credentials, you can pull the image directly using 
 ```
-docker pull ziylregistry.azurecr.io/onnx-converter
+docker pull mcr.microsoft.com/onnxruntime/onnx-converter
 ```
 
 Upon success, run Docker onnx-converter image by
 ```
-docker run ziylregistry.azurecr.io/onnx-converter --model <model_path> --output_onnx_path <output_path_to_.onnx> --model_type <input_model_framework_name> [optional args]
+docker run mcr.microsoft.com/onnxruntime/onnx-converter --model <model_path> --output_onnx_path <output_path_to_.onnx> --model_type <input_model_framework_name> [optional args]
 ```
 
 ### Run With Docker

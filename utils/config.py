@@ -1,6 +1,6 @@
 import os.path as osp
 
-CONTAINER_NAME = 'ziylregistry.azurecr.io/'
+CONTAINER_NAME = 'mcr.microsoft.com/onnxruntime/'
 
 CONVERTED_MODEL_NAME = 'model.onnx' # need to be under a clean directory for perf_tuning
 TEST_DIRECTORY = 'test'
