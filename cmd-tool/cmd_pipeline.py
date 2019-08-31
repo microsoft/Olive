@@ -30,11 +30,6 @@ def get_args():
         help="Optional. The model's output names. Required for tensorflow frozen models checkpoints. "
     )
     parser.add_argument(
-        "--model_params", 
-        required=False,
-        help="Optional. The params of the model. "
-    )
-    parser.add_argument(
         "--model_input_shapes", 
         required=False,
         type=str,
@@ -68,7 +63,7 @@ def get_args():
     parser.add_argument("--result",
                         help="Optional. Result folder.")
 
-    parser.add_argument('--nvidia', action="store_true", default=False,
+    parser.add_argument('--gpu', action="store_true", default=False,
                         help="Optional. Add it to enable GPU. ")
 
     parser.add_argument('--linux', action="store_true", default=False,
@@ -84,15 +79,15 @@ def main():
     pipeline = onnxpipeline.Pipeline()
     model=pipeline.convert_model(model_type=args.model_type, model=pipeline.win_path_to_linux_relative(args.model), model_input_shapes=args.model_input_shapes,
         model_inputs_names=args.model_inputs_names, model_outputs_names=args.model_outputs_names,
-        model_params=args.model_params, target_opset=args.target_opset, input_json=args.input_json,
+        target_opset=args.target_opset, input_json=args.input_json,
         initial_types=args.initial_types, caffe_model_prototxt=args.caffe_model_prototxt, windows=not args.linux)
     if 'Runtimes' in pipeline.client.info() and 'nvidia' in pipeline.client.info()['Runtimes']:
-        pipeline.perf_tuning(model=model, result=pipeline.win_path_to_linux_relative(args.result), runtime=args.nvidia, windows=not args.linux)
+        pipeline.perf_tuning(model=model, result=pipeline.win_path_to_linux_relative(args.result), runtime=args.gpu, windows=not args.linux)
     else:
-        if args.nvidia:
+        if args.gpu:
             print('Not support Nvidia in local machine. Need to be installed.')
-        args.nvidia = False
-        pipeline.perf_tuning(model=model, result=args.result, runtime=args.nvidia, windows=not args.linux)
+        args.gpu = False
+        pipeline.perf_tuning(model=model, result=args.result, runtime=args.gpu, windows=not args.linux)
   
 if __name__== "__main__":
     main()
