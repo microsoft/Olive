@@ -61,16 +61,16 @@ For detailed description of all available parameters, refer to the following.
 
 `--model_type`: Required or specified in input json. The name of original model framework. Available types are cntk, coreml, keras, scikit-learn, tensorflow and pytorch.
 
-`--model_inputs_names`: Optional. The model's input names. Required for tensorflow frozen models and checkpoints.
+`--target_opset`: Optional. The opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3. Latest Opset is recommanded. Refer to [ONNX Opset](https://github.com/microsoft/onnxruntime/blob/master/docs/Versioning.md#version-matrix) for the latest Opset. 
 
-`--model_outputs_names`: Optional. The model's output names. Required for tensorflow frozen models checkpoints.
+`--model_inputs_names`: Required for tensorflow frozen models and checkpoints. The model's input names. 
 
-`--model_params`: Optional. The params of the model if needed.
+`--model_outputs_names`: Required for tensorflow frozen models and checkpoints. The model's output names. 
 
-`--model_input_shapes`: Optional. List of tuples. The input shape(s) of the model. Each dimension separated by ','.
+`--model_input_shapes`: Required for PyTorch models. List of tuples. The input shape(s) of the model. Each dimension separated by ','.
 
-`--initial_types`: Optional. List of tuples. The initial types of model for onnxmltools
+`--initial_types`: Required for scikit-learn. List of tuples.
 
-`--caffe_model_prototxt`: Optional. The path of the .prototxt file for caffe model.
+`--caffe_model_prototxt`: Required for Caffe models. The path of the .prototxt file for caffe model.
  
-`--target_opset`: Optional. Specifies the opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3. Defaults to 10. 
+
