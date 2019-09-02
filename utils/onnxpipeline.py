@@ -15,7 +15,18 @@ class Pipeline:
     def __init__(self, local_directory=None, mount_path=docker_config.MOUNT_PATH, print_logs=True, 
         convert_directory=docker_config.TEST_DIRECTORY, convert_name=docker_config.CONVERTED_MODEL_NAME, 
         result=docker_config.RESULT_FILENAME):
-        
+
+        """
+        Args:
+            local_directory (str): The path of local directory where would be mounted to the docker. 
+                All operations will be executed from this path.
+            mount_path (:obj:`str`, optional): Optional. The path where the local_directory will be 
+                mounted in the docker. Default is "/mnt/model".
+            print_logs (:obj:`boolean`, optional): Whether print the logs from the docker. Default is True.
+            convert_directory (:obj:`str`, optional): The directory path for converting model. Default is test/.  
+            convert_name (:obj:`str`, optional): The model name for converting model. Default is model.onnx.
+        """
+
         if local_directory is not None and not os.path.isdir(local_directory):
             raise RuntimeError('local_directory needs to be a directory for volume.')
         elif local_directory is None:
@@ -32,20 +43,37 @@ class Pipeline:
         self.convert_name = convert_name
         self.convert_path = posixpath.join(self.convert_directory, 
                             self.convert_name)
-        self.none_params = {'convert_json', 'runtime', 'windows'} 
-                            # no need to write into json
+        self.none_params = {'convert_json', 'runtime', 'windows'}
+                            # parameters of fuction which no need to write into json
         self.output = ""
     
     def __join_with_mount(self, path):
+        """Add mounted path into local path
+
+        Args:
+            path (str): The original local path
+
+        Returns:
+            str: the file path after adding mounted path in the beginning
+        """
+
         if path[:len(self.mount_path)] == self.mount_path: return path
         if path: path = self.win_path_to_linux_relative(osp.relpath(path))
         return posixpath.join(self.mount_path, path)
 
     def __params2args(self, argu_dict, params):
+        """Convert function parameters into string of arguments for input JSON
+
+        Args:
+            argu_dict (dict): the dictionary of key and value for function parameters
+            params (set): the paramater names of certain function 
+        Returns:
+            str: converted string for function parameters
+        """
         arguments = ""
         for p in params:
             if argu_dict[p] is not None:
-                if p not in self.none_params:
+                if p not in self.none_params: # no need to convert
                     arguments += docker_config.arg(p, argu_dict[p])
         return arguments
 
@@ -53,11 +81,14 @@ class Pipeline:
         model="", model_params=None, model_input_shapes=None, target_opset=None, 
         caffe_model_prototxt=None, initial_types=None, model_inputs_names=None, model_outputs_names=None,
         input_json=None, convert_json=False, windows=False):
+        """Parameters usage could reference: 
+        https://github.com/microsoft/OLive/blob/master/notebook/onnx-pipeline.ipynb"""
 
         # is Windows
         if os.name == 'nt':
             windows = True
-
+        
+        # add mounted path into local path and handle missing parameters with default path
         def mount_parameters(output_onnx_path, model, caffe_model_prototxt, input_json):
             # --output_onnx_path
             if output_onnx_path is None or output_onnx_path == '':
@@ -77,7 +108,7 @@ class Pipeline:
         
         if model_type is None and input_json is None:
             raise RuntimeError('The conveted model type needs to be provided.')
-
+        
         img_name = (docker_config.CONTAINER_NAME + 
             docker_config.FUNC_NAME['onnx_converter'] + ':latest')
 
@@ -112,7 +143,7 @@ class Pipeline:
         if convert_json:
             self.__convert_input_json(arguments, json_filename)
             arguments = docker_config.arg('input_json', input_json)
-        # load by JSON file
+        # load by JSON file and handle missing parameters with default path, add mounted path into original path
         elif input_json is not None:
             with open(posixpath.join(self.path, local_input_json), 'r') as f:
                 json_data = json.load(f)
@@ -137,10 +168,10 @@ class Pipeline:
                 if 'caffe_model_prototxt' in json_data:
                     json_data['caffe_model_prototxt'] = caffe_model_prototxt
 
-
+            # after parameter modification, overlap the original JSON file
             with open(posixpath.join(self.path, local_input_json), 'w') as f:
                 json.dump(json_data, f)
-
+        # run docker commands to execute
         stream = self.client.containers.run(image=img_name, 
             command=arguments, 
             volumes={self.path: {'bind': self.mount_path, 'mode': 'rw'}},
@@ -152,12 +183,15 @@ class Pipeline:
     def perf_tuning(self, model=None, result=None, config=None, mode=None, execution_provider=None,
         repeated_times=None, duration_times=None, threadpool_size=None, num_threads=None, top_n=None, 
         parallel=None, runtime=True, input_json=None, convert_json=False, windows=False):
-        
+        """Parameters usage could reference: 
+        https://github.com/microsoft/OLive/blob/master/notebook/onnx-pipeline.ipynb"""
+
         # is Windows, there is no runtime
         if os.name == 'nt':
             runtime = False
             windows = True
 
+        # add mounted path into local path and handle missing parameters with default path
         def mount_parameters(model, result, input_json):
             # --model
             if model is None:
@@ -182,8 +216,6 @@ class Pipeline:
 
         model, result, input_json = mount_parameters(model, result, input_json)
 
-
-
         img_name = (docker_config.CONTAINER_NAME + 
             docker_config.FUNC_NAME['perf_tuning'] + ':latest')
 
@@ -197,7 +229,7 @@ class Pipeline:
         if convert_json:
             self.__convert_input_json(arguments, json_filename)
             arguments = docker_config.arg('input_json', input_json)
-        # load by JSON file
+         # load by JSON file and handle missing parameters with default path, add mounted path into original path
         elif input_json is not None:
             with open(posixpath.join(self.path, local_input_json)) as f:
                 json_data = json.load(f)
@@ -225,11 +257,14 @@ class Pipeline:
 
                 if 'model' in json_data:
                     json_data['model'] = model
+            # after parameter modification, overlap the original JSON file
             with open(posixpath.join(self.path, local_input_json), 'w') as f:
                 json.dump(json_data, f)
 
+        # run nvidia if enabled
         runtime = 'nvidia' if runtime else ''
 
+        # run docker commands to execute
         stream = self.client.containers.run(image=img_name, 
             command=arguments, 
             volumes={self.path: {'bind': self.mount_path, 'mode': 'rw'}},
@@ -240,18 +275,23 @@ class Pipeline:
         return posixpath.join(self.path, self.result)
 
     def __print_docker_logs(self, stream, windows=False):
+        """Print the logs from docker while running"""
+
         logs = stream.logs(stream=True)
         self.output = ""
         for line in logs:
             if type(line) is not str:
                 line = line.decode(encoding='UTF-8')
             if windows:
+                # change nextline symbol
                 line = line.replace('\n', '\r\n')
             self.output += line
             if self.print_logs: print(line)
 
 
     def __convert_input_json(self, arguments, input_json):
+        """Optional. Convert the function parameters into JSON file"""
+
         args = arguments.split('--')
         dictionary = {}
         for argv in args:
@@ -264,6 +304,8 @@ class Pipeline:
             f.write(json_string)
         
     def print_performance(self, result=None):
+        """Print the performance from the log of pert_test """
+
         if result is None:
             result = posixpath.join(self.path, self.result)
         latency_json = posixpath.join(result, docker_config.LATENCIES_TXT)
@@ -275,11 +317,15 @@ class Pipeline:
             raise RuntimeError('Cannot find result directory.')
     
     def get_result(self, result=None):
+        """Get the result class for advanced result visualization"""
+
         if result is None:
             result = posixpath.join(self.path, self.result)
         return Pipeline.Result(result)
     
     def config(self):
+        """Print config inforamtion"""
+
         print("-----------config----------------")
         print("           Container information: {}".format(self.client))
         print(" Local directory path for volume: {}".format(self.path))
@@ -289,13 +335,16 @@ class Pipeline:
         print("        Converted model filename: {}".format(self.convert_name))
         print("            Converted model path: {}".format(self.convert_path))
         print("        Print logs in the docker: {}".format(self.print_logs))
-
+    
     def win_path_to_linux_relative(self, path):
+        """Convert windows path into linux path by the symbol and get relative path."""
         return osp.relpath(path).replace("\\", "/")
 
 
     class Result:
         def __init__(self, result_directory):
+            """Construct by the result directory generated by perf_test"""
+
             latency_json = osp.join(result_directory, docker_config.LATENCIES_JSON)
             if osp.exists(latency_json):
                 with open(latency_json) as json_file:  
@@ -303,6 +352,7 @@ class Pipeline:
             else:
                 raise RuntimeError('Cannot find result directory.')
             
+            # JSONs for each profiling
             self.profiling = []
             self.latency.pop("failed", None)
             # Print profiling results for every execution provider
@@ -313,10 +363,14 @@ class Pipeline:
                     if osp.exists(profiling_path):
                         with open(profiling_path) as json_file:
                             self.profiling.append(json.load(json_file))
+            # only top number would be considered
             self.profiling_max = 7
+            # filter useless ops
             self.profiling_ops = self.__filter_ops()
 
         def __filter_ops(self):
+            """filter useless ops from orignal profiling JSON"""
+
             profiling_ops = []
             for index in range(self.profiling_max):
                 ops = []
@@ -326,21 +380,32 @@ class Pipeline:
                             filtered_op = p
                             filtered_op['name'] = p['name'].replace('_kernel_time', '')
                             ops.append(filtered_op)
+                    # print hot ops, order by duration
                     ops.sort(key=lambda x: x['dur'], reverse=True)
                     profiling_ops.append(ops)
             return profiling_ops
 
 
         def __print_json(self, json_data, orient):
+            """visualization via pandas for JSON object"""
+
             data = json.dumps(json_data)
             return pd.read_json(data, orient=orient, precise_float=True)
             
         def __check_profiling_index(self, i):
+            """check whether the targeted index of profiling files exists"""
             if i > self.profiling_max:
                 raise ValueError('Only provide top {} profiling.'.format(self.profiling_max))
         
         def __json_to_csv(self, json_data, erase_keys):
-    
+            """Convert json into csv file to maintain the original order
+            Args:
+                json_data (json_object): the JSON object of latency
+                erase_keys (set of strings): the paramater names which are hidden while printing
+            Returns:
+                str: the name of produced csv file
+            """
+
             csv_name = 'temp.csv'
             with open(csv_name, 'w') as f:
                 writer = csv.writer(f)
@@ -358,21 +423,30 @@ class Pipeline:
             return csv_name
 
         def prints(self, top=5, orient='table'):
+            """print latency JSON by given top N"""
+
             json_data = []
             for ep_name in self.latency.keys():
                 json_data.append(self.latency[ep_name][0])
+            # keep being ordred by csv file
             csv_file = self.__json_to_csv(json_data, {'command'})
             
             return pd.read_csv(csv_file) 
         
         def print_profiling(self, index=0, top=10, orient='colums'):
+            """print profiling JSONs by index"""
+
             self.__check_profiling_index(index)
             return self.__print_json(self.profiling_ops[index][:top], orient)
 
         def print_environment(self, ep, index, orient='index'):
+            """print environment variables in code_snippet by index and environment names"""
+
             return self.__print_json([self.latency[ep][index]['code_snippet']['environment_variables']], orient)
 
         def get_code(self, ep, index=0):
+            """print codes in environment variables by index and environment names"""
+
             code = self.latency[ep][index]['code_snippet']['code']
             refined_code = code.replace('                 ', '\n').replace('                ', '\n') # 4 tabs
             return refined_code
