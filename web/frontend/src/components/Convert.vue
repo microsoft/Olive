@@ -165,8 +165,8 @@
             <b-badge variant="danger">{{convert_result['output_json']['error_message']}}</b-badge>
             </h5>
             <h5>Download</h5>
-            <a :href="host + ':5000/download/input.tar.gz'" download>[input] </a>
-            <a :href="host + ':5000/download/model.onnx'" download>[model]</a>
+            <a :href="host + ':5000/' + convert_result['input_path']" download>[input] </a>
+            <a :href="host + ':5000/' + convert_result['model_path']" download>[model]</a>
         </div>
     </div>
 </template>
@@ -254,8 +254,8 @@ export default {
             this.show_logs = true;
             this.convert_result = {
               output_json: res.data.output_json,
-              input_path: `../../static/${res.data.input_path}`,
-              model_path: `../../static/${res.data.model_path}`,
+              input_path: res.data.input_path,
+              model_path: res.data.model_path,
             };
             this.$emit('update_model', res.data.converted_model);
           }
