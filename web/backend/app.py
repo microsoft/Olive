@@ -13,6 +13,7 @@ import tarfile
 import app_config 
 from shutil import copyfile, rmtree
 from datetime import datetime
+from celery import Celery
 
 
 # app_configuration
@@ -21,12 +22,32 @@ DEBUG = True
 # instantiate the app
 app = Flask(__name__)
 app.config.from_object(__name__)
+app.config.update(
+    CELERY_BROKER_URL='redis://localhost:6379',
+    CELERY_RESULT_BACKEND='redis://localhost:6379'
+)
 
+
+def make_celery(app):
+    celery = Celery(
+        app.import_name,
+        backend=app.config['CELERY_RESULT_BACKEND'],
+        broker=app.config['CELERY_BROKER_URL']
+    )
+
+    class ContextTask(celery.Task):
+        def __call__(self, *args, **kwargs):
+            with app.app_context():
+                return self.run(*args, **kwargs)
+
+    celery.Task = ContextTask
+    return celery
+
+celery = make_celery(app)
+
+# celery.conf.update(app.config)
 # enable CORS
 CORS(app)
-
-# reserve an base folder
-# BASE_DIR = os.path.join(app.root_path, app_config.STATIC_DIR)
 
 def get_params(request, convert_output_path, mount_path):
 
@@ -120,10 +141,12 @@ def visualize():
 
     return jsonify(response_object)
 
-@app.route('/convert', methods=['POST'])
+
+
+@celery.task
 def convert():
     response_object = {'status': 'success'}
-
+    print('converting ', request)
     cur_ts = get_timestamp()
     # Initiate pipeline object with targeted directory
     pipeline = onnxpipeline.Pipeline(convert_directory=os.path.join(app_config.CONVERT_RES_DIR, cur_ts))
@@ -173,7 +196,19 @@ def convert():
     clean()
     return jsonify(response_object)
 
+@app.route('/convert', methods=['POST'])
+def send_convert_job():
+    print('send_convert_job')
+    c = convert.delay()
+    print(c)
+    return 'ok'
+    
 @app.route('/perf_tuning', methods=['POST'])
+def send_perf_job():
+    perf_tuning.delay()
+    return 'ok'
+
+@celery.task()
 def perf_tuning():
 
     response_object = {'status': 'success'}
