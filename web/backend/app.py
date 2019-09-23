@@ -13,10 +13,7 @@ import tarfile
 import app_config 
 from shutil import copyfile, rmtree
 from datetime import datetime
-from rq import Queue
-from rq.job import Job
-from worker import conn
-import rq_dashboard
+from celery import Celery
 
 # app_configuration
 DEBUG = True
@@ -24,12 +21,15 @@ DEBUG = True
 # instantiate the app
 app = Flask(__name__)
 app.config.from_object(__name__)
-app.config.from_object(rq_dashboard.default_settings)
-app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
+app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
+app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
+
+celery = Celery(app.name, 
+    broker=app.config['CELERY_BROKER_URL'],
+    backend=app.config['CELERY_RESULT_BACKEND'])
 
 # enable CORS
 CORS(app)
-q = Queue(connection=conn)
 
 def get_params(request, convert_output_path, mount_path):
 
@@ -123,19 +123,12 @@ def visualize():
 
     return jsonify(response_object)
 
-def convert():
+@celery.task
+def convert(model_name, temp_json, cur_ts):
+    print('converting ')
     response_object = {'status': 'success'}
-    print('converting ', request)
-    cur_ts = get_timestamp()
     # Initiate pipeline object with targeted directory
     pipeline = onnxpipeline.Pipeline(convert_directory=os.path.join(app_config.CONVERT_RES_DIR, cur_ts))
-    # may not work in Unix OS cuz the permission
-    if os.path.exists(pipeline.convert_directory):
-        rmtree(pipeline.convert_directory)
-    os.makedirs(pipeline.convert_directory)
-        
-    model_name, temp_json = get_params(request, pipeline.convert_directory, pipeline.mount_path)
-
     model = pipeline.convert_model(model=model_name, input_json=temp_json)
     try:
         with open(posixpath.join(pipeline.convert_directory, 'output.json')) as f:
@@ -178,16 +171,26 @@ def convert():
 @app.route('/convert', methods=['POST'])
 def send_convert_job():
     print('send_convert_job')
-    job = q.enqueue_call(func=convert, result_ttl=5000)
-    print(job.get_id())
+    cur_ts = get_timestamp()
+    convert_directory = os.path.join(app_config.CONVERT_RES_DIR, cur_ts)
+    
+    # may not work in Unix OS cuz the permission
+    if os.path.exists(convert_directory):
+        rmtree(convert_directory)
+    os.makedirs(convert_directory)
+        
+    model_name, temp_json = get_params(request, convert_directory, "mnt/model")
+    job = convert.delay(model_name, temp_json, cur_ts)
+    print(job)
     return 'ok'
     
 @app.route('/perf_tuning', methods=['POST'])
 def send_perf_job():
-    job = q.enqueue_call(func=perf_tuning, result_ttl=5000)
-    print(job.get_id())
+    job = convert.delay()
+    print(job)
     return 'ok'
 
+@celery.task
 def perf_tuning():
 
     response_object = {'status': 'success'}
