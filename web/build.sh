@@ -6,6 +6,6 @@ cd frontend
 npm install
 cd ..
 # install python packages
-pip install flask flask-cors pandas docker netron celery[redis]
+pip install flask flask-cors pandas docker netron redis rq rq_dashboard
 # pull docker images
 sh ../utils/build.sh

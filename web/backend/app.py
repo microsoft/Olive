@@ -13,8 +13,10 @@ import tarfile
 import app_config 
 from shutil import copyfile, rmtree
 from datetime import datetime
-from celery import Celery
-
+from rq import Queue
+from rq.job import Job
+from worker import conn
+import rq_dashboard
 
 # app_configuration
 DEBUG = True
@@ -22,32 +24,12 @@ DEBUG = True
 # instantiate the app
 app = Flask(__name__)
 app.config.from_object(__name__)
-app.config.update(
-    CELERY_BROKER_URL='redis://localhost:6379',
-    CELERY_RESULT_BACKEND='redis://localhost:6379'
-)
+app.config.from_object(rq_dashboard.default_settings)
+app.register_blueprint(rq_dashboard.blueprint, url_prefix="/rq")
 
-
-def make_celery(app):
-    celery = Celery(
-        app.import_name,
-        backend=app.config['CELERY_RESULT_BACKEND'],
-        broker=app.config['CELERY_BROKER_URL']
-    )
-
-    class ContextTask(celery.Task):
-        def __call__(self, *args, **kwargs):
-            with app.app_context():
-                return self.run(*args, **kwargs)
-
-    celery.Task = ContextTask
-    return celery
-
-celery = make_celery(app)
-
-# celery.conf.update(app.config)
 # enable CORS
 CORS(app)
+q = Queue(connection=conn)
 
 def get_params(request, convert_output_path, mount_path):
 
@@ -141,9 +123,6 @@ def visualize():
 
     return jsonify(response_object)
 
-
-
-@celery.task
 def convert():
     response_object = {'status': 'success'}
     print('converting ', request)
@@ -199,16 +178,16 @@ def convert():
 @app.route('/convert', methods=['POST'])
 def send_convert_job():
     print('send_convert_job')
-    c = convert.delay()
-    print(c)
+    job = q.enqueue_call(func=convert, result_ttl=5000)
+    print(job.get_id())
     return 'ok'
     
 @app.route('/perf_tuning', methods=['POST'])
 def send_perf_job():
-    perf_tuning.delay()
+    job = q.enqueue_call(func=perf_tuning, result_ttl=5000)
+    print(job.get_id())
     return 'ok'
 
-@celery.task()
 def perf_tuning():
 
     response_object = {'status': 'success'}
