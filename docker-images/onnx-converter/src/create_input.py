@@ -11,7 +11,7 @@ from onnx import TensorProto
 
 # Randomly generate input tensor given its shape
 def create_tensor(name, dims, tensor_name, path, data_type=np.float32, vals=None):
-	if not vals:
+	if vals is None:
 		vals = np.random.random_sample(dims).astype(data_type)
 	tensor = numpy_helper.from_array(vals)
 	tensor.name = tensor_name

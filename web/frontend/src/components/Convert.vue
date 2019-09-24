@@ -209,6 +209,7 @@ export default {
       converted_model: '',
       host: `${window.location.protocol}//${window.location.host.split(':')[0]}`,
       model_running: false,
+      result_location: ''
     };
   },
   components: {
@@ -249,16 +250,20 @@ export default {
         .then((res) => {
           this.show_message = false;
           this.model_running = false;
-          if (res.data.status === 'success') {
-            this.message = res.data.logs;
-            this.show_logs = true;
-            this.convert_result = {
-              output_json: res.data.output_json,
-              input_path: res.data.input_path,
-              model_path: res.data.model_path,
-            };
-            this.$emit('update_model', res.data.converted_model);
-          }
+          console.log(res)
+          // if (res.data.status === 'success') {
+            // this.message = res.data.logs;
+            // this.show_logs = true;
+            // this.convert_result = {
+            //   output_json: res.data.output_json,
+            //   input_path: res.data.input_path,
+            //   model_path: res.data.model_path,
+            // };
+            // this.$emit('update_model', res.data.converted_model);
+          this.result_location = res.data.Location;
+          console.log(this.result_location);
+          this.convert_status()
+          // }
         })
         .catch((error) => {
           // eslint-disable-next-line]
@@ -266,6 +271,16 @@ export default {
           this.message = error;
           console.log(error);
         });
+    },
+
+    convert_status() {
+      axios.get(`${this.host}:5000${this.result_location}`)
+        .then((res) => {
+          console.log(res)
+        })
+        .catch((error) => {
+
+        })
     },
 
     close_all() {
