@@ -2,7 +2,9 @@
 // Licensed under the MIT License.
 <template>
   <div style="white-space: pre-line;">
-    <b-alert variant="success" show>{{ message }}</b-alert>
+    <b-alert variant="success" show>{{ message }}
+      <a :href=link class="alert-link"> {{link}} </a>
+    </b-alert>
     <b-progress
       v-if="loading"
       :value="100" variant="success" striped class="mt-2"></b-progress>
@@ -12,6 +14,6 @@
 
 <script>
 export default {
-  props: ['message', 'loading'],
+  props: ['message', 'link', 'loading'],
 };
 </script>

@@ -5,6 +5,7 @@ import Router from 'vue-router';
 import Convert from '@/components/Convert.vue';
 import Perf from '@/components/Perf.vue';
 import Visualize from '@/components/Visualize.vue';
+import JobMonitor from '@/components/JobMonitor.vue';
 
 Vue.use(Router);
 
@@ -30,6 +31,16 @@ export default new Router({
       path: '/visualize',
       name: 'Visualize',
       component: Visualize,
+    },
+    {
+      path: '/jobmonitor',
+      name: 'JobMonitor',
+      component: JobMonitor,
+    },
+    {
+      path: '/jobmonitor/:id',
+      name: 'JobMonitor',
+      component: JobMonitor,
     },
   ],
 });

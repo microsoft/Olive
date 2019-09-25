@@ -162,6 +162,12 @@
             </b-form>
         </div>
         <hr/>
+        <h5> or retrieve results for a previously submitted job</h5>
+        <b-input-group prepend="Job UUID" class="mt-3">
+          <b-form-input v-model="job_id"></b-form-input>
+          <b-button variant="outline-success" v-on:click=retrieve_result_by_id>Retrieve</b-button>
+        </b-input-group>
+        <hr/>
         <div v-if="Object.keys(result).length > 0">
         <ul class="list-group" v-for="(ep, index) in Object.keys(result)" :key="index">
             <li class="list-group-item" v-if="result[ep].length > 0">
@@ -221,7 +227,7 @@
         <div class="open_button" v-on:click="show_message = !show_message" v-if="show_logs">
             <hr/>Show logs
         </div>
-        <alert :message=message :loading=model_running v-if="show_message"></alert>
+        <alert :message=message :link=link :loading=model_running v-if="show_message"></alert>
         <br/>
         <b-modal ref="opsModal"
                 id="opsModal"
@@ -278,6 +284,9 @@ export default {
       fields: ['name', 'duration', 'op_name', 'tid'],
       code_details: '',
       model_running: false,
+      host: `${window.location.protocol}//${window.location.host.split(':')[0]}`,
+      link: '',
+      job_id: '',
     };
   },
 
@@ -348,32 +357,92 @@ export default {
       data.append('metadata', blob);
       if (this.customized_model && this.run_option == 1) {
         data.append('file', this.customized_model);
+      } else {
+        console.log(" appending ", perf_tuning_form.model)
+        data.append('prev_model_path', perf_tuning_form.model);
       }
       for (let i = 0; i < this.test_data.length; i++) {
         data.append('test_data[]', this.test_data[i]);
       }
 
-      this.show_message = true;
-      this.message = 'Running...';
-      this.model_running = true;
-      const host = `${window.location.protocol}//${window.location.host.split(':')[0]}`;
-      axios.post(`${host}:5000/perf_tuning`, data)
+      // this.show_message = true;
+      // this.message = 'Running at ';
+      // this.model_running = true;
+      axios.post(`${this.host}:5000/perf_tuning`, data)
         .then((res) => {
-          this.show_message = false;
-          this.model_running = false;
-          if (res.data.status === 'success') {
-            const { logs } = res.data;
-            this.show_logs = true;
-            this.message = logs;
-            this.result = JSON.parse(res.data.result);
-            this.profiling = res.data.profiling;
-          }
+          // this.show_message = false;
+          // this.model_running = false;
+          // if (res.data.status === 'success') {
+          //   const { logs } = res.data;
+          //   this.show_logs = true;
+          //   this.message = logs;
+          //   this.result = JSON.parse(res.data.result);
+          //   this.profiling = res.data.profiling;
+          // }
+          console.log(res);
+          this.link = `${this.host}:5555/task/${res.data.job_id}`;
+          console.log(this.link);
+          this.show_message = true;
+          this.message = 'Running job at ';
+          this.update_result(res.data.Location);
         })
         .catch((error) => {
           // eslint-disable-next-line
           this.message = error;
           this.model_running = false;
           console.log(error);
+        });
+    },
+    update_result(location) {
+      console.log('checking perf status ');
+      axios.get(`${this.host}:5000${location}`)
+        .then((res) => {
+          console.log(res);
+          if (res.data.state != 'PENDING' && res.data.state != 'PROGRESS') {
+            const { logs } = res.data;
+            this.show_logs = true;
+            this.message = logs;
+            this.result = JSON.parse(res.data.result);
+            this.profiling = res.data.profiling;
+            this.show_message = false;
+            this.link = '';
+          } else if (res.data.state == 'FAILURE') {
+            this.message = res.data;
+            this.show_logs = true;
+            this.link = '';
+          } else {
+            // rerun in 2 seconds
+            setTimeout(() => this.update_result(location), 10000);
+          }
+        })
+        .catch((error) => {
+
+        });
+    },
+    retrieve_result_by_id() {
+      axios.get(`${this.host}:5000/perfstatus/${this.job_id}`)
+        .then((res) => {
+          console.log(res);
+          if (res.data.state == 'SUCCESS') {
+            const { logs } = res.data;
+            this.show_logs = true;
+            this.message = logs;
+            this.result = JSON.parse(res.data.result);
+            this.profiling = res.data.profiling;
+            this.show_message = false;
+            this.link = '';
+          } else if (res.data.state == 'FAILURE') {
+            // TODO
+            throw error;
+          } else {
+            // rerun in 2 seconds
+            this.message = 'The job is still running, or the job id does not exist. ';
+            this.show_message = true;
+          }
+        })
+        .catch((error) => {
+            this.message = 'The job id does not exist. Please retrieve correct job id from Job Monitor tab.';
+            this.show_message = true;
         });
     },
     format_code_snippet(code) {
@@ -391,6 +460,7 @@ export default {
       }
     },
     open_profiling(ops) {
+      console.log(ops);
       this.op_info = [];
       for (let i = 0; i < ops.length; ++i) {
         this.op_info.push({

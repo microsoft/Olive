@@ -17,8 +17,13 @@
           </button>
         </router-link>
         <router-link to="/visualize">
-          <button type="button" class="btn btn-primary btn-md">
+          <button type="button" class="btn btn-primary btn-md button_right">
             Model Visualize
+          </button>
+        </router-link>
+        <router-link to="/jobmonitor">
+          <button type="button" class="btn btn-primary btn-md">
+            Job Monitor
           </button>
         </router-link>
         <hr/>
