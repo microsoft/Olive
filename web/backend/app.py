@@ -14,7 +14,6 @@ import app_config
 from shutil import copyfile, rmtree
 from datetime import datetime
 from celery import Celery
-from celery.app.control import Inspect
 
 # app_configuration
 DEBUG = True
@@ -192,7 +191,7 @@ def send_convert_job():
     os.makedirs(convert_directory)
         
     model_name, temp_json = get_params(request, convert_directory)
-    job = convert.delay(model_name, temp_json, cur_ts, app.root_path)
+    job = convert.apply_async(args=[model_name, temp_json, cur_ts, app.root_path], shadow='test')
     print(job)
     return jsonify({'Location': url_for('convert_status', task_id=job.id), 'job_id': job.id}), 202
 
@@ -299,11 +298,12 @@ def perf_status(task_id):
 
 @app.route('/gettasks')
 def get_tasks():
-    i = Inspect(app=celery)
-    
-    print(i)
-    print(i.active)
-    return {}
+    import requests, json
+    api_root = 'http://localhost:5555/api'
+    task_api = '{}/tasks'.format(api_root)
+    resp = requests.get(task_api)
+    reply = resp.json()
+    return jsonify(reply)
 
 @app.route('/download/<path:filename>', methods=['POST', 'GET'])
 def download(filename):

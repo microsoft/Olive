@@ -156,24 +156,6 @@
         </b-input-group>
         <hr/>
         <alert :message=message :link=link :loading=model_running v-if="show_message"></alert>
-        <div v-if="convert_result">
-            <h5>Conversion Status:
-            <b-badge variant="primary">
-                {{convert_result['output_json']['conversion_status']}}
-            </b-badge>
-            </h5>
-            <h5>Correctness Verified:
-            <b-badge variant="primary">
-                {{convert_result['output_json']['correctness_verified']}}
-            </b-badge>
-            </h5>
-            <h5>Error:
-            <b-badge variant="danger">{{convert_result['output_json']['error_message']}}</b-badge>
-            </h5>
-            <h5>Download</h5>
-            <a :href="host + ':5000/' + convert_result['input_path']" download>[input] </a>
-            <a :href="host + ':5000/' + convert_result['model_path']" download>[model]</a>
-        </div>
     </div>
 </template>
 
@@ -327,8 +309,8 @@ export default {
           }
         })
         .catch((error) => {
-            this.message = 'The job id does not exist. Please retrieve correct job id from Job Monitor tab.';
-            this.show_message = true;
+          this.message = 'The job id does not exist. Please retrieve correct job id from Job Monitor tab.';
+          this.show_message = true;
         });
     },
     close_all() {

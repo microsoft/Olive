@@ -22,7 +22,7 @@
           </button>
         </router-link>
         <router-link to="/jobmonitor">
-          <button type="button" class="btn btn-primary btn-md">
+          <button type="button" class="btn btn-warning btn-md">
             Job Monitor
           </button>
         </router-link>

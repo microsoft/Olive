@@ -358,7 +358,6 @@ export default {
       if (this.customized_model && this.run_option == 1) {
         data.append('file', this.customized_model);
       } else {
-        console.log(" appending ", perf_tuning_form.model)
         data.append('prev_model_path', perf_tuning_form.model);
       }
       for (let i = 0; i < this.test_data.length; i++) {
@@ -441,8 +440,8 @@ export default {
           }
         })
         .catch((error) => {
-            this.message = 'The job id does not exist. Please retrieve correct job id from Job Monitor tab.';
-            this.show_message = true;
+          this.message = 'The job id does not exist. Please retrieve correct job id from Job Monitor tab.';
+          this.show_message = true;
         });
     },
     format_code_snippet(code) {

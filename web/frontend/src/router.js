@@ -6,6 +6,8 @@ import Convert from '@/components/Convert.vue';
 import Perf from '@/components/Perf.vue';
 import Visualize from '@/components/Visualize.vue';
 import JobMonitor from '@/components/JobMonitor.vue';
+import ConvertResult from '@/components/ConvertResult.vue';
+import PerfResult from '@/components/PerfResult.vue';
 
 Vue.use(Router);
 
@@ -38,9 +40,14 @@ export default new Router({
       component: JobMonitor,
     },
     {
-      path: '/jobmonitor/:id',
-      name: 'JobMonitor',
-      component: JobMonitor,
+      path: '/convertresult/:id',
+      name: 'ConvertResult',
+      component: ConvertResult,
+    },
+    {
+      path: '/perfresult/:id',
+      name: 'PerfResult',
+      component: PerfResult,
     },
   ],
 });
