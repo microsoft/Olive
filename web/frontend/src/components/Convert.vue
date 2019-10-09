@@ -8,6 +8,11 @@
                 hide-footer>
         <b-form @submit="convert" @reset="onReset" class="w-100">
             <b-form-group id="form-model_type-group"
+                        label="Job Name:"
+                        label-for="form-model_type-input">
+              <b-form-input v-model="job_name" placeholder="app.convert"></b-form-input>
+            </b-form-group>
+            <b-form-group id="form-model_type-group"
                         label="Model type:"
                         label-for="form-model_type-input">
 
@@ -149,12 +154,6 @@
         </b-form>
         </div>
         <hr/>
-        <h5> or retrieve results for a previously submitted job</h5>
-        <b-input-group prepend="Job UUID" class="mt-3">
-          <b-form-input v-model="job_id"></b-form-input>
-          <b-button variant="outline-success" v-on:click=retrieve_result_by_id>Retrieve</b-button>
-        </b-input-group>
-        <hr/>
         <alert :message=message :link=link :loading=model_running v-if="show_message"></alert>
     </div>
 </template>
@@ -170,7 +169,6 @@ export default {
   name: 'Convert',
   data() {
     return {
-      result: {},
       convert_form,
       test_data: [],
       savedModel_vars: [],
@@ -198,6 +196,7 @@ export default {
       model_running: false,
       link: '',
       job_id: '',
+      job_name: 'app.convert',
     };
   },
   components: {
@@ -223,6 +222,7 @@ export default {
       });
 
       const data = new FormData();
+      data.append('job_name', this.job_name);
       data.append('metadata', blob);
       data.append('file', this.convert_form.model);
       for (let i = 0; i < this.test_data.length; i++) {
@@ -232,85 +232,36 @@ export default {
         data.append('savedModel[]', this.savedModel_vars[i]);
       }
 
-      // const host = `${window.location.protocol}//${window.location.host.split(':')[0]}`;
       axios.post(`${this.host}:5000/convert`, data)
         .then((res) => {
-          // this.show_message = false;
-          // this.model_running = false;
-          console.log(res);
-          this.link = `${this.host}:8000/jobmonitor/${res.data.job_id}`;
-          console.log(this.link);
+          this.link = `${this.host}:8000/convertresult/${res.data.job_id}`;
           this.show_message = true;
           this.message = 'Running job at ';
-          // if (res.data.status === 'success') {
-          // this.message = res.data.logs;
-          // this.show_logs = true;
-          // this.convert_result = {
-          //   output_json: res.data.output_json,
-          //   input_path: res.data.input_path,
-          //   model_path: res.data.model_path,
-          // };
-          // this.$emit('update_model', res.data.converted_model);
-
-          this.update_result(res.data.Location);
-          // }
+          this.update_result(res.data.job_id);
         })
         .catch((error) => {
           // eslint-disable-next-line]
           this.model_running = false;
           this.message = error;
-          console.log(error);
         });
     },
     update_result(location) {
-      console.log('checking convert status ');
-      axios.get(`${this.host}:5000${location}`)
+      axios.get(`${this.host}:5000/convertstatus/${location}`)
         .then((res) => {
-          console.log(res);
           if (res.data.state == 'SUCCESS') {
-            this.convert_result = {
-              output_json: res.data.output_json,
-              input_path: res.data.input_path,
-              model_path: res.data.model_path,
-            };
             this.$emit('update_model', res.data.converted_model);
-            this.show_message = false;
+            this.message = 'Job succeeded. Result at ';
           } else if (res.data.state == 'FAILURE') {
             // TODO
-            throw error;
+            this.message = 'Job failed. Result at ';
           } else {
             // rerun in 2 seconds
             setTimeout(() => this.update_result(location), 2000);
           }
         })
         .catch((error) => {
-
-        });
-    },
-    retrieve_result_by_id() {
-      axios.get(`${this.host}:5000/convertstatus/${this.job_id}`)
-        .then((res) => {
-          console.log(res);
-          if (res.data.state == 'SUCCESS') {
-            this.convert_result = {
-              output_json: res.data.output_json,
-              input_path: res.data.input_path,
-              model_path: res.data.model_path,
-            };
-            this.$emit('update_model', res.data.converted_model);
-            this.show_message = false;
-          } else if (res.data.state == 'FAILURE') {
-            // TODO
-            throw error;
-          } else {
-            // rerun in 2 seconds
-            this.message = 'The job is still running, or the job id does not exist. ';
-            this.show_message = true;
-          }
-        })
-        .catch((error) => {
-          this.message = 'The job id does not exist. Please retrieve correct job id from Job Monitor tab.';
-          this.show_message = true;
+          this.model_running = false;
+          this.message = error;
         });
     },
     close_all() {

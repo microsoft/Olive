@@ -77,5 +77,22 @@ th, td {
   padding: 8px;
   word-wrap: break-word;
 }
+.before_open::after{
+  content: "(-)";
+  font-weight: bold;
+}
+
+.open::after{
+  content: "(+)";
+}
+.op_table{
+  padding: 10px;
+  background: white;
+}
+.open_button{
+  cursor: pointer;
+  text-decoration: underline;
+  color: #669;
+}
 
 </style>

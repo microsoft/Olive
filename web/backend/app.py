@@ -14,6 +14,7 @@ import app_config
 from shutil import copyfile, rmtree
 from datetime import datetime
 from celery import Celery
+import requests, json
 
 # app_configuration
 DEBUG = True
@@ -83,11 +84,15 @@ def get_params(request, convert_output_path):
 
     with open(temp_json, 'w') as f:
         json.dump(json_data, f)
-    return model_name, temp_json[len(app.root_path) + 1:]
+    return model_name, temp_json[len(app.root_path) + 1:], json_data
 
 def get_timestamp():
     ts = int(datetime.now().timestamp())
     return str(ts)
+
+def get_time_from_ts(time):
+    dt = datetime.fromtimestamp(time)
+    return dt.strftime("%Y-%m-%d %H:%M:%S.%f %Z")
 
 # Get the local path from a mounted path. e.g. mnt/model/path -> path
 def get_local_mounted_path(path, mount_path):
@@ -128,12 +133,12 @@ def visualize():
     return jsonify(response_object)
 
 @celery.task(bind=True)
-def convert(self, model_name, temp_json, cur_ts, root_path):
-    print('converting ')
-    print('model_name ', model_name)
-    print('temp_json ', temp_json)
-    print('cur_ts ', cur_ts)
-    print(os.path.join(app_config.CONVERT_RES_DIR, cur_ts))
+def convert(self, model_name, temp_json, cur_ts, root_path, input_params):
+    # print('converting ')
+    # print('model_name ', model_name)
+    # print('temp_json ', temp_json)
+    # print('cur_ts ', cur_ts)
+    # print(os.path.join(app_config.CONVERT_RES_DIR, cur_ts))
     response_object = {'status': 'success'}
     # Initiate pipeline object with targeted directory
     pipeline = onnxpipeline.Pipeline(convert_directory=os.path.join(app_config.CONVERT_RES_DIR, cur_ts))
@@ -166,16 +171,15 @@ def convert(self, model_name, temp_json, cur_ts, root_path):
 
     tar.close()
 
-    print('copy converted ')
     # copy converted onnx model
     if os.path.exists(pipeline.convert_path):
         copyfile(pipeline.convert_path, os.path.join(input_root, cur_ts, pipeline.convert_name))
 
     response_object['input_path'] = posixpath.join(target_dir, cur_ts, app_config.COMPRESS_NAME)
     response_object['model_path'] = posixpath.join(target_dir, cur_ts, pipeline.convert_name)
-    print('clean ')
+
     clean(root_path)
-    print('return ')
+
     return response_object
 
 @app.route('/convert', methods=['POST'])
@@ -190,8 +194,9 @@ def send_convert_job():
         rmtree(convert_directory)
     os.makedirs(convert_directory)
         
-    model_name, temp_json = get_params(request, convert_directory)
-    job = convert.apply_async(args=[model_name, temp_json, cur_ts, app.root_path], shadow='test')
+    model_name, temp_json, input_params = get_params(request, convert_directory)
+    job_name = "convert." + request.form.get('job_name')
+    job = convert.apply_async(args=[model_name, temp_json, cur_ts, app.root_path, input_params], shadow=job_name)
     print(job)
     return jsonify({'Location': url_for('convert_status', task_id=job.id), 'job_id': job.id}), 202
 
@@ -209,7 +214,6 @@ def convert_status(task_id):
     elif task.state != 'FAILURE':
         response = {
             'state': task.state,
-            'current': task.info.get('current', 0),
             'output_json': task.info.get('output_json', ''),
             'input_path': task.info.get('input_path', ''),
             'model_path': task.info.get('model_path', ''),
@@ -230,16 +234,16 @@ def convert_status(task_id):
 def send_perf_job():
     print('send_perf_job; file ', request.files)
     if 'file' in request.files:
-        _, temp_json = get_params(request, os.path.join(app.root_path, app_config.FILE_INPUTS_DIR))
+        _, temp_json, input_params = get_params(request, os.path.join(app.root_path, app_config.FILE_INPUTS_DIR))
     else:
         # If model path is provided, add test data if neccessary to the model directory path
-        _, temp_json = get_params(request, '')
-    job = perf_tuning.delay(temp_json)
-    print(job)
+        _, temp_json, input_params = get_params(request, '')
+    job_name = "perf_tuning." + request.form.get('job_name')
+    job = perf_tuning.apply_async(args=[temp_json, input_params], shadow=job_name)
     return jsonify({'Location': url_for('perf_status', task_id=job.id), 'job_id': job.id}), 202
 
 @celery.task(bind=True)
-def perf_tuning(self, temp_json):
+def perf_tuning(self, temp_json, input_params):
 
     response_object = {'status': 'success'}
 
@@ -284,8 +288,6 @@ def perf_status(task_id):
             'status': task.info.get('status', ''),
             'logs': task.info.get('logs', ''),
         }
-        # if 'result' in task.info:
-        #     response['result'] = task.info['result']
     else:
         # something went wrong in the background job
         response = {
@@ -298,12 +300,34 @@ def perf_status(task_id):
 
 @app.route('/gettasks')
 def get_tasks():
-    import requests, json
     api_root = 'http://localhost:5555/api'
     task_api = '{}/tasks'.format(api_root)
     resp = requests.get(task_api)
     reply = resp.json()
+    for key in reply:
+        reply[key]["received"] = get_time_from_ts(reply[key]["received"])
+        reply[key]["started"] = get_time_from_ts(reply[key]["started"])
     return jsonify(reply)
+
+@app.route('/getargs/<task_id>')
+def get_task_args(task_id):
+    api_root = 'http://localhost:5555/api/task/info'
+    task_api = '{}/{}'.format(api_root, task_id)
+    resp = requests.get(task_api)
+    reply = resp.json()
+    args = reply.get('args', '')
+    args = args[args.find('{'): len(args) - 1]
+    args = args.replace('\\', '\\\\').replace('\'', '"').replace('True', '"true"').replace('False', '"false"')
+    return jsonify(json.loads(args))
+
+@app.route('/getjobname/<task_id>')
+def get_job_name(task_id):
+    api_root = 'http://localhost:5555/api/task/info'
+    task_api = '{}/{}'.format(api_root, task_id)
+    resp = requests.get(task_api)
+    reply = resp.json()
+    name = reply["name"]
+    return jsonify({"name": name})
 
 @app.route('/download/<path:filename>', methods=['POST', 'GET'])
 def download(filename):

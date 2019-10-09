@@ -1,8 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 export const convert_form = {
-  target_opset: '10',
+  model: null,
   model_type: 'tensorflow',
+  target_opset: '10',
   model_inputs_names: '',
   model_input_shapes: '',
   model_outputs_names: '',
@@ -10,7 +11,6 @@ export const convert_form = {
   initial_types: '',
   input_json: '',
   model_params: '',
-  model: null,
 };
 export const perf_tuning_form = {
   model: '',

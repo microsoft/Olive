@@ -3,7 +3,7 @@
 <template>
   <div style="white-space: pre-line;">
     <b-alert variant="success" show>{{ message }}
-      <a :href=link class="alert-link"> {{link}} </a>
+      <a :href=link class="alert-link" target="_blank"> {{link}} </a>
     </b-alert>
     <b-progress
       v-if="loading"

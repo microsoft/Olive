@@ -57,8 +57,8 @@ export default {
           }
         })
         .catch((error) => {
-          // eslint-disable-next-line
           this.model_running = false;
+          // eslint-disable-next-line
           console.log(error);
         });
     },
