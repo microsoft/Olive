@@ -250,10 +250,10 @@ export default {
         .then((res) => {
           if (res.data.state == 'SUCCESS') {
             this.$emit('update_model', res.data.converted_model);
-            this.message = 'Job succeeded. Result at ';
+            this.message = 'Job completed. See results at ';
           } else if (res.data.state == 'FAILURE') {
             // TODO
-            this.message = 'Job failed. Result at ';
+            this.message = 'Job failed. See results at ';
           } else {
             // rerun in 2 seconds
             setTimeout(() => this.update_result(location), 2000);

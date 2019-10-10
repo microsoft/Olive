@@ -299,7 +299,7 @@ export default {
     update_result(location) {
       axios.get(`${this.host}:5000/perfstatus/${location}`)
         .then((res) => {
-          if (res.data.state != 'PENDING' && res.data.state != 'PROGRESS') {
+          if (res.data.state == 'SUCCESS') {
             this.message = 'Job succeeded. Result at ';
           } else if (res.data.state == 'FAILURE') {
             this.message = 'Job completed. Result at ';

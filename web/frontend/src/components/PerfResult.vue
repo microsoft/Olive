@@ -170,7 +170,6 @@ export default {
             this.message = res.data;
             this.show_logs = true;
           } else if (res.data.state == 'STARTED') {
-            console.log('here00');
             // rerun in 2 seconds
             this.show_message = true;
             this.message = 'Job running. Auto refreshing the page in 10 seconds. ';

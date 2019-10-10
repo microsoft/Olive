@@ -135,11 +135,6 @@ def visualize():
 
 @celery.task(bind=True)
 def convert(self, model_name, temp_json, cur_ts, root_path, input_params):
-    # print('converting ')
-    # print('model_name ', model_name)
-    # print('temp_json ', temp_json)
-    # print('cur_ts ', cur_ts)
-    # print(os.path.join(app_config.CONVERT_RES_DIR, cur_ts))
     response_object = {'status': 'success'}
     # Initiate pipeline object with targeted directory
     pipeline = onnxpipeline.Pipeline(convert_directory=os.path.join(app_config.CONVERT_RES_DIR, cur_ts))
@@ -208,8 +203,6 @@ def convert_status(task_id):
         # job has not started yet
         response = {
             'state': task.state,
-            'current': 0,
-            'total': 1,
             'status': 'Pending...'
         }
     elif task.state == 'SUCCESS':
@@ -225,8 +218,6 @@ def convert_status(task_id):
         # something went wrong in the background job
         response = {
             'state': task.state,
-            'current': 1,
-            'total': 1,
             'status': str(task.info),  # this is the exception raised
         }
     return jsonify(response)
@@ -275,12 +266,9 @@ def perf_status(task_id):
     print(task.state)
     print(task.status)
     if task.state == 'PENDING' or task.state == 'STARTED':
-        print('responding')
         # job did not start yet
         response = {
             'state': task.state,
-            'current': 0,
-            'total': 1,
             'status': 'Pending...'
         }
     elif task.state != 'FAILURE':
@@ -296,8 +284,6 @@ def perf_status(task_id):
         # something went wrong in the background job
         response = {
             'state': task.state,
-            'current': 1,
-            'total': 1,
             'status': str(task.info),  # this is the exception raised
         }
     return jsonify(response)
