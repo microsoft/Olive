@@ -27,7 +27,7 @@
             <a :href="host + ':5000/' + convert_result['input_path']" download>[input] </a>
             <a :href="host + ':5000/' + convert_result['model_path']" download>[model]</a>
         </div>
-        <alert :message=message v-if="show_message"></alert>
+        <alert :message=message :link=link v-if="show_message"></alert>
     </div>
 </template>
 
@@ -47,13 +47,14 @@ export default {
       job_name: '',
       message: '',
       show_message: false,
+      link: '',
     };
   },
   components: {
     alert: Alert,
   },
   mounted() {
-    this.update_result(this.id);
+    this.update_result();
     this.get_args();
     this.get_job_name();
   },
@@ -84,8 +85,9 @@ export default {
           this.message = error.toString();
         });
     },
-    update_result(location) {
-      axios.get(`${this.host}:5000/convertstatus/${location}`)
+    update_result() {
+      this.link = '';
+      axios.get(`${this.host}:5000/convertstatus/${this.id}`)
         .then((res) => {
           if (res.data.state == 'SUCCESS') {
             this.convert_result = {
@@ -99,11 +101,16 @@ export default {
             // TODO
             this.show_message = true;
             this.message = `Job Failed. ${res.data.status}`;
+          } else if (res.data.state == 'STARTED') {
+            // rerun in 2 seconds
+            this.show_message = true;
+            this.message = 'Job running. Auto refreshing the page in 2 seconds. ';
+            setTimeout(() => this.update_result(this.id), 2000);
           } else {
             // rerun in 2 seconds
             this.show_message = true;
-            this.message = 'Job Running. Refreshing in 2 seconds.';
-            setTimeout(() => this.update_result(location), 2000);
+            this.message = 'Job is pending or the job does not exist. Try refreshing the page or browse all available jobs at ';
+            this.link = `${this.host}:8000/jobmonitor`;
           }
         })
         .catch((error) => {

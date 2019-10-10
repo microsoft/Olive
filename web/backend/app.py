@@ -24,11 +24,12 @@ app = Flask(__name__)
 app.config.from_object(__name__)
 app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
 app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
+app.config['CELERY_TRACK_STARTED'] = True
 
 celery = Celery(app.name, 
     broker=app.config['CELERY_BROKER_URL'],
     backend=app.config['CELERY_RESULT_BACKEND'])
-
+celery.conf.update(app.config)
 # enable CORS
 CORS(app)
 
@@ -203,15 +204,15 @@ def send_convert_job():
 @app.route('/convertstatus/<task_id>')
 def convert_status(task_id):
     task = convert.AsyncResult(task_id)
-    if task.state == 'PENDING':
-        # job did not start yet
+    if task.state == 'PENDING' or task.state == 'STARTED':
+        # job has not started yet
         response = {
             'state': task.state,
             'current': 0,
             'total': 1,
             'status': 'Pending...'
         }
-    elif task.state != 'FAILURE':
+    elif task.state == 'SUCCESS':
         response = {
             'state': task.state,
             'output_json': task.info.get('output_json', ''),
@@ -271,7 +272,10 @@ def perf_tuning(self, temp_json, input_params):
 @app.route('/perfstatus/<task_id>')
 def perf_status(task_id):
     task = perf_tuning.AsyncResult(task_id)
-    if task.state == 'PENDING':
+    print(task.state)
+    print(task.status)
+    if task.state == 'PENDING' or task.state == 'STARTED':
+        print('responding')
         # job did not start yet
         response = {
             'state': task.state,
@@ -316,8 +320,9 @@ def get_task_args(task_id):
     resp = requests.get(task_api)
     reply = resp.json()
     args = reply.get('args', '')
-    args = args[args.find('{'): len(args) - 1]
-    args = args.replace('\\', '\\\\').replace('\'', '"').replace('True', '"true"').replace('False', '"false"')
+    if len(args) > 0:
+        args = args[args.find('{'): len(args) - 1]
+        args = args.replace('\\', '\\\\').replace('\'', '"').replace('True', '"true"').replace('False', '"false"')
     return jsonify(json.loads(args))
 
 @app.route('/getjobname/<task_id>')
@@ -326,7 +331,7 @@ def get_job_name(task_id):
     task_api = '{}/{}'.format(api_root, task_id)
     resp = requests.get(task_api)
     reply = resp.json()
-    name = reply["name"]
+    name = reply.get('name', '')
     return jsonify({"name": name})
 
 @app.route('/download/<path:filename>', methods=['POST', 'GET'])

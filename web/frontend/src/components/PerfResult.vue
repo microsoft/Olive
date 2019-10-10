@@ -68,7 +68,7 @@
         <div class="open_button" v-on:click="show_message = !show_message" v-if="show_logs">
             <hr/>Show logs
         </div>
-        <alert :message=message v-if="show_message"></alert>
+        <alert :message=message :link=link v-if="show_message"></alert>
         <br/>
         <b-modal ref="opsModal"
                 id="opsModal"
@@ -113,15 +113,21 @@ export default {
       show_logs: false,
       show_message: false,
       job_name: '',
+      link: '',
     };
   },
   components: {
     alert: Alert,
   },
   mounted() {
-    this.update_result(this.id);
-    this.get_args();
-    this.get_job_name();
+    try {
+        this.get_args();
+        this.get_job_name();        
+        this.update_result();
+    } catch(e) {
+        this.message = e.toString();
+        this.show_message = true;
+    }
   },
   methods: {
     get_args() {
@@ -149,10 +155,11 @@ export default {
           this.message = error.toString();
         });
     },
-    update_result(location) {
-      axios.get(`${this.host}:5000/perfstatus/${location}`)
+    update_result() {
+      this.link = '';
+      axios.get(`${this.host}:5000/perfstatus/${this.id}`)
         .then((res) => {
-          if (res.data.state != 'PENDING' && res.data.state != 'PROGRESS') {
+          if (res.data.state == 'SUCCESS') {
             const { logs } = res.data;
             this.show_logs = true;
             this.message = logs;
@@ -162,11 +169,18 @@ export default {
           } else if (res.data.state == 'FAILURE') {
             this.message = res.data;
             this.show_logs = true;
+          } else if (res.data.state == 'STARTED') {
+            console.log('here00');
+            // rerun in 2 seconds
+            this.show_message = true;
+            this.message = 'Job running. Auto refreshing the page in 10 seconds. ';
+            setTimeout(() => this.update_result(this.id), 10000);
+          } else {
+            // rerun in 2 seconds
+            this.show_message = true;
+            this.link = `${this.host}:8000/jobmonitor`;
+            this.message = 'Job is pending or the job does not exist. Try refreshing the page or browse all available jobs at ';
           }
-          // else {
-          //     // rerun in 2 seconds
-          //     setTimeout(() => this.update_result(location), 10000);
-          // }
         })
         .catch((error) => {
           this.message = error.toString();
