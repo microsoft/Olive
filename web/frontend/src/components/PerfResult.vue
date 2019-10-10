@@ -127,11 +127,12 @@ export default {
     get_args() {
       axios.get(`${this.host}:5000/getargs/${this.id}`)
         .then((res) => {
-          for (const i in res.data) {
-            if (res.data[i].length > 0) {
+          const args = Object.keys(res.data);
+          for (let i = 0; i < args.length; i++) {
+            if (res.data[args[i]].length > 0) {
               this.args.push({
-                arg: i,
-                value: res.data[i],
+                arg: args[i],
+                value: res.data[args[i]],
               });
             }
           }

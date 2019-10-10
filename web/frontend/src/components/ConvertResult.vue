@@ -27,11 +27,13 @@
             <a :href="host + ':5000/' + convert_result['input_path']" download>[input] </a>
             <a :href="host + ':5000/' + convert_result['model_path']" download>[model]</a>
         </div>
+        <alert :message=message v-if="show_message"></alert>
     </div>
 </template>
 
 <script>
 import axios from 'axios';
+import Alert from './Alert.vue';
 
 export default {
   name: 'ConvertResult',
@@ -44,7 +46,11 @@ export default {
       args: [],
       job_name: '',
       message: '',
+      show_message: false,
     };
+  },
+  components: {
+    alert: Alert,
   },
   mounted() {
     this.update_result(this.id);
@@ -55,16 +61,18 @@ export default {
     get_args() {
       axios.get(`${this.host}:5000/getargs/${this.id}`)
         .then((res) => {
-          for (const i in res.data) {
-            if (res.data[i].length > 0) {
+          const args = Object.keys(res.data);
+          for (let i = 0; i < args.length; i++) {
+            if (res.data[args[i]].length > 0) {
               this.args.push({
-                arg: i,
-                value: res.data[i],
+                arg: args[i],
+                value: res.data[args[i]],
               });
             }
           }
         }).catch((error) => {
           this.message = error.toString();
+          this.show_message = true;
         });
     },
     get_job_name() {
@@ -89,14 +97,17 @@ export default {
             this.show_message = false;
           } else if (res.data.state == 'FAILURE') {
             // TODO
-            this.message = 'Job Failed. See logs for more info. ';
+            this.show_message = true;
+            this.message = `Job Failed. ${res.data.status}`;
+          } else {
+            // rerun in 2 seconds
+            this.show_message = true;
+            this.message = 'Job Running. Refreshing in 2 seconds.';
+            setTimeout(() => this.update_result(location), 2000);
           }
-          // } else {
-          //     // rerun in 2 seconds
-          //     setTimeout(() => this.update_result(location), 2000);
-          // }
         })
         .catch((error) => {
+          this.show_message = true;
           this.message = error.toString();
         });
     },
