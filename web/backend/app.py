@@ -293,32 +293,43 @@ def get_tasks():
     api_root = 'http://localhost:5555/api'
     task_api = '{}/tasks'.format(api_root)
     resp = requests.get(task_api)
-    reply = resp.json()
-    for key in reply:
-        reply[key]["received"] = get_time_from_ts(reply[key]["received"])
-        reply[key]["started"] = get_time_from_ts(reply[key]["started"])
-    return jsonify(reply)
+    try:
+        reply = resp.json()
+        for key in reply:
+            reply[key]["received"] = get_time_from_ts(reply[key]["received"])
+            reply[key]["started"] = get_time_from_ts(reply[key]["started"])
+        return jsonify(reply)
+    except:
+        pass
 
 @app.route('/getargs/<task_id>')
 def get_task_args(task_id):
     api_root = 'http://localhost:5555/api/task/info'
     task_api = '{}/{}'.format(api_root, task_id)
     resp = requests.get(task_api)
-    reply = resp.json()
-    args = reply.get('args', '')
-    if len(args) > 0:
-        args = args[args.find('{'): len(args) - 1]
-        args = args.replace('\\', '\\\\').replace('\'', '"').replace('True', '"true"').replace('False', '"false"')
-    return jsonify(json.loads(args))
-
+    try:
+        reply = resp.json()
+        args = reply.get('args', '')
+        if len(args) > 0:
+            args = args[args.find('{'): len(args) - 1]
+            args = args.replace('\\', '\\\\').replace('\'', '"').replace('True', '"true"').replace('False', '"false"')
+        return jsonify(json.loads(args))
+    except:
+        pass
+    return jsonify({'args': ''})
+    
 @app.route('/getjobname/<task_id>')
 def get_job_name(task_id):
     api_root = 'http://localhost:5555/api/task/info'
     task_api = '{}/{}'.format(api_root, task_id)
     resp = requests.get(task_api)
-    reply = resp.json()
-    name = reply.get('name', '')
-    return jsonify({"name": name})
+    try:
+        reply = resp.json()
+        name = reply.get('name', '')
+        return jsonify({"name": name})
+    except:
+        pass
+    return jsonify({'name': ''})
 
 @app.route('/download/<path:filename>', methods=['POST', 'GET'])
 def download(filename):
