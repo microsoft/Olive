@@ -187,7 +187,7 @@ export default {
     },
     format_code_snippet(code) {
       this.code_details = code.trim().replace(/\s\s+/g, '\n');
-      this.$refs['codeModal'].show();
+      this.$refs.codeModal.show();
     },
     open_details(index) {
       if (this.selected == index) {
@@ -206,7 +206,7 @@ export default {
           tid: ops[i].tid,
         });
       }
-      this.$refs['opsModal'].show();
+      this.$refs.opsModal.show();
     },
   },
 };
