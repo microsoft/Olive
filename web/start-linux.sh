@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
-docker run -d -p 6379:6379 redis
+docker run -d -p 6379:6379 -n redis redis 
 
 npm run --prefix frontend serve &>/dev/null &
 cd backend
