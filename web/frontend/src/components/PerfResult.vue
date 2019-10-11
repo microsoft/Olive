@@ -121,12 +121,12 @@ export default {
   },
   mounted() {
     try {
-        this.get_args();
-        this.get_job_name();        
-        this.update_result();
-    } catch(e) {
-        this.message = e.toString();
-        this.show_message = true;
+      this.get_args();
+      this.get_job_name();
+      this.update_result();
+    } catch (e) {
+      this.message = e.toString();
+      this.show_message = true;
     }
   },
   methods: {
@@ -165,7 +165,7 @@ export default {
             this.message = logs;
             this.result = JSON.parse(res.data.result);
             this.profiling = res.data.profiling;
-            console.log(this.profiling[0].slice(0, this.PROFILING_MAX))
+            console.log(this.profiling[0].slice(0, this.PROFILING_MAX));
             this.show_message = false;
           } else if (res.data.state == 'FAILURE') {
             this.message = res.data;
@@ -199,7 +199,6 @@ export default {
     open_profiling(ops) {
       this.op_info = [];
       for (let i = 0; i < ops.length; ++i) {
-        console.log(ops[i].name)
         this.op_info.push({
           name: ops[i].name,
           duration: ops[i].dur,
@@ -207,6 +206,7 @@ export default {
           tid: ops[i].tid,
         });
       }
+      console.log(this.op_info);
     },
   },
 };
