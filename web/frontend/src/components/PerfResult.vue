@@ -48,7 +48,8 @@
                         <div
                             v-on:click="open_profiling(profiling[index].slice(0, PROFILING_MAX))"
                             v-bind:class="{open: !(selected_profiling == index)}"
-                            class="before_open open_button" v-b-modal.opsModal>op </div>
+                            class="before_open open_button" 
+                            v-b-modal.opsModal>op </div>
                         </td>
 
                     </tr>
@@ -76,10 +77,11 @@
                 size="lg"
                 hide-footer>
             <b-container fluid>
-            <b-table class="table-responsive-lg" style="table-layout: fixed"
+            <b-table responsive="lg" style="table-layout: fixed"
                 striped hover :items="op_info" :fields="fields"></b-table>
             </b-container>
         </b-modal>
+
         <b-modal ref="codeModal"
                 id="codeModal"
                 title="Code details" style="width: 100%;"
