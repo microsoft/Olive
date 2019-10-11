@@ -40,16 +40,14 @@
                         <td>
                         <div v-on:click="format_code_snippet(result[ep][0].code_snippet.code)"
                             v-bind:class="{open: !(selected == index)}"
-                            class="before_open open_button"
-                            v-b-modal.codeModal>details </div>
+                            class="before_open open_button">details </div>
                         </td>
                         <!--profiling-->
                         <td>
                         <div
                             v-on:click="open_profiling(profiling[index].slice(0, PROFILING_MAX))"
                             v-bind:class="{open: !(selected_profiling == index)}"
-                            class="before_open open_button" 
-                            v-b-modal.opsModal>op </div>
+                            class="before_open open_button">op </div>
                         </td>
 
                     </tr>
@@ -106,7 +104,7 @@ export default {
       result: {},
       message: '',
       profiling: [],
-      op_info: {},
+      op_info: [],
       fields: ['name', 'duration', 'op_name', 'tid'],
       code_details: '',
       PROFILING_MAX: 5,
@@ -167,7 +165,6 @@ export default {
             this.message = logs;
             this.result = JSON.parse(res.data.result);
             this.profiling = res.data.profiling;
-            console.log(this.profiling[0].slice(0, this.PROFILING_MAX));
             this.show_message = false;
           } else if (res.data.state == 'FAILURE') {
             this.message = res.data;
@@ -190,6 +187,7 @@ export default {
     },
     format_code_snippet(code) {
       this.code_details = code.trim().replace(/\s\s+/g, '\n');
+      this.$refs['codeModal'].show();
     },
     open_details(index) {
       if (this.selected == index) {
@@ -208,7 +206,7 @@ export default {
           tid: ops[i].tid,
         });
       }
-      console.log(this.op_info);
+      this.$refs['opsModal'].show();
     },
   },
 };
