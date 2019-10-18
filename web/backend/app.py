@@ -43,8 +43,6 @@ def get_params(request, convert_output_path):
             get_local_mounted_path(request.form.get('prev_model_path'), app_config.MOUNT_PATH))
     if not os.path.exists(file_input_dir):
         os.makedirs(file_input_dir)
-    print(app.root_path)
-    print('file input dir ', file_input_dir)
     temp_json = os.path.join(file_input_dir, 'temp.json')
     model_name = None
     # Get input parameters from request and save them to json file
@@ -63,7 +61,6 @@ def get_params(request, convert_output_path):
     if 'test_data[]' in request.files:
         # Create folder to hold test data
         test_data_dir = os.path.join(file_input_dir, 'test_data_set_0')        
-        print('storing test data ', test_data_dir)
         if os.path.exists(test_data_dir):
             rmtree(test_data_dir)
         os.mkdir(test_data_dir)
@@ -150,7 +147,6 @@ def convert(self, model_name, temp_json, cur_ts, root_path, input_params):
         #fail to convert
         pass
 
-    print('compressing ')
     target_dir = app_config.DOWNLOAD_DIR
     input_root =  os.path.join(root_path, target_dir)
     # compress input directory
@@ -180,9 +176,7 @@ def convert(self, model_name, temp_json, cur_ts, root_path, input_params):
 
 @app.route('/convert', methods=['POST'])
 def send_convert_job():
-    print('send_convert_job')
     cur_ts = get_timestamp()
-    print(cur_ts)
     convert_directory = os.path.join(app.root_path, app_config.CONVERT_RES_DIR, cur_ts)
     
     # may not work in Unix OS cuz the permission
@@ -193,7 +187,6 @@ def send_convert_job():
     model_name, temp_json, input_params = get_params(request, convert_directory)
     job_name = "convert." + request.form.get('job_name')
     job = convert.apply_async(args=[model_name, temp_json, cur_ts, app.root_path, input_params], shadow=job_name)
-    print(job)
     return jsonify({'Location': url_for('convert_status', task_id=job.id), 'job_id': job.id}), 202
 
 @app.route('/convertstatus/<task_id>')
@@ -224,7 +217,6 @@ def convert_status(task_id):
 
 @app.route('/perf_tuning', methods=['POST'])
 def send_perf_job():
-    print('send_perf_job; file ', request.files)
     if 'file' in request.files:
         _, temp_json, input_params = get_params(request, os.path.join(app.root_path, app_config.FILE_INPUTS_DIR))
     else:
@@ -263,8 +255,6 @@ def perf_tuning(self, temp_json, input_params):
 @app.route('/perfstatus/<task_id>')
 def perf_status(task_id):
     task = perf_tuning.AsyncResult(task_id)
-    print(task.state)
-    print(task.status)
     if task.state == 'PENDING' or task.state == 'STARTED':
         # job did not start yet
         response = {
