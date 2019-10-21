@@ -8,6 +8,11 @@
                 hide-footer>
         <b-form @submit="convert" @reset="onReset" class="w-100">
             <b-form-group id="form-model_type-group"
+                        label="Job Name:"
+                        label-for="form-model_type-input">
+              <b-form-input v-model="job_name" placeholder="app.convert"></b-form-input>
+            </b-form-group>
+            <b-form-group id="form-model_type-group"
                         label="Model type:"
                         label-for="form-model_type-input">
 
@@ -149,25 +154,7 @@
         </b-form>
         </div>
         <hr/>
-        <alert :message=message :loading=model_running v-if="show_message"></alert>
-        <div v-if="convert_result">
-            <h5>Conversion Status:
-            <b-badge variant="primary">
-                {{convert_result['output_json']['conversion_status']}}
-            </b-badge>
-            </h5>
-            <h5>Correctness Verified:
-            <b-badge variant="primary">
-                {{convert_result['output_json']['correctness_verified']}}
-            </b-badge>
-            </h5>
-            <h5>Error:
-            <b-badge variant="danger">{{convert_result['output_json']['error_message']}}</b-badge>
-            </h5>
-            <h5>Download</h5>
-            <a :href="host + ':5000/download/input.tar.gz'" download>[input] </a>
-            <a :href="host + ':5000/download/model.onnx'" download>[model]</a>
-        </div>
+        <alert :message=message :link=link :loading=model_running v-if="show_message"></alert>
     </div>
 </template>
 
@@ -182,7 +169,6 @@ export default {
   name: 'Convert',
   data() {
     return {
-      result: {},
       convert_form,
       test_data: [],
       savedModel_vars: [],
@@ -206,9 +192,11 @@ export default {
       show_message: false,
       model_missing: '',
       convert_result: null,
-      converted_model: '',
       host: `${window.location.protocol}//${window.location.host.split(':')[0]}`,
       model_running: false,
+      link: '',
+      job_id: '',
+      job_name: 'app.convert',
     };
   },
   components: {
@@ -225,7 +213,7 @@ export default {
     },
     convert(evt) {
       this.close_all();
-      this.model_running = true;
+      // this.model_running = true;
       evt.preventDefault();
       const metadata = this.convert_form;
       const json = JSON.stringify(metadata);
@@ -234,6 +222,7 @@ export default {
       });
 
       const data = new FormData();
+      data.append('job_name', this.job_name);
       data.append('metadata', blob);
       data.append('file', this.convert_form.model);
       for (let i = 0; i < this.test_data.length; i++) {
@@ -242,32 +231,39 @@ export default {
       for (let i = 0; i < this.savedModel_vars.length; i++) {
         data.append('savedModel[]', this.savedModel_vars[i]);
       }
-      this.show_message = true;
-      this.message = 'Running...';
-      // const host = `${window.location.protocol}//${window.location.host.split(':')[0]}`;
+
       axios.post(`${this.host}:5000/convert`, data)
         .then((res) => {
-          this.show_message = false;
-          this.model_running = false;
-          if (res.data.status === 'success') {
-            this.message = res.data.logs;
-            this.show_logs = true;
-            this.convert_result = {
-              output_json: res.data.output_json,
-              input_path: `../../static/${res.data.input_path}`,
-              model_path: `../../static/${res.data.model_path}`,
-            };
-            this.$emit('update_model', res.data.converted_model);
-          }
+          this.link = `${this.host}:8000/convertresult/${res.data.job_id}`;
+          this.show_message = true;
+          this.message = 'Running job at ';
+          this.update_result(res.data.job_id);
         })
         .catch((error) => {
           // eslint-disable-next-line]
           this.model_running = false;
           this.message = error;
-          console.log(error);
         });
     },
-
+    update_result(location) {
+      axios.get(`${this.host}:5000/convertstatus/${location}`)
+        .then((res) => {
+          if (res.data.state == 'SUCCESS') {
+            this.$emit('update_model', res.data.converted_model);
+            this.message = 'Job completed. See results at ';
+          } else if (res.data.state == 'FAILURE') {
+            // TODO
+            this.message = 'Job failed. See results at ';
+          } else {
+            // rerun in 2 seconds
+            setTimeout(() => this.update_result(location), 2000);
+          }
+        })
+        .catch((error) => {
+          this.model_running = false;
+          this.message = error;
+        });
+    },
     close_all() {
       this.result = [];
       this.show_message = false;

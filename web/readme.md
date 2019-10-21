@@ -22,21 +22,25 @@ sh build.sh
 ```
 
 # Start the Web App
+First make sure your docker daemon is running. Then, 
+
 ### Windows
 On Windows you can run to start both frontend and backend servers
 ```
 start-windows.sh
 ```
+You can then access the web app at http://localhost:8000/ 
 
 ### Linux
-Open front-end server.
+To start, run
 ```
-npm run --prefix frontend serve
+sudo sh start-linux.sh
+```
+This will start both backend and frontend servers in the background. You then can access the web app at http://localhost:8000/
+
+To stop the servers, run
+```
+sudo sh stop-linux.sh
 ```
 
-In a separate command prompt, open back-end server.
-```
-sudo python backend/app.py
-```
 
-Then the local server has been built on http://localhost:8000/

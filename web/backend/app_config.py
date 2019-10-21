@@ -9,7 +9,10 @@ if os.name == 'nt':
 else:
     STATIC_DIR = 'static'
 
-
-INPUT_DIR = 'test_data_set_0'
+FILE_INPUTS_DIR = 'io_files/inputs'
+TEST_DATA_DIR = 'test_data_set_0'
 COMPRESS_NAME = 'input.tar.gz'
-DOWNLOAD_DIR = 'download'
+DOWNLOAD_DIR = 'static/download'
+CONVERT_RES_DIR = 'io_files/convert'
+PERF_RES_DIR = 'io_files/perf'
+MOUNT_PATH = 'mnt/model/'

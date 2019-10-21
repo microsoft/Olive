@@ -17,8 +17,13 @@
           </button>
         </router-link>
         <router-link to="/visualize">
-          <button type="button" class="btn btn-primary btn-md">
+          <button type="button" class="btn btn-primary btn-md button_right">
             Model Visualize
+          </button>
+        </router-link>
+        <router-link to="/jobmonitor">
+          <button type="button" class="btn btn-warning btn-md">
+            Job Monitor
           </button>
         </router-link>
         <hr/>
@@ -71,6 +76,23 @@ th, td {
   text-align: left;
   padding: 8px;
   word-wrap: break-word;
+}
+.before_open::after{
+  content: "(-)";
+  font-weight: bold;
+}
+
+.open::after{
+  content: "(+)";
+}
+.op_table{
+  padding: 10px;
+  background: white;
+}
+.open_button{
+  cursor: pointer;
+  text-decoration: underline;
+  color: #669;
 }
 
 </style>

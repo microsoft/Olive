@@ -14,6 +14,11 @@
               <option value=1>Run With Customized Model</option>
             </b-form-select>
             <b-form @submit="perf_tuning" @reset="onReset_perf_tuning" style="margin-top: 2%">
+              <b-form-group id="form-model_type-group"
+                        label="Job Name:"
+                        label-for="form-model_type-input">
+              <b-form-input v-model="job_name" placeholder="app.convert"></b-form-input>
+            </b-form-group>
                 <b-form-group id="form-model-group"
                               v-if="run_option == 0"
                               label="Model From Previous Step:"
@@ -162,83 +167,7 @@
             </b-form>
         </div>
         <hr/>
-        <div v-if="Object.keys(result).length > 0">
-        <ul class="list-group" v-for="(ep, index) in Object.keys(result)" :key="index">
-            <li class="list-group-item" v-if="result[ep].length > 0">
-                <h5>{{index+1}}. {{ep}} </h5>
-                <table class="table-responsive-lg" style="table-layout: fixed">
-                <thead>
-                    <tr>
-                    <th scope="col">name</th>
-                    <th scope="col">avg (ms)</th>
-                    <th scope="col">p90 (ms)</th>
-                    <th scope="col">p95 (ms)</th>
-                    <th scope="col">cpu (%)</th>
-                    <th scope="col">gpu (%)</th>
-                    <th scope="col">memory (%)</th>
-                    <!--<th>code_snippet.execution_provider</th>-->
-                    <th>code_snippet</th>
-                    <th>profiling</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>{{result[ep][0].name}}</td>
-                        <td>{{result[ep][0].avg}}</td>
-                        <td>{{result[ep][0].p90}}</td>
-                        <td>{{result[ep][0].p95}}</td>
-                        <td>{{result[ep][0].cpu_usage * 100}}%</td>
-                        <td>{{result[ep][0].gpu_usage * 100}}%</td>
-                        <td>{{result[ep][0].memory_util * 100}}%</td>
-                        <td>
-                        <div v-on:click="format_code_snippet(result[ep][0].code_snippet.code)"
-                            v-bind:class="{open: !(selected == index)}"
-                            class="before_open open_button"
-                            v-b-modal.codeModal>details </div>
-                        </td>
-                        <!--profiling-->
-                        <td>
-                        <div
-                            v-on:click="open_profiling(profiling[index].slice(0, PROFILING_MAX))"
-                            v-bind:class="{open: !(selected_profiling == index)}"
-                            class="before_open open_button" v-b-modal.opsModal>op </div>
-                        </td>
-
-                    </tr>
-                </tbody>
-                </table>
-                <details style="margin: 10px">
-                    <summary>
-                        More options with good performance
-                    </summary>
-                    <div v-for="(item, index) in result[ep]" :key="index">
-                        <p v-if="index > 0">{{item.name}}</p>
-                    </div>
-                </details>
-            </li>
-        </ul>
-        </div>
-        <div class="open_button" v-on:click="show_message = !show_message" v-if="show_logs">
-            <hr/>Show logs
-        </div>
-        <alert :message=message :loading=model_running v-if="show_message"></alert>
-        <br/>
-        <b-modal ref="opsModal"
-                id="opsModal"
-                title="Top 5 ops"
-                size="lg"
-                hide-footer>
-            <b-container fluid>
-            <b-table class="table-responsive-lg" style="table-layout: fixed"
-                striped hover :items="op_info" :fields="fields"></b-table>
-            </b-container>
-        </b-modal>
-        <b-modal ref="codeModal"
-                id="codeModal"
-                title="Code details" style="width: 100%;"
-                hide-footer>
-            <div style="white-space: pre-wrap">{{code_details}}</div>
-        </b-modal>
+        <alert :message=message :link=link :loading=model_running v-if="show_message"></alert>
     </div>
 </template>
 
@@ -254,11 +183,8 @@ export default {
   props: ['converted_model'],
   data() {
     return {
-      PROFILING_MAX: 5,
       selected: -1,
       selected_profiling: -1,
-      result: {},
-      profiling: [],
       run_option: 1,
       perf_tuning_form,
       selected_eps: [],
@@ -270,14 +196,15 @@ export default {
       },
       message: '',
       show_message: false,
-      show_logs: false,
       model_missing: '',
       test_data_missing: '',
       adv_setting: false,
-      op_info: {},
       fields: ['name', 'duration', 'op_name', 'tid'],
-      code_details: '',
       model_running: false,
+      host: `${window.location.protocol}//${window.location.host.split(':')[0]}`,
+      link: '',
+      job_id: '',
+      job_name: 'app.perf_tuning',
     };
   },
 
@@ -338,7 +265,6 @@ export default {
       }
 
       const metadata = this.perf_tuning_form;
-
       const json = JSON.stringify(metadata);
 
       const blob = new Blob([json], {
@@ -346,85 +272,55 @@ export default {
       });
       const data = new FormData();
       data.append('metadata', blob);
+      data.append('job_name', this.job_name);
       if (this.customized_model && this.run_option == 1) {
         data.append('file', this.customized_model);
+      } else {
+        data.append('prev_model_path', perf_tuning_form.model);
       }
       for (let i = 0; i < this.test_data.length; i++) {
         data.append('test_data[]', this.test_data[i]);
       }
 
-      this.show_message = true;
-      this.message = 'Running...';
-      this.model_running = true;
-      const host = `${window.location.protocol}//${window.location.host.split(':')[0]}`;
-      axios.post(`${host}:5000/perf_tuning`, data)
+      axios.post(`${this.host}:5000/perf_tuning`, data)
         .then((res) => {
-          this.show_message = false;
-          this.model_running = false;
-          if (res.data.status === 'success') {
-            const { logs } = res.data;
-            this.show_logs = true;
-            this.message = logs;
-            this.result = JSON.parse(res.data.result);
-            this.profiling = res.data.profiling;
-          }
+          this.link = `${this.host}:8000/perfresult/${res.data.job_id}`;
+          this.show_message = true;
+          this.message = 'Running job at ';
+          this.update_result(res.data.job_id);
         })
         .catch((error) => {
           // eslint-disable-next-line
-          this.message = error;
+          this.message = error.toString();
           this.model_running = false;
-          console.log(error);
         });
     },
-    format_code_snippet(code) {
-      this.code_details = code.trim().replace(/\s\s+/g, '\n');
+
+    update_result(location) {
+      axios.get(`${this.host}:5000/perfstatus/${location}`)
+        .then((res) => {
+          if (res.data.state == 'SUCCESS') {
+            this.message = 'Job succeeded. Result at ';
+          } else if (res.data.state == 'FAILURE') {
+            this.message = 'Job completed. Result at ';
+            // this.show_logs = true;
+          } else {
+            // rerun in 10 seconds
+            setTimeout(() => this.update_result(location), 10000);
+          }
+        })
+        .catch((error) => {
+          this.message = error.toString();
+        });
     },
     onReset_perf_tuning(evt) {
       evt.preventDefault();
       this.init_perf_tuning_form();
     },
-    open_details(index) {
-      if (this.selected == index) {
-        this.selected = -1;
-      } else {
-        this.selected = index;
-      }
-    },
-    open_profiling(ops) {
-      this.op_info = [];
-      for (let i = 0; i < ops.length; ++i) {
-        this.op_info.push({
-          name: ops[i].name,
-          duration: ops[i].dur,
-          op_name: ops[i].args.op_name,
-          tid: ops[i].tid,
-        });
-      }
-    },
     close_all() {
       this.result = [];
       this.show_message = false;
-      this.show_logs = false;
     },
   },
 };
 </script>
-
-<style scoped>
-.before_open::after{
-  content: "(-)";
-  font-weight: bold;
-}
-.open::after{
-  content: "(+)";
-}
-.op_table{
-  padding: 10px;
-  background: white;
-}
-.open_button{
-  cursor: pointer;
-  text-decoration: underline;
-  color: #669;
-}
-</style>

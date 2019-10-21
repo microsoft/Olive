@@ -53,7 +53,7 @@ class PerfTestParams:
         self.gpu = 0
         self.cpu = 0
         self.memory = 0
-        self.thread = 0
+        self.thread = thread
 
     def get_common_args(self):
         common_args = ["-o", self.args.optimization_level]
@@ -219,6 +219,7 @@ def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, fai
         else:
             param.env.update({"OMP_NUM_THREADS": str(mid)})
             param.test_args = test_params.test_args
+            param.thread = 0
         run_perf_tuning(param)
         if param.avg:
             successful_tests.append(param)
@@ -431,12 +432,14 @@ if __name__ == "__main__":
                         test_args,
                         env,
                         args, 
-                        build_name
+                        build_name, 
+                        best_run
                     )
                     if is_omp:
                         param.env.update({"OMP_NUM_THREADS": str(best_run)})
                     else:
                         param.test_args += ["-x", str(best_run)]
+                        param.thread = 0
                     tests.append(param)
                 else:
                     # Tune environment variables and thread pool size using sequential executor

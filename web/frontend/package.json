@@ -11,7 +11,7 @@
     "@vue/cli-service": "^3.10.0",
     "axios": "^0.19.0",
     "bootstrap": "^4.3.1",
-    "bootstrap-vue": "^2.0.0-rc.28",
+    "bootstrap-vue": "^2.0.2",
     "core-js": "^2.6.5",
     "cropperjs": "^1.5.5",
     "jquery": "^3.4.1",
