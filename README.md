@@ -6,7 +6,7 @@ There are three ways to use OLive:
 
 1. [Use With Command Line Tool](/cmd-tool): Run the OLive with command line using Python. 
 
-2. [Use With Local Web App](/web): A web application with visualization to use OLive on your local machine. Note: Job scheduling is not supported yet. 
+2. [Use With Local Web App](/web): A web application with visualization to use OLive on your local machine.
 
 3. [Use With Jupyter Notebook](/notebook): Quickstart of the OLive with tutorial using Jupyter Notebook. 
 

@@ -32,7 +32,7 @@ docker run [--runtime=nvidia] mcr.microsoft.com/onnxruntime/perf-tuning --input_
 
 `--config`: ONNX Runtime configuration. Available options are "Debug", "MinSizeRel", "Release", "RelWithDebInfo". Default is "RelWithDebInfo". 
 
-`--mode`: Specifies the test mode. Value could be "duration" or "time".
+`--test_mode`: Specifies the test mode. Value could be "duration" or "time". Default is "time".
 
 `--execution_provider`: Execution Provider. Available options are "cpu", "cpu_openmp", "cuda", "tensorrt", "ngraph", "mkldnn", and "mklml"
 
@@ -40,7 +40,7 @@ docker run [--runtime=nvidia] mcr.microsoft.com/onnxruntime/perf-tuning --input_
 
 `--duration_times`: The seconds to run for 'duration' mode. Default:10.
 
-`--threadpool_size`: Threadpool size if parallel executor (--parallel) is enabled. Default is the number of cores. 
+`--intra_op_num_threads`: Sets the number of threads used to parallelize the execution within nodes. A value of 0 means the test will auto-select a default. Must >=0. 
 
 `--num_threads`: OMP_NUM_THREADS value. Default is the number of cores. 
 
