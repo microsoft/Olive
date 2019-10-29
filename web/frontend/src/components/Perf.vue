@@ -147,13 +147,13 @@
 
 
                     <b-form-group v-if="perf_tuning_form.parallel"
-                                id="form-threadpool_size-group"
-                                label="Threadpool size:"
-                                label-for="form-threadpool_size-input">
-                        <b-form-input id="form-threadpool_size-input"
+                                id="form-intra_op_num_threads-group"
+                                label="intra_op_num_threads:"
+                                label-for="form-intra_op_num_threads-input">
+                        <b-form-input id="form-intra_op_num_threads-input"
                           type="text"
-                          v-model="perf_tuning_form.threadpool_size"
-                          placeholder="Enter threadpool_size.
+                          v-model="perf_tuning_form.intra_op_num_threads"
+                          placeholder="Enter intra_op_num_threads.
                             If leave blank, number of cores will be used.">
                         </b-form-input>
                     </b-form-group>

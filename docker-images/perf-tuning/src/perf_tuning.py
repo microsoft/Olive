@@ -306,7 +306,7 @@ class ConverterParamsFromJson():
         self.num_threads = loaded_json["num_threads"] if loaded_json.get("num_threads") else str(cores)
         self.top_n = loaded_json["top_n"] if loaded_json.get("top_n") else "3"
         self.parallel = loaded_json["parallel"] if loaded_json.get("parallel") else True
-        self.optimization_level = loaded_json["optimization_level"] if loaded_json.get("optimization_level") else "3"
+        self.optimization_level = loaded_json["optimization_level"] if loaded_json.get("optimization_level") else "99"
 
 def parse_arguments():
     parser = argparse.ArgumentParser()

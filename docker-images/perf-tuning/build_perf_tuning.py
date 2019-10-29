@@ -118,11 +118,13 @@ if __name__ == "__main__":
         build_args += ["--use_tensorrt", "--use_full_protobuf"]
         if args.tensorrt_home:
             build_args = build_args + ["--tensorrt_home", args.tensorrt_home]
-        if args.cuda_version:
-            build_args = build_args + ["--cuda_version", args.cuda_version]
-        if args.cuda_home:
-            build_args = build_args + ["--cuda_home", args.cuda_home]
-        if args.cudnn_home:
-            build_args = build_args + ["--cudnn_home", args.cudnn_home]
+        if not args.use_cuda:
+            if args.cuda_version:
+                build_args = build_args + ["--cuda_version", args.cuda_version]
+            if args.cuda_home:
+                build_args = build_args + ["--cuda_home", args.cuda_home]
+            if args.cudnn_home:
+                build_args = build_args + ["--cudnn_home", args.cudnn_home]
     
     build_onnxruntime(args.onnxruntime_home, args.config, build_args, "all_eps", args)
+

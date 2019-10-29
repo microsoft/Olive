@@ -181,7 +181,7 @@ class Pipeline:
         return output_onnx_path
 
     def perf_tuning(self, model=None, result=None, config=None, mode=None, execution_provider=None,
-        repeated_times=None, duration_times=None, threadpool_size=None, num_threads=None, top_n=None, 
+        repeated_times=None, duration_times=None, intra_op_num_threads=None, num_threads=None, top_n=None, 
         parallel=None, runtime=True, input_json=None, convert_json=False, windows=False):
         """Parameters usage could reference: 
         https://github.com/microsoft/OLive/blob/master/notebook/onnx-pipeline.ipynb"""

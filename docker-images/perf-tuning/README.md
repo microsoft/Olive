@@ -55,12 +55,12 @@ docker run [--runtime=nvidia] mcr.microsoft.com/onnxruntime/perf-tuning --input_
 {
     "model": "resnet50/model.onnx",
     "result": "output",
-    "mode": "times", 
+    "test_mode": "times", 
     "config": "RelWithDebInfo", 
     "execution_provider": "",
     "repeated_times": "20",
     "duration_time": "10",
-    "threadpool_size": "",
+    "intra_op_num_threads": "",
     "num_threads": "5",
     "top_n": "5",
     "parallel": "True"
