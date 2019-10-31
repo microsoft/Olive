@@ -21,7 +21,7 @@ export const perf_tuning_form = {
   duration_times: '10',
   parallel: true,
   intra_op_num_threads: '',
-  num_threads: '',
+  inter_op_num_threads: '',
   top_n: '3',
   optimization_level: '99',
 };

@@ -40,9 +40,9 @@ docker run [--runtime=nvidia] mcr.microsoft.com/onnxruntime/perf-tuning --input_
 
 `--duration_times`: The seconds to run for 'duration' mode. Default:10.
 
-`--intra_op_num_threads`: Sets the number of threads used to parallelize the execution within nodes. A value of 0 means the test will auto-select a default. Must >=0. 
+`--inter_op_num_threads`: Only set if '--parallel' is true. Sets the number of threads used to parallelize the execution of the graph (across nodes), A value of 0 means ORT will pick a default. Must >=0.
 
-`--num_threads`: OMP_NUM_THREADS value. Default is the number of cores. 
+`--intra_op_num_threads`: Sets the number of threads used to parallelize the execution within nodes, A value of 0 means ORT will pick a default. Must >=0.
 
 `--top_n`: Show percentiles for top n runs in each execution provider. Default:3.
 

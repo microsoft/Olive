@@ -72,14 +72,14 @@
                         </b-form-select>
                     </b-form-group>
 
-                    <b-form-group id="form-num_threads-group"
+                    <b-form-group id="form-intra_op_num_threads-group"
                                 label="Number of Threads:"
-                                label-for="form-num_threads-input">
-                        <b-form-input id="form-num_threads-input"
+                                label-for="form-intra_op_num_threads-input">
+                        <b-form-input id="form-intra_op_num_threads-input"
                             type="text"
-                            v-model="perf_tuning_form.num_threads"
+                            v-model="perf_tuning_form.intra_op_num_threads"
                             value="20"
-                            placeholder="Enter num_threads.
+                            placeholder="Enter intra_op_num_threads.
                             If leave blank, number of cores will be used.">
                         </b-form-input>
                     </b-form-group>
@@ -148,12 +148,12 @@
 
                     <b-form-group v-if="perf_tuning_form.parallel"
                                 id="form-intra_op_num_threads-group"
-                                label="intra_op_num_threads:"
-                                label-for="form-intra_op_num_threads-input">
-                        <b-form-input id="form-intra_op_num_threads-input"
+                                label="inter_op_num_threads:"
+                                label-for="form-inter_op_num_threads-input">
+                        <b-form-input id="form-inter_op_num_threads-input"
                           type="text"
-                          v-model="perf_tuning_form.intra_op_num_threads"
-                          placeholder="Enter intra_op_num_threads.
+                          v-model="perf_tuning_form.inter_op_num_threads"
+                          placeholder="Enter inter_op_num_threads.
                             If leave blank, number of cores will be used.">
                         </b-form-input>
                     </b-form-group>

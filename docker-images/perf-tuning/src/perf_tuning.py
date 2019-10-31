@@ -183,10 +183,10 @@ def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, fai
     )
     # tune threads by args
     if not is_omp:
-        param.test_args = test_params.test_args + ["-x", str(lower)]
+        param.test_args = test_params.test_args + ["-y", str(lower)]
     else:
-        param.env.update({"OMP_NUM_THREADS": str(lower)})
-        param.test_args = test_params.test_args
+        # param.env.update({"OMP_NUM_THREADS": str(lower)})
+        param.test_args = test_params.test_args + ["-x", str(lower)]
 
     run_perf_tuning(param)
     if not param.avg:
@@ -215,10 +215,10 @@ def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, fai
         )
         # tune threads by args
         if not is_omp:
-            param.test_args = test_params.test_args + ["-x", str(mid)]
+            param.test_args = test_params.test_args + ["-y", str(mid)]
         else:
-            param.env.update({"OMP_NUM_THREADS": str(mid)})
-            param.test_args = test_params.test_args
+            # param.env.update({"OMP_NUM_THREADS": str(mid)})
+            param.test_args = test_params.test_args + ["-x", str(mid)]
             param.thread = 0
         run_perf_tuning(param)
         if param.avg:
@@ -303,7 +303,7 @@ class ConverterParamsFromJson():
         self.repeated_times = loaded_json["repeated_times"] if loaded_json.get("repeated_times") else "20"
         self.duration_time = loaded_json["duration_time"] if loaded_json.get("duration_time") else "10"
         self.intra_op_num_threads = loaded_json["intra_op_num_threads"] if loaded_json.get("intra_op_num_threads") else str(cores)
-        self.num_threads = loaded_json["num_threads"] if loaded_json.get("num_threads") else str(cores)
+        self.inter_op_num_threads = loaded_json["inter_op_num_threads"] if loaded_json.get("inter_op_num_threads") else str(cores)
         self.top_n = loaded_json["top_n"] if loaded_json.get("top_n") else "3"
         self.parallel = loaded_json["parallel"] if loaded_json.get("parallel") else True
         self.optimization_level = loaded_json["optimization_level"] if loaded_json.get("optimization_level") else "99"
@@ -327,11 +327,12 @@ def parse_arguments():
                         help="Specifies the repeated times if running in 'times' test mode. Default:20.")
     parser.add_argument("-t", "--seconds_to_run", default="10",
                         help="Specifies the seconds to run for 'duration' mode. Default:10.")
-    parser.add_argument("-x", "--intra_op_num_threads", default=str(cores),
-                        help=" Sets the number of threads used to parallelize the execution within nodes. \
-                        A value of 0 means the test will auto-select a default. Must >=0.")
-    parser.add_argument("-n", "--num_threads", default=str(cores),
-                        help="OMP_NUM_THREADS value.")
+    parser.add_argument("-x", "--inter_op_num_threads", default=str(cores),
+                        help="Sets the number of threads used to parallelize the execution within nodes, \
+                        A value of 0 means ORT will pick a default. Must >=0.")
+    parser.add_argument("-y", "--intra_op_num_threads", default=str(cores),
+                        help="Used when -P is set. Sets the number of threads used to parallelize the execution of the graph (across nodes), \
+                        A value of 0 means ORT will pick a default. Must >=0.")
     parser.add_argument("-s", "--top_n", default="3",
                         help="Show percentiles for top n runs in each execution provider. Default:3.")
     parser.add_argument("-P", "--parallel", default=True,
@@ -411,7 +412,7 @@ if __name__ == "__main__":
 
                 best_run = -1
                 is_omp = "openmp" in build_name
-                num_threads = int(args.num_threads) if is_omp else int(args.intra_op_num_threads)
+                num_threads = int(args.inter_op_num_threads) if is_omp else int(args.inter_op_num_threads)
                 if args.parallel and "cuda" not in build_name and "tensorrt" not in build_name:                 
                     # Tune environment variables and thread pool size using parallel executor 
                     best_run = run_perf_tuning_binary(
@@ -437,9 +438,10 @@ if __name__ == "__main__":
                         best_run
                     )
                     if is_omp:
-                        param.env.update({"OMP_NUM_THREADS": str(best_run)})
+                        # param.env.update({"OMP_NUM_THREADS": str(best_run)})
+                        param.test_arg += ["-x", str(best_run)]
                     else:
-                        param.test_args += ["-x", str(best_run)]
+                        param.test_args += ["-y", str(best_run)]
                         param.thread = 0
                     tests.append(param)
                 else:
