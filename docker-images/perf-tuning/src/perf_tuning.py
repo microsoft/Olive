@@ -439,7 +439,7 @@ if __name__ == "__main__":
                     )
                     if is_omp:
                         # param.env.update({"OMP_NUM_THREADS": str(best_run)})
-                        param.test_arg += ["-x", str(best_run)]
+                        param.test_args += ["-x", str(best_run)]
                     else:
                         param.test_args += ["-y", str(best_run)]
                         param.thread = 0
