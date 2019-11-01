@@ -57,9 +57,9 @@ class PerfTestParams:
 
     def get_common_args(self):
         common_args = ["-o", self.args.optimization_level]
-        if self.args.mode:
-            common_args = common_args + ["-m", self.args.mode]
-        if args.mode == "times":
+        if self.args.test_mode:
+            common_args = common_args + ["-m", self.args.test_mode]
+        if args.test_mode == "times":
             if self.args.repeated_times:
                 common_args = common_args + ["-r", args.repeated_times]
         else:
