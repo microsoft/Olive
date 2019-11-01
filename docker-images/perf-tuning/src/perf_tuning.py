@@ -59,12 +59,12 @@ class PerfTestParams:
         common_args = ["-o", self.args.optimization_level]
         if self.args.test_mode:
             common_args = common_args + ["-m", self.args.test_mode]
-        if args.test_mode == "times":
+        if self.args.test_mode == "times":
             if self.args.repeated_times:
-                common_args = common_args + ["-r", args.repeated_times]
+                common_args = common_args + ["-r", self.args.repeated_times]
         else:
             if self.args.duration_time:
-                common_args = common_args + ["-t", args.duration_time]
+                common_args = common_args + ["-t", self.args.duration_time]
         return common_args
 
     def get_args(self, result_file):
@@ -293,12 +293,12 @@ class ConverterParamsFromJson():
             raise ValueError("Please specified \"result_path\" in the input json. ")
         if loaded_json.get("config") and ["Debug", "MinSizeRel", "Release", "RelWithDebInfo"].index(loaded_json["config"]) == -1:
             raise ValueError("Please specify config with one of the following -\"Debug\", \"MinSizeRel\", \"Release\", \"RelWithDebInfo\"")
-        if loaded_json.get("mode") and ["duration", "times"].index(loaded_json["mode"]) == -1:
+        if loaded_json.get("test_mode") and ["duration", "times"].index(loaded_json["test_mode"]) == -1:
             raise ValueError("Please specify mode with one of the following - \"duration\", \"times\"")
         self.model = loaded_json["model"]
         self.result = loaded_json["result"]
         self.config = loaded_json["config"] if loaded_json.get("config") else "RelWithDebInfo"
-        self.mode = loaded_json["test_mode"] if loaded_json.get("test_mode") else "times"
+        self.test_mode = loaded_json["test_mode"] if loaded_json.get("test_mode") else "times"
         self.execution_provider = loaded_json["execution_provider"] if loaded_json.get("execution_provider") else ""
         self.repeated_times = loaded_json["repeated_times"] if loaded_json.get("repeated_times") else "20"
         self.duration_time = loaded_json["duration_time"] if loaded_json.get("duration_time") else "10"
