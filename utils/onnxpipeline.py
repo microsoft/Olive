@@ -365,6 +365,7 @@ class Pipeline:
                             self.profiling.append(json.load(json_file))
             # only top number would be considered
             self.profiling_max = 7
+            self.profiling_ops_per_ep = 5
             # filter useless ops
             self.profiling_ops = self.__filter_ops()
 
@@ -375,11 +376,15 @@ class Pipeline:
             for index in range(self.profiling_max):
                 ops = []
                 if index < len(self.profiling):
+                    op_count = 0
                     for p in self.profiling[index]:
                         if p['cat'] == 'Node':
                             filtered_op = p
                             filtered_op['name'] = p['name'].replace('_kernel_time', '')
                             ops.append(filtered_op)
+                            op_count += 1
+                        if op_count > self.profiling_ops_per_ep:
+                            break
                     # print hot ops, order by duration
                     ops.sort(key=lambda x: x['dur'], reverse=True)
                     profiling_ops.append(ops)
