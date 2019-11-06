@@ -17,16 +17,25 @@ docker pull mcr.microsoft.com/onnxruntime/perf-tuning
 
 Upon success, run Docker perf-tuning image by
 ```
-docker run [--runtime=nvidia] mcr.microsoft.com/onnxruntime/perf-tuning --model <path_to_onnx_model> --result <path_to_result_dir> [other optional args]
+docker run [--runtime=nvidia] -v <local_directory_to_your_models>:/mnt/ mcr.microsoft.com/onnxruntime/perf-tuning --model mnt/<path_to_onnx_model> --result mnt/<path_to_result_dir> [other optional args]
 ```
 or 
 ```
-docker run [--runtime=nvidia] mcr.microsoft.com/onnxruntime/perf-tuning --input_json <input_json_file>
+docker run [--runtime=nvidia] -v <local_directory_to_your_models>:/mnt/ mcr.microsoft.com/onnxruntime/perf-tuning --input_json mnt/<input_json_file>
 ```
 
 ### perf-tuning Image Arguments
 
 `--model`: Requried or specify in --input_json. The ONNX model to perform performance tuning. 
+
+NOTE: Model path and input data need to be stored in the directory trees as below:
+
+    --ModelName
+        --test_data_set_0
+            --input0.pb
+        --test_data_set_2
+            --input0.pb
+        --model.onnx
 
 `--result`: Required or specify in --input_json. The directory to put output files. 
 
@@ -126,11 +135,11 @@ If ONNX Runtime is built on Windows, jump to [Run perf-tuning Without Docker](#4
 
 ### 3. Run Docker Image
 ```
-docker run [--runtime=nvidia] perf-tuning --model <path_to_onnx_model> --result <path_to_result_dir> [other optional args]
+docker run [--runtime=nvidia] -v <local_directory_to_your_models>:/mnt perf-tuning --model /mnt/<path_to_onnx_model> --result mnt/<path_to_result_dir> [other optional args]
 ```
 or
 ```
-docker run [--runtime=nvidia] perf-tuning --input_json <input_json_file>
+docker run [--runtime=nvidia] -v <local_directory_to_your_models>:/mnt perf-tuning --input_json /mnt/<input_json_file>
 ```
 
 ### 4. Run `perf-tuning` Without Docker
