@@ -181,7 +181,7 @@ class Pipeline:
         return output_onnx_path
 
     def perf_tuning(self, model=None, result=None, config=None, mode=None, execution_provider=None,
-        repeated_times=None, duration_times=None, threadpool_size=None, num_threads=None, top_n=None, 
+        repeated_times=None, duration_times=None, inter_op_num_threads=None, intra_op_num_threads=None, top_n=None, 
         parallel=None, runtime=True, input_json=None, convert_json=False, windows=False):
         """Parameters usage could reference: 
         https://github.com/microsoft/OLive/blob/master/notebook/onnx-pipeline.ipynb"""
@@ -365,6 +365,7 @@ class Pipeline:
                             self.profiling.append(json.load(json_file))
             # only top number would be considered
             self.profiling_max = 7
+            self.profiling_ops_per_ep = 5
             # filter useless ops
             self.profiling_ops = self.__filter_ops()
 
@@ -375,11 +376,15 @@ class Pipeline:
             for index in range(self.profiling_max):
                 ops = []
                 if index < len(self.profiling):
+                    op_count = 0
                     for p in self.profiling[index]:
                         if p['cat'] == 'Node':
                             filtered_op = p
                             filtered_op['name'] = p['name'].replace('_kernel_time', '')
                             ops.append(filtered_op)
+                            op_count += 1
+                        if op_count > self.profiling_ops_per_ep:
+                            break
                     # print hot ops, order by duration
                     ops.sort(key=lambda x: x['dur'], reverse=True)
                     profiling_ops.append(ops)

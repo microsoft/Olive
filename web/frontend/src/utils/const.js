@@ -15,13 +15,13 @@ export const convert_form = {
 export const perf_tuning_form = {
   model: '',
   config: 'RelWithDebInfo',
-  mode: 'times',
+  test_mode: 'times',
   execution_provider: '',
   repeated_times: '20',
   duration_times: '10',
   parallel: true,
-  threadpool_size: '',
-  num_threads: '',
+  intra_op_num_threads: '',
+  inter_op_num_threads: '',
   top_n: '3',
-  optimization_level: '3',
+  optimization_level: '99',
 };

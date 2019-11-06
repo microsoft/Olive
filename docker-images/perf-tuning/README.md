@@ -17,22 +17,31 @@ docker pull mcr.microsoft.com/onnxruntime/perf-tuning
 
 Upon success, run Docker perf-tuning image by
 ```
-docker run [--runtime=nvidia] mcr.microsoft.com/onnxruntime/perf-tuning --model <path_to_onnx_model> --result <path_to_result_dir> [other optional args]
+docker run [--runtime=nvidia] -v <local_directory_to_your_models>:/mnt/ mcr.microsoft.com/onnxruntime/perf-tuning --model mnt/<path_to_onnx_model> --result mnt/<path_to_result_dir> [other optional args]
 ```
 or 
 ```
-docker run [--runtime=nvidia] mcr.microsoft.com/onnxruntime/perf-tuning --input_json <input_json_file>
+docker run [--runtime=nvidia] -v <local_directory_to_your_models>:/mnt/ mcr.microsoft.com/onnxruntime/perf-tuning --input_json mnt/<input_json_file>
 ```
 
 ### perf-tuning Image Arguments
 
 `--model`: Requried or specify in --input_json. The ONNX model to perform performance tuning. 
 
+NOTE: Model path and input data need to be stored in the directory trees as below:
+
+    --ModelName
+        --test_data_set_0
+            --input0.pb
+        --test_data_set_2
+            --input0.pb
+        --model.onnx
+
 `--result`: Required or specify in --input_json. The directory to put output files. 
 
 `--config`: ONNX Runtime configuration. Available options are "Debug", "MinSizeRel", "Release", "RelWithDebInfo". Default is "RelWithDebInfo". 
 
-`--mode`: Specifies the test mode. Value could be "duration" or "time".
+`--test_mode`: Specifies the test mode. Value could be "duration" or "time". Default is "time".
 
 `--execution_provider`: Execution Provider. Available options are "cpu", "cpu_openmp", "cuda", "tensorrt", "ngraph", "mkldnn", and "mklml"
 
@@ -40,9 +49,9 @@ docker run [--runtime=nvidia] mcr.microsoft.com/onnxruntime/perf-tuning --input_
 
 `--duration_times`: The seconds to run for 'duration' mode. Default:10.
 
-`--threadpool_size`: Threadpool size if parallel executor (--parallel) is enabled. Default is the number of cores. 
+`--inter_op_num_threads`: Only set if '--parallel' is true. Sets the number of threads used to parallelize the execution of the graph (across nodes), A value of 0 means ORT will pick a default. Must >=0.
 
-`--num_threads`: OMP_NUM_THREADS value. Default is the number of cores. 
+`--intra_op_num_threads`: Sets the number of threads used to parallelize the execution within nodes, A value of 0 means ORT will pick a default. Must >=0.
 
 `--top_n`: Show percentiles for top n runs in each execution provider. Default:3.
 
@@ -55,12 +64,12 @@ docker run [--runtime=nvidia] mcr.microsoft.com/onnxruntime/perf-tuning --input_
 {
     "model": "resnet50/model.onnx",
     "result": "output",
-    "mode": "times", 
+    "test_mode": "times", 
     "config": "RelWithDebInfo", 
     "execution_provider": "",
     "repeated_times": "20",
     "duration_time": "10",
-    "threadpool_size": "",
+    "intra_op_num_threads": "",
     "num_threads": "5",
     "top_n": "5",
     "parallel": "True"
@@ -126,11 +135,11 @@ If ONNX Runtime is built on Windows, jump to [Run perf-tuning Without Docker](#4
 
 ### 3. Run Docker Image
 ```
-docker run [--runtime=nvidia] perf-tuning --model <path_to_onnx_model> --result <path_to_result_dir> [other optional args]
+docker run [--runtime=nvidia] -v <local_directory_to_your_models>:/mnt perf-tuning --model /mnt/<path_to_onnx_model> --result mnt/<path_to_result_dir> [other optional args]
 ```
 or
 ```
-docker run [--runtime=nvidia] perf-tuning --input_json <input_json_file>
+docker run [--runtime=nvidia] -v <local_directory_to_your_models>:/mnt perf-tuning --input_json /mnt/<input_json_file>
 ```
 
 ### 4. Run `perf-tuning` Without Docker

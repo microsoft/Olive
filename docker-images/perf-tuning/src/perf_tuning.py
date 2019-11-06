@@ -57,14 +57,14 @@ class PerfTestParams:
 
     def get_common_args(self):
         common_args = ["-o", self.args.optimization_level]
-        if self.args.mode:
-            common_args = common_args + ["-m", self.args.mode]
-        if args.mode == "times":
+        if self.args.test_mode:
+            common_args = common_args + ["-m", self.args.test_mode]
+        if self.args.test_mode == "times":
             if self.args.repeated_times:
-                common_args = common_args + ["-r", args.repeated_times]
+                common_args = common_args + ["-r", self.args.repeated_times]
         else:
             if self.args.duration_time:
-                common_args = common_args + ["-t", args.duration_time]
+                common_args = common_args + ["-t", self.args.duration_time]
         return common_args
 
     def get_args(self, result_file):
@@ -183,10 +183,10 @@ def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, fai
     )
     # tune threads by args
     if not is_omp:
-        param.test_args = test_params.test_args + ["-x", str(lower)]
+        param.test_args = test_params.test_args + ["-y", str(lower)]
     else:
-        param.env.update({"OMP_NUM_THREADS": str(lower)})
-        param.test_args = test_params.test_args
+        # param.env.update({"OMP_NUM_THREADS": str(lower)})
+        param.test_args = test_params.test_args + ["-x", str(lower)]
 
     run_perf_tuning(param)
     if not param.avg:
@@ -215,10 +215,10 @@ def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, fai
         )
         # tune threads by args
         if not is_omp:
-            param.test_args = test_params.test_args + ["-x", str(mid)]
+            param.test_args = test_params.test_args + ["-y", str(mid)]
         else:
-            param.env.update({"OMP_NUM_THREADS": str(mid)})
-            param.test_args = test_params.test_args
+            # param.env.update({"OMP_NUM_THREADS": str(mid)})
+            param.test_args = test_params.test_args + ["-x", str(mid)]
             param.thread = 0
         run_perf_tuning(param)
         if param.avg:
@@ -293,20 +293,20 @@ class ConverterParamsFromJson():
             raise ValueError("Please specified \"result_path\" in the input json. ")
         if loaded_json.get("config") and ["Debug", "MinSizeRel", "Release", "RelWithDebInfo"].index(loaded_json["config"]) == -1:
             raise ValueError("Please specify config with one of the following -\"Debug\", \"MinSizeRel\", \"Release\", \"RelWithDebInfo\"")
-        if loaded_json.get("mode") and ["duration", "times"].index(loaded_json["mode"]) == -1:
+        if loaded_json.get("test_mode") and ["duration", "times"].index(loaded_json["test_mode"]) == -1:
             raise ValueError("Please specify mode with one of the following - \"duration\", \"times\"")
         self.model = loaded_json["model"]
         self.result = loaded_json["result"]
         self.config = loaded_json["config"] if loaded_json.get("config") else "RelWithDebInfo"
-        self.mode = loaded_json["mode"] if loaded_json.get("mode") else "times"
+        self.test_mode = loaded_json["test_mode"] if loaded_json.get("test_mode") else "times"
         self.execution_provider = loaded_json["execution_provider"] if loaded_json.get("execution_provider") else ""
         self.repeated_times = loaded_json["repeated_times"] if loaded_json.get("repeated_times") else "20"
         self.duration_time = loaded_json["duration_time"] if loaded_json.get("duration_time") else "10"
-        self.threadpool_size = loaded_json["threadpool_size"] if loaded_json.get("threadpool_size") else str(cores)
-        self.num_threads = loaded_json["num_threads"] if loaded_json.get("num_threads") else str(cores)
+        self.intra_op_num_threads = loaded_json["intra_op_num_threads"] if loaded_json.get("intra_op_num_threads") else str(cores)
+        self.inter_op_num_threads = loaded_json["inter_op_num_threads"] if loaded_json.get("inter_op_num_threads") else str(cores)
         self.top_n = loaded_json["top_n"] if loaded_json.get("top_n") else "3"
         self.parallel = loaded_json["parallel"] if loaded_json.get("parallel") else True
-        self.optimization_level = loaded_json["optimization_level"] if loaded_json.get("optimization_level") else "3"
+        self.optimization_level = loaded_json["optimization_level"] if loaded_json.get("optimization_level") else "99"
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -318,25 +318,27 @@ def parse_arguments():
     parser.add_argument("--config", default="RelWithDebInfo",
                         choices=["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
                         help="Configuration to run.")
-    parser.add_argument("-m", "--mode", default="times",
+    parser.add_argument("-m", "--test_mode", default="times",
                         choices=["duration", "times"],
                         help="Specifies the test mode. Value could be 'duration' or 'times'.")
     parser.add_argument("-e", "--execution_provider", default="",
                         help="Specifies the provider 'cpu','cuda','mkldnn'.")
     parser.add_argument("-r", "--repeated_times", default="20",
                         help="Specifies the repeated times if running in 'times' test mode. Default:20.")
-    parser.add_argument("-t", "--duration_times", default="10",
+    parser.add_argument("-t", "--seconds_to_run", default="10",
                         help="Specifies the seconds to run for 'duration' mode. Default:10.")
-    parser.add_argument("-x", "--threadpool_size", default=str(cores),
-                        help="Use parallel executor, default (without -x): sequential executor.")
-    parser.add_argument("-n", "--num_threads", default=str(cores),
-                        help="OMP_NUM_THREADS value.")
+    parser.add_argument("-x", "--inter_op_num_threads", default=str(cores),
+                        help="Sets the number of threads used to parallelize the execution within nodes, \
+                        A value of 0 means ORT will pick a default. Must >=0.")
+    parser.add_argument("-y", "--intra_op_num_threads", default=str(cores),
+                        help="Used when -P is set. Sets the number of threads used to parallelize the execution of the graph (across nodes), \
+                        A value of 0 means ORT will pick a default. Must >=0.")
     parser.add_argument("-s", "--top_n", default="3",
                         help="Show percentiles for top n runs in each execution provider. Default:3.")
     parser.add_argument("-P", "--parallel", default=True,
                         help="Use parallel executor instead of sequential executor.")
-    parser.add_argument("-o", "--optimization_level", default="3", 
-                        help="0: disable optimization, 1: basic optimization, 2: extended optimization, 3: extended+layout optimization.")
+    parser.add_argument("-o", "--optimization_level", default="99", 
+                        help="0: disable optimization, 1: basic optimization, 2: extended optimization, 99: extended+layout optimization.")
     parser.add_argument("--model",
                         help="Model.")
     parser.add_argument("--result",
@@ -410,7 +412,7 @@ if __name__ == "__main__":
 
                 best_run = -1
                 is_omp = "openmp" in build_name
-                num_threads = int(args.num_threads) if is_omp else int(args.threadpool_size)
+                num_threads = int(args.inter_op_num_threads) if is_omp else int(args.inter_op_num_threads)
                 if args.parallel and "cuda" not in build_name and "tensorrt" not in build_name:                 
                     # Tune environment variables and thread pool size using parallel executor 
                     best_run = run_perf_tuning_binary(
@@ -436,9 +438,10 @@ if __name__ == "__main__":
                         best_run
                     )
                     if is_omp:
-                        param.env.update({"OMP_NUM_THREADS": str(best_run)})
-                    else:
+                        # param.env.update({"OMP_NUM_THREADS": str(best_run)})
                         param.test_args += ["-x", str(best_run)]
+                    else:
+                        param.test_args += ["-y", str(best_run)]
                         param.thread = 0
                     tests.append(param)
                 else:

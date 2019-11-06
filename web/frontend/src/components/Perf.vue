@@ -72,14 +72,14 @@
                         </b-form-select>
                     </b-form-group>
 
-                    <b-form-group id="form-num_threads-group"
+                    <b-form-group id="form-intra_op_num_threads-group"
                                 label="Number of Threads:"
-                                label-for="form-num_threads-input">
-                        <b-form-input id="form-num_threads-input"
+                                label-for="form-intra_op_num_threads-input">
+                        <b-form-input id="form-intra_op_num_threads-input"
                             type="text"
-                            v-model="perf_tuning_form.num_threads"
+                            v-model="perf_tuning_form.intra_op_num_threads"
                             value="20"
-                            placeholder="Enter num_threads.
+                            placeholder="Enter intra_op_num_threads.
                             If leave blank, number of cores will be used.">
                         </b-form-input>
                     </b-form-group>
@@ -107,10 +107,10 @@
                     <b-form-group id="form-mode-group"
                                 label="Mode:"
                                 label-for="form-mode-input">
-                    <b-form-select v-model="perf_tuning_form.mode"
+                    <b-form-select v-model="perf_tuning_form.test_mode"
                                     required
-                                    :options="options.mode"
-                                    label="Mode:"
+                                    :options="options.test_mode"
+                                    label="Test Mode:"
                                     class="mb-3">
                         <template slot="first">
                         </template>
@@ -120,7 +120,7 @@
                     <b-form-group id="form-repeated_times-group"
                                 label="Repeated times:"
                                 label-for="form-repeated_times-input"
-                                v-if="perf_tuning_form.mode == 'times'">
+                                v-if="perf_tuning_form.test_mode == 'times'">
                         <b-form-input id="form-repeated_times-input"
                                     type="text"
                                     v-model="perf_tuning_form.repeated_times">
@@ -130,7 +130,7 @@
                     <b-form-group id="form-duration_times-group"
                                 label="Duration times:"
                                 label-for="form-duration_times-input"
-                                v-if="perf_tuning_form.mode == 'mode'">
+                                v-if="perf_tuning_form.test_mode == 'duration'">
                         <b-form-input id="form-duration_times-input"
                                     type="text"
                                     v-model="perf_tuning_form.duration_times"
@@ -147,13 +147,13 @@
 
 
                     <b-form-group v-if="perf_tuning_form.parallel"
-                                id="form-threadpool_size-group"
-                                label="Threadpool size:"
-                                label-for="form-threadpool_size-input">
-                        <b-form-input id="form-threadpool_size-input"
+                                id="form-intra_op_num_threads-group"
+                                label="inter_op_num_threads:"
+                                label-for="form-inter_op_num_threads-input">
+                        <b-form-input id="form-inter_op_num_threads-input"
                           type="text"
-                          v-model="perf_tuning_form.threadpool_size"
-                          placeholder="Enter threadpool_size.
+                          v-model="perf_tuning_form.inter_op_num_threads"
+                          placeholder="Enter inter_op_num_threads.
                             If leave blank, number of cores will be used.">
                         </b-form-input>
                     </b-form-group>
@@ -191,7 +191,7 @@ export default {
       test_data: [],
       customized_model: null,
       options: {
-        mode: ['duration', 'times'],
+        test_mode: ['duration', 'times'],
         execution_provider: ['', 'cpu', 'mklml', 'mkldnn', 'cuda', 'tensorrt', 'ngraph', 'cpu_openmp'],
       },
       message: '',
