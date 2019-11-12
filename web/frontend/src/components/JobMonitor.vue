@@ -23,7 +23,7 @@ export default {
   data() {
     return {
       sortBy: 'started',
-      sortDesc: false,
+      sortDesc: true,
       fields: [
         { key: 'name', sortable: true },
         { key: 'state', sortable: true },
