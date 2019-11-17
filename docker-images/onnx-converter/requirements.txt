@@ -1,4 +1,4 @@
-tensorflow
+tensorflow==1.14
 onnxmltools
 
 coremltools
