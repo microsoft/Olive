@@ -376,18 +376,14 @@ class Pipeline:
             for index in range(self.profiling_max):
                 ops = []
                 if index < len(self.profiling):
-                    op_count = 0
                     for p in self.profiling[index]:
                         if p['cat'] == 'Node':
                             filtered_op = p
                             filtered_op['name'] = p['name'].replace('_kernel_time', '')
                             ops.append(filtered_op)
-                            op_count += 1
-                        if op_count > self.profiling_ops_per_ep:
-                            break
                     # print hot ops, order by duration
                     ops.sort(key=lambda x: x['dur'], reverse=True)
-                    profiling_ops.append(ops)
+                    profiling_ops.append(ops[:self.profiling_ops_per_ep])
             return profiling_ops
 
 
