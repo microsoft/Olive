@@ -75,7 +75,7 @@
                 size="lg"
                 hide-footer>
             <b-container fluid>
-            <b-table responsive="lg" style="table-layout: fixed"
+            <b-table responsive="lg" fixed
                 striped hover :items="op_info" :fields="fields"></b-table>
             </b-container>
         </b-modal>
