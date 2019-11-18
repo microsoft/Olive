@@ -231,6 +231,8 @@ export default {
       for (let i = 0; i < this.savedModel_vars.length; i++) {
         data.append('savedModel[]', this.savedModel_vars[i]);
       }
+      this.savedModel_vars = [];
+
       axios.post(`${this.host}:5000/convert`, data)
         .then((res) => {
           this.link = `${this.host}:8000/convertresult/${res.data.job_id}`;
@@ -265,7 +267,6 @@ export default {
     },
     close_all() {
       this.result = [];
-      this.savedModel_vars = [];
       this.show_message = false;
       this.show_logs = false;
       this.convert_result = null;
