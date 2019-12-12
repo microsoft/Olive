@@ -23,7 +23,7 @@ docker pull mcr.microsoft.com/onnxruntime/onnx-converter
 
 Upon success, run Docker onnx-converter image by
 ```
-docker run mcr.microsoft.com/onnxruntime/onnx-converter --model <model_path> --output_onnx_path <output_path_to_.onnx> --model_type <input_model_framework_name> [optional args]
+docker run -v <local_directory_to_your_models>:/mnt/ mcr.microsoft.com/onnxruntime/onnx-converter --model <model_path> --output_onnx_path <output_path_to_.onnx> --model_type <input_model_framework_name> [optional args]
 ```
 
 ### Run With Docker
@@ -34,7 +34,7 @@ docker build -t onnx-converter .
 Then, you can run the docker image with customized parameters. 
 
 ```
-docker run onnx-converter --model <model_path> --output_onnx_path <output_path_to_.onnx> --model_type <input_model_framework_name> [optional args]
+docker run -v <local_directory_to_your_models>:/mnt/ onnx-converter --model <model_path> --output_onnx_path <output_path_to_.onnx> --model_type <input_model_framework_name> [optional args]
 ```
 
 ### Run With Python
