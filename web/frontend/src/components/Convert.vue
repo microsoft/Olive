@@ -231,6 +231,7 @@ export default {
       for (let i = 0; i < this.savedModel_vars.length; i++) {
         data.append('savedModel[]', this.savedModel_vars[i]);
       }
+      this.savedModel_vars = [];
 
       axios.post(`${this.host}:5000/convert`, data)
         .then((res) => {
