@@ -459,12 +459,12 @@ if __name__ == "__main__":
                         ), int(args.inter_op_num_threads), 
                         "_inter_threads" + env_option, 
                         " threads, " + env_option, failed, successful, is_omp, True)
-                    name_suffix = "_intra_threads_"
+                    name_suffix = "_intra_threads"
                     desc_suffix = " intra_op_num_threads, "
                     if best_inter_op_num_threads > 1:
                         # Store the best inter_op_num_threads in test args.
-                        name_suffix += best_inter_op_num_threads + "_inter_threads"
-                        desc_suffix += best_inter_op_num_threads + " inter_op_num_threads, "
+                        name_suffix += "_" + str(best_inter_op_num_threads) + "_inter_threads"
+                        desc_suffix += str(best_inter_op_num_threads) + " inter_op_num_threads, "
                     # tune intra_op_num_threads in parallel execution mode.
                     best_intra_op_num_threads = run_perf_tuning_binary(
                         PerfTestParams(
@@ -481,8 +481,8 @@ if __name__ == "__main__":
                 if best_intra_op_num_threads > 1:
                     # Run the best thread pool candidate with environment variable on sequential executor
                     param = PerfTestParams(
-                        build_name + "_" + str(best_intra_op_num_threads) + "_threads" + env_option,
-                        build_name + " " + str(best_intra_op_num_threads) + " threads, " + env_option,
+                        build_name + "_" + str(best_intra_op_num_threads) + "_intra_threads" + env_option,
+                        build_name + " " + str(best_intra_op_num_threads) + " intra_op_num_threads, " + env_option,
                         build_path,
                         test_args,
                         env,
@@ -508,7 +508,7 @@ if __name__ == "__main__":
                             env,
                             args,
                             build_name
-                        ), num_threads, "_threads" + env_option, " threads, " + env_option, failed, successful, is_omp)
+                        ), num_threads, "_intra_threads" + env_option, " intra_op_num_threads, " + env_option, failed, successful, is_omp)
                 # Tune environment variables using sequential executor
                 params = PerfTestParams(
                     build_name + env_option,
