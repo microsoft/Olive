@@ -471,7 +471,7 @@ if __name__ == "__main__":
                             build_name + "_parallel_",
                             build_name + " ",
                             build_path,
-                            test_args + ["-P", "-y", best_inter_op_num_threads if best_inter_op_num_threads > 1 else 0],
+                            test_args + ["-P", "-y", str(best_inter_op_num_threads) if best_inter_op_num_threads > 1 else "0"],
                             env,
                             args,
                             build_name,
