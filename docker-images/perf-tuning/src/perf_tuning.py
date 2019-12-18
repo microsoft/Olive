@@ -54,6 +54,10 @@ class PerfTestParams:
         self.cpu = 0
         self.memory = 0
 
+    def updateEnv(self, env):
+        self.env.update(env)
+        self.env_to_set.update(env)
+
     def get_common_args(self):
         common_args = ["-o", self.args.optimization_level]
         if self.args.test_mode:
@@ -83,23 +87,23 @@ class PerfTestParams:
         if self.args.optimization_level == "99":
             return "ORT_ENABLE_ALL"
     
-    def get_inter_op_num_threads(self):
+    def get_inter_threads_code_snippet(self):
         try:
             index = self.test_args.index("-y")        
         except ValueError:
-            return 0
-        if index + 1 > len(self.test_args):
-            return 0
-        return self.test_args[index + 1]
+            return ""
+        if index + 1 >= len(self.test_args):
+            return ""
+        return "so.inter_op_num_threads = " + self.test_args[index + 1]
 
-    def get_intra_op_num_threads(self):
+    def get_intra_threads_code_snippet(self):
         try:
             index = self.test_args.index("-x")
         except ValueError:
-            return 0
-        if index + 1 > len(self.test_args):
-            return
-        return self.test_args[index + 1]
+            return ""
+        if index + 1 >= len(self.test_args):
+            return ""
+        return "so.intra_op_num_threads = " + self.test_args[index + 1]
 
     def print_args(self, args):
         if self.env.get("OMP_WAIT_POLICY"):
@@ -117,13 +121,13 @@ class PerfTestParams:
                 so = rt.SessionOptions() \
                 so.graph_optimization_level = ort.GraphOptimizationLevel.{}\
                 so.execution_mode = rt.ExecutionMode.{} \
-                so.intra_op_num_threads = {} \
-                so.inter_op_num_threads = {} \
+                {} \
+                {} \
                 session = rt.Session(\"{}\", so) \
                 ".format(self.get_graph_optimization_level(), 
                 "ORT_SEQUENTIAL" if self.args.parallel else "ORT_PARALLEL", 
-                self.get_intra_op_num_threads(), 
-                self.get_inter_op_num_threads(), 
+                self.get_intra_threads_code_snippet(), 
+                self.get_inter_threads_code_snippet(), 
                 self.args.model)
         }
         return code_snippet
@@ -206,19 +210,20 @@ def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, fai
         test_params.name + str(lower) + name_suffix,
         test_params.desc + str(lower) + desc_suffix,
         test_params.path,
-        [],
+        test_params.test_args,
         test_params.env_to_set,
         test_params.args,
         build_name,
     )
     # Update args or environment variables to reflect different number of threads
     if tune_inter_ops:
-        param.test_args = test_params.test_args + ["-y", str(lower)]
+        param.test_args += ["-y", str(lower)]
     elif not is_omp:
-        param.test_args = test_params.test_args + ["-x", str(lower)]
+        param.test_args += ["-x", str(lower)]
     else:
-        param.env.update({"OMP_NUM_THREADS": str(lower)})
+        param.updateEnv({"OMP_NUM_THREADS": str(lower)})
         # param.test_args = test_params.test_args + ["-x", str(lower)]
+    print("!!!! isOpenMp " + is_omp + " test_params " + param.test_args)
 
     run_perf_tuning(param)
     if not param.avg:
@@ -239,20 +244,19 @@ def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, fai
             test_params.name + str(mid) + name_suffix,
             test_params.desc + str(mid) + desc_suffix,
             test_params.path,
-            [],
+            test_params.test_args,
             test_params.env_to_set,
             test_params.args,
             build_name,
         )
         # tune threads by args
         if tune_inter_ops:
-            param.test_args = test_params.test_args + ["-y", str(mid)]
+            param.test_args += ["-y", str(mid)]
         elif not is_omp:
-            param.test_args = test_params.test_args + ["-x", str(mid)]
+            param.test_args += ["-x", str(mid)]
         else:
-            param.env.update({"OMP_NUM_THREADS": str(mid)})
+            param.updateEnv({"OMP_NUM_THREADS": str(mid)})
             # param.test_args = test_params.test_args + ["-x", str(mid)]
-            param.intra_op_num_threads = 0
         run_perf_tuning(param)
         if param.avg:
             successful_tests.append(param)
@@ -502,7 +506,7 @@ if __name__ == "__main__":
                         build_name, 
                     )
                     if is_omp:
-                        param.env.update({"OMP_NUM_THREADS": str(best_intra_op_num_threads)})
+                        param.updateEnv({"OMP_NUM_THREADS": str(best_intra_op_num_threads)})
                         # param.test_args += ["-x", str(best_run)]
                     else:
                         param.test_args += ["-x", str(best_intra_op_num_threads)]
