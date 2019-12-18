@@ -470,7 +470,7 @@ if __name__ == "__main__":
                             build_name + " ",
                             build_path,
                             test_args + ["-P"],
-                            copy(env),
+                            env.copy(),
                             args,
                             build_name,
                         ), int(args.inter_op_num_threads), 
@@ -489,7 +489,7 @@ if __name__ == "__main__":
                             build_name + " ",
                             build_path,
                             test_args + ["-P", "-y", str(best_inter_op_num_threads) if best_inter_op_num_threads > 1 else "0"],
-                            copy(env),
+                            env.copy(),
                             args,
                             build_name,
                         ), num_threads, 
@@ -502,7 +502,7 @@ if __name__ == "__main__":
                         build_name + " " + str(best_intra_op_num_threads) + " intra_op_num_threads, " + env_option,
                         build_path,
                         test_args,
-                        copy(env),
+                        env.copy(),
                         args, 
                         build_name, 
                     )
@@ -520,7 +520,7 @@ if __name__ == "__main__":
                             build_name + " ",
                             build_path,
                             test_args,
-                            copy(env),
+                            env.copy(),
                             args,
                             build_name
                         ), num_threads, "_intra_threads" + env_option, " intra_op_num_threads, " + env_option, failed, successful, is_omp)
@@ -530,7 +530,7 @@ if __name__ == "__main__":
                     build_name + " " + env_option,
                     build_path,
                     test_args,
-                    copy(env),
+                    env.copy(),
                     args,
                     build_name)
                 tests.append(params)                    
