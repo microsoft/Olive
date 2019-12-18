@@ -85,13 +85,13 @@ class PerfTestParams:
     
     def get_inter_op_num_threads(self):
         index = self.test_args.index("-y")
-        if index + 1 > self.test_args.length:
+        if index + 1 > len(self.test_args):
             return
         return self.test_args[index + 1]
 
     def get_intra_op_num_threads(self):
         index = self.test_args.index("-x")
-        if index + 1 > self.test_args.length:
+        if index + 1 > len(self.test_args):
             return
         return self.test_args[index + 1]
 
