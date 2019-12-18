@@ -210,20 +210,20 @@ def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, fai
         test_params.name + str(lower) + name_suffix,
         test_params.desc + str(lower) + desc_suffix,
         test_params.path,
-        test_params.test_args,
+        [],
         test_params.env_to_set,
         test_params.args,
         build_name,
     )
     # Update args or environment variables to reflect different number of threads
+    param.test_args = test_params.test_args
     if tune_inter_ops:
         param.test_args += ["-y", str(lower)]
     elif not is_omp:
         param.test_args += ["-x", str(lower)]
     else:
         param.updateEnv({"OMP_NUM_THREADS": str(lower)})
-        # param.test_args = test_params.test_args + ["-x", str(lower)]
-    print("!!!! isOpenMp " + str(is_omp) + " test_params ")
+    print("!!!! isOpenMp " + str(is_omp) + " test_params ") 
     print(param.test_args)
 
     run_perf_tuning(param)
@@ -245,19 +245,20 @@ def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, fai
             test_params.name + str(mid) + name_suffix,
             test_params.desc + str(mid) + desc_suffix,
             test_params.path,
-            test_params.test_args,
+            [],
             test_params.env_to_set,
             test_params.args,
             build_name,
         )
         # tune threads by args
+        param.test_args = test_params.test_args
         if tune_inter_ops:
             param.test_args += ["-y", str(mid)]
         elif not is_omp:
             param.test_args += ["-x", str(mid)]
         else:
             param.updateEnv({"OMP_NUM_THREADS": str(mid)})
-            # param.test_args = test_params.test_args + ["-x", str(mid)]
+            
         run_perf_tuning(param)
         if param.avg:
             successful_tests.append(param)
