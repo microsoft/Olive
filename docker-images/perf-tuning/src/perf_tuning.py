@@ -211,7 +211,7 @@ def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, fai
         test_params.desc + str(lower) + desc_suffix,
         test_params.path,
         [],
-        test_params.env_to_set,
+        test_params.env_to_set.copy(),
         test_params.args,
         build_name,
     )
@@ -223,8 +223,6 @@ def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, fai
     else:
         param.updateEnv({"OMP_NUM_THREADS": str(lower)})
         param.test_args = test_params.test_args
-    print("!!!! isOpenMp " + str(is_omp) + " test_params ") 
-    print(param.test_args)
 
     run_perf_tuning(param)
     if not param.avg:
@@ -246,7 +244,7 @@ def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, fai
             test_params.desc + str(mid) + desc_suffix,
             test_params.path,
             [],
-            test_params.env_to_set,
+            test_params.env_to_set.copy(),
             test_params.args,
             build_name,
         )
