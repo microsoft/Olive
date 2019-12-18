@@ -84,13 +84,19 @@ class PerfTestParams:
             return "ORT_ENABLE_ALL"
     
     def get_inter_op_num_threads(self):
-        index = self.test_args.index("-y")
+        try:
+            index = self.test_args.index("-y")        
+        except ValueError:
+            return 0
         if index + 1 > len(self.test_args):
-            return
+            return 0
         return self.test_args[index + 1]
 
     def get_intra_op_num_threads(self):
-        index = self.test_args.index("-x")
+        try:
+            index = self.test_args.index("-x")
+        except ValueError:
+            return 0
         if index + 1 > len(self.test_args):
             return
         return self.test_args[index + 1]
