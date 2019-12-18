@@ -135,7 +135,6 @@ class PerfTestParams:
 
 def run_perf_tuning(test_params, percentiles=False):
     print()
-    print(test_params.test_args)
 
     result_file = os.path.join(test_params.result_dir, str(uuid.uuid4()))
 
