@@ -197,7 +197,7 @@ def run_perf_tuning(test_params, percentiles=False):
     print(test_params.name, test_params.avg)
 
 def run_perf_tuning_binary(test_params, num_cores, name_suffix, desc_suffix, failed_tests, successful_tests, is_omp=False, tune_inter_ops=False):
-    lower = 1
+    lower = 1 if tune_inter_ops == False else 2
     upper = num_cores
     mid = lower + (upper - lower) // 2
     if lower > upper:
@@ -470,7 +470,7 @@ if __name__ == "__main__":
                             build_name + " ",
                             build_path,
                             test_args + ["-P"],
-                            env,
+                            copy(env),
                             args,
                             build_name,
                         ), int(args.inter_op_num_threads), 
@@ -489,7 +489,7 @@ if __name__ == "__main__":
                             build_name + " ",
                             build_path,
                             test_args + ["-P", "-y", str(best_inter_op_num_threads) if best_inter_op_num_threads > 1 else "0"],
-                            env,
+                            copy(env),
                             args,
                             build_name,
                         ), num_threads, 
@@ -502,7 +502,7 @@ if __name__ == "__main__":
                         build_name + " " + str(best_intra_op_num_threads) + " intra_op_num_threads, " + env_option,
                         build_path,
                         test_args,
-                        env,
+                        copy(env),
                         args, 
                         build_name, 
                     )
@@ -520,7 +520,7 @@ if __name__ == "__main__":
                             build_name + " ",
                             build_path,
                             test_args,
-                            env,
+                            copy(env),
                             args,
                             build_name
                         ), num_threads, "_intra_threads" + env_option, " intra_op_num_threads, " + env_option, failed, successful, is_omp)
@@ -530,7 +530,7 @@ if __name__ == "__main__":
                     build_name + " " + env_option,
                     build_path,
                     test_args,
-                    env,
+                    copy(env),
                     args,
                     build_name)
                 tests.append(params)                    
