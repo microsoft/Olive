@@ -357,7 +357,7 @@ def parse_arguments():
                         choices=["duration", "times"],
                         help="Specifies the test mode. Value could be 'duration' or 'times'.")
     parser.add_argument("-e", "--execution_provider", default="",
-                        help="Specifies the provider 'cpu','cuda','mkldnn'.")
+                        help="Specifies the provider 'cpu','cuda','dnnl' etc.")
     parser.add_argument("-r", "--repeated_times", default="20",
                         help="Specifies the repeated times if running in 'times' test mode. Default:20.")
     parser.add_argument("-t", "--seconds_to_run", default="10",
@@ -398,7 +398,7 @@ if __name__ == "__main__":
     bin_dir = os.path.join(os.path.dirname(__file__), "bin", args.config)
     build_dirs = os.listdir(bin_dir)
 
-    allProviders = ["mklml", "cpu_openmp", "mkldnn", "cpu", "tensorrt", "ngraph", "cuda"]
+    allProviders = ["mklml", "cpu_openmp", "dnnl", "cpu", "tensorrt", "ngraph", "cuda"]
     # Get all execution providers needed to run in current context
     providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else allProviders
 
@@ -427,7 +427,7 @@ if __name__ == "__main__":
             build_path = os.path.join(bin_dir, "all_eps")
         else:
             raise ValueError("Provider %s is not currently supported. \
-                Please choose one of cpu, cpu_openmp, mkldnn, mklml, cuda, tensorrt or ngraph",
+                Please choose one of cpu, cpu_openmp, dnnl, mklml, cuda, tensorrt or ngraph",
                 build_name)
         if os.path.isdir(build_path):
             # If current build is requested by user, run perf tuning
@@ -435,8 +435,8 @@ if __name__ == "__main__":
             successful = []
             tests = []
 
-            if "mkldnn" in build_name:
-                test_args = test_args + ["-e", "mkldnn"]
+            if "dnnl" in build_name:
+                test_args = test_args + ["-e", "dnnl"]
             if "cuda" in build_name:
                 test_args = test_args + ["-e", "cuda"]
             if "tensorrt" in build_name:

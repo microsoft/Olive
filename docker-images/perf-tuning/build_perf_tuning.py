@@ -30,8 +30,8 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
         copy(os.path.join(onnxruntime_dir, "build/Windows", config, config, "onnxruntime_perf_test.exe"), target_dir)
         copy(os.path.join(onnxruntime_dir, "build/Windows", config, config, "onnxruntime.dll"), target_dir)
         if "mklml" not in build_name:
-            if "--use_mkldnn" in build_args:
-                copy(os.path.join(onnxruntime_dir, "build/Windows", config, config, "mkldnn.dll"), target_dir)
+            if "--use_dnnl" in build_args:
+                copy(os.path.join(onnxruntime_dir, "build/Windows", config, config, "dnnl.dll"), target_dir)
             if args.use_cuda or args.use_tensorrt:
                 copy(os.path.join(args.cudnn_home, "bin/cudnn*.dll"), target_dir)
             if args.use_tensorrt:
@@ -49,10 +49,10 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
         
         copy(os.path.join(onnxruntime_dir, "build/Linux", config, "onnxruntime_perf_test"), target_dir)
         copy(os.path.join(onnxruntime_dir, "build/Linux", config, "libonnxruntime.so*"), target_dir)
-        copy(os.path.join(onnxruntime_dir, "build/Linux", config, "mklml/src/project_mklml/lib/*.so*"), target_dir)
+        copy(os.path.join(onnxruntime_dir, "build/Linux", config, "dnnl/src/project_dnnl/lib/*.so*"), target_dir)
         if "all_eps" in build_name:
-            if "--use_mkldnn" in build_args:
-                copy(os.path.join(onnxruntime_dir, "build/Linux", config, "mkl-dnn/install/lib/libmkldnn.so*"), target_dir)
+            if "--use_dnnl" in build_args:
+                copy(os.path.join(onnxruntime_dir, "build/Linux", config, "mkl-dnn/install/lib/libdnnl.so*"), target_dir)
             if args.use_cuda or args.use_tensorrt:
                 if is_windows():
                     copy(os.path.join(args.cudnn_home, "bin/cudnn*.dll"), target_dir)
@@ -98,7 +98,7 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
 
-    build_args = ["--parallel", "--use_mkldnn", "--use_openmp"]
+    build_args = ["--parallel", "--use_dnnl", "--use_openmp"]
     
     if args.use_mklml:
         build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mklml", "--parallel"], "mklml", args)
