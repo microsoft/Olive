@@ -49,10 +49,10 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
         
         copy(os.path.join(onnxruntime_dir, "build/Linux", config, "onnxruntime_perf_test"), target_dir)
         copy(os.path.join(onnxruntime_dir, "build/Linux", config, "libonnxruntime.so*"), target_dir)
-        copy(os.path.join(onnxruntime_dir, "build/Linux", config, "dnnl/src/project_dnnl/lib/*.so*"), target_dir)
+        copy(os.path.join(onnxruntime_dir, "build/Linux", config, "mklml/src/project_mklml/lib/*.so*"), target_dir)
         if "all_eps" in build_name:
             if "--use_dnnl" in build_args:
-                copy(os.path.join(onnxruntime_dir, "build/Linux", config, "mkl-dnn/install/lib/libdnnl.so*"), target_dir)
+                copy(os.path.join(onnxruntime_dir, "build/Linux", config, "dnnl/install/lib/libdnnl.so*"), target_dir)
             if args.use_cuda or args.use_tensorrt:
                 if is_windows():
                     copy(os.path.join(args.cudnn_home, "bin/cudnn*.dll"), target_dir)
