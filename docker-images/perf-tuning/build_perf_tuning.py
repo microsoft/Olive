@@ -36,6 +36,10 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 copy(os.path.join(args.cudnn_home, "bin/cudnn*.dll"), target_dir)
             if args.use_tensorrt:
                 copy(os.path.join(args.tensorrt_home, "lib/nvinfer.dll"), target_dir)
+            if "--use_tvm" in build_args:
+                copy(os.path.join(onnxruntime_dir, "build", "Windows", config, config, "tvm.dll"), target_dir)
+            if "--use_nuphar" in build_args:
+                copy(os.path.join(onnxruntime_dir, "onnxruntime", "core", "providers", "nuphar", "scripts", "symbolic_shape_infer.py"), target_dir)
     else:
         build_env = os.environ.copy()
         lib_path = os.path.join(onnxruntime_dir, "build/Linux", config, "mklml/src/project_mklml/lib/")
@@ -65,6 +69,10 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 else:
                     copy(os.path.join(args.tensorrt_home, "lib/libnvinfer.so*"), target_dir)
                     copy(os.path.join(args.tensorrt_home, "lib/libnvinfer_plugin.so*"), target_dir)
+            if "--use_tvm" in build_args:
+                copy(os.path.join(onnxruntime_dir, "build/Linux", config, "external", "tvm", "libtvm.so*"), target_dir)
+            if "--use_nuphar" in build_args:
+                copy(os.path.join(onnxruntime_dir, "onnxruntime", "core", "providers", "nuphar", "scripts", "symbolic_shape_infer.py"), target_dir)
         if "ngraph" in build_name:
             if is_windows():
                 pass
@@ -92,6 +100,8 @@ def parse_arguments():
 
     parser.add_argument("--use_ngraph", action='store_true', help="Build with nGraph")
     parser.add_argument("--use_mklml", action='store_true', help="Build with mklml")
+    parser.add_argument("--use_nuphar", action='store_true', help="Build with Nuphar")
+    parser.add_argument("--llvm_path", help="Path to llvm-build/lib/cmake/llvm")
 
     parser.add_argument("--variants", help="Variants to build. Will build all by default")
 
@@ -127,6 +137,11 @@ if __name__ == "__main__":
                 build_args = build_args + ["--cuda_home", args.cuda_home]
             if args.cudnn_home:
                 build_args = build_args + ["--cudnn_home", args.cudnn_home]
-    
+
+    if args.use_nuphar:
+        build_args += ["--use_tvm", "--use_llvm", "--use_nuphar"]
+        if args.llvm_path:
+            build_args = build_args + ["--llvm_path", args.llvm_path]
+
     build_onnxruntime(args.onnxruntime_home, args.config, build_args, "all_eps", args)
 

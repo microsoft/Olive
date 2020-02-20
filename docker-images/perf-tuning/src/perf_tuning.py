@@ -398,7 +398,7 @@ if __name__ == "__main__":
     bin_dir = os.path.join(os.path.dirname(__file__), "bin", args.config)
     build_dirs = os.listdir(bin_dir)
 
-    allProviders = ["mklml", "cpu_openmp", "dnnl", "cpu", "tensorrt", "ngraph", "cuda"]
+    allProviders = ["mklml", "cpu_openmp", "dnnl", "cpu", "tensorrt", "ngraph", "cuda", "nuphar"]
     # Get all execution providers needed to run in current context
     providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else allProviders
 
@@ -427,7 +427,7 @@ if __name__ == "__main__":
             build_path = os.path.join(bin_dir, "all_eps")
         else:
             raise ValueError("Provider %s is not currently supported. \
-                Please choose one of cpu, cpu_openmp, dnnl, mklml, cuda, tensorrt or ngraph",
+                Please choose one of cpu, cpu_openmp, dnnl, mklml, cuda, tensorrt, ngraph or nuphar",
                 build_name)
         if os.path.isdir(build_path):
             # If current build is requested by user, run perf tuning
@@ -443,7 +443,9 @@ if __name__ == "__main__":
                 test_args = test_args + ["-e", "tensorrt"]
             if "ngraph" in build_name:
                 test_args = test_args + ["-e", "ngraph"]
-            
+            if "nuphar" in build_name:
+                test_args = test_args + ["-e", "nuphar"]
+
             env_vars = ep_envvar_map.get(build_name)
             env_var_combos = get_env_var_combos(env_vars)
             env_names = list(env_vars.keys()) if env_vars is not None else []
