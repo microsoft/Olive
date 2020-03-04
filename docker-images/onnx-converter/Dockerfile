@@ -8,18 +8,23 @@ COPY src/check_model.py src/check_model.py
 COPY src/create_input.py src/create_input.py
 
 # Install OpenMp dependency
-ARG OPENMPI_VERSION=1.10.7
-RUN wget -q -O - https://cntkbuildstorage.blob.core.windows.net/cntk-ci-dependencies/openmpi/$OPENMPI_VERSION/openmpi-$OPENMPI_VERSION.tar.gz | tar -xzf - && \
-    cd openmpi-${OPENMPI_VERSION} && \
-    apt-get -y update && \
+# ARG OPENMPI_VERSION=1.10.7
+# RUN wget -q -O - https://cntkbuildstorage.blob.core.windows.net/cntk-ci-dependencies/openmpi/$OPENMPI_VERSION/openmpi-$OPENMPI_VERSION.tar.gz | tar -xzf - && \
+#     cd openmpi-${OPENMPI_VERSION} && \
+#     apt-get -y update && \
+#     apt-get -y -f install && \
+#     apt-get -y install libsysfs2 libsysfs-dev && \
+#     ./configure --prefix=/usr/local/mpi && \
+#     make -j $(nproc) install && \
+#     cd .. && \
+#     rm -rf openmpi-${OPENMPI_VERSION}
+RUN apt-get -y update && \
     apt-get -y -f install && \
-    apt-get -y install libsysfs2 libsysfs-dev && \
-    ./configure --prefix=/usr/local/mpi && \
-    make -j $(nproc) install && \
-    cd .. && \
-    rm -rf openmpi-${OPENMPI_VERSION}
+    apt-get -y install openmpi-bin
+RUN ln -s /usr/lib/x86_64-linux-gnu/libmpi_cxx.so.40 /usr/lib/x86_64-linux-gnu/libmpi_cxx.so.1 && \
+    ln -s /usr/lib/x86_64-linux-gnu/libmpi.so.40.10.3 /usr/lib/x86_64-linux-gnu/libmpi.so.12
 ENV PATH /usr/local/mpi/bin:$PATH
-ENV LD_LIBRARY_PATH /usr/local/mpi/lib:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH /usr/local/mpi/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 
 # Install Python Requirements
 RUN pip3 install --upgrade pip \ 
