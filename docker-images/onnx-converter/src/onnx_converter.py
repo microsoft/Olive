@@ -32,7 +32,7 @@ def get_args():
         "--model_type", 
         required=False,
         help="The type of original model. \
-            Available types are caffe, cntk, coreml, keras, libsvm, lightgbm, mxnet, pytorch, scikit-learn, tensorflow and xgboost"
+            Available types are cntk, coreml, keras, scikit-learn, tensorflow and pytorch."
     )
     parser.add_argument(
         "--model_inputs_names", 
@@ -264,7 +264,7 @@ def convert_models(args):
     if converters.get(args.model_type) == None:
         raise ValueError('Model type {} is not currently supported. \n\
             Please select one of the following model types -\n\
-                caffe, cntk, coreml, keras, libsvm, lightgbm, mxnet, pytorch, scikit-learn, tensorflow or xgboost'.format(args.model_type))
+                cntk, coreml, keras, pytorch, scikit-learn, tensorflow'.format(args.model_type))
     
     suffix = suffix_format_map.get(model_extension)
 

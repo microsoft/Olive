@@ -23,7 +23,7 @@
             <h5>Error:
             <b-badge variant="danger">{{convert_result['output_json']['error_message']}}</b-badge>
             </h5>
-            <div v-if="convert_result['output_json']['error_message'].length == 0">
+            <div v-if="convert_result['output_json']['conversion_status'] == 'SUCCESS'">
                 <h5>Download</h5>
                 <a :href="host + ':5000/' + convert_result['input_path']" download>[input] </a>
                 <a :href="host + ':5000/' + convert_result['model_path']" download>[model]</a>

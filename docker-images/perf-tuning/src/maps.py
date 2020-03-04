@@ -7,17 +7,23 @@ model_ep_map = {
 
 ep_graphOptimizer_map = {
     # Placeholder for assigning graph optimizer to executer provider
-    "cpu": 2,
-    "cpu_openmp": 2,
-    "cuda": 2,
-    "mkldnn": 2,
-    "ngraph": 2,
-    "tensorrt": 2
 }
 
 ep_envvar_map = {
-    # Placeholder to tune environment variables based on execution provid
+    # Placeholder to tune environment variables based on execution provider
     "cpu_openmp": {
+        "OMP_WAIT_POLICY": ["active", "passive"],
+        },
+    "mklml": {
+        "OMP_WAIT_POLICY": ["active", "passive"],
+        },
+    "dnnl": {
+        "OMP_WAIT_POLICY": ["active", "passive"],
+        },
+    "ngraph": {
+        "OMP_WAIT_POLICY": ["active", "passive"],
+        },
+    "nuphar": {
         "OMP_WAIT_POLICY": ["active", "passive"],
         }
 }
