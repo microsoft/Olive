@@ -89,14 +89,13 @@ def parse_arguments():
     parser.add_argument("--config", default="RelWithDebInfo",
                         choices=["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
                         help="Configuration to build.")
-
+    parser.add_argument("--use_openmp", action='store_true', help="Enable OpenMP.")
     parser.add_argument("--use_cuda", action='store_true', help="Enable CUDA.")
     parser.add_argument("--cuda_version", help="The version of CUDA toolkit to use. Auto-detect if not specified. e.g. 9.0")
     parser.add_argument("--cuda_home", help="Path to CUDA home."
                                             "Read from CUDA_HOME environment variable if --use_cuda is true and --cuda_home is not specified.")
     parser.add_argument("--cudnn_home", help="Path to CUDNN home. "
                                              "Read from CUDNN_HOME environment variable if --use_cuda is true and --cudnn_home is not specified.")
-
     parser.add_argument("--use_tensorrt", action='store_true', help="Build with TensorRT")
     parser.add_argument("--tensorrt_home", help="Path to TensorRT installation dir")
 
@@ -112,9 +111,11 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
 
-    build_args = ["--parallel", "--use_dnnl", "--use_openmp"]
+    build_args = ["--parallel", "--use_dnnl"]
     nuphar_args = []
 
+    if args.use_openmp:
+        build_args += ["--use_openmp"]
     if args.use_nuphar:
         nuphar_args += ["--use_tvm", "--use_llvm", "--use_nuphar"]
         if args.llvm_path:
