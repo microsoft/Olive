@@ -89,7 +89,6 @@ def parse_arguments():
     parser.add_argument("--config", default="RelWithDebInfo",
                         choices=["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
                         help="Configuration to build.")
-    parser.add_argument("--use_openmp", action='store_true', help="Enable OpenMP.")
     parser.add_argument("--use_cuda", action='store_true', help="Enable CUDA.")
     parser.add_argument("--cuda_version", help="The version of CUDA toolkit to use. Auto-detect if not specified. e.g. 9.0")
     parser.add_argument("--cuda_home", help="Path to CUDA home."
@@ -111,20 +110,19 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
 
-    build_args = ["--parallel", "--use_dnnl"]
+    build_args = ["--parallel", "--use_dnnl", "--use_openmp"]
     nuphar_args = []
 
-    if args.use_openmp:
-        build_args += ["--use_openmp"]
     if args.use_nuphar:
         nuphar_args += ["--use_tvm", "--use_llvm", "--use_nuphar"]
         if args.llvm_path:
             nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path]
+    if args.use_ngraph:
+        nuphar_args += ["--use_ngraph"]
     if args.use_mklml:
         # Build mklml + nuphar in one build
         build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_mklml"] + nuphar_args, "mklml", args)
-    if args.use_ngraph:
-        build_args += ["--use_ngraph"]
+    
 
     if args.use_cuda:
         build_args += ["--use_cuda"]
