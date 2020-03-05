@@ -115,7 +115,7 @@ if __name__ == "__main__":
         if args.llvm_path:
             nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path]
     if args.use_ngraph:
-        nuphar_args += ["--use_ngraph"]
+        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_ngraph", "--use_openmp"] + nuphar_args, "ngraph", args)
     if args.use_mklml:
         # Build mklml + nuphar in one build
         build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_mklml"] + nuphar_args, "mklml", args)
