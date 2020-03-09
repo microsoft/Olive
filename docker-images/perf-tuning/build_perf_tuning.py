@@ -120,7 +120,6 @@ if __name__ == "__main__":
     if args.use_mklml:
         # Build mklml + nuphar in one build
         build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_mklml"] + nuphar_args, "mklml", args)
-    
 
     if args.use_cuda:
         build_args += ["--use_cuda"]
