@@ -70,16 +70,15 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 else:
                     copy(os.path.join(args.tensorrt_home, "lib/libnvinfer.so*"), target_dir)
                     copy(os.path.join(args.tensorrt_home, "lib/libnvinfer_plugin.so*"), target_dir)
-            if args.use_ngraph:
-                if is_windows():
-                    pass
-                else:
-                    copy(os.path.join(onnxruntime_dir, "build/Linux", config, "external/ngraph/lib/lib*.so*"), target_dir)
+            
         if "mklml" in build_name:
             if "--use_tvm" in build_args:
                 copy(os.path.join(onnxruntime_dir, "build/Linux", config, "external", "tvm", "libtvm.so*"), target_dir)
             if "--use_nuphar" in build_args:
                 copy(os.path.join(onnxruntime_dir, "onnxruntime", "core", "providers", "nuphar", "scripts", "symbolic_shape_infer.py"), target_dir)
+        if "ngraph" in build_name:
+            copy(os.path.join(onnxruntime_dir, "build/Linux", config, "external/ngraph/lib/lib*.so*"), target_dir)
+            copy(os.path.join(onnxruntime_dir, "build/Linux", config, "external", "tvm", "libtvm.so*"), target_dir)
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -89,14 +88,12 @@ def parse_arguments():
     parser.add_argument("--config", default="RelWithDebInfo",
                         choices=["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
                         help="Configuration to build.")
-
     parser.add_argument("--use_cuda", action='store_true', help="Enable CUDA.")
     parser.add_argument("--cuda_version", help="The version of CUDA toolkit to use. Auto-detect if not specified. e.g. 9.0")
     parser.add_argument("--cuda_home", help="Path to CUDA home."
                                             "Read from CUDA_HOME environment variable if --use_cuda is true and --cuda_home is not specified.")
     parser.add_argument("--cudnn_home", help="Path to CUDNN home. "
                                              "Read from CUDNN_HOME environment variable if --use_cuda is true and --cudnn_home is not specified.")
-
     parser.add_argument("--use_tensorrt", action='store_true', help="Build with TensorRT")
     parser.add_argument("--tensorrt_home", help="Path to TensorRT installation dir")
 
@@ -119,11 +116,12 @@ if __name__ == "__main__":
         nuphar_args += ["--use_tvm", "--use_llvm", "--use_nuphar"]
         if args.llvm_path:
             nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path]
+    if args.use_ngraph:
+        # Build ngraph as a separate build
+        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_ngraph", "--use_openmp"], "ngraph", args)
     if args.use_mklml:
         # Build mklml + nuphar in one build
         build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_mklml"] + nuphar_args, "mklml", args)
-    if args.use_ngraph:
-        build_args += ["--use_ngraph"]
 
     if args.use_cuda:
         build_args += ["--use_cuda"]
