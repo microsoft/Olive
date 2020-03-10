@@ -76,8 +76,10 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 copy(os.path.join(onnxruntime_dir, "build/Linux", config, "external", "tvm", "libtvm.so*"), target_dir)
             if "--use_nuphar" in build_args:
                 copy(os.path.join(onnxruntime_dir, "onnxruntime", "core", "providers", "nuphar", "scripts", "symbolic_shape_infer.py"), target_dir)
-        if "--use_ngraph" in build_args:
+        if "ngraph" in build_name:
             copy(os.path.join(onnxruntime_dir, "build/Linux", config, "external/ngraph/lib/lib*.so*"), target_dir)
+            copy(os.path.join(onnxruntime_dir, "build/Linux", config, "external", "tvm", "libtvm.so*"), target_dir)
+
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
@@ -116,7 +118,7 @@ if __name__ == "__main__":
             nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path]
     if args.use_ngraph:
         # Build ngraph as a separate build
-        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_ngraph", "--use_openmp"] + nuphar_args, "ngraph", args)
+        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_ngraph", "--use_openmp"], "ngraph", args)
     if args.use_mklml:
         # Build mklml + nuphar in one build
         build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_mklml"] + nuphar_args, "mklml", args)
