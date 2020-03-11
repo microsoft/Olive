@@ -177,7 +177,17 @@ import Alert from './Alert.vue';
 import { perf_tuning_form } from '../utils/const';
 
 const origin_perf_tuning_form = Object.assign({}, perf_tuning_form);
-
+const ep_map = {
+  ALL: '',
+  CPU: 'cpu',
+  CPU_OpenMP: 'cpu_openmp',
+  MKLML: 'mklml',
+  DNNL: 'dnnl',
+  CUDA: 'cuda',
+  TensorRT: 'tensorrt',
+  nGraph: 'ngraph',
+  Nuphar: 'nuphar',
+};
 export default {
   name: 'Perf',
   props: ['converted_model'],
@@ -192,7 +202,7 @@ export default {
       customized_model: null,
       options: {
         test_mode: ['duration', 'times'],
-        execution_provider: ['', 'cpu', 'mklml', 'mkldnn', 'cuda', 'tensorrt', 'ngraph', 'cpu_openmp'],
+        execution_provider: Object.keys(ep_map),
       },
       message: '',
       show_message: false,
@@ -257,11 +267,16 @@ export default {
       if (this.selected_eps.length > 0) {
         this.perf_tuning_form.execution_provider = '';
         for (let i = 0; i < this.selected_eps.length; i++) {
-          this.perf_tuning_form.execution_provider += this.selected_eps[i];
+          this.perf_tuning_form.execution_provider += ep_map[this.selected_eps[i]];
           if (i < this.selected_eps.length - 1) {
             this.perf_tuning_form.execution_provider += ',';
           }
         }
+      }
+
+      // run all eps with "ALL" is selected.
+      if (this.perf_tuning_form.execution_provider.indexOf('') > -1) {
+        this.perf_tuning_form.execution_provider = '';
       }
 
       const metadata = this.perf_tuning_form;

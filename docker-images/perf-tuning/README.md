@@ -2,7 +2,7 @@
 
 This image is for automating the process of performance tuning in ONNX Runtime. Given an ONNX model you'd like to optimize the performance, the image will strategically search through all combinations of available execution providers, environment variables, and run options. Finally it outputs a JSON file that summarizes the latency results for the best combinations the image has searched, and profiling files for the combinations with top performance for each execution provider.
 
-Currently the execution providers available are cpu, cpu_openmp, dnnl, mklml, cuda, tensorrt, and ngraph.  
+Currently the execution providers available are cpu, cpu_openmp, dnnl, mklml, cuda, tensorrt, ngraph, and nuphar.  
 
 To use the image, you can either [pull from Microsoft Container Registry](#Pull-and-Run-the-Image-From-Microsoft-Container-Registry) or [build and run locally](#Build-and-Run-the-Image-Locally) from this repo.
 
@@ -43,7 +43,7 @@ NOTE: Model path and input data need to be stored in the directory trees as belo
 
 `--test_mode`: Specifies the test mode. Value could be "duration" or "time". Default is "time".
 
-`--execution_provider`: Execution Provider. Available options are "cpu", "cpu_openmp", "cuda", "tensorrt", "ngraph", "mkldnn", and "mklml"
+`--execution_provider`: Execution Provider. Available options are "cpu", "cpu_openmp", "cuda", "tensorrt", "ngraph", "mkldnn", "mklml", and "nuphar. If not provided, all execution providers available will be run. 
 
 `--repeated_times`: The repeated times if running in 'times' test mode. Default:20.
 
