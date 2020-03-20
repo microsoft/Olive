@@ -64,7 +64,7 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
             if args.use_tensorrt:
                 copy(os.path.join(args.tensorrt_home, "lib/libnvinfer.so*"), target_dir)
                 copy(os.path.join(args.tensorrt_home, "lib/libnvinfer_plugin.so*"), target_dir)
-                copy(os.path.join(args.tensorrt_home, "libmyelin.so*"), target_dir)
+                copy(os.path.join(args.tensorrt_home, "lib/libmyelin.so*"), target_dir)
             
         if "mklml" in build_name:
             if "--use_tvm" in build_args:
