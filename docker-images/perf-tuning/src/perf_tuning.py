@@ -334,7 +334,7 @@ class ConverterParamsFromJson():
     def __init__(self):
         with open(parse_arguments().input_json) as f:
             loaded_json = json.load(f)
-        cores = os.cpu_count() // 2
+        cores = os.cpu_count()
         # Check the required inputs
         if loaded_json.get("model") == None:
             raise ValueError("Please specified \"model\" in the input json. ")
@@ -360,7 +360,7 @@ class ConverterParamsFromJson():
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
-    cores = os.cpu_count() // 2
+    cores = os.cpu_count()
     print("Cores: ", cores)
     parser.add_argument("--input_json", 
                         help="A JSON file specifying the run specs. ")
