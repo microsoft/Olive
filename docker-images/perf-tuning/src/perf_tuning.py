@@ -454,6 +454,18 @@ if __name__ == "__main__":
                 test_args = ["-e", build_name]
             successful = []
             tests = []
+            is_omp = build_name in omp_eps
+            if is_omp:
+                params = PerfTestParams(
+                    build_name + env_option,
+                    build_name + " " + env_option,
+                    build_path,
+                    test_args + ["-x", "1"],
+                    env.copy(),
+                    args,
+                    build_name)
+                tests.append(params)
+                
             # Tune inter_op_num_threads using parallel execution mode with default environment variables. 
             best_inter_op_num_threads = -1
             if args.parallel and build_name in parallel_eps:                 
@@ -482,7 +494,7 @@ if __name__ == "__main__":
                     env_option += "_" + e + "_" + env.get(e)
 
                 best_thread_pool_size = -1
-                is_omp = build_name in omp_eps
+                
                 num_threads = int(args.intra_op_num_threads)
                 name_suffix = "_intra_threads" if not is_omp else "_OMP_threads"
                 desc_suffix = " intra_op_num_threads, " if not is_omp else " OMP_NUM_THREADS, "
