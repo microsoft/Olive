@@ -526,7 +526,9 @@ if __name__ == "__main__":
                     env.copy(),
                     args,
                     build_name)
-                tests.append(params)                    
+                if is_omp:
+                    params.test_args += ["-x", "1"]
+                tests.append(params)                       
 
             # Run the tests under current execution provider.
             for test in tests:
