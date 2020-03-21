@@ -461,7 +461,7 @@ if __name__ == "__main__":
                     build_name,
                     build_path,
                     test_args + ["-x", "1"],
-                    env.copy(),
+                    {},
                     args,
                     build_name)
                 tests.append(params)
