@@ -457,8 +457,8 @@ if __name__ == "__main__":
             is_omp = build_name in omp_eps
             if is_omp:
                 params = PerfTestParams(
-                    build_name + env_option,
-                    build_name + " " + env_option,
+                    build_name,
+                    build_name,
                     build_path,
                     test_args + ["-x", "1"],
                     env.copy(),
