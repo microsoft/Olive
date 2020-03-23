@@ -413,10 +413,11 @@ if __name__ == "__main__":
     build_dirs = os.listdir(bin_dir)
 
     allProviders = ["cpu_openmp", "mklml", "dnnl", "cpu", "tensorrt", "ngraph", "cuda", "nuphar"]
-    # Get all execution providers needed to run in current context
-    providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else allProviders
     parallel_eps = ["cpu_openmp", "mklml", "dnnl", "cpu", "ngraph"]
     omp_eps = ["cpu_openmp", "mklml", "dnnl", "ngraph", "nuphar"]
+
+    # Get all execution providers needed to run in current context
+    providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else allProviders    
 
     if len(GPUtil.getGPUs()) == 0:
         print("No GPU found on current device. Cuda and TensorRT performance tuning might not be available. ")
