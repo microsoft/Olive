@@ -409,7 +409,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.result):
         os.mkdir(args.result)
     
-    bin_dir = os.path.join(os.path.dirname(__file__), "bin", args.config)
+    bin_dir = os.path.join(os.path.dirname(__file__), "../bin", args.config)
     build_dirs = os.listdir(bin_dir)
 
     allProviders = ["cpu_openmp", "mklml", "dnnl", "cpu", "tensorrt", "ngraph", "cuda", "nuphar"]
