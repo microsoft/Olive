@@ -44,7 +44,7 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
     else:
         build_env = os.environ.copy()
         lib_path = os.path.join(onnxruntime_dir, "build/Linux", config, "mklml/src/project_mklml/lib/")
-        build_env["LD_LIBRARY_PATH"] = lib_path
+        build_env["LD_LIBRARY_PATH"] += ":" + lib_path
         subprocess.run([os.path.join(onnxruntime_dir, "build.sh"), "--config", config, "--build_shared_lib"] + build_args, cwd=onnxruntime_dir, check=True, env=build_env)
         target_dir = os.path.join("bin", config, build_name)
         
@@ -59,17 +59,12 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
             if "--use_dnnl" in build_args:
                 copy(os.path.join(onnxruntime_dir, "build/Linux", config, "dnnl/install/lib/libdnnl.so*"), target_dir)
             if args.use_cuda or args.use_tensorrt:
-                if is_windows():
-                    copy(os.path.join(args.cudnn_home, "bin/cudnn*.dll"), target_dir)
-                else:
-                    copy(os.path.join(args.cudnn_home, "lib64/libcudnn.so*"), target_dir)
-                    copy(os.path.join(args.cudnn_home, "lib64/libnvrtc.so*"), target_dir)
+                copy(os.path.join(args.cudnn_home, "lib64/libcudnn.so*"), target_dir)
+                copy(os.path.join(args.cudnn_home, "lib64/libnvrtc.so*"), target_dir)
             if args.use_tensorrt:
-                if is_windows():
-                    copy(os.path.join(args.tensorrt_home, "lib/nvinfer.dll"), target_dir)
-                else:
-                    copy(os.path.join(args.tensorrt_home, "lib/libnvinfer.so*"), target_dir)
-                    copy(os.path.join(args.tensorrt_home, "lib/libnvinfer_plugin.so*"), target_dir)
+                copy(os.path.join(args.tensorrt_home, "lib/libnvinfer.so*"), target_dir)
+                copy(os.path.join(args.tensorrt_home, "lib/libnvinfer_plugin.so*"), target_dir)
+                copy(os.path.join(args.tensorrt_home, "lib/libmyelin.so*"), target_dir)
             
         if "mklml" in build_name:
             if "--use_tvm" in build_args:

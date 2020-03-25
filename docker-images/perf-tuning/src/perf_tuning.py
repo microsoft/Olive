@@ -334,7 +334,7 @@ class ConverterParamsFromJson():
     def __init__(self):
         with open(parse_arguments().input_json) as f:
             loaded_json = json.load(f)
-        cores = os.cpu_count() // 2
+        cores = os.cpu_count()
         # Check the required inputs
         if loaded_json.get("model") == None:
             raise ValueError("Please specified \"model\" in the input json. ")
@@ -360,7 +360,7 @@ class ConverterParamsFromJson():
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
-    cores = os.cpu_count() // 2
+    cores = os.cpu_count()
     print("Cores: ", cores)
     parser.add_argument("--input_json", 
                         help="A JSON file specifying the run specs. ")
@@ -409,14 +409,15 @@ if __name__ == "__main__":
     if not os.path.exists(args.result):
         os.mkdir(args.result)
     
-    bin_dir = os.path.join(os.path.dirname(__file__), "bin", args.config)
+    bin_dir = os.path.join(os.path.dirname(__file__), "../bin", args.config)
     build_dirs = os.listdir(bin_dir)
 
     allProviders = ["cpu_openmp", "mklml", "dnnl", "cpu", "tensorrt", "ngraph", "cuda", "nuphar"]
-    # Get all execution providers needed to run in current context
-    providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else allProviders
     parallel_eps = ["cpu_openmp", "mklml", "dnnl", "cpu", "ngraph"]
     omp_eps = ["cpu_openmp", "mklml", "dnnl", "ngraph", "nuphar"]
+
+    # Get all execution providers needed to run in current context
+    providers = [p for p in args.execution_provider.split(",") if p != ""] if len(args.execution_provider) > 0 else allProviders    
 
     if len(GPUtil.getGPUs()) == 0:
         print("No GPU found on current device. Cuda and TensorRT performance tuning might not be available. ")
@@ -454,6 +455,18 @@ if __name__ == "__main__":
                 test_args = ["-e", build_name]
             successful = []
             tests = []
+            is_omp = build_name in omp_eps
+            if is_omp:
+                params = PerfTestParams(
+                    build_name,
+                    build_name,
+                    build_path,
+                    test_args + ["-x", "1"],
+                    {},
+                    args,
+                    build_name)
+                tests.append(params)
+                
             # Tune inter_op_num_threads using parallel execution mode with default environment variables. 
             best_inter_op_num_threads = -1
             if args.parallel and build_name in parallel_eps:                 
@@ -482,7 +495,7 @@ if __name__ == "__main__":
                     env_option += "_" + e + "_" + env.get(e)
 
                 best_thread_pool_size = -1
-                is_omp = build_name in omp_eps
+                
                 num_threads = int(args.intra_op_num_threads)
                 name_suffix = "_intra_threads" if not is_omp else "_OMP_threads"
                 desc_suffix = " intra_op_num_threads, " if not is_omp else " OMP_NUM_THREADS, "
@@ -526,7 +539,9 @@ if __name__ == "__main__":
                     env.copy(),
                     args,
                     build_name)
-                tests.append(params)                    
+                if is_omp:
+                    params.test_args += ["-x", "1"]
+                tests.append(params)                       
 
             # Run the tests under current execution provider.
             for test in tests:

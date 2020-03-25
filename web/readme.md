@@ -10,6 +10,10 @@ This repository shows how to use ONNX pipeline by a web interface in built local
 # Prerequisites
 - Install [Docker](https://docs.docker.com/install/).
 
+- Install [NVIDIA docker](https://github.com/NVIDIA/nvidia-docker/wiki/Installation-(version-2.0)
+
+    Note that NVIDIA docker 2 is needed to support `runtime=nvidia` API from [Docker python SDK](https://github.com/docker/docker-py), which this web app depends on. `--runtime=nvidia` has been replaced by `--gpus all` since Docker 19.03 and as of now the Docker python SDK hasn't reflected this change. 
+
 - Install project dependencies by running 
 ## Windows
 ```bash
