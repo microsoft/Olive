@@ -17,13 +17,13 @@
               <b-form-group id="form-model_type-group"
                         label="Job Name:"
                         label-for="form-model_type-input">
-              <b-form-input v-model="job_name" placeholder="app.convert"></b-form-input>
+              <b-form-input v-model="job_name" placeholder="perf-tuning"></b-form-input>
             </b-form-group>
                 <b-form-group id="form-model-group"
                               v-if="run_option == 0"
                               label="Model From Previous Step:"
-                              label-for="form-model-input">
-                    <b-form-input id="form-model-input"
+                              label-for="form-model">
+                    <b-form-input id="form-model"
                                     type="text"
                                     v-model="perf_tuning_form.model"
                                     readonly>
@@ -32,16 +32,17 @@
                 <b-form-group id="form-model-group"
                         v-if="run_option == 1"
                         label="Model:"
-                        label-for="form-model-input">
-                  <b-form-file id="form-model-input"
+                        label-for="form-model">
+                  <b-form-file id="form-model"
                                   v-model="customized_model"
                                   required
                                   placeholder="Choose a model...">
                   </b-form-file>
                 </b-form-group>
 
+                <!--TODO: DISABLE THIS WHEN PREVIOUS MODEL HAS PROVIDED INPUT -->
                 <b-form-group id="form-model-group"
-                        label="Model Input Test Data Files:"
+                        label="Model Input/Output Test Data Files:"
                         label-for="form-model-input">
                 <b-form-file multiple id="form-model-input"
                                 v-model="test_data"
@@ -145,7 +146,6 @@
                     Use parallel executor
                     </b-form-checkbox>
 
-
                     <b-form-group v-if="perf_tuning_form.parallel"
                                 id="form-intra_op_num_threads-group"
                                 label="inter_op_num_threads:"
@@ -214,7 +214,7 @@ export default {
       host: `${window.location.protocol}//${window.location.host.split(':')[0]}`,
       link: '',
       job_id: '',
-      job_name: 'app.perf_tuning',
+      job_name: 'perf-tuning',
     };
   },
 
@@ -222,21 +222,24 @@ export default {
     alert: Alert,
   },
 
+  created: function() {
+    this.update_model_path()
+  },
+
   watch: {
     converted_model() {
-      this.perf_tuning_form.model = this.converted_model;
-      if (this.converted_model.length > 0) {
-        this.run_option = 0;
-      }
+      this.update_model_path();
     },
     run_option(newVal) {
       this.model_missing = '';
       this.test_data_missing = '';
+      console.log("run_option ", newVal);
       if (newVal == 0) {
         this.perf_tuning_form.model = this.converted_model;
       }
     },
   },
+
   methods: {
     init_perf_tuning_form() {
       this.perf_tuning_form = Object.assign({}, origin_perf_tuning_form);
@@ -246,6 +249,14 @@ export default {
       this.test_data = [];
       this.run_option = 0;
     },
+
+    update_model_path() {
+      this.perf_tuning_form.model = this.converted_model;
+      console.log("converted_model ", this.converted_model);
+      if (this.converted_model.length > 0) {
+        this.run_option = 0;
+      }
+    }, 
 
     perf_tuning(evt) {
       this.close_all();

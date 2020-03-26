@@ -10,7 +10,7 @@
             <b-form-group id="form-model_type-group"
                         label="Job Name:"
                         label-for="form-model_type-input">
-              <b-form-input v-model="job_name" placeholder="app.convert"></b-form-input>
+              <b-form-input v-model="job_name" placeholder="onnx-converter"></b-form-input>
             </b-form-group>
             <b-form-group id="form-model_type-group"
                         label="Model type:"
@@ -64,7 +64,7 @@
             </b-form-file>
             </b-form-group>
             <b-form-group id="form-model-group"
-                        label="Model Input Test Data Files:"
+                        label="Model Input/Output Test Data Files:"
                         label-for="form-model-input">
             <b-form-file multiple id="form-model-input"
                             v-model="test_data"
@@ -196,7 +196,7 @@ export default {
       model_running: false,
       link: '',
       job_id: '',
-      job_name: 'app.convert',
+      job_name: 'onnx-converter',
     };
   },
   components: {
