@@ -27,7 +27,7 @@
                 <h5>Download: </h5>
                 <a :href="host + ':5000/' + convert_result['input_path']" download>[input] </a>
                 <a :href="host + ':5000/' + convert_result['model_path']" download>[model]</a>
-            </div>                
+            </div>
             <br>
         </div>
         <alert :message=message :link=link v-if="show_message"></alert>
@@ -110,7 +110,6 @@ export default {
             this.message = 'Job running. Auto refreshing the page in 2 seconds. ';
             setTimeout(() => this.update_result(this.id), 2000);
           } else {
-            // rerun in 2 seconds
             this.show_message = true;
             this.message = 'Job is pending or the job does not exist. Try refreshing the page or browse all available jobs at ';
             this.link = `${this.host}:8000/jobmonitor`;

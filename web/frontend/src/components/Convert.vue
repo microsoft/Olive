@@ -9,12 +9,14 @@
         <b-form @submit="convert" @reset="onReset" class="w-100">
             <b-form-group id="form-model_type-group"
                         label="Job Name:"
-                        label-for="form-model_type-input">
+                        label-for="form-model_type-input"
+                        label-class="font-weight-bold">
               <b-form-input v-model="job_name" placeholder="onnx-converter"></b-form-input>
             </b-form-group>
             <b-form-group id="form-model_type-group"
                         label="Model type:"
-                        label-for="form-model_type-input">
+                        label-for="form-model_type-input"
+                        label-class="font-weight-bold">
 
             <b-form-select v-model="convert_form.model_type"
                         required
@@ -29,7 +31,8 @@
             <b-form-group v-if="convert_form.model_type == 'tensorflow'"
                         id="form-tf_model_type-group"
                         label="Tensorflow model type:"
-                        label-for="form-tf_model_type-input">
+                        label-for="form-tf_model_type-input"
+                        label-class="font-weight-bold">
 
             <b-form-select v-model="tf_model_type"
                         :options="options.tf_model_type"
@@ -43,7 +46,8 @@
 
             <b-form-group id="form-model-group"
                         label="Model:"
-                        label-for="form-model-input">
+                        label-for="form-model-input"
+                        label-class="font-weight-bold">
             <b-form-file id="form-model-input"
                             v-model="convert_form.model"
                             required
@@ -55,7 +59,8 @@
                           && tf_model_type === 'savedModel'"
                         id="form-model-group"
                         label="Tensorflow SavedModel Variable Files:"
-                        label-for="form-model-input">
+                        label-for="form-model-input"
+                        label-class="font-weight-bold">
             <b-form-file id="form-model-input"
                         multiple
                         v-model="savedModel_vars"
@@ -65,7 +70,8 @@
             </b-form-group>
             <b-form-group id="form-model-group"
                         label="Model Input/Output Test Data Files:"
-                        label-for="form-model-input">
+                        label-for="form-model-input"
+                        label-class="font-weight-bold">
             <b-form-file multiple id="form-model-input"
                             v-model="test_data"
                             placeholder="Select your input/output.pbs...">
@@ -75,7 +81,8 @@
                         && tf_model_type != 'savedModel' && tf_model_type.length > 0"
                         id="form-model_inputs_names-group"
                         label="Model inputs names:"
-                        label-for="form-model_inputs_names-input">
+                        label-for="form-model_inputs_names-input"
+                        label-class="font-weight-bold">
             <b-form-input id="form-model_inputs_names-input"
                             type="text"
                             v-model="convert_form.model_inputs_names"
@@ -86,7 +93,8 @@
                         && tf_model_type != 'savedModel' && tf_model_type.length > 0"
                         id="form-model_outputs_names-group"
                         label="Model outputs names:"
-                        label-for="form-model_outputs_names-input">
+                        label-for="form-model_outputs_names-input"
+                        label-class="font-weight-bold">
             <b-form-input id="form-model_outputs_names-input"
                             type="text"
                             v-model="convert_form.model_outputs_names"
@@ -96,7 +104,8 @@
         <b-form-group v-if="convert_form.model_type === 'mxnet'"
                         id="form-model_params-group"
                         label="Model params:"
-                        label-for="form-model_params-input">
+                        label-for="form-model_params-input"
+                        label-class="font-weight-bold">
             <b-form-input id="form-model_params-input"
                             type="text"
                             v-model="convert_form.model_params"
@@ -107,7 +116,8 @@
         <b-form-group v-if="convert_form.model_type === 'caffe'"
                         id="form-caffe_model_prototxt-group"
                         label="Caffe model prototxt:"
-                        label-for="form-caffe_model_prototxt-input">
+                        label-for="form-caffe_model_prototxt-input"
+                        label-class="font-weight-bold">
             <b-form-input id="form-caffe_model_prototxt-input"
                             type="text"
                             v-model="convert_form.caffe_model_prototxt"
@@ -118,7 +128,8 @@
         <b-form-group v-if="convert_form.model_type === 'scikit-learn'"
                         id="form-initial_types-group"
                         label="Initial types:"
-                        label-for="form-initial_types-input">
+                        label-for="form-initial_types-input"
+                        label-class="font-weight-bold">
             <b-form-input id="form-initial_types-input"
                             type="text"
                             v-model="convert_form.initial_types"
@@ -129,7 +140,8 @@
         <b-form-group v-if="convert_form.model_type === 'pytorch'"
                         id="form-model_input_shapes-group"
                         label="Model input shapes:"
-                        label-for="form-model_input_shapes-input">
+                        label-for="form-model_input_shapes-input"
+                        label-class="font-weight-bold">
             <b-form-input id="form-model_input_shapes-input"
                             type="text"
                             v-model="convert_form.model_input_shapes"
@@ -140,7 +152,8 @@
 
         <b-form-group id="form-target_opset-group"
                         label="Target Opset:"
-                        label-for="form-target_opset-input">
+                        label-for="form-target_opset-input"
+                        label-class="font-weight-bold">
             <b-form-input id="form-target_opset-input"
                             type="text"
                             v-model="convert_form.target_opset"
@@ -196,7 +209,7 @@ export default {
       model_running: false,
       link: '',
       job_id: '',
-      job_name: 'onnx-converter',
+      job_name: `onnx-converter-${Date.now()}`,
     };
   },
   components: {
@@ -210,10 +223,13 @@ export default {
       evt.preventDefault();
       this.initForm();
       this.convert_result = null;
+      this.job_name = `onnx-converter-${Date.now()}`;
     },
     convert(evt) {
       this.close_all();
-      // this.model_running = true;
+      this.model_running = true;
+      this.show_message = true;
+      this.message = `Submitting job ${this.job_name}`;
       evt.preventDefault();
       const metadata = this.convert_form;
       const json = JSON.stringify(metadata);
@@ -237,6 +253,7 @@ export default {
         .then((res) => {
           this.link = `${this.host}:8000/convertresult/${res.data.job_id}`;
           this.show_message = true;
+          this.model_running = false;
           this.message = 'Running job at ';
           this.update_result(res.data.job_id);
         })
@@ -245,6 +262,7 @@ export default {
           this.model_running = false;
           this.message = error;
         });
+      this.job_name = `onnx-converter-${Date.now()}`;
     },
     update_result(location) {
       axios.get(`${this.host}:5000/convertstatus/${location}`)

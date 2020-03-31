@@ -48,7 +48,6 @@ export default {
   },
   methods: {
     updateModelHandler(value) {
-      console.log("updateModelHandler ", value)
       this.converted_model = value;
     },
   },
