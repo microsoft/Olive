@@ -20,9 +20,8 @@
                 {{convert_result['output_json']['correctness_verified']}}
             </b-badge>
             </h5>
-            <h5 v-if="convert_result['output_json']['error_message'].length > 0">Error:
-            <b-badge variant="danger">{{convert_result['output_json']['error_message']}}</b-badge>
-            </h5>
+            <h5 v-if="convert_result['output_json']['error_message'].length > 0">Error:</h5>            
+            <b-alert show variant="danger">{{convert_result['output_json']['error_message']}}</b-alert>
             <div v-if="convert_result['output_json']['conversion_status'] == 'SUCCESS'">
                 <h5>Download: </h5>
                 <a :href="host + ':5000/' + convert_result['input_path']" download>[input] </a>

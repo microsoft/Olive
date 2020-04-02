@@ -63,7 +63,6 @@ def store_file_from_request(request, file_key, save_to_dir):
     return ''
 
 def store_files_from_request(request, file_key, save_to_dir, isTestData=False):
-    
     if file_key in request.files:
         if os.path.exists(save_to_dir):
             rmtree(save_to_dir)
@@ -92,6 +91,7 @@ def get_convert_json(request, test_data_root_path):
     # Save files passed from request
     model_name = store_file_from_request(request, 'file', file_input_dir)
     json_data['model'] = model_name
+    print
 
     # Store test data files if any
     test_data_dir = os.path.join(test_data_root_path, app_config.TEST_DATA_DIR)
@@ -100,6 +100,10 @@ def get_convert_json(request, test_data_root_path):
     # Store tensorflow savedmodel files if any
     variables_dir = os.path.join(file_input_dir, 'variables')
     store_files_from_request(request, 'savedModel[]', variables_dir)
+    # If using tensorflow saved model, change model path to the directory containing the model files.
+    if os.path.exists(variables_dir):
+        print("exist!")
+        json_data['model'] = os.path.dirname(os.path.abspath(json_data['model']))
 
     # remove empty input folder
     if len(os.listdir(file_input_dir)) == 0:
@@ -330,7 +334,7 @@ def send_perf_job():
     #     # If model path is provided, add test data if neccessary to the model directory path
     #     _, temp_json, input_params = get_params(request, '')
     _, temp_json, input_params = get_perf_json(request)
-    job_name = "perf_tuning." + request.form.get('job_name')
+    job_name = 'perf_tuning.' + request.form.get('job_name')
     job = perf_tuning.apply_async(args=[temp_json, input_params], shadow=job_name)
     return jsonify({'Location': url_for('perf_status', task_id=job.id), 'job_id': job.id}), 202
 
