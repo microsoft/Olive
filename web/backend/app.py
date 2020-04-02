@@ -25,6 +25,7 @@ app.config.from_object(__name__)
 app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
 app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
 app.config['CELERY_TRACK_STARTED'] = True
+app.config['CELERY_TASK_RESULT_EXPIRES'] = 0 # Celery job won't expire
 
 celery = Celery(app.name, 
     broker=app.config['CELERY_BROKER_URL'],
@@ -39,8 +40,8 @@ def get_params(request, convert_output_path):
     file_input_dir = os.path.join(app.root_path, app_config.FILE_INPUTS_DIR, cur_ts)
     if request.form.get('prev_model_path'):
         # Get input files directory from the mounted path if the inputs are already present from previous calls
-        file_input_dir = os.path.join(app.root_path, 
-            get_local_mounted_path(request.form.get('prev_model_path'), app_config.MOUNT_PATH))
+        local_mounted_path = get_local_mounted_path(request.form.get('prev_model_path'), app_config.MOUNT_PATH)
+        file_input_dir = os.path.join(app.root_path, local_mounted_path) 
     if not os.path.exists(file_input_dir):
         os.makedirs(file_input_dir)
     temp_json = os.path.join(file_input_dir, 'temp.json')
@@ -96,10 +97,10 @@ def get_time_from_ts(time):
 def get_local_mounted_path(path, mount_path):
     if len(path) < len(mount_path):
         return path
-    return os.path.dirname(path[len(mount_path) + 1:])
+    return os.path.dirname(path[len(mount_path) + 2:])
 
 # Keep a maximum number of contents in the given directory. Remove the oldest if greater than maximum.
-def garbage_collect(dir, max=5):
+def garbage_collect(dir, max=20):
     if not os.path.exists(dir):
         return
     num_folders = len(os.listdir(dir))

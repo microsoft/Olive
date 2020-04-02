@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 <template>
     <div class="container">
-        <h3>Job {{job_name}}</h3>
+        <h3>Job "{{job_name}}"</h3>
         <b-table style="table-layout: fixed"
             :items="args"
             :fields="fields"
@@ -20,14 +20,15 @@
                 {{convert_result['output_json']['correctness_verified']}}
             </b-badge>
             </h5>
-            <h5>Error:
+            <h5 v-if="convert_result['output_json']['error_message'].length > 0">Error:
             <b-badge variant="danger">{{convert_result['output_json']['error_message']}}</b-badge>
             </h5>
             <div v-if="convert_result['output_json']['conversion_status'] == 'SUCCESS'">
-                <h5>Download</h5>
+                <h5>Download: </h5>
                 <a :href="host + ':5000/' + convert_result['input_path']" download>[input] </a>
                 <a :href="host + ':5000/' + convert_result['model_path']" download>[model]</a>
             </div>
+            <br>
         </div>
         <alert :message=message :link=link v-if="show_message"></alert>
     </div>
@@ -109,7 +110,6 @@ export default {
             this.message = 'Job running. Auto refreshing the page in 2 seconds. ';
             setTimeout(() => this.update_result(this.id), 2000);
           } else {
-            // rerun in 2 seconds
             this.show_message = true;
             this.message = 'Job is pending or the job does not exist. Try refreshing the page or browse all available jobs at ';
             this.link = `${this.host}:8000/jobmonitor`;

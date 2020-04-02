@@ -3,7 +3,7 @@
 export const convert_form = {
   model: null,
   model_type: 'tensorflow',
-  target_opset: '10',
+  target_opset: '11',
   model_inputs_names: '',
   model_input_shapes: '',
   model_outputs_names: '',

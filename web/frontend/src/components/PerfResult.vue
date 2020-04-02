@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 <template>
     <div class='container'>
-        <h3>Job {{job_name}}</h3>
+        <h3>Job "{{job_name}}"</h3>
         <b-table style="table-layout: fixed"
             :items="args"
             :fields="arg_fields"

@@ -27,7 +27,7 @@
           </button>
         </router-link>
         <hr/>
-        <keep-alive >
+        <keep-alive>
           <router-view
             v-on:update_model="updateModelHandler"
             :converted_model="converted_model"/>
