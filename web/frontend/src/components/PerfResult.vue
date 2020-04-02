@@ -172,8 +172,8 @@ export default {
           } else if (res.data.state == 'STARTED') {
             // rerun in 2 seconds
             this.show_message = true;
-            this.message = 'Job running. Auto refreshing the page in 10 seconds. ';
-            setTimeout(() => this.update_result(this.id), 10000);
+            this.message = 'Job running. Auto refreshing the page in 40 seconds. ';
+            setTimeout(() => this.update_result(this.id), 40000);
           } else {
             // rerun in 2 seconds
             this.show_message = true;

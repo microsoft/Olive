@@ -69,12 +69,12 @@
             </b-form-file>
             </b-form-group>
             <b-form-group id="form-model-group"
-                        label="Model Input/Output Test Data Files:"
+                        label="Model Input/Output Test Data Files(.pb files or a pickle file):"
                         label-for="form-model-input"
                         label-class="font-weight-bold">
             <b-form-file multiple id="form-model-input"
                             v-model="test_data"
-                            placeholder="Select your input/output.pbs...">
+                            placeholder="Select your input/output files...">
             </b-form-file>
             </b-form-group>
         <b-form-group v-if="convert_form.model_type === 'tensorflow'

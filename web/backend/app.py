@@ -6,6 +6,7 @@ import uuid, sys, json
 import os
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../utils'))
 import onnxpipeline
+from convert_test_data import convert_data_to_pb 
 from werkzeug.utils import secure_filename
 import netron
 import posixpath
@@ -34,56 +35,161 @@ celery.conf.update(app.config)
 # enable CORS
 CORS(app)
 
-def get_params(request, convert_output_path):
+def create_input_dir():
     cur_ts = get_timestamp()
     # Create a folder to hold input files
     file_input_dir = os.path.join(app.root_path, app_config.FILE_INPUTS_DIR, cur_ts)
-    if request.form.get('prev_model_path'):
-        # Get input files directory from the mounted path if the inputs are already present from previous calls
-        local_mounted_path = get_local_mounted_path(request.form.get('prev_model_path'), app_config.MOUNT_PATH)
-        file_input_dir = os.path.join(app.root_path, local_mounted_path) 
     if not os.path.exists(file_input_dir):
         os.makedirs(file_input_dir)
-    temp_json = os.path.join(file_input_dir, 'temp.json')
-    model_name = None
-    # Get input parameters from request and save them to json file
+    return file_input_dir
+
+def create_temp_json(path, metadata):
+    temp_json = os.path.join(path, 'temp.json')
     if os.path.exists(temp_json):
         os.remove(temp_json)
-    request.files['metadata'].save(temp_json)
+    # Get input parameters from request and save them to json file
+    metadata.save(temp_json)
+    return temp_json
+
+def store_file_from_request(request, file_key, save_to_dir):
+    if file_key in request.files:
+        if os.path.exists(save_to_dir):
+            rmtree(save_to_dir)
+        os.mkdir(save_to_dir)
+        temp_file = request.files[file_key]
+        saved_file_path = os.path.join(save_to_dir, temp_file.filename)
+        request.files[file_key].save(saved_file_path)
+        return saved_file_path
+    return ''
+
+def store_files_from_request(request, file_key, save_to_dir, isTestData=False):
+    
+    if file_key in request.files:
+        if os.path.exists(save_to_dir):
+            rmtree(save_to_dir)
+        os.mkdir(save_to_dir)
+        file_list = request.files.getlist(file_key)
+        # Upload test data
+        for td in file_list:
+            saved_file_path = os.path.join(save_to_dir, td.filename)
+            td.save(saved_file_path)
+            if isTestData and saved_file_path.split('.')[1] != 'pb':
+                convert_data_to_pb(saved_file_path, saved_file_path)
+                # remove the pickle file
+                os.remove(saved_file_path)
+
+# 1. convert: test data store in output model dir
+# 2. perf with prev model and prev test data: no need to upload test data
+# 3. perf with prev model and upload new test data: test data store in prev model location
+# 3. perf without prev model: test data store in new input dir. 
+
+def get_convert_json(request, test_data_root_path):
+    file_input_dir = create_input_dir()
+    temp_json = create_temp_json(file_input_dir, request.files['metadata'])
     with open(temp_json, 'r') as f:
         json_data = json.load(f)
         
     # Save files passed from request
-    if 'file' in request.files:
-        temp_model = request.files['file']
-        model_name = os.path.join(file_input_dir, temp_model.filename)
-        request.files['file'].save(model_name)
-        json_data['model'] = model_name
-    if 'test_data[]' in request.files:
-        # Create folder to hold test data
-        test_data_dir = os.path.join(file_input_dir, 'test_data_set_0')        
-        if os.path.exists(test_data_dir):
-            rmtree(test_data_dir)
-        os.mkdir(test_data_dir)
-        # Upload test data
-        for td in request.files.getlist('test_data[]'):
-            td.save(os.path.join(test_data_dir, td.filename))
-    if 'savedModel[]' in request.files:
-        # Upload test data
-        variables_dir = os.path.join(file_input_dir, 'variables')
-        if not os.path.exists(variables_dir):
-            os.mkdir(variables_dir)
-        for vf in request.files.getlist('savedModel[]'):
-            vf.save(os.path.join(variables_dir, vf.filename))
-        json_data['model'] = os.path.dirname(os.path.abspath(json_data['model']))
-    
+    model_name = store_file_from_request(request, 'file', file_input_dir)
+    json_data['model'] = model_name
+
+    # Store test data files if any
+    test_data_dir = os.path.join(test_data_root_path, app_config.TEST_DATA_DIR)
+    store_files_from_request(request, 'test_data[]', test_data_dir)
+
+    # Store tensorflow savedmodel files if any
+    variables_dir = os.path.join(file_input_dir, 'variables')
+    store_files_from_request(request, 'savedModel[]', variables_dir)
+
     # remove empty input folder
     if len(os.listdir(file_input_dir)) == 0:
         os.rmdir(file_input_dir)
 
     with open(temp_json, 'w') as f:
         json.dump(json_data, f)
+
     return model_name, temp_json[len(app.root_path) + 1:], json_data
+
+def get_perf_json(request):
+    file_input_dir = create_input_dir()
+
+    temp_json = create_temp_json(file_input_dir, request.files['metadata'])
+    with open(temp_json, 'r') as f:
+        json_data = json.load(f)
+    
+    if request.form.get('prev_model_path'):
+        # Get input files directory from the mounted path if the inputs are already present from previous calls
+        local_mounted_path = get_local_mounted_path(request.form.get('prev_model_path'))
+        file_input_dir = os.path.join(app.root_path, local_mounted_path)
+
+    # Save files passed from request
+    model_name = store_file_from_request(request, 'file', file_input_dir)
+    json_data['model'] = model_name
+
+    # Store test data files if any
+    test_data_dir = os.path.join(file_input_dir, app_config.TEST_DATA_DIR)
+    store_files_from_request(request, 'test_data[]', test_data_dir)
+
+    return model_name, temp_json[len(app.root_path) + 1:], json_data
+
+# def get_params(request, test_data_root_path):
+#     cur_ts = get_timestamp()
+#     # Create a folder to hold input files
+#     file_input_dir = os.path.join(app.root_path, app_config.FILE_INPUTS_DIR, cur_ts)
+#     if request.form.get('prev_model_path'):
+#         # Get input files directory from the mounted path if the inputs are already present from previous calls
+#         local_mounted_path = get_local_mounted_path(request.form.get('prev_model_path'))
+#         file_input_dir = os.path.join(app.root_path, local_mounted_path)
+#         test_data_root_path = os.path.join(app.root_path, local_mounted_path)
+
+#     if not os.path.exists(file_input_dir):
+#         os.makedirs(file_input_dir)
+#     temp_json = os.path.join(file_input_dir, 'temp.json')
+#     model_name = None
+#     # Get input parameters from request and save them to json file
+#     if os.path.exists(temp_json):
+#         os.remove(temp_json)
+#     request.files['metadata'].save(temp_json)
+#     with open(temp_json, 'r') as f:
+#         json_data = json.load(f)
+        
+#     # Save files passed from request
+#     if 'file' in request.files:
+#         temp_model = request.files['file']
+#         model_name = os.path.join(file_input_dir, temp_model.filename)
+#         request.files['file'].save(model_name)
+#         json_data['model'] = model_name
+#     if 'test_data[]' in request.files:
+#         # Create folder to hold test data
+#         test_data_dir = os.path.join(test_data_root_path, app_config.TEST_DATA_DIR)
+#         if os.path.exists(test_data_dir):
+#             rmtree(test_data_dir)
+#         os.mkdir(test_data_dir)
+#         # Upload test data
+#         for td in request.files.getlist('test_data[]'):
+#             test_file_path = os.path.join(test_data_dir, td.filename)
+#             td.save(test_file_path)
+#             if test_file_path.split(".")[1] != "pb":
+#                 convert_data_to_pb(test_file_path, test_data_dir)
+#                 # remove the pickle file
+#                 os.remove(test_file_path)
+                
+#     if 'savedModel[]' in request.files:
+#         # Upload test data
+#         variables_dir = os.path.join(file_input_dir, 'variables')
+#         if not os.path.exists(variables_dir):
+#             os.mkdir(variables_dir)
+#         for vf in request.files.getlist('savedModel[]'):
+#             vf.save(os.path.join(variables_dir, vf.filename))
+#         json_data['model'] = os.path.dirname(os.path.abspath(json_data['model']))
+    
+#     # remove empty input folder
+#     if len(os.listdir(file_input_dir)) == 0:
+#         os.rmdir(file_input_dir)
+
+#     with open(temp_json, 'w') as f:
+#         json.dump(json_data, f)
+#     return model_name, temp_json[len(app.root_path) + 1:], json_data
 
 def get_timestamp():
     ts = int(datetime.now().timestamp())
@@ -94,10 +200,10 @@ def get_time_from_ts(time):
     return dt.strftime("%Y-%m-%d %H:%M:%S.%f %Z")
 
 # Get the local path from a mounted path. e.g. mnt/model/path -> path
-def get_local_mounted_path(path, mount_path):
-    if len(path) < len(mount_path):
+def get_local_mounted_path(path):
+    if len(path) < len(app_config.MOUNT_PATH):
         return path
-    return os.path.dirname(path[len(mount_path) + 2:])
+    return os.path.dirname(path[len(app_config.MOUNT_PATH) + 2:])
 
 # Keep a maximum number of contents in the given directory. Remove the oldest if greater than maximum.
 def garbage_collect(dir, max=20):
@@ -185,7 +291,7 @@ def send_convert_job():
         rmtree(convert_directory)
     os.makedirs(convert_directory)
         
-    model_name, temp_json, input_params = get_params(request, convert_directory)
+    model_name, temp_json, input_params = get_convert_json(request, convert_directory)
     job_name = "convert." + request.form.get('job_name')
     job = convert.apply_async(args=[model_name, temp_json, cur_ts, app.root_path, input_params], shadow=job_name)
     return jsonify({'Location': url_for('convert_status', task_id=job.id), 'job_id': job.id}), 202
@@ -218,11 +324,12 @@ def convert_status(task_id):
 
 @app.route('/perf_tuning', methods=['POST'])
 def send_perf_job():
-    if 'file' in request.files:
-        _, temp_json, input_params = get_params(request, os.path.join(app.root_path, app_config.FILE_INPUTS_DIR))
-    else:
-        # If model path is provided, add test data if neccessary to the model directory path
-        _, temp_json, input_params = get_params(request, '')
+    # if 'file' in request.files:
+    #     _, temp_json, input_params = get_params(request, os.path.join(app.root_path, app_config.FILE_INPUTS_DIR))
+    # else:
+    #     # If model path is provided, add test data if neccessary to the model directory path
+    #     _, temp_json, input_params = get_params(request, '')
+    _, temp_json, input_params = get_perf_json(request)
     job_name = "perf_tuning." + request.form.get('job_name')
     job = perf_tuning.apply_async(args=[temp_json, input_params], shadow=job_name)
     return jsonify({'Location': url_for('perf_status', task_id=job.id), 'job_id': job.id}), 202
