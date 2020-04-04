@@ -36,6 +36,10 @@ celery.conf.update(app.config)
 CORS(app)
 
 def create_input_dir():
+    """
+    Create a folder with unique timestamp to hold user input files such as model file 
+    and test data files.
+    """
     cur_ts = get_timestamp()
     # Create a folder to hold input files
     file_input_dir = os.path.join(app.root_path, app_config.FILE_INPUTS_DIR, cur_ts)
@@ -44,6 +48,14 @@ def create_input_dir():
     return file_input_dir
 
 def create_temp_json(path, metadata):
+    """
+    Store metadata from proxy request to JSON. 
+    Args: 
+        path: The folder to store JSON.
+        metadata: Metadata from proxy request.
+    Returns:
+        temp_json: Path to the created .json file.
+    """
     temp_json = os.path.join(path, 'temp.json')
     if os.path.exists(temp_json):
         os.remove(temp_json)
@@ -52,6 +64,15 @@ def create_temp_json(path, metadata):
     return temp_json
 
 def store_file_from_request(request, file_key, save_to_dir):
+    """
+    Retrieve and store file, if any, from request to internal folder.
+    Args:
+        request: Proxy request
+        file_key: The key to retrieve file from request
+        save_to_dir: Folder to save file.
+    Returns:
+        Saved file path. Empty if no file found. 
+    """
     if file_key in request.files:
         if os.path.exists(save_to_dir):
             rmtree(save_to_dir)
@@ -63,6 +84,15 @@ def store_file_from_request(request, file_key, save_to_dir):
     return ''
 
 def store_files_from_request(request, file_key, save_to_dir, isTestData=False):
+    """
+    Retrieve and store files, if any, from request to internal folder.
+    Args:
+        request: Proxy request
+        file_key: The key to retrieve file from request
+        save_to_dir: Folder to save files.
+    Returns:
+        Saved file path. Empty if no file found. 
+    """
     if file_key in request.files:
         if os.path.exists(save_to_dir):
             rmtree(save_to_dir)
@@ -77,12 +107,13 @@ def store_files_from_request(request, file_key, save_to_dir, isTestData=False):
                 # remove the pickle file
                 os.remove(saved_file_path)
 
-# 1. convert: test data store in output model dir
-# 2. perf with prev model and prev test data: no need to upload test data
-# 3. perf with prev model and upload new test data: test data store in prev model location
-# 3. perf without prev model: test data store in new input dir. 
-
 def get_convert_json(request, test_data_root_path):
+    """
+    Generate and return a JSON file specifying job specs for onnx-convert job run. 
+    Args: 
+        request: proxy request from frontend.
+        test_data_root_path: folder to store test data internally.
+    """
     file_input_dir = create_input_dir()
     temp_json = create_temp_json(file_input_dir, request.files['metadata'])
     with open(temp_json, 'r') as f:
@@ -91,7 +122,6 @@ def get_convert_json(request, test_data_root_path):
     # Save files passed from request
     model_name = store_file_from_request(request, 'file', file_input_dir)
     json_data['model'] = model_name
-    print
 
     # Store test data files if any
     test_data_dir = os.path.join(test_data_root_path, app_config.TEST_DATA_DIR)
@@ -102,7 +132,6 @@ def get_convert_json(request, test_data_root_path):
     store_files_from_request(request, 'savedModel[]', variables_dir)
     # If using tensorflow saved model, change model path to the directory containing the model files.
     if os.path.exists(variables_dir):
-        print("exist!")
         json_data['model'] = os.path.dirname(os.path.abspath(json_data['model']))
 
     # remove empty input folder
@@ -115,6 +144,15 @@ def get_convert_json(request, test_data_root_path):
     return model_name, temp_json[len(app.root_path) + 1:], json_data
 
 def get_perf_json(request):
+    """
+    Generate and return a JSON file specifying job specs for perf-tuning job run. 
+    Args: 
+        request: proxy request from frontend.
+    Returns:
+        model_name: stored model directory
+        temp_json: path storing JSON as input for perf-tuning job.
+        json_data: JSON object storing the input arguments from frontend user
+    """
     file_input_dir = create_input_dir()
 
     temp_json = create_temp_json(file_input_dir, request.files['metadata'])
@@ -136,81 +174,48 @@ def get_perf_json(request):
 
     return model_name, temp_json[len(app.root_path) + 1:], json_data
 
-# def get_params(request, test_data_root_path):
-#     cur_ts = get_timestamp()
-#     # Create a folder to hold input files
-#     file_input_dir = os.path.join(app.root_path, app_config.FILE_INPUTS_DIR, cur_ts)
-#     if request.form.get('prev_model_path'):
-#         # Get input files directory from the mounted path if the inputs are already present from previous calls
-#         local_mounted_path = get_local_mounted_path(request.form.get('prev_model_path'))
-#         file_input_dir = os.path.join(app.root_path, local_mounted_path)
-#         test_data_root_path = os.path.join(app.root_path, local_mounted_path)
-
-#     if not os.path.exists(file_input_dir):
-#         os.makedirs(file_input_dir)
-#     temp_json = os.path.join(file_input_dir, 'temp.json')
-#     model_name = None
-#     # Get input parameters from request and save them to json file
-#     if os.path.exists(temp_json):
-#         os.remove(temp_json)
-#     request.files['metadata'].save(temp_json)
-#     with open(temp_json, 'r') as f:
-#         json_data = json.load(f)
-        
-#     # Save files passed from request
-#     if 'file' in request.files:
-#         temp_model = request.files['file']
-#         model_name = os.path.join(file_input_dir, temp_model.filename)
-#         request.files['file'].save(model_name)
-#         json_data['model'] = model_name
-#     if 'test_data[]' in request.files:
-#         # Create folder to hold test data
-#         test_data_dir = os.path.join(test_data_root_path, app_config.TEST_DATA_DIR)
-#         if os.path.exists(test_data_dir):
-#             rmtree(test_data_dir)
-#         os.mkdir(test_data_dir)
-#         # Upload test data
-#         for td in request.files.getlist('test_data[]'):
-#             test_file_path = os.path.join(test_data_dir, td.filename)
-#             td.save(test_file_path)
-#             if test_file_path.split(".")[1] != "pb":
-#                 convert_data_to_pb(test_file_path, test_data_dir)
-#                 # remove the pickle file
-#                 os.remove(test_file_path)
-                
-#     if 'savedModel[]' in request.files:
-#         # Upload test data
-#         variables_dir = os.path.join(file_input_dir, 'variables')
-#         if not os.path.exists(variables_dir):
-#             os.mkdir(variables_dir)
-#         for vf in request.files.getlist('savedModel[]'):
-#             vf.save(os.path.join(variables_dir, vf.filename))
-#         json_data['model'] = os.path.dirname(os.path.abspath(json_data['model']))
-    
-#     # remove empty input folder
-#     if len(os.listdir(file_input_dir)) == 0:
-#         os.rmdir(file_input_dir)
-
-#     with open(temp_json, 'w') as f:
-#         json.dump(json_data, f)
-#     return model_name, temp_json[len(app.root_path) + 1:], json_data
-
 def get_timestamp():
+    """
+    Generate a unique timestamp.
+    Returns:
+        Unique timestamp as a string.
+    """
     ts = int(datetime.now().timestamp())
     return str(ts)
 
 def get_time_from_ts(time):
+    """
+    Get a readable time from timestamp.
+    Args:
+        time: Timestamp
+    Returns:
+        Date and time string.
+    """
     dt = datetime.fromtimestamp(time)
     return dt.strftime("%Y-%m-%d %H:%M:%S.%f %Z")
 
 # Get the local path from a mounted path. e.g. mnt/model/path -> path
 def get_local_mounted_path(path):
+    """
+    Retrieve local relative path from a docker mount path
+    Args:
+        path: Mounted path for docker.
+    Returns:
+        Local path for the mounted path relative to the project root path. 
+    """
     if len(path) < len(app_config.MOUNT_PATH):
         return path
     return os.path.dirname(path[len(app_config.MOUNT_PATH) + 2:])
 
-# Keep a maximum number of contents in the given directory. Remove the oldest if greater than maximum.
 def garbage_collect(dir, max=20):
+    """
+    Garbage collect any old files cached for job runs. Current logic is to keep 
+    a maximum number of run information in the given directory. Remove the oldest 
+    if exceeds maximum.
+    Args:
+        dir: Directory to remove old files
+        max: Maximum number of folders allowed in the directory. Default: 20.
+    """
     if not os.path.exists(dir):
         return
     num_folders = len(os.listdir(dir))
@@ -222,6 +227,11 @@ def garbage_collect(dir, max=20):
             rmtree(os.path.join(dir, folder))
 
 def clean(root_path):
+    """
+    Clean up files in specific directory.
+    Args:
+        root_path: The project absolute root path.
+    """
     garbage_collect(os.path.join(root_path, app_config.FILE_INPUTS_DIR))
     garbage_collect(os.path.join(root_path, app_config.CONVERT_RES_DIR))
     garbage_collect(os.path.join(root_path, app_config.PERF_RES_DIR))
@@ -229,7 +239,11 @@ def clean(root_path):
 
 @app.route('/visualize', methods=['POST'])
 def visualize():
-    
+    """
+    Start netron with model from request.
+    Returns:
+        JSON response indicting success.
+    """
     if request.method == 'POST':
         response_object = {'status': 'success'}
         temp_model = request.files['file']
@@ -243,6 +257,17 @@ def visualize():
 
 @celery.task(bind=True)
 def convert(self, model_name, temp_json, cur_ts, root_path, input_params):
+    """
+    Define a celery job which runs OLive pipeline onnx-converter.
+    Args:
+        model_name: Model path to run onnx-convert.
+        temp_json: Input specs for onnx-convert job.
+        cur_ts: Unique timestamp for the job.
+        root_path: Project app absolute root path.
+        input_params: JSON object storing the input arguments from frontend user
+    Return:
+        JSON response with run status and results.
+    """
     response_object = {'status': 'success'}
     # Initiate pipeline object with targeted directory
     pipeline = onnxpipeline.Pipeline(convert_directory=os.path.join(app_config.CONVERT_RES_DIR, cur_ts))
@@ -287,6 +312,11 @@ def convert(self, model_name, temp_json, cur_ts, root_path, input_params):
 
 @app.route('/convert', methods=['POST'])
 def send_convert_job():
+    """
+    Send onnx-convert job to celery task queue.
+    Returns: 
+        JSON object with job status.
+    """
     cur_ts = get_timestamp()
     convert_directory = os.path.join(app.root_path, app_config.CONVERT_RES_DIR, cur_ts)
     
@@ -302,6 +332,12 @@ def send_convert_job():
 
 @app.route('/convertstatus/<task_id>')
 def convert_status(task_id):
+    """
+    Get onnx-converter task status from celery.
+    Returns:
+        JSON object with task status. If "SUCCESS", return the task result. 
+        If "ERROR", return error message.
+    """
     task = convert.AsyncResult(task_id)
     if task.state == 'PENDING' or task.state == 'STARTED':
         # job has not started yet
@@ -328,11 +364,11 @@ def convert_status(task_id):
 
 @app.route('/perf_tuning', methods=['POST'])
 def send_perf_job():
-    # if 'file' in request.files:
-    #     _, temp_json, input_params = get_params(request, os.path.join(app.root_path, app_config.FILE_INPUTS_DIR))
-    # else:
-    #     # If model path is provided, add test data if neccessary to the model directory path
-    #     _, temp_json, input_params = get_params(request, '')
+    """
+    Send perf-tuning job to celery task queue.
+    Returns: 
+        JSON object with job status.
+    """
     _, temp_json, input_params = get_perf_json(request)
     job_name = 'perf_tuning.' + request.form.get('job_name')
     job = perf_tuning.apply_async(args=[temp_json, input_params], shadow=job_name)
@@ -340,7 +376,14 @@ def send_perf_job():
 
 @celery.task(bind=True)
 def perf_tuning(self, temp_json, input_params):
-
+    """
+    Define a celery job which runs OLive pipeline perf-tuning.
+    Args:
+        temp_json: Input specs for perf-tuning job.
+        input_params: JSON object storing the input arguments from frontend user.
+    Return:
+        JSON response with run status and results.
+    """
     response_object = {'status': 'success'}
 
     pipeline = onnxpipeline.Pipeline()
@@ -366,6 +409,12 @@ def perf_tuning(self, temp_json, input_params):
 
 @app.route('/perfstatus/<task_id>')
 def perf_status(task_id):
+    """
+    Get perf-tuning task status from celery.
+    Returns:
+        JSON object with task status. If "SUCCESS", return the task result. 
+        If "ERROR", return error message.
+    """
     task = perf_tuning.AsyncResult(task_id)
     if task.state == 'PENDING' or task.state == 'STARTED':
         # job did not start yet
@@ -392,6 +441,22 @@ def perf_status(task_id):
 
 @app.route('/gettasks')
 def get_tasks():
+    """
+    Get all queued tasks from Celery. 
+    Returns:
+        All tasks and their information in a JSON object. 
+        {
+            job_id: {
+                "name":
+                "state":
+                "type":
+                "received":
+                "started":
+                ...
+            }
+            ...
+        }
+    """
     api_root = 'http://localhost:5555/api'
     task_api = '{}/tasks'.format(api_root)
     resp = requests.get(task_api)
@@ -406,12 +471,19 @@ def get_tasks():
 
 @app.route('/getargs/<task_id>')
 def get_task_args(task_id):
+    """
+    Get task user input argments given a task id.
+    Args:
+        task_id: Unique task id generated by celery to retrieve jobs.
+    Returns:
+        JSON object with user arguments.
+    """
     api_root = 'http://localhost:5555/api/task/info'
     task_api = '{}/{}'.format(api_root, task_id)
     resp = requests.get(task_api)
     try:
         reply = resp.json()
-        args = reply.get('args', '')
+        args = reply.get('args')
         if len(args) > 0:
             args = args[args.find('{'): len(args) - 1]
             args = args.replace('\\', '\\\\').replace('\'', '"').replace('True', '"true"').replace('False', '"false"')
@@ -422,6 +494,13 @@ def get_task_args(task_id):
     
 @app.route('/getjobname/<task_id>')
 def get_job_name(task_id):
+    """
+    Get task job name as defined by user in frontend given a task id.
+    Args:
+        task_id: Unique task id generated by celery to retrieve jobs.
+    Returns:
+        JSON object {name: }.
+    """
     api_root = 'http://localhost:5555/api/task/info'
     task_api = '{}/{}'.format(api_root, task_id)
     resp = requests.get(task_api)
@@ -435,6 +514,13 @@ def get_job_name(task_id):
 
 @app.route('/download/<path:filename>', methods=['POST', 'GET'])
 def download(filename):
+    """
+    Send a downloadable file to frontend.
+    Args:
+        filename: The file to download.
+    Returns:
+        Downloadable file. 
+    """
     try:
         path = os.path.join(app.root_path, app_config.DOWNLOAD_DIR)
         return send_file(os.path.join(path, filename), filename)

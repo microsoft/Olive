@@ -7,6 +7,19 @@ from onnx import helper, numpy_helper
 from onnx import TensorProto
 
 def convert_data_to_pb(pickle_path, output_folder="test_data_set_0"):
+    """
+    Convert pickle test data file to ONNX .pb files.
+    Args:
+        pickle_path: The path to your pickle file. The pickle file should contain
+        a dictionary with the following format: 
+            {
+                input_name_1: test_data_1,
+                input_name_2: test_data_2,
+                ...
+            }
+        output_folder: The folder to store .pb files. The folder should be empty 
+        and its name starts with test_data_*. 
+    """
     extension = pickle_path.split(".")[1]
     if extension == "pb":
         print("Test Data already in .pb format. ")
@@ -14,7 +27,8 @@ def convert_data_to_pb(pickle_path, output_folder="test_data_set_0"):
         test_data_dict = pickle.load(open(pickle_path, "rb"))
     except:
         raise ValueError("Cannot load test data with pickle. ")
-    # Type check for the pickle file. Expect a dictionary with input names as keys and data as values.
+    # Type check for the pickle file. Expect a dictionary with input names as keys 
+    # and data as values.
     if type(test_data_dict) is not dict:
         raise ValueError("Data type error. Expect a dictionary with input names as keys and data as values.")
 

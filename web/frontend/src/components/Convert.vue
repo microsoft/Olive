@@ -69,7 +69,8 @@
             </b-form-file>
             </b-form-group>
             <b-form-group id="form-model-group"
-                        label="[OPTIONAL] Model Input/Output Test Data Files(.pb files or a pickle file):"
+                        label=
+                        "[OPTIONAL] Model Input/Output Test Data Files(.pb files or a pickle file):"
                         label-for="form-model-input"
                         label-class="font-weight-bold">
             <b-form-file multiple id="form-model-input"
