@@ -18,11 +18,12 @@ def convert_data_to_pb(pickle_path, output_folder="test_data_set_0"):
                 ...
             }
         output_folder: The folder to store .pb files. The folder should be empty 
-        and its name starts with test_data_*. 
+        and its name starts with test_data_*. Default is "test_data_set_0". 
     """
     extension = pickle_path.split(".")[1]
     if extension == "pb":
         print("Test Data already in .pb format. ")
+        return
     try:
         test_data_dict = pickle.load(open(pickle_path, "rb"))
     except:
@@ -38,7 +39,6 @@ def convert_data_to_pb(pickle_path, output_folder="test_data_set_0"):
 
     idx = 0
     for name, data in test_data_dict.items():
-        print(data)
         tensor = numpy_helper.from_array(data)
         tensor.name = name
         pb_file_name = "input_{}.pb".format(idx)

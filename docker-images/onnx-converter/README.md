@@ -12,7 +12,7 @@ Supported frameworks are -
 
 ## How to Run 
 
-### Microsoft Container Registry
+### Prebuilt Docker Image in Microsoft Container Registry
 
 A pre-built version of the image is available at Microsoft Container Registry. Once you have docker installed, you can easily pull and run the image on Linux as well as on Windows. 
 
