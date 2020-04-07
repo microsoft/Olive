@@ -6,7 +6,7 @@ import onnx
 from onnx import helper, numpy_helper
 from onnx import TensorProto
 
-def convert_data_to_pb(pickle_path, output_folder="test_data_set_0"):
+def convert_data_to_pb(pickle_path, output_folder="test_data_set_0", is_input=True):
     """
     Convert pickle test data file to ONNX .pb files.
     Args:
@@ -37,11 +37,14 @@ def convert_data_to_pb(pickle_path, output_folder="test_data_set_0"):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
+    file_prefix = "input_"
+    if is_input == False:
+        file_prefix = "output_"
     idx = 0
     for name, data in test_data_dict.items():
         tensor = numpy_helper.from_array(data)
         tensor.name = name
-        pb_file_name = "input_{}.pb".format(idx)
+        pb_file_name = file_prefix + idx + ".pb"
         pb_file_location = os.path.join(output_folder, pb_file_name)
         with open(pb_file_location, 'wb') as f:
             f.write(tensor.SerializeToString())
@@ -58,12 +61,16 @@ def get_args():
         required=False,
         default="test_data_set_0",
         help="An output folder to store the output .pb files. Default: test_data_set_0. ")
+    parser.add_argument("--is_input", 
+        required=False,
+        default=True,
+        help="If the pickle file specifies input data or output data. ")
     args = parser.parse_args()
     return args
 
 def main():
     args = get_args()
-    convert_data_to_pb(args.test_data, args.output_folder)
+    convert_data_to_pb(args.test_data, args.output_folder, args.is_input)
 
 if __name__ == "__main__":
     main()
