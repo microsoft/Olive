@@ -61,6 +61,25 @@ For detailed description of all available parameters, refer to the following.
 
 `--model_type`: Required or specified in input json. The name of original model framework. Available types are cntk, coreml, keras, scikit-learn, tensorflow and pytorch.
 
+`--test_data_path`: Optional. The parent folder containing user specified test data folders. If not specified, the program will look for potential test data folders with name "test_data_*" under the input model directory. If specified, the folder structure should be 
+
+    -- test_data_path
+        -- test_data_set_0
+            -- input_0.pb
+            -- input_1.pb
+            ...
+            -- output_0.pb
+            ...
+        -- test_data_set_1
+            ...
+        ...
+
+Note that ONNX pb files are expected in the test data folders. For help to create pb files, [convert_test_data.py](https://github.com/microsoft/OLive/blob/master/utils/convert_test_data.py) is available for use to generate pb files from PICKLE files.
+
+        ```
+        convert_test_data.py <your_input_pickle_file> --output_folder <output_folder> --is_input=True
+        ```
+
 `--target_opset`: Optional. The opset for ONNX, for example, 7 for ONNX 1.2, and 8 for ONNX 1.3. Latest Opset is recommanded. Refer to [ONNX Opset](https://github.com/microsoft/onnxruntime/blob/master/docs/Versioning.md#version-matrix) for the latest Opset. 
 
 `--model_inputs_names`: Required for tensorflow frozen models and checkpoints. The model's input names. 

@@ -35,6 +35,13 @@ def get_args():
             Available types are cntk, coreml, keras, scikit-learn, tensorflow and pytorch."
     )
     parser.add_argument(
+        "--test_data_path",
+        required=False,
+        default=None,
+        help="Test folder that contains input/output.pb files. If not specified, \
+            search for \"test_data_*\" under the model folder."
+    )
+    parser.add_argument(
         "--model_inputs_names", 
         required=False,
         help="Required for tensorflow frozen models and checkpoints. The model's input names."
@@ -83,6 +90,7 @@ class ConverterParamsFromJson():
             raise ValueError("Please specified \"output_onnx_path\" in the input json. ")
         self.model = loaded_json["model"]
         self.model_type = loaded_json["model_type"]
+        self.test_data_path = loaded_json["test_data_path"] if loaded_json.get("test_data_path") else None
         self.output_onnx_path = loaded_json["output_onnx_path"]
         self.model_inputs_names = loaded_json["model_inputs_names"] if loaded_json.get("model_inputs_names") else None
         self.model_outputs_names = loaded_json["model_outputs_names"] if loaded_json.get("model_outputs_names") else None
@@ -318,7 +326,7 @@ def main():
     print("\n-------------\nMODEL INPUT GENERATION(if needed)\n")
     # Generate random inputs for the model if input files are not provided
     try:
-        inputs_path = generate_inputs(args.output_onnx_path)
+        inputs_path = generate_inputs(args.model, args.test_data_path, args.output_onnx_path)
         output_template["input_folder"] = inputs_path
     except Exception as e:
         output_template["error_message"]= str(e)

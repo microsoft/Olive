@@ -25,17 +25,21 @@ docker run [--gpus all] -v <local_directory_to_your_models>:/mnt/ mcr.microsoft.
 
 `<local_directory_to_your_models>` is the folder you'd like to share with the docker container. By mounting this folder to `/mnt` folder, the docker container can access everything in your mounted local directory. 
 
-`<path_to_onnx_model>` is the ONNX model path relative to `<local_directory_to_your_models>`. Note that input data must also be provided in the same folder, and the folder must contain nothing but the model file and its input/output data. Model path and input data need to be stored in the directory trees as below:
+`<path_to_onnx_model>` is the ONNX model path relative to `<local_directory_to_your_models>`. **Note** that input data must also be provided in the same folder, and the folder must contain nothing but the model file and its input/output data. Model path and input data need to be stored in the directory trees as below:
 
-    --local_directory_to_your_models
-        --ModelDir
-            --test_data_set_0
-                --input_0.pb
-            --test_data_set_1
-                --input_0.pb
-            --model.onnx
+    -- local_directory_to_your_models
+        -- ModelDir
+            -- model.onnx
+            -- test_data_set_0
+                -- input_0.pb
+                ...
+            -- test_data_set_1
+                -- input_0.pb
+                ...
 
 In this case, `<path_to_onnx_model>` = ModelDir/model.onnx
+
+**Note** that ONNX pb files are expected in the test data folders. For help to create pb files, [convert_test_data.py](https://github.com/microsoft/OLive/blob/master/utils/convert_test_data.py) is available for use to generate pb files from PICKLE files.
 
 ### perf-tuning Image Options
 
