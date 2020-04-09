@@ -14,6 +14,7 @@
     "bootstrap-vue": "^2.0.2",
     "core-js": "^2.6.5",
     "cropperjs": "^1.5.5",
+    "frontend": "^2.0.0-alpha.4",
     "jquery": "^3.4.1",
     "portfinder": "^1.0.23",
     "vue": "^2.6.10",
