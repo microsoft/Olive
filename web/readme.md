@@ -17,7 +17,7 @@ This repository shows how to use ONNX pipeline by a web interface in built local
 - Install project dependencies by running 
 ## Windows
 ```bash
-build.sh
+build.bat
 ```
 
 ## Linux
@@ -31,9 +31,14 @@ First make sure your docker daemon is running. Then,
 ### Windows
 On Windows you can run to start both frontend and backend servers
 ```
-start-windows.sh
+start-windows.bat
 ```
-You can then access the web app at http://localhost:8000/ 
+You can then access the web app at http://localhost:8000/
+
+To stop the servers, Ctrl-C to exit the pop-up windows and then run the following for a clean exit.
+```
+stop-windows.bat
+```
 
 ### Linux
 To start, run

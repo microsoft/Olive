@@ -57,8 +57,10 @@
                         label="Model Input/Output Test Data Files:"
                         label-for="form-model-input"
                         label-class="font-weight-bold">
-                <b-form-checkbox v-if="run_option == 0" v-model="use_prev_input"
-                >Use test data from the selected job. Unselect to upload different test data.
+                <b-form-checkbox v-if="run_option == 0"
+                  v-model="use_prev_input"
+                  :disabled="disable_prev_input">
+                  Use test data from the selected job. Unselect to upload different test data.
                 </b-form-checkbox>
                 <b-form-file multiple id="form-model-input"
                                 v-model="test_data"
@@ -244,6 +246,7 @@ export default {
       selected_converter_job: '',
       test_data_path: '',
       use_prev_input: false,
+      disable_prev_input: false,
     };
   },
 
@@ -280,6 +283,7 @@ export default {
       this.test_data = [];
       this.run_option = 0;
       this.selected_converter_job = '';
+      this.disable_prev_input = false;
     },
 
     update_model_path() {
@@ -319,6 +323,9 @@ export default {
           this.perf_tuning_form.model = res.data.output_json.output_onnx_path;
           if (res.data.output_json.input_folder.length > 0) {
             this.use_prev_input = true;
+          } else {
+            this.use_prev_input = false;
+            this.disable_prev_input = true;
           }
         })
         .catch((error) => {
@@ -337,7 +344,11 @@ export default {
         return;
       }
       if (this.run_option == 1 && this.test_data.length == 0) {
-        this.test_data_missing = 'Please provide input data .pb files for customized models. ';
+        this.test_data_missing = 'Please provide test data .pb/pickle files for customized models. ';
+        return;
+      }
+      if (this.disable_prev_input && this.test_data.length == 0) {
+        this.test_data_missing = 'Please provide test data .pb/pickle files for this model because no test data is auto-generated from previous step. ';
         return;
       }
       this.model_missing = '';
