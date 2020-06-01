@@ -18,4 +18,4 @@
 yapf -ir ./docker-images
 yapf -ir ./web/backend
 
-if errorlevel 1 echo "please install python, then pip install yapf"
+if errorlevel 1 echo please install python, then pip install yapf
