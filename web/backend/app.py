@@ -6,12 +6,12 @@ import uuid, sys, json
 import os
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../../utils'))
 import onnxpipeline
-from convert_test_data import convert_data_to_pb 
+from convert_test_data import convert_data_to_pb
 from werkzeug.utils import secure_filename
 import netron
 import posixpath
 import tarfile
-import app_config 
+import app_config
 from shutil import copyfile, rmtree
 from datetime import datetime
 from celery import Celery
@@ -26,14 +26,13 @@ app.config.from_object(__name__)
 app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
 app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
 app.config['CELERY_TRACK_STARTED'] = True
-app.config['CELERY_TASK_RESULT_EXPIRES'] = 0 # Celery job won't expire
+app.config['CELERY_TASK_RESULT_EXPIRES'] = 0  # Celery job won't expire
 
-celery = Celery(app.name, 
-    broker=app.config['CELERY_BROKER_URL'],
-    backend=app.config['CELERY_RESULT_BACKEND'])
+celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'], backend=app.config['CELERY_RESULT_BACKEND'])
 celery.conf.update(app.config)
 # enable CORS
 CORS(app)
+
 
 def create_input_dir():
     """
@@ -46,6 +45,7 @@ def create_input_dir():
     if not os.path.exists(file_input_dir):
         os.makedirs(file_input_dir)
     return file_input_dir
+
 
 def create_temp_json(path, metadata):
     """
@@ -62,6 +62,7 @@ def create_temp_json(path, metadata):
     # Get input parameters from request and save them to json file
     metadata.save(temp_json)
     return temp_json
+
 
 def store_file_from_request(request, file_key, save_to_dir):
     """
@@ -82,6 +83,7 @@ def store_file_from_request(request, file_key, save_to_dir):
         request.files[file_key].save(saved_file_path)
         return saved_file_path
     return ''
+
 
 def store_files_from_request(request, file_key, save_to_dir, isTestData=False):
     """
@@ -107,6 +109,7 @@ def store_files_from_request(request, file_key, save_to_dir, isTestData=False):
                 # remove the pickle file
                 os.remove(saved_file_path)
 
+
 def get_convert_json(request, test_data_root_path):
     """
     Generate and return a JSON file specifying job specs for onnx-convert job run. 
@@ -118,7 +121,7 @@ def get_convert_json(request, test_data_root_path):
     temp_json = create_temp_json(file_input_dir, request.files['metadata'])
     with open(temp_json, 'r') as f:
         json_data = json.load(f)
-        
+
     # Save files passed from request
     model_name = store_file_from_request(request, 'file', file_input_dir)
     json_data['model'] = model_name
@@ -143,6 +146,7 @@ def get_convert_json(request, test_data_root_path):
 
     return model_name, temp_json[len(app.root_path) + 1:], json_data
 
+
 def get_perf_json(request):
     """
     Generate and return a JSON file specifying job specs for perf-tuning job run. 
@@ -158,7 +162,7 @@ def get_perf_json(request):
     temp_json = create_temp_json(file_input_dir, request.files['metadata'])
     with open(temp_json, 'r') as f:
         json_data = json.load(f)
-    
+
     if request.form.get('prev_model_path'):
         # Get input files directory from the mounted path if the inputs are already present from previous calls
         local_mounted_path = get_local_mounted_path(request.form.get('prev_model_path'))
@@ -177,6 +181,7 @@ def get_perf_json(request):
 
     return model_name, temp_json[len(app.root_path) + 1:], json_data
 
+
 def get_timestamp():
     """
     Generate a unique timestamp.
@@ -185,6 +190,7 @@ def get_timestamp():
     """
     ts = int(datetime.now().timestamp())
     return str(ts)
+
 
 def get_time_from_ts(time):
     """
@@ -196,6 +202,7 @@ def get_time_from_ts(time):
     """
     dt = datetime.fromtimestamp(time)
     return dt.strftime("%Y-%m-%d %H:%M:%S.%f %Z")
+
 
 # Get the local path from a mounted path. e.g. mnt/model/path -> path
 def get_local_mounted_path(path):
@@ -209,6 +216,7 @@ def get_local_mounted_path(path):
     if len(path) < len(app_config.MOUNT_PATH):
         return path
     return os.path.dirname(path[len(app_config.MOUNT_PATH) + 2:])
+
 
 def garbage_collect(dir, max=20):
     """
@@ -225,9 +233,10 @@ def garbage_collect(dir, max=20):
     if num_folders > max:
         mtime = lambda f: os.stat(os.path.join(dir, f)).st_mtime
         sorted_dir = list(sorted(os.listdir(dir), key=mtime))
-        del_dir = sorted_dir[0: num_folders - max]
+        del_dir = sorted_dir[0:num_folders - max]
         for folder in del_dir:
             rmtree(os.path.join(dir, folder))
+
 
 def clean(root_path):
     """
@@ -239,6 +248,7 @@ def clean(root_path):
     garbage_collect(os.path.join(root_path, app_config.CONVERT_RES_DIR))
     garbage_collect(os.path.join(root_path, app_config.PERF_RES_DIR))
     garbage_collect(os.path.join(root_path, app_config.DOWNLOAD_DIR))
+
 
 @app.route('/visualize', methods=['POST'])
 def visualize():
@@ -257,6 +267,7 @@ def visualize():
         netron.start(model_name, browse=False, host='0.0.0.0')
 
     return jsonify(response_object)
+
 
 @celery.task(bind=True)
 def convert(self, model_name, temp_json, cur_ts, root_path, input_params):
@@ -287,7 +298,7 @@ def convert(self, model_name, temp_json, cur_ts, root_path, input_params):
         pass
 
     target_dir = app_config.DOWNLOAD_DIR
-    input_root =  os.path.join(root_path, target_dir)
+    input_root = os.path.join(root_path, target_dir)
     # compress input directory
     compress_path = os.path.join(pipeline.convert_directory, app_config.TEST_DATA_DIR)
     input_path = os.path.join(input_root, cur_ts)
@@ -313,6 +324,7 @@ def convert(self, model_name, temp_json, cur_ts, root_path, input_params):
 
     return response_object
 
+
 @app.route('/convert', methods=['POST'])
 def send_convert_job():
     """
@@ -322,16 +334,17 @@ def send_convert_job():
     """
     cur_ts = get_timestamp()
     convert_directory = os.path.join(app.root_path, app_config.CONVERT_RES_DIR, cur_ts)
-    
+
     # may not work in Unix OS cuz the permission
     if os.path.exists(convert_directory):
         rmtree(convert_directory)
     os.makedirs(convert_directory)
-        
+
     model_name, temp_json, input_params = get_convert_json(request, convert_directory)
     job_name = "convert." + request.form.get('job_name')
     job = convert.apply_async(args=[model_name, temp_json, cur_ts, app.root_path, input_params], shadow=job_name)
     return jsonify({'Location': url_for('convert_status', task_id=job.id), 'job_id': job.id}), 202
+
 
 @app.route('/convertstatus/<task_id>')
 def convert_status(task_id):
@@ -344,10 +357,7 @@ def convert_status(task_id):
     task = convert.AsyncResult(task_id)
     if task.state == 'PENDING' or task.state == 'STARTED':
         # job has not started yet
-        response = {
-            'state': task.state,
-            'status': 'Pending...'
-        }
+        response = {'state': task.state, 'status': 'Pending...'}
     elif task.state == 'SUCCESS':
         response = {
             'state': task.state,
@@ -365,6 +375,7 @@ def convert_status(task_id):
         }
     return jsonify(response)
 
+
 @app.route('/perf_tuning', methods=['POST'])
 def send_perf_job():
     """
@@ -376,6 +387,7 @@ def send_perf_job():
     job_name = 'perf_tuning.' + request.form.get('job_name')
     job = perf_tuning.apply_async(args=[temp_json, input_params], shadow=job_name)
     return jsonify({'Location': url_for('perf_status', task_id=job.id), 'job_id': job.id}), 202
+
 
 @celery.task(bind=True)
 def perf_tuning(self, temp_json, input_params):
@@ -398,17 +410,18 @@ def perf_tuning(self, temp_json, input_params):
     result = pipeline.perf_tuning(input_json=temp_json, result=result_dir)
     try:
         r = pipeline.get_result(result)
-        response_object['result'] = json.dumps(r.latency)        
+        response_object['result'] = json.dumps(r.latency)
         response_object['profiling'] = r.profiling_ops
     except RuntimeError:
-        pass    
-    
+        pass
+
     response_object['logs'] = pipeline.output
     # clean up result dir
     # if os.path.exists(result_dir):
     #    rmtree(result_dir)
     clean(app.root_path)
     return response_object
+
 
 @app.route('/perfstatus/<task_id>')
 def perf_status(task_id):
@@ -421,10 +434,7 @@ def perf_status(task_id):
     task = perf_tuning.AsyncResult(task_id)
     if task.state == 'PENDING' or task.state == 'STARTED':
         # job did not start yet
-        response = {
-            'state': task.state,
-            'status': 'Pending...'
-        }
+        response = {'state': task.state, 'status': 'Pending...'}
     elif task.state != 'FAILURE':
         response = {
             'state': task.state,
@@ -441,6 +451,7 @@ def perf_status(task_id):
             'status': str(task.info),  # this is the exception raised
         }
     return jsonify(response)
+
 
 @app.route('/gettasks')
 def get_tasks():
@@ -472,6 +483,7 @@ def get_tasks():
     except:
         pass
 
+
 @app.route('/getargs/<task_id>')
 def get_task_args(task_id):
     """
@@ -488,13 +500,14 @@ def get_task_args(task_id):
         reply = resp.json()
         args = reply.get('args')
         if len(args) > 0:
-            args = args[args.find('{'): len(args) - 1]
+            args = args[args.find('{'):len(args) - 1]
             args = args.replace('\\', '\\\\').replace('\'', '"').replace('True', '"true"').replace('False', '"false"')
         return jsonify(json.loads(args))
     except:
         pass
     return jsonify({'args': ''})
-    
+
+
 @app.route('/getjobname/<task_id>')
 def get_job_name(task_id):
     """
@@ -515,6 +528,7 @@ def get_job_name(task_id):
         pass
     return jsonify({'name': ''})
 
+
 @app.route('/download/<path:filename>', methods=['POST', 'GET'])
 def download(filename):
     """
@@ -529,6 +543,7 @@ def download(filename):
         return send_file(os.path.join(path, filename), filename)
     except Exception as e:
         return str(e)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')

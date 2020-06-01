@@ -5,12 +5,13 @@ import time
 import GPUtil
 import psutil
 
+
 # Monitor CPU, GPU and memory usage
 class Monitor(Thread):
     def __init__(self, delay):
         super(Monitor, self).__init__()
         self.stopped = False
-        self.delay = delay # Time between calls to GPUtil
+        self.delay = delay  # Time between calls to GPUtil
         self.recorded_gpu = []
         self.recorded_cpu = []
         self.recorded_memory = []
