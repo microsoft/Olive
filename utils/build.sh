@@ -6,4 +6,4 @@ docker pull mcr.microsoft.com/onnxruntime/onnx-converter
 docker pull mcr.microsoft.com/onnxruntime/perf-tuning
 
 # install python dependency modules
-python -m pip install docker pandas pickle onnx
+python -m pip install docker pandas onnx

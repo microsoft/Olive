@@ -227,6 +227,12 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
             np.testing.assert_almost_equal(expected_outputs, onnx_output, decimal=expected_decimal)
     else:
         for output_name in onnx_outputs.keys():
+            try:
+                expected_outputs.get(output_name)
+            except Exception as e:
+                print(e)
+                print("Output names in output.pb does not align with the names in model. Please fix your output.pb files and run again.")
+                return "UNSUPPORTED"
             np.testing.assert_almost_equal(expected_outputs.get(output_name), onnx_outputs.get(output_name), decimal=expected_decimal)
     print("The converted model achieves {}-decimal precision compared to the original model.".format(expected_decimal))
     print("MODEL CONVERSION SUCCESS. ")

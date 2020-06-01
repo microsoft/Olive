@@ -231,7 +231,7 @@ class Pipeline:
             arguments = docker_config.arg('input_json', input_json)
          # load by JSON file and handle missing parameters with default path, add mounted path into original path
         elif input_json is not None:
-            with open(posixpath.join(self.path, local_input_json)) as f:
+            with open(os.path.join(self.path, local_input_json)) as f:
                 json_data = json.load(f)
                 if 'result' in json_data:
                     result = json_data['result']
