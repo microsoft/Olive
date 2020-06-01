@@ -9,6 +9,5 @@ cd backend
 celery flower -A app.celery --port=5555 &>/dev/null &
 celery worker -A app.celery -P gevent &>/dev/null &
 cd ..
-
 # Start Python backend for OLive
 python ./backend/app.py

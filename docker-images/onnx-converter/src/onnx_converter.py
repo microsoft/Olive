@@ -298,7 +298,7 @@ def main():
         if args.initial_types and len(args.initial_types) > 0:
             args.initial_types = eval(args.initial_types)
     # Create a test folder path
-    output_dir = os.path.dirname(os.path.abspath(args.output_onnx_path))
+    output_dir = os.path.dirname(args.output_onnx_path)
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
     output_json_path = os.path.join(output_dir, "output.json")

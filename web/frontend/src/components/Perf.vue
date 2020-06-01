@@ -65,7 +65,7 @@
                 <b-form-file multiple id="form-model-input"
                                 v-model="test_data"
                                 placeholder="Select your input/output.pbs..."
-                                :disabled="use_prev_input">
+                                :disabled="disable_prev_input">
                 </b-form-file>
                 </b-form-group>
 
@@ -336,7 +336,9 @@ export default {
 
     perf_tuning(evt) {
       this.close_all();
-
+      this.model_running = true;
+      this.show_message = true;
+      this.message = `Submitting job ${this.job_name}`;
       evt.preventDefault();
       if ((this.run_option == 0 && this.perf_tuning_form.model == '')
           || (this.run_option == 1 && this.customized_model == null)) {
@@ -358,16 +360,11 @@ export default {
       if (this.selected_eps.length > 0) {
         this.perf_tuning_form.execution_provider = '';
         for (let i = 0; i < this.selected_eps.length; i++) {
-          this.perf_tuning_form.execution_provider += this.selected_eps[i].value;
+          this.perf_tuning_form.execution_provider += this.selected_eps[i];
           if (i < this.selected_eps.length - 1) {
             this.perf_tuning_form.execution_provider += ',';
           }
         }
-      }
-
-      // run all eps with "ALL" is selected.
-      if (this.perf_tuning_form.execution_provider.indexOf('') > -1) {
-        this.perf_tuning_form.execution_provider = '';
       }
 
       const metadata = this.perf_tuning_form;
@@ -391,6 +388,7 @@ export default {
       axios.post(`${this.host}:5000/perf_tuning`, data)
         .then((res) => {
           this.link = `${this.host}:8000/perfresult/${res.data.job_id}`;
+          this.model_running = false;
           this.show_message = true;
           this.message = 'Running job at ';
           this.update_result(res.data.job_id);
@@ -400,6 +398,7 @@ export default {
           this.message = error.toString();
           this.model_running = false;
         });
+      this.job_name = `perf-tuning-${Date.now()}`;
     },
 
     update_result(location) {
