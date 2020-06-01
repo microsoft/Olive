@@ -11,9 +11,11 @@ from pathlib import Path
 import coremltools
 import torch
 
+
 def caffeRunner(model_path, inputs_path):
     # TODO: Install pycafe
     return
+
 
 def cntkRunner(model_path, inputs_path):
     import cntk as C
@@ -22,8 +24,10 @@ def cntkRunner(model_path, inputs_path):
     output = model.eval(input_dict)
     return output
 
+
 def coremlRunner(model_path, inputs_path):
-    return 
+    return
+
 
 def kerasRunner(model_path, inputs_path):
     import keras
@@ -33,8 +37,10 @@ def kerasRunner(model_path, inputs_path):
     output = keras_model.predict(input_list)
     return output
 
+
 def mxnetRunner(model_path, inputs_path):
     return
+
 
 def sklearnRunner(model_path, inputs_path):
     from sklearn.externals import joblib
@@ -45,11 +51,12 @@ def sklearnRunner(model_path, inputs_path):
     if type(output) is not list:
         output = [output]
     try:
-        proba = skl_model.predict_proba(input_list)    
+        proba = skl_model.predict_proba(input_list)
         output.append(proba)
     except:
         print("Current sklearn model .predict_proba() is not available. ")
     return output
+
 
 def pytorchRunner(model_path, inputs_path):
     # load the PyTorch model
@@ -61,6 +68,7 @@ def pytorchRunner(model_path, inputs_path):
     else:
         output_ndarray = output_pytorch.detach().numpy()
     return output_ndarray
+
 
 def tfRunner(model_path, inputs_path, inputs, outputs):
     input_dict = {}
@@ -85,7 +93,7 @@ def tfRunner(model_path, inputs_path, inputs, outputs):
         input_names = inputs.split(",")
         output_names = outputs.split(",")
         g = tf.Graph()
-        with tf.Session(graph=g) as sess:        
+        with tf.Session(graph=g) as sess:
             saver = tf.train.import_meta_graph(model_path, clear_devices=True)
             # restore from model_path minus the ".meta"
             saver.restore(sess, model_path[:-5])
@@ -108,8 +116,10 @@ def tfRunner(model_path, inputs_path, inputs, outputs):
             sess.close()
         return output_dict
 
+
 def xgboostRunner(model, inputs):
     return
+
 
 def onnxRunner(model, inputs_path):
     sess = onnxruntime.InferenceSession(model)
@@ -119,11 +129,13 @@ def onnxRunner(model, inputs_path):
         outputs[i.name] = sess.run([i.name], gen_io_dict(inputs_path, input_names, True))[0]
     return outputs
 
+
 def readInputFromFile(full_path):
     t = onnx.TensorProto()
     with open(full_path, 'rb') as f:
         t.ParseFromString(f.read())
     return t
+
 
 # Generate a {input/output_name: input/output_arr} dictionary
 def gen_io_dict(input_path, names=None, isInput=True):
@@ -132,17 +144,18 @@ def gen_io_dict(input_path, names=None, isInput=True):
     filePrefix = "input" if isInput else "output"
     full_path = os.path.join(input_path, filePrefix + "_%s.pb" % i)
     while os.path.isfile(full_path):
-        tensorProto = readInputFromFile(full_path)        
+        tensorProto = readInputFromFile(full_path)
         name = names[i] if names != None else tensorProto.name
         io_dict[name] = numpy_helper.to_array(tensorProto)
-        i += 1        
+        i += 1
         full_path = os.path.join(input_path, filePrefix + "_%s.pb" % i)
     return io_dict
+
 
 # Generate input list from input_0.pb, input_1.pb ...
 def gen_input_list(input_path, isPytorch=False):
     inputs = []
-    i = 0    
+    i = 0
     print(input_path)
     full_path = os.path.join(input_path, "input_%s.pb" % i)
     while os.path.isfile(full_path):
@@ -157,6 +170,7 @@ def gen_input_list(input_path, isPytorch=False):
     else:
         return inputs
 
+
 runner = {
     # "caffe": caffeRunner,
     "cntk": cntkRunner,
@@ -164,15 +178,17 @@ runner = {
     "keras": kerasRunner,
     # "libsvm": libsvmRunner,
     # "lightgbm": lightgbm2onnx,
-    # "mxnet": mxnetRunner,    
+    # "mxnet": mxnetRunner,
     "scikit-learn": sklearnRunner,
     "pytorch": pytorchRunner,
     "tensorflow": tfRunner,
     # "xgboost": xgboostRunner
 }
 
+
 def get_extension(path):
     return Path(path).suffix[1:].lower()
+
 
 def check_model(original_model_path, onnx_model_path, inputs_path, model_type, input_names, output_names):
     # Check if your ONNX model is valid
@@ -184,7 +200,7 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
     if model_type == "onnx" or get_extension(original_model_path) == "onnx":
         # Skip model correctness conversion for onnx models
         print("The original model is already onnx. Skipping correctness test. ")
-        return "SKIPPED"    
+        return "SKIPPED"
 
     print("Check ONNX model for correctness. ")
     # Check if expected output file exists
@@ -192,11 +208,11 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
     if len(expected_outputs) > 0:
         print("Using output files provided for correctness test. ")
         print("...")
-    else: 
+    else:
         if modelPredictor == None:
             print("No correctness verification method for %s model type" % model_type)
             return "UNSUPPORTED"
-        print("Running inference on original model with specified or random inputs. ")    
+        print("Running inference on original model with specified or random inputs. ")
         print("...")
         try:
             if model_type == "tensorflow":
@@ -212,7 +228,7 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
     print("...\n")
     onnx_outputs = onnxRunner(onnx_model_path, inputs_path)
 
-    # Compare two outputs 
+    # Compare two outputs
     print("Comparing the outputs from two models. ")
     expected_decimal = 5
     if type(expected_outputs) is list:
@@ -220,8 +236,10 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
         sess = onnxruntime.InferenceSession(onnx_model_path)
         output_names = sess.get_outputs()
         for i in range(len(expected_outputs)):
-            np.testing.assert_almost_equal(expected_outputs[i], onnx_outputs.get(output_names[i].name), decimal=expected_decimal)
-    elif type(expected_outputs) is not dict:    
+            np.testing.assert_almost_equal(expected_outputs[i],
+                                           onnx_outputs.get(output_names[i].name),
+                                           decimal=expected_decimal)
+    elif type(expected_outputs) is not dict:
         # If only one output, just compare them
         for onnx_output in onnx_outputs.values():
             np.testing.assert_almost_equal(expected_outputs, onnx_output, decimal=expected_decimal)
@@ -231,9 +249,13 @@ def check_model(original_model_path, onnx_model_path, inputs_path, model_type, i
                 expected_outputs.get(output_name)
             except Exception as e:
                 print(e)
-                print("Output names in output.pb does not align with the names in model. Please fix your output.pb files and run again.")
+                print(
+                    "Output names in output.pb does not align with the names in model. Please fix your output.pb files and run again."
+                )
                 return "UNSUPPORTED"
-            np.testing.assert_almost_equal(expected_outputs.get(output_name), onnx_outputs.get(output_name), decimal=expected_decimal)
+            np.testing.assert_almost_equal(expected_outputs.get(output_name),
+                                           onnx_outputs.get(output_name),
+                                           decimal=expected_decimal)
     print("The converted model achieves {}-decimal precision compared to the original model.".format(expected_decimal))
     print("MODEL CONVERSION SUCCESS. ")
     return "SUCCESS"
