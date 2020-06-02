@@ -29,10 +29,11 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
             print("Not prebuilt onnxruntime found. Building onnxruntime.")
             args.prebuilt = False
         if not args.prebuilt:
-            subprocess.run([os.path.join(onnxruntime_dir, "build.bat"), "--config", config, "--build_shared_lib"] +
-                           build_args,
-                           cwd=onnxruntime_dir,
-                           check=True)
+            subprocess.run(
+                [os.path.join(onnxruntime_dir, "build.bat"), "--config", config, "--build_shared_lib", "--parallel"] +
+                build_args,
+                cwd=onnxruntime_dir,
+                check=True)
             target_dir = os.path.join("bin", config, build_name)
         if os.path.exists(target_dir):
             shutil.rmtree(target_dir)
@@ -40,14 +41,13 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
 
         copy(os.path.join(windows_build_dir, "onnxruntime_perf_test.exe"), target_dir)
         copy(os.path.join(windows_build_dir, "onnxruntime.dll"), target_dir)
-        if "mklml_eps" not in build_name:
+        if "all_eps" in build_name:
             if "--use_dnnl" in build_args:
                 copy(os.path.join(windows_build_dir, "dnnl.dll"), target_dir)
             if args.use_cuda or args.use_tensorrt:
                 copy(os.path.join(args.cudnn_home, "bin/cudnn*.dll"), target_dir)
             if args.use_tensorrt:
                 copy(os.path.join(args.tensorrt_home, "lib/nvinfer.dll"), target_dir)
-        else:
             if "--use_tvm" in build_args:
                 copy(os.path.join(windows_build_dir, "tvm.dll"), target_dir)
             if "--use_nuphar" in build_args:
@@ -66,11 +66,12 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
             build_env["LD_LIBRARY_PATH"] += ":" + lib_path
             if args.use_tensorrt:
                 build_env["LD_LIBRARY_PATH"] += ":" + args.tensorrt_home
-            subprocess.run([os.path.join(onnxruntime_dir, "build.sh"), "--config", config, "--build_shared_lib"] +
-                           build_args,
-                           cwd=onnxruntime_dir,
-                           check=True,
-                           env=build_env)
+            subprocess.run(
+                [os.path.join(onnxruntime_dir, "build.sh"), "--config", config, "--build_shared_lib", "--parallel"] +
+                build_args,
+                cwd=onnxruntime_dir,
+                check=True,
+                env=build_env)
 
         target_dir = os.path.join("bin", config, build_name)
 
@@ -91,17 +92,15 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 copy(os.path.join(args.tensorrt_home, "lib/libnvinfer.so*"), target_dir)
                 copy(os.path.join(args.tensorrt_home, "lib/libnvinfer_plugin.so*"), target_dir)
                 copy(os.path.join(args.tensorrt_home, "lib/libmyelin.so*"), target_dir)
-
-        if "mklml_eps" in build_name:
             if "--use_tvm" in build_args:
                 copy(os.path.join(linux_build_dir, "external", "tvm", "libtvm.so*"), target_dir)
             if "--use_nuphar" in build_args:
                 copy(
                     os.path.join(onnxruntime_dir, "onnxruntime", "core", "providers", "nuphar", "scripts",
                                  "symbolic_shape_infer.py"), target_dir)
-        if "ngraph" in build_name:
-            copy(os.path.join(linux_build_dir, "external/ngraph/lib/lib*.so*"), target_dir)
-            copy(os.path.join(linux_build_dir, "external", "tvm", "libtvm.so*"), target_dir)
+            if "--use_ngraph" in build_args:
+                copy(os.path.join(linux_build_dir, "external/ngraph/lib/lib*.so*"), target_dir)
+                copy(os.path.join(linux_build_dir, "external", "tvm", "libtvm.so*"), target_dir)
 
 
 def parse_arguments():
@@ -144,28 +143,20 @@ def parse_arguments():
 
 if __name__ == "__main__":
     args = parse_arguments()
-    omp_args = ["--use_openmp"] if args.use_openmp else []
-    
-    if args.use_openmp:
-        # Build cpu with openmp as a separate build
-        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel"] + omp_args, "cpu_openmp",
-                          args)
-    if args.use_ngraph:
-        # Build ngraph as a separate build
-        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_ngraph"] + omp_args, "ngraph",
-                          args)
 
-    nuphar_args = ["--use_tvm", "--use_llvm", "--use_nuphar"] if args.use_nuphar else []
-    nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path] if args.llvm_path else nuphar_args
+    build_args = []
+    # Build CPU with no OpenMp as a separate build
+    build_onnxruntime(args.onnxruntime_home, args.config, build_args, "cpu", args)
 
     if args.use_mklml:
-        # Build nuphar, mklml, dnnl as one build
-        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_mklml"] + nuphar_args, "mklml_eps",
-                          args)
-    elif args.use_nuphar:
-        raise ValueError("--use_mklml must be enabled to build Nuphar execution provider. ")
-    
-    build_args = ["--parallel", "--use_dnnl",]
+        # Build mklml as a separate build
+        build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mklml"], "mklml", args)
+
+    build_args = ["--use_dnnl", "--use_openmp"]
+    nuphar_args = ["--use_tvm", "--use_llvm", "--use_nuphar"] if args.use_nuphar else []
+    nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path] if args.llvm_path else nuphar_args
+    ngraph_args = ["--use_ngraph"] if args.use_ngraph else []
+
     if args.use_cuda:
         build_args += ["--use_cuda"]
         if args.cuda_version:
@@ -187,4 +178,5 @@ if __name__ == "__main__":
             if args.cudnn_home:
                 build_args = build_args + ["--cudnn_home", args.cudnn_home]
 
-    build_onnxruntime(args.onnxruntime_home, args.config, build_args, "all_eps", args)
+    # Build cpu_openmp, cuda, dnnl, nuphar, ngraph and tensorrt in one build.
+    build_onnxruntime(args.onnxruntime_home, args.config, build_args + nuphar_args + ngraph_args, "all_eps", args)
