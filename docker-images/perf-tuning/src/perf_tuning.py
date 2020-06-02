@@ -487,10 +487,12 @@ if __name__ == "__main__":
     profile_candidates = []
     failed = []
     for build_name in providers:
-        if "mklml" in build_name or "nuphar" in build_name:
-            build_path = os.path.join(bin_dir, "mklml")
+        if "cpu_openmp" in build_name:
+            build_path = os.path.join(bin_dir, "cpu_openmp")
         elif "ngraph" in build_name:
             build_path = os.path.join(bin_dir, "ngraph")
+        elif "mklml" in build_name or "nuphar" in build_name or "dnnl" in build_name:
+            build_path = os.path.join(bin_dir, "mklml_eps")
         elif build_name in allProviders:
             build_path = os.path.join(bin_dir, "all_eps")
         else:

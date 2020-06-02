@@ -107,12 +107,13 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--onnxruntime_home", help="Path to onnxruntime home.")
+    parser.add_argument("--onnxruntime_home", required=True, help="Path to onnxruntime home.")
 
     parser.add_argument("--config",
                         default="RelWithDebInfo",
                         choices=["Debug", "MinSizeRel", "Release", "RelWithDebInfo"],
                         help="Configuration to build.")
+    parser.add_argument("--use_openmp", action='store_true', help="Enable OpenMP build.")
     parser.add_argument("--use_cuda", action='store_true', help="Enable CUDA.")
     parser.add_argument("--cuda_version",
                         help="The version of CUDA toolkit to use. Auto-detect if not specified. e.g. 9.0")
@@ -143,23 +144,28 @@ def parse_arguments():
 
 if __name__ == "__main__":
     args = parse_arguments()
-
-    build_args = ["--parallel", "--use_dnnl", "--use_openmp"]
-    nuphar_args = []
-
-    if args.use_nuphar:
-        nuphar_args += ["--use_tvm", "--use_llvm", "--use_nuphar"]
-        if args.llvm_path:
-            nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path]
+    omp_args = ["--use_openmp"] if args.use_openmp else []
+    
+    if args.use_openmp:
+        # Build cpu with openmp as a separate build
+        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel"] + omp_args, "cpu_openmp",
+                          args)
     if args.use_ngraph:
         # Build ngraph as a separate build
-        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_ngraph", "--use_openmp"], "ngraph",
-                          args)
-    if args.use_mklml:
-        # Build mklml + nuphar in one build
-        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_mklml"] + nuphar_args, "mklml",
+        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_ngraph"] + omp_args, "ngraph",
                           args)
 
+    nuphar_args = ["--use_tvm", "--use_llvm", "--use_nuphar"] if args.use_nuphar else []
+    nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path] if args.llvm_path else nuphar_args
+
+    if args.use_mklml:
+        # Build nuphar, mklml, dnnl as one build
+        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_dnnl", "--use_mklml"] + nuphar_args, "mklml_eps",
+                          args)
+    elif args.use_nuphar:
+        raise ValueError("--use_mklml must be enabled to build Nuphar execution provider. ")
+    
+    build_args = ["--parallel"]
     if args.use_cuda:
         build_args += ["--use_cuda"]
         if args.cuda_version:
