@@ -40,7 +40,7 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
 
         copy(os.path.join(windows_build_dir, "onnxruntime_perf_test.exe"), target_dir)
         copy(os.path.join(windows_build_dir, "onnxruntime.dll"), target_dir)
-        if "mklml" not in build_name:
+        if "mklml_eps" not in build_name:
             if "--use_dnnl" in build_args:
                 copy(os.path.join(windows_build_dir, "dnnl.dll"), target_dir)
             if args.use_cuda or args.use_tensorrt:
@@ -92,7 +92,7 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 copy(os.path.join(args.tensorrt_home, "lib/libnvinfer_plugin.so*"), target_dir)
                 copy(os.path.join(args.tensorrt_home, "lib/libmyelin.so*"), target_dir)
 
-        if "mklml" in build_name:
+        if "mklml_eps" in build_name:
             if "--use_tvm" in build_args:
                 copy(os.path.join(linux_build_dir, "external", "tvm", "libtvm.so*"), target_dir)
             if "--use_nuphar" in build_args:
@@ -160,12 +160,12 @@ if __name__ == "__main__":
 
     if args.use_mklml:
         # Build nuphar, mklml, dnnl as one build
-        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_dnnl", "--use_mklml"] + nuphar_args, "mklml_eps",
+        build_onnxruntime(args.onnxruntime_home, args.config, ["--parallel", "--use_mklml"] + nuphar_args, "mklml_eps",
                           args)
     elif args.use_nuphar:
         raise ValueError("--use_mklml must be enabled to build Nuphar execution provider. ")
     
-    build_args = ["--parallel"]
+    build_args = ["--parallel", "--use_dnnl",]
     if args.use_cuda:
         build_args += ["--use_cuda"]
         if args.cuda_version:
