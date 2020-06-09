@@ -239,7 +239,7 @@ def run_perf_tuning_binary(test_params,
         test_params.name + str(lower) + name_suffix,
         test_params.desc + str(lower) + desc_suffix,
         test_params.path,
-        [],
+        test_params.test_args,
         test_params.env_to_set.copy(),
         test_params.args,
         build_name,
@@ -251,7 +251,6 @@ def run_perf_tuning_binary(test_params,
         param.test_args = test_params.test_args + ["-x", str(lower)]
     else:
         param.updateEnv({"OMP_NUM_THREADS": str(lower)})
-        param.test_args = test_params.test_args + ["-x", "1"]
 
     run_perf_tuning(param)
     if not param.avg:
@@ -286,9 +285,8 @@ def run_perf_tuning_binary(test_params,
         elif not is_omp:
             param.test_args = test_params.test_args + ["-x", str(mid)]
         else:
+            param.test_args = test_params.test_args
             param.updateEnv({"OMP_NUM_THREADS": str(mid)})
-            # Set "-x 1" to ensure openmp thread pool is used.
-            param.test_args = test_params.test_args + ["-x", "1"]
         run_perf_tuning(param)
         if param.avg:
             successful_tests.append(param)
@@ -487,7 +485,9 @@ if __name__ == "__main__":
     profile_candidates = []
     failed = []
     for build_name in providers:
-        if "mklml" in build_name or "nuphar" in build_name:
+        if "cpu" in build_name:
+            build_path = os.path.join(bin_dir, "cpu")
+        elif "mklml" in build_name or "nuphar" in build_name:
             build_path = os.path.join(bin_dir, "mklml")
         elif "ngraph" in build_name:
             build_path = os.path.join(bin_dir, "ngraph")
@@ -497,88 +497,89 @@ if __name__ == "__main__":
             raise ValueError(
                 "Provider %s is not currently supported. \
                 Please choose one of cpu, dnnl, mklml, cuda, tensorrt, ngraph or nuphar", build_name)
-        if os.path.isdir(build_path):
-            # If current build is requested by user, run perf tuning
-            test_args = []
-            if "mklml" not in build_name and "cpu_openmp" not in build_name:
-                test_args = ["-e", build_name]
-            successful = []
-            tests = []
-            is_omp = build_name in omp_eps
-            if is_omp:
-                params = PerfTestParams(build_name, build_name, build_path, test_args + ["-x", "1"], {}, args,
-                                        build_name)
-                tests.append(params)
+        if not os.path.isdir(build_path):
+            raise ValueError(
+                "Provider %s is not built. \
+                Please build the requested provider using build_perf_tuning.py first")
+            
+        # If current build is requested by user, run perf tuning
+        test_args = []
+        if "mklml" not in build_name and "cpu_openmp" not in build_name:
+            test_args = ["-e", build_name]
+        successful = []
+        tests = []
+        is_omp = build_name in omp_eps
+        if is_omp:
+            params = PerfTestParams(build_name, build_name, build_path, test_args, {}, args,
+                                    build_name)
+            tests.append(params)
 
-            # Tune inter_op_num_threads using parallel execution mode with default environment variables.
-            best_inter_op_num_threads = -1
-            if args.parallel and build_name in parallel_eps:
-                best_inter_op_num_threads = run_perf_tuning_binary(
-                    PerfTestParams(
-                        build_name + "_parallel_",
-                        build_name + " ",
-                        build_path,
-                        test_args + ["-P"],
-                        {},
-                        args,
-                        build_name,
-                    ), int(args.inter_op_num_threads), "_inter_threads", " threads, ", failed, successful, False, True)
+        # Tune inter_op_num_threads using parallel execution mode with default environment variables.
+        best_inter_op_num_threads = -1
+        if args.parallel and build_name in parallel_eps:
+            best_inter_op_num_threads = run_perf_tuning_binary(
+                PerfTestParams(
+                    build_name + "_parallel_",
+                    build_name + " ",
+                    build_path,
+                    test_args + ["-P"],
+                    {},
+                    args,
+                    build_name,
+                ), int(args.inter_op_num_threads), "_inter_threads", " threads, ", failed, successful, False, True)
 
-            env_vars = ep_envvar_map.get(build_name)
-            env_var_combos = get_env_var_combos(env_vars)
-            env_names = list(env_vars.keys()) if env_vars is not None else []
-            # Tune all possible combinations of environment variables, including defaults
-            for combo in env_var_combos:
-                # generate env var dict {env_var_name: env_var_option}.
-                env = gen_env_var_dict(env_names, combo)
-                env_option = ""
-                for e in env:
-                    env_option += "_" + e + "_" + env.get(e)
+        env_vars = ep_envvar_map.get(build_name)
+        env_var_combos = get_env_var_combos(env_vars)
+        env_names = list(env_vars.keys()) if env_vars is not None else []
+        # Tune all possible combinations of environment variables, including defaults
+        for combo in env_var_combos:
+            # generate env var dict {env_var_name: env_var_option}.
+            env = gen_env_var_dict(env_names, combo)
+            env_option = ""
+            for e in env:
+                env_option += "_" + e + "_" + env.get(e)
 
-                best_thread_pool_size = -1
+            best_thread_pool_size = -1
 
-                num_threads = int(args.intra_op_num_threads)
-                name_suffix = "_intra_threads" if not is_omp else "_OMP_threads"
-                desc_suffix = " intra_op_num_threads, " if not is_omp else " OMP_NUM_THREADS, "
-                # Tune environment variables and thread pool size using sequential executor
-                best_thread_pool_size = run_perf_tuning_binary(
-                    PerfTestParams(build_name + "_", build_name + " ", build_path, test_args, env.copy(), args,
-                                   build_name), num_threads, name_suffix + env_option, desc_suffix + env_option, failed,
-                    successful, is_omp)
-                if best_inter_op_num_threads > 1:
-                    name_suffix += "_" + str(best_inter_op_num_threads) + "_inter_threads"
-                    desc_suffix += str(best_inter_op_num_threads) + " inter_op_num_threads, "
-                    # Store the best inter_op_num_threads in test args.
-                    if best_thread_pool_size > 1:
-                        params = PerfTestParams(
-                            build_name + "_parallel_" + str(best_thread_pool_size) + name_suffix + env_option,
-                            build_name + " " + str(best_thread_pool_size) + desc_suffix + env_option, build_path,
-                            test_args + ["-P", "-y", str(best_inter_op_num_threads)], env.copy(), args, build_name)
-                        if is_omp:
-                            params.updateEnv({"OMP_NUM_THREADS": str(best_thread_pool_size)})
-                            params.test_args += ["-x", "1"]
-                        else:
-                            params.test_args += ["-x", str(best_thread_pool_size)]
-                        tests.append(params)
+            num_threads = int(args.intra_op_num_threads)
+            name_suffix = "_intra_threads" if not is_omp else "_OMP_threads"
+            desc_suffix = " intra_op_num_threads, " if not is_omp else " OMP_NUM_THREADS, "
+            # Tune environment variables and thread pool size using sequential executor
+            best_thread_pool_size = run_perf_tuning_binary(
+                PerfTestParams(build_name + "_", build_name + " ", build_path, test_args, env.copy(), args,
+                                build_name), num_threads, name_suffix + env_option, desc_suffix + env_option, failed,
+                successful, is_omp)
+            if best_inter_op_num_threads > 1:
+                name_suffix += "_" + str(best_inter_op_num_threads) + "_inter_threads"
+                desc_suffix += str(best_inter_op_num_threads) + " inter_op_num_threads, "
+                # Store the best inter_op_num_threads in test args.
+                if best_thread_pool_size > 1:
+                    params = PerfTestParams(
+                        build_name + "_parallel_" + str(best_thread_pool_size) + name_suffix + env_option,
+                        build_name + " " + str(best_thread_pool_size) + desc_suffix + env_option, build_path,
+                        test_args + ["-P", "-y", str(best_inter_op_num_threads)], env.copy(), args, build_name)
+                    if is_omp:
+                        params.updateEnv({"OMP_NUM_THREADS": str(best_thread_pool_size)})
+                    else:
+                        params.test_args += ["-x", str(best_thread_pool_size)]
+                    tests.append(params)
 
-                # Tune environment variables using sequential executor with default thread settings
-                params = PerfTestParams(build_name + env_option, build_name + " " + env_option, build_path, test_args,
-                                        env.copy(), args, build_name)
-                if is_omp:
-                    params.test_args += ["-x", "1"]
-                tests.append(params)
+            # Tune environment variables using sequential executor with default thread settings
+            params = PerfTestParams(build_name + env_option, build_name + " " + env_option, build_path, test_args,
+                                    env.copy(), args, build_name)
+            tests.append(params)
 
-            # Run the tests under current execution provider.
-            for test in tests:
-                run_perf_tuning(test)
+        # Run the tests under current execution provider.
+        for test in tests:
+            run_perf_tuning(test)
 
-            # keep the best to run profiling
-            successful.extend([x for x in tests if x.avg])
-            successful = sorted(successful, key=lambda e: e.avg)[:int(args.top_n)]
-            if len(successful) > 0:
-                successful_by_ep[build_name] = successful
-                profile_candidates.append(successful_by_ep[build_name][0])
-            failed.extend([x for x in tests if not x.avg])
+        # keep the best to run profiling
+        successful.extend([x for x in tests if x.avg])
+        successful = sorted(successful, key=lambda e: e.avg)[:int(args.top_n)]
+        if len(successful) > 0:
+            successful_by_ep[build_name] = successful
+            profile_candidates.append(successful_by_ep[build_name][0])
+        failed.extend([x for x in tests if not x.avg])
 
     # Re-run fastest tests in each ep to calculate percentiles.
     for test in profile_candidates:
