@@ -90,7 +90,7 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
 
         copy(os.path.join(linux_build_dir, "onnxruntime_perf_test"), target_dir)
         copy(os.path.join(linux_build_dir, "libonnxruntime.so*"), target_dir)
-        
+
         if "all_eps" in build_name:
             copy(os.path.join(linux_build_dir, "dnnl/install/lib/libdnnl.so*"), target_dir)
             copy(os.path.join(linux_build_dir, "libonnxruntime_providers_dnnl.so*"), target_dir)
@@ -117,6 +117,8 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--onnxruntime_home", required=True, help="Path to onnxruntime home.")
+
+    parser.add_argument("--cmake_path", help="Path to the CMake program.")
 
     parser.add_argument("--config",
                         default="RelWithDebInfo",
@@ -152,15 +154,19 @@ def parse_arguments():
 
 if __name__ == "__main__":
     args = parse_arguments()
+
+    build_args = []
+    if args.cmake_path:
+        build_args = build_args + ["--cmake_path", args.cmake_path]
+
     if args.prebuilt:
         build_name = "all_eps"
         if args.use_nuphar or args.use_mklml:
             build_name = "mklml"
         if args.use_ngraph:
             build_name = "ngraph"
-        build_onnxruntime(args.onnxruntime_home, args.config, [], build_name, args)
+        build_onnxruntime(args.onnxruntime_home, args.config, build_args, build_name, args)
     else:
-        build_args = []
         # Build CPU with no OpenMp as a separate build
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, "cpu", args)
 
@@ -169,16 +175,16 @@ if __name__ == "__main__":
 
         if args.use_mklml:
             # Build mklml as a separate build
-            build_onnxruntime(args.onnxruntime_home, args.config, ["--use_mklml"] + nuphar_args, "mklml", args)
+            build_onnxruntime(args.onnxruntime_home, args.config, build_args + ["--use_mklml"] + nuphar_args, "mklml", args)
         elif args.use_nuphar:
             raise ValueError("Please build with --use_mklml to use nuphar. ")
 
         if args.use_ngraph:
             # Build ngraph as a separate build
-            build_onnxruntime(args.onnxruntime_home, args.config, ["--use_openmp", "--use_ngraph"], "ngraph",
+            build_onnxruntime(args.onnxruntime_home, args.config, build_args + ["--use_openmp", "--use_ngraph"], "ngraph",
                             args)
 
-        build_args = ["--use_dnnl", "--use_openmp"]
+        build_args = build_args + ["--use_dnnl", "--use_openmp"]
 
         if args.use_cuda:
             build_args += ["--use_cuda"]
