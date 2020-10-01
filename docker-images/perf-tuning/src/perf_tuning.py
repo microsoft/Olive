@@ -158,7 +158,11 @@ def run_perf_tuning(test_params, percentiles=False):
         test_args = test_params.get_percentiles_args(result_file)
     else:
         test_args = test_params.get_args(result_file)
+    #work around
+    if (test_args[0] == test_args[1]):
+        del test_args[0]
     perf_tuning = subprocess.run(test_args, env=test_params.env, capture_output=True)
+
     # The first run was warmup.
     remove(result_file)
     test_params.print_args(test_args)
@@ -439,7 +443,9 @@ def parse_arguments():
     parser.add_argument("--model", help="Model.")
     parser.add_argument("--result", help="Result folder.")
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    return args
 
 
 if __name__ == "__main__":

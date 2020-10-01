@@ -93,7 +93,7 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
 
         if "all_eps" in build_name:
             copy(os.path.join(linux_build_dir, "dnnl/install/lib/libdnnl.so*"), target_dir)
-            copy(os.path.join(linux_build_dir, "libonnxruntime_providers_dnnl.so*"), target_dir)
+            copy(os.path.join(linux_build_dir, "*.so*"), target_dir)
             if args.use_cuda or args.use_tensorrt:
                 copy(os.path.join(args.cudnn_home, "lib64/libcudnn.so*"), target_dir) #no
                 copy(os.path.join(args.cudnn_home, "lib64/libnvrtc.so*"), target_dir)
@@ -167,15 +167,14 @@ if __name__ == "__main__":
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, build_name, args)
     else:
         # Build CPU with no OpenMp as a separate build
-        #build_onnxruntime(args.onnxruntime_home, args.config, build_args, "cpu", args)
+        build_onnxruntime(args.onnxruntime_home, args.config, build_args, "cpu", args)
 
         nuphar_args = ["--use_nuphar"] if args.use_nuphar else []
         nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path] if args.llvm_path else nuphar_args
 
         if args.use_mklml:
             # Build mklml as a separate build
-            print("bugbug")
-            #build_onnxruntime(args.onnxruntime_home, args.config, build_args + ["--use_mklml"] + nuphar_args, "mklml", args)
+            build_onnxruntime(args.onnxruntime_home, args.config, build_args + ["--use_mklml"] + nuphar_args, "mklml", args)
         elif args.use_nuphar:
             raise ValueError("Please build with --use_mklml to use nuphar. ")
 
@@ -183,7 +182,7 @@ if __name__ == "__main__":
             # Build openvino as a separate build
             build_onnxruntime(args.onnxruntime_home, args.config, build_args + ["--use_openmp", "--use_openvino"], "openvino", args)
 
-        build_args = build_args + ["--use_dnnl", "--use_openmp"]
+        build_args = build_args + ["--use_dnnl", "--use_openmp", "--use_openvino"]
 
         if args.use_cuda:
             build_args += ["--use_cuda"]
@@ -207,4 +206,4 @@ if __name__ == "__main__":
                     build_args = build_args + ["--cudnn_home", args.cudnn_home]
 
         # Build cpu_openmp, cuda, dnnl, nuphar, openvino and tensorrt in one build.
-        #build_onnxruntime(args.onnxruntime_home, args.config, build_args, "all_eps", args)
+        build_onnxruntime(args.onnxruntime_home, args.config, build_args, "all_eps", args)
