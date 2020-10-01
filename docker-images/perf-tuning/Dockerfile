@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
-FROM nvidia/cuda:11.0-cudnn8-runtime-ubuntu16.04
+FROM nvidia/cuda:11.0-cudnn8-runtime-ubuntu18.04
 
 RUN apt-get -y update && apt-get -y upgrade
 RUN apt-get install -y python3.7 python3.7-dev libgomp1 python3-pip
