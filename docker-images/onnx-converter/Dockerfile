@@ -26,7 +26,7 @@ RUN apt-get -y update && \
 
 # Install ImageMagick
  #apt-get install build-essential libx11-dev libxext-dev zlib1g-dev libjpeg-dev libfreetype6-dev libxml2-dev && \
-RUN wget -O -q - http://www.imagemagick.org/download/ImageMagick.tar.gz | tar -xzf - && \
+RUN wget -O - http://www.imagemagick.org/download/ImageMagick.tar.gz | tar -xzf - && \
     cd ImageMagick-* && \
     ./configure --prefix=/usr/local/imagemagick && \
     make -j $(nproc) && \
