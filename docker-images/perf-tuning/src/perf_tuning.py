@@ -158,7 +158,11 @@ def run_perf_tuning(test_params, percentiles=False):
         test_args = test_params.get_percentiles_args(result_file)
     else:
         test_args = test_params.get_args(result_file)
+    #work around
+    if (test_args[0] == test_args[1]):
+        del test_args[0]
     perf_tuning = subprocess.run(test_args, env=test_params.env, capture_output=True)
+
     # The first run was warmup.
     remove(result_file)
     test_params.print_args(test_args)
@@ -439,7 +443,9 @@ def parse_arguments():
     parser.add_argument("--model", help="Model.")
     parser.add_argument("--result", help="Result folder.")
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    return args
 
 
 if __name__ == "__main__":
@@ -459,9 +465,9 @@ if __name__ == "__main__":
     bin_dir = os.path.join(os.path.dirname(__file__), "../bin", args.config)
     build_dirs = os.listdir(bin_dir)
 
-    allProviders = ["cpu_openmp", "mklml", "dnnl", "cpu", "tensorrt", "ngraph", "cuda", "nuphar"]
-    parallel_eps = ["cpu_openmp", "mklml", "dnnl", "cpu", "ngraph"]
-    omp_eps = ["cpu_openmp", "mklml", "dnnl", "ngraph", "nuphar"]
+    allProviders = ["cpu_openmp", "mklml", "dnnl", "cpu", "tensorrt", "openvino", "cuda", "nuphar"]
+    parallel_eps = ["cpu_openmp", "mklml", "dnnl", "cpu", "openvino"]
+    omp_eps = ["cpu_openmp", "mklml", "dnnl", "openvino", "nuphar"]
 
     # Get all execution providers needed to run in current context
     providers = [p for p in args.execution_provider.split(",")
@@ -489,19 +495,19 @@ if __name__ == "__main__":
             build_path = os.path.join(bin_dir, "cpu")
         elif "mklml" in build_name or "nuphar" in build_name:
             build_path = os.path.join(bin_dir, "mklml")
-        elif "ngraph" in build_name:
-            build_path = os.path.join(bin_dir, "ngraph")
+        elif "openvino" in build_name:
+            build_path = os.path.join(bin_dir, "openvino")
         elif build_name in allProviders:
             build_path = os.path.join(bin_dir, "all_eps")
         else:
             raise ValueError(
                 "Provider %s is not currently supported. \
-                Please choose one of cpu, dnnl, mklml, cuda, tensorrt, ngraph or nuphar", build_name)
+                Please choose one of cpu, dnnl, mklml, cuda, tensorrt, openvino or nuphar", build_name)
         if not os.path.isdir(build_path):
             raise ValueError(
                 "Provider %s is not built. \
                 Please build the requested provider using build_perf_tuning.py first")
-            
+
         # If current build is requested by user, run perf tuning
         test_args = []
         if "mklml" not in build_name and "cpu_openmp" not in build_name:

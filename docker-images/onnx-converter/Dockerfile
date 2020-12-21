@@ -18,16 +18,30 @@ COPY src/create_input.py src/create_input.py
 #     make -j $(nproc) install && \
 #     cd .. && \
 #     rm -rf openmpi-${OPENMPI_VERSION}
+
 RUN apt-get -y update && \
+    apt-get -y upgrade && \
     apt-get -y -f install && \
     apt-get -y install openmpi-bin
+
+# Install ImageMagick
+ #apt-get install build-essential libx11-dev libxext-dev zlib1g-dev libjpeg-dev libfreetype6-dev libxml2-dev && \
+RUN wget -O - http://www.imagemagick.org/download/ImageMagick.tar.gz | tar -xzf - && \
+    cd ImageMagick-* && \
+    ./configure --prefix=/usr/local/imagemagick && \
+    make -j $(nproc) && \
+    make -j $(nproc) install && \
+    cd .. && \
+    rm -rf ImageMagick-*
+
 RUN ln -s /usr/lib/x86_64-linux-gnu/libmpi_cxx.so.40 /usr/lib/x86_64-linux-gnu/libmpi_cxx.so.1 && \
     ln -s /usr/lib/x86_64-linux-gnu/libmpi.so.40.10.3 /usr/lib/x86_64-linux-gnu/libmpi.so.12
 ENV PATH /usr/local/mpi/bin:$PATH
+ENV PATH /usr/local/imagemagick/bin:$PATH
 ENV LD_LIBRARY_PATH /usr/local/mpi/lib:/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 
 # Install Python Requirements
-RUN pip3 install --upgrade pip \ 
+RUN pip3 install --upgrade pip \
     && pip3 install -r requirements.txt
 
 EXPOSE 8888
