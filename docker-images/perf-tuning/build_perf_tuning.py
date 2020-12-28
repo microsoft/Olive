@@ -96,10 +96,7 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
 
         if "all_eps" in build_name:
             copy(os.path.join(linux_build_dir, "dnnl/install/lib/libdnnl.so*"), target_dir)
-            copy(os.path.join(linux_build_dir, "*.so*"), target_dir)
-            copy(os.path.join(intel_base_dir, "inference_engine", "lib", "intel64", "*.so*"), target_dir)
-            copy(os.path.join(intel_base_dir, "inference_engine", "external", "tbb", "lib", "*.so*"), target_dir)
-            copy(os.path.join(intel_base_dir, "ngraph", "lib", "*.so*"), target_dir)
+            copy(os.path.join(linux_build_dir, "libonnxruntime_providers_*.so*"), target_dir)
             if args.use_cuda or args.use_tensorrt:
                 copy(os.path.join(args.cudnn_home, "lib64/libcudnn.so*"), target_dir) #it looks base image has this
                 copy(os.path.join(args.cudnn_home, "lib64/libnvrtc.so*"), target_dir)
@@ -107,6 +104,12 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 copy(os.path.join(args.tensorrt_home, "lib/libnvinfer.so*"), target_dir)
                 copy(os.path.join(args.tensorrt_home, "lib/libnvinfer_plugin.so*"), target_dir)
                 copy(os.path.join(args.tensorrt_home, "lib/libmyelin.so*"), target_dir)
+            if args.use_openvino:
+                copy(os.path.join(linux_build_dir, "libcustom_op_library.so*"), target_dir)
+                copy(os.path.join(intel_base_dir, "inference_engine", "lib", "intel64", "*.so*"), target_dir)
+                copy(os.path.join(intel_base_dir, "inference_engine", "lib", "intel64", "plugins.xml"), target_dir)
+                copy(os.path.join(intel_base_dir, "inference_engine", "external", "tbb", "lib", "*.so*"), target_dir)
+                copy(os.path.join(intel_base_dir, "ngraph", "lib", "*.so*"), target_dir)
         if "mklml" in build_name:
             copy(os.path.join(linux_build_dir, "mklml/src/project_mklml/lib/*.so*"), target_dir)
             if args.use_nuphar:
@@ -114,12 +117,6 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 copy(
                     os.path.join(onnxruntime_dir, "onnxruntime", "core", "providers", "nuphar", "scripts",
                                     "symbolic_shape_infer.py"), target_dir)
-        if "openvino" in build_name:
-            copy(os.path.join(linux_build_dir, "libcustom_op_library.so*"), target_dir)
-            copy(os.path.join(intel_base_dir, "inference_engine", "lib", "intel64", "*.so*"), target_dir)
-            copy(os.path.join(intel_base_dir, "inference_engine", "lib", "intel64", "plugins.xml"), target_dir)
-            copy(os.path.join(intel_base_dir, "inference_engine", "external", "tbb", "lib", "*.so*"), target_dir)
-            copy(os.path.join(intel_base_dir, "ngraph", "lib", "*.so*"), target_dir)
 
 
 
@@ -152,6 +149,7 @@ def parse_arguments():
     parser.add_argument("--use_mklml", action='store_true', help="Build with mklml")
     parser.add_argument("--use_nuphar", action='store_true', help="Build with Nuphar")
     parser.add_argument("--llvm_path", help="Path to llvm-build/lib/cmake/llvm")
+    parser.add_argument("--intel_base_dir", help="Path to Inter base dir. Required if build with OpenVino")
 
     parser.add_argument("--variants", help="Variants to build. Will build all by default")
     parser.add_argument("--prebuilt",
@@ -173,8 +171,6 @@ if __name__ == "__main__":
         build_name = "all_eps"
         if args.use_nuphar or args.use_mklml:
             build_name = "mklml"
-        if args.use_openvino:
-            build_name = "openvino"
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, build_name, args)
     else:
         # Build CPU with no OpenMp as a separate build
@@ -189,11 +185,7 @@ if __name__ == "__main__":
         elif args.use_nuphar:
             raise ValueError("Please build with --use_mklml to use nuphar. ")
 
-        if args.use_openvino:
-            # Build openvino as a separate build
-            build_onnxruntime(args.onnxruntime_home, args.config, build_args + ["--use_openmp", "--use_openvino"], "openvino", args)
-
-        build_args = build_args + ["--use_dnnl", "--use_openmp", "--use_openvino"]
+        build_args = build_args + ["--use_dnnl", "--use_openmp"]
 
         if args.use_cuda:
             build_args += ["--use_cuda"]
@@ -215,6 +207,8 @@ if __name__ == "__main__":
                     build_args = build_args + ["--cuda_home", args.cuda_home]
                 if args.cudnn_home:
                     build_args = build_args + ["--cudnn_home", args.cudnn_home]
+        if args.use_openvino: 
+            build_args = build_args + ["--use_openvino"]
 
         # Build cpu_openmp, cuda, dnnl, nuphar, openvino and tensorrt in one build.
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, "all_eps", args)
