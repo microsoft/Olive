@@ -227,7 +227,7 @@ export default {
           { value: 'dnnl', text: 'DNNL' },
           { value: 'cuda', text: 'CUDA' },
           { value: 'tensorrt', text: 'TensorRT' },
-          { value: 'ngraph', text: 'nGraph' },
+          { value: 'openvino', text: 'OpenVino' },
           { value: 'nuphar', text: 'Nuphar' },
         ],
       },
