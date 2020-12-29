@@ -170,7 +170,8 @@ def get_perf_json(request):
 
     # Save files passed from request
     model_name = store_file_from_request(request, 'file', file_input_dir)
-    json_data['model'] = model_name
+    if (not model_name == ""):
+        json_data['model'] = model_name
 
     # Store test data files if any
     test_data_dir = os.path.join(file_input_dir, app_config.TEST_DATA_DIR)
