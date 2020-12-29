@@ -495,8 +495,6 @@ if __name__ == "__main__":
             build_path = os.path.join(bin_dir, "cpu")
         elif "mklml" in build_name or "nuphar" in build_name:
             build_path = os.path.join(bin_dir, "mklml")
-        elif "openvino" in build_name:
-            build_path = os.path.join(bin_dir, "openvino")
         elif build_name in allProviders:
             build_path = os.path.join(bin_dir, "all_eps")
         else:

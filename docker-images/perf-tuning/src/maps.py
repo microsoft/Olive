@@ -20,7 +20,7 @@ ep_envvar_map = {
     "dnnl": {
         "OMP_WAIT_POLICY": ["active", "passive"],
     },
-    "ngraph": {
+    "openvino": {
         "OMP_WAIT_POLICY": ["active", "passive"],
     },
     "nuphar": {

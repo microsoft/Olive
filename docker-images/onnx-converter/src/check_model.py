@@ -8,7 +8,6 @@ from onnx import helper, numpy_helper
 import os
 import tensorflow as tf
 from pathlib import Path
-import coremltools
 import torch
 
 
