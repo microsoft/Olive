@@ -2,7 +2,7 @@
 
 This image is for automating the process of performance tuning in ONNX Runtime. Given an ONNX model you'd like to optimize the performance, the image will strategically search through all combinations of available execution providers, environment variables, and run options. Finally it outputs a JSON file that summarizes the latency results for the best combinations the image has searched, and profiling files for the combinations with top performance for each execution provider.
 
-Currently the execution providers available are cpu, cpu_openmp, dnnl, mklml, cuda, tensorrt, ngraph, and nuphar.  
+Currently the execution providers available are cpu, cpu_openmp, dnnl, mklml, cuda, tensorrt, openvino, and nuphar.  
 
 To use the image, you can either [pull from Microsoft Container Registry](#Pull-and-Run-the-Image-From-Microsoft-Container-Registry) or [build and run locally](#Build-and-Run-the-Image-Locally) from this repo.
 
@@ -51,7 +51,7 @@ In this case, `<path_to_onnx_model>` = ModelDir/model.onnx
 
 `--test_mode`: Specifies the test mode. Value could be "duration" or "time". Default is "time".
 
-`--execution_provider`: Execution Provider. Available options are "cpu", "cpu_openmp", "cuda", "tensorrt", "ngraph", "mkldnn", "mklml", and "nuphar. If not provided, all execution providers available will be run. 
+`--execution_provider`: Execution Provider. Available options are "cpu", "cpu_openmp", "cuda", "tensorrt", "openvino", "mkldnn", "mklml", and "nuphar. If not provided, all execution providers available will be run. 
 
 `--repeated_times`: The repeated times if running in 'times' test mode. Default:20.
 
@@ -98,6 +98,7 @@ To use `perf-tuning` locally, you must first build `onnxruntime` using `build_pe
 - CUDA https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#ubuntu-installation
 - CuDNN https://developer.nvidia.com/cudnn 
 - TensorRT https://docs.nvidia.com/deeplearning/sdk/tensorrt-install-guide/index.html#installing-debian
+- OpenVino https://github.com/microsoft/onnxruntime/blob/master/BUILD.md#prerequisites-4 
 
 #### Example build command:  
 ```
@@ -105,7 +106,7 @@ python3.7 build_perf_tuning.py \
  --onnxruntime_home <path_to_onnxruntime> \
  --use_cuda --cuda_home <path_to_cuda> --cudnn_home <path_to_cudnn> \
  --use_tensorrt --tensorrt_home <path_to_tensorrt> \
- --use_ngraph \
+ --use_openvino --intel_base_dir <path_to_openvino>\
  --use_mklml
 ```
 
@@ -119,13 +120,15 @@ python3.7 build_perf_tuning.py \
 
 `--cuda_version`: Optional. The version of CUDA toolkit to use. Auto-detect if not specified. e.g. 9.0
 
-`--cudnn_home`: The path to your CuDNN installation. The path should  contain libcudnn.so* files if on Linux, or contiain bin/cudnn*.dll files if on Windows. Required if --use_cuda is used. 
+`--cudnn_home`: The path to your CuDNN installation. The path should contain libcudnn.so* files if on Linux, or contiain bin/cudnn*.dll files if on Windows. Required if --use_cuda is used. 
 
 `--use_tensorrt`: Flag to build ONNX Runtime with TensorRT execution provider. Required to tune performace with TensorRT execution provider. A GPU must be available on your machine.
 
 `--tensorrt_home`: The path to your TensorRT installation. The path should contain lib/libnvinfer.so* if on Linux, or contain lib/nvinfer.dll if on Windows. Required if --use_tensorrt is used. 
 
-`--use_ngraph`: Flag to build ONNX Runtime with nGraph execution provider. Required to tune performance with nGraph. 
+`--use_openvino`: Flag to build ONNX Runtime with openvino execution provider. Required to tune performance with openvino. 
+
+`--intel_base_dir`: The path to your Intel openvino toolkit installation. Required if --use_openvino is set. 
 
 `--use_mklml`: Flag to build ONNX Runtime with MKLML execution provider. Required to tune performance with MKLML. 
 

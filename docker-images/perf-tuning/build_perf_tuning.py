@@ -91,9 +91,6 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
         copy(os.path.join(linux_build_dir, "onnxruntime_perf_test"), target_dir)
         copy(os.path.join(linux_build_dir, "libonnxruntime.so*"), target_dir)
 
-        # temporary workaround, will add to input arg later
-        intel_base_dir = "/bert_ort/wangye/intel/openvino_2020.4.287/deployment_tools"
-
         if "all_eps" in build_name:
             copy(os.path.join(linux_build_dir, "dnnl/install/lib/libdnnl.so*"), target_dir)
             copy(os.path.join(linux_build_dir, "libonnxruntime_providers_*.so*"), target_dir)
@@ -106,10 +103,10 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 copy(os.path.join(args.tensorrt_home, "lib/libmyelin.so*"), target_dir)
             if args.use_openvino:
                 copy(os.path.join(linux_build_dir, "libcustom_op_library.so*"), target_dir)
-                copy(os.path.join(intel_base_dir, "inference_engine", "lib", "intel64", "*.so*"), target_dir)
-                copy(os.path.join(intel_base_dir, "inference_engine", "lib", "intel64", "plugins.xml"), target_dir)
-                copy(os.path.join(intel_base_dir, "inference_engine", "external", "tbb", "lib", "*.so*"), target_dir)
-                copy(os.path.join(intel_base_dir, "ngraph", "lib", "*.so*"), target_dir)
+                copy(os.path.join(args.intel_base_dir, "inference_engine", "lib", "intel64", "*.so*"), target_dir)
+                copy(os.path.join(args.intel_base_dir, "inference_engine", "lib", "intel64", "plugins.xml"), target_dir)
+                copy(os.path.join(args.intel_base_dir, "inference_engine", "external", "tbb", "lib", "*.so*"), target_dir)
+                copy(os.path.join(args.intel_base_dir, "ngraph", "lib", "*.so*"), target_dir)
         if "mklml" in build_name:
             copy(os.path.join(linux_build_dir, "mklml/src/project_mklml/lib/*.so*"), target_dir)
             if args.use_nuphar:
