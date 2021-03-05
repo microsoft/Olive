@@ -386,7 +386,7 @@ class ConverterParamsFromJson():
         self.inter_op_num_threads = loaded_json["inter_op_num_threads"] if loaded_json.get(
             "inter_op_num_threads") else str(cores)
         self.top_n = loaded_json["top_n"] if loaded_json.get("top_n") else "3"
-        self.parallel = loaded_json["parallel"] if loaded_json.get("parallel") else True
+        self.parallel = loaded_json["parallel"] if "parallel" in loaded_json and type(loaded_json["parallel"]) == bool else True
         self.optimization_level = loaded_json["optimization_level"] if loaded_json.get("optimization_level") else "99"
 
 
