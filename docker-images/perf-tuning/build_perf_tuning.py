@@ -50,8 +50,8 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 copy(os.path.join(args.cudnn_home, "bin/cudnn*.dll"), target_dir)
             if args.use_tensorrt:
                 copy(os.path.join(args.tensorrt_home, "lib/nvinfer.dll"), target_dir)
-        if "mklml" in build_name:
-            copy(os.path.join(windows_build_dir, "tvm.dll"), target_dir)
+        # if "mklml" in build_name:
+        #     copy(os.path.join(windows_build_dir, "tvm.dll"), target_dir)
             if args.use_nuphar:
                 copy(
                     os.path.join(onnxruntime_dir, "onnxruntime", "core", "providers", "nuphar", "scripts",
@@ -67,14 +67,17 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
             if os.path.exists(os.path.join(linux_build_dir, "CMakeCache.txt")):
                 os.remove(os.path.join(linux_build_dir, "CMakeCache.txt"))
             build_env = os.environ.copy()
-            lib_path = os.path.join(linux_build_dir, "mklml", "src", "project_mklml", "lib")
-            if "LD_LIBRARY_PATH" in build_env:
-                build_env["LD_LIBRARY_PATH"] += os.pathsep + lib_path
-            else:
-                build_env["LD_LIBRARY_PATH"] = lib_path
+            # lib_path = os.path.join(linux_build_dir, "mklml", "src", "project_mklml", "lib")
+            # if "LD_LIBRARY_PATH" in build_env:
+            #     build_env["LD_LIBRARY_PATH"] += os.pathsep + lib_path
+            # else:
+            #     build_env["LD_LIBRARY_PATH"] = lib_path
 
             if args.use_tensorrt:
-                build_env["LD_LIBRARY_PATH"] += os.pathsep + args.tensorrt_home
+                if "LD_LIBRARY_PATH" in build_env:
+                    build_env["LD_LIBRARY_PATH"] += os.pathsep + args.tensorrt_home
+                else:
+                    build_env["LD_LIBRARY_PATH"] = args.tensorrt_home
             subprocess.run(
                 [os.path.join(onnxruntime_dir, "build.sh"), "--config", config, "--build_shared_lib", "--parallel"] +
                 build_args,
@@ -107,8 +110,6 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 copy(os.path.join(args.intel_base_dir, "inference_engine", "lib", "intel64", "plugins.xml"), target_dir)
                 copy(os.path.join(args.intel_base_dir, "inference_engine", "external", "tbb", "lib", "*.so*"), target_dir)
                 copy(os.path.join(args.intel_base_dir, "ngraph", "lib", "*.so*"), target_dir)
-        if "mklml" in build_name:
-            copy(os.path.join(linux_build_dir, "mklml/src/project_mklml/lib/*.so*"), target_dir)
             if args.use_nuphar:
                 copy(os.path.join(linux_build_dir, "external", "tvm", "libtvm.so*"), target_dir)
                 copy(
@@ -143,7 +144,7 @@ def parse_arguments():
     parser.add_argument("--tensorrt_home", help="Path to TensorRT installation dir")
 
     parser.add_argument("--use_openvino", action='store_true', help="Build with OpenVino")
-    parser.add_argument("--use_mklml", action='store_true', help="Build with mklml")
+    # parser.add_argument("--use_mklml", action='store_true', help="Build with mklml")
     parser.add_argument("--use_nuphar", action='store_true', help="Build with Nuphar")
     parser.add_argument("--llvm_path", help="Path to llvm-build/lib/cmake/llvm")
     parser.add_argument("--intel_base_dir", help="Path to Inter base dir. Required if build with OpenVino")
@@ -166,8 +167,8 @@ if __name__ == "__main__":
 
     if args.prebuilt:
         build_name = "all_eps"
-        if args.use_nuphar or args.use_mklml:
-            build_name = "mklml"
+        # if args.use_nuphar or args.use_mklml:
+        #     build_name = "mklml"
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, build_name, args)
     else:
         # Build CPU with no OpenMp as a separate build
@@ -176,13 +177,13 @@ if __name__ == "__main__":
         nuphar_args = ["--use_nuphar"] if args.use_nuphar else []
         nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path] if args.llvm_path else nuphar_args
 
-        if args.use_mklml:
-            # Build mklml as a separate build
-            build_onnxruntime(args.onnxruntime_home, args.config, build_args + ["--use_mklml"] + nuphar_args, "mklml", args)
-        elif args.use_nuphar:
-            raise ValueError("Please build with --use_mklml to use nuphar. ")
+        # if args.use_mklml:
+        #     # Build mklml as a separate build
+        #     build_onnxruntime(args.onnxruntime_home, args.config, build_args + ["--use_mklml"] + nuphar_args, "mklml", args)
+        # elif args.use_nuphar:
+        #     raise ValueError("Please build with --use_mklml to use nuphar. ")
 
-        build_args = build_args + ["--use_dnnl", "--use_openmp"]
+        build_args = build_args + ["--use_dnnl", "--use_openmp"] + nuphar_args
 
         if args.use_cuda:
             build_args += ["--use_cuda"]
