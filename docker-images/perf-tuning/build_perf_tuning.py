@@ -144,7 +144,6 @@ def parse_arguments():
     parser.add_argument("--tensorrt_home", help="Path to TensorRT installation dir")
 
     parser.add_argument("--use_openvino", action='store_true', help="Build with OpenVino")
-    # parser.add_argument("--use_mklml", action='store_true', help="Build with mklml")
     parser.add_argument("--use_nuphar", action='store_true', help="Build with Nuphar")
     parser.add_argument("--llvm_path", help="Path to llvm-build/lib/cmake/llvm")
     parser.add_argument("--intel_base_dir", help="Path to Inter base dir. Required if build with OpenVino")
@@ -167,8 +166,6 @@ if __name__ == "__main__":
 
     if args.prebuilt:
         build_name = "all_eps"
-        # if args.use_nuphar or args.use_mklml:
-        #     build_name = "mklml"
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, build_name, args)
     else:
         # Build CPU with no OpenMp as a separate build
@@ -176,12 +173,6 @@ if __name__ == "__main__":
 
         nuphar_args = ["--use_nuphar"] if args.use_nuphar else []
         nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path] if args.llvm_path else nuphar_args
-
-        # if args.use_mklml:
-        #     # Build mklml as a separate build
-        #     build_onnxruntime(args.onnxruntime_home, args.config, build_args + ["--use_mklml"] + nuphar_args, "mklml", args)
-        # elif args.use_nuphar:
-        #     raise ValueError("Please build with --use_mklml to use nuphar. ")
 
         build_args = build_args + ["--use_dnnl", "--use_openmp"] + nuphar_args
 

@@ -14,9 +14,6 @@ ep_envvar_map = {
     "cpu_openmp": {
         "OMP_WAIT_POLICY": ["active", "passive"],
     },
-    "mklml": {
-        "OMP_WAIT_POLICY": ["active", "passive"],
-    },
     "dnnl": {
         "OMP_WAIT_POLICY": ["active", "passive"],
     },

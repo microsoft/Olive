@@ -223,7 +223,6 @@ export default {
           { value: '', text: 'Run all EPs (default)' },
           { value: 'cpu', text: 'CPU' },
           { value: 'cpu_openmp', text: 'CPU OpenMP' },
-          { value: 'mklml', text: 'MKLML' },
           { value: 'dnnl', text: 'DNNL' },
           { value: 'cuda', text: 'CUDA' },
           { value: 'tensorrt', text: 'TensorRT' },
