@@ -466,7 +466,7 @@ if __name__ == "__main__":
     build_dirs = os.listdir(bin_dir)
 
     allProviders = ["cpu_openmp", "dnnl", "cpu", "tensorrt", "openvino", "cuda", "nuphar"]
-    parallel_eps = ["cpu_openmp", "dnnl", "cpu", "openvino"]
+    parallel_eps = ["cpu_openmp", "dnnl", "cpu"]
     omp_eps = ["cpu_openmp", "dnnl", "openvino", "nuphar"]
 
     # Get all execution providers needed to run in current context

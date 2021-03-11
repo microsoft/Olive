@@ -3,7 +3,9 @@
 FROM nvidia/cuda:11.0-cudnn8-runtime-ubuntu18.04
 
 RUN apt-get -y update && apt-get -y upgrade
-RUN apt-get install -y python3.7 python3.7-dev libgomp1 python3-pip
+RUN apt-get install -y python3.7 python3.7-dev libgomp1 python3-pip unattended-upgrades
+RUN unattended-upgrade
+RUN python3.7 -m pip install --upgrade pip
 RUN python3.7 -m pip install psutil gputil numpy onnx packaging sympy
 
 RUN mkdir /perf_tuning /perf_tuning/src
