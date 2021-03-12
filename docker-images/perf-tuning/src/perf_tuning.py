@@ -493,6 +493,8 @@ if __name__ == "__main__":
     for build_name in providers:
         if "cpu" in build_name:
             build_path = os.path.join(bin_dir, "cpu")
+        elif "cuda" in build_name or "tensorrt" in build_name:
+            build_path = os.path.join(bin_dir, "gpu")
         elif build_name in allProviders:
             build_path = os.path.join(bin_dir, "all_eps")
         else:

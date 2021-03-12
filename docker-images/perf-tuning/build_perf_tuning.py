@@ -44,7 +44,7 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
 
         copy(os.path.join(windows_build_dir, "onnxruntime_perf_test.exe"), target_dir)
         copy(os.path.join(windows_build_dir, "onnxruntime.dll"), target_dir)
-        if "all_eps" in build_name:
+        if "gpu" in build_name:
             copy(os.path.join(windows_build_dir, "dnnl.dll"), target_dir)
             if args.use_cuda or args.use_tensorrt:
                 copy(os.path.join(args.cudnn_home, "bin/cudnn*.dll"), target_dir)
@@ -52,6 +52,7 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 copy(os.path.join(args.tensorrt_home, "lib/nvinfer.dll"), target_dir)
         # if "mklml" in build_name:
         #     copy(os.path.join(windows_build_dir, "tvm.dll"), target_dir)
+        if "all_eps" in build_name:
             if args.use_nuphar:
                 copy(
                     os.path.join(onnxruntime_dir, "onnxruntime", "core", "providers", "nuphar", "scripts",
@@ -97,13 +98,6 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
         if "all_eps" in build_name:
             copy(os.path.join(linux_build_dir, "dnnl/install/lib/libdnnl.so*"), target_dir)
             copy(os.path.join(linux_build_dir, "libonnxruntime_providers_*.so*"), target_dir)
-            if args.use_cuda or args.use_tensorrt:
-                copy(os.path.join(args.cudnn_home, "lib64/libcudnn.so*"), target_dir) #it looks base image has this
-                copy(os.path.join(args.cudnn_home, "lib64/libnvrtc.so*"), target_dir)
-            if args.use_tensorrt:
-                copy(os.path.join(args.tensorrt_home, "lib/libnvinfer.so*"), target_dir)
-                copy(os.path.join(args.tensorrt_home, "lib/libnvinfer_plugin.so*"), target_dir)
-                copy(os.path.join(args.tensorrt_home, "lib/libmyelin.so*"), target_dir)
             if args.use_openvino:
                 copy(os.path.join(linux_build_dir, "libcustom_op_library.so*"), target_dir)
                 copy(os.path.join(args.intel_base_dir, "inference_engine", "lib", "intel64", "*.so*"), target_dir)
@@ -115,6 +109,14 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 copy(
                     os.path.join(onnxruntime_dir, "onnxruntime", "core", "providers", "nuphar", "scripts",
                                     "symbolic_shape_infer.py"), target_dir)
+        if "gpu" in build_name:
+            # if args.use_cuda or args.use_tensorrt:
+            #     copy(os.path.join(args.cudnn_home, "libcudnn.so*"), target_dir) #it looks base image has this
+            #     copy(os.path.join(args.cudnn_home, "libnvrtc.so*"), target_dir)
+            if args.use_tensorrt:
+                copy(os.path.join(args.tensorrt_home, "lib/libnvinfer.so*"), target_dir)
+                copy(os.path.join(args.tensorrt_home, "lib/libnvinfer_plugin.so*"), target_dir)
+                copy(os.path.join(args.tensorrt_home, "lib/libmyelin.so*"), target_dir)
 
 
 
@@ -171,11 +173,7 @@ if __name__ == "__main__":
         # Build CPU with no OpenMp as a separate build
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, "cpu", args)
 
-        nuphar_args = ["--use_nuphar"] if args.use_nuphar else []
-        nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path] if args.llvm_path else nuphar_args
-
-        build_args = build_args + ["--use_dnnl", "--use_openmp"] + nuphar_args
-
+        # Build GPU EPs as one build.
         if args.use_cuda:
             build_args += ["--use_cuda"]
             if args.cuda_version:
@@ -196,8 +194,14 @@ if __name__ == "__main__":
                     build_args = build_args + ["--cuda_home", args.cuda_home]
                 if args.cudnn_home:
                     build_args = build_args + ["--cudnn_home", args.cudnn_home]
+        build_onnxruntime(args.onnxruntime_home, args.config, build_args, "gpu", args)
+
+        # Build cpu_openmp, dnnl, nuphar, and openvino in one build.
+        nuphar_args = ["--use_nuphar"] if args.use_nuphar else []
+        nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path] if args.llvm_path else nuphar_args
+
+        build_args = build_args + ["--use_dnnl", "--use_openmp"] + nuphar_args
         if args.use_openvino: 
             build_args = build_args + ["--use_openvino"]
-
-        # Build cpu_openmp, cuda, dnnl, nuphar, openvino and tensorrt in one build.
+        
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, "all_eps", args)
