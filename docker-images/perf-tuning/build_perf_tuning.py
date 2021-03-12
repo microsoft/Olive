@@ -195,7 +195,8 @@ if __name__ == "__main__":
                 if args.cudnn_home:
                     build_args = build_args + ["--cudnn_home", args.cudnn_home]
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, "gpu", args)
-
+        
+        build_args = ["--skip_tests"]
         # Build cpu_openmp, dnnl, nuphar, and openvino in one build.
         nuphar_args = ["--use_nuphar"] if args.use_nuphar else []
         nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path] if args.llvm_path else nuphar_args
