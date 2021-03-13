@@ -465,9 +465,9 @@ if __name__ == "__main__":
     bin_dir = os.path.join(os.path.dirname(__file__), "../bin", args.config)
     build_dirs = os.listdir(bin_dir)
 
-    allProviders = ["cpu_openmp", "mklml", "dnnl", "cpu", "tensorrt", "openvino", "cuda", "nuphar"]
-    parallel_eps = ["cpu_openmp", "mklml", "dnnl", "cpu", "openvino"]
-    omp_eps = ["cpu_openmp", "mklml", "dnnl", "openvino", "nuphar"]
+    allProviders = ["cpu_openmp", "dnnl", "cpu", "tensorrt", "openvino", "cuda", "nuphar"]
+    parallel_eps = ["cpu_openmp", "dnnl", "cpu"]
+    omp_eps = ["cpu_openmp", "dnnl", "openvino", "nuphar"]
 
     # Get all execution providers needed to run in current context
     providers = [p for p in args.execution_provider.split(",")
@@ -493,14 +493,14 @@ if __name__ == "__main__":
     for build_name in providers:
         if "cpu" in build_name:
             build_path = os.path.join(bin_dir, "cpu")
-        elif "mklml" in build_name or "nuphar" in build_name:
-            build_path = os.path.join(bin_dir, "mklml")
+        elif "cuda" in build_name or "tensorrt" in build_name:
+            build_path = os.path.join(bin_dir, "gpu")
         elif build_name in allProviders:
             build_path = os.path.join(bin_dir, "all_eps")
         else:
             raise ValueError(
                 "Provider %s is not currently supported. \
-                Please choose one of cpu, dnnl, mklml, cuda, tensorrt, openvino or nuphar", build_name)
+                Please choose one of cpu, dnnl, cuda, tensorrt, openvino or nuphar", build_name)
         if not os.path.isdir(build_path):
             raise ValueError(
                 "Provider %s is not built. \
@@ -508,7 +508,7 @@ if __name__ == "__main__":
 
         # If current build is requested by user, run perf tuning
         test_args = []
-        if "mklml" not in build_name and "cpu_openmp" not in build_name:
+        if "cpu_openmp" not in build_name:
             test_args = ["-e", build_name]
         successful = []
         tests = []
