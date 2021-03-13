@@ -15,7 +15,7 @@
     "core-js": "^2.6.5",
     "cropperjs": "^1.5.5",
     "frontend": "^2.0.0-alpha.4",
-    "jquery": "^3.4.1",
+    "jquery": "^3.5.0",
     "portfinder": "^1.0.23",
     "vue": "^2.6.10",
     "vue-router": "^3.0.3",
