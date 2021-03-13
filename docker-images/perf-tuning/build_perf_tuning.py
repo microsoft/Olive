@@ -33,7 +33,7 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
             if os.path.exists(os.path.join(windows_build_dir, "CMakeCache.txt")):
                 os.remove(os.path.join(windows_build_dir, "CMakeCache.txt"))
             subprocess.run(
-                [os.path.join(onnxruntime_dir, "build.bat"), "--config", config, "--build_shared_lib", "--parallel"] +
+                [os.path.join(onnxruntime_dir, "build.bat"), "--config", config, "--build_shared_lib", "--parallel", "--skip_tests"] +
                 build_args,
                 cwd=onnxruntime_dir,
                 check=True)
@@ -50,8 +50,6 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 copy(os.path.join(args.cudnn_home, "bin/cudnn*.dll"), target_dir)
             if args.use_tensorrt:
                 copy(os.path.join(args.tensorrt_home, "lib/nvinfer.dll"), target_dir)
-        # if "mklml" in build_name:
-        #     copy(os.path.join(windows_build_dir, "tvm.dll"), target_dir)
         if "all_eps" in build_name:
             if args.use_nuphar:
                 copy(
@@ -68,11 +66,6 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
             if os.path.exists(os.path.join(linux_build_dir, "CMakeCache.txt")):
                 os.remove(os.path.join(linux_build_dir, "CMakeCache.txt"))
             build_env = os.environ.copy()
-            # lib_path = os.path.join(linux_build_dir, "mklml", "src", "project_mklml", "lib")
-            # if "LD_LIBRARY_PATH" in build_env:
-            #     build_env["LD_LIBRARY_PATH"] += os.pathsep + lib_path
-            # else:
-            #     build_env["LD_LIBRARY_PATH"] = lib_path
 
             if args.use_tensorrt:
                 if "LD_LIBRARY_PATH" in build_env:
@@ -110,9 +103,6 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                     os.path.join(onnxruntime_dir, "onnxruntime", "core", "providers", "nuphar", "scripts",
                                     "symbolic_shape_infer.py"), target_dir)
         if "gpu" in build_name:
-            # if args.use_cuda or args.use_tensorrt:
-            #     copy(os.path.join(args.cudnn_home, "libcudnn.so*"), target_dir) #it looks base image has this
-            #     copy(os.path.join(args.cudnn_home, "libnvrtc.so*"), target_dir)
             if args.use_tensorrt:
                 copy(os.path.join(args.tensorrt_home, "lib/libnvinfer.so*"), target_dir)
                 copy(os.path.join(args.tensorrt_home, "lib/libnvinfer_plugin.so*"), target_dir)
@@ -162,7 +152,7 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
 
-    build_args = ["--skip_tests"]
+    build_args = []
     if args.cmake_path:
         build_args = build_args + ["--cmake_path", args.cmake_path]
 
@@ -196,7 +186,7 @@ if __name__ == "__main__":
                     build_args = build_args + ["--cudnn_home", args.cudnn_home]
         build_onnxruntime(args.onnxruntime_home, args.config, build_args, "gpu", args)
         
-        build_args = ["--skip_tests"]
+        build_args = []
         # Build cpu_openmp, dnnl, nuphar, and openvino in one build.
         nuphar_args = ["--use_nuphar"] if args.use_nuphar else []
         nuphar_args = nuphar_args + ["--llvm_path", args.llvm_path] if args.llvm_path else nuphar_args
