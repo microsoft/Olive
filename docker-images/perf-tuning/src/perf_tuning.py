@@ -593,6 +593,7 @@ if __name__ == "__main__":
         failed = [x for x in failed if "cuda" not in x.name and "tensorrt" not in x.name]
 
     # Re-sort tests based on 100 runs
+    profile_candidates = [e for e in profile_candidates if e.avg]
     profile_candidates = sorted(profile_candidates, key=lambda e: e.avg)
     print("")
     print("Results:")

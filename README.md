@@ -2,7 +2,7 @@
 
 OLive, meaning ONNX Go Live, is a sequence of docker images that automates the process of ONNX model shipping. It integrates model conversion, correctness test, and performance tuning into a single pipeline, while each component is a standalone docker image and can be scaled out. 
 
-There are three ways to use OLive:
+There are four ways to use OLive:
 
 1. [Use With Command Line Tool](/cmd-tool): Run the OLive with command line using Python. 
 
