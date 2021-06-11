@@ -96,7 +96,6 @@ def build_onnxruntime(onnxruntime_dir, config, build_args, build_name, args):
                 copy(os.path.join(args.intel_base_dir, "inference_engine", "lib", "intel64", "*.so*"), target_dir)
                 copy(os.path.join(args.intel_base_dir, "inference_engine", "lib", "intel64", "plugins.xml"), target_dir)
                 copy(os.path.join(args.intel_base_dir, "inference_engine", "external", "tbb", "lib", "*.so*"), target_dir)
-                copy(os.path.join(args.intel_base_dir, "ngraph", "lib", "*.so*"), target_dir)
             if args.use_nuphar:
                 copy(os.path.join(linux_build_dir, "external", "tvm", "libtvm.so*"), target_dir)
                 copy(
