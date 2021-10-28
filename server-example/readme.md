@@ -13,14 +13,14 @@ Call `olive setup --server` to install required packages first.
 
 User can call `olive server` to start OLive server. 
 
-![Home Page](./images/home_page.PNG)
+![Home Page](./images/home_page.png)
 
 ### Convert Page
 In OLive Server Convert page, user can run server with inline arguments, 
-![Convert Args Page](./images/convert_args.PNG)
+![Convert Args Page](./images/convert_args.png)
 
 or run server with configuration JSON file. 
-![Convert Config Page](./images/convert_config.PNG)
+![Convert Config Page](./images/convert_config.png)
 
 Here are settings for OLive Conversion:
 
@@ -43,14 +43,14 @@ Here are settings for OLive Conversion:
 User can submit job and check job result with link appears at the end of page. 
 
 In the conversion job result page, user can check conversion status and download converted ONNX model. 
-![Convert Result Page](./images/convert_result.PNG)
+![Convert Result Page](./images/convert_result.png)
 
 ### Perf Test Page
 In OLive Server Perf Test page, user can run server with inline arguments, 
-![Optimizet Args Page](./images/optimize_args.PNG)
+![Optimizet Args Page](./images/optimize_args.png)
 
 or run server with configuration JSON file. 
-![Optimizet Config Page](./images/optimize_config.PNG)
+![Optimizet Config Page](./images/optimize_config.png)
 
 Here are settings for OLive Optimization:
 
@@ -84,16 +84,16 @@ User can submit job and check job result with link appears at the end of page.
 
 In the optimization job result page, user can compare pre-tuning latency and optimal latency, download optimized ONNX model, and check session options and environment variables for onnxruntime inference. 
 
-![Optimize Result Page](./images/optimize_result.PNG)
+![Optimize Result Page](./images/optimize_result.png)
 
 ### Model Visualize Page
 User can upload models and get more model details with this page.
-![Visualize Result Page](./images/visualize_result.PNG)
+![Visualize Result Page](./images/visualize_result.png)
 
 
 ### Job Monitor Page
 User can check all optimization and conversion jobs in this page.
-![Monitor Result Page](./images/monitor_result.PNG)
+![Monitor Result Page](./images/monitor_result.png)
 
 
 ## How to stop
