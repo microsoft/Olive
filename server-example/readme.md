@@ -16,6 +16,8 @@ User can call `olive server` to start OLive server.
 ![Home Page](./images/home_page.png)
 
 ### Convert Page
+Converts models from PyTorch and TensorFlow model frameworks to ONNX, and tests the converted models' correctness.
+
 In OLive Server Convert page, user can run server with inline arguments, 
 ![Convert Args Page](./images/convert_args.png)
 
@@ -46,6 +48,8 @@ In the conversion job result page, user can check conversion status and download
 ![Convert Result Page](./images/convert_result.png)
 
 ### Perf Test Page
+Tunes different execution providers, inference session options, and environment variable options for the ONNX model with ONNX Runtime. Selects and outputs the option combinations with the best performance.
+
 In OLive Server Perf Test page, user can run server with inline arguments, 
 ![Optimizet Args Page](./images/optimize_args.png)
 

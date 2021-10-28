@@ -21,6 +21,8 @@ User can also run `olive convert` or `olive optimize` with `use_docker` or `use_
 For `olive optimize`, user can set `--use_gpu` to run optimization service with ONNX Runtime gpu package. 
 
 ### For Model Framework Conversion
+Converts models from PyTorch and TensorFlow model frameworks to ONNX, and tests the converted models' correctness.
+
 Here are arguments for OLive Conversion:
 
 | Argument | Detail | Example |
@@ -68,6 +70,8 @@ Test model and sample input data can be downloaded here: [model](https://olivemo
 Then the ONNX model will be saved in `onnx_model_path`, by default `res.onnx`
 
 ### For ONNX Model Inference Optimization
+Tunes different execution providers, inference session options, and environment variable options for the ONNX model with ONNX Runtime. Selects and outputs the option combinations with the best performance.
+
 Here are arguments for OLive optimization:
 | Argument  | Detail  | Example |
 |--|--|--|

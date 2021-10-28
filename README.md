@@ -34,5 +34,13 @@ There are three ways to use OLive:
    sess_options.graph_optimization_level = ort.GraphOptimizationLevel(graph_optimization_level)
    onnx_session = ort.InferenceSession(model_path, sess_options, providers=[execution_provider])
     ```
+
+## Contributing
+We’d love to embrace your contribution to OLive. Please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## License
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+Licensed under the [MIT](./LICENSE) License.
    
    
