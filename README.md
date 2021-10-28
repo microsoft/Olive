@@ -1,5 +1,7 @@
-# OLive - ONNX Go Live
-OLive, meaning ONNX Go Live, is a python package that optimizes the process of ONNX model shipping. It integrates model conversion including correctness test, and performance optimization into a single pipeline.
+# OLive - ONNX Runtime Go Live
+OLive, meaning ONNX Runtime(ORT) Go Live, is a python package that simplifies the process of accelerating models with [ONNX Runtime(ORT)](https://github.com/microsoft/onnxruntime). It contains two parts of model conversion to ONNX with correctness checking and auto performance tuning with ORT. Users can run these two together through a single pipelie or run them independently as needed.
+* Model conversion to ONNX: to output the converted ONNX model
+* Auto performance tuning with ORT: to output the optimized ONNX model and a file of the tuned inference latency under corresponding ORT settings 
 
 # Getting Started
 OLive package can be downloaded [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.1.0-py3-none-any.whl) and installed with command `pip install onnxruntime_olive-0.1.0-py3-none-any.whl`
@@ -9,9 +11,9 @@ There are three ways to use OLive:
 2. [Use With Jupyter Notebook](./notebook-tutorial): Quickstart of the OLive with tutorial using Jupyter Notebook. 
 3. [Use With OLive Server](./server-example/readme.md): Setup local OLive server for model conversion, optimizaton, and visualization service.
 
-# Inference with OLive result
+# Inference your mdoel with OLive result from Auto performance tuning 
 1. Get best tuning result with `best_test_name`, which includes inference session settings, environment variable settings, and latency result. 
-2. Set related environment variables.
+2. Set related environment variables in your environment.
     * OMP_WAIT_POLICY
     * OMP_NUM_THREADS
     * KMP_AFFINITY
