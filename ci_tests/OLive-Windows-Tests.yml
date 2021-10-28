@@ -1,0 +1,88 @@
+# Variable 'ort_version' was defined in the Variables tab
+jobs:
+- job: Job_1
+  displayName: Run Optimization Tests
+  pool:
+    vmImage: windows-2019
+  steps:
+  - checkout: self
+  - task: UsePythonVersion@0
+    displayName: Use Python 3.6
+    inputs:
+      versionSpec: 3.6
+  - task: CmdLine@2
+    displayName: Install Packages
+    inputs:
+      script: "python --version\npip install wheel \npython setup.py bdist_wheel \npython -m pip install dist\\onnxruntime_olive-0.1.0-py3-none-any.whl\npython -m pip install onnxconverter_common docker==5.0.0 six onnx==1.7.0 numpy flatbuffers psutil pytest coloredlogs tf2onnx==1.7.2 tensorflow==1.14.0 torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html\npython -m pip install --no-cache --index-url https://olivewheels.azureedge.net/test onnxruntime_openvino_dnnl==$(ort_version)"
+  - task: AzureCLI@1
+    displayName: Run CLI Tests - Optimization
+    inputs:
+      connectedServiceNameARM: fe1e398c-2925-4a2b-9864-6714a0af570d
+      scriptLocation: inlineScript
+      inlineScript: >-
+        python -m pytest ci_tests/tests/optimization/test_common.py --log-cli-level=DEBUG
+
+        python -m pytest ci_tests/tests/optimization/test_optimize.py --log-cli-level=DEBUG
+
+        python ci_tests/tests/optimization/test_opt_cli.py
+- job: Job_2
+  displayName: Run Tests Conversion 1
+  pool:
+    vmImage: windows-2019
+  steps:
+  - checkout: self
+  - task: UsePythonVersion@0
+    displayName: Use Python 3.6
+    inputs:
+      versionSpec: 3.6
+  - task: CmdLine@2
+    displayName: Install Packages
+    inputs:
+      script: "python --version \npip install wheel \npython setup.py bdist_wheel \npython -m pip install dist\\onnxruntime_olive-0.1.0-py3-none-any.whl\npython -m pip install onnxconverter_common docker==5.0.0 six onnx==1.7.0 numpy psutil flatbuffers pytest coloredlogs tf2onnx==1.7.2 tensorflow==1.14.0 torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html\npython -m pip install --no-cache --index-url https://olivewheels.azureedge.net/test onnxruntime_openvino_dnnl==$(ort_version)"
+  - task: AzureCLI@1
+    displayName: Run CLI Tests - Conversion
+    inputs:
+      connectedServiceNameARM: fe1e398c-2925-4a2b-9864-6714a0af570d
+      scriptLocation: inlineScript
+      inlineScript: python -m pytest ci_tests/tests/conversion/test_convert.py --log-cli-level=DEBUG
+- job: Job_4
+  displayName: Run Tests Conversion 2
+  pool:
+    vmImage: windows-2019
+  steps:
+  - checkout: self
+  - task: UsePythonVersion@0
+    displayName: Use Python 3.6
+    inputs:
+      versionSpec: 3.6
+  - task: CmdLine@2
+    displayName: Install Packages
+    inputs:
+      script: "python --version\npip install wheel \npython setup.py bdist_wheel \npython -m pip install dist\\onnxruntime_olive-0.1.0-py3-none-any.whl\npython -m pip install onnxconverter_common docker==5.0.0 six onnx==1.7.0 numpy psutil flatbuffers pytest coloredlogs tf2onnx==1.7.2 tensorflow==1.14.0 torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html\npython -m pip install --no-cache --index-url https://olivewheels.azureedge.net/test onnxruntime_openvino_dnnl==$(ort_version)"
+  - task: AzureCLI@1
+    displayName: Run CLI Tests - Conversion
+    inputs:
+      connectedServiceNameARM: fe1e398c-2925-4a2b-9864-6714a0af570d
+      scriptLocation: inlineScript
+      inlineScript: python -m pytest ci_tests/tests/conversion/test_converter_tensorflow.py --log-cli-level=DEBUG
+- job: Job_5
+  displayName: Run Tests Conversion 3
+  pool:
+    vmImage: windows-2019
+  steps:
+  - checkout: self
+  - task: UsePythonVersion@0
+    displayName: Use Python 3.6
+    inputs:
+      versionSpec: 3.6
+  - task: CmdLine@2
+    displayName: Install Packages
+    inputs:
+      script: "python --version\npip install wheel \npython setup.py bdist_wheel \npython -m pip install dist\\onnxruntime_olive-0.1.0-py3-none-any.whl\npython -m pip install onnxconverter_common docker==5.0.0 six onnx==1.7.0 numpy psutil pytest flatbuffers coloredlogs tf2onnx==1.7.2 tensorflow==1.14.0 torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html\npython -m pip install --no-cache --index-url https://olivewheels.azureedge.net/test onnxruntime_openvino_dnnl==$(ort_version)"
+  - task: AzureCLI@1
+    displayName: Run CLI Tests - Conversion
+    inputs:
+      connectedServiceNameARM: fe1e398c-2925-4a2b-9864-6714a0af570d
+      scriptLocation: inlineScript
+      inlineScript: python ci_tests/tests/conversion/test_cvt_cli.py
+...

@@ -1,0 +1,67 @@
+{
+  "name": "olive",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "serve": "vue-cli-service serve --port 5000 --open",
+    "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint"
+  },
+  "dependencies": {
+    "@vue/cli-service": "^3.10.0",
+    "axios": "^0.19.0",
+    "bootstrap": "^4.3.1",
+    "bootstrap-vue": "^2.0.2",
+    "core-js": "^2.6.5",
+    "cropperjs": "^1.5.5",
+    "frontend": "^2.0.0-alpha.4",
+    "jquery": "^3.5.0",
+    "portfinder": "^1.0.23",
+    "vue": "^2.6.10",
+    "vue-router": "^3.0.3",
+    "vue-template-compiler": "^2.6.10",
+    "vue-upload-component": "^2.8.20"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "^3.10.0",
+    "@vue/cli-plugin-eslint": "^3.10.0",
+    "@vue/eslint-config-airbnb": "^4.0.0",
+    "babel-eslint": "^10.0.1",
+    "babel-loader": "^8.0.6",
+    "eslint": "^5.16.0",
+    "eslint-plugin-vue": "^5.0.0"
+  },
+  "eslintConfig": {
+    "root": true,
+    "env": {
+      "node": true
+    },
+    "extends": [
+      "plugin:vue/essential",
+      "@vue/airbnb"
+    ],
+    "rules": {
+      "generator-star-spacing": "off",
+      "semi": [
+        2,
+        "always"
+      ],
+      "camelcase": "off",
+      "no-plusplus": "off",
+      "eqeqeq": "off",
+      "linebreak-style": 0
+    },
+    "parserOptions": {
+      "parser": "babel-eslint"
+    }
+  },
+  "postcss": {
+    "plugins": {
+      "autoprefixer": {}
+    }
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions"
+  ]
+}
