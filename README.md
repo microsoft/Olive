@@ -11,7 +11,7 @@ There are three ways to use OLive:
 2. [Use With Jupyter Notebook](./notebook-tutorial): Quickstart of the OLive with tutorial using Jupyter Notebook. 
 3. [Use With OLive Server](./server-example/readme.md): Setup local OLive server for model conversion, optimizaton, and visualization service.
 
-## Inference your mdoel with OLive result from Auto performance tuning 
+## Inference your model with OLive result from auto performance tuning 
 1. Get best tuning result with `best_test_name`, which includes inference session settings, environment variable settings, and latency result. 
 2. Set related environment variables in your environment.
     * OMP_WAIT_POLICY
