@@ -63,6 +63,8 @@ There are three ways to use OLive:
     ```
 
 ## Key Updates
+10/28/2021
+
 Update OLive from docker container based usage to python package based usage for more flexibilities.
 
 Enable more optimization options for performance tuning with ORT, including INT8 quantization, mix precision in ORT-TensorRT, and transformer model optimization.
