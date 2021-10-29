@@ -3,7 +3,7 @@ OLive, meaning ONNX Runtime(ORT) Go Live, is a python package that simplifies th
 * Model conversion to ONNX: to output the converted ONNX model
 * Auto performance tuning with ORT: to output the optimized ONNX model and a file of the tuned inference latency under corresponding ORT settings 
 
-# Getting Started
+## Getting Started
 OLive package can be downloaded [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.1.0-py3-none-any.whl) and installed with command `pip install onnxruntime_olive-0.1.0-py3-none-any.whl`
 
 There are three ways to use OLive:
@@ -11,7 +11,7 @@ There are three ways to use OLive:
 2. [Use With Jupyter Notebook](./notebook-tutorial): Quickstart of the OLive with tutorial using Jupyter Notebook. 
 3. [Use With OLive Server](./server-example/readme.md): Setup local OLive server for model conversion, optimizaton, and visualization service.
 
-# Inference your mdoel with OLive result from Auto performance tuning 
+## Inference your mdoel with OLive result from Auto performance tuning 
 1. Get best tuning result with `best_test_name`, which includes inference session settings, environment variable settings, and latency result. 
 2. Set related environment variables in your environment.
     * OMP_WAIT_POLICY
@@ -34,6 +34,11 @@ There are three ways to use OLive:
    sess_options.graph_optimization_level = ort.GraphOptimizationLevel(graph_optimization_level)
    onnx_session = ort.InferenceSession(model_path, sess_options, providers=[execution_provider])
     ```
+
+## Key Updates
+OLive service changes from docker container based into python package based, which gives user more flexibilities. 
+
+Inference optimization options updates. Now OLive supports more optimization options, for example INT8 quantization, TensorRT FP16, and transformer model optimization. 
 
 ## Contributing
 We’d love to embrace your contribution to OLive. Please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).
