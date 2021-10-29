@@ -1,7 +1,34 @@
 # OLive - ONNX Runtime Go Live
 OLive, meaning ONNX Runtime(ORT) Go Live, is a python package that simplifies the process of accelerating models with [ONNX Runtime(ORT)](https://github.com/microsoft/onnxruntime). It contains two parts of model conversion to ONNX with correctness checking and auto performance tuning with ORT. Users can run these two together through a single pipelie or run them independently as needed.
-* Model conversion to ONNX: to output the converted ONNX model
-* Auto performance tuning with ORT: to output the optimized ONNX model and a file of the tuned inference latency under corresponding ORT settings 
+### Model conversion to ONNX
+Converts models from PyTorch and TensorFlow model frameworks to ONNX, and tests the converted models' correctness.
+
+OLive supports model framework conversion for:
+ * TensorFlow: OLive supports saved model, frozen graph, and checkpoint format conversion. User needs to provider inputs' names and outputs' names for frozen graph and checkpoint conversion.
+ * Pytorch: User needs to provide inputs' names and shapes to convert PyTorch model. Besides, user needs to provide outputs' names and shapes to convert torchscript PyTorch model.
+
+### Auto performance tuning with ORT
+Tunes different execution providers, inference session options, and environment variable options for the ONNX model with ONNX Runtime. Selects and outputs the option combinations with the best performance.
+
+Optimization fileds:
+ * Execution Providers:
+   * CPU, DNNL and OpenVino for ONNX Runtime CPU package
+   * CPU, CUDA and TensorRT for ONNX Runtime GPU package
+ * Environment Variables:
+   * OMP_WAIT_POLICY: 
+   * OMP_NUM_THREADS
+   * KMP_AFFINITY
+   * OMP_MAX_ACTIVE_LEVELS
+ * Session Options:
+   * inter_op_num_threads
+   * intra_op_num_threads
+   * execution_mode
+   * graph_optimization_level
+ * INT8 Quantization Optimization
+ * TensorRT FP16 Optimization
+ * Transformer Model Optimization
+
+User needs to provide inputs' names and shapes for ONNX model with dynamic inputs' size. 
 
 ## Getting Started
 OLive package can be downloaded [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.1.0-py3-none-any.whl) and installed with command `pip install onnxruntime_olive-0.1.0-py3-none-any.whl`
@@ -36,9 +63,9 @@ There are three ways to use OLive:
     ```
 
 ## Key Updates
-OLive service changes from docker container based into python package based, which gives user more flexibilities. 
+Update OLive from docker container based usage to python package based usage for more flexibilities.
 
-Inference optimization options updates. Now OLive supports more optimization options, for example INT8 quantization, TensorRT FP16, and transformer model optimization. 
+Enable more optimization options for performance tuning with ORT, including INT8 quantization, mix precision in ORT-TensorRT, and transformer model optimization.
 
 ## Contributing
 We’d love to embrace your contribution to OLive. Please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).

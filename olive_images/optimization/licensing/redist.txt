@@ -1,0 +1,38 @@
+This text file is the file (e.g., redist.txt, etc) specified in the accompanying
+End User License Agreement for the Intel(R) Software Development Products ("Agreement").
+All capitalized terms used but not defined in this text file have the same meaning as specified in the Agreement.
+
+The Redistributables files are listed below, and are subject to all of the terms and conditions of the Agreement,
+including without limitation Section 2.1.A.(4).
+
+Also included as Redistributables are executables and shared and static libraries you create by linking your program
+with libraries provided by Intel as part of the Materials for this product but which are not listed in this redist.txt file (“Libraries”);
+provided that you do not redistribute those Intel provided libraries or any other portion of those Intel provided libraries in any other way.
+
+YOU MAY NOT REDISTRIBUTE THESE MATERIALS UNDER AN EVALUATION LICENSE
+
+################################################################################
+###   Intel(R) Deep Learning Deployment Toolkit for Windows*
+################################################################################
+<install_root>/licensing/deployment_tools/redist.txt
+<install_root>/deployment_tools/inference_engine/bin/intel64/Debug/*
+<install_root>/deployment_tools/inference_engine/bin/intel64/Release/*
+
+################################################################################
+###   Intel(R) Deep Learning Deployment Toolkit for Linux* 
+################################################################################
+<install_root>/licensing/deployment_tools/redist.txt
+<install_root>/deployment_tools/inference_engine/external/gna/lib/*
+<install_root>/deployment_tools/inference_engine/external/hddl/lib/*
+<install_root>/deployment_tools/inference_engine/external/tbb/lib/*
+<install_root>/deployment_tools/inference_engine/lib/intel64/*
+<install_root>/deployment_tools/tools/cl_compiler/lib/*
+
+################################################################################
+###   Intel(R) Deep Learning Deployment Toolkit for macOS*
+################################################################################
+<install_root>/licensing/deployment_tools/redist.txt
+<install_root>/deployment_tools/inference_engine/external/tbb/lib/*
+<install_root>/deployment_tools/inference_engine/lib/intel64/*
+
+* Other names and brands may be claimed as the property of others.
