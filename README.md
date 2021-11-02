@@ -8,9 +8,11 @@ Simplify multiple frameworks to ONNX conversion experience by integrating existi
 ### Auto performance tuning with ORT
 ONNX Runtime(ORT) is a high performance inference engine to run ONNX model. It enables many advanced tuning knobs for user to further optimize inference performance. OLive heuristically explores optimization search space in ORT to select the best ORT settings for a specific model on a specific hardware.  It outputs the option combinations with the best performance.
 
+User needs to provide inputs' names and shapes for ONNX model with dynamic inputs' size. 
+
 Optimization fileds:
 * [Execution Providers](https://onnxruntime.ai/docs/execution-providers/):
-   * MLAS(Default CPU EP), Intel DNNL and OpenVino for CPU
+   * MLAS(default CPU EP), Intel DNNL and OpenVino for CPU
    * Nvidia CUDA and TensorRT for GPU
 * Environment Variables:
    * OMP_WAIT_POLICY: 
@@ -24,7 +26,6 @@ Optimization fileds:
    * graph_optimization_level
  * [INT8 Quantization](https://onnxruntime.ai/docs/performance/quantization.html)
  * [Transformer Model Optimization](https://github.com/microsoft/onnxruntime/tree/master/onnxruntime/python/tools/transformers)
-User needs to provide inputs' names and shapes for ONNX model with dynamic inputs' size. 
 
 ## Getting Started
 OLive package can be downloaded [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.1.0-py3-none-any.whl) and installed with command `pip install onnxruntime_olive-0.1.0-py3-none-any.whl`
