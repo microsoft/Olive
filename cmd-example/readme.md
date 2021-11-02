@@ -13,6 +13,12 @@ or
 
 `pip install --extra-index-url https://olivewheels.azureedge.net/test onnxruntime_gpu_tensorrt==1.9.0` for gpu
 
+User needs to install CUDA and cuDNN dependencies for ONNX Runtime GPU package. Please reference table below for official GPU packages dependencies.
+| ONNX Runtime | CUDA | cuDNN |
+|:--|:--|:--|
+| 1.9.0 | [11.4](https://developer.nvidia.com/cuda-11-4-2-download-archive) | [8.2](https://developer.nvidia.com/rdp/cudnn-download#a-collapse824-114) |
+| 1.8.1 | [11.0](https://developer.nvidia.com/cuda-11.0-download-archive) | [8.0](https://developer.nvidia.com/rdp/cudnn-archive#a-collapse802-110) |
+
 ## How to use
 User can call `olive convert` or `olive optimize` with related arguments. OLive will manage python package installation, such as `ONNX Runtime` or `TensorFlow` or `PyTorch`. 
 
