@@ -1,33 +1,29 @@
 # OLive - ONNX Runtime Go Live
-OLive, meaning ONNX Runtime(ORT) Go Live, is a python package that simplifies the process of accelerating models with [ONNX Runtime(ORT)](https://github.com/microsoft/onnxruntime). It contains two parts of model conversion to ONNX with correctness checking and auto performance tuning with ORT. Users can run these two together through a single pipelie or run them independently as needed.
+OLive, meaning ONNX Runtime(ORT) Go Live, is a python package that automates the process of accelerating models with [ONNX Runtime(ORT)](https://onnxruntime.ai/). It contains two parts including model conversion to [ONNX](https://onnx.ai/) with correctness checking and auto performance tuning with ORT. Users can run these two together through a single pipeline or run them independently as needed.
 ### Model conversion to ONNX
-Converts models from PyTorch and TensorFlow model frameworks to ONNX, and tests the converted models' correctness.
-
-OLive supports model framework conversion for:
- * TensorFlow: OLive supports saved model, frozen graph, and checkpoint format conversion. User needs to provider inputs' names and outputs' names for frozen graph and checkpoint conversion.
- * Pytorch: User needs to provide inputs' names and shapes to convert PyTorch model. Besides, user needs to provide outputs' names and shapes to convert torchscript PyTorch model.
+Simplify multiple frameworks to ONNX conversion experience by integrating existing [ONNX conversion tools](https://github.com/onnx/tutorials#converting-to-onnx-format) into a single package, as well as validating the converted models' correctness. Currently supported frameworks are PyTorch and TensorFlow.
+ * TensorFlow: OLive supports conversion with TensorFlow model in saved model, frozen graph, and checkpoint format. User needs to provider inputs' names and outputs' names for frozen graph and checkpoint conversion.
+ * PyTorch: User needs to provide inputs' names and shapes to convert PyTorch model. Besides, user needs to provide outputs' names and shapes to convert torchscript PyTorch model.
 
 ### Auto performance tuning with ORT
-Tunes different execution providers, inference session options, and environment variable options for the ONNX model with ONNX Runtime. Selects and outputs the option combinations with the best performance.
+ONNX Runtime(ORT) is a high performance inference engine to run ONNX model. It enables many advanced tuning knobs for user to further optimize inference performance. OLive heuristically explores optimization search space in ORT to select the best ORT settings for a specific model on a specific hardware.  It outputs the option combinations with the best performance.
 
 Optimization fileds:
- * Execution Providers:
-   * CPU, DNNL and OpenVino for ONNX Runtime CPU package
-   * CPU, CUDA and TensorRT for ONNX Runtime GPU package
- * Environment Variables:
+* [Execution Providers](https://onnxruntime.ai/docs/execution-providers/):
+   * MLAS(Default CPU EP), Intel DNNL and OpenVino for CPU
+   * Nvidia CUDA and TensorRT for GPU
+* Environment Variables:
    * OMP_WAIT_POLICY: 
    * OMP_NUM_THREADS
    * KMP_AFFINITY
    * OMP_MAX_ACTIVE_LEVELS
- * Session Options:
+* [Session Options](https://onnxruntime.ai/docs/performance/tune-performance.html#default-cpu-execution-provider-mlas):
    * inter_op_num_threads
    * intra_op_num_threads
    * execution_mode
    * graph_optimization_level
- * INT8 Quantization Optimization
- * TensorRT FP16 Optimization
- * Transformer Model Optimization
-
+ * [INT8 Quantization](https://onnxruntime.ai/docs/performance/quantization.html)
+ * [Transformer Model Optimization](https://github.com/microsoft/onnxruntime/tree/master/onnxruntime/python/tools/transformers)
 User needs to provide inputs' names and shapes for ONNX model with dynamic inputs' size. 
 
 ## Getting Started
