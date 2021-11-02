@@ -13,11 +13,6 @@ or
 
 `pip install --extra-index-url https://olivewheels.azureedge.net/test onnxruntime_gpu_tensorrt==1.9.0` for gpu
 
-User needs to install CUDA and cuDNN dependencies for perf tuning with OLive on GPU. The table below shows the ORT version and required CUDA and cuDNN version in the latest OLive.
-| ONNX Runtime | CUDA | cuDNN |
-|:--|:--|:--|
-| 1.9.0 | [11.4](https://developer.nvidia.com/cuda-11-4-2-download-archive) | [8.2](https://developer.nvidia.com/rdp/cudnn-download#a-collapse824-114) |
-
 ## How to use
 User can call `olive convert` or `olive optimize` with related arguments. OLive will manage python package installation, such as `ONNX Runtime` or `TensorFlow` or `PyTorch`. 
 
@@ -32,26 +27,36 @@ Here are arguments for OLive Conversion:
 
 | Argument | Detail | Example |
 |:--|:--|:--|
-| **conversion_config** | config.json file for conversion | olive_cvt_config.json |
-| **model_path** | model path for conversion | test.pb |
-|**model_root_path**| model path for conversion, only for PyTorch model | D:\model\src |
-|**input_names**| comma-separated list of names of input nodes of model | title_lengths:0,title_encoder:0,ratings:0 |
-|**output_names**| comma-separated list of names of output nodes of model | output_identity:0,loss_identity:0 |
-|**input_shapes**| list of shapes of each input node. The order of the input shapes should be the same as the order of input names | [[1,7],[1,7],[1,7]] |
-|**output_shapes**| list of shapes of each output node. The order of the output shapes should be the same as the order of output names | [[1,64],[1,64]] |
-|**input_types**| comma-separated list of types of input nodes. The order of the input types should be the same as the order of input names | float32,float32,float32 |
-|**output_types**| comma-separated list of types of output nodes. The order of the output types should be the same as the order of output names | float32,float32 |
-|**onnx_opset**| target opset version for conversion | 11 |
-|**onnx_model_path**| ONNX model path as conversion output | test.onnx |
-|**sample_input_data_path**| path to sample input data | sample_input_data.npz |
-|**model_framework**| model original framework | tensorflow |
-|**framework_version**| original framework version | 1.14 |
+| **model_path** | (required) model path for conversion | test.pb |
+|**model_framework**| (required) model original framework | tensorflow |
+|**model_root_path**| (optional) model path for conversion, only for PyTorch model | D:\model\src |
+|**input_names**| (optional) comma-separated list of names of input nodes of model | title_lengths:0,title_encoder:0,ratings:0 |
+|**output_names**| (optional) comma-separated list of names of output nodes of model | output_identity:0,loss_identity:0 |
+|**input_shapes**| (optional) list of shapes of each input node. The order of the input shapes should be the same as the order of input names | [[1,7],[1,7],[1,7]] |
+|**output_shapes**| (optional) list of shapes of each output node. The order of the output shapes should be the same as the order of output names | [[1,64],[1,64]] |
+|**input_types**| (optional) comma-separated list of types of input nodes. The order of the input types should be the same as the order of input names | float32,float32,float32 |
+|**output_types**| (optional) comma-separated list of types of output nodes. The order of the output types should be the same as the order of output names | float32,float32 |
+|**onnx_opset**| (optional) target opset version for conversion | 11 |
+|**onnx_model_path**| (optional) ONNX model path as conversion output | test.onnx |
+|**sample_input_data_path**| (optional) path to sample input data | sample_input_data.npz |
+|**framework_version**| (optional) original framework version | 1.14 |
 
 There are two ways to call OLive convert with cmd. 
 
 Test model and sample input data can be downloaded here: [model](https://olivemodels.blob.core.windows.net/models/conversion/full_doran_frozen.pb), [sample test data ](https://olivemodels.blob.core.windows.net/models/conversion/doran.npz).
 
-1. With conversion config file. 
+1. With all inline arguments. For example:
+    ```
+    olive convert 
+    --model_path full_doran_frozen.pb 
+    --model_framework tensorflow 
+    --framework_version 1.13 
+    --input_names title_lengths:0,title_encoder:0,ratings:0,query_lengths:0,passage_lengths:0,features:0,encoder:0,decoder:0,Placeholder:0 
+    --output_names output_identity:0,loss_identity:0 
+    --sample_input_data_path doran.npz
+    ```
+
+2. With conversion config file with all needed arguments: 
     ```
     {
       "model_path": "full_doran_frozen.pb",
@@ -62,16 +67,6 @@ Test model and sample input data can be downloaded here: [model](https://olivemo
     ```
     `olive convert --conversion_config cvt_config.json --model_framework tensorflow --framework_version 1.13` where cvt_config.json file includes related configurations. 
 
-2. With all inline arguments. For example:
-    ```
-    olive convert 
-    --model_path full_doran_frozen.pb 
-    --model_framework tensorflow 
-    --framework_version 1.13 
-    --input_names title_lengths:0,title_encoder:0,ratings:0,query_lengths:0,passage_lengths:0,features:0,encoder:0,decoder:0,Placeholder:0 
-    --output_names output_identity:0,loss_identity:0 
-    --sample_input_data_path doran.npz
-    ```
 Then the ONNX model will be saved in `onnx_model_path`, by default `res.onnx`
 
 ### For ONNX Model Inference Optimization
@@ -80,33 +75,42 @@ Tunes different execution providers, inference session options, and environment 
 Here are arguments for OLive optimization:
 | Argument  | Detail  | Example |
 |--|--|--|
-| **optimization_config** | config.json file for optimization | olive_opt_config.json |
-| **model_path** | model path for optimization | PytorchBertSquad.onnx |
-| **result_path** | result directory for OLive optimization | olive_opt_result |
-| **input_names** | comma-separated list of names of input nodes of model | input_ids,input_mask,segment_ids |
-| **output_names** | comma-separated list of names of output nodes of model | scores |
-| **input_shapes** | list of shapes of each input node. The order of the input shapes should be the same as the order of input names | [[1,7],[1,7],[1,7]] |
-| **providers_list** | providers used for perftuning | cpu,dnnl |
-| **trt_fp16_enabled** | whether enable fp16 mode for TensorRT |  |
-| **quantization_enabled** | whether enable quantization optimization or not |  |
-| **transformer_enabled** | whether enable transformer optimization or not |  |
-| **transformer_args** | onnxruntime transformer optimizer args | "--model_type bert" |
-| **sample_input_data_path** | path to sample input data | sample_input_data.npz |
-| **concurrency_num** | tuning process concurrency number | 2 |
-| **kmp_affinity** | bind OpenMP* threads to physical processing units | respect,none |
-| **omp_max_active_levels** | maximum number of nested active parallel regions | 1 |
-| **inter_thread_num_list** | list of inter thread number for perftuning | 1,2,4 |
-| **intra_thread_num_list** | list of intra thread number for perftuning | 1,2,4 |
-| **execution_mode_list** | list of execution mode for perftuning | parallel,sequential |
-| **ort_opt_level_list** | onnxruntime optimization level | all |
-| **omp_wait_policy_list** | list of OpenMP wait policy for perftuning | active |
-| **warmup_num** | warmup times for latency measurement | 20 |
-| **test_num** | repeat test times for latency measurement | 200 |
+| **model_path** | (required) model path for optimization | PytorchBertSquad.onnx |
+| **result_path** | (optional) result directory for OLive optimization | olive_opt_result |
+| **input_names** | (optional) comma-separated list of names of input nodes of model. Required for ONNX model with dynamic inputs' size | input_ids,input_mask,segment_ids |
+| **output_names** | (optional) comma-separated list of names of output nodes of model | scores |
+| **input_shapes** | (optional) list of shapes of each input node. The order of the input shapes should be the same as the order of input names. Required for ONNX model with dynamic inputs' size | [[1,7],[1,7],[1,7]] |
+| **providers_list** | (optional) providers used for perftuning | cpu,dnnl |
+| **trt_fp16_enabled** | (optional) whether enable fp16 mode for TensorRT |  |
+| **quantization_enabled** | (optional) whether enable quantization optimization or not |  |
+| **transformer_enabled** | (optional) whether enable transformer optimization or not |  |
+| **transformer_args** | (optional) onnxruntime transformer optimizer args | "--model_type bert" |
+| **sample_input_data_path** | (optional) path to sample input data | sample_input_data.npz |
+| **concurrency_num** | (optional) tuning process concurrency number | 2 |
+| **kmp_affinity** | (optional) bind OpenMP* threads to physical processing units | respect,none |
+| **omp_max_active_levels** | (optional) maximum number of nested active parallel regions | 1 |
+| **inter_thread_num_list** | (optional) list of inter thread number for perftuning | 1,2,4 |
+| **intra_thread_num_list** | (optional) list of intra thread number for perftuning | 1,2,4 |
+| **execution_mode_list** | (optional) list of execution mode for perftuning | parallel,sequential |
+| **ort_opt_level_list** | (optional) onnxruntime optimization level | all |
+| **omp_wait_policy_list** | (optional) list of OpenMP wait policy for perftuning | active |
+| **warmup_num** | (optional) warmup times for latency measurement | 20 |
+| **test_num** | (optional) repeat test times for latency measurement | 200 |
 
 There are two ways to call OLive optimize with cmd.
 
 Test model can be downloaded [here](https://olivemodels.blob.core.windows.net/models/optimization/TFBertForQuestionAnswering.onnx).
-1. With optimization config file. 
+
+1. With all inline arguments. For example:
+    ```
+    olive optimize 
+    --model_path TFBertForQuestionAnswering.onnx 
+    --input_names attention_mask,input_ids,token_type_ids 
+    --input_shapes [[1,7],[1,7],[1,7]] 
+    --quantization_enabled
+    ```
+
+2. With optimization config file with all needed arguments: 
     ```
     {
         "model_path": "TFBertForQuestionAnswering.onnx",
@@ -120,13 +124,5 @@ Test model can be downloaded [here](https://olivemodels.blob.core.windows.net/mo
     }
     ```
     `olive optimize --optimization_config opt_config.json` where opt_config.json file includes related configurations. 
-2. With all inline arguments. For example:
-    ```
-    olive optimize 
-    --model_path TFBertForQuestionAnswering.onnx 
-    --input_names attention_mask,input_ids,token_type_ids 
-    --input_shapes [[1,7],[1,7],[1,7]] 
-    --quantization_enabled
-    ```
 
 Then the result JSON file and optimized model will be stored in `result_path`, by default `olive_opt_result`
