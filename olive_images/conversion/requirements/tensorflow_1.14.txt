@@ -1,0 +1,5 @@
+tensorflow==1.13.1
+pandas==0.23.4
+onnx==1.7.0
+onnxruntime==1.9.0
+tf2onnx==1.7.2

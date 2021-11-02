@@ -1,0 +1,16 @@
+FROM nvcr.io/nvidia/tensorrt:20.11-py3
+
+ARG ort_version
+
+RUN apt-get -y update && apt-get -y upgrade
+
+RUN python -m pip install --upgrade pip
+RUN python -m pip install numpy onnx psutil coloredlogs sympy onnxconverter_common docker==5.0.0 six
+RUN python -m pip install --extra-index-url https://olivewheels.azureedge.net/test onnxruntime_gpu_tensorrt=="${ort_version}"
+RUN python -m pip install --index-url https://olivewheels.azureedge.net/test onnxruntime-olive==0.1.0
+
+ADD . /code
+COPY licensing/LICENSE-IMAGE.txt /code/LICENSE-IMAGE.txt
+COPY ThirdPartyNotices.txt /code/ThirdPartyNotices.txt
+
+WORKDIR /mnt
