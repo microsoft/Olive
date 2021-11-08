@@ -37,7 +37,11 @@ class OptimizationConfig:
                  ort_opt_level_list=["all"],
                  execution_mode_list=None,
                  omp_wait_policy_list=None,
-                 trt_fp16_enabled=False):
+                 trt_fp16_enabled=False,
+                 max_latency_percentile=None,
+                 max_latency=None,
+                 dynamic_batching_size=None,
+                 threads_num=None):
 
         self.model_path = model_path
         self.inputs_spec = inputs_spec
@@ -58,6 +62,10 @@ class OptimizationConfig:
         self.execution_mode_list = execution_mode_list
         self.trt_fp16_enabled = trt_fp16_enabled
         self.output_names = output_names
+        self.max_latency_percentile = max_latency_percentile
+        self.max_latency = max_latency
+        self.dynamic_batching_size = dynamic_batching_size
+        self.threads_num =threads_num
         if omp_wait_policy_list:
             self.omp_wait_policy_list = omp_wait_policy_list
             if "ACTIVE" in [i.upper() for i in self.omp_wait_policy_list] and self.concurrency_num > 1:

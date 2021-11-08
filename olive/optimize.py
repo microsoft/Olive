@@ -8,6 +8,7 @@ import psutil
 from .optimization.optimize_quantization import quantization_optimize
 from .optimization.optimize_transformer import transformer_optimize
 from .optimization.tuning_process import tune_onnx_model, get_inference_benchmark
+from .optimization.throughput_tuning import get_optimal_qps
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -64,4 +65,14 @@ def parse_tuning_result(optimization_config, *tuning_results):
     olive_result["all_tuning_results"] = tuning_results
 
     return olive_result
+
+def optimize_throughput(optimization_config):
+    if "OpenVINOExecutionProvider" in ort.get_available_providers() or "TensorrtExecutionProvider" in ort.get_available_providers():
+        ort_deps_path = os.path.join(ort.__path__[0], "capi")
+        os.environ["LD_LIBRARY_PATH"] = "{}:{}".format(os.environ.get("LD_LIBRARY_PATH"), ort_deps_path)
+
+    throughput_result = get_optimal_qps(optimization_config)
+
+def parse_throughput_result():
+    pass
 

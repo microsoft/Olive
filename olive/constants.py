@@ -8,12 +8,16 @@ ONNXRUNTIME_VERSION = "1.9.0"
 ONNX_VERSION = "1.7.0"
 PYTORCH_VERSION = "1.7"
 TENSORFLOW_VERSION = "1.15"
+FRAMEWORK_TENSORFLOW = "tensorflow"
+FRAMEWORK_PYTORCH = "pytorch"
 
 WARMUP_NUM = 10
 TEST_NUM = 20
 OLIVE_RESULT_PATH = "olive_opt_result"
 SUB_PROCESS_NAME_PREFIX = "concurrency_subprocess"
-
+ONNX_MODEL_PATH = "res.onnx"
+QUERY_COUNT =500
+MILLI_SEC = 1000
 
 ONNX_TO_NP_TYPE_MAP = {
     "tensor(bool)": np.bool,
@@ -51,12 +55,6 @@ ORT_OPT_LEVEL_MAP = {
     "extended": 2,
     "all": 99
 }
-
-#constants for conversion
-FRAMEWORK_TENSORFLOW = "tensorflow"
-FRAMEWORK_PYTORCH = "pytorch"
-
-ONNX_MODEL_PATH = "res.onnx"
 
 STR_TO_NP_TYPE_MAP = {
     "bool": np.bool,
@@ -101,12 +99,9 @@ OLIVE_LOG_LEVEL = os.getenv("OLIVE_LOG_LEVEL").upper() if os.getenv("OLIVE_LOG_L
 
 
 MODEL_MOUNT_DIR = "/mnt/model"
-
 OPT_IMG_NAME = "olive_optimization"
 CVT_IMG_NAME = "olive_conversion"
-
 OLIVE_MOUNT_DIR = "/mnt/olive"
-
 MCR_PREFIX = "mcr.microsoft.com/olive"
 
 PYTHON_PATH = sys.executable
