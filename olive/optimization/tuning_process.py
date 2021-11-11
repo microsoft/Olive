@@ -1,13 +1,16 @@
 import itertools
 import logging
-from multiprocessing import Barrier, Process, Manager
+import os
+import re
 import time
+from multiprocessing import Barrier, Process, Manager
 
 import numpy as np
 import onnxruntime as ort
-import os
 import psutil
 
+from .mlperf_dataset import Dataset
+from .server_runner import ServerRunner
 from ..constants import SUB_PROCESS_NAME_PREFIX
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -62,14 +65,13 @@ def threads_num_tuning(optimization_config, tuning_combo):
         logger.error("Optimization failed for tuning combo {}".format(tuning_combo))
         pass
 
-    if not tuning_results:
-        logger.error("Tuning process failed for ep {}".format(provider))
-
     return tuning_results
 
 
 def threads_num_binary_search(optimization_config, test_params, tuning_results, cpu_cores):
     threads_names = ["inter_op_num_threads", "intra_op_num_threads"]
+    best_throughput = None
+    best_latency = None
 
     for threads_name in threads_names:
         thread_num = test_params.get(threads_name)
@@ -84,22 +86,26 @@ def threads_num_binary_search(optimization_config, test_params, tuning_results, 
         current_threads_num = lower_threads_num
         test_params[threads_name] = current_threads_num
 
-        test_result = get_inference_benchmark(optimization_config, test_params)
+        test_result = get_benchmark(optimization_config, test_params)
         if test_result:
             tuning_results.append(test_result)
-        best_latency = test_result["latency_ms"]["avg"]
+
+        if optimization_config.throughput_tuning_enabled:
+            best_throughput = test_result["throughput"]
+        else:
+            best_latency = test_result["latency_ms"]["avg"]
 
         current_threads_num = upper_threads_num
 
         while lower_threads_num < upper_threads_num:
             test_params[threads_name] = current_threads_num
 
-            test_result = get_inference_benchmark(optimization_config, test_params)
+            test_result = get_benchmark(optimization_config, test_params)
             if test_result:
                 tuning_results.append(test_result)
 
             mid_threads_num = lower_threads_num + (upper_threads_num - lower_threads_num) // 2
-            if best_latency < test_result["latency_ms"]["avg"]:
+            if (best_throughput and best_throughput > test_result["throughput"]) or (best_latency and best_latency < test_result["latency_ms"]["avg"]):
                 upper_threads_num = mid_threads_num
                 current_threads_num = upper_threads_num
             else:
@@ -152,12 +158,16 @@ def create_inference_session(model_path, test_params=None):
     return onnx_session, session_name
 
 
-def get_inference_benchmark(optimization_config, test_params=None):
+def get_benchmark(optimization_config, test_params=None):
 
     manager = Manager()
     test_result = manager.dict()
-    main_process = Process(name="main_process", target=do_benchmark,
-                           args=(optimization_config, test_params, test_result))
+    if optimization_config.throughput_tuning_enabled:
+        main_process = Process(name="main_process", target=get_throughput,
+                               args=(optimization_config, test_params, test_result))
+    else:
+        main_process = Process(name="main_process", target=get_latency,
+                               args=(optimization_config, test_params, test_result))
 
     process_list = []
     num_of_background = optimization_config.concurrency_num - 1
@@ -188,12 +198,15 @@ def concurrent_inference(synchronizer, optimization_config, test_params=None):
     synchronizer.wait()
 
     # execute inference
-    do_benchmark(optimization_config=optimization_config, test_params=test_params, background_process=True)
+    if optimization_config.throughput_tuning_enabled:
+        get_throughput(optimization_config=optimization_config, test_params=test_params, background_process=True)
+    else:
+        get_latency(optimization_config=optimization_config, test_params=test_params, background_process=True)
 
     logger.info("[{}] process finished".format(os.getpid()))
 
 
-def do_benchmark(optimization_config, test_params, test_result=None, background_process=False):
+def get_latency(optimization_config, test_params, test_result=None, background_process=False):
     onnx_session, session_name = create_inference_session(optimization_config.model_path, test_params)
     onnx_output_names = optimization_config.output_names if optimization_config.output_names else [o.name for o in onnx_session.get_outputs()]
 
@@ -238,3 +251,73 @@ def do_benchmark(optimization_config, test_params, test_result=None, background_
         }
         logger.info("ONNX model average inference time = {} for test {}".format(test_result["latency_ms"]["avg"], session_name))
         test_result["throughput"] = 1000 / test_result["latency_ms"]["avg"] if test_result["latency_ms"]["avg"] != 0 else "null"
+
+
+def get_throughput(optimization_config, test_params, test_result=None, background_process=False):
+    onnx_session, session_name = create_inference_session(optimization_config.model_path, test_params)
+    onnx_output_names = optimization_config.output_names if optimization_config.output_names else [o.name for o in onnx_session.get_outputs()]
+    ds = Dataset(onnx_session, optimization_config.inputs_spec)
+
+    runner = ServerRunner(onnx_session, ds, optimization_config, onnx_output_names)
+    # warmup
+    runner.warmup(optimization_config.warmup_num)
+
+    # run test
+    runner.start_run()
+    runner.finish()
+
+    if not background_process:
+        is_valid, latency_result, throughput_result = parse_mlperf_log(optimization_config.result_path)
+        if is_valid:
+            test_result["test_name"] = session_name
+
+            if test_params:
+                test_result["execution_provider"] = test_params.get("execution_provider")
+                test_result["env_vars"] = {
+                    "OMP_WAIT_POLICY": str(os.getenv("OMP_WAIT_POLICY")),
+                    "OMP_NUM_THREADS": str(os.getenv("OMP_NUM_THREADS")),
+                    "KMP_AFFINITY": str(os.getenv("KMP_AFFINITY")),
+                    "OMP_MAX_ACTIVE_LEVELS": str(os.getenv("OMP_MAX_ACTIVE_LEVELS")),
+                    "ORT_TENSORRT_FP16_ENABLE": str(os.getenv("ORT_TENSORRT_FP16_ENABLE", 0))
+                }
+                test_result["session_options"] = {
+                    "inter_op_num_threads": str(test_params.get("inter_op_num_threads")),
+                    "intra_op_num_threads": str(test_params.get("intra_op_num_threads")),
+                    "execution_mode": str(test_params.get("execution_mode")),
+                    "graph_optimization_level": str(test_params.get("graph_optimization_level"))
+                }
+
+            is_valid, latency_result, throughput_result = parse_mlperf_log(optimization_config.result_path)
+            test_result["latency_ms"] = latency_result
+            test_result["throughput"] = throughput_result
+            logger.info("Optimal QPS = {} for test {}".format(test_result["throughput"], session_name))
+        else:
+            logger.error("Benchmark is not valid for test {}".format(session_name))
+
+
+def parse_mlperf_log(result_path):
+    is_valid = False
+    result = {}
+    latency_result = {}
+    fname = os.path.join(result_path, "mlperf_log_summary.txt")
+    with open(fname, "r") as f:
+        for line in f:
+            m = re.match(r"^Result\s+is\s*\:\s+VALID", line)
+            if m:
+                is_valid = True
+            m = re.match(r"^\s*([\w\s.\(\)\/]+)\s*\:\s*([\w\+\.]+).*", line)
+            if m:
+                result[m.group(1).strip()] = m.group(2).strip()
+    throughput_result = float(result.get("Scheduled samples per second"))
+
+    def parse_latency_ms(n):
+        return float(result[n]) / 1000000
+
+    latency_result["avg"] = parse_latency_ms("Mean latency (ns)")
+    latency_result["latency_p50"] = parse_latency_ms("50.00 percentile latency (ns)")
+    latency_result["latency_p90"] = parse_latency_ms("90.00 percentile latency (ns)")
+    latency_result["latency_p95"] = parse_latency_ms("95.00 percentile latency (ns)")
+    latency_result["latency_p99"] = parse_latency_ms("99.00 percentile latency (ns)")
+    latency_result["latency_p99.9"] = parse_latency_ms("99.90 percentile latency (ns)")
+
+    return is_valid, latency_result, throughput_result

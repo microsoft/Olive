@@ -6,7 +6,7 @@ import array
 import mlperf_loadgen as lg
 import numpy as np
 
-from ..constants import QUERY_COUNT, NANO_SEC
+from ..constants import QUERY_COUNT, NANO_SEC, MILLI_SEC
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ class ServerRunner():
         log_output_settings.outdir = optimization_config.result_path
         log_output_settings.copy_summary_to_stdout = False
         self.log_settings = lg.LogSettings()
-        self.log_settings.enable_trace = True
+        self.log_settings.enable_trace = False
         self.log_settings.log_output = log_output_settings
 
         self.sut = lg.ConstructSUT(self.issue_queries, self.flush_queries, self.process_latencies)
@@ -45,6 +45,7 @@ class ServerRunner():
         self.settings.server_coalesce_queries = True
         self.settings.server_target_latency_ns = int(optimization_config.max_latency * NANO_SEC)
         self.settings.server_target_latency_percentile = optimization_config.max_latency_percentile
+        self.settings.min_duration_ms = optimization_config.min_duration_sec * MILLI_SEC
 
         # start all threads
         for _ in range(self.threads):
@@ -88,7 +89,6 @@ class ServerRunner():
                     self.q_query_id = []
             if self.done:
                 # parent wants us to exit
-                print("count per batchsize:", stats)
                 break
             # run inference, lock is released
             feed = self.ds.make_batch(idx)
@@ -136,21 +136,14 @@ class ServerRunner():
     def start_run(self):
         lg.StartTestWithLogSettings(self.sut, self.qsl, self.settings, self.log_settings)
     
-    def warmup(self, max_latency, max_latency_percentile):
-        # warmup
+    def warmup(self, warmup_num):
         self.ds.load_query_samples([0])
-        for _ in range(5):
-            feed = self.ds.make_batch([0])
-            for i in feed.keys():
-                print("feed[i].shape: ", feed[i].shape)
-            _ = self.session.run(self.onnx_output_names, feed)
 
         start = time.time()
-        n = 20
-        for _ in range(n):
+        for _ in range(warmup_num):
             feed = self.ds.make_batch([0])
             _ = self.session.run(self.onnx_output_names, feed)
-        self.guess = (time.time() - start) / n
+        self.guess = (time.time() - start) / warmup_num
         self.settings.server_target_qps = int(1 / self.guess / 3)
 
         self.ds.unload_query_samples(None)

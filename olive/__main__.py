@@ -52,7 +52,13 @@ def get_opt_config(args):
             intra_thread_num_list=config_dict.get("intra_thread_num_list", [None]),
             ort_opt_level_list=config_dict.get("ort_opt_level_list", ["all"]),
             execution_mode_list=config_dict.get("execution_mode_list"),
-            omp_wait_policy_list=config_dict.get("omp_wait_policy_list")
+            omp_wait_policy_list=config_dict.get("omp_wait_policy_list"),
+            throughput_tuning_enabled=config_dict.get("throughput_tuning_enabled"),
+            max_latency_percentile=config_dict.get("max_latency_percentile"),
+            max_latency=config_dict.get("max_latency"),
+            dynamic_batching_size=config_dict.get("dynamic_batching_size"),
+            threads_num=config_dict.get("threads_num"),
+            min_duration_sec=config_dict.get("min_duration_sec")
         )
 
     else:
@@ -97,7 +103,13 @@ def get_opt_config(args):
             intra_thread_num_list=intra_thread_num_list,
             ort_opt_level_list=ort_opt_level_list,
             execution_mode_list=execution_mode_list,
-            omp_wait_policy_list=omp_wait_policy_list
+            omp_wait_policy_list=omp_wait_policy_list,
+            throughput_tuning_enabled=args.throughput_tuning_enabled,
+            max_latency_percentile=args.max_latency_percentile,
+            max_latency=args.max_latency,
+            dynamic_batching_size=args.dynamic_batching_size,
+            threads_num=args.threads_num,
+            min_duration_sec=args.min_duration_sec
         )
 
     return opt_config
@@ -364,6 +376,13 @@ def main():
     parser_opt.add_argument("--omp_wait_policy_list", help="list of OpenMP wait policy for perftuning")
     parser_opt.add_argument("--warmup_num", type=int, help="warmup times for latency measurement")
     parser_opt.add_argument("--test_num", type=int, help="repeat test times for latency measurement")
+    parser_opt.add_argument("--throughput_tuning_enabled", help="whether tune model for optimal throughput", action="store_true")
+    parser_opt.add_argument("--max_latency_percentile", type=float, help="mlperf max latency pct tile, e.g. 0.90, 0.95")
+    parser_opt.add_argument("--max_latency", type=float, help="max latency in pct tile in second")
+    parser_opt.add_argument("--dynamic_batching_size", type=int, help="max batchsize for dynamic batching")
+    parser_opt.add_argument("--threads_num", type=int, help="threads num for throughput optimization")
+    parser_opt.add_argument("--min_duration_sec", type=int, help="minimum duration for each run in second")
+
     # arguments for environment setup
     parser_opt.add_argument("--use_conda", help="run optimization in new conda env or not", action="store_true")
     parser_opt.add_argument("--use_docker", help="run optimization in docker container or not", action="store_true")

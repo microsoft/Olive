@@ -7,8 +7,7 @@ import psutil
 
 from .optimization.optimize_quantization import quantization_optimize
 from .optimization.optimize_transformer import transformer_optimize
-from .optimization.tuning_process import tune_onnx_model, get_inference_benchmark
-from .optimization.throughput_tuning import get_optimal_qps
+from .optimization.tuning_process import tune_onnx_model, get_benchmark
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -22,7 +21,7 @@ def optimize(optimization_config):
 
     multiprocessing.set_start_method("spawn", force=True)
 
-    pretuning_inference_result = get_inference_benchmark(optimization_config)
+    pretuning_inference_result = get_benchmark(optimization_config)
 
     if optimization_config.transformer_enabled:
         transformer_optimize(optimization_config)
@@ -45,7 +44,10 @@ def optimize(optimization_config):
 
 
 def parse_tuning_result(optimization_config, *tuning_results):
-    best_test_name = min(tuning_results, key=lambda x: x["latency_ms"]["avg"])["test_name"]
+    if optimization_config.throughput_tuning_enabled:
+        best_test_name = max(tuning_results, key=lambda x: x["throughput"])["test_name"]
+    else:
+        best_test_name = min(tuning_results, key=lambda x: x["latency_ms"]["avg"])["test_name"]
 
     successful_eps = list(set([result.get("execution_provider") for result in tuning_results
                           if result.get("execution_provider")]))
@@ -65,14 +67,3 @@ def parse_tuning_result(optimization_config, *tuning_results):
     olive_result["all_tuning_results"] = tuning_results
 
     return olive_result
-
-def optimize_throughput(optimization_config):
-    if "OpenVINOExecutionProvider" in ort.get_available_providers() or "TensorrtExecutionProvider" in ort.get_available_providers():
-        ort_deps_path = os.path.join(ort.__path__[0], "capi")
-        os.environ["LD_LIBRARY_PATH"] = "{}:{}".format(os.environ.get("LD_LIBRARY_PATH"), ort_deps_path)
-
-    throughput_result = get_optimal_qps(optimization_config)
-
-def parse_throughput_result():
-    pass
-
