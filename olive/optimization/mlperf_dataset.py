@@ -1,15 +1,35 @@
 import logging
+
 import numpy as np
+
+from ..constants import QUERY_COUNT, ONNX_TO_NP_TYPE_MAP
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
 class Dataset():
-    def __init__(self, session):
+    def __init__(self, session, inputs_spec):
+
         self.data = []
+        self.odd_shape = inputs_spec
+
+        inputs = session.get_inputs()
+        input_types = []
+        for i in range(0, len(inputs)):
+            if inputs[i].type in ONNX_TO_NP_TYPE_MAP.keys():
+                input_types.append(ONNX_TO_NP_TYPE_MAP[inputs[i].type])
+        
+        data_shapes = [[i for i in dims if i != -1] for dims in inputs_spec.values()]
+        data = []
+        for i in range(len(data_shapes)):
+            vals = np.random.random_sample(data_shapes[i]).astype(input_types[i])
+            data.append(vals)
+
+        for i in range(QUERY_COUNT):
+            self.data.append(data)
         self.data_inmemory = {}
         self.session = session
-        self.odd_shape = self.get_input_shapes()
 
     def get_item_count(self):
         return len(self.data)
@@ -18,6 +38,9 @@ class Dataset():
         self.data_inmemory = {}
         for sample in sample_list:
             self.data_inmemory[sample] = self.get_item(sample)
+
+    def get_item(self, num):
+        return self.data[num]
 
     def unload_query_samples(self, sample_list):
         self.data_inmemory = {}
@@ -29,12 +52,3 @@ class Dataset():
             if len(self.odd_shape[name]) != len(feed[name].shape):
                 feed[name] = np.squeeze(feed[name], axis=0)
         return feed
-
-    def get_input_shapes(self):
-        shapes = {meta.name: meta.shape for meta in self.session.get_inputs()}
-        for k, v in shapes.items():
-            for i, d in enumerate(v):
-                if isinstance(d, str):
-                    v[i] = -1
-        return shapes
-

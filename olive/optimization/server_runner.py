@@ -1,10 +1,12 @@
-import mlperf_loadgen as lg
 import logging
 import threading
-import os
 import time
-from ..constants import QUERY_COUNT, MILLI_SEC
-import onnxruntime as ort
+import array
+
+import mlperf_loadgen as lg
+import numpy as np
+
+from ..constants import QUERY_COUNT, NANO_SEC
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -14,22 +16,22 @@ class ServerRunner():
     def __init__(self, session, ds, optimization_config, onnx_output_names):
 
         self.session = session
-        self.threads = optimization_config.threads
-        self.max_batchsize = optimization_config.max_batchsize
+        self.threads = optimization_config.threads_num
+        self.max_batchsize = optimization_config.dynamic_batching_size
         self.ds = ds
         self.onnx_output_names = onnx_output_names
+        self.guess = None
 
         self.cv = threading.Condition()
         self.done = False
         self.q_idx = []
         self.q_query_id = []
         self.workers = []
-        self.threads = optimization_config.threads
 
         self.settings = lg.TestSettings()
         self.settings.scenario = lg.TestScenario.Server
         self.settings.mode = lg.TestMode.FindPeakPerformance
-        
+
         log_output_settings = lg.LogOutputSettings()
         log_output_settings.outdir = optimization_config.result_path
         log_output_settings.copy_summary_to_stdout = False
@@ -41,6 +43,8 @@ class ServerRunner():
         self.qsl = lg.ConstructQSL(QUERY_COUNT, QUERY_COUNT, ds.load_query_samples, ds.unload_query_samples)
 
         self.settings.server_coalesce_queries = True
+        self.settings.server_target_latency_ns = int(optimization_config.max_latency * NANO_SEC)
+        self.settings.server_target_latency_percentile = optimization_config.max_latency_percentile
 
         # start all threads
         for _ in range(self.threads):
@@ -50,14 +54,13 @@ class ServerRunner():
             worker.start()
         time.sleep(1)
 
-
     def issue_queries(self, query_samples):
         self.enqueue(query_samples)
 
     def flush_queries(self):
         pass
 
-    def process_latencies(self):
+    def process_latencies(self, latencies_ms):
         pass
 
     def handle_tasks(self, cv):
@@ -94,6 +97,21 @@ class ServerRunner():
             # count stats
             stats[len(idx)] += 1
 
+    def run_one_item(self, qitem):
+        # run the prediction
+        processed_results = []
+        query_id, content_id, feed = qitem
+        results = self.session.run(self.onnx_output_names, feed)
+        processed_results = [[]] * len(query_id)
+        response_array_refs = []
+        response = []
+        for idx, qid in enumerate(query_id):
+            response_array = array.array("B", np.array(processed_results[idx], np.float32).tobytes())
+            response_array_refs.append(response_array)
+            bi = response_array.buffer_info()
+            response.append(lg.QuerySampleResponse(qid, bi[0], bi[1]))
+        lg.QuerySamplesComplete(response)
+
     def enqueue(self, query_samples):
         idx = [q.index for q in query_samples]
         query_id = [q.id for q in query_samples]
@@ -122,19 +140,17 @@ class ServerRunner():
         # warmup
         self.ds.load_query_samples([0])
         for _ in range(5):
-            feed = self.ds.make_batch(self.session, [0])
+            feed = self.ds.make_batch([0])
+            for i in feed.keys():
+                print("feed[i].shape: ", feed[i].shape)
             _ = self.session.run(self.onnx_output_names, feed)
 
-        # get some estimate to set qps
         start = time.time()
         n = 20
         for _ in range(n):
-            feed = self.ds.make_batch(self.session, [0])
+            feed = self.ds.make_batch([0])
             _ = self.session.run(self.onnx_output_names, feed)
         self.guess = (time.time() - start) / n
+        self.settings.server_target_qps = int(1 / self.guess / 3)
 
         self.ds.unload_query_samples(None)
-        latency = int(max_latency * MILLI_SEC)
-        self.settings.server_target_latency_ns = latency
-        self.settings.server_target_latency_percentile = max_latency_percentile
-

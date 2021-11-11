@@ -16,8 +16,9 @@ TEST_NUM = 20
 OLIVE_RESULT_PATH = "olive_opt_result"
 SUB_PROCESS_NAME_PREFIX = "concurrency_subprocess"
 ONNX_MODEL_PATH = "res.onnx"
-QUERY_COUNT =500
+QUERY_COUNT = 500
 MILLI_SEC = 1000
+NANO_SEC = 1e9
 
 ONNX_TO_NP_TYPE_MAP = {
     "tensor(bool)": np.bool,

@@ -1,12 +1,14 @@
-import numpy as np
-import logging
-import time
-from server_runner import ServerRunner
 import itertools
-import psutil
-from mlperf_dataset import Dataset
+import logging
 import os
+import time
+
+import numpy as np
 import onnxruntime as ort
+import psutil
+
+from .mlperf_dataset import Dataset
+from .server_runner import ServerRunner
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -17,6 +19,7 @@ def get_optimal_qps(optimization_config):
     for tuning_combo in generate_tuning_combos(optimization_config):
         all_test_results.extend(threads_num_tuning(optimization_config, tuning_combo))
     return all_test_results
+
 
 def threads_num_tuning(optimization_config, tuning_combo):
     cpu_cores = psutil.cpu_count(logical=False)
@@ -146,9 +149,9 @@ def create_inference_session(model_path, test_params=None):
 
 
 def get_throughput(optimization_config, test_params):
-    onnx_session, session_name = create_inference_session(optimization_config.model_path, test_params)
+    onnx_session, _ = create_inference_session(optimization_config.model_path, test_params)
     onnx_output_names = optimization_config.output_names if optimization_config.output_names else [o.name for o in onnx_session.get_outputs()]
-    ds = Dataset(onnx_session)
+    ds = Dataset(onnx_session, optimization_config.inputs_spec)
 
     runner = ServerRunner(onnx_session, ds, optimization_config, onnx_output_names)
     runner.warmup(optimization_config.max_latency, optimization_config.max_latency_percentile)
@@ -165,23 +168,3 @@ def get_throughput(optimization_config, test_params):
 
 def parse_mlperf_log(result_path):
     pass
-
-def make_batch(self, be, id_list):
-    # collect data and make it a batch
-    # for data dim=0 is batch, dim=1 is the input nr - we need to swap them
-    # data = np.swapaxes(data, 0, 1)
-    feed = {}
-    try:
-        odd_shape = be.input_shapes()
-    except:
-        odd_shape = self.image_size
-        if len(odd_shape) != 4:
-            odd_shape = [len(id_list)]+odd_shape
-        assert odd_shape is not None and len(odd_shape)
-        odd_shape = {be.inputs[0]: odd_shape}
-
-    for i, name in enumerate(be.inputs):
-        feed[name] = np.array([self.data_x_inmemory[id][i] for id in id_list])
-        if len(odd_shape[name]) != len(feed[name].shape):
-            feed[name] = np.squeeze(feed[name], axis=0)
-    return feed

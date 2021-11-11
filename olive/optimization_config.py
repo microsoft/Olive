@@ -123,7 +123,7 @@ class OptimizationConfig:
         for dims in dims_list:
             # get shape
             # regard unk__32 and None as 1
-            shape = [1 if (x is None or (type(x) is str and ('unk' in x or x == 'N'))) else x for x in dims]
+            shape = [1 if (x is None or (type(x) is str)) else x for x in dims]
             shapes_list.append(shape)
         inputs_spec = dict(zip(names_list, shapes_list))
 
