@@ -15,7 +15,7 @@ def get_package_data():
 
 setup(
     name="onnxruntime-olive",
-    version="0.1.0",
+    version="0.2.0",
     description="ONNX model conversion and optimization techniques",
     author="OLive-Team",
     author_email="olive-team@microsoft.com",

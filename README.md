@@ -6,7 +6,7 @@ Simplify multiple frameworks to ONNX conversion experience by integrating existi
  * PyTorch: User needs to provide inputs' names and shapes to convert PyTorch model. Besides, user needs to provide outputs' names and shapes to convert torchscript PyTorch model.
 
 ### Auto performance tuning with ORT
-ONNX Runtime(ORT) is a high performance inference engine to run ONNX model. It enables many advanced tuning knobs for user to further optimize inference performance. OLive heuristically explores optimization search space in ORT to select the best ORT settings for a specific model on a specific hardware.  It outputs the option combinations with the best performance.
+ONNX Runtime(ORT) is a high performance inference engine to run ONNX model. It enables many advanced tuning knobs for user to further optimize inference performance. OLive heuristically explores optimization search space in ORT to select the best ORT settings for a specific model on a specific hardware.  It outputs the option combinations with the best performance for latency or for throughput.
 
 Optimization fileds:
 * [Execution Providers](https://onnxruntime.ai/docs/execution-providers/):
@@ -26,7 +26,7 @@ Optimization fileds:
  * [Transformer Model Optimization](https://github.com/microsoft/onnxruntime/tree/master/onnxruntime/python/tools/transformers)
 
 ## Getting Started
-OLive package can be downloaded [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.1.0-py3-none-any.whl) and installed with command `pip install onnxruntime_olive-0.1.0-py3-none-any.whl`. 
+OLive package can be downloaded [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.2.0-py3-none-any.whl) and installed with command `pip install onnxruntime_olive-0.2.0-py3-none-any.whl`. 
 
 Supported python version: 3.6, 3.7, 3.8
 

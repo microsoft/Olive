@@ -3,7 +3,7 @@
 This repository shows how to deploy and use OLive by running commands.
 
 ## Prerequisites
-Download OLive pakcage [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.1.0-py3-none-any.whl) and install with command `pip install onnxruntime_olive-0.1.0-py3-none-any.whl`
+Download OLive pakcage [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.2.0-py3-none-any.whl) and install with command `pip install onnxruntime_olive-0.2.0-py3-none-any.whl`
 
 ONNX Runtime pakcage can be installed with
 
@@ -70,12 +70,18 @@ Test model and sample input data can be downloaded here: [model](https://olivemo
 Then the ONNX model will be saved in `onnx_model_path`, by default `res.onnx`
 
 ### For ONNX Model Inference Optimization
-Tunes different execution providers, inference session options, and environment variable options for the ONNX model with ONNX Runtime. Selects and outputs the option combinations with the best performance.
+Tunes different execution providers, inference session options, and environment variable options for the ONNX model with ONNX Runtime. Selects and outputs the option combinations with the best performance for lantency or throughput.
 
 Here are arguments for OLive optimization:
 | Argument  | Detail  | Example |
 |--|--|--|
 | **model_path** | (required) model path for optimization | PytorchBertSquad.onnx |
+| **throughput_tuning_enabled** | (optional)whether tune model for optimal throughput |  |
+| **max_latency_percentile** | (required for throughput tuning) throughput max latency pct tile | 0.95 |
+| **max_latency** | (required for throughput tuning) max latency in pct tile in second | 0.05 |
+| **dynamic_batching_size** | (specified for throughput tuning) max batchsize for dynamic batching | 1 |
+| **threads_num** | (specified for throughput tuning) threads num for throughput optimization | 4 |
+| **min_duration_sec** | (specified for throughput tuning) 	minimum duration for each run in second | 10 |
 | **result_path** | (optional) result directory for OLive optimization | olive_opt_result |
 | **input_names** | (optional) comma-separated list of names of input nodes of model. Required for ONNX model with dynamic inputs' size | input_ids,input_mask,segment_ids |
 | **output_names** | (optional) comma-separated list of names of output nodes of model | scores |
@@ -101,6 +107,8 @@ There are two ways to call OLive optimize with cmd.
 
 Test model can be downloaded [here](https://olivemodels.blob.core.windows.net/models/optimization/TFBertForQuestionAnswering.onnx).
 
+To optimize ONNX model latency:
+
 1. With all inline arguments. For example:
     ```
     olive optimize 
@@ -121,6 +129,38 @@ Test model can be downloaded [here](https://olivemodels.blob.core.windows.net/mo
         "omp_max_active_levels": ["1"],
         "kmp_affinity": ["respect,none"],
         "concurrency_num": 2
+    }
+    ```
+    `olive optimize --optimization_config opt_config.json` where opt_config.json file includes related configurations. 
+
+To optimize ONNX model throughput:
+
+1. With all inline arguments. For example:
+    ```
+    olive optimize 
+    --model_path TFBertForQuestionAnswering.onnx 
+    --input_names attention_mask,input_ids,token_type_ids 
+    --input_shapes [[-1,7],[-1,7],[-1,7]] 
+    --throughput_tuning_enabled 
+    --max_latency_percentile 0.95 
+    --max_latency 0.1 
+    --threads_num 1 
+    --dynamic_batching_size 4 
+    --min_duration_sec 10
+    ```
+
+2. With optimization config file with all needed arguments: 
+    ```
+    {
+        "model_path": "TFBertForQuestionAnswering.onnx",
+        "input_names": ["attention_mask", "input_ids", "token_type_ids"],
+        "input_shapes": [[-1,7],[-1,7],[-1,7]],
+        "throughput_tuning_enabled": true,
+        "max_latency_percentile": 0.95,
+        "max_latency": 0.1,
+        "threads_num": 1,
+        "dynamic_batching_size": 4,
+        "min_duration_sec": 10
     }
     ```
     `olive optimize --optimization_config opt_config.json` where opt_config.json file includes related configurations. 

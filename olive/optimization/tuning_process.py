@@ -292,7 +292,7 @@ def get_throughput(optimization_config, test_params, test_result=None, backgroun
             test_result["throughput"] = throughput_result
             logger.info("Optimal QPS = {} for test {}".format(test_result["throughput"], session_name))
         else:
-            logger.error("Benchmark is not valid for test {}".format(session_name))
+            logger.error("Benchmark is not valid for test {}. Please increase the expected latency".format(session_name))
 
 
 def parse_mlperf_log(result_path):

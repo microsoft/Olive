@@ -38,6 +38,11 @@ def optimize(optimization_config):
     with open(result_json_path, 'w') as f:
         json.dump(olive_result, f)
 
+    if optimization_config.throughput_tuning_enabled:
+        for file_name in os.listdir(optimization_config.result_path):
+            if file_name.startswith("mlperf"):
+                os.remove(os.path.join(optimization_config.result_path, file_name))
+
     logger.info("Optimization succeeded, OLive tuning result written in {}".format(result_json_path))
 
     return olive_result

@@ -107,9 +107,9 @@ def get_opt_config(args):
             throughput_tuning_enabled=args.throughput_tuning_enabled,
             max_latency_percentile=args.max_latency_percentile,
             max_latency=args.max_latency,
-            dynamic_batching_size=args.dynamic_batching_size,
-            threads_num=args.threads_num,
-            min_duration_sec=args.min_duration_sec
+            dynamic_batching_size=args.dynamic_batching_size if args.dynamic_batching_size else 1,
+            threads_num=args.threads_num if args.threads_num else 1,
+            min_duration_sec=args.min_duration_sec if args.min_duration_sec else 10
         )
 
     return opt_config
@@ -247,7 +247,7 @@ def optimize_in_conda_env(args):
     for key in args.__dict__.keys():
         if args.__dict__[key]:
             if key not in ["use_conda", "use_docker", "use_gpu", "onnxruntime_version", "func"]:
-                if key in ["quantization_enabled", "transformer_enabled", "trt_fp16_enabled"]:
+                if key in ["quantization_enabled", "transformer_enabled", "trt_fp16_enabled", "throughput_tuning_enabled"]:
                     opt_args_str = opt_args_str + "--{} ".format(key)
                 else:
                     opt_args_str = opt_args_str + "--{} {} ".format(key, args.__dict__[key])
@@ -377,7 +377,7 @@ def main():
     parser_opt.add_argument("--warmup_num", type=int, help="warmup times for latency measurement")
     parser_opt.add_argument("--test_num", type=int, help="repeat test times for latency measurement")
     parser_opt.add_argument("--throughput_tuning_enabled", help="whether tune model for optimal throughput", action="store_true")
-    parser_opt.add_argument("--max_latency_percentile", type=float, help="mlperf max latency pct tile, e.g. 0.90, 0.95")
+    parser_opt.add_argument("--max_latency_percentile", type=float, help="throughput max latency pct tile, e.g. 0.90, 0.95")
     parser_opt.add_argument("--max_latency", type=float, help="max latency in pct tile in second")
     parser_opt.add_argument("--dynamic_batching_size", type=int, help="max batchsize for dynamic batching")
     parser_opt.add_argument("--threads_num", type=int, help="threads num for throughput optimization")

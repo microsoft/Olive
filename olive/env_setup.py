@@ -9,7 +9,16 @@ logger = logging.getLogger(__name__)
 
 
 def install_packages(onnxruntime_version=None, use_gpu=False, model_framework=None, framework_version=None):
-    # install packages for optimization
+    # install packages for throughput tuning
+    try:
+        import mlperf_loadgen
+    except ImportError:
+        install_cmd = "{} -m pip install mlperf_loadgen --extra-index-url https://olivewheels.azureedge.net/test".format(PYTHON_PATH)
+        logger.info(install_cmd)
+        subprocess.run(install_cmd, stdout=subprocess.PIPE, shell=True, check=True)
+        logger.info("loadgen package installed with success")
+
+    # install onnxruntime packages for optimization
     ort_package = "onnxruntime_gpu_tensorrt" if use_gpu else "onnxruntime_openvino_dnnl"
     ort_version = onnxruntime_version if onnxruntime_version else ONNXRUNTIME_VERSION
     if onnxruntime_version or use_gpu:

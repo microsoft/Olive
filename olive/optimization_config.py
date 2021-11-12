@@ -43,7 +43,7 @@ class OptimizationConfig:
                  max_latency=None,
                  threads_num=None,
                  dynamic_batching_size=1,
-                 min_duration_sec=100):
+                 min_duration_sec=10):
 
         self.model_path = model_path
         self.inputs_spec = inputs_spec
@@ -89,7 +89,7 @@ class OptimizationConfig:
         self.inference_input_dict = self._generate_input_data()
 
     def _validate_throughput_config(self):
-        if not self.max_latency_percentile or self.max_latency:
+        if not (self.max_latency_percentile and self.max_latency):
             raise ValueError("max_latency_percentile and max_latency are needed for throughput tuning")
         if not self.threads_num:
             raise ValueError("threads_num is needed for throughput tuning")
