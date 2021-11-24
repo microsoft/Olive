@@ -38,4 +38,10 @@ export const perf_tuning_form = {
   warmup_num: '',
   onnxruntime_version: '1.9.0',
   use_gpu: false,
+  throughput_tuning_enabled: false,
+  max_latency_percentile: '',
+  max_latency: '',
+  dynamic_batching_size: '',
+  threads_num: '',
+  min_duration_sec: '',
 };

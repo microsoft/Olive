@@ -16,6 +16,8 @@
                     <th scope="col">optimized avg (ms)</th>
                     <th scope="col">optimized p90 (ms)</th>
                     <th scope="col">optimized p95 (ms)</th>
+                    <th scope="col">pretuning throughput</th>
+                    <th scope="col">optimal throughput</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -24,13 +26,14 @@
                         <td>{{result.latency_ms_avg}}</td>
                         <td>{{result.latency_ms_p90}}</td>
                         <td>{{result.latency_ms_p95}}</td>
+                        <td>{{result.pretuning_throughput}}</td>
+                        <td>{{result.optimal_throughput}}</td>
                     </tr>
                 </tbody>
                 </table>
                 <hr>
                 <div>
                 <h5>Download Optimized Model: </h5>
-
                 <a :href="host + ':5000/download/' + result.optimized_model" download>[model]</a>
                 </div>
                 <hr>
