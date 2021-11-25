@@ -101,14 +101,14 @@
                         </b-form-input>
                     </b-form-group>
 
-                    <b-form-group id="form-max_latency"
+                    <b-form-group id="form-max_latency_sec"
                                 label="Maximum Latency (Required for throughput tuning):"
-                                label-for="form-max_latency-input"
+                                label-for="form-max_latency_sec-input"
                                 label-class="font-weight-bold"
                                 v-if="perf_tuning_form.throughput_tuning_enabled">
-                        <b-form-input id="form-max_latency-input"
+                        <b-form-input id="form-max_latency_sec-input"
                                     type="text"
-                                    v-model="perf_tuning_form.max_latency"
+                                    v-model="perf_tuning_form.max_latency_sec"
                                     placeholder="Enter Max Latency in second, e.g. 0.1, 0.05">
                         </b-form-input>
                     </b-form-group>

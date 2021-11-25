@@ -43,7 +43,7 @@ class ServerRunner():
         self.qsl = lg.ConstructQSL(QUERY_COUNT, QUERY_COUNT, ds.load_query_samples, ds.unload_query_samples)
 
         self.settings.server_coalesce_queries = True
-        self.settings.server_target_latency_ns = int(optimization_config.max_latency * NANO_SEC)
+        self.settings.server_target_latency_ns = int(optimization_config.max_latency_sec * NANO_SEC)
         self.settings.server_target_latency_percentile = optimization_config.max_latency_percentile
         self.settings.min_duration_ms = optimization_config.min_duration_sec * MILLI_SEC
 

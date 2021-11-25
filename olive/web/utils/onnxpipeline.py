@@ -42,7 +42,7 @@ class Pipeline:
         for p in ["model_path", "concurrency_num", "test_num", "warmup_num", "omp_max_active_levels",
                   "input_names", "output_names", "input_shapes", "sample_input_data_path", "intra_thread_num_list", "inter_thread_num_list",
                   "providers_list", "execution_mode_list", "ort_opt_level_list", "optimization_config",
-                  "transformer_args", "omp_wait_policy_list", "onnxruntime_version", "max_latency_percentile", "max_latency", "dynamic_batching_size", "threads_num", "min_duration_sec"]:
+                  "transformer_args", "omp_wait_policy_list", "onnxruntime_version", "max_latency_percentile", "max_latency_sec", "dynamic_batching_size", "threads_num", "min_duration_sec"]:
             if json_data.get(p):
                 perf_tuning_cmd = perf_tuning_cmd + " --{} {}".format(p, json_data[p])
         for p in ["use_gpu", "trt_fp16_enabled", "quantization_enabled", "transformer_enabled", "throughput_tuning_enabled"]:

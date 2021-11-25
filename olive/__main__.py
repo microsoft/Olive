@@ -55,7 +55,7 @@ def get_opt_config(args):
             omp_wait_policy_list=config_dict.get("omp_wait_policy_list"),
             throughput_tuning_enabled=config_dict.get("throughput_tuning_enabled"),
             max_latency_percentile=config_dict.get("max_latency_percentile"),
-            max_latency=config_dict.get("max_latency"),
+            max_latency_sec=config_dict.get("max_latency_sec"),
             dynamic_batching_size=config_dict.get("dynamic_batching_size"),
             threads_num=config_dict.get("threads_num"),
             min_duration_sec=config_dict.get("min_duration_sec")
@@ -106,7 +106,7 @@ def get_opt_config(args):
             omp_wait_policy_list=omp_wait_policy_list,
             throughput_tuning_enabled=args.throughput_tuning_enabled,
             max_latency_percentile=args.max_latency_percentile,
-            max_latency=args.max_latency,
+            max_latency_sec=args.max_latency_sec,
             dynamic_batching_size=args.dynamic_batching_size if args.dynamic_batching_size else 1,
             threads_num=args.threads_num if args.threads_num else 1,
             min_duration_sec=args.min_duration_sec if args.min_duration_sec else 10
@@ -378,7 +378,7 @@ def main():
     parser_opt.add_argument("--test_num", type=int, help="repeat test times for latency measurement")
     parser_opt.add_argument("--throughput_tuning_enabled", help="whether tune model for optimal throughput", action="store_true")
     parser_opt.add_argument("--max_latency_percentile", type=float, help="throughput max latency pct tile, e.g. 0.90, 0.95")
-    parser_opt.add_argument("--max_latency", type=float, help="max latency in pct tile in second")
+    parser_opt.add_argument("--max_latency_sec", type=float, help="max latency in pct tile in second")
     parser_opt.add_argument("--dynamic_batching_size", type=int, help="max batchsize for dynamic batching")
     parser_opt.add_argument("--threads_num", type=int, help="threads num for throughput optimization")
     parser_opt.add_argument("--min_duration_sec", type=int, help="minimum duration for each run in second")

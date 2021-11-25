@@ -75,7 +75,7 @@ def test_throughput_tuning(dynamic_batching_size):
                                     inputs_spec={"attention_mask": [-1, 7], "input_ids": [-1, 7], "token_type_ids": [-1, 7]},
                                     throughput_tuning_enabled=True,
                                     max_latency_percentile=0.95,
-                                    max_latency=0.1,
+                                    max_latency_sec=0.1,
                                     threads_num=1,
                                     dynamic_batching_size=dynamic_batching_size,
                                     result_path=result_path,

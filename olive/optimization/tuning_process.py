@@ -69,7 +69,10 @@ def threads_num_tuning(optimization_config, tuning_combo):
 
 
 def threads_num_binary_search(optimization_config, test_params, tuning_results, cpu_cores):
-    threads_names = ["inter_op_num_threads", "intra_op_num_threads"]
+    if test_params.get("execution_mode") == ort.ExecutionMode.ORT_SEQUENTIAL:
+        threads_names = ["intra_op_num_threads"]
+    else:
+        threads_names = ["inter_op_num_threads", "intra_op_num_threads"]
     best_throughput = None
     best_latency = None
 
