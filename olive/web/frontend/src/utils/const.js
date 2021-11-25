@@ -40,7 +40,7 @@ export const perf_tuning_form = {
   use_gpu: false,
   throughput_tuning_enabled: false,
   max_latency_percentile: '',
-  max_latency: '',
+  max_latency_sec: '',
   dynamic_batching_size: '',
   threads_num: '',
   min_duration_sec: '',
