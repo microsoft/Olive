@@ -32,6 +32,7 @@ jobs:
         python setup.py bdist_wheel
         pip install dist/onnxruntime_olive-0.2.0-py3-none-any.whl
         pip install --no-cache --index-url https://olivewheels.azureedge.net/test onnxruntime_openvino_dnnl==${{ matrix.ort_version }}
+        pip install --extra-index-url https://olivewheels.azureedge.net/test mlperf_loadgen
 
     # ===========================Run CLI Tests - Optimization==================================
     - name: Run CLI Tests - Optimization
