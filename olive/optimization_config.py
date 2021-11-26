@@ -38,9 +38,10 @@ class OptimizationConfig:
                  execution_mode_list=None,
                  omp_wait_policy_list=None,
                  trt_fp16_enabled=False,
+                 openmp_enabled=False,
                  throughput_tuning_enabled=False,
                  max_latency_percentile=None,
-                 max_latency_sec=None,
+                 max_latency_ms=None,
                  threads_num=None,
                  dynamic_batching_size=1,
                  min_duration_sec=10):
@@ -63,10 +64,11 @@ class OptimizationConfig:
         self.ort_opt_level_list = ort_opt_level_list
         self.execution_mode_list = execution_mode_list
         self.trt_fp16_enabled = trt_fp16_enabled
+        self.openmp_enabled = openmp_enabled
         self.output_names = output_names
         self.throughput_tuning_enabled = throughput_tuning_enabled
         self.max_latency_percentile = max_latency_percentile
-        self.max_latency_sec = max_latency_sec
+        self.max_latency_ms = max_latency_ms
         self.dynamic_batching_size = dynamic_batching_size
         self.threads_num = threads_num
         self.min_duration_sec = min_duration_sec
@@ -89,8 +91,8 @@ class OptimizationConfig:
         self.inference_input_dict = self._generate_input_data()
 
     def _validate_throughput_config(self):
-        if not (self.max_latency_percentile and self.max_latency_sec):
-            raise ValueError("max_latency_percentile and max_latency_sec are needed for throughput tuning")
+        if not (self.max_latency_percentile and self.max_latency_ms):
+            raise ValueError("max_latency_percentile and max_latency_ms are needed for throughput tuning")
         if not self.threads_num:
             raise ValueError("threads_num is needed for throughput tuning")
 

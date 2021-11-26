@@ -101,15 +101,15 @@
                         </b-form-input>
                     </b-form-group>
 
-                    <b-form-group id="form-max_latency_sec"
+                    <b-form-group id="form-max_latency_ms"
                                 label="Maximum Latency (Required for throughput tuning):"
-                                label-for="form-max_latency_sec-input"
+                                label-for="form-max_latency_ms-input"
                                 label-class="font-weight-bold"
                                 v-if="perf_tuning_form.throughput_tuning_enabled">
-                        <b-form-input id="form-max_latency_sec-input"
+                        <b-form-input id="form-max_latency_ms-input"
                                     type="text"
-                                    v-model="perf_tuning_form.max_latency_sec"
-                                    placeholder="Enter Max Latency in second, e.g. 0.1, 0.05">
+                                    v-model="perf_tuning_form.max_latency_ms"
+                                    placeholder="Enter Max Latency in millisecond, e.g. 100, 50">
                         </b-form-input>
                     </b-form-group>
 
@@ -150,6 +150,13 @@
                         </b-form-input>
                     <hr/>
                     </b-form-group>
+
+                    <b-form-checkbox
+                    id="openmp_enabled"
+                    v-model="perf_tuning_form.openmp_enabled"
+                    name="openmp_enabled">
+                    Whether the onnxruntime package is built with OpenMP
+                    </b-form-checkbox>
 
                     <b-form-group id="form-input_names-group"
                               label="Model Inputs Names:"

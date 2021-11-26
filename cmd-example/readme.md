@@ -78,10 +78,11 @@ Here are arguments for OLive optimization:
 | **model_path** | (required) model path for optimization | PytorchBertSquad.onnx |
 | **throughput_tuning_enabled** | (optional)whether tune model for optimal throughput |  |
 | **max_latency_percentile** | (required for throughput tuning) throughput max latency pct tile | 0.95 |
-| **max_latency_sec** | (required for throughput tuning) max latency in pct tile in second | 0.05 |
+| **max_latency_ms** | (required for throughput tuning) max latency in pct tile in millisecond | 50 |
 | **dynamic_batching_size** | (specified for throughput tuning) max batchsize for dynamic batching | 1 |
 | **threads_num** | (specified for throughput tuning) threads num for throughput optimization | 4 |
 | **min_duration_sec** | (specified for throughput tuning) 	minimum duration for each run in second | 10 |
+| **openmp_enabled** | (optional) whether the onnxruntime package is built with OpenMP |  |
 | **result_path** | (optional) result directory for OLive optimization | olive_opt_result |
 | **input_names** | (optional) comma-separated list of names of input nodes of model. Required for ONNX model with dynamic inputs' size | input_ids,input_mask,segment_ids |
 | **output_names** | (optional) comma-separated list of names of output nodes of model | scores |
@@ -143,7 +144,7 @@ To optimize ONNX model throughput:
     --input_shapes [[-1,7],[-1,7],[-1,7]] 
     --throughput_tuning_enabled 
     --max_latency_percentile 0.95 
-    --max_latency_sec 0.1 
+    --max_latency_ms 100 
     --threads_num 1 
     --dynamic_batching_size 4 
     --min_duration_sec 10
@@ -157,7 +158,7 @@ To optimize ONNX model throughput:
         "input_shapes": [[-1,7],[-1,7],[-1,7]],
         "throughput_tuning_enabled": true,
         "max_latency_percentile": 0.95,
-        "max_latency_sec": 0.1,
+        "max_latency_ms": 100,
         "threads_num": 1,
         "dynamic_batching_size": 4,
         "min_duration_sec": 10
