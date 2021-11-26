@@ -29,9 +29,14 @@ def tune_onnx_model(optimization_config):
 
 
 def generate_tuning_combos(optimization_config):
-    tuning_combos = itertools.product(optimization_config.omp_wait_policy_list, optimization_config.kmp_affinity,
-                                      optimization_config.omp_max_active_levels, optimization_config.providers_list,
-                                      optimization_config.execution_mode_list, optimization_config.ort_opt_level_list)
+    if optimization_config.openmp_enabled or ort.__version__ <= '1.7.0':
+        tuning_combos = itertools.product(optimization_config.omp_wait_policy_list, optimization_config.kmp_affinity,
+                                          optimization_config.omp_max_active_levels, optimization_config.providers_list,
+                                          optimization_config.execution_mode_list, optimization_config.ort_opt_level_list)
+    else:
+        tuning_combos = itertools.product([None], [None], [None],
+                                          optimization_config.providers_list, optimization_config.execution_mode_list,
+                                          optimization_config.ort_opt_level_list)
     yield from tuning_combos
 
 
@@ -39,9 +44,12 @@ def threads_num_tuning(optimization_config, tuning_combo):
     cpu_cores = psutil.cpu_count(logical=False)
     tuning_results = []
 
-    os.environ["OMP_WAIT_POLICY"] = tuning_combo[0]
-    os.environ["KMP_AFFINITY"] = tuning_combo[1]
-    os.environ["OMP_MAX_ACTIVE_LEVELS"] = tuning_combo[2]
+    if tuning_combo[0]:
+        os.environ["OMP_WAIT_POLICY"] = tuning_combo[0]
+    if tuning_combo[1]:
+        os.environ["KMP_AFFINITY"] = tuning_combo[1]
+    if tuning_combo[2]:
+        os.environ["OMP_MAX_ACTIVE_LEVELS"] = tuning_combo[2]
     provider = tuning_combo[3]
     execution_mode = tuning_combo[4]
     ort_opt_level = tuning_combo[5]

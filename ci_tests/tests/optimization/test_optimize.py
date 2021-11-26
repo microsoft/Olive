@@ -66,6 +66,15 @@ def test_optimize_sample_data(sample_input_data_path):
     shutil.rmtree(result_path)
 
 
+@pytest.mark.parametrize('openmp_enabled', [True, False])
+def test_optimize_openmp(openmp_enabled):
+    result_path = "openmp_opt"
+    opt_config = OptimizationConfig(model_path=ONNX_MODEL_PATH, openmp_enabled=openmp_enabled,
+                                    result_path=result_path)
+    optimize(opt_config)
+    shutil.rmtree(result_path)
+
+
 @pytest.mark.parametrize('dynamic_batching_size', [1, 4])
 def test_throughput_tuning(dynamic_batching_size):
     result_path = "throughput_tuning_res"
@@ -75,7 +84,7 @@ def test_throughput_tuning(dynamic_batching_size):
                                     inputs_spec={"attention_mask": [-1, 7], "input_ids": [-1, 7], "token_type_ids": [-1, 7]},
                                     throughput_tuning_enabled=True,
                                     max_latency_percentile=0.95,
-                                    max_latency_sec=0.1,
+                                    max_latency_ms=100,
                                     threads_num=1,
                                     dynamic_batching_size=dynamic_batching_size,
                                     result_path=result_path,
