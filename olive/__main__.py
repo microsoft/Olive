@@ -48,11 +48,18 @@ def get_opt_config(args):
             warmup_num=config_dict.get("warmup_num", WARMUP_NUM),
             test_num=config_dict.get("test_num", TEST_NUM),
             trt_fp16_enabled=config_dict.get("trt_fp16_enabled", False),
+            openmp_enabled=config_dict.get("openmp_enabled", False),
             inter_thread_num_list=config_dict.get("inter_thread_num_list", [None]),
             intra_thread_num_list=config_dict.get("intra_thread_num_list", [None]),
             ort_opt_level_list=config_dict.get("ort_opt_level_list", ["all"]),
             execution_mode_list=config_dict.get("execution_mode_list"),
-            omp_wait_policy_list=config_dict.get("omp_wait_policy_list")
+            omp_wait_policy_list=config_dict.get("omp_wait_policy_list"),
+            throughput_tuning_enabled=config_dict.get("throughput_tuning_enabled"),
+            max_latency_percentile=config_dict.get("max_latency_percentile"),
+            max_latency_ms=config_dict.get("max_latency_ms"),
+            dynamic_batching_size=config_dict.get("dynamic_batching_size"),
+            threads_num=config_dict.get("threads_num"),
+            min_duration_sec=config_dict.get("min_duration_sec")
         )
 
     else:
@@ -93,11 +100,18 @@ def get_opt_config(args):
             warmup_num=args.warmup_num if args.warmup_num else WARMUP_NUM,
             test_num=args.test_num if args.test_num else TEST_NUM,
             trt_fp16_enabled=args.trt_fp16_enabled,
+            openmp_enabled=args.openmp_enabled,
             inter_thread_num_list=inter_thread_num_list,
             intra_thread_num_list=intra_thread_num_list,
             ort_opt_level_list=ort_opt_level_list,
             execution_mode_list=execution_mode_list,
-            omp_wait_policy_list=omp_wait_policy_list
+            omp_wait_policy_list=omp_wait_policy_list,
+            throughput_tuning_enabled=args.throughput_tuning_enabled,
+            max_latency_percentile=args.max_latency_percentile,
+            max_latency_ms=args.max_latency_ms,
+            dynamic_batching_size=args.dynamic_batching_size if args.dynamic_batching_size else 1,
+            threads_num=args.threads_num if args.threads_num else 1,
+            min_duration_sec=args.min_duration_sec if args.min_duration_sec else 10
         )
 
     return opt_config
@@ -235,7 +249,7 @@ def optimize_in_conda_env(args):
     for key in args.__dict__.keys():
         if args.__dict__[key]:
             if key not in ["use_conda", "use_docker", "use_gpu", "onnxruntime_version", "func"]:
-                if key in ["quantization_enabled", "transformer_enabled", "trt_fp16_enabled"]:
+                if key in ["quantization_enabled", "transformer_enabled", "trt_fp16_enabled", "openmp_enabled", "throughput_tuning_enabled"]:
                     opt_args_str = opt_args_str + "--{} ".format(key)
                 else:
                     opt_args_str = opt_args_str + "--{} {} ".format(key, args.__dict__[key])
@@ -350,6 +364,7 @@ def main():
     parser_opt.add_argument("--output_names", help="output names for onnxruntime session inference")
     parser_opt.add_argument("--providers_list", help="providers used for perftuning")
     parser_opt.add_argument("--trt_fp16_enabled", help="whether enable fp16 mode for TensorRT", action="store_true")
+    parser_opt.add_argument("--openmp_enabled", help="whether the onnxruntime package is built with OpenMP", action="store_true")
     parser_opt.add_argument("--quantization_enabled", help="whether enable the quantization or not", action="store_true")
     parser_opt.add_argument("--transformer_enabled", help="whether enable transformer optimization", action="store_true")
     parser_opt.add_argument("--transformer_args", help="onnxruntime transformer optimizer args")
@@ -364,6 +379,13 @@ def main():
     parser_opt.add_argument("--omp_wait_policy_list", help="list of OpenMP wait policy for perftuning")
     parser_opt.add_argument("--warmup_num", type=int, help="warmup times for latency measurement")
     parser_opt.add_argument("--test_num", type=int, help="repeat test times for latency measurement")
+    parser_opt.add_argument("--throughput_tuning_enabled", help="whether tune model for optimal throughput", action="store_true")
+    parser_opt.add_argument("--max_latency_percentile", type=float, help="throughput max latency pct tile, e.g. 0.90, 0.95")
+    parser_opt.add_argument("--max_latency_ms", type=float, help="max latency in pct tile in millisecond")
+    parser_opt.add_argument("--dynamic_batching_size", type=int, help="max batchsize for dynamic batching")
+    parser_opt.add_argument("--threads_num", type=int, help="threads num for throughput optimization")
+    parser_opt.add_argument("--min_duration_sec", type=int, help="minimum duration for each run in second")
+
     # arguments for environment setup
     parser_opt.add_argument("--use_conda", help="run optimization in new conda env or not", action="store_true")
     parser_opt.add_argument("--use_docker", help="run optimization in docker container or not", action="store_true")

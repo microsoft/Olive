@@ -42,10 +42,10 @@ class Pipeline:
         for p in ["model_path", "concurrency_num", "test_num", "warmup_num", "omp_max_active_levels",
                   "input_names", "output_names", "input_shapes", "sample_input_data_path", "intra_thread_num_list", "inter_thread_num_list",
                   "providers_list", "execution_mode_list", "ort_opt_level_list", "optimization_config",
-                  "transformer_args", "omp_wait_policy_list", "onnxruntime_version"]:
+                  "transformer_args", "omp_wait_policy_list", "onnxruntime_version", "max_latency_percentile", "max_latency_ms", "dynamic_batching_size", "threads_num", "min_duration_sec"]:
             if json_data.get(p):
                 perf_tuning_cmd = perf_tuning_cmd + " --{} {}".format(p, json_data[p])
-        for p in ["use_gpu", "trt_fp16_enabled", "quantization_enabled", "transformer_enabled"]:
+        for p in ["use_gpu", "trt_fp16_enabled", "quantization_enabled", "transformer_enabled", "openmp_enabled", "throughput_tuning_enabled"]:
             if json_data.get(p):
                 perf_tuning_cmd = perf_tuning_cmd + " --{}".format(p)
 
@@ -89,8 +89,10 @@ class Pipeline:
                             self.latency_ms_avg = result.get("latency_ms").get("avg")
                             self.latency_ms_p90 = result.get("latency_ms").get("latency_p90")
                             self.latency_ms_p95 = result.get("latency_ms").get("latency_p95")
+                            self.optimal_throughput = result.get("throughput")
                         if result.get("test_name") == pretuning_test_name:
                             self.pretuning_avg = result.get("latency_ms").get("avg")
+                            self.pretuning_throughput = result.get("throughput")
                     self.optimized_model = optimized_model_path
                     self.sample_script = self.__generate_sample_script()
             else:

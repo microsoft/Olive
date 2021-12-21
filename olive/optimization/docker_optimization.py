@@ -146,7 +146,7 @@ def generate_docker_arguments(args):
         for key in args.__dict__.keys():
             if key not in ["use_conda", "use_docker", "use_gpu", "onnxruntime_version", "func"]:
                 if args.__dict__[key]:
-                    if key in ["quantization_enabled", "transformer_enabled", "trt_fp16_enabled"]:
+                    if key in ["quantization_enabled", "transformer_enabled", "trt_fp16_enabled", "openmp_enabled", "throughput_tuning_enabled"]:
                         opt_args_str = opt_args_str + "--{} ".format(key)
                     else:
                         opt_args_str = opt_args_str + "--{} {} ".format(key, args.__dict__[key])

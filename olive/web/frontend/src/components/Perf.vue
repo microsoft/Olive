@@ -82,6 +82,82 @@
                 <br/>
 
               <div v-if="adv_setting">
+                    <b-form-checkbox
+                    id="throughput_tuning_enabled"
+                    v-model="perf_tuning_form.throughput_tuning_enabled"
+                    name="throughput_tuning_enabled">
+                    Enable Throughput Tuning
+                    </b-form-checkbox>
+
+                    <b-form-group id="form-max_latency_percentile"
+                                label="Maximum Latency Percentile (Required for throughput tuning):"
+                                label-for="form-max_latency_percentile-input"
+                                label-class="font-weight-bold"
+                                v-if="perf_tuning_form.throughput_tuning_enabled">
+                        <b-form-input id="form-max_latency_percentile-input"
+                                    type="text"
+                                    v-model="perf_tuning_form.max_latency_percentile"
+                                    placeholder="Enter Max Latency Percentile, e.g. 0.90, 0.95">
+                        </b-form-input>
+                    </b-form-group>
+
+                    <b-form-group id="form-max_latency_ms"
+                                label="Maximum Latency (Required for throughput tuning):"
+                                label-for="form-max_latency_ms-input"
+                                label-class="font-weight-bold"
+                                v-if="perf_tuning_form.throughput_tuning_enabled">
+                        <b-form-input id="form-max_latency_ms-input"
+                                    type="text"
+                                    v-model="perf_tuning_form.max_latency_ms"
+                                    placeholder="Enter Max Latency in millisecond, e.g. 100, 50">
+                        </b-form-input>
+                    </b-form-group>
+
+
+                    <b-form-group id="form-threads_num"
+                                label="Threads Number (Required for throughput tuning):"
+                                label-for="form-threads_num-input"
+                                label-class="font-weight-bold"
+                                v-if="perf_tuning_form.throughput_tuning_enabled">
+                        <b-form-input id="form-threads_num-input"
+                                    type="text"
+                                    v-model="perf_tuning_form.threads_num"
+                                    placeholder="Enter Threads Number">
+                        </b-form-input>
+                    </b-form-group>
+
+                    <b-form-group id="form-min_duration_sec"
+                                label="Minimum Duration (Sepcified for throughput tuning):"
+                                label-for="form-min_duration_sec-input"
+                                label-class="font-weight-bold"
+                                v-if="perf_tuning_form.throughput_tuning_enabled">
+                        <b-form-input id="form-min_duration_sec-input"
+                                    type="text"
+                                    v-model="perf_tuning_form.min_duration_sec"
+                                    placeholder="Enter Minimum Duration in second">
+                        </b-form-input>
+                    </b-form-group>
+
+                    <b-form-group id="form-dynamic_batching_size"
+                                label="Max batchsize (Sepcified for throughput tuning and dynamic batching):"
+                                label-for="form-dynamic_batching_size-input"
+                                label-class="font-weight-bold"
+                                v-if="perf_tuning_form.throughput_tuning_enabled">
+                        <b-form-input id="form-dynamic_batching_size-input"
+                                    type="text"
+                                    v-model="perf_tuning_form.dynamic_batching_size"
+                                    placeholder="Enter Maximum Batchsize for Dynamic Batching">
+                        </b-form-input>
+                    <hr/>
+                    </b-form-group>
+
+                    <b-form-checkbox
+                    id="openmp_enabled"
+                    v-model="perf_tuning_form.openmp_enabled"
+                    name="openmp_enabled">
+                    Whether the onnxruntime package is built with OpenMP
+                    </b-form-checkbox>
+
                     <b-form-group id="form-input_names-group"
                               label="Model Inputs Names:"
                               label-for="form-input_names-input"
