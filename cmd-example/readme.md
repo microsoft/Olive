@@ -3,9 +3,9 @@
 This repository shows how to deploy and use OLive by running commands.
 
 ## Prerequisites
-Download OLive pakcage [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.2.0-py3-none-any.whl) and install with command `pip install onnxruntime_olive-0.2.0-py3-none-any.whl`
+Download OLive package [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.2.0-py3-none-any.whl) and install with command `pip install onnxruntime_olive-0.2.0-py3-none-any.whl`
 
-ONNX Runtime pakcage can be installed with
+ONNX Runtime package can be installed with
 
 `pip install --extra-index-url https://olivewheels.azureedge.net/test onnxruntime_openvino_dnnl==1.9.0` for cpu
 
