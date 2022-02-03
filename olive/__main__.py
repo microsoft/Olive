@@ -428,6 +428,10 @@ def main():
     parser_server.set_defaults(func=run_server)
 
     options = parser.parse_args()
+    if not getattr(options, 'func', None):
+        parser.print_help()
+        return
+
     options.func(options)
 
 
