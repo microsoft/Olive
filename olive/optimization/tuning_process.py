@@ -11,7 +11,7 @@ import psutil
 
 from .mlperf_dataset import Dataset
 from .server_runner import ServerRunner
-from ..constants import SUB_PROCESS_NAME_PREFIX
+from ..constants import SUB_PROCESS_NAME_PREFIX, ONNX_TO_NP_TYPE_MAP
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -22,10 +22,24 @@ ort.set_default_logger_severity(3)
 
 
 def tune_onnx_model(optimization_config):
+    regenerate_input_data(optimization_config)
     all_test_results = []
     for tuning_combo in generate_tuning_combos(optimization_config):
         all_test_results.extend(threads_num_tuning(optimization_config, tuning_combo))
     return all_test_results
+
+
+def regenerate_input_data(optimization_config):
+    input_dict = {}
+    execution_provider = "CUDAExecutionProvider" if "CUDAExecutionProvider" in ort.get_available_providers() else "CPUExecutionProvider"
+    inputs = ort.InferenceSession(optimization_config.model_path, providers=[execution_provider]).get_inputs()
+    for i in range(0, len(inputs)):
+        if inputs[i].type in ONNX_TO_NP_TYPE_MAP.keys():
+            input_dict[inputs[i].name] = optimization_config.inference_input_dict.get(inputs[i].name).astype(ONNX_TO_NP_TYPE_MAP[inputs[i].type])
+        else:
+            raise KeyError("failed in mapping operator {} which has type {}".format(
+                inputs[i].name, inputs[i].type))
+    optimization_config.inference_input_dict = input_dict
 
 
 def generate_tuning_combos(optimization_config):
