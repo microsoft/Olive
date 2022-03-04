@@ -7,7 +7,6 @@ from multiprocessing import Barrier, Process, Manager
 
 import numpy as np
 import onnxruntime as ort
-import psutil
 
 from .mlperf_dataset import Dataset
 from .server_runner import ServerRunner
@@ -15,8 +14,6 @@ from ..constants import SUB_PROCESS_NAME_PREFIX, ONNX_TO_NP_TYPE_MAP
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-cpu_cores = psutil.cpu_count(logical=False)
 
 ort.set_default_logger_severity(3)
 
@@ -55,7 +52,7 @@ def generate_tuning_combos(optimization_config):
 
 
 def threads_num_tuning(optimization_config, tuning_combo):
-    cpu_cores = psutil.cpu_count(logical=False)
+    cpu_cores = optimization_config.cpu_cores
     tuning_results = []
 
     if tuning_combo[0]:
