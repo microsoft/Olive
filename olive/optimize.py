@@ -36,7 +36,7 @@ def optimize(optimization_config):
     result_json_path = os.path.join(optimization_config.result_path, "olive_result.json")
 
     with open(result_json_path, 'w') as f:
-        json.dump(olive_result, f)
+        json.dump(olive_result, f, indent=4)
 
     if optimization_config.throughput_tuning_enabled:
         for file_name in os.listdir(optimization_config.result_path):
