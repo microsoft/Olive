@@ -228,51 +228,69 @@ def concurrent_inference(synchronizer, optimization_config, test_params=None):
     logger.info("[{}] process finished".format(os.getpid()))
 
 
+def validate_latency(onnx_session, onnx_output_names, inference_input_dict, pretuning_latency_ms):
+    latencies = []
+    for i in range (20):
+        t = time.perf_counter()
+        onnx_session.run(onnx_output_names, inference_input_dict)
+        latencies.append(time.perf_counter() - t)
+    latency_ms = sum(latencies) / len(latencies) * 1000
+    return latency_ms < pretuning_latency_ms * 2
+
+
 def get_latency(optimization_config, test_params, test_result=None, background_process=False):
     onnx_session, session_name = create_inference_session(optimization_config.model_path, test_params)
     onnx_output_names = optimization_config.output_names if optimization_config.output_names else [o.name for o in onnx_session.get_outputs()]
 
     # warmup
-    for i in range(0, optimization_config.warmup_num):
+    for i in range(optimization_config.warmup_num):
         onnx_session.run(onnx_output_names, optimization_config.inference_input_dict)
 
     # run test
-    latencies = []
-    for i in range(0, optimization_config.test_num):
-        t = time.perf_counter()
-        onnx_session.run(onnx_output_names, optimization_config.inference_input_dict)
-        latencies.append(time.perf_counter() - t)
+    if (session_name == "pretuning") or validate_latency(onnx_session, onnx_output_names, optimization_config.inference_input_dict, optimization_config.pretuning_latency_ms):
+        latencies = []
+        for i in range(optimization_config.test_num):
+            t = time.perf_counter()
+            onnx_session.run(onnx_output_names, optimization_config.inference_input_dict)
+            latencies.append(time.perf_counter() - t)
 
-    if not background_process:
-        test_result["test_name"] = session_name
+        if not background_process:
+            test_result["test_name"] = session_name
 
-        if test_params:
-            test_result["execution_provider"] = test_params.get("execution_provider")
-            test_result["env_vars"] = {
-                "OMP_WAIT_POLICY": str(os.getenv("OMP_WAIT_POLICY")),
-                "OMP_NUM_THREADS": str(os.getenv("OMP_NUM_THREADS")),
-                "KMP_AFFINITY": str(os.getenv("KMP_AFFINITY")),
-                "OMP_MAX_ACTIVE_LEVELS": str(os.getenv("OMP_MAX_ACTIVE_LEVELS")),
-                "ORT_TENSORRT_FP16_ENABLE": str(os.getenv("ORT_TENSORRT_FP16_ENABLE", 0))
+            if test_params:
+                test_result["execution_provider"] = test_params.get("execution_provider")
+                test_result["env_vars"] = {
+                    "OMP_WAIT_POLICY": str(os.getenv("OMP_WAIT_POLICY")),
+                    "OMP_NUM_THREADS": str(os.getenv("OMP_NUM_THREADS")),
+                    "KMP_AFFINITY": str(os.getenv("KMP_AFFINITY")),
+                    "OMP_MAX_ACTIVE_LEVELS": str(os.getenv("OMP_MAX_ACTIVE_LEVELS")),
+                    "ORT_TENSORRT_FP16_ENABLE": str(os.getenv("ORT_TENSORRT_FP16_ENABLE", 0))
+                }
+                test_result["session_options"] = {
+                    "inter_op_num_threads": str(test_params.get("inter_op_num_threads")),
+                    "intra_op_num_threads": str(test_params.get("intra_op_num_threads")),
+                    "execution_mode": str(test_params.get("execution_mode")),
+                    "graph_optimization_level": str(test_params.get("graph_optimization_level"))
+                }
+
+            test_result["latency_ms"] = {
+                "avg": round(sum(latencies) / len(latencies) * 1000, 5),
+                "latency_p50": round(np.percentile(latencies, 50) * 1000, 5),
+                "latency_p75": round(np.percentile(latencies, 75) * 1000, 5),
+                "latency_p90": round(np.percentile(latencies, 90) * 1000, 5),
+                "latency_p95": round(np.percentile(latencies, 95) * 1000, 5),
+                "latency_p99": round(np.percentile(latencies, 99) * 1000, 5),
+                "latency_p999": round(np.percentile(latencies, 99.9) * 1000, 5),
             }
-            test_result["session_options"] = {
-                "inter_op_num_threads": str(test_params.get("inter_op_num_threads")),
-                "intra_op_num_threads": str(test_params.get("intra_op_num_threads")),
-                "execution_mode": str(test_params.get("execution_mode")),
-                "graph_optimization_level": str(test_params.get("graph_optimization_level"))
-            }
 
-        test_result["latency_ms"] = {
-            "avg": round(sum(latencies) / len(latencies) * 1000, 5),
-            "latency_p50": round(np.percentile(latencies, 50) * 1000, 5),
-            "latency_p75": round(np.percentile(latencies, 75) * 1000, 5),
-            "latency_p90": round(np.percentile(latencies, 90) * 1000, 5),
-            "latency_p95": round(np.percentile(latencies, 95) * 1000, 5),
-            "latency_p99": round(np.percentile(latencies, 99) * 1000, 5),
-            "latency_p999": round(np.percentile(latencies, 99.9) * 1000, 5),
-        }
-        logger.info("ONNX model average inference time = {} for test {}".format(test_result["latency_ms"]["avg"], session_name))
-        test_result["throughput"] = 1000 / test_result["latency_ms"]["avg"] if test_result["latency_ms"]["avg"] != 0 else "null"
+            if session_name == "pretuning":
+                optimization_config.pretuning_latency_ms = sum(latencies) / len(latencies) * 1000
+
+            logger.info("ONNX model average inference time = {} for test {}".format(test_result["latency_ms"]["avg"], session_name))
+            test_result["throughput"] = 1000 / test_result["latency_ms"]["avg"] if test_result["latency_ms"]["avg"] != 0 else "null"
+
+    else:
+        logger.info("Skip test {} for latency reason".format(session_name))
 
 
 def get_throughput(optimization_config, test_params, test_result=None, background_process=False):
