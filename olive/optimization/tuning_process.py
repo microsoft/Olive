@@ -283,9 +283,6 @@ def get_latency(optimization_config, test_params, test_result=None, background_p
                 "latency_p999": round(np.percentile(latencies, 99.9) * 1000, 5),
             }
 
-            if session_name == "pretuning":
-                optimization_config.pretuning_latency_ms = sum(latencies) / len(latencies) * 1000
-
             logger.info("ONNX model average inference time = {} for test {}".format(test_result["latency_ms"]["avg"], session_name))
             test_result["throughput"] = 1000 / test_result["latency_ms"]["avg"] if test_result["latency_ms"]["avg"] != 0 else "null"
 
