@@ -1,4 +1,5 @@
 import logging
+import psutil
 from shutil import copy
 
 import numpy as np
@@ -44,7 +45,8 @@ class OptimizationConfig:
                  max_latency_ms=None,
                  threads_num=None,
                  dynamic_batching_size=1,
-                 min_duration_sec=10):
+                 min_duration_sec=10,
+                 cpu_cores=None):
 
         self.model_path = model_path
         self.inputs_spec = inputs_spec
@@ -89,6 +91,7 @@ class OptimizationConfig:
         if self.inputs_spec is None:
             self.inputs_spec = self._generate_inputs_spec()
         self.inference_input_dict = self._generate_input_data()
+        self.cpu_cores = cpu_cores if cpu_cores else psutil.cpu_count(logical=False)
 
     def _validate_throughput_config(self):
         if not (self.max_latency_percentile and self.max_latency_ms):
