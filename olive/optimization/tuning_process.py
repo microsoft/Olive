@@ -235,7 +235,7 @@ def validate_latency(onnx_session, onnx_output_names, inference_input_dict, pret
         onnx_session.run(onnx_output_names, inference_input_dict)
         latencies.append(time.perf_counter() - t)
     latency_ms = sum(latencies) / len(latencies) * 1000
-    return latency_ms < pretuning_latency_ms * 2
+    return latency_ms < pretuning_latency_ms * 10
 
 
 def get_latency(optimization_config, test_params, test_result=None, background_process=False):
