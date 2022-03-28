@@ -92,6 +92,7 @@ class OptimizationConfig:
             self.inputs_spec = self._generate_inputs_spec()
         self.inference_input_dict = self._generate_input_data()
         self.cpu_cores = cpu_cores if cpu_cores else psutil.cpu_count(logical=False)
+        self.pretuning_latency_ms=None
 
     def _validate_throughput_config(self):
         if not (self.max_latency_percentile and self.max_latency_ms):

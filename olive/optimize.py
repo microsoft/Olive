@@ -22,6 +22,8 @@ def optimize(optimization_config):
     multiprocessing.set_start_method("spawn", force=True)
 
     pretuning_inference_result = get_benchmark(optimization_config)
+    if not optimization_config.throughput_tuning_enabled:
+        optimization_config.pretuning_latency_ms = pretuning_inference_result["latency_ms"]["avg"]
 
     if optimization_config.transformer_enabled:
         transformer_optimize(optimization_config)
