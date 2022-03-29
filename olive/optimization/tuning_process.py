@@ -7,6 +7,7 @@ from multiprocessing import Barrier, Process, Manager
 
 import numpy as np
 import onnxruntime as ort
+from packaging import version
 
 from .mlperf_dataset import Dataset
 from .server_runner import ServerRunner
@@ -40,7 +41,7 @@ def regenerate_input_data(optimization_config):
 
 
 def generate_tuning_combos(optimization_config):
-    if optimization_config.openmp_enabled or ort.__version__ <= '1.7.0':
+    if optimization_config.openmp_enabled or version.parse(ort.__version__) <= version.parse('1.7.0'):
         tuning_combos = itertools.product(optimization_config.omp_wait_policy_list, optimization_config.kmp_affinity,
                                           optimization_config.omp_max_active_levels, optimization_config.providers_list,
                                           optimization_config.execution_mode_list, optimization_config.ort_opt_level_list)
@@ -149,6 +150,9 @@ def generate_test_name(test_params):
 
 def create_inference_session(model_path, test_params=None):
     sess_options = ort.SessionOptions()
+
+    if version.parse(ort.__version__) >= version.parse("1.11.0"):
+        sess_options.add_session_config_entry('session.dynamic_block_base', '4')
 
     if test_params:
         session_name = generate_test_name(test_params)

@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 
 def get_install_requires():
-    install_requires = ["numpy", "onnx", "psutil", "coloredlogs", "sympy", "docker==5.0.0", "six", "onnxconverter_common"]
+    install_requires = ["numpy", "onnx", "psutil", "coloredlogs", "sympy", "docker==5.0.0", "six", "onnxconverter_common", "packaging"]
     return install_requires
 
 
