@@ -4,7 +4,7 @@ import sys
 import pkg_resources
 import numpy as np
 
-ONNXRUNTIME_VERSION = "1.9.0"
+ONNXRUNTIME_VERSION = "1.10.0"
 ONNX_VERSION = "1.7.0"
 PYTORCH_VERSION = "1.7"
 TENSORFLOW_VERSION = "1.15"

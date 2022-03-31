@@ -15,14 +15,15 @@ def get_package_data():
 
 setup(
     name="onnxruntime-olive",
-    version="0.2.0",
+    version="0.3.0",
     description="ONNX model conversion and optimization techniques",
     author="OLive-Team",
     author_email="olive-team@microsoft.com",
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7"
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         ],
     packages=find_packages(),
     package_data=get_package_data(),

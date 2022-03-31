@@ -242,7 +242,7 @@ def optimize_in_conda_env(args):
     conda_env_name = "OLive_optimization_{}".format(str(time.time()).split(".")[0])
     logger.info("new created conda env name is {}".format(conda_env_name))
 
-    python_version = "3.6"
+    python_version = "3.8"
     use_gpu = args.use_gpu if args.use_gpu else False
     onnxruntime_version = args.onnxruntime_version if args.onnxruntime_version else ONNXRUNTIME_VERSION
     opt_args_str = ""
@@ -265,7 +265,7 @@ def convert_in_conda_env(args):
     conda_env_name = "OLive_conversion_{}".format(str(time.time()).split(".")[0])
     logger.info("new created conda env name is {}".format(conda_env_name))
 
-    python_version = "3.6"
+    python_version = "3.8"
     cvt_args_str = ""
     for key in args.__dict__.keys():
         if args.__dict__[key]:

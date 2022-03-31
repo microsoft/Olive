@@ -13,7 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        ort_version: [1.9.0]
+        ort_version: [1.10.0]
         os: [ubuntu-latest, windows-latest]
     steps:
     - name: check out repo
@@ -22,7 +22,7 @@ jobs:
     - name: setup python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.6.8
+        python-version: 3.8
 
     # ===========================Install Packages==================================
     - name: Install Packages
@@ -30,8 +30,8 @@ jobs:
         pip install --upgrade pip==20.1.1
         pip install onnx==1.7.0 wheel numpy flatbuffers psutil pytest coloredlogs onnxconverter_common docker==5.0.0 six tf2onnx==1.7.2 tensorflow==1.14.0 torch==1.6.0+cpu torchvision==0.7.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
         python setup.py bdist_wheel
-        pip install dist/onnxruntime_olive-0.2.0-py3-none-any.whl
-        pip install --no-cache --index-url https://olivewheels.azureedge.net/test onnxruntime_openvino_dnnl==${{ matrix.ort_version }}
+        pip install dist/onnxruntime_olive-0.3.0-py3-none-any.whl
+        pip install --no-cache --extra-index-url https://olivewheels.azureedge.net/test onnxruntime_openvino_dnnl==${{ matrix.ort_version }}
         pip install --extra-index-url https://olivewheels.azureedge.net/test mlperf_loadgen
 
     # ===========================Run CLI Tests - Optimization==================================

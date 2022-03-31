@@ -15,7 +15,7 @@ call conda activate %conda_env_name%
 call pip install numpy onnx psutil coloredlogs sympy onnxconverter_common docker==5.0.0 six
 
 :: install olive
-call pip install --index-url https://olivewheels.azureedge.net/test onnxruntime-olive==0.2.0
+call pip install --extra-index-url https://olivewheels.azureedge.net/test onnxruntime-olive==0.3.0
 
 :: optimization setup in conda env
 if %use_gpu%=="True" (call olive setup --onnxruntime_version %onnxruntime_version% --use_gpu) else (call olive setup --onnxruntime_version %onnxruntime_version%)
