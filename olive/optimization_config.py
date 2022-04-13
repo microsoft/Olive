@@ -46,7 +46,8 @@ class OptimizationConfig:
                  threads_num=None,
                  dynamic_batching_size=1,
                  min_duration_sec=10,
-                 cpu_cores=None):
+                 cpu_cores=None,
+                 model_analyzer_config=None):
 
         self.model_path = model_path
         self.inputs_spec = inputs_spec
@@ -85,6 +86,7 @@ class OptimizationConfig:
         self._execution_mode_map()
         self._validate_model_path()
         self._duplicate_model_for_tuning()
+        self.model_analyzer_config = model_analyzer_config
         self._validate_providers_list()
         if self.throughput_tuning_enabled:
             self._validate_throughput_config()
@@ -92,7 +94,7 @@ class OptimizationConfig:
             self.inputs_spec = self._generate_inputs_spec()
         self.inference_input_dict = self._generate_input_data()
         self.cpu_cores = cpu_cores if cpu_cores else psutil.cpu_count(logical=False)
-        self.pretuning_latency_ms=None
+        self.pretuning_latency_ms = None
 
     def _validate_throughput_config(self):
         if not (self.max_latency_percentile and self.max_latency_ms):
@@ -162,6 +164,8 @@ class OptimizationConfig:
             provider_test_list = available_providers
 
         if provider_test_list:
+            if self.model_analyzer_config and "DnnlExecutionProvider" in provider_test_list:
+                provider_test_list.remove("DnnlExecutionProvider")
             logger.info("Providers will be tested for optimization: {}".format(provider_test_list))
             self.providers_list = provider_test_list
         else:
