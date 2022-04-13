@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/tensorrt:20.11-py3
+FROM nvcr.io/nvidia/tensorrt:21.09-py3
 
 ARG ort_version
 
