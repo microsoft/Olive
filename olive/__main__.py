@@ -177,7 +177,7 @@ def get_cvt_config(args):
             inputs_schema=inputs_schema,
             outputs_schema=outputs_schema,
             model_framework=model_framework,
-            onnx_opset=config_dict.get("onnx_opset"),
+            onnx_opset=config_dict.get("onnx_opset", 12),
             onnx_model_path=config_dict.get("onnx_model_path", ONNX_MODEL_PATH),
             sample_input_data_path=config_dict.get("sample_input_data_path")
         )
@@ -410,7 +410,7 @@ def main():
     parser_cvt.add_argument("--output_names", help="output names for model framework conversion")
     parser_cvt.add_argument("--output_shapes", help="output shapes for model framework conversion")
     parser_cvt.add_argument("--output_types", help="output types for model framework conversion")
-    parser_cvt.add_argument("--onnx_opset", help="target opset version for conversion", type=int)
+    parser_cvt.add_argument("--onnx_opset", help="target opset version for conversion", type=int, default=12)
     parser_cvt.add_argument("--onnx_model_path", help="ONNX model path as conversion output", default=ONNX_MODEL_PATH)
     parser_cvt.add_argument("--sample_input_data_path", help="path to sample_input_data.npz")
     # arguments for environment setup
