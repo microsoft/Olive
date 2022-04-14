@@ -41,12 +41,10 @@ class PyTorchConverter(BaseConverter):
         self._load_model()
 
         # prepare output info if the model is torchscript
-        dummy_output = None
         if isinstance(self.pytorch_model_loader.pytorch_model, torch.jit.ScriptModule):
             if not IOSchemaLoader.validate_schema_properties(self.conversion_config.outputs_schema,
                                                              [IOSchemaLoader.SHAPE_KEY]):
                 raise Exception("To convert torchscript PyTorch model outputs_schema needs shape information.")
-            dummy_output = PyTorchConverter._create_dummy_data_from_schema(self.conversion_config.outputs_schema, self.device)
         # convert model
         torch.onnx.export(self.pytorch_model_loader.pytorch_model,
                           dummy_input,
@@ -55,7 +53,6 @@ class PyTorchConverter(BaseConverter):
                           output_names=self.original_output_names,
                           opset_version=self.conversion_config.onnx_opset,
                           dynamic_axes=self._get_dynamic_axes(),
-                          example_outputs=dummy_output,
                           verbose=log_verbose)
 
     def _load_model(self):
