@@ -78,11 +78,11 @@ STR_TO_NP_TYPE_MAP = {
 
 # setup requirenemts for conversion
 SETUP_REQUIREMENTS_CONVERSION = {
-    "tensorflow_1.11": ["tensorflow==1.11.0", "pandas==1.4.2", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
-    "tensorflow_1.12": ["tensorflow==1.12.0", "pandas==1.4.2", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
-    "tensorflow_1.13": ["tensorflow==1.13.1", "pandas==1.4.2", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
-    "tensorflow_1.14": ["tensorflow==1.14.0", "pandas==1.4.2", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
-    "tensorflow_1.15": ["tensorflow==1.15.0", "pandas==1.4.2", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
+    "tensorflow_1.11": ["tensorflow==1.11.0", "pandas==1.3.5", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
+    "tensorflow_1.12": ["tensorflow==1.12.0", "pandas==1.3.5", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
+    "tensorflow_1.13": ["tensorflow==1.13.1", "pandas==1.3.5", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
+    "tensorflow_1.14": ["tensorflow==1.14.0", "pandas==1.3.5", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
+    "tensorflow_1.15": ["tensorflow==1.15.0", "pandas==1.3.5", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
     "pytorch_1.3": ["onnx=={}".format(ONNX_VERSION), "torch==1.3.0+cpu", "torchvision==0.4.1+cpu"],
     "pytorch_1.4": ["onnx=={}".format(ONNX_VERSION), "torch==1.4.0+cpu", "torchvision==0.5.0+cpu"],
     "pytorch_1.5": ["onnx=={}".format(ONNX_VERSION), "torch==1.5.1+cpu", "torchvision==0.6.1+cpu"],
