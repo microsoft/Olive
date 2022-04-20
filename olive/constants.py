@@ -4,8 +4,8 @@ import sys
 import pkg_resources
 import numpy as np
 
-ONNXRUNTIME_VERSION = "1.9.0"
-ONNX_VERSION = "1.7.0"
+ONNXRUNTIME_VERSION = "1.10.0"
+ONNX_VERSION = "1.11.0"
 PYTORCH_VERSION = "1.7"
 TENSORFLOW_VERSION = "1.15"
 FRAMEWORK_TENSORFLOW = "tensorflow"
@@ -78,16 +78,20 @@ STR_TO_NP_TYPE_MAP = {
 
 # setup requirenemts for conversion
 SETUP_REQUIREMENTS_CONVERSION = {
-    "tensorflow_1.11": ["tensorflow==1.11.0", "pandas==0.23.4", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
-    "tensorflow_1.12": ["tensorflow==1.12.0", "pandas==0.23.4", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
-    "tensorflow_1.13": ["tensorflow==1.13.1", "pandas==0.23.4", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
-    "tensorflow_1.14": ["tensorflow==1.14.0", "pandas==0.23.4", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
-    "tensorflow_1.15": ["tensorflow==1.15.0", "pandas==0.23.4", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
+    "tensorflow_1.11": ["tensorflow==1.11.0", "pandas==1.3.5", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
+    "tensorflow_1.12": ["tensorflow==1.12.0", "pandas==1.3.5", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
+    "tensorflow_1.13": ["tensorflow==1.13.1", "pandas==1.3.5", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
+    "tensorflow_1.14": ["tensorflow==1.14.0", "pandas==1.3.5", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
+    "tensorflow_1.15": ["tensorflow==1.15.0", "pandas==1.3.5", "onnx=={}".format(ONNX_VERSION), "tf2onnx==1.7.2"],
     "pytorch_1.3": ["onnx=={}".format(ONNX_VERSION), "torch==1.3.0+cpu", "torchvision==0.4.1+cpu"],
     "pytorch_1.4": ["onnx=={}".format(ONNX_VERSION), "torch==1.4.0+cpu", "torchvision==0.5.0+cpu"],
     "pytorch_1.5": ["onnx=={}".format(ONNX_VERSION), "torch==1.5.1+cpu", "torchvision==0.6.1+cpu"],
     "pytorch_1.6": ["onnx=={}".format(ONNX_VERSION), "torch==1.6.0+cpu", "torchvision==0.7.0+cpu"],
-    "pytorch_1.7": ["onnx=={}".format(ONNX_VERSION), "torch==1.7.0+cpu", "torchvision==0.8.1+cpu"]
+    "pytorch_1.7": ["onnx=={}".format(ONNX_VERSION), "torch==1.7.0+cpu", "torchvision==0.8.1+cpu"],
+    "pytorch_1.8": ["onnx=={}".format(ONNX_VERSION), "torch==1.8.0+cpu", "torchvision==0.9.0+cpu"],
+    "pytorch_1.9": ["onnx=={}".format(ONNX_VERSION), "torch==1.9.0+cpu", "torchvision==	0.10.0+cpu"],
+    "pytorch_1.10": ["onnx=={}".format(ONNX_VERSION), "torch==1.10.0+cpu", "torchvision==0.11.1+cpu"],
+    "pytorch_1.11": ["onnx=={}".format(ONNX_VERSION), "torch==1.11.0+cpu", "torchvision==0.12.0+cpu"]
 }
 
 LOGGING_LEVEL_MAP = {

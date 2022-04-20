@@ -2,6 +2,7 @@ from collections import OrderedDict
 import copy
 import sys
 
+from packaging import version
 import torch
 import torch.jit
 
@@ -47,16 +48,27 @@ class PyTorchConverter(BaseConverter):
                                                              [IOSchemaLoader.SHAPE_KEY]):
                 raise Exception("To convert torchscript PyTorch model outputs_schema needs shape information.")
             dummy_output = PyTorchConverter._create_dummy_data_from_schema(self.conversion_config.outputs_schema, self.device)
+        
         # convert model
-        torch.onnx.export(self.pytorch_model_loader.pytorch_model,
-                          dummy_input,
-                          self.conversion_config.onnx_model_path,
-                          input_names=self.original_input_names,
-                          output_names=self.original_output_names,
-                          opset_version=self.conversion_config.onnx_opset,
-                          dynamic_axes=self._get_dynamic_axes(),
-                          example_outputs=dummy_output,
-                          verbose=log_verbose)
+        if version.parse(torch.__version__) >= version.parse('1.10.21.11.0'):
+            torch.onnx.export(self.pytorch_model_loader.pytorch_model,
+                            dummy_input,
+                            self.conversion_config.onnx_model_path,
+                            input_names=self.original_input_names,
+                            output_names=self.original_output_names,
+                            opset_version=self.conversion_config.onnx_opset,
+                            dynamic_axes=self._get_dynamic_axes(),
+                            verbose=log_verbose)
+        else:
+            torch.onnx.export(self.pytorch_model_loader.pytorch_model,
+                dummy_input,
+                self.conversion_config.onnx_model_path,
+                input_names=self.original_input_names,
+                output_names=self.original_output_names,
+                opset_version=self.conversion_config.onnx_opset,
+                dynamic_axes=self._get_dynamic_axes(),
+                example_outputs=dummy_output,
+                verbose=log_verbose)
 
     def _load_model(self):
         self.pytorch_model_loader = PytorchModelLoader(conversion_config=self.conversion_config, device=self.device)

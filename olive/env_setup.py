@@ -46,7 +46,7 @@ def install_packages(onnxruntime_version=None, use_gpu=False, model_framework=No
     if model_framework:
         model_framework = model_framework.lower()
         if model_framework == "pytorch":
-            if framework_version not in ["1.3", "1.4", "1.5", "1.6", "1.7"]:
+            if framework_version not in ["1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9", "1.10", "1.11"]:
                 framework_version = PYTORCH_VERSION
                 logger.info(
                     "PyTorch framework version can only be selected in {}. framework_version={} will be used".format(

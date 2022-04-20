@@ -17,7 +17,7 @@ class ConversionConfig:
                  inputs_schema=[],
                  outputs_schema=[],
                  model_framework=None,
-                 onnx_opset=None,
+                 onnx_opset=12,
                  onnx_model_path=ONNX_MODEL_PATH,
                  sample_input_data_path=None):
         self.model_path = model_path

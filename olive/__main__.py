@@ -177,7 +177,7 @@ def get_cvt_config(args):
             inputs_schema=inputs_schema,
             outputs_schema=outputs_schema,
             model_framework=model_framework,
-            onnx_opset=config_dict.get("onnx_opset"),
+            onnx_opset=config_dict.get("onnx_opset", 12),
             onnx_model_path=config_dict.get("onnx_model_path", ONNX_MODEL_PATH),
             sample_input_data_path=config_dict.get("sample_input_data_path")
         )
@@ -244,7 +244,7 @@ def optimize_in_conda_env(args):
     conda_env_name = "OLive_optimization_{}".format(str(time.time()).split(".")[0])
     logger.info("new created conda env name is {}".format(conda_env_name))
 
-    python_version = "3.6"
+    python_version = "3.7"
     use_gpu = args.use_gpu if args.use_gpu else False
     onnxruntime_version = args.onnxruntime_version if args.onnxruntime_version else ONNXRUNTIME_VERSION
     opt_args_str = ""
@@ -267,7 +267,7 @@ def convert_in_conda_env(args):
     conda_env_name = "OLive_conversion_{}".format(str(time.time()).split(".")[0])
     logger.info("new created conda env name is {}".format(conda_env_name))
 
-    python_version = "3.6"
+    python_version = "3.7"
     cvt_args_str = ""
     for key in args.__dict__.keys():
         if args.__dict__[key]:
@@ -402,15 +402,15 @@ def main():
     parser_cvt.add_argument("--model_path", help="model path for conversion")
     parser_cvt.add_argument("--model_framework", help="model original framework")
     parser_cvt.add_argument("--model_root_path", help="model folder for conversion, only for PyTorch model")
-    parser_cvt.add_argument("--inputs_schema", help="input’s names, types, and shapes")
-    parser_cvt.add_argument("--outputs_schema", help="output’s names, types, and shapes")
+    parser_cvt.add_argument("--inputs_schema", help="input's names, types, and shapes")
+    parser_cvt.add_argument("--outputs_schema", help="output's names, types, and shapes")
     parser_cvt.add_argument("--input_names", help="input names for model framework conversion")
     parser_cvt.add_argument("--input_shapes", help="input shapes for model framework conversion")
     parser_cvt.add_argument("--input_types", help="input types for model framework conversion")
     parser_cvt.add_argument("--output_names", help="output names for model framework conversion")
     parser_cvt.add_argument("--output_shapes", help="output shapes for model framework conversion")
     parser_cvt.add_argument("--output_types", help="output types for model framework conversion")
-    parser_cvt.add_argument("--onnx_opset", help="target opset version for conversion", type=int)
+    parser_cvt.add_argument("--onnx_opset", help="target opset version for conversion", type=int, default=12)
     parser_cvt.add_argument("--onnx_model_path", help="ONNX model path as conversion output", default=ONNX_MODEL_PATH)
     parser_cvt.add_argument("--sample_input_data_path", help="path to sample_input_data.npz")
     # arguments for environment setup

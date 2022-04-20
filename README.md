@@ -26,14 +26,14 @@ Optimization fileds:
  * [Transformer Model Optimization](https://github.com/microsoft/onnxruntime/tree/master/onnxruntime/python/tools/transformers)
 
 ## Getting Started
-OLive package can be downloaded [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.2.0-py3-none-any.whl) and installed with command `pip install onnxruntime_olive-0.2.0-py3-none-any.whl`. 
+OLive package can be downloaded [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.3.0-py3-none-any.whl) and installed with command `pip install onnxruntime_olive-0.3.0-py3-none-any.whl`. 
 
-Supported python version: 3.6, 3.7, 3.8
+Supported python version: 3.7, 3.8, 3.9
 
 User needs to install CUDA and cuDNN dependencies for perf tuning with OLive on GPU. The table below shows the ORT version and required CUDA and cuDNN version in the latest OLive.
 | ONNX Runtime | CUDA | cuDNN |
 |:--|:--|:--|
-| 1.9.0 | [11.4](https://developer.nvidia.com/cuda-11-4-2-download-archive) | [8.2](https://developer.nvidia.com/rdp/cudnn-download#a-collapse824-114) |
+| 1.10.0 | [11.4](https://developer.nvidia.com/cuda-11-4-2-download-archive) | [8.2](https://developer.nvidia.com/rdp/cudnn-download#a-collapse824-114) |
 
 There are three ways to use OLive:
 1. [Use With Command Line](./cmd-example/readme.md): Run the OLive with command line using Python. 

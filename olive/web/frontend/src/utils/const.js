@@ -37,7 +37,7 @@ export const perf_tuning_form = {
   concurrency_num: '',
   test_num: '',
   warmup_num: '',
-  onnxruntime_version: '1.9.0',
+  onnxruntime_version: '1.10.0',
   use_gpu: false,
   throughput_tuning_enabled: false,
   max_latency_percentile: '',
