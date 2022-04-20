@@ -15,7 +15,7 @@ call conda activate %conda_env_name%
 call pip install numpy onnx psutil coloredlogs sympy onnxconverter_common docker==5.0.0 six
 
 :: install olive
-call pip install --extra-index-url https://olivewheels.azureedge.net/test onnxruntime-olive==0.3.0
+call pip install --extra-index-url https://olivewheels.azureedge.net/test onnxruntime-olive==0.4.0
 
 :: conversion setup in conda env
 call olive setup --model_framework %model_framework% --framework_version %framework_version%

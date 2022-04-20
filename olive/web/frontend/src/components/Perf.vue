@@ -391,7 +391,7 @@ export default {
       selected_opt_levels: [],
       selected_omp_wait_policy: [],
       options: {
-        onnxruntime_version: ['1.8.1', '1.9.0', '1.10.0'],
+        onnxruntime_version: ['1.8.1', '1.9.0', '1.10.0', '1.11.0'],
         execution_mode_list: ['parallel', 'sequential'],
         providers_list: [
           { value: '', text: 'Run all EPs (default)' },
