@@ -36,7 +36,7 @@ class TensorflowConverter(BaseConverter):
 
         tf.reset_default_graph()
         graph_def = tf_optimize(self.original_input_names, self.original_output_names,
-                                self.tf_sess.graph_def, fold_constant=True)
+                                self.tf_sess.graph_def)
         tf.import_graph_def(graph_def, name="")
         onnx_graph = process_tf_graph(tf.get_default_graph(), opset=self.conversion_config.onnx_opset,
                                       input_names=self.original_input_names, output_names=self.original_output_names)

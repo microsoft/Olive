@@ -7,7 +7,7 @@ RUN python -m pip install numpy onnx psutil coloredlogs sympy onnxconverter_comm
 COPY requirements.txt requirements.txt
 
 RUN python -m pip install -r requirements.txt -f https://download.pytorch.org/whl/torch_stable.html
-RUN python -m pip install --extra-index-url https://olivewheels.azureedge.net/test onnxruntime-olive==0.4.0
+RUN python -m pip install onnxruntime-olive==0.4.0 -f https://olivewheels.azureedge.net/test/onnxruntime-olive
 
 ADD . /code
 COPY ThirdPartyNotices.txt /code/ThirdPartyNotices.txt

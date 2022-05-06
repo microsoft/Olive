@@ -133,7 +133,7 @@ def test_customized_model_multiple_outputs():
         {
             IOSchemaLoader.SHAPE_KEY: [10, 3, 244, 244],
             IOSchemaLoader.DTYPE_KEY: "float",
-            IOSchemaLoader.NAME_KEY: "multiple_out_0"
+            IOSchemaLoader.NAME_KEY: "multiple_in_0"
         }
     ]
     outputs_schema = [{IOSchemaLoader.NAME_KEY: "multiple_out_0"}, {IOSchemaLoader.NAME_KEY: "multiple_out_1"}]
