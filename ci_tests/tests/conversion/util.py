@@ -77,7 +77,7 @@ def prepare_test_data():
         ensure_path_exist(CUSTOMIZED_MODEL_MULTIPLE_OUTPUTS_DATA)
         x = np.random.randn(10, 3, 244, 244)
         value_list = [x]
-        name_list = ["multiple_out_0"]
+        name_list = ["multiple_in_0"]
         data = dict(zip(name_list, value_list))
         np.savez(CUSTOMIZED_MODEL_MULTIPLE_OUTPUTS_DATA, **data)
 
