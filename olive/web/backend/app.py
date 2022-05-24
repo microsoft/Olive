@@ -1,7 +1,7 @@
 import os
 import sys
 
-from flask import Flask, jsonify, request, send_file, url_for, send_from_directory, safe_join
+from flask import Flask, jsonify, request, send_file, url_for, send_from_directory
 from flask_cors import CORS
 
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '../utils'))
@@ -343,7 +343,7 @@ def get_job_name(task_id):
 @app.route('/download/<path:filename>', methods=['POST', 'GET'])
 def download(filename):
     try:
-        return send_file(safe_join(app.root_path, filename), filename)
+        return send_file(os.path.join(app.root_path, filename), filename)
     except Exception as e:
         return str(e)
 
