@@ -11,7 +11,7 @@
         </router-link>
         <router-link to="/perf" >
           <button type="button" class="btn btn-info btn-md button_right">
-            Pert Test
+            Perf Test
           </button>
         </router-link>
         <router-link to="/visualize">
