@@ -15,6 +15,7 @@
     "bootstrap-vue": "^2.0.2",
     "core-js": "^2.6.5",
     "cropperjs": "^1.5.5",
+    "ejs": "^3.1.8",
     "frontend": "^2.0.0-alpha.4",
     "jquery": "^3.5.0",
     "minimist": "^1.2.6",
