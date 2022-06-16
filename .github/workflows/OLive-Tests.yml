@@ -1,9 +1,13 @@
 trigger: none
 
+parameters:
+ - name: 'ort_version'
+   default: '1.11.0'
+
 variables:
   CDP_DEFINITION_BUILD_COUNT: $[counter('', 0)] # needed for onebranch.pipeline.version task https://aka.ms/obpipelines/versioning
   DEBIAN_FRONTEND: noninteractive
-  ort_version: "1.11.0"
+  LinuxContainerImage: 'onebranch.azurecr.io/linux/ubuntu-2004:latest'
 
 resources:
   repositories: 
@@ -46,7 +50,7 @@ extends:
                 pip install onnx==1.11.0 wheel numpy flatbuffers psutil pytest coloredlogs onnxconverter_common docker==5.0.0 six protobuf==3.18.1 tf2onnx==1.7.2 tensorflow==1.14.0 torch==1.11.0+cpu torchvision==0.12.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
                 python setup.py bdist_wheel
                 pip install dist/onnxruntime_olive-0.4.0-py3-none-any.whl
-                pip install --no-cache onnxruntime_openvino_dnnl==${{ variables['ort_version'] }} -f https://olivewheels.azureedge.net/test/onnxruntime-openvino-dnnl
+                pip install --no-cache onnxruntime_openvino_dnnl==${{ parameters.ort_version }} -f https://olivewheels.azureedge.net/test/onnxruntime-openvino-dnnl
                 pip install mlperf_loadgen -f https://olivewheels.azureedge.net/test/mlperf-loadgen
           - task: CopyFiles@2
             displayName: 'Copy Files to ob_outputDirectory'
@@ -87,7 +91,7 @@ extends:
                 pip install onnx==1.11.0 wheel numpy flatbuffers psutil pytest coloredlogs onnxconverter_common docker==5.0.0 six protobuf==3.18.1 tf2onnx==1.7.2 tensorflow==1.14.0 torch==1.11.0+cpu torchvision==0.12.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
                 python setup.py bdist_wheel
                 pip install dist/onnxruntime_olive-0.4.0-py3-none-any.whl
-                pip install --no-cache onnxruntime_openvino_dnnl==${{ variables['ort_version'] }} -f https://olivewheels.azureedge.net/test/onnxruntime-openvino-dnnl
+                pip install --no-cache onnxruntime_openvino_dnnl==${{ parameters.ort_version }} -f https://olivewheels.azureedge.net/test/onnxruntime-openvino-dnnl
                 pip install mlperf_loadgen -f https://olivewheels.azureedge.net/test/mlperf-loadgen
           - task: CmdLine@2
             displayName: Command Line Script
