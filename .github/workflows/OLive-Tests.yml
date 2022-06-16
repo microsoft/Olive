@@ -8,6 +8,7 @@ variables:
   CDP_DEFINITION_BUILD_COUNT: $[counter('', 0)] # needed for onebranch.pipeline.version task https://aka.ms/obpipelines/versioning
   DEBIAN_FRONTEND: noninteractive
   LinuxContainerImage: 'onebranch.azurecr.io/linux/ubuntu-2004:latest'
+  WindowsContainerImage: 'cdpxwin1809.azurecr.io/global/vse2019:latest'
 
 resources:
   repositories: 
@@ -27,7 +28,7 @@ extends:
           enabled: true
 
     stages:
-    - stage: linux_stage
+    - stage: test
       jobs:
       - job: linux_job
         pool:
