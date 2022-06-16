@@ -85,6 +85,19 @@ def threads_num_tuning(optimization_config, tuning_combo):
         logger.error("Optimization failed for tuning combo {}".format(tuning_combo))
         pass
 
+    if provider == "TensorrtExecutionProvider" and optimization_config.trt_fp16_enabled and optimization_config.fp32_enabled:
+        os.environ["ORT_TENSORRT_FP16_ENABLE"] = "0"
+        try:
+            for inter in optimization_config.inter_thread_num_list:
+                test_params["inter_op_num_threads"] = inter
+                for intra in optimization_config.intra_thread_num_list:
+                    test_params["intra_op_num_threads"] = intra
+                    threads_num_binary_search(optimization_config, test_params, tuning_results, cpu_cores)
+
+        except Exception:
+            logger.error("Optimization failed for tuning combo {}".format(tuning_combo))
+            pass
+
     return tuning_results
 
 

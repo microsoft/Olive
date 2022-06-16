@@ -39,6 +39,7 @@ class OptimizationConfig:
                  execution_mode_list=None,
                  omp_wait_policy_list=None,
                  trt_fp16_enabled=False,
+                 fp32_enabled=False,
                  openmp_enabled=False,
                  throughput_tuning_enabled=False,
                  max_latency_percentile=None,
@@ -67,6 +68,7 @@ class OptimizationConfig:
         self.ort_opt_level_list = ort_opt_level_list
         self.execution_mode_list = execution_mode_list
         self.trt_fp16_enabled = trt_fp16_enabled
+        self.fp32_enabled = fp32_enabled
         self.openmp_enabled = openmp_enabled
         self.output_names = output_names
         self.throughput_tuning_enabled = throughput_tuning_enabled
