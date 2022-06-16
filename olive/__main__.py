@@ -48,6 +48,7 @@ def get_opt_config(args):
             warmup_num=config_dict.get("warmup_num", WARMUP_NUM),
             test_num=config_dict.get("test_num", TEST_NUM),
             trt_fp16_enabled=config_dict.get("trt_fp16_enabled", False),
+            fp32_enabled=config_dict.get("fp32_enabled", False),
             openmp_enabled=config_dict.get("openmp_enabled", False),
             inter_thread_num_list=config_dict.get("inter_thread_num_list", [None]),
             intra_thread_num_list=config_dict.get("intra_thread_num_list", [None]),
@@ -101,6 +102,7 @@ def get_opt_config(args):
             warmup_num=args.warmup_num if args.warmup_num else WARMUP_NUM,
             test_num=args.test_num if args.test_num else TEST_NUM,
             trt_fp16_enabled=args.trt_fp16_enabled,
+            fp32_enabled=args.fp32_enabled,
             openmp_enabled=args.openmp_enabled,
             inter_thread_num_list=inter_thread_num_list,
             intra_thread_num_list=intra_thread_num_list,
@@ -251,7 +253,7 @@ def optimize_in_conda_env(args):
     for key in args.__dict__.keys():
         if args.__dict__[key]:
             if key not in ["use_conda", "use_docker", "use_gpu", "onnxruntime_version", "func"]:
-                if key in ["quantization_enabled", "transformer_enabled", "trt_fp16_enabled", "openmp_enabled", "throughput_tuning_enabled"]:
+                if key in ["quantization_enabled", "transformer_enabled", "trt_fp16_enabled", "openmp_enabled", "throughput_tuning_enabled", "fp32_enabled"]:
                     opt_args_str = opt_args_str + "--{} ".format(key)
                 else:
                     opt_args_str = opt_args_str + "--{} {} ".format(key, args.__dict__[key])
@@ -366,6 +368,7 @@ def main():
     parser_opt.add_argument("--output_names", help="output names for onnxruntime session inference")
     parser_opt.add_argument("--providers_list", help="providers used for perftuning")
     parser_opt.add_argument("--trt_fp16_enabled", help="whether enable fp16 mode for TensorRT", action="store_true")
+    parser_opt.add_argument("--fp32_enabled", help="whether enable fp32 mode", action="store_true")
     parser_opt.add_argument("--openmp_enabled", help="whether the onnxruntime package is built with OpenMP", action="store_true")
     parser_opt.add_argument("--quantization_enabled", help="whether enable the quantization or not", action="store_true")
     parser_opt.add_argument("--transformer_enabled", help="whether enable transformer optimization", action="store_true")
