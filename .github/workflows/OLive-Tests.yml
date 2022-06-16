@@ -71,41 +71,6 @@ extends:
                 python -m pytest ci_tests/tests/conversion/test_converter_tensorflow.py --log-cli-level=DEBUG
                 python ci_tests/tests/conversion/test_cvt_cli.py
 
-      - job: windows_job
-        pool:
-          type: windows
-        variables: # More settings at https://aka.ms/obpipelines/yaml/jobs
-          ob_outputDirectory: '$(Build.SourcesDirectory)/out' # this directory is uploaded to pipeline artifacts, reddog and cloudvault. More info at https://aka.ms/obpipelines/artifacts
-        steps: # These steps will be run in unrestricted container's network
-          - task: onebranch.pipeline.version@1
-            displayName: 'Setup BuildNumber'
-            inputs:
-              system: 'RevisionCounter'
-              major: '1'
-              minor: '0'
-              exclude_commit: true
-          - task: CmdLine@2
-            displayName: Command Line Script
-            inputs:
-              script: |
-                pip install --upgrade pip==20.1.1
-                pip install onnx==1.11.0 wheel numpy flatbuffers psutil pytest coloredlogs onnxconverter_common docker==5.0.0 six protobuf==3.18.1 tf2onnx==1.7.2 tensorflow==1.14.0 torch==1.11.0+cpu torchvision==0.12.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
-                python setup.py bdist_wheel
-                pip install dist/onnxruntime_olive-0.4.0-py3-none-any.whl
-                pip install --no-cache onnxruntime_openvino_dnnl==${{ parameters.ort_version }} -f https://olivewheels.azureedge.net/test/onnxruntime-openvino-dnnl
-                pip install mlperf_loadgen -f https://olivewheels.azureedge.net/test/mlperf-loadgen
-          - task: CmdLine@2
-            displayName: Command Line Script
-            inputs:
-              script: |
-                python -m pytest ci_tests/tests/optimization/test_common.py --log-cli-level=DEBUG
-                python -m pytest ci_tests/tests/optimization/test_optimize.py --log-cli-level=DEBUG
-                python ci_tests/tests/optimization/test_opt_cli.py
-                python -m pytest ci_tests/tests/conversion/test_convert.py --log-cli-level=DEBUG
-                python -m pytest ci_tests/tests/conversion/test_converter_pytorch.py --log-cli-level=DEBUG
-                python -m pytest ci_tests/tests/conversion/test_converter_tensorflow.py --log-cli-level=DEBUG
-                python ci_tests/tests/conversion/test_cvt_cli.py
-
 #################################################################################
 #                           Onebranch Retail Pipeline                           #
 # This pipeline was created by EasyStart from a sample located at:              #
