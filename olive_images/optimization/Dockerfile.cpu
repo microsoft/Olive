@@ -20,17 +20,11 @@ RUN wget https://apt.repos.intel.com/openvino/2021/GPG-PUB-KEY-INTEL-OPENVINO-20
     cd /etc/apt/sources.list.d && \
     echo "deb https://apt.repos.intel.com/openvino/2021 all main">intel-openvino-2021.list && \
     apt update && \ 
-    apt install -y intel-openvino-dev-ubuntu18-2021.4.752 && \
+    apt install -y intel-openvino-dev-ubuntu20-2021.4.752 && \
     cd ${INTEL_OPENVINO_DIR}/install_dependencies && ./install_openvino_dependencies.sh -y
 
-RUN wget https://github.com/intel/compute-runtime/releases/download/19.41.14441/intel-gmmlib_19.3.2_amd64.deb && \
-    wget https://github.com/intel/compute-runtime/releases/download/19.41.14441/intel-igc-core_1.0.2597_amd64.deb && \
-    wget https://github.com/intel/compute-runtime/releases/download/19.41.14441/intel-igc-opencl_1.0.2597_amd64.deb && \
-    wget https://github.com/intel/compute-runtime/releases/download/19.41.14441/intel-opencl_19.41.14441_amd64.deb && \
-    wget https://github.com/intel/compute-runtime/releases/download/19.41.14441/intel-ocloc_19.41.14441_amd64.deb && \
-    sudo dpkg -i *.deb && rm -rf *.deb
-
 RUN python3 -m pip install --upgrade pip
+COPY requirements.txt requirements.txt
 RUN python3 -m pip install -r requirements.txt -f https://olivewheels.azureedge.net/test/mlperf-loadgen
 RUN python3 -m pip install onnxruntime_openvino_dnnl=="$ort_version" -f https://olivewheels.azureedge.net/test/onnxruntime-openvino-dnnl
 RUN python3 -m pip install onnxruntime-olive==0.4.0 -f https://olivewheels.azureedge.net/test/onnxruntime-olive
