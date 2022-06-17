@@ -1,0 +1,135 @@
+{
+    "Version": 1,
+    "Registrations": [
+      {
+        "Component": {
+          "Type": "linux",
+          "other": {
+            "Name": "openvino",
+            "Version": "2021.4.752",
+            "Distribution": "Ubuntu",
+            "Release": "20.04",
+            "Pool-URL": "https://apt.repos.intel.com/openvino/2021",
+            "Key-URL": "https://apt.repos.intel.com/openvino/2021/GPG-PUB-KEY-INTEL-OPENVINO-2021"
+          }
+        }
+      },
+      {
+        "Component": {
+          "Type": "linux",
+          "other": {
+            "Name": "libnvinfer8",
+            "Version": "8.2.1-1+cuda11.4",
+            "Distribution": "Ubuntu",
+            "Release": "20.04",
+            "Pool-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64",
+            "Key-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub"
+          }
+        }
+      },
+      {
+        "Component": {
+          "Type": "linux",
+          "other": {
+            "Name": "libnvonnxparsers8",
+            "Version": "8.2.1-1+cuda11.4",
+            "Distribution": "Ubuntu",
+            "Release": "20.04",
+            "Pool-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64",
+            "Key-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub"
+          }
+        }
+      },
+      {
+        "Component": {
+          "Type": "linux",
+          "other": {
+            "Name": "libnvparsers8",
+            "Version": "8.2.1-1+cuda11.4",
+            "Distribution": "Ubuntu",
+            "Release": "20.04",
+            "Pool-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64",
+            "Key-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub"
+          }
+        }
+      },
+      {
+        "Component": {
+          "Type": "linux",
+          "other": {
+            "Name": "libnvinfer-plugin8",
+            "Version": "8.2.1-1+cuda11.4",
+            "Distribution": "Ubuntu",
+            "Release": "20.04",
+            "Pool-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64",
+            "Key-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub"
+          }
+        }
+      },
+      {
+        "Component": {
+          "Type": "linux",
+          "other": {
+            "Name": "libnvinfer-dev",
+            "Version": "8.2.1-1+cuda11.4",
+            "Distribution": "Ubuntu",
+            "Release": "20.04",
+            "Pool-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64",
+            "Key-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub"
+          }
+        }
+      },
+      {
+        "Component": {
+          "Type": "linux",
+          "other": {
+            "Name": "libnvonnxparsers-dev",
+            "Version": "8.2.1-1+cuda11.4",
+            "Distribution": "Ubuntu",
+            "Release": "20.04",
+            "Pool-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64",
+            "Key-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub"
+          }
+        }
+      },
+      {
+        "Component": {
+          "Type": "linux",
+          "other": {
+            "Name": "libnvparsers-dev",
+            "Version": "8.2.1-1+cuda11.4",
+            "Distribution": "Ubuntu",
+            "Release": "20.04",
+            "Pool-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64",
+            "Key-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub"
+          }
+        }
+      },
+      {
+        "Component": {
+          "Type": "linux",
+          "other": {
+            "Name": "libnvinfer-plugin-dev",
+            "Version": "8.2.1-1+cuda11.4",
+            "Distribution": "Ubuntu",
+            "Release": "20.04",
+            "Pool-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64",
+            "Key-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub"
+          }
+        }
+      },
+      {
+        "Component": {
+          "Type": "linux",
+          "other": {
+            "Name": "python3-libnvinfer",
+            "Version": "8.2.1-1+cuda11.4",
+            "Distribution": "Ubuntu",
+            "Release": "20.04",
+            "Pool-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64",
+            "Key-URL": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub"
+          }
+        }
+      }
+    ]
+  }
