@@ -4,7 +4,7 @@
       {
         "Component": {
           "Type": "linux",
-          "other": {
+          "Linux": {
             "Name": "openvino",
             "Version": "2021.4.752",
             "Distribution": "Ubuntu",
@@ -17,7 +17,7 @@
       {
         "Component": {
           "Type": "linux",
-          "other": {
+          "Linux": {
             "Name": "libnvinfer8",
             "Version": "8.2.1-1+cuda11.4",
             "Distribution": "Ubuntu",
@@ -30,7 +30,7 @@
       {
         "Component": {
           "Type": "linux",
-          "other": {
+          "Linux": {
             "Name": "libnvonnxparsers8",
             "Version": "8.2.1-1+cuda11.4",
             "Distribution": "Ubuntu",
@@ -43,7 +43,7 @@
       {
         "Component": {
           "Type": "linux",
-          "other": {
+          "Linux": {
             "Name": "libnvparsers8",
             "Version": "8.2.1-1+cuda11.4",
             "Distribution": "Ubuntu",
@@ -56,7 +56,7 @@
       {
         "Component": {
           "Type": "linux",
-          "other": {
+          "Linux": {
             "Name": "libnvinfer-plugin8",
             "Version": "8.2.1-1+cuda11.4",
             "Distribution": "Ubuntu",
@@ -69,7 +69,7 @@
       {
         "Component": {
           "Type": "linux",
-          "other": {
+          "Linux": {
             "Name": "libnvinfer-dev",
             "Version": "8.2.1-1+cuda11.4",
             "Distribution": "Ubuntu",
@@ -82,7 +82,7 @@
       {
         "Component": {
           "Type": "linux",
-          "other": {
+          "Linux": {
             "Name": "libnvonnxparsers-dev",
             "Version": "8.2.1-1+cuda11.4",
             "Distribution": "Ubuntu",
@@ -95,7 +95,7 @@
       {
         "Component": {
           "Type": "linux",
-          "other": {
+          "Linux": {
             "Name": "libnvparsers-dev",
             "Version": "8.2.1-1+cuda11.4",
             "Distribution": "Ubuntu",
@@ -108,7 +108,7 @@
       {
         "Component": {
           "Type": "linux",
-          "other": {
+          "Linux": {
             "Name": "libnvinfer-plugin-dev",
             "Version": "8.2.1-1+cuda11.4",
             "Distribution": "Ubuntu",
@@ -121,7 +121,7 @@
       {
         "Component": {
           "Type": "linux",
-          "other": {
+          "Linux": {
             "Name": "python3-libnvinfer",
             "Version": "8.2.1-1+cuda11.4",
             "Distribution": "Ubuntu",
