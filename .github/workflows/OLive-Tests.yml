@@ -1,50 +1,82 @@
-name: OLive Tests
+trigger: none
 
-on:
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
+parameters:
+ - name: 'ort_version'
+   default: '1.11.0'
 
-jobs:
-  OLive-Tests:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        ort_version: [1.11.0]
-        os: [ubuntu-latest, windows-latest]
-    steps:
-    - name: check out repo
-      uses: actions/checkout@v2
+variables:
+  CDP_DEFINITION_BUILD_COUNT: $[counter('', 0)] # needed for onebranch.pipeline.version task https://aka.ms/obpipelines/versioning
+  DEBIAN_FRONTEND: noninteractive
+  LinuxContainerImage: 'onebranch.azurecr.io/linux/ubuntu-2004:latest'
+  WindowsContainerImage: 'cdpxwin1809.azurecr.io/global/vse2019:latest'
 
-    - name: setup python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.7
+resources:
+  repositories: 
+    - repository: templates
+      type: git
+      name: OneBranch.Pipelines/GovernedTemplates
+      ref: refs/heads/main
 
-    # ===========================Install Packages==================================
-    - name: Install Packages
-      run: |
-        pip install --upgrade pip==20.1.1
-        pip install onnx==1.11.0 wheel numpy flatbuffers psutil pytest coloredlogs onnxconverter_common docker==5.0.0 six protobuf==3.18.1 tf2onnx==1.7.2 tensorflow==1.14.0 torch==1.11.0+cpu torchvision==0.12.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
-        python setup.py bdist_wheel
-        pip install dist/onnxruntime_olive-0.4.0-py3-none-any.whl
-        pip install --no-cache onnxruntime_openvino_dnnl==${{ matrix.ort_version }} -f https://olivewheels.azureedge.net/test/onnxruntime-openvino-dnnl
-        pip install mlperf_loadgen -f https://olivewheels.azureedge.net/test/mlperf-loadgen
+extends:
+  template: v2/OneBranch.NonOfficial.CrossPlat.yml@templates # https://aka.ms/obpipelines/templates
+  parameters:
+    globalSdl: # https://aka.ms/obpipelines/sdl
+      policheck:
+        break: true # always break the build on policheck issues. You can disable it by setting to 'false'
+      codeql:
+        python:
+          enabled: true
 
-    # ===========================Run CLI Tests - Optimization==================================
-    - name: Run CLI Tests - Optimization
-      run: |
-        python -m pytest ci_tests/tests/optimization/test_common.py --log-cli-level=DEBUG
-        python -m pytest ci_tests/tests/optimization/test_optimize.py --log-cli-level=DEBUG
-        python ci_tests/tests/optimization/test_opt_cli.py
+    stages:
+    - stage: test
+      jobs:
+      - job: linux_job
+        pool:
+          type: linux
+        variables: # More settings at https://aka.ms/obpipelines/yaml/jobs
+          ob_outputDirectory: '$(Build.SourcesDirectory)/out' # this directory is uploaded to pipeline artifacts, reddog and cloudvault. More info at https://aka.ms/obpipelines/artifacts
+        steps: # These steps will be run in unrestricted container's network
+          - task: onebranch.pipeline.version@1
+            displayName: 'Setup BuildNumber'
+            inputs:
+              system: 'RevisionCounter'
+              major: '1'
+              minor: '0'
+              exclude_commit: true
+          - task: CmdLine@2
+            displayName: Command Line Script
+            inputs:
+              script: |
+                pip install --upgrade pip==20.1.1
+                pip install onnx==1.11.0 wheel numpy flatbuffers psutil pytest coloredlogs onnxconverter_common docker==5.0.0 six protobuf==3.18.1 tf2onnx==1.7.2 tensorflow==1.14.0 torch==1.11.0+cpu torchvision==0.12.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+                python setup.py bdist_wheel
+                pip install dist/onnxruntime_olive-0.4.0-py3-none-any.whl
+                pip install --no-cache onnxruntime_openvino_dnnl==${{ parameters.ort_version }} -f https://olivewheels.azureedge.net/test/onnxruntime-openvino-dnnl
+                pip install mlperf_loadgen -f https://olivewheels.azureedge.net/test/mlperf-loadgen
+          - task: CopyFiles@2
+            displayName: 'Copy Files to ob_outputDirectory'
+            inputs:
+              SourceFolder: dist/
+              Contents: '**/*.whl'
+              TargetFolder: $(Build.SourcesDirectory)/out
+          - task: CmdLine@2
+            displayName: Command Line Script
+            inputs:
+              script: |
+                python -m pytest ci_tests/tests/optimization/test_common.py --log-cli-level=DEBUG
+                python -m pytest ci_tests/tests/optimization/test_optimize.py --log-cli-level=DEBUG
+                python ci_tests/tests/optimization/test_opt_cli.py
+                python -m pytest ci_tests/tests/conversion/test_convert.py --log-cli-level=DEBUG
+                python -m pytest ci_tests/tests/conversion/test_converter_pytorch.py --log-cli-level=DEBUG
+                python -m pytest ci_tests/tests/conversion/test_converter_tensorflow.py --log-cli-level=DEBUG
+                python ci_tests/tests/conversion/test_cvt_cli.py
 
-    # ===========================Run Tests Conversion==================================
-    - name: Run CLI Tests - Conversion
-      run: |
-        python -m pytest ci_tests/tests/conversion/test_convert.py --log-cli-level=DEBUG
-        python -m pytest ci_tests/tests/conversion/test_converter_pytorch.py --log-cli-level=DEBUG
-        python -m pytest ci_tests/tests/conversion/test_converter_tensorflow.py --log-cli-level=DEBUG
-        python ci_tests/tests/conversion/test_cvt_cli.py
+#################################################################################
+#                           Onebranch Retail Pipeline                           #
+# This pipeline was created by EasyStart from a sample located at:              #
+#   https://aka.ms/obpipelines/easystart/samples                                #
+# Documentation:  https://aka.ms/obpipelines                                    #
+# Yaml Schema:    https://aka.ms/obpipelines/yaml/schema                        #
+# Retail Tasks:   https://aka.ms/obpipelines/tasks                              #
+# Support:        https://aka.ms/onebranchsup                                   #
+#################################################################################
