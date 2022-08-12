@@ -1,0 +1,21 @@
+model_repository: ./model_repository
+override_output_model_repository: True
+output_model_repository_path: ./output_model_repository/output_model_name_auto_complete/
+checkpoint_directory: ./checkpoints/model_name_auto_complete/
+triton_output_path: triton_model_name_auto_complete.log
+# # Config For Profile
+run_config_search_disable: True
+perf_analyzer_cpu_util: 80000
+perf_output: True
+concurrency: [1]
+perf_analyzer_timeout: 1800
+
+profile_models:
+  model_name_default:
+    model_config_parameters:
+        max_batch_size: 16
+        optimization:
+           execution_accelerators:
+               -
+                   null   
+ 
