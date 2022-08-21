@@ -128,7 +128,7 @@ You may adjust the above location and filename with a model of your choice. For 
 
 Next, run the script:
 
-**‘bash download.sh $model_location $export model_filename’** 
+**‘bash download.sh $model_location $model_filename’** 
 
 The script will download three files onto your machine: 
 
