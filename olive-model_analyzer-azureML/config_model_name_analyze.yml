@@ -1,0 +1,29 @@
+model_repository: /model_repository
+override_output_model_repository: False
+output_model_repository_path: ./output_model_repository/output_model_name/
+checkpoint_directory: ./checkpoints/model_name/
+triton_output_path: triton_model_name.log
+# # Config For Profile
+run_config_search_disable: True
+perf_analyzer_cpu_util: 80000
+perf_output: True
+concurrency: [1,8,16,32,64,128]
+
+
+perf_analyzer_timeout: 1800
+
+# Config For Analyze
+checkpoint_directory: ./checkpoints/model_name/
+#summarize: True
+num_configs_per_model: 10
+filename_model_inference: metrics-model-inference-model_name.csv
+filename_model_gpu: metrics-model-gpu-model_name.csv
+filename_server_only: metrics-server-only-model_name.csv
+
+analysis_models:
+  model_name_default:
+    objectives:
+      perf_throughput: 10
+  model_name:
+    objectives:
+      perf_throughput: 10
