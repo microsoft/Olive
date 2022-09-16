@@ -109,19 +109,7 @@ def threads_num_binary_search(optimization_config, test_params, tuning_results, 
     best_throughput = None
     best_latency = None
 
-    for threads_name in threads_names:
-        thread_num = test_params.get(threads_name)
-        if thread_num is not None:
-            upper_threads_num = thread_num
-            lower_threads_num = thread_num
-        else:
-            upper_threads_num = cpu_cores
-            lower_threads_num = 1
-
-        best_threads_num = lower_threads_num
-        current_threads_num = lower_threads_num
-        test_params[threads_name] = current_threads_num
-
+    if test_params.get("inter_op_num_threads") and test_params.get("intra_op_num_threads"):
         test_result = get_benchmark(optimization_config, test_params)
         if test_result:
             tuning_results.append(test_result)
@@ -130,26 +118,49 @@ def threads_num_binary_search(optimization_config, test_params, tuning_results, 
             best_throughput = test_result["throughput"]
         else:
             best_latency = test_result["latency_ms"]["avg"]
+    
+    else:
+        for threads_name in threads_names:
+            thread_num = test_params.get(threads_name)
+            if thread_num is not None:
+                upper_threads_num = thread_num
+                lower_threads_num = thread_num
+            else:
+                upper_threads_num = cpu_cores
+                lower_threads_num = 1
 
-        current_threads_num = upper_threads_num
-
-        while lower_threads_num < upper_threads_num:
+            best_threads_num = lower_threads_num
+            current_threads_num = lower_threads_num
             test_params[threads_name] = current_threads_num
 
             test_result = get_benchmark(optimization_config, test_params)
             if test_result:
                 tuning_results.append(test_result)
 
-            mid_threads_num = lower_threads_num + (upper_threads_num - lower_threads_num) // 2
-            if (best_throughput and best_throughput > test_result["throughput"]) or (best_latency and best_latency < test_result["latency_ms"]["avg"]):
-                upper_threads_num = mid_threads_num
-                current_threads_num = upper_threads_num
+            if optimization_config.throughput_tuning_enabled:
+                best_throughput = test_result["throughput"]
             else:
-                lower_threads_num = mid_threads_num + 1
-                best_threads_num = current_threads_num
-                current_threads_num = lower_threads_num
+                best_latency = test_result["latency_ms"]["avg"]
 
-        test_params[threads_name] = best_threads_num
+            current_threads_num = upper_threads_num
+
+            while lower_threads_num < upper_threads_num:
+                test_params[threads_name] = current_threads_num
+
+                test_result = get_benchmark(optimization_config, test_params)
+                if test_result:
+                    tuning_results.append(test_result)
+
+                mid_threads_num = lower_threads_num + (upper_threads_num - lower_threads_num) // 2
+                if (best_throughput and best_throughput > test_result["throughput"]) or (best_latency and best_latency < test_result["latency_ms"]["avg"]):
+                    upper_threads_num = mid_threads_num
+                    current_threads_num = upper_threads_num
+                else:
+                    lower_threads_num = mid_threads_num + 1
+                    best_threads_num = current_threads_num
+                    current_threads_num = lower_threads_num
+
+            test_params[threads_name] = best_threads_num
 
 
 def generate_test_name(test_params):
