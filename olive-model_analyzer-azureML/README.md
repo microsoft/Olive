@@ -120,7 +120,7 @@ Once loaded, navigate to the ‘/models’ folder where the GitHub material was 
 
 To get started, first download the OLive and ONNX Runtime packages, along with the model you want to optimize. Then, specify the location of the model you want to optimize by setting up the following environmental variables:
 
-* **export model_location**=https://olivewheels.blob.core.windows.net/models/bert-base-cased-squad.pth
+* **export model_location**=https://olivewheels.azureedge.net/oaas/bert-base-cased-squad.pth
 
 * **export model_filename**=bert-base-cased-squad.pth
 

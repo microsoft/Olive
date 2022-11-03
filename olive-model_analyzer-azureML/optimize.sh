@@ -10,7 +10,7 @@ export out_names=$7
 
 pip install pip==22.2.1
 # Setup OLive
-pip install onnxruntime_olive-0.4.0-py3-none-any.whl
+pip install onnxruntime_olive-0.5.0-py3-none-any.whl
 pip install onnxruntime_gpu_tensorrt-1.11.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
 
 # Setup model analyzer

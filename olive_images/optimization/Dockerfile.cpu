@@ -25,9 +25,9 @@ RUN wget https://apt.repos.intel.com/openvino/2021/GPG-PUB-KEY-INTEL-OPENVINO-20
 
 RUN python3 -m pip install --upgrade pip
 COPY requirements.txt requirements.txt
-RUN python3 -m pip install -r requirements.txt -f https://olivewheels.azureedge.net/test/mlperf-loadgen
-RUN python3 -m pip install onnxruntime_openvino_dnnl=="$ort_version" -f https://olivewheels.azureedge.net/test/onnxruntime-openvino-dnnl
-RUN python3 -m pip install onnxruntime-olive==0.4.0 -f https://olivewheels.azureedge.net/test/onnxruntime-olive
+RUN python3 -m pip install -r requirements.txt -f https://olivewheels.azureedge.net/oaas/mlperf-loadgen
+RUN python3 -m pip install onnxruntime_openvino_dnnl=="$ort_version" -f https://olivewheels.azureedge.net/oaas/onnxruntime-openvino-dnnl
+RUN python3 -m pip install onnxruntime-olive==0.5.0 -f https://olivewheels.azureedge.net/oaas/onnxruntime-olive
 
 ADD . /code
 COPY licensing/EULA.txt /code/EULA.txt

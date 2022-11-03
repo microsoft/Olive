@@ -5,7 +5,7 @@ This repository shows how to setup OLive server to run model conversion, optimiz
 ## Prerequisites
 User needs to install [Dokcer](https://docs.docker.com/get-docker/) to setup OLive server.
 
-Download OLive pakcage [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.4.0-py3-none-any.whl) and install with command `pip install onnxruntime_olive-0.4.0-py3-none-any.whl`
+OLive package can be installed with command `pip install onnxruntime_olive==0.5.0 --extra-index-url https://olivewheels.azureedge.net/oaas` 
 
 Call `olive setup --server` to install required packages first.
 

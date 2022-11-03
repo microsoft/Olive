@@ -26,7 +26,7 @@ Optimization fileds:
  * [Transformer Model Optimization](https://github.com/microsoft/onnxruntime/tree/master/onnxruntime/python/tools/transformers)
 
 ## Getting Started
-OLive package can be downloaded [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.4.0-py3-none-any.whl) and installed with command `pip install onnxruntime_olive-0.4.0-py3-none-any.whl`. 
+OLive package can be installed with command `pip install onnxruntime_olive==0.5.0 --extra-index-url https://olivewheels.azureedge.net/oaas` . 
 
 Supported python version: 3.7, 3.8, 3.9
 
