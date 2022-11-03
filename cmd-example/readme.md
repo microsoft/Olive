@@ -3,15 +3,15 @@
 This repository shows how to deploy and use OLive by running commands.
 
 ## Prerequisites
-Download OLive package [here](https://olivewheels.blob.core.windows.net/repo/onnxruntime_olive-0.4.0-py3-none-any.whl) and install with command `pip install onnxruntime_olive-0.4.0-py3-none-any.whl`
+OLive package can be installed with command `pip install onnxruntime_olive==0.5.0 --extra-index-url https://olivewheels.azureedge.net/oaas` 
 
 ONNX Runtime package can be installed with
 
-`pip install --extra-index-url https://olivewheels.azureedge.net/test onnxruntime_openvino_dnnl==1.11.0` for cpu
+`pip install --extra-index-url https://olivewheels.azureedge.net/oaas onnxruntime_openvino_dnnl==1.11.0` for cpu
 
 or 
 
-`pip install --extra-index-url https://olivewheels.azureedge.net/test onnxruntime_gpu_tensorrt==1.11.0` for gpu
+`pip install --extra-index-url https://olivewheels.azureedge.net/oaas onnxruntime_gpu_tensorrt==1.11.0` for gpu
 
 ## How to use
 User can call `olive convert` or `olive optimize` with related arguments. OLive will manage python package installation, such as `ONNX Runtime` or `TensorFlow` or `PyTorch`. 
@@ -43,7 +43,7 @@ Here are arguments for OLive Conversion:
 
 There are two ways to call OLive convert with cmd. 
 
-Test model and sample input data can be downloaded here: [model](https://olivemodels.blob.core.windows.net/models/conversion/full_doran_frozen.pb), [sample test data ](https://olivemodels.blob.core.windows.net/models/conversion/doran.npz).
+Test model and sample input data can be downloaded here: [model](https://olivewheels.azureedge.net/oaas/full_doran_frozen.pb), [sample test data ](https://olivewheels.azureedge.net/oaas/doran.npz).
 
 1. With all inline arguments. For example:
     ```
@@ -106,7 +106,7 @@ Here are arguments for OLive optimization:
 
 There are two ways to call OLive optimize with cmd.
 
-Test model can be downloaded [here](https://olivemodels.blob.core.windows.net/models/optimization/TFBertForQuestionAnswering.onnx).
+Test model can be downloaded [here](https://olivewheels.azureedge.net/oaas/TFBertForQuestionAnswering.onnx).
 
 To optimize ONNX model latency:
 

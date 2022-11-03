@@ -13,7 +13,7 @@ def install_packages(onnxruntime_version=None, use_gpu=False, model_framework=No
     try:
         import mlperf_loadgen
     except ImportError:
-        install_cmd = "{} -m pip install mlperf_loadgen --extra-index-url https://olivewheels.azureedge.net/test".format(PYTHON_PATH)
+        install_cmd = "{} -m pip install mlperf_loadgen --extra-index-url https://olivewheels.azureedge.net/oaas".format(PYTHON_PATH)
         logger.info(install_cmd)
         subprocess.run(install_cmd, stdout=subprocess.PIPE, shell=True, check=True)
         logger.info("loadgen package installed with success")
@@ -27,7 +27,7 @@ def install_packages(onnxruntime_version=None, use_gpu=False, model_framework=No
             if (onnxruntime.__version__ != onnxruntime_version) or (use_gpu and "CUDAExecutionProvider" not in onnxruntime.get_available_providers()):
                 raise ImportError
         except ImportError:
-            install_cmd = "{} -m pip install {}=={} --extra-index-url https://olivewheels.azureedge.net/test".format(
+            install_cmd = "{} -m pip install {}=={} --extra-index-url https://olivewheels.azureedge.net/oaas".format(
                 PYTHON_PATH, ort_package, ort_version)
             logger.info(install_cmd)
             subprocess.run(install_cmd, stdout=subprocess.PIPE, shell=True, check=True)
@@ -36,7 +36,7 @@ def install_packages(onnxruntime_version=None, use_gpu=False, model_framework=No
         try:
             import onnxruntime
         except ImportError:
-            install_cmd = "{} -m pip install {}=={} --extra-index-url https://olivewheels.azureedge.net/test".format(
+            install_cmd = "{} -m pip install {}=={} --extra-index-url https://olivewheels.azureedge.net/oaas".format(
                 PYTHON_PATH, ort_package, ort_version)
             logger.info(install_cmd)
             subprocess.run(install_cmd, stdout=subprocess.PIPE, shell=True, check=True)
