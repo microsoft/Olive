@@ -6,5 +6,4 @@ sympy
 onnxconverter_common
 docker==5.0.0
 six
-mlperf_loadgen
 protobuf==3.18.3

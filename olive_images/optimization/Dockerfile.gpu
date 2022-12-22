@@ -37,7 +37,8 @@ RUN v="8.2.1-1+cuda11.4" &&\
 
 RUN python3 -m pip install --upgrade pip
 COPY requirements.txt requirements.txt
-RUN python3 -m pip install -r requirements.txt -f https://olivewheels.azureedge.net/oaas/mlperf-loadgen
+RUN python3 -m pip install -r requirements.txt
+RUN python3 -m pip install mlperf_loadgen -f https://olivewheels.azureedge.net/oaas/mlperf-loadgen
 RUN python3 -m pip install onnxruntime_gpu_tensorrt=="${ort_version}" -f https://olivewheels.azureedge.net/oaas/onnxruntime-gpu-tensorrt
 RUN python3 -m pip install onnxruntime-olive==0.5.0 -f https://olivewheels.azureedge.net/oaas/onnxruntime-olive
 
