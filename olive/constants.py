@@ -21,7 +21,7 @@ MILLI_SEC = 1000
 NANO_SEC = 1e9
 
 ONNX_TO_NP_TYPE_MAP = {
-    "tensor(bool)": np.bool,
+    "tensor(bool)": np.bool_,
     "tensor(int)": np.int32,
     'tensor(int32)': np.int32,
     'tensor(int8)': np.int8,
@@ -58,7 +58,7 @@ ORT_OPT_LEVEL_MAP = {
 }
 
 STR_TO_NP_TYPE_MAP = {
-    "bool": np.bool,
+    "bool": np.bool_,
     'uint8': np.uint8,
     'uint16': np.uint16,
     'uint': np.uint32,
