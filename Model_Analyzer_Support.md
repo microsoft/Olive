@@ -4,15 +4,15 @@ To use OLive optimization result in Nvidia Model Analyzer, user needs to provide
 
 ## Setup Environment
 ### OLive Setup 
-OLive package can be installed with command `pip install onnxruntime_olive==0.5.0 --extra-index-url https://olivewheels.azureedge.net/oaas` 
+OLive package can be installed with command `pip install onnxruntime_olive==0.5.0 -f https://olivewheels.azureedge.net/oaas/onnxruntime-olive` 
 
 ONNX Runtime package can be installed with
 
-`pip install --extra-index-url https://olivewheels.azureedge.net/oaas onnxruntime_openvino_dnnl==1.11.0` for cpu
+`pip install onnxruntime_openvino_dnnl==1.11.0 -f https://olivewheels.azureedge.net/oaas/onnxruntime-openvino-dnnl` for cpu
 
 or 
 
-`pip install --extra-index-url https://olivewheels.azureedge.net/oaas onnxruntime_gpu_tensorrt==1.11.0` for gpu
+`pip install onnxruntime_gpu_tensorrt==1.11.0 -f https://olivewheels.azureedge.net/oaas/onnxruntime-gpu-tensorrt` for gpu
 
 ### Model Analyzer Setup
 Please refer to [Model Analyzer Installation Guide](https://github.com/triton-inference-server/model_analyzer/blob/main/docs/install.md)

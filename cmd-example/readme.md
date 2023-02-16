@@ -3,15 +3,15 @@
 This repository shows how to deploy and use OLive by running commands.
 
 ## Prerequisites
-OLive package can be installed with command `pip install onnxruntime_olive==0.5.0 --extra-index-url https://olivewheels.azureedge.net/oaas` 
+OLive package can be installed with command `pip install onnxruntime_olive==0.5.0 -f https://olivewheels.azureedge.net/oaas/onnxruntime-olive` 
 
 ONNX Runtime package can be installed with
 
-`pip install --extra-index-url https://olivewheels.azureedge.net/oaas onnxruntime_openvino_dnnl==1.11.0` for cpu
+`pip install onnxruntime_openvino_dnnl==1.11.0 -f https://olivewheels.azureedge.net/oaas/onnxruntime-openvino-dnnl` for cpu
 
 or 
 
-`pip install --extra-index-url https://olivewheels.azureedge.net/oaas onnxruntime_gpu_tensorrt==1.11.0` for gpu
+`pip install onnxruntime_gpu_tensorrt==1.11.0 -f https://olivewheels.azureedge.net/oaas/onnxruntime-gpu-tensorrt` for gpu
 
 ## How to use
 User can call `olive convert` or `olive optimize` with related arguments. OLive will manage python package installation, such as `ONNX Runtime` or `TensorFlow` or `PyTorch`. 

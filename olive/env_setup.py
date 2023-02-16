@@ -13,34 +13,35 @@ def install_packages(onnxruntime_version=None, use_gpu=False, model_framework=No
     try:
         import mlperf_loadgen
     except ImportError:
-        install_cmd = "{} -m pip install mlperf_loadgen --extra-index-url https://olivewheels.azureedge.net/oaas".format(PYTHON_PATH)
+        install_cmd = "{} -m pip install mlperf_loadgen -f https://olivewheels.azureedge.net/oaas/mlperf-loadgen".format(PYTHON_PATH)
         logger.info(install_cmd)
         subprocess.run(install_cmd, stdout=subprocess.PIPE, shell=True, check=True)
         logger.info("loadgen package installed with success")
 
     # install onnxruntime packages for optimization
-    ort_package = "onnxruntime_gpu_tensorrt" if use_gpu else "onnxruntime_openvino_dnnl"
+    ort_package_cpu = "onnxruntime_openvino_dnnl"
+    ort_package_gpu = "onnxruntime_gpu_tensorrt"
     ort_version = onnxruntime_version if onnxruntime_version else ONNXRUNTIME_VERSION
-    if onnxruntime_version or use_gpu:
+    if use_gpu:
         try:
             import onnxruntime
-            if (onnxruntime.__version__ != onnxruntime_version) or (use_gpu and "CUDAExecutionProvider" not in onnxruntime.get_available_providers()):
+            if "CUDAExecutionProvider" not in onnxruntime.get_available_providers():
                 raise ImportError
         except ImportError:
-            install_cmd = "{} -m pip install {}=={} --extra-index-url https://olivewheels.azureedge.net/oaas".format(
-                PYTHON_PATH, ort_package, ort_version)
+            install_cmd = "{} -m pip install {}=={} -f https://olivewheels.azureedge.net/oaas/onnxruntime-gpu-tensorrt".format(
+                PYTHON_PATH, ort_package_gpu, ort_version)
             logger.info(install_cmd)
             subprocess.run(install_cmd, stdout=subprocess.PIPE, shell=True, check=True)
-            logger.info("{}=={} installed with success".format(ort_package, ort_version))
+            logger.info("{}=={} installed with success".format(ort_package_gpu, ort_version))
     else:
         try:
             import onnxruntime
         except ImportError:
-            install_cmd = "{} -m pip install {}=={} --extra-index-url https://olivewheels.azureedge.net/oaas".format(
-                PYTHON_PATH, ort_package, ort_version)
+            install_cmd = "{} -m pip install {}=={} -f https://olivewheels.azureedge.net/oaas/onnxruntime-openvino-dnnl".format(
+                PYTHON_PATH, ort_package_cpu, ort_version)
             logger.info(install_cmd)
             subprocess.run(install_cmd, stdout=subprocess.PIPE, shell=True, check=True)
-            logger.info("{}=={} installed with success".format(ort_package, ort_version))
+            logger.info("{}=={} installed with success".format(ort_package_cpu, ort_version))
 
     # install packages for conversion
     if model_framework:

@@ -26,8 +26,7 @@ Optimization fileds:
  * [Transformer Model Optimization](https://github.com/microsoft/onnxruntime/tree/master/onnxruntime/python/tools/transformers)
 
 ## Getting Started
-OLive package can be installed with command `pip install onnxruntime_olive==0.5.0 --extra-index-url https://olivewheels.azureedge.net/oaas` . 
-
+OLive package can be installed with command `pip install onnxruntime_olive==0.5.0 -f https://olivewheels.azureedge.net/oaas/onnxruntime-olive` . 
 Supported python version: 3.7, 3.8, 3.9
 
 User needs to install CUDA and cuDNN dependencies for perf tuning with OLive on GPU. The table below shows the ORT version and required CUDA and cuDNN version in the latest OLive.
