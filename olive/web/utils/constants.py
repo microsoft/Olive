@@ -1,1 +1,0 @@
-PERF_RESULT_JSON = 'olive_result.json'
