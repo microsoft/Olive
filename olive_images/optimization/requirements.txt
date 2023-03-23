@@ -1,9 +1,0 @@
-numpy
-onnx
-psutil
-coloredlogs
-sympy
-onnxconverter_common
-docker==5.0.0
-six
-protobuf==3.18.3
