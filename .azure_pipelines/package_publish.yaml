@@ -8,17 +8,24 @@ parameters:
 pool:
   name: $(OLIVE_POOL_UBUNTU2004)
 
+variables:
+  VERSION: ${{ parameters.package_version }}
+
 steps:
 - task: UsePythonVersion@0
   inputs:
     versionSpec: '3.8'
 
-- script: python -m pip install --upgrade pip setuptools wheel twine
+- script: python -m pip install --upgrade pip setuptools wheel twine requests
   displayName: 'Install tools'
 
 - script: |
-    echo VERSION is ${{ parameters.package_version }}
-    make overwrite-version VERSION=${{ parameters.package_version }}
+    echo VERSION is $(VERSION)
+    PACKAGE_EXISTS=$(curl -s https://pypi.org/pypi/olive-ai/json | python -c "import sys, json; print( '$(VERSION)' in json.load(sys.stdin)['releases'] )")
+    if [ "$PACKAGE_EXISTS" = "False" ]; then
+      echo "Package version already exists on PyPI. Please modify package version."
+      exit 1
+    fi
   displayName: Set version
 
 - script: |
@@ -26,8 +33,5 @@ steps:
   displayName: 'Build package'
 
 - script: |
-    python -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/*.whl
+    python -m twine upload --repository-url https://upload.pypi.org/legacy/ -u $(PYPI_USERNAME) -p $(PYPI_PASSWORD) dist/*.whl
   displayName: 'Upload to PyPI'
-  env:
-    TWINE_USERNAME: $(PYPI_USERNAME)
-    TWINE_PASSWORD: $(PYPI_PASSWORD)
