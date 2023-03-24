@@ -1,0 +1,20 @@
+trigger: none
+
+pool:
+  name: $(OLIVE_POOL_UBUNTU2004)
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.8'
+
+- script: python -m pip install --upgrade pip setuptools wheel twine
+  displayName: 'Install tools'
+
+- script: |
+    python setup.py bdist_wheel
+  displayName: 'Build package'
+
+- script: |
+    python -m twine upload --repository-url https://upload.pypi.org/legacy/ -u $(PYPI_USERNAME) -p $(PYPI_PASSWORD) dist/*.whl
+  displayName: 'Upload to PyPI'
