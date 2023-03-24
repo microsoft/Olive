@@ -1,33 +1,15 @@
 trigger: none
 
-parameters:
-- name: package_version
-  displayName: 'Olive package version to publish'
-  type: string
-
 pool:
   name: $(OLIVE_POOL_UBUNTU2004)
-
-variables:
-  VERSION: ${{ parameters.package_version }}
 
 steps:
 - task: UsePythonVersion@0
   inputs:
     versionSpec: '3.8'
 
-- script: python -m pip install --upgrade pip setuptools wheel twine requests
+- script: python -m pip install --upgrade pip setuptools wheel twine
   displayName: 'Install tools'
-
-- script: |
-    echo VERSION is $(VERSION)
-    PACKAGE_EXISTS=$(curl -s https://pypi.org/pypi/olive-ai/json | python -c "import sys, json; print( '$(VERSION)' in json.load(sys.stdin)['releases'] )")
-    if [ "$PACKAGE_EXISTS" = "True" ]; then
-      echo "Package version already exists on PyPI. Please modify package version."
-      exit 1
-    fi
-    make overwrite-version VERSION=$(VERSION)
-  displayName: Set version
 
 - script: |
     python setup.py bdist_wheel
