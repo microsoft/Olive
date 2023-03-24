@@ -26,6 +26,7 @@ steps:
       echo "Package version already exists on PyPI. Please modify package version."
       exit 1
     fi
+    make overwrite-version VERSION=$(VERSION)
   displayName: Set version
 
 - script: |
