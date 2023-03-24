@@ -1,0 +1,6 @@
+-r requirements.txt
+addict
+black
+flake8
+pre-commit
+pytest

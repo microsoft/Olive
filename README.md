@@ -1,81 +1,60 @@
-# OLive - ONNX Runtime Go Live
-OLive, meaning ONNX Runtime(ORT) Go Live, is a python package that automates the process of accelerating models with [ONNX Runtime(ORT)](https://onnxruntime.ai/). It contains two parts including model conversion to [ONNX](https://onnx.ai/) with correctness checking and auto performance tuning with ORT. Users can run these two together through a single pipeline or run them independently as needed.
-### Model conversion to ONNX
-Simplify multiple frameworks to ONNX conversion experience by integrating existing [ONNX conversion tools](https://github.com/onnx/tutorials#converting-to-onnx-format) into a single package, as well as validating the converted models' correctness. Currently supported frameworks are PyTorch and TensorFlow.
- * TensorFlow: OLive supports conversion with TensorFlow model in saved model, frozen graph, and checkpoint format. User needs to provider inputs' names and outputs' names for frozen graph and checkpoint conversion.
- * PyTorch: User needs to provide inputs' names and shapes to convert PyTorch model. Besides, user needs to provide outputs' names and shapes to convert torchscript PyTorch model.
+# Olive
 
-### Auto performance tuning with ORT
-ONNX Runtime(ORT) is a high performance inference engine to run ONNX model. It enables many advanced tuning knobs for user to further optimize inference performance. OLive heuristically explores optimization search space in ORT to select the best ORT settings for a specific model on a specific hardware.  It outputs the option combinations with the best performance for latency or for throughput.
+Olive is an easy-to-use hardware-aware model optimization tool that composes industry-leading techniques
+across model compression, optimization, and compilation. Given a model and targeted hardware, Olive composes the best
+suitable optimization techniques to output the most efficient model(s) for inferencing on cloud or edge, while taking
+a set of constraints such as accuracy and latency into consideration.
 
-Optimization fileds:
-* [Execution Providers](https://onnxruntime.ai/docs/execution-providers/):
-   * MLAS(default CPU EP), Intel DNNL and OpenVino for CPU
-   * Nvidia CUDA and TensorRT for GPU
-* Environment Variables:
-   * OMP_WAIT_POLICY
-   * OMP_NUM_THREADS
-   * KMP_AFFINITY
-   * OMP_MAX_ACTIVE_LEVELS
-* [Session Options](https://onnxruntime.ai/docs/performance/tune-performance.html#default-cpu-execution-provider-mlas):
-   * inter_op_num_threads
-   * intra_op_num_threads
-   * execution_mode
-   * graph_optimization_level
- * [INT8 Quantization](https://onnxruntime.ai/docs/performance/quantization.html)
- * [Transformer Model Optimization](https://github.com/microsoft/onnxruntime/tree/master/onnxruntime/python/tools/transformers)
+Since every ML accelerator vendor implements their own acceleration tool chains to make the most of their hardware, hardware-aware
+optimizations are fragmented. With Olive, we can:
 
-## Getting Started
-OLive package can be installed with command `pip install onnxruntime_olive==0.5.0 -f https://olivewheels.azureedge.net/oaas/onnxruntime-olive` . 
-Supported python version: 3.7, 3.8, 3.9
+Reduce engineering effort for optimizing models for cloud and edge: Developers are required to learn and utilize
+multiple hardware vendor-specific toolchains in order to prepare and optimize their trained model for deployment.
+Olive aims to simplify the experience by aggregating and automating optimization techniques for the desired hardware
+targets.
 
-User needs to install CUDA and cuDNN dependencies for perf tuning with OLive on GPU. The table below shows the ORT version and required CUDA and cuDNN version in the latest OLive.
-| ONNX Runtime | CUDA | cuDNN |
-|:--|:--|:--|
-| 1.11.0 | [11.4](https://developer.nvidia.com/cuda-11-4-2-download-archive) | [8.2](https://developer.nvidia.com/rdp/cudnn-download#a-collapse824-114) |
+Build up a unified optimization framework: Given that no single optimization technique serves all scenarios well,
+Olive enables an extensible framework that allows industry to easily plugin their optimization innovations.  Olive can
+efficiently compose and tune integrated techniques for offering a ready-to-use E2E optimization solution.
 
-There are three ways to use OLive:
-1. [Use With Command Line](./cmd-example/readme.md): Run the OLive with command line using Python. 
-2. [Use With Jupyter Notebook](./notebook-tutorial): Quickstart of the OLive with tutorial using Jupyter Notebook. 
-3. [Use With OLive Server](./server-example/readme.md): Setup local OLive server for model conversion, optimizaton, and visualization service.
+## Get Started and Resources
+- Documentation: [https://microsoft.github.io/Olive](https://microsoft.github.io/Olive)
+- Examples: [examples](./examples)
 
-## Inference your model with OLive result from auto performance tuning 
-1. Get best tuning result with `best_test_name`, which includes inference session settings, environment variable settings, and latency result. 
-2. Set related environment variables in your environment.
-    * OMP_WAIT_POLICY
-    * OMP_NUM_THREADS
-    * KMP_AFFINITY
-    * OMP_MAX_ACTIVE_LEVELS
-    * ORT_TENSORRT_FP16_ENABLE
-3. Create onnxruntime inference session with related settings.
-    * inter_op_num_threads
-    * intra_op_num_threads
-    * execution_mode
-    * graph_optimization_level
-    * execution_provider
-    ```
-   import onnxruntime as ort
-   sess_options = ort.SessionOptions()
-   sess_options.inter_op_num_threads = inter_op_num_threads
-   sess_options.intra_op_num_threads = intra_op_num_threads
-   sess_options.execution_mode = execution_mode
-   sess_options.graph_optimization_level = ort.GraphOptimizationLevel(graph_optimization_level)
-   onnx_session = ort.InferenceSession(model_path, sess_options, providers=[execution_provider])
-    ```
+## Installation
+We recommend installing olive in a [virtual environment](https://docs.python.org/3/library/venv.html) or a
+[conda environment](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html). Olive is installed using
+pip.
 
-## Key Updates
-10/28/2021
+Create a virtual/conda environment with the desired version of Python and activate it.
 
-Update OLive from docker container based usage to python package based usage for more flexibilities.
+You will need to install a build of [**onnxruntime**](https://onnxruntime.ai). You can install the desired build separately but
+public versions of onnxruntime can also be installed as extra dependencies during olive installation.
 
-Enable more optimization options for performance tuning with ORT, including INT8 quantization, mix precision in ORT-TensorRT, and transformer model optimization.
+### Install with pip
+Olive will be available for installation from PyPI soon.
+```
+pip install olive-ai
+```
+With onnxruntime (Default CPU):
+```
+pip install olive-ai[cpu]
+```
+With onnxruntime-gpu:
+```
+pip install olive-ai[gpu]
+```
+
+### Optional Dependencies
+Olive has optional dependencies that can be installed to enable additional features. These dependencies can be installed as extras:
+- **azureml**: To enable AzureML integration. Packages: `azure-ai-ml, azure-identity`
+- **docker**: To enable docker integration. Packages: `docker`
+- **openvino**: To use OpenVINO related passes. Packages: `openvino==2022.3.0, openvino-dev[tensorflow,onnx]==2022.3.0`
 
 ## Contributing
-We’d love to embrace your contribution to OLive. Please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).
+We’d love to embrace your contribution to Olive. Please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 Copyright (c) Microsoft Corporation. All rights reserved.
 
 Licensed under the [MIT](./LICENSE) License.
-   
-   

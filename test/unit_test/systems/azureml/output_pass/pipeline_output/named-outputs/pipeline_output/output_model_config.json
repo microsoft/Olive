@@ -1,0 +1,12 @@
+{
+    "type": "ONNXModel",
+    "config": {
+        "model_path": "output_model.onnx",
+        "name": "test_model",
+        "is_file": true,
+        "is_aml_model": false,
+        "version": null,
+        "inference_settings": null
+    },
+    "same_model_path_as_input": false
+}

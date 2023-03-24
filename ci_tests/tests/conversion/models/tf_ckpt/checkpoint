@@ -1,2 +1,0 @@
-model_checkpoint_path: "D:\\doc\\Codes\\Projects\\onnx-aml\\tests\\tensorflow\\output\\ckpt/model.ckpt"
-all_model_checkpoint_paths: "D:\\doc\\Codes\\Projects\\onnx-aml\\tests\\tensorflow\\output\\ckpt/model.ckpt"

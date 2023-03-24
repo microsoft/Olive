@@ -1,0 +1,8 @@
+azure-ai-ml
+azure-identity
+azure-storage-blob
+coverage
+docker
+openvino
+openvino-dev
+torchvision

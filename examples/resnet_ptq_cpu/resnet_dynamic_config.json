@@ -1,0 +1,91 @@
+{
+    "verbose": true,
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_path": "models/resnet_trained_for_cifar10.pt",
+            "is_file": true
+        }
+    },
+    "systems": {
+        "local_system": {"type": "LocalSystem"},
+        "aml_system": {
+            "type": "AzureML",
+            "config": {
+                "aml_config_path": "olive-workspace-config.json",
+                "aml_compute": "cpu-cluster",
+                "aml_docker_config": {
+                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                    "conda_file_path": "conda.yaml"
+                }
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator":{
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "sub_type": "accuracy_score",
+                    "user_config":{
+                        "post_processing_func": "post_process",
+                        "user_script": "user_script.py",
+                        "data_dir": "data",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 16
+                    }
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_type": "avg",
+                    "user_config":{
+                        "user_script": "user_script.py",
+                        "data_dir": "data",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 16
+                    }
+                }
+            ],
+            "target": "local_system"
+        }
+    },
+    "passes": {
+        "onnx_conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "input_names": ["input"],
+                "input_shapes": [[1, 3, 32, 32]],
+                "output_names": ["output"],
+                "dynamic_axes": {
+                    "input": {"0": "batch_size"},
+                    "output": {"0": "batch_size"}
+                },
+                "target_opset": 13
+            },
+            "default_to_search": true,
+            "host": "local_system",
+            "evaluator": "common_evaluator"
+        },
+        "onnx_dynamic_quantization": {
+            "type": "OnnxDynamicQuantization",
+            "config": {
+                "weight_type": "QUInt8",
+                "per_channel": "DEFAULT_SEARCH",
+                "reduce_range": "DEFAULT_SEARCH"
+            },
+            "clean_run_cache": false
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "exhaustive"
+        },
+        "clean_cache": false,
+        "evaluator": "common_evaluator",
+        "host": {"type": "LocalSystem"},
+        "cache_dir": "cache"
+    }
+}

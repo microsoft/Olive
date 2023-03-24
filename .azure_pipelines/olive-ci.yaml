@@ -1,0 +1,36 @@
+trigger:
+  branches:
+    include:
+    - main
+  paths:
+    exclude:
+    - docs/*
+    - examples/**/README.md
+    - README.md
+    - CONTRIBUTING.md
+    - LICENSE
+pr:
+  branches:
+    include:
+    - main
+  paths:
+    exclude:
+    - docs/*
+    - examples/**/README.md
+    - README.md
+    - CONTRIBUTING.md
+    - LICENSE
+
+jobs:
+- template: job_templates/olive-build-template.yaml
+  parameters:
+    name: Linux_CI
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    windows: False
+    exampleName: ["cifar10_openvino_intel_hw", "bert_ptq_cpu", "resnet_ptq_cpu"]
+- template: job_templates/olive-build-template.yaml
+  parameters:
+    name: Windows_CI
+    pool: $(OLIVE_POOL_WIN2019)
+    windows: True
+    exampleName: ["cifar10_openvino_intel_hw", "bert_ptq_cpu", "resnet_ptq_cpu"]

@@ -1,6 +1,0 @@
-{
-  "model_path": "ci_tests/tests/conversion/models/full_doran_frozen.pb",
-  "input_names": ["title_lengths:0", "title_encoder:0", "ratings:0", "query_lengths:0", "passage_lengths:0", "features:0", "encoder:0", "decoder:0", "Placeholder:0"],
-  "output_names": ["output_identity:0", "loss_identity:0"],
-  "sample_input_data_path": "ci_tests/tests/conversion/doran.npz"
-}

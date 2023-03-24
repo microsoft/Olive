@@ -1,0 +1,73 @@
+trigger:
+  batch: true
+  branches:
+    include:
+    - main
+
+stages:
+  - stage: Build_Docs
+    jobs:
+    - job: BuildDocs
+      displayName: Build Docs
+      pool: $(OLIVE_POOL_UBUNTU2004)
+
+      steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: 3.8
+        displayName: Use Python 3.8
+
+      - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
+        displayName: Install Olive
+
+      - template: job_templates/run-olive-script.yaml
+        parameters:
+          displayName: Make Docs
+          script: |
+            cd docs
+            python -m pip install -r requirements.txt
+            make html
+          windows: False
+
+      - task:  PublishPipelineArtifact@1
+        inputs:
+          path: $(Build.SourcesDirectory)/docs/build/html
+          artifactName: olive_doc_src
+          artifactType: pipeline
+        displayName: Publish Docs to Pipeline Artifact
+
+  - stage: Publish_Docs
+    dependsOn: [Build_Docs]
+    jobs:
+    - job: PublishDocs
+      displayName: Publish Docs
+      pool: $(OLIVE_POOL_UBUNTU2004)
+
+      steps:
+      - checkout: self
+        clean: true
+        persistCredentials: true
+
+      # checkout gh-pages branch and delete all files
+      - script: |
+          git config --global user.email "olivedevteam@microsoft.com"
+          git config --global user.name "olivedevteam"
+          git pull origin gh-pages
+          git checkout gh-pages
+          git rm -rf .
+        displayName: Checkout gh-pages branch
+
+      # copy the docs to the root of the repo
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          source: current
+          artifact: olive_doc_src
+          path: $(Build.SourcesDirectory)
+        displayName: Download Docs from Pipeline Artifact
+
+      # commit and push the docs
+      - script: |
+          git add -A
+          git commit -m "Update docs from $(Build.SourceVersion)"
+          git push origin gh-pages
+        displayName: Commit and Push Docs
