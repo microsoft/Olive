@@ -53,11 +53,20 @@ CLASSIFIERS = [
     "Programming Language :: Python :: 3.10",
 ]
 
+long_description = (
+    "Olive is an easy-to-use hardware-aware model optimization tool that composes industry-leading techniques across"
+    " model compression, optimization, and compilation. Given a model and targeted hardware, Olive composes the best"
+    " suitable optimization techniques to output the most efficient model(s) for inferencing on cloud or edge, while"
+    " taking a set of constraints such as accuracy and latency into consideration."
+)
+
+description = long_description.split(".")[0] + "."
+
 setup(
     name="olive-ai",
     version=VERSION,
-    description="A deep learning model optimization toolchain",
-    long_description="",
+    description=description,
+    long_description=long_description,
     author="Microsoft Corporation",
     author_email="olivedevteam@microsoft.com",
     license="MIT License",
