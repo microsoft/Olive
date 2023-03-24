@@ -11,7 +11,7 @@ You will need to install a build of [**onnxruntime**](https://onnxruntime.ai). Y
 public versions of onnxruntime can also be installed as extra dependencies during olive installation.
 
 ## Install with pip
-Olive will be available for installation from PyPI soon.
+Olive is available for installation from PyPI.
 ```
 pip install olive-ai
 ```

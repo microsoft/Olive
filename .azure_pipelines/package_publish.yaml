@@ -1,0 +1,33 @@
+trigger: none
+
+parameters:
+- name: package_version
+  displayName: 'Olive package version to publish'
+  type: string
+
+pool:
+  name: $(OLIVE_POOL_UBUNTU2004)
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.8'
+
+- script: python -m pip install --upgrade pip setuptools wheel twine
+  displayName: 'Install tools'
+
+- script: |
+    echo VERSION is ${{ parameters.package_version }}
+    make overwrite-version VERSION=${{ parameters.package_version }}
+  displayName: Set version
+
+- script: |
+    python setup.py bdist_wheel
+  displayName: 'Build package'
+
+- script: |
+    python -m twine upload --repository-url https://upload.pypi.org/legacy/ dist/*.whl
+  displayName: 'Upload to PyPI'
+  env:
+    TWINE_USERNAME: $(PYPI_USERNAME)
+    TWINE_PASSWORD: $(PYPI_PASSWORD)
