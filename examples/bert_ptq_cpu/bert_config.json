@@ -21,6 +21,16 @@
                     "conda_file_path": "conda.yaml"
                 }
             }
+        },
+        "docker_system": {
+            "type": "Docker",
+            "config": {
+                "local_docker_config": {
+                    "image_name": "Olive-image",
+                    "build_context_path": "docker",
+                    "dockerfile": "Dockerfile"
+                }
+            }
         }
     },
     "evaluators": {
