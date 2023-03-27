@@ -56,5 +56,5 @@
             "input_types": ["int64", "int64", "int64"],
             "output_names": ["output"]
         }
-}
+    }
 }
