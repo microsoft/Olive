@@ -25,17 +25,12 @@ class RunConfig(ConfigBase):
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
     evaluators: Dict[str, OliveEvaluatorConfig] = None
-    passes: Dict[str, RunPassConfig]
     engine: EngineConfig
+    passes: Dict[str, RunPassConfig]
 
     @validator("evaluators", pre=True, each_item=True)
     def validate_evaluators(cls, v, values):
         return _resolve_system(v, values, "target")
-
-    @validator("passes", pre=True, each_item=True)
-    def validate_passes(cls, v, values):
-        v = _resolve_system(v, values, "host")
-        return _resolve_evaluator(v, values)
 
     @validator("engine", pre=True)
     def validate_engine(cls, v, values):
@@ -48,6 +43,24 @@ class RunConfig(ConfigBase):
             raise ValueError("search_strategy must be specified in engine config")
         v = _resolve_system(v, values, "host")
         return _resolve_evaluator(v, values)
+
+    @validator("passes", pre=True, each_item=True)
+    def validate_passes(cls, v, values):
+        v = _resolve_system(v, values, "host")
+        return _resolve_evaluator(v, values)
+
+    @validator("passes", pre=True, each_item=True)
+    def validate_pass_search(cls, v, values):
+        if "engine" not in values:
+            raise ValueError("Invalid engine")
+        search = values["engine"].search_strategy is not None
+
+        pass_search = v.get("default_to_search")
+
+        # if pass_search is None, set it to search
+        if pass_search is None:
+            v["default_to_search"] = search
+        return v
 
 
 def _resolve_system(v, values, system_alias):
