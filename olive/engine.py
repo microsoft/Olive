@@ -54,10 +54,11 @@ class Engine:
         self._config = validate_config(config, EngineConfig)
 
         if search_strategy is not None:
-            self._search_strategy = search_strategy
+            self.search_strategy = search_strategy
+        elif self._config.search_strategy is not None:
+            self.search_strategy = SearchStrategy(self._config.search_strategy)
         else:
-            assert self._config.search_strategy is not None, "Search strategy must be provided"
-            self._search_strategy = SearchStrategy(self._config.search_strategy)
+            self.search_strategy = None
 
         # default host
         if host is not None:
@@ -133,6 +134,9 @@ class Engine:
         """
         Register a pass
         """
+        if self.search_strategy is None and len(p.search_space()) > 0:
+            raise ValueError(f"Search strategy is None but pass {name} has search space")
+
         if name is not None:
             assert name not in self._passes, f"Pass with name {name} already registered"
         else:
@@ -141,6 +145,7 @@ class Engine:
                 name = p.__class__.__name__
                 if id > 0:
                     name = f"{name}_{id}"
+                id += 1
                 if name not in self._passes:
                     break
 
@@ -165,7 +170,7 @@ class Engine:
         objective_dict = self.resolve_objectives(input_model, input_model_id, evaluator.metrics, verbose)
 
         # initialize the search strategy
-        self._search_strategy.initialize(self._pass_search_spaces, input_model_id, objective_dict)
+        self.search_strategy.initialize(self._pass_search_spaces, input_model_id, objective_dict)
 
         # record start time
         start_time = time.time()
@@ -175,7 +180,7 @@ class Engine:
 
             # get the next step
             should_prune = False
-            next_step = self._search_strategy.next_step()
+            next_step = self.search_strategy.next_step()
 
             # if no more steps, break
             if next_step is None:
@@ -221,18 +226,18 @@ class Engine:
                     logger.info(f"Signal: {signal}")
 
             # record feedback signal
-            self._search_strategy.record_feedback_signal(next_step["search_point"], signal, model_ids, should_prune)
+            self.search_strategy.record_feedback_signal(next_step["search_point"], signal, model_ids, should_prune)
 
             time_diff = time.time() - start_time
-            self._search_strategy.check_exit_criteria(iter_num, time_diff, signal)
+            self.search_strategy.check_exit_criteria(iter_num, time_diff, signal)
 
         # import json
 
-        # for i, key in enumerate(self._search_strategy._search_results):
+        # for i, key in enumerate(self.search_strategy._search_results):
         #     json.dump(
-        #         self._search_strategy._search_results[key].to_json(), open(f"search_results_{i}.json", "w"), indent=4
+        #         self.search_strategy._search_results[key].to_json(), open(f"search_results_{i}.json", "w"), indent=4
         #     )
-        return self._search_strategy.get_best_execution()
+        return self.search_strategy.get_best_execution()
 
     def resolve_objectives(
         self, input_model: OliveModel, input_model_id: str, metrics: List[Metric], verbose: bool = False

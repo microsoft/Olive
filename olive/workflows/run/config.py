@@ -34,18 +34,11 @@ class RunConfig(ConfigBase):
 
     @validator("engine", pre=True)
     def validate_engine(cls, v, values):
-        search_strategy = None
-        if isinstance(v, dict):
-            search_strategy = v.get("search_strategy")
-        elif isinstance(v, EngineConfig):
-            search_strategy = v.search_strategy
-        if search_strategy is None:
-            raise ValueError("search_strategy must be specified in engine config")
         v = _resolve_system(v, values, "host")
         return _resolve_evaluator(v, values)
 
     @validator("passes", pre=True, each_item=True)
-    def validate_passes(cls, v, values):
+    def validate_pass_host(cls, v, values):
         v = _resolve_system(v, values, "host")
         return _resolve_evaluator(v, values)
 
@@ -58,6 +51,7 @@ class RunConfig(ConfigBase):
         pass_search = v.get("default_to_search")
 
         # if pass_search is None, set it to search
+        # pass_search overrides search
         if pass_search is None:
             v["default_to_search"] = search
         return v
