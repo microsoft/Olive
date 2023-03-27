@@ -48,10 +48,8 @@ def check_output(metrics):
 @pytest.mark.parametrize("system", ["local_system", "aml_system"])
 @pytest.mark.parametrize("olive_json", ["resnet_config.json"])
 def test_resnet(search_algorithm, execution_order, system, olive_json):
-    if system == "aml_system":
-        pytest.skip("Skip AzureML test case.")
 
-    from olive.workflows.run.run import run as olive_run
+    from olive.workflows import run as olive_run
 
     olive_config = None
     with open(olive_json, "r") as fin:

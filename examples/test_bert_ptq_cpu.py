@@ -36,13 +36,8 @@ def check_output(metrics):
 def test_bert(search_algorithm, execution_order, system, olive_json):
     if system == "docker_system" and platform.system() == "Windows":
         pytest.skip("Skip Linux containers on Windows host test case.")
-    if system == "aml_system":
-        pytest.skip("Skip AzureML test case.")
-    if system == "docker_system":
-        pytest.skip("Skip Docker test case until OSS done.")
 
-    # TODO simplify the import structure for workflows.run
-    from olive.workflows.run.run import run as olive_run
+    from olive.workflows import run as olive_run
 
     olive_config = None
     with open(olive_json, "r") as fin:
