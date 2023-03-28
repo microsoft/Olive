@@ -12,6 +12,7 @@ dependencies:
       - pyyaml
       - torch
       - torchmetrics>=0.7.0, <0.10.1
+      - torchvision
       - numpy
       - onnx
       - scipy
