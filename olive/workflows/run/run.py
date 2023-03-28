@@ -56,7 +56,7 @@ def run(config: Union[str, Path, dict]):
     input_model = config.input_model.create_model()
 
     # engine
-    engine = Engine(config.engine)
+    engine = Engine(config.engine.dict())
 
     if config.passes is None or not config.passes:
         engine, config = automatically_insert_passes(engine, config)
