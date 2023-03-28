@@ -42,20 +42,6 @@ class RunConfig(ConfigBase):
         v = _resolve_system(v, values, "host")
         return _resolve_evaluator(v, values)
 
-    @validator("passes", pre=True, each_item=True)
-    def validate_pass_search(cls, v, values):
-        if "engine" not in values:
-            raise ValueError("Invalid engine")
-        search = values["engine"].search_strategy is not None
-
-        pass_search = v.get("default_to_search")
-
-        # if pass_search is None, set it to search
-        # pass_search overrides search
-        if pass_search is None:
-            v["default_to_search"] = search
-        return v
-
 
 def _resolve_system(v, values, system_alias):
     if not isinstance(v, dict):
