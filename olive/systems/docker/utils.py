@@ -80,7 +80,7 @@ def create_metric_volumes_list(metrics: List[Metric], container_root_path: Path,
 
 def create_model_mount(model: OliveModel, container_root_path: Path):
     model_mount_path = str(container_root_path / Path(model.model_path).name)
-    model_mount_str = f"{model.model_path}:{model_mount_path}"
+    model_mount_str = f"{str(Path(model.model_path).resolve())}:{model_mount_path}"
     model.model_path = model_mount_path
     model_mount_str_list = [model_mount_str]
 
