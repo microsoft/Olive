@@ -68,5 +68,30 @@ def test_resnet(search_algorithm, execution_order, system, olive_json):
     olive_config["engine"]["host"] = system
     olive_config["evaluators"]["common_evaluator"]["target"] = system
 
+    if system == "aml_system":
+        generate_olive_workspace_config("olive-workspace-config.json")
+
     best_execution = olive_run(olive_config)
     check_output(best_execution["metric"])
+
+
+def generate_olive_workspace_config(workspace_config_path):
+    subscription_id = os.environ.get("WORKSPACE_SUBSCRIPTION_ID")
+    if subscription_id is None:
+        raise Exception("Please set the environment variable WORKSPACE_SUBSCRIPTION_ID")
+
+    resource_group = os.environ.get("WORKSPACE_RESOURCE_GROUP")
+    if resource_group is None:
+        raise Exception("Please set the environment variable WORKSPACE_RESOURCE_GROUP")
+
+    workspace_name = os.environ.get("WORKSPACE_NAME")
+    if workspace_name is None:
+        raise Exception("Please set the environment variable WORKSPACE_NAME")
+
+    workspace_config = {
+        "subscription_id": subscription_id,
+        "resource_group": resource_group,
+        "workspace_name": workspace_name,
+    }
+
+    json.dump(workspace_config, open(workspace_config_path, "w"))
