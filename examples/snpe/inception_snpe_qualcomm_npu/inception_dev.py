@@ -44,7 +44,8 @@ def main():
             "input_shapes": [[1, 299, 299, 3]],
             "output_names": ["InceptionV3/Predictions/Reshape_1"],
             "output_shapes": [[1, 1001]],
-        }
+        },
+        disable_search=True,
     )
     snpe_model = snpe_conversion.run(tensorflow_model, snpe_model_file)
     assert Path(snpe_model.model_path).is_file()
@@ -60,7 +61,8 @@ def main():
     snpe_quantized_model_file = str(models_dir / f"{name}_snpe_quantized.dlc")
     snpe_quantized_data_dir = str(data_dir)
     snpe_quantization = SNPEQuantization(
-        {"data_dir": snpe_quantized_data_dir, "dataloader_func": create_quant_dataloader, "enable_htp": True}
+        {"data_dir": snpe_quantized_data_dir, "dataloader_func": create_quant_dataloader, "enable_htp": True},
+        disable_search=True,
     )
     snpe_quantized_model = snpe_quantization.run(snpe_model, snpe_quantized_model_file)
     assert Path(snpe_quantized_model.model_path).is_file()
@@ -75,7 +77,7 @@ def main():
     print("Converting SNPE Quantized model to ONNX...")
     snpe_quantized_onnx_model_file = str(models_dir / f"{name}_snpe_quantized.onnx")
 
-    snpe_to_onnx_conversion = SNPEtoONNXConversion({"target_device": SNPEDevice.DSP})
+    snpe_to_onnx_conversion = SNPEtoONNXConversion({"target_device": SNPEDevice.DSP}, disable_search=True)
     snpe_quantized_onnx_model = snpe_to_onnx_conversion.run(snpe_quantized_model, snpe_quantized_onnx_model_file)
     assert Path(snpe_quantized_onnx_model.model_path).is_file()
 

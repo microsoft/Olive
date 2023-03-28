@@ -81,8 +81,7 @@
             "config": {
                 "user_script": "user_script.py",
                 "dataloader_func": "glue_calibration_reader"
-            },
-            "default_to_search": true
+            }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",

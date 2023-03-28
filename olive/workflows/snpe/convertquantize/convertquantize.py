@@ -54,7 +54,7 @@ def convertquantize(
     logger.info("Converting model to SNPE...")
     snpe_model_file = str(models_dir / f"{name}.dlc")
 
-    snpe_conversion = SNPEConversion({**config["io_config"], **config["convert_options"]})
+    snpe_conversion = SNPEConversion({**config["io_config"], **config["convert_options"]}, disable_search=True)
     snpe_model = snpe_conversion.run(model, snpe_model_file)
     assert Path(snpe_model.model_path).is_file()
     json.dump(snpe_model.io_config, open(str(models_dir / f"{name}.dlc_io_config.json"), "w"))
@@ -66,7 +66,8 @@ def convertquantize(
     dataloader_func = lambda data_dir: SNPEProcessedDataLoader(data_dir, input_list_file=input_list_file)  # noqa: E731
 
     snpe_quantization = SNPEQuantization(
-        {"data_dir": str(data_dir), "dataloader_func": dataloader_func, **config["quantize_options"]}
+        {"data_dir": str(data_dir), "dataloader_func": dataloader_func, **config["quantize_options"]},
+        disable_search=True,
     )
     snpe_quantized_model = snpe_quantization.run(snpe_model, snpe_quantized_model_file)
     assert Path(snpe_quantized_model.model_path).is_file()
@@ -82,7 +83,7 @@ def convertquantize(
     snpe_quantized_onnx_model_file = str(models_dir / f"{name}.quant.onnx")
 
     snpe_to_onnx_conversion = SNPEtoONNXConversion(
-        {"target_device": config["quantize_options"].get("target_device", SNPEDevice.CPU)}
+        {"target_device": config["quantize_options"].get("target_device", SNPEDevice.CPU)}, disable_search=True
     )
     snpe_quantized_onnx_model = snpe_to_onnx_conversion.run(snpe_quantized_model, snpe_quantized_onnx_model_file)
     assert Path(snpe_quantized_onnx_model.model_path).is_file()

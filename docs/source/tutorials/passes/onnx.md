@@ -111,8 +111,7 @@ a. Tune the parameters of the OlivePass with pre-defined search space
     "config": {
         "user_script": "./user_script.py",
         "dataloader_func": "glue_calibration_reader"
-    },
-    "default_to_search": true
+    }
 }
 ```
 
@@ -126,7 +125,8 @@ b. Select parameters to tune
         "per_channel": "DEFAULT_SEARCH",
         "user_script": "./user_script.py",
         "dataloader_func": "glue_calibration_reader",
-    }
+    },
+    "disable_search": true
 }
 ```
 
@@ -139,7 +139,8 @@ c. Use default values of the OlivePass (no tuning in this way)
         "per_channel": "DEFAULT",
         "user_script": "./user_script.py",
         "dataloader_func": "glue_calibration_reader",
-    }
+    },
+    "disable_search": true
 }
 ```
 
@@ -152,7 +153,8 @@ d. Specify parameters with user defined values
         "per_channel": true,
         "user_script": "./user_script.py",
         "dataloader_func": "glue_calibration_reader",
-    }
+    },
+    "disable_search": true
 }
 ```
 

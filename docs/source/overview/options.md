@@ -189,8 +189,9 @@ another dictionary that contains the information of the pass. The information of
 
 - `type: [str]` The type of the pass.
 
-- `default_to_search: [Boolean]` This decides whether to use the default value (`false`) or the default search space,
-  if any, (`true`) for the optional parameters. This is `false` by default.
+- `disable_search: [Boolean]` This decides whether to use the default value (`true`) or the default search space,
+  if any, (`false`) for the optional parameters. This is `false` by default and can be overridden if `search_strategy` under `engine` is
+  specified. Otherwise, it is always `true`.
 
 - `config: [Dict]` The configuration of the pass.
 
@@ -203,7 +204,7 @@ will be used.
 
 - `clean_run_cache: [Boolean]` This decides whether to clean the run cache of the pass before running the pass. This is `false` by default.
 
-Please refer to [Configuring Pass](configuring_pass) for more details on `type`, `default_to_search` and `config`.
+Please refer to [Configuring Pass](configuring_pass) for more details on `type`, `disable_search` and `config`.
 
 Please also find the detailed options from following table for each pass:
 
@@ -246,8 +247,7 @@ Please also find the detailed options from following table for each pass:
             "data_dir": "data",
             "dataloader_func": "resnet_calibration_reader",
             "weight_type": "QUInt8"
-        },
-        "default_to_search": true
+        }
     }
 }
 ```

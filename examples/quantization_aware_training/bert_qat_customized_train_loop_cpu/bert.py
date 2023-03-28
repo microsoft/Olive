@@ -111,7 +111,7 @@ def main():
         "input_shapes": [[1, 128], [1, 128], [1, 128]],
         "input_types": ["int64", "int64", "int64"],
     }
-    qat_pass = QuantizationAwareTraining(qat_config, default_to_search=False)
+    qat_pass = QuantizationAwareTraining(qat_config, disable_search=True)
     engine.register(qat_pass)
 
     # ------------------------------------------------------------------
@@ -124,12 +124,12 @@ def main():
         "output_names": ["output"],
         "target_opset": 17,
     }
-    onnx_conversion_pass = OnnxConversion(onnx_conversion_config, default_to_search=False)
+    onnx_conversion_pass = OnnxConversion(onnx_conversion_config, disable_search=True)
     engine.register(onnx_conversion_pass)
 
     # ------------------------------------------------------------------
     # Onnx model optimizer pass
-    onnx_model_optimizer_pass = OnnxModelOptimizer(config=None)
+    onnx_model_optimizer_pass = OnnxModelOptimizer()
     engine.register(onnx_model_optimizer_pass)
 
     # ------------------------------------------------------------------
