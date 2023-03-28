@@ -2,7 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Dict
+from pathlib import Path
+from typing import Dict, Union
 
 from pydantic import validator
 
@@ -20,12 +21,17 @@ class RunPassConfig(FullPassConfig):
     clean_run_cache: bool = False
 
 
+class RunEngineConfig(EngineConfig):
+    output_dir: Union[Path, str] = None
+    output_name: str = None
+
+
 class RunConfig(ConfigBase):
     verbose: bool = False
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
     evaluators: Dict[str, OliveEvaluatorConfig] = None
-    engine: EngineConfig
+    engine: RunEngineConfig
     passes: Dict[str, RunPassConfig]
 
     @validator("evaluators", pre=True, each_item=True)

@@ -275,6 +275,10 @@ This is a dictionary that contains the information of the engine. The informatio
     - `max_time: [int]` The maximum time of the search in seconds. Only valid for `joint` execution order. By default, there is no
     maximum time.
 
+  If `search_strategy` is `null`, the engine will run the passes in the order they were registered without. Thus, the passes must have empty
+  search spaces. The output of the final pass will be evaluated if there is a valid evaluator. The output of the engine will be the output model
+  of the final pass and its evaluation result.
+
 - `host: [str | Dict]` The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.
     If it is a dictionary, it contains the system information. If not specified, it is the local system.
 
@@ -288,6 +292,13 @@ This is a dictionary that contains the information of the engine. The informatio
 
 - `clean_evaluation_cache: [Boolean]` This decides whether to clean the evaluation cache of the engine before running the engine. This is
 `false` by default.
+
+- `output_dir: [str]` The directory to store the output of the engine. If not specified, the output will be stored in the current working
+    directory. For a run with no search, the output is the output model of the final pass and its evaluation result. For a run with search, the
+    output is a json file with the search results.
+
+- `output_name: [str]` The name of the output. This string will be used as the prefix of the output file name. If not specified, there is no
+    prefix.
 
 Please find the detailed config options from following table for each search algorithm:
 

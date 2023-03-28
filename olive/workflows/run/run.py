@@ -68,6 +68,6 @@ def run(config: Union[str, Path, dict]):
         engine.register(p, pass_name, host, evaluator, pass_config.clean_run_cache)
 
     # run
-    best_execution = engine.run(input_model, config.verbose)
+    best_execution = engine.run(input_model, config.verbose, config.engine.output_dir, config.engine.output_name)
     logger.info(best_execution)
     return best_execution
