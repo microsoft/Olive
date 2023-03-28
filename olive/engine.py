@@ -114,27 +114,10 @@ class Engine:
             if clean_run_cache:
                 cache_utils.clean_pass_run_cache(p.__class__.__name__, cache_dir)
 
-        # initialize search spaces
-        pass_order = [pass_name for pass_name in self.pass_order]
-
-        # list of passes until the first pass with non-empty search space
-        # There is no advantage in adding these passes to the search space
-        self.non_search_initial_passes = []
-        while True:
-            if len(pass_order) == 0:
-                break
-            pass_name = pass_order[0]
-            p = self.passes[pass_name]["pass"]
-            if p.search_space() == {}:
-                self.non_search_initial_passes.append(pass_name)
-                pass_order = pass_order[1:]
-            else:
-                break
-
         # list of passes starting from the first pass with non-empty search space
         # These passes will be added to the search space
         self.pass_search_spaces = []
-        for pass_name in pass_order:
+        for pass_name in self.pass_order:
             p = self.passes[pass_name]["pass"]
             self.pass_search_spaces.append((pass_name, p.search_space()))
 
@@ -151,11 +134,8 @@ class Engine:
         """
         Register a pass
         """
-        if self.search_strategy is None and len(p.search_space()) > 0:
-            raise ValueError(f"Search strategy is None but pass {name} has search space")
-
         if name is not None:
-            assert name not in self._passes, f"Pass with name {name} already registered"
+            assert name not in self.passes, f"Pass with name {name} already registered"
         else:
             id = 0
             while True:
@@ -163,8 +143,11 @@ class Engine:
                 if id > 0:
                     name = f"{name}_{id}"
                 id += 1
-                if name not in self._passes:
+                if name not in self.passes:
                     break
+
+        if self.search_strategy is None and len(p.search_space()) > 0:
+            raise ValueError(f"Search strategy is None but pass {name} has search space")
 
         self.passes[name] = {
             "pass": p,
@@ -188,11 +171,11 @@ class Engine:
         input_model_id = self._init_input_model(input_model)
 
         # get objective_dict
-        evaluator = self.evaluator_for_pass(self._pass_order[-1])
+        evaluator = self.evaluator_for_pass(self.pass_order[-1])
         objective_dict = self.resolve_objectives(input_model, input_model_id, evaluator.metrics, verbose)
 
         # initialize the search strategy
-        self.search_strategy.initialize(self._pass_search_spaces, input_model_id, objective_dict)
+        self.search_strategy.initialize(self.pass_search_spaces, input_model_id, objective_dict)
 
         # record start time
         start_time = time.time()
@@ -253,12 +236,6 @@ class Engine:
             time_diff = time.time() - start_time
             self.search_strategy.check_exit_criteria(iter_num, time_diff, signal)
 
-        # import json
-
-        # for i, key in enumerate(self.search_strategy._search_results):
-        #     json.dump(
-        #         self.search_strategy._search_results[key].to_json(), open(f"search_results_{i}.json", "w"), indent=4
-        #     )
         return self.search_strategy.get_best_execution()
 
     def _run_no_search(
@@ -271,7 +248,9 @@ class Engine:
         Save evaluation results of the final model, if any, to {output_dir}/{output_name}_results.json
         Return {"model": final_model_json, "results": evaluation_results}
         """
-        assert len(self.non_search_initial_passes) == len(self.pass_order), "All passes should be non-search passes"
+        for pass_id in self.pass_order:
+            if len(self.passes[pass_id]["pass"].search_space()) > 0:
+                raise ValueError(f"Pass {pass_id} has search space but search strategy is None")
 
         # hash the input model
         input_model_id = self._init_input_model(input_model)
@@ -279,13 +258,13 @@ class Engine:
         # no search strategy, just run the passes
         model = input_model
         model_id = input_model_id
-        for pass_id in self.non_search_initial_passes:
+        for pass_id in self.pass_order:
             if verbose:
                 logger.info(f"Running pass {pass_id} ...")
             model, model_id = self._run_pass(pass_id, {}, model, model_id, verbose)
 
         results = None
-        evaluator = self.evaluator_for_pass(self.non_search_initial_passes[-1])
+        evaluator = self.evaluator_for_pass(self.pass_order[-1])
         if evaluator is not None:
             results = self._evaluate_model(model, model_id, evaluator, verbose)
 
@@ -476,7 +455,7 @@ class Engine:
         Run a pass on the input model.
         """
         # pass
-        p = self._passes[pass_id]
+        p = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)

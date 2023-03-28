@@ -93,7 +93,7 @@ class TestCache:
         json.dump(model_json, open(model_cache_file_path, "w"))
 
         # output model to output_dir
-        output_dir = Path("output_dir")
+        output_dir = cache_dir / "output"
         shutil.rmtree(output_dir, ignore_errors=True)
         output_name = "test_model"
         output_json = save_model(model_id, output_dir, output_name, cache_dir)
@@ -109,4 +109,3 @@ class TestCache:
 
         # cleanup
         shutil.rmtree(cache_dir)
-        shutil.rmtree(output_dir)

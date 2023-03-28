@@ -144,7 +144,7 @@ def save_model(
         if model_path.is_dir():
             shutil.copytree(model_path, output_path, dirs_exist_ok=True)
         elif model_path.is_file():
-            output_path = output_path.with_suffix(model_path.suffi)
+            output_path = output_path.with_suffix(model_path.suffix)
             shutil.copy(model_path, output_path)
         output_path = str(output_path)
     else:
