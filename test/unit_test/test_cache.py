@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import os
 import platform
 import shutil
@@ -9,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from olive.cache import clean_pass_run_cache
+from olive.cache import clean_pass_run_cache, save_model
 
 
 class TestCache:
@@ -65,3 +66,47 @@ class TestCache:
 
         # cleanup
         shutil.rmtree(cache_dir)
+
+    @pytest.mark.parametrize(
+        "model_path",
+        ["0_model_folder", "0_model.onnx"],
+    )
+    def test_save_model(self, model_path):
+        # setup
+        cache_dir = Path("cache_dir")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        if model_path == "0_model_folder":
+            model_folder = cache_dir / model_path
+            model_folder.mkdir(parents=True, exist_ok=True)
+            model_p = str(model_folder)
+        else:
+            model_p = str(cache_dir / model_path)
+            open(str(cache_dir / model_path), "w")
+
+        # cache model to cache_dir
+        model_id = "0"
+        model_cache_dir = cache_dir / "models"
+        model_cache_dir.mkdir(parents=True, exist_ok=True)
+        model_cache_file_path = str((model_cache_dir / f"{model_id}_p(･◡･)p.json").resolve())
+        model_json = {"type": "onnx", "config": {"model_path": model_p}}
+        json.dump(model_json, open(model_cache_file_path, "w"))
+
+        # output model to output_dir
+        output_dir = Path("output_dir")
+        shutil.rmtree(output_dir, ignore_errors=True)
+        output_name = "test_model"
+        output_json = save_model(model_id, output_dir, output_name, cache_dir)
+
+        # assert
+        output_model_path = (output_dir / f"{output_name}").with_suffix(Path(model_p).suffix).resolve()
+        output_model_path = str(output_model_path.resolve())
+        output_json_path = output_dir / f"{output_name}.json"
+        assert output_model_path == output_json["config"]["model_path"]
+        assert os.path.exists(output_model_path)
+        assert os.path.exists(output_json_path)
+        assert output_model_path == json.load(open(output_json_path))["config"]["model_path"]
+
+        # cleanup
+        shutil.rmtree(cache_dir)
+        shutil.rmtree(output_dir)

@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from olive.cache import clean_cache, clean_evaluation_cache, clean_pass_run_cache, create_cache, get_cache_sub_dirs
+import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
 from olive.evaluator.metric import Metric
@@ -89,12 +89,14 @@ class Engine:
         """
         cache_dir = self._config.cache_dir
         if self._config.clean_cache:
-            clean_cache(cache_dir)
+            cache_utils.clean_cache(cache_dir)
         if self._config.clean_evaluation_cache:
-            clean_evaluation_cache(cache_dir)
+            cache_utils.clean_evaluation_cache(cache_dir)
 
-        self._model_cache_path, self._run_cache_path, self._evaluation_cache_path = get_cache_sub_dirs(cache_dir)
-        create_cache(cache_dir)
+        self._model_cache_path, self._run_cache_path, self._evaluation_cache_path = cache_utils.get_cache_sub_dirs(
+            cache_dir
+        )
+        cache_utils.create_cache(cache_dir)
 
         # initialize counters
         # we do this before cleaning pass run caches to ensure we don't reuse model numbers even if the model was
@@ -110,7 +112,7 @@ class Engine:
             clean_run_cache = self.passes[pass_name]["clean_run_cache"]
             p = self.passes[pass_name]["pass"]
             if clean_run_cache:
-                clean_pass_run_cache(p.__class__.__name__, cache_dir)
+                cache_utils.clean_pass_run_cache(p.__class__.__name__, cache_dir)
 
         # initialize search spaces
         pass_order = [pass_name for pass_name in self.pass_order]
@@ -172,33 +174,18 @@ class Engine:
         }
         self.pass_order.append(name)
 
-    def run(self, input_model: OliveModel, verbose: bool = False):
+    def run(self, input_model: OliveModel, verbose: bool = False, output_dir: str = None, output_name: str = None):
         """
         Run all the registered Olive passes on the input model and produce one or more candidate models.
         """
         if not self._initialized:
             self.initialize()
 
+        if self.search_strategy is None:
+            return self._run_no_search(input_model, verbose, output_dir, output_name)
+
         # hash the input model
         input_model_id = self._init_input_model(input_model)
-
-        if self.search_strategy is None:
-            assert len(self.non_search_initial_passes) == len(self.pass_order), "All passes should be non-search passes"
-
-            # no search strategy, just run the passes
-            model = input_model
-            model_id = input_model_id
-            for pass_id in self.non_search_initial_passes:
-                if verbose:
-                    logger.info(f"Running pass {pass_id} ...")
-                model, model_id = self._run_pass(pass_id, {}, model, model_id, verbose)
-
-            results = None
-            evaluator = self.evaluator_for_pass(self.non_search_initial_passes[-1])
-            if evaluator is not None:
-                results = self._evaluate_model(model, model_id, evaluator, verbose)
-
-            return model, model_id, results
 
         # get objective_dict
         evaluator = self.evaluator_for_pass(self._pass_order[-1])
@@ -273,6 +260,51 @@ class Engine:
         #         self.search_strategy._search_results[key].to_json(), open(f"search_results_{i}.json", "w"), indent=4
         #     )
         return self.search_strategy.get_best_execution()
+
+    def _run_no_search(
+        self, input_model: OliveModel, verbose: bool = False, output_dir: str = None, output_name: str = None
+    ):
+        """
+        Run all registered Olive passes without search strategy.
+
+        Save the final model to {output_dir}/{output_name}_model and json file to {output_dir}/{output_name}_model.json
+        Save evaluation results of the final model, if any, to {output_dir}/{output_name}_results.json
+        Return {"model": final_model_json, "results": evaluation_results}
+        """
+        assert len(self.non_search_initial_passes) == len(self.pass_order), "All passes should be non-search passes"
+
+        # hash the input model
+        input_model_id = self._init_input_model(input_model)
+
+        # no search strategy, just run the passes
+        model = input_model
+        model_id = input_model_id
+        for pass_id in self.non_search_initial_passes:
+            if verbose:
+                logger.info(f"Running pass {pass_id} ...")
+            model, model_id = self._run_pass(pass_id, {}, model, model_id, verbose)
+
+        results = None
+        evaluator = self.evaluator_for_pass(self.non_search_initial_passes[-1])
+        if evaluator is not None:
+            results = self._evaluate_model(model, model_id, evaluator, verbose)
+
+        # save the model
+        output_model_name = f"{output_name}_model" if output_name is not None else "model"
+        output_model_json = cache_utils.save_model(model_id, output_dir, output_model_name, self._config.cache_dir)
+
+        # save the results
+        result_name = f"{output_name}_results" if output_name is not None else "results"
+        output_dir = output_dir if output_dir is not None else "."
+        results_path = Path(output_dir) / f"{result_name}.json"
+        if results is not None:
+            json.dump(results, open(results_path, "w"), indent=4)
+
+        output = {"model": output_model_json}
+        if results is not None:
+            output["results"] = results
+
+        return output
 
     def resolve_objectives(
         self, input_model: OliveModel, input_model_id: str, metrics: List[Metric], verbose: bool = False
@@ -361,14 +393,14 @@ class Engine:
                 break
         return new_model_number
 
-    def _cache_model(self, model: Union[OliveModel, str], model_id: str):
+    def _cache_model(self, model: Union[OliveModel, str], model_id: str, check_objects: bool = True):
         """
         Cache the model in the cache directory.
         """
         if model == PRUNED_CONFIG:
             model_json = {}
         else:
-            model_json = model.to_json()
+            model_json = model.to_json(check_object=check_objects)
         model_json_path = self._model_cache_path / f"{model_id}.json"
         try:
             json.dump(model_json, open(model_json_path, "w"))
@@ -399,7 +431,7 @@ class Engine:
         model_hash = hash_dict(input_model.to_json())
 
         # cache the model
-        self._cache_model(input_model, model_hash)
+        self._cache_model(input_model, model_hash, check_objects=False)
 
         return model_hash
 
