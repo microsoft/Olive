@@ -1,5 +1,5 @@
 # Inception model optimization on Qualcomm NPU
-This folder contains a sample usecase of olive to convert a TensorFlow model to SNPE DLC, quantize it and convert it to Onnx.
+This folder contains a sample use case of Olive to convert a TensorFlow model to SNPE DLC, quantize it and convert it to Onnx.
 
 Performs optimization pipeline:
 - *TensorFlow Model -> SNPE Model -> Quantized SNPE Model -> Onnx Model (for SNPE EP)*

@@ -1,5 +1,5 @@
 # Cifar10 optimization with OpenVINO for Intel HW
-This folder contains a sample use case of olive to optimize a CIFAR10 model using OpenVINO conversion and OpenVINO quantization.
+This folder contains a sample use case of Olive to optimize a CIFAR10 model using OpenVINO conversion and OpenVINO quantization.
 
 Performs optimization pipeline:
 - *PyTorch Model -> OpenVINO Model -> Quantized OpenVINO Model*

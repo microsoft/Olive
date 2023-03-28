@@ -1,5 +1,5 @@
 # BERT optimization with PTQ on CPU
-This folder contains a sample use case of olive to optimize a [Bert](https://huggingface.co/Intel/bert-base-uncased-mrpc) model using onnx conversion, onnx transformers optimization,
+This folder contains a sample use case of Olive to optimize a [Bert](https://huggingface.co/Intel/bert-base-uncased-mrpc) model using onnx conversion, onnx transformers optimization,
 onnx quantization tuner and performance tuning.
 
 Performs optimization pipeline:

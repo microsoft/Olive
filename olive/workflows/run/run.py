@@ -13,11 +13,11 @@ from olive.workflows.run.config import RunConfig
 logger = logging.getLogger(__name__)
 
 
-def automatically_insert_passes(engine, config):
+def automatically_insert_passes(config):
     new_config_dict = json.loads(config.json())
     new_passes = {}
 
-    # insert onnx coverter
+    # insert onnx converter
     oc_config = {"type": "OnnxConversion"}
     oc_config["config"] = config.engine.model_io_config
     new_passes["conversion"] = oc_config
@@ -59,7 +59,8 @@ def run(config: Union[str, Path, dict]):
     engine = Engine(config.engine)
 
     if config.passes is None or not config.passes:
-        engine, config = automatically_insert_passes(engine, config)
+        # TODO enhance this logic for more passes templates
+        engine, config = automatically_insert_passes(config)
     # passes
     for pass_name, pass_config in config.passes.items():
         p = pass_config.create_pass()

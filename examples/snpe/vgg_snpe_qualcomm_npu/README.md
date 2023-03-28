@@ -1,5 +1,5 @@
 # VGG model optimization on Qualcomm NPU
-This folder contains a sample usecase of olive to convert an Onnx model to SNPE DLC, quantize it and convert it to Onnx.
+This folder contains a sample use case of Olive to convert an Onnx model to SNPE DLC, quantize it and convert it to Onnx.
 
 Performs optimization pipeline:
 - *Onnx Model -> SNPE Model -> Quantized SNPE Model -> Onnx Model (for SNPE EP)*
