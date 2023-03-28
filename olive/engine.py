@@ -68,9 +68,6 @@ class Engine:
         else:
             self.host = LocalSystem()
 
-        # Dictionary to keep track of separate hosts for a pass optionally provided by the user.
-        self.hosts = {}
-
         # default evaluator
         self._evaluator = None
         if evaluator is not None:
@@ -78,14 +75,11 @@ class Engine:
         elif self._config.evaluator is not None:
             self._evaluator = self._config.evaluator.create_evaluator()
 
-        # Dictionary to keep track of separate evaluator for a pass optionally provided by the user.
-        self._evaluators = {}
-
         # dictionary of passes
-        self._passes = {}
+        # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator, "clean_run_cache": clean_run_cache}}
+        self.passes = {}
         # list of pass names in the order they were registered
-        self._pass_order = []
-        self._clean_pass_run_cache = {}
+        self.pass_order = []
 
         self._initialized = False
 
@@ -110,16 +104,37 @@ class Engine:
         if len(model_jsons) > 0:
             self._new_model_number = max([int(json_file.stem.split("_")[0]) for json_file in model_jsons]) + 1
 
-        # initialize search spaces
-        self._pass_search_spaces = []
-        for pass_name in self._pass_order:
-            p = self._passes[pass_name]
-            self._pass_search_spaces.append((pass_name, p.search_space()))
-            # clean run cache if requested
-            # removes all run cache for pass type and all children elements
-            clean_run_cache = self._clean_pass_run_cache[pass_name]
+        # clean pass run cache if requested
+        # removes all run cache for pass type and all children elements
+        for pass_name in self.pass_order:
+            clean_run_cache = self.passes[pass_name]["clean_run_cache"]
+            p = self.passes[pass_name]["pass"]
             if clean_run_cache:
                 clean_pass_run_cache(p.__class__.__name__, cache_dir)
+
+        # initialize search spaces
+        pass_order = [pass_name for pass_name in self.pass_order]
+
+        # list of passes until the first pass with non-empty search space
+        # There is no advantage in adding these passes to the search space
+        self.non_search_initial_passes = []
+        while True:
+            if len(pass_order) == 0:
+                break
+            pass_name = pass_order[0]
+            p = self.passes[pass_name]["pass"]
+            if p.search_space() == {}:
+                self.non_search_initial_passes.append(pass_name)
+                pass_order = pass_order[1:]
+            else:
+                break
+
+        # list of passes starting from the first pass with non-empty search space
+        # These passes will be added to the search space
+        self.pass_search_spaces = []
+        for pass_name in pass_order:
+            p = self.passes[pass_name]["pass"]
+            self.pass_search_spaces.append((pass_name, p.search_space()))
 
         self._initialized = True
 
@@ -149,11 +164,13 @@ class Engine:
                 if name not in self._passes:
                     break
 
-        self._passes[name] = p
-        self._pass_order.append(name)
-        self.hosts[name] = host
-        self._evaluators[name] = evaluator
-        self._clean_pass_run_cache[name] = clean_run_cache
+        self.passes[name] = {
+            "pass": p,
+            "host": host,
+            "evaluator": evaluator,
+            "clean_run_cache": clean_run_cache,
+        }
+        self.pass_order.append(name)
 
     def run(self, input_model: OliveModel, verbose: bool = False):
         """
@@ -164,6 +181,24 @@ class Engine:
 
         # hash the input model
         input_model_id = self._init_input_model(input_model)
+
+        if self.search_strategy is None:
+            assert len(self.non_search_initial_passes) == len(self.pass_order), "All passes should be non-search passes"
+
+            # no search strategy, just run the passes
+            model = input_model
+            model_id = input_model_id
+            for pass_id in self.non_search_initial_passes:
+                if verbose:
+                    logger.info(f"Running pass {pass_id} ...")
+                model, model_id = self._run_pass(pass_id, {}, model, model_id, verbose)
+
+            results = None
+            evaluator = self.evaluator_for_pass(self.non_search_initial_passes[-1])
+            if evaluator is not None:
+                results = self._evaluate_model(model, model_id, evaluator, verbose)
+
+            return model, model_id, results
 
         # get objective_dict
         evaluator = self.evaluator_for_pass(self._pass_order[-1])
@@ -301,7 +336,7 @@ class Engine:
         return resolved_goals
 
     def host_for_pass(self, pass_id: str):
-        host = self.hosts[pass_id]
+        host = self.passes[pass_id]["host"]
         if host is None:
             return self.host
         return host
@@ -310,7 +345,7 @@ class Engine:
         """
         Return evaluator for the given pass.
         """
-        e = self._evaluators[pass_id]
+        e = self.passes[pass_id]["evaluator"]
         if e is None:
             return self._evaluator
         return e
