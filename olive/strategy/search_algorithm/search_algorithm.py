@@ -33,6 +33,8 @@ class SearchAlgorithm(AutoConfigClass):
     ):
         # search space
         self._search_space = SearchSpace(search_space)
+        if self._search_space.size() == 0:
+            raise ValueError("There are no valid points in the search space.")
 
         # objectives and directions
         objectives = objectives or []
