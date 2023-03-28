@@ -22,7 +22,7 @@ from olive.constants import Framework
 from olive.evaluator.metric import Metric
 from olive.model import ModelConfig, OliveModel
 from olive.passes.olive_pass import Pass
-from olive.systems.common import AzureMLDockerConfig, Device, SystemType
+from olive.systems.common import AzureMLDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 
 logger = logging.getLogger(__name__)
@@ -36,14 +36,12 @@ class AzureMLSystem(OliveSystem):
         aml_config_path: str,
         aml_compute: str,
         aml_docker_config: Union[Dict[str, Any], AzureMLDockerConfig],
-        device: Device = Device.CPU,
         instance_count: int = 1,
         is_dev: bool = False,
     ):
-        super().__init__(device)
+        super().__init__()
         self._assert_not_none(aml_docker_config)
         aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
-        self.device = device
         self.ml_client = MLClient.from_config(self._get_credentials(), path=aml_config_path)
         self.compute = aml_compute
         self.environment = self._create_environment(aml_docker_config)
