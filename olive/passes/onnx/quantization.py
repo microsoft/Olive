@@ -16,7 +16,7 @@ from onnxruntime.quantization.preprocess import quant_pre_process
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
-from olive.strategy.search_parameter import Boolean, Categorical, Conditional
+from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
 
 logger = logging.getLogger(__name__)
 
@@ -153,8 +153,13 @@ _static_optional_config = {
         type_=str,
         default="QInt8",
         default_search=Conditional(
-            parents=("quant_format",),
-            support={("QDQ",): Categorical(["QInt8", "QUInt8"]), ("QOperator",): Categorical(["QInt8"])},
+            parents=("quant_format", "weight_type"),
+            support={
+                ("QDQ", "QInt8"): Categorical(["QInt8"]),
+                ("QDQ", "QUInt8"): Categorical(["QUInt8"]),
+                ("QOperator", "QUInt8"): Categorical(["QUInt8"]),
+                ("QOperator", "QInt8"): Conditional.get_invalid_choice(),
+            },
         ),
         description="""
             Quantization data type of activation. Please refer to
@@ -197,11 +202,15 @@ class OnnxQuantization(Pass):
         config.update(deepcopy(_static_dataloader_config))
         static_optional_config = deepcopy(_static_optional_config)
         for _, value in static_optional_config.items():
+            value.default = ConditionalDefault(
+                parents=("quant_mode",),
+                support={("static",): value.default, ("dynamic",): ConditionalDefault.get_ignored_choice()},
+            )
             if isinstance(value.default_search, Categorical):
                 value.default_search = Conditional(
                     parents=("quant_mode",),
                     support={("static",): value.default_search},
-                    default=Categorical(["Invalid"]),
+                    default=Conditional.get_ignored_choice(),
                 )
             elif isinstance(value.default_search, Conditional):
                 value.default_search = Conditional(
@@ -209,7 +218,7 @@ class OnnxQuantization(Pass):
                     support={
                         ("static",) + key: value.default_search.support[key] for key in value.default_search.support
                     },
-                    default=Categorical(["Invalid"]),
+                    default=Conditional.get_ignored_choice(),
                 )
         config.update(static_optional_config)
         return config

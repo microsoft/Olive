@@ -6,7 +6,7 @@ from copy import deepcopy
 from random import Random
 from typing import Any, Dict, List, Optional, Tuple
 
-from olive.strategy.search_parameter import Categorical, Conditional, SearchParameter
+from olive.strategy.search_parameter import Categorical, Conditional, SearchParameter, SpecialParamValue
 from olive.strategy.utils import order_search_parameters
 
 
@@ -63,6 +63,8 @@ class SearchSpace:
             elif isinstance(param, Categorical):
                 options = param.get_support()
             search_point[space_name][param_name] = self.rng.choice(options)
+            if search_point[space_name][param_name] == SpecialParamValue.INVALID:
+                return self.random_sample()
 
         return search_point
 
@@ -82,6 +84,8 @@ class SearchSpace:
         elif isinstance(param, Categorical):
             options = param.get_support()
         for option in options:
+            if option == SpecialParamValue.INVALID:
+                continue
             search_point[space_name][param_name] = option
             yield from self._iterate_util(full_iter_order, search_point, index + 1)
 

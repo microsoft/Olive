@@ -10,7 +10,7 @@ import optuna
 from olive.common.config_utils import ConfigParam
 from olive.common.utils import hash_dict
 from olive.strategy.search_algorithm.search_algorithm import SearchAlgorithm
-from olive.strategy.search_parameter import Categorical, Conditional
+from olive.strategy.search_parameter import Categorical, Conditional, SpecialParamValue
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
@@ -61,7 +61,10 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
         if self.should_stop():
             return None
 
-        trial, search_point = self._get_trial()
+        trial, search_point, invalid = self._get_trial()
+        if invalid:
+            self._study.tell(trial.number, state=optuna.trial.TrialState.PRUNED)
+            return self.suggest()
 
         # save history
         search_point_hash = hash_dict(search_point)
@@ -77,6 +80,7 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
         """
         trial = self._study.ask()
         search_point = self._search_space.empty_search_point()
+        invalid_trial = False
         for space_name, param_name, param in self._search_space.iter_params():
             if space_name not in search_point:
                 search_point[space_name] = {}
@@ -91,7 +95,8 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
                 search_point[space_name][param_name] = trial.suggest_categorical(suggestion_name, options)
             else:
                 raise ValueError(f"Unsupported parameter type: {type(param)}")
-        return trial, search_point
+            invalid_trial = invalid_trial or (search_point[space_name][param_name] == SpecialParamValue.INVALID)
+        return trial, search_point, invalid_trial
 
     def report(
         self, search_point: Dict[str, Dict[str, Any]], result: Dict[str, Union[float, int]], should_prune: bool = False
