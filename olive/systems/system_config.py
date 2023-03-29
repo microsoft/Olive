@@ -13,11 +13,11 @@ from olive.systems.common import AzureMLDockerConfig, Device, LocalDockerConfig,
 
 
 class TargetUserConfig(ConfigBase):
-    device: Device = Device.CPU
+    pass
 
 
 class LocalTargetUserConfig(TargetUserConfig):
-    pass
+    device: Device = Device.CPU
 
 
 class DockerTargetUserConfig(TargetUserConfig):

@@ -52,7 +52,7 @@ class LocalDockerConfig(ConfigBase):
 
     @validator("build_context_path", "requirements_file_path")
     def _get_abspath(cls, v):
-        return str(Path(v).resolve())
+        return str(Path(v).resolve()) if v else None
 
     @validator("dockerfile", always=True)
     def _validate_one_of_dockerfile_or_base_image(cls, v, values):

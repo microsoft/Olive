@@ -36,13 +36,8 @@ def check_output(metrics):
 def test_bert(search_algorithm, execution_order, system, olive_json):
     if system == "docker_system" and platform.system() == "Windows":
         pytest.skip("Skip Linux containers on Windows host test case.")
-    if system == "aml_system":
-        pytest.skip("Skip AzureML test case.")
-    if system == "docker_system":
-        pytest.skip("Skip Docker test case until OSS done.")
 
-    # TODO simplify the import structure for workflows.run
-    from olive.workflows.run.run import run as olive_run
+    from olive.workflows import run as olive_run
 
     olive_config = None
     with open(olive_json, "r") as fin:
@@ -59,5 +54,30 @@ def test_bert(search_algorithm, execution_order, system, olive_json):
     olive_config["engine"]["host"] = system if system != "docker_system" else "local_system"
     olive_config["evaluators"]["common_evaluator"]["target"] = system
 
+    if system == "aml_system":
+        generate_olive_workspace_config("olive-workspace-config.json")
+
     best_execution = olive_run(olive_config)
     check_output(best_execution["metric"])
+
+
+def generate_olive_workspace_config(workspace_config_path):
+    subscription_id = os.environ.get("WORKSPACE_SUBSCRIPTION_ID")
+    if subscription_id is None:
+        raise Exception("Please set the environment variable WORKSPACE_SUBSCRIPTION_ID")
+
+    resource_group = os.environ.get("WORKSPACE_RESOURCE_GROUP")
+    if resource_group is None:
+        raise Exception("Please set the environment variable WORKSPACE_RESOURCE_GROUP")
+
+    workspace_name = os.environ.get("WORKSPACE_NAME")
+    if workspace_name is None:
+        raise Exception("Please set the environment variable WORKSPACE_NAME")
+
+    workspace_config = {
+        "subscription_id": subscription_id,
+        "resource_group": resource_group,
+        "workspace_name": workspace_name,
+    }
+
+    json.dump(workspace_config, open(workspace_config_path, "w"))

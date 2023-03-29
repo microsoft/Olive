@@ -16,7 +16,8 @@ class LocalSystem(OliveSystem):
     system_type = SystemType.Local
 
     def __init__(self, device: Device = Device.CPU):
-        super().__init__(device)
+        self.device = device
+        super().__init__()
 
     def run_pass(
         self,

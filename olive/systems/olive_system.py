@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from olive.evaluator.metric import Metric
 from olive.model import OliveModel
 from olive.passes.olive_pass import Pass
-from olive.systems.common import Device, SystemType
+from olive.systems.common import SystemType
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 class OliveSystem(ABC):
     system_type: SystemType
 
-    def __init__(self, device: Device):
-        # device arg will be removed
-        self.device = device
+    def __init__(self):
         self.accelerators = []
 
     @abstractmethod
