@@ -150,7 +150,7 @@ class TestEngine:
         output_dir = Path("cache") / "output"
         shutil.rmtree(output_dir, ignore_errors=True)
 
-        expected_res = {"model": onnx_model.to_json(), "results": {metric.name: 0.998}}
+        expected_res = {"model": onnx_model.to_json(), "metrics": {metric.name: 0.998}}
         expected_res["model"]["config"]["model_path"] = str(Path(output_dir / "model.onnx").resolve())
 
         # execute
@@ -161,9 +161,9 @@ class TestEngine:
         model_json_path = Path(output_dir / "model.json")
         assert model_json_path.is_file()
         assert json.load(open(model_json_path, "r")) == actual_res["model"]
-        result_json_path = Path(output_dir / "results.json")
+        result_json_path = Path(output_dir / "metrics.json")
         assert result_json_path.is_file()
-        assert json.load(open(result_json_path, "r")) == actual_res["results"]
+        assert json.load(open(result_json_path, "r")) == actual_res["metrics"]
 
         # clean up
         shutil.rmtree(output_dir, ignore_errors=True)

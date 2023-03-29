@@ -28,7 +28,7 @@ PRUNED_CONFIG = "pruned-config"
 
 
 class EngineConfig(ConfigBase):
-    search_strategy: SearchStrategyConfig = None
+    search_strategy: Union[SearchStrategyConfig, bool] = None
     host: SystemConfig = None
     target: SystemConfig = None
     model_io_config: Dict[str, List] = None
@@ -53,12 +53,18 @@ class Engine:
     ):
         self._config = validate_config(config, EngineConfig)
 
+        self.no_search = False
+        # default search strategy
+        self.search_strategy = SearchStrategy({"execution_order": "joint", "search_algorithm": "exhaustive"})
         if search_strategy is not None:
+            # if search strategy is provided, use it. It takes precedence
             self.search_strategy = search_strategy
-        elif self._config.search_strategy is not None:
+        elif isinstance(self._config.search_strategy, ConfigBase) or isinstance(self._config.search_strategy, dict):
+            # if search strategy is provided in config, use it
             self.search_strategy = SearchStrategy(self._config.search_strategy)
-        else:
-            self.search_strategy = None
+        elif not self._config.search_strategy:
+            # if search strategy is None or False, disable search
+            self.no_search = True
 
         # default host
         if host is not None:
@@ -160,19 +166,35 @@ class Engine:
     def run(self, input_model: OliveModel, verbose: bool = False, output_dir: str = None, output_name: str = None):
         """
         Run all the registered Olive passes on the input model and produce one or more candidate models.
+
+        if search strategy is None, all passes are run in the order they were registered.
+        Save the final model to {output_dir}/{output_name}_model and json file to {output_dir}/{output_name}_model.json
+        Save evaluation results of the final model, if any, to {output_dir}/{output_name}_metrics.json
+        Return {"model": final_model_json, "metrics": evaluation_results}
+
+        if search strategy is not None, run the search strategy to find candidate models.
+        TODO: save the results using updated RunResult
         """
         if not self._initialized:
             self.initialize()
 
-        if self.search_strategy is None:
-            return self._run_no_search(input_model, verbose, output_dir, output_name)
+        if self.no_search:
+            for pass_id in self.pass_order:
+                if len(self.passes[pass_id]["pass"].search_space()) > 0:
+                    raise ValueError(f"Pass {pass_id} has search space but search strategy is None")
 
         # hash the input model
         input_model_id = self._init_input_model(input_model)
 
         # get objective_dict
         evaluator = self.evaluator_for_pass(self.pass_order[-1])
-        objective_dict = self.resolve_objectives(input_model, input_model_id, evaluator.metrics, verbose)
+        if self.no_search:
+            # provide dummy objective
+            objective_dict = {"dummy": {"higher_is_better": True, "goal": 0}}
+        elif evaluator is None:
+            raise ValueError("No evaluator provided for the last pass")
+        else:
+            objective_dict = self.resolve_objectives(input_model, input_model_id, evaluator.metrics, verbose)
 
         # initialize the search strategy
         self.search_strategy.initialize(self.pass_search_spaces, input_model_id, objective_dict)
@@ -205,7 +227,10 @@ class Engine:
             model_ids = []
             for pass_id, pass_search_point in next_step["passes"]:
                 if verbose:
-                    logger.info(f"Running pass {pass_id} with search point {pass_search_point} ...")
+                    message = f"Running pass {pass_id}"
+                    if not self.no_search:
+                        message += f" with search point {pass_search_point}"
+                    logger.info(message)
 
                 if input_model.is_aml_model and not self.host_for_pass(pass_id).system_type == SystemType.AzureML:
                     error_msg = "Azure ML model only supports AzureMLSystem for Olive Pass"
@@ -223,12 +248,21 @@ class Engine:
             if not should_prune:
                 # evaluate the model
                 try:
-                    signal = self._evaluate_model(model, model_id, self.evaluator_for_pass(pass_id), verbose)
+                    evaluator = self.evaluator_for_pass(pass_id)
+                    if self.no_search and evaluator is None:
+                        # skip evaluation if no search and no evaluator
+                        signal = None
+                    else:
+                        signal = self._evaluate_model(model, model_id, evaluator, verbose)
                 except Exception as e:
                     logger.error(f"Evaluation failed: {e}")
                     raise e
                 if verbose:
                     logger.info(f"Signal: {signal}")
+
+            # there is only one step if no search
+            if self.no_search:
+                break
 
             # record feedback signal
             self.search_strategy.record_feedback_signal(next_step["search_point"], signal, model_ids, should_prune)
@@ -236,54 +270,24 @@ class Engine:
             time_diff = time.time() - start_time
             self.search_strategy.check_exit_criteria(iter_num, time_diff, signal)
 
+        if self.no_search:
+            # save the model to output_dir
+            output_model_name = f"{output_name}_model" if output_name is not None else "model"
+            output_model_json = cache_utils.save_model(model_id, output_dir, output_model_name, self._config.cache_dir)
+
+            # save the evaluation results to output_dir
+            result_name = f"{output_name}_metrics" if output_name is not None else "metrics"
+            output_dir = output_dir if output_dir is not None else "."
+            results_path = Path(output_dir) / f"{result_name}.json"
+            if signal is not None:
+                json.dump(signal, open(results_path, "w"), indent=4)
+
+            output = {"model": output_model_json}
+            if signal is not None:
+                output["metrics"] = signal
+            return output
+
         return self.search_strategy.get_best_execution()
-
-    def _run_no_search(
-        self, input_model: OliveModel, verbose: bool = False, output_dir: str = None, output_name: str = None
-    ):
-        """
-        Run all registered Olive passes without search strategy.
-
-        Save the final model to {output_dir}/{output_name}_model and json file to {output_dir}/{output_name}_model.json
-        Save evaluation results of the final model, if any, to {output_dir}/{output_name}_results.json
-        Return {"model": final_model_json, "results": evaluation_results}
-        """
-        for pass_id in self.pass_order:
-            if len(self.passes[pass_id]["pass"].search_space()) > 0:
-                raise ValueError(f"Pass {pass_id} has search space but search strategy is None")
-
-        # hash the input model
-        input_model_id = self._init_input_model(input_model)
-
-        # no search strategy, just run the passes
-        model = input_model
-        model_id = input_model_id
-        for pass_id in self.pass_order:
-            if verbose:
-                logger.info(f"Running pass {pass_id} ...")
-            model, model_id = self._run_pass(pass_id, {}, model, model_id, verbose)
-
-        results = None
-        evaluator = self.evaluator_for_pass(self.pass_order[-1])
-        if evaluator is not None:
-            results = self._evaluate_model(model, model_id, evaluator, verbose)
-
-        # save the model
-        output_model_name = f"{output_name}_model" if output_name is not None else "model"
-        output_model_json = cache_utils.save_model(model_id, output_dir, output_model_name, self._config.cache_dir)
-
-        # save the results
-        result_name = f"{output_name}_results" if output_name is not None else "results"
-        output_dir = output_dir if output_dir is not None else "."
-        results_path = Path(output_dir) / f"{result_name}.json"
-        if results is not None:
-            json.dump(results, open(results_path, "w"), indent=4)
-
-        output = {"model": output_model_json}
-        if results is not None:
-            output["results"] = results
-
-        return output
 
     def resolve_objectives(
         self, input_model: OliveModel, input_model_id: str, metrics: List[Metric], verbose: bool = False
@@ -475,7 +479,7 @@ class Engine:
         output_model_path = str(self._model_cache_path / f"{output_model_id}")
 
         # prune if invalid search_point
-        if not p.validate_search_point(pass_search_point):
+        if not p.validate_search_point(pass_search_point) and not self.no_search:
             output_model = PRUNED_CONFIG
         else:
             # run pass
@@ -488,6 +492,8 @@ class Engine:
                 #      search process robust. We need rethrow the exception only when
                 #      it is not pass specific. For example, for olive bugs and user errors
                 logger.error("Pass run failed.", exc_info=True)
+                if self.no_search:
+                    raise  # rethrow the exception if no search is performed
 
         # cache model
         self._cache_model(output_model, output_model_id)

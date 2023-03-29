@@ -257,7 +257,7 @@ Please also find the detailed options from following table for each pass:
 
 This is a dictionary that contains the information of the engine. The information of the engine contains following items:
 
-- `search_strategy: [Dict]` The search strategy of the engine. It contains the following items:
+- `search_strategy: [Dict | Boolean | None]` The search strategy of the engine. It contains the following items:
 
     - `execution_order: [str]` The execution order of the optimizations of passes. The options are `pass-by-pass` and `joint`.
 
@@ -275,9 +275,12 @@ This is a dictionary that contains the information of the engine. The informatio
     - `max_time: [int]` The maximum time of the search in seconds. Only valid for `joint` execution order. By default, there is no
     maximum time.
 
-  If `search_strategy` is `null`, the engine will run the passes in the order they were registered without. Thus, the passes must have empty
-  search spaces. The output of the final pass will be evaluated if there is a valid evaluator. The output of the engine will be the output model
-  of the final pass and its evaluation result.
+  If `search_strategy` is `null` or `false`, the engine will run the passes in the order they were registered without. Thus, the passes must
+  have empty search spaces. The output of the final pass will be evaluated if there is a valid evaluator. The output of the engine will be
+  the output model of the final pass and its evaluation result.
+
+  If `search_strategy` is `true`, the search strategy will be the default search strategy. The default search strategy is `exhaustive` search
+  algorithm with `joint` execution order.
 
 - `host: [str | Dict]` The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.
     If it is a dictionary, it contains the system information. If not specified, it is the local system.
