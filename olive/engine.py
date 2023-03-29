@@ -152,7 +152,7 @@ class Engine:
                 if name not in self.passes:
                     break
 
-        if self.search_strategy is None and len(p.search_space()) > 0:
+        if self.no_search and len(p.search_space()) > 0:
             raise ValueError(f"Search strategy is None but pass {name} has search space")
 
         self.passes[name] = {
