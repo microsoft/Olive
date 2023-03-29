@@ -56,7 +56,7 @@ def run(config: Union[str, Path, dict]):
     input_model = config.input_model.create_model()
 
     # engine
-    engine = Engine(config.engine)
+    engine = Engine(config.engine.dict())
 
     if config.passes is None or not config.passes:
         # TODO enhance this logic for more passes templates
@@ -69,6 +69,6 @@ def run(config: Union[str, Path, dict]):
         engine.register(p, pass_name, host, evaluator, pass_config.clean_run_cache)
 
     # run
-    best_execution = engine.run(input_model, config.verbose)
+    best_execution = engine.run(input_model, config.verbose, config.engine.output_dir, config.engine.output_name)
     logger.info(best_execution)
     return best_execution

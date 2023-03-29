@@ -2,7 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Dict
+from pathlib import Path
+from typing import Dict, Union
 
 from pydantic import validator
 
@@ -20,32 +21,30 @@ class RunPassConfig(FullPassConfig):
     clean_run_cache: bool = False
 
 
+class RunEngineConfig(EngineConfig):
+    output_dir: Union[Path, str] = None
+    output_name: str = None
+
+
 class RunConfig(ConfigBase):
     verbose: bool = False
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
     evaluators: Dict[str, OliveEvaluatorConfig] = None
+    engine: RunEngineConfig
     passes: Dict[str, RunPassConfig]
-    engine: EngineConfig
 
     @validator("evaluators", pre=True, each_item=True)
     def validate_evaluators(cls, v, values):
         return _resolve_system(v, values, "target")
 
-    @validator("passes", pre=True, each_item=True)
-    def validate_passes(cls, v, values):
+    @validator("engine", pre=True)
+    def validate_engine(cls, v, values):
         v = _resolve_system(v, values, "host")
         return _resolve_evaluator(v, values)
 
-    @validator("engine", pre=True)
-    def validate_engine(cls, v, values):
-        search_strategy = None
-        if isinstance(v, dict):
-            search_strategy = v.get("search_strategy")
-        elif isinstance(v, EngineConfig):
-            search_strategy = v.search_strategy
-        if search_strategy is None:
-            raise ValueError("search_strategy must be specified in engine config")
+    @validator("passes", pre=True, each_item=True)
+    def validate_pass_host(cls, v, values):
         v = _resolve_system(v, values, "host")
         return _resolve_evaluator(v, values)
 

@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from olive.cache import clean_cache, clean_evaluation_cache, clean_pass_run_cache, create_cache, get_cache_sub_dirs
+import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
 from olive.evaluator.metric import Metric
@@ -28,7 +28,7 @@ PRUNED_CONFIG = "pruned-config"
 
 
 class EngineConfig(ConfigBase):
-    search_strategy: SearchStrategyConfig = None
+    search_strategy: Union[SearchStrategyConfig, bool] = None
     host: SystemConfig = None
     target: SystemConfig = None
     model_io_config: Dict[str, List] = None
@@ -53,11 +53,18 @@ class Engine:
     ):
         self._config = validate_config(config, EngineConfig)
 
+        self.no_search = False
+        # default search strategy
+        self.search_strategy = SearchStrategy({"execution_order": "joint", "search_algorithm": "exhaustive"})
         if search_strategy is not None:
-            self._search_strategy = search_strategy
-        else:
-            assert self._config.search_strategy is not None, "Search strategy must be provided"
-            self._search_strategy = SearchStrategy(self._config.search_strategy)
+            # if search strategy is provided, use it. It takes precedence
+            self.search_strategy = search_strategy
+        elif isinstance(self._config.search_strategy, ConfigBase) or isinstance(self._config.search_strategy, dict):
+            # if search strategy is provided in config, use it
+            self.search_strategy = SearchStrategy(self._config.search_strategy)
+        elif not self._config.search_strategy:
+            # if search strategy is None or False, disable search
+            self.no_search = True
 
         # default host
         if host is not None:
@@ -67,9 +74,6 @@ class Engine:
         else:
             self.host = LocalSystem()
 
-        # Dictionary to keep track of separate hosts for a pass optionally provided by the user.
-        self.hosts = {}
-
         # default evaluator
         self._evaluator = None
         if evaluator is not None:
@@ -77,14 +81,11 @@ class Engine:
         elif self._config.evaluator is not None:
             self._evaluator = self._config.evaluator.create_evaluator()
 
-        # Dictionary to keep track of separate evaluator for a pass optionally provided by the user.
-        self._evaluators = {}
-
         # dictionary of passes
-        self._passes = {}
+        # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator, "clean_run_cache": clean_run_cache}}
+        self.passes = {}
         # list of pass names in the order they were registered
-        self._pass_order = []
-        self._clean_pass_run_cache = {}
+        self.pass_order = []
 
         self._initialized = False
 
@@ -94,12 +95,14 @@ class Engine:
         """
         cache_dir = self._config.cache_dir
         if self._config.clean_cache:
-            clean_cache(cache_dir)
+            cache_utils.clean_cache(cache_dir)
         if self._config.clean_evaluation_cache:
-            clean_evaluation_cache(cache_dir)
+            cache_utils.clean_evaluation_cache(cache_dir)
 
-        self._model_cache_path, self._run_cache_path, self._evaluation_cache_path = get_cache_sub_dirs(cache_dir)
-        create_cache(cache_dir)
+        self._model_cache_path, self._run_cache_path, self._evaluation_cache_path = cache_utils.get_cache_sub_dirs(
+            cache_dir
+        )
+        cache_utils.create_cache(cache_dir)
 
         # initialize counters
         # we do this before cleaning pass run caches to ensure we don't reuse model numbers even if the model was
@@ -109,16 +112,20 @@ class Engine:
         if len(model_jsons) > 0:
             self._new_model_number = max([int(json_file.stem.split("_")[0]) for json_file in model_jsons]) + 1
 
-        # initialize search spaces
-        self._pass_search_spaces = []
-        for pass_name in self._pass_order:
-            p = self._passes[pass_name]
-            self._pass_search_spaces.append((pass_name, p.search_space()))
-            # clean run cache if requested
-            # removes all run cache for pass type and all children elements
-            clean_run_cache = self._clean_pass_run_cache[pass_name]
+        # clean pass run cache if requested
+        # removes all run cache for pass type and all children elements
+        for pass_name in self.pass_order:
+            clean_run_cache = self.passes[pass_name]["clean_run_cache"]
+            p = self.passes[pass_name]["pass"]
             if clean_run_cache:
-                clean_pass_run_cache(p.__class__.__name__, cache_dir)
+                cache_utils.clean_pass_run_cache(p.__class__.__name__, cache_dir)
+
+        # list of passes starting from the first pass with non-empty search space
+        # These passes will be added to the search space
+        self.pass_search_spaces = []
+        for pass_name in self.pass_order:
+            p = self.passes[pass_name]["pass"]
+            self.pass_search_spaces.append((pass_name, p.search_space()))
 
         self._initialized = True
 
@@ -134,38 +141,63 @@ class Engine:
         Register a pass
         """
         if name is not None:
-            assert name not in self._passes, f"Pass with name {name} already registered"
+            assert name not in self.passes, f"Pass with name {name} already registered"
         else:
             id = 0
             while True:
                 name = p.__class__.__name__
                 if id > 0:
                     name = f"{name}_{id}"
-                if name not in self._passes:
+                id += 1
+                if name not in self.passes:
                     break
 
-        self._passes[name] = p
-        self._pass_order.append(name)
-        self.hosts[name] = host
-        self._evaluators[name] = evaluator
-        self._clean_pass_run_cache[name] = clean_run_cache
+        if self.no_search and len(p.search_space()) > 0:
+            raise ValueError(f"Search strategy is None but pass {name} has search space")
 
-    def run(self, input_model: OliveModel, verbose: bool = False):
+        self.passes[name] = {
+            "pass": p,
+            "host": host,
+            "evaluator": evaluator,
+            "clean_run_cache": clean_run_cache,
+        }
+        self.pass_order.append(name)
+
+    def run(self, input_model: OliveModel, verbose: bool = False, output_dir: str = None, output_name: str = None):
         """
         Run all the registered Olive passes on the input model and produce one or more candidate models.
+
+        if search strategy is None, all passes are run in the order they were registered.
+        Save the final model to {output_dir}/{output_name}_model and json file to {output_dir}/{output_name}_model.json
+        Save evaluation results of the final model, if any, to {output_dir}/{output_name}_metrics.json
+        Return {"model": final_model_json, "metrics": evaluation_results}
+
+        if search strategy is not None, run the search strategy to find candidate models.
+        TODO: save the results using updated RunResult
         """
         if not self._initialized:
             self.initialize()
+
+        if self.no_search:
+            for pass_id in self.pass_order:
+                if len(self.passes[pass_id]["pass"].search_space()) > 0:
+                    raise ValueError(f"Pass {pass_id} has search space but search strategy is None")
 
         # hash the input model
         input_model_id = self._init_input_model(input_model)
 
         # get objective_dict
-        evaluator = self.evaluator_for_pass(self._pass_order[-1])
-        objective_dict = self.resolve_objectives(input_model, input_model_id, evaluator.metrics, verbose)
+        evaluator = self.evaluator_for_pass(self.pass_order[-1])
+        if self.no_search:
+            # provide dummy objective
+            objective_dict = {"dummy": {"higher_is_better": True, "goal": 0}}
+        elif evaluator is None:
+            raise ValueError("No evaluator provided for the last pass")
+        else:
+            objective_dict = self.resolve_objectives(input_model, input_model_id, evaluator.metrics, verbose)
 
         # initialize the search strategy
-        self._search_strategy.initialize(self._pass_search_spaces, input_model_id, objective_dict)
+        self.search_strategy.initialize(self.pass_search_spaces, input_model_id, objective_dict)
 
         # record start time
         start_time = time.time()
@@ -175,7 +207,7 @@ class Engine:
 
             # get the next step
             should_prune = False
-            next_step = self._search_strategy.next_step()
+            next_step = self.search_strategy.next_step()
 
             # if no more steps, break
             if next_step is None:
@@ -195,7 +227,10 @@ class Engine:
             model_ids = []
             for pass_id, pass_search_point in next_step["passes"]:
                 if verbose:
-                    logger.info(f"Running pass {pass_id} with search point {pass_search_point} ...")
+                    message = f"Running pass {pass_id}"
+                    if not self.no_search:
+                        message += f" with search point {pass_search_point}"
+                    logger.info(message)
 
                 if input_model.is_aml_model and not self.host_for_pass(pass_id).system_type == SystemType.AzureML:
                     error_msg = "Azure ML model only supports AzureMLSystem for Olive Pass"
@@ -213,26 +248,46 @@ class Engine:
             if not should_prune:
                 # evaluate the model
                 try:
-                    signal = self._evaluate_model(model, model_id, self.evaluator_for_pass(pass_id), verbose)
+                    evaluator = self.evaluator_for_pass(pass_id)
+                    if self.no_search and evaluator is None:
+                        # skip evaluation if no search and no evaluator
+                        signal = None
+                    else:
+                        signal = self._evaluate_model(model, model_id, evaluator, verbose)
                 except Exception as e:
                     logger.error(f"Evaluation failed: {e}")
                     raise e
                 if verbose:
                     logger.info(f"Signal: {signal}")
 
+            # there is only one step if no search
+            if self.no_search:
+                break
+
             # record feedback signal
-            self._search_strategy.record_feedback_signal(next_step["search_point"], signal, model_ids, should_prune)
+            self.search_strategy.record_feedback_signal(next_step["search_point"], signal, model_ids, should_prune)
 
             time_diff = time.time() - start_time
-            self._search_strategy.check_exit_criteria(iter_num, time_diff, signal)
+            self.search_strategy.check_exit_criteria(iter_num, time_diff, signal)
 
-        # import json
+        if self.no_search:
+            # save the model to output_dir
+            output_model_name = f"{output_name}_model" if output_name is not None else "model"
+            output_model_json = cache_utils.save_model(model_id, output_dir, output_model_name, self._config.cache_dir)
 
-        # for i, key in enumerate(self._search_strategy._search_results):
-        #     json.dump(
-        #         self._search_strategy._search_results[key].to_json(), open(f"search_results_{i}.json", "w"), indent=4
-        #     )
-        return self._search_strategy.get_best_execution()
+            # save the evaluation results to output_dir
+            result_name = f"{output_name}_metrics" if output_name is not None else "metrics"
+            output_dir = output_dir if output_dir is not None else "."
+            results_path = Path(output_dir) / f"{result_name}.json"
+            if signal is not None:
+                json.dump(signal, open(results_path, "w"), indent=4)
+
+            output = {"model": output_model_json}
+            if signal is not None:
+                output["metrics"] = signal
+            return output
+
+        return self.search_strategy.get_best_execution()
 
     def resolve_objectives(
         self, input_model: OliveModel, input_model_id: str, metrics: List[Metric], verbose: bool = False
@@ -296,7 +351,7 @@ class Engine:
         return resolved_goals
 
     def host_for_pass(self, pass_id: str):
-        host = self.hosts[pass_id]
+        host = self.passes[pass_id]["host"]
         if host is None:
             return self.host
         return host
@@ -305,7 +360,7 @@ class Engine:
         """
         Return evaluator for the given pass.
         """
-        e = self._evaluators[pass_id]
+        e = self.passes[pass_id]["evaluator"]
         if e is None:
             return self._evaluator
         return e
@@ -321,14 +376,14 @@ class Engine:
                 break
         return new_model_number
 
-    def _cache_model(self, model: Union[OliveModel, str], model_id: str):
+    def _cache_model(self, model: Union[OliveModel, str], model_id: str, check_objects: bool = True):
         """
         Cache the model in the cache directory.
         """
         if model == PRUNED_CONFIG:
             model_json = {}
         else:
-            model_json = model.to_json()
+            model_json = model.to_json(check_object=check_objects)
         model_json_path = self._model_cache_path / f"{model_id}.json"
         try:
             json.dump(model_json, open(model_json_path, "w"))
@@ -359,7 +414,7 @@ class Engine:
         model_hash = hash_dict(input_model.to_json())
 
         # cache the model
-        self._cache_model(input_model, model_hash)
+        self._cache_model(input_model, model_hash, check_objects=False)
 
         return model_hash
 
@@ -404,7 +459,7 @@ class Engine:
         Run a pass on the input model.
         """
         # pass
-        p = self._passes[pass_id]
+        p = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)
@@ -424,7 +479,7 @@ class Engine:
         output_model_path = str(self._model_cache_path / f"{output_model_id}")
 
         # prune if invalid search_point
-        if not p.validate_search_point(pass_search_point):
+        if not p.validate_search_point(pass_search_point) and not self.no_search:
             output_model = PRUNED_CONFIG
         else:
             # run pass
@@ -437,6 +492,8 @@ class Engine:
                 #      search process robust. We need rethrow the exception only when
                 #      it is not pass specific. For example, for olive bugs and user errors
                 logger.error("Pass run failed.", exc_info=True)
+                if self.no_search:
+                    raise  # rethrow the exception if no search is performed
 
         # cache model
         self._cache_model(output_model, output_model_id)

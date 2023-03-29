@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader, Dataset
 from olive.evaluator.metric import Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
 from olive.model import ONNXModel, PyTorchModel
-from olive.passes.onnx.conversion import OnnxConversion
+from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization
 
 ONNX_MODEL_PATH = Path(__file__).absolute().parent / "dummy_model.onnx"
 
@@ -106,4 +106,9 @@ def get_onnxconversion_pass():
         "output_names": ["output"],
     }
     p = OnnxConversion(onnx_conversion_config)
+    return p
+
+
+def get_onnx_dynamic_quantization_pass(default_to_search=False):
+    p = OnnxDynamicQuantization({}, default_to_search=default_to_search)
     return p
