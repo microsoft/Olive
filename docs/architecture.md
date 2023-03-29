@@ -1,7 +1,7 @@
 # Olive Design Documentation
 
 ## Overview
-This document describes the olive components, and some implementation details. The components covered are:
+This document describes the Olive components, and some implementation details. The components covered are:
 - [Pass](#pass)
     - [Base Class](#base-class)
     - [default_config](#default_config)
@@ -25,7 +25,7 @@ This document describes the olive components, and some implementation details. T
     - [User Interface](#user-interface-1)
 
 ## Pass
-Passes are the building blocks of an olive workflow. Olive uses multiple Passes to process an input model.
+Passes are the building blocks of an Olive workflow. Olive uses multiple Passes to process an input model.
 
 ### Base Class
 The base class for Pass:

@@ -1,5 +1,5 @@
 # ResNet optimization with PTQ on CPU
-This folder contains a sample use case of olive to optimize a ResNet model using onnx conversion and onnx dynamic/static quantization tuner.
+This folder contains a sample use case of Olive to optimize a ResNet model using onnx conversion and onnx dynamic/static quantization tuner.
 
 ## Prerequisites
 ### Prepare data and model

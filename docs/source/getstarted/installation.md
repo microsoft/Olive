@@ -1,14 +1,14 @@
 (Installation)=
 # Installation
 
-We recommend installing olive in a [virtual environment](https://docs.python.org/3/library/venv.html) or a
+We recommend installing Olive in a [virtual environment](https://docs.python.org/3/library/venv.html) or a
 [conda environment](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html). Olive is installed using
 pip.
 
 Create a virtual/conda environment with the desired version of Python and activate it.
 
 You will need to install a build of [**onnxruntime**](https://onnxruntime.ai). You can install the desired build separately but
-public versions of onnxruntime can also be installed as extra dependencies during olive installation.
+public versions of onnxruntime can also be installed as extra dependencies during Olive installation.
 
 ## Install with pip
 Olive is available for installation from PyPI.
@@ -25,7 +25,7 @@ pip install olive-ai[gpu]
 ```
 
 ## Install from source
-Install the latest `main` version of olive from source. Please note that this is a development version and may not be stable.
+Install the latest `main` version of Olive from source. Please note that this is a development version and may not be stable.
 
 ```
 pip install git+https://github.com/microsoft/Olive
