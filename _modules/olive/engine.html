@@ -119,7 +119,7 @@
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">olive.cache</span> <span class="kn">import</span> <span class="n">clean_cache</span><span class="p">,</span> <span class="n">clean_evaluation_cache</span><span class="p">,</span> <span class="n">clean_pass_run_cache</span><span class="p">,</span> <span class="n">create_cache</span><span class="p">,</span> <span class="n">get_cache_sub_dirs</span>
+<span class="kn">import</span> <span class="nn">olive.cache</span> <span class="k">as</span> <span class="nn">cache_utils</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">hash_dict</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
@@ -139,7 +139,7 @@
 
 
 <div class="viewcode-block" id="EngineConfig"><a class="viewcode-back" href="../../api/engine.html#olive.engine.EngineConfig">[docs]</a><span class="k">class</span> <span class="nc">EngineConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
-    <span class="n">search_strategy</span><span class="p">:</span> <span class="n">SearchStrategyConfig</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">search_strategy</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">SearchStrategyConfig</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">host</span><span class="p">:</span> <span class="n">SystemConfig</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">target</span><span class="p">:</span> <span class="n">SystemConfig</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">model_io_config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
@@ -164,11 +164,18 @@
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">EngineConfig</span><span class="p">)</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="c1"># default search strategy</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span> <span class="o">=</span> <span class="n">SearchStrategy</span><span class="p">({</span><span class="s2">&quot;execution_order&quot;</span><span class="p">:</span> <span class="s2">&quot;joint&quot;</span><span class="p">,</span> <span class="s2">&quot;search_algorithm&quot;</span><span class="p">:</span> <span class="s2">&quot;exhaustive&quot;</span><span class="p">})</span>
         <span class="k">if</span> <span class="n">search_strategy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_search_strategy</span> <span class="o">=</span> <span class="n">search_strategy</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">search_strategy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Search strategy must be provided&quot;</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_search_strategy</span> <span class="o">=</span> <span class="n">SearchStrategy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">search_strategy</span><span class="p">)</span>
+            <span class="c1"># if search strategy is provided, use it. It takes precedence</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span> <span class="o">=</span> <span class="n">search_strategy</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">search_strategy</span><span class="p">,</span> <span class="n">ConfigBase</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">search_strategy</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="c1"># if search strategy is provided in config, use it</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span> <span class="o">=</span> <span class="n">SearchStrategy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">search_strategy</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">search_strategy</span><span class="p">:</span>
+            <span class="c1"># if search strategy is None or False, disable search</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span> <span class="o">=</span> <span class="kc">True</span>
 
         <span class="c1"># default host</span>
         <span class="k">if</span> <span class="n">host</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -178,9 +185,6 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="n">LocalSystem</span><span class="p">()</span>
 
-        <span class="c1"># Dictionary to keep track of separate hosts for a pass optionally provided by the user.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">hosts</span> <span class="o">=</span> <span class="p">{}</span>
-
         <span class="c1"># default evaluator</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">evaluator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -188,14 +192,11 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">evaluator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">evaluator</span><span class="o">.</span><span class="n">create_evaluator</span><span class="p">()</span>
 
-        <span class="c1"># Dictionary to keep track of separate evaluator for a pass optionally provided by the user.</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluators</span> <span class="o">=</span> <span class="p">{}</span>
-
         <span class="c1"># dictionary of passes</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_passes</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="c1"># {&quot;pass_name&quot;: {&quot;pass&quot;: pass, &quot;host&quot;: host, &quot;evaluator&quot;: evaluator, &quot;clean_run_cache&quot;: clean_run_cache}}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">passes</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="c1"># list of pass names in the order they were registered</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_pass_order</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_clean_pass_run_cache</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pass_order</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">False</span>
 
@@ -205,12 +206,14 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">cache_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">clean_cache</span><span class="p">:</span>
-            <span class="n">clean_cache</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">)</span>
+            <span class="n">cache_utils</span><span class="o">.</span><span class="n">clean_cache</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">clean_evaluation_cache</span><span class="p">:</span>
-            <span class="n">clean_evaluation_cache</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">)</span>
+            <span class="n">cache_utils</span><span class="o">.</span><span class="n">clean_evaluation_cache</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_model_cache_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_cache_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluation_cache_path</span> <span class="o">=</span> <span class="n">get_cache_sub_dirs</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">)</span>
-        <span class="n">create_cache</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_model_cache_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_cache_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluation_cache_path</span> <span class="o">=</span> <span class="n">cache_utils</span><span class="o">.</span><span class="n">get_cache_sub_dirs</span><span class="p">(</span>
+            <span class="n">cache_dir</span>
+        <span class="p">)</span>
+        <span class="n">cache_utils</span><span class="o">.</span><span class="n">create_cache</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">)</span>
 
         <span class="c1"># initialize counters</span>
         <span class="c1"># we do this before cleaning pass run caches to ensure we don&#39;t reuse model numbers even if the model was</span>
@@ -220,16 +223,20 @@
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">model_jsons</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_new_model_number</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">json_file</span><span class="o">.</span><span class="n">stem</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span> <span class="k">for</span> <span class="n">json_file</span> <span class="ow">in</span> <span class="n">model_jsons</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span>
 
-        <span class="c1"># initialize search spaces</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_pass_search_spaces</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">pass_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pass_order</span><span class="p">:</span>
-            <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_passes</span><span class="p">[</span><span class="n">pass_name</span><span class="p">]</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_pass_search_spaces</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">search_space</span><span class="p">()))</span>
-            <span class="c1"># clean run cache if requested</span>
-            <span class="c1"># removes all run cache for pass type and all children elements</span>
-            <span class="n">clean_run_cache</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clean_pass_run_cache</span><span class="p">[</span><span class="n">pass_name</span><span class="p">]</span>
+        <span class="c1"># clean pass run cache if requested</span>
+        <span class="c1"># removes all run cache for pass type and all children elements</span>
+        <span class="k">for</span> <span class="n">pass_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_order</span><span class="p">:</span>
+            <span class="n">clean_run_cache</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_name</span><span class="p">][</span><span class="s2">&quot;clean_run_cache&quot;</span><span class="p">]</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_name</span><span class="p">][</span><span class="s2">&quot;pass&quot;</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">clean_run_cache</span><span class="p">:</span>
-                <span class="n">clean_pass_run_cache</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">cache_dir</span><span class="p">)</span>
+                <span class="n">cache_utils</span><span class="o">.</span><span class="n">clean_pass_run_cache</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">cache_dir</span><span class="p">)</span>
+
+        <span class="c1"># list of passes starting from the first pass with non-empty search space</span>
+        <span class="c1"># These passes will be added to the search space</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pass_search_spaces</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">pass_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_order</span><span class="p">:</span>
+            <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_name</span><span class="p">][</span><span class="s2">&quot;pass&quot;</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pass_search_spaces</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">search_space</span><span class="p">()))</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">True</span>
 
@@ -245,38 +252,63 @@
 <span class="sd">        Register a pass</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_passes</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Pass with name </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> already registered&quot;</span>
+            <span class="k">assert</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Pass with name </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> already registered&quot;</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="nb">id</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
                 <span class="n">name</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
                 <span class="k">if</span> <span class="nb">id</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="nb">id</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_passes</span><span class="p">:</span>
+                <span class="nb">id</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">:</span>
                     <span class="k">break</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">_passes</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">p</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_pass_order</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">hosts</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">host</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_evaluators</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">evaluator</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_clean_pass_run_cache</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">clean_run_cache</span></div>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">search_space</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Search strategy is None but pass </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> has search space&quot;</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Engine.run"><a class="viewcode-back" href="../../api/engine.html#olive.engine.Engine.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;pass&quot;</span><span class="p">:</span> <span class="n">p</span><span class="p">,</span>
+            <span class="s2">&quot;host&quot;</span><span class="p">:</span> <span class="n">host</span><span class="p">,</span>
+            <span class="s2">&quot;evaluator&quot;</span><span class="p">:</span> <span class="n">evaluator</span><span class="p">,</span>
+            <span class="s2">&quot;clean_run_cache&quot;</span><span class="p">:</span> <span class="n">clean_run_cache</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pass_order</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Engine.run"><a class="viewcode-back" href="../../api/engine.html#olive.engine.Engine.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">output_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Run all the registered Olive passes on the input model and produce one or more candidate models.</span>
+
+<span class="sd">        if search strategy is None, all passes are run in the order they were registered.</span>
+<span class="sd">        Save the final model to {output_dir}/{output_name}_model and json file to {output_dir}/{output_name}_model.json</span>
+<span class="sd">        Save evaluation results of the final model, if any, to {output_dir}/{output_name}_metrics.json</span>
+<span class="sd">        Return {&quot;model&quot;: final_model_json, &quot;metrics&quot;: evaluation_results}</span>
+
+<span class="sd">        if search strategy is not None, run the search strategy to find candidate models.</span>
+<span class="sd">        TODO: save the results using updated RunResult</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">pass_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_order</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_id</span><span class="p">][</span><span class="s2">&quot;pass&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">search_space</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pass </span><span class="si">{</span><span class="n">pass_id</span><span class="si">}</span><span class="s2"> has search space but search strategy is None&quot;</span><span class="p">)</span>
 
         <span class="c1"># hash the input model</span>
         <span class="n">input_model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_input_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">)</span>
 
         <span class="c1"># get objective_dict</span>
-        <span class="n">evaluator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_for_pass</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pass_order</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-        <span class="n">objective_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolve_objectives</span><span class="p">(</span><span class="n">input_model</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
+        <span class="n">evaluator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_for_pass</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_order</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
+            <span class="c1"># provide dummy objective</span>
+            <span class="n">objective_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;dummy&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}}</span>
+        <span class="k">elif</span> <span class="n">evaluator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No evaluator provided for the last pass&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">objective_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolve_objectives</span><span class="p">(</span><span class="n">input_model</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
 
         <span class="c1"># initialize the search strategy</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_search_strategy</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pass_search_spaces</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_search_spaces</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">)</span>
 
         <span class="c1"># record start time</span>
         <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
@@ -286,7 +318,7 @@
 
             <span class="c1"># get the next step</span>
             <span class="n">should_prune</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="n">next_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_strategy</span><span class="o">.</span><span class="n">next_step</span><span class="p">()</span>
+            <span class="n">next_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">next_step</span><span class="p">()</span>
 
             <span class="c1"># if no more steps, break</span>
             <span class="k">if</span> <span class="n">next_step</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -306,7 +338,10 @@
             <span class="n">model_ids</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_search_point</span> <span class="ow">in</span> <span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">]:</span>
                 <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running pass </span><span class="si">{</span><span class="n">pass_id</span><span class="si">}</span><span class="s2"> with search point </span><span class="si">{</span><span class="n">pass_search_point</span><span class="si">}</span><span class="s2"> ...&quot;</span><span class="p">)</span>
+                    <span class="n">message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Running pass </span><span class="si">{</span><span class="n">pass_id</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
+                        <span class="n">message</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; with search point </span><span class="si">{</span><span class="n">pass_search_point</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
 
                 <span class="k">if</span> <span class="n">input_model</span><span class="o">.</span><span class="n">is_aml_model</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_for_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">)</span><span class="o">.</span><span class="n">system_type</span> <span class="o">==</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span><span class="p">:</span>
                     <span class="n">error_msg</span> <span class="o">=</span> <span class="s2">&quot;Azure ML model only supports AzureMLSystem for Olive Pass&quot;</span>
@@ -324,26 +359,46 @@
             <span class="k">if</span> <span class="ow">not</span> <span class="n">should_prune</span><span class="p">:</span>
                 <span class="c1"># evaluate the model</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="n">signal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_for_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">),</span> <span class="n">verbose</span><span class="p">)</span>
+                    <span class="n">evaluator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_for_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span> <span class="ow">and</span> <span class="n">evaluator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                        <span class="c1"># skip evaluation if no search and no evaluator</span>
+                        <span class="n">signal</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">signal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">evaluator</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Evaluation failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                     <span class="k">raise</span> <span class="n">e</span>
                 <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Signal: </span><span class="si">{</span><span class="n">signal</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
+            <span class="c1"># there is only one step if no search</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
+                <span class="k">break</span>
+
             <span class="c1"># record feedback signal</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_search_strategy</span><span class="o">.</span><span class="n">record_feedback_signal</span><span class="p">(</span><span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;search_point&quot;</span><span class="p">],</span> <span class="n">signal</span><span class="p">,</span> <span class="n">model_ids</span><span class="p">,</span> <span class="n">should_prune</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">record_feedback_signal</span><span class="p">(</span><span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;search_point&quot;</span><span class="p">],</span> <span class="n">signal</span><span class="p">,</span> <span class="n">model_ids</span><span class="p">,</span> <span class="n">should_prune</span><span class="p">)</span>
 
             <span class="n">time_diff</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_search_strategy</span><span class="o">.</span><span class="n">check_exit_criteria</span><span class="p">(</span><span class="n">iter_num</span><span class="p">,</span> <span class="n">time_diff</span><span class="p">,</span> <span class="n">signal</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">check_exit_criteria</span><span class="p">(</span><span class="n">iter_num</span><span class="p">,</span> <span class="n">time_diff</span><span class="p">,</span> <span class="n">signal</span><span class="p">)</span>
 
-        <span class="c1"># import json</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
+            <span class="c1"># save the model to output_dir</span>
+            <span class="n">output_model_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output_name</span><span class="si">}</span><span class="s2">_model&quot;</span> <span class="k">if</span> <span class="n">output_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;model&quot;</span>
+            <span class="n">output_model_json</span> <span class="o">=</span> <span class="n">cache_utils</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span><span class="n">model_id</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">output_model_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
 
-        <span class="c1"># for i, key in enumerate(self._search_strategy._search_results):</span>
-        <span class="c1">#     json.dump(</span>
-        <span class="c1">#         self._search_strategy._search_results[key].to_json(), open(f&quot;search_results_{i}.json&quot;, &quot;w&quot;), indent=4</span>
-        <span class="c1">#     )</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_strategy</span><span class="o">.</span><span class="n">get_best_execution</span><span class="p">()</span></div>
+            <span class="c1"># save the evaluation results to output_dir</span>
+            <span class="n">result_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output_name</span><span class="si">}</span><span class="s2">_metrics&quot;</span> <span class="k">if</span> <span class="n">output_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;metrics&quot;</span>
+            <span class="n">output_dir</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="k">if</span> <span class="n">output_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;.&quot;</span>
+            <span class="n">results_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">result_name</span><span class="si">}</span><span class="s2">.json&quot;</span>
+            <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">signal</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">),</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+
+            <span class="n">output</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">output_model_json</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">output</span><span class="p">[</span><span class="s2">&quot;metrics&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">signal</span>
+            <span class="k">return</span> <span class="n">output</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">get_best_execution</span><span class="p">()</span></div>
 
     <span class="k">def</span> <span class="nf">resolve_objectives</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">input_model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
@@ -407,7 +462,7 @@
         <span class="k">return</span> <span class="n">resolved_goals</span>
 
     <span class="k">def</span> <span class="nf">host_for_pass</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="n">host</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hosts</span><span class="p">[</span><span class="n">pass_id</span><span class="p">]</span>
+        <span class="n">host</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_id</span><span class="p">][</span><span class="s2">&quot;host&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">host</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">host</span>
         <span class="k">return</span> <span class="n">host</span>
@@ -416,7 +471,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return evaluator for the given pass.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">e</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluators</span><span class="p">[</span><span class="n">pass_id</span><span class="p">]</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_id</span><span class="p">][</span><span class="s2">&quot;evaluator&quot;</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">e</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluator</span>
         <span class="k">return</span> <span class="n">e</span>
@@ -432,14 +487,14 @@
                 <span class="k">break</span>
         <span class="k">return</span> <span class="n">new_model_number</span>
 
-    <span class="k">def</span> <span class="nf">_cache_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">OliveModel</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_cache_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">OliveModel</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">check_objects</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Cache the model in the cache directory.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="n">PRUNED_CONFIG</span><span class="p">:</span>
             <span class="n">model_json</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">model_json</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>
+            <span class="n">model_json</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="n">check_objects</span><span class="p">)</span>
         <span class="n">model_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model_cache_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">model_id</span><span class="si">}</span><span class="s2">.json&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="n">model_json_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">))</span>
@@ -470,7 +525,7 @@
         <span class="n">model_hash</span> <span class="o">=</span> <span class="n">hash_dict</span><span class="p">(</span><span class="n">input_model</span><span class="o">.</span><span class="n">to_json</span><span class="p">())</span>
 
         <span class="c1"># cache the model</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">,</span> <span class="n">model_hash</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">,</span> <span class="n">model_hash</span><span class="p">,</span> <span class="n">check_objects</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">model_hash</span>
 
@@ -515,7 +570,7 @@
 <span class="sd">        Run a pass on the input model.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># pass</span>
-        <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_passes</span><span class="p">[</span><span class="n">pass_id</span><span class="p">]</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_id</span><span class="p">][</span><span class="s2">&quot;pass&quot;</span><span class="p">]</span>
         <span class="n">pass_name</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
         <span class="n">pass_config</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">config_at_search_point</span><span class="p">(</span><span class="n">pass_search_point</span><span class="p">)</span>
         <span class="n">pass_config</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">serialize_config</span><span class="p">(</span><span class="n">pass_config</span><span class="p">)</span>
@@ -535,7 +590,7 @@
         <span class="n">output_model_path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_model_cache_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output_model_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="c1"># prune if invalid search_point</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="o">.</span><span class="n">validate_search_point</span><span class="p">(</span><span class="n">pass_search_point</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="o">.</span><span class="n">validate_search_point</span><span class="p">(</span><span class="n">pass_search_point</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
             <span class="n">output_model</span> <span class="o">=</span> <span class="n">PRUNED_CONFIG</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># run pass</span>
@@ -548,6 +603,8 @@
                 <span class="c1">#      search process robust. We need rethrow the exception only when</span>
                 <span class="c1">#      it is not pass specific. For example, for olive bugs and user errors</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Pass run failed.&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
+                    <span class="k">raise</span>  <span class="c1"># rethrow the exception if no search is performed</span>
 
         <span class="c1"># cache model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">output_model</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">)</span>

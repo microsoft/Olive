@@ -421,9 +421,9 @@ will be used.</p></li>
 <h2>Engine Information<a class="headerlink" href="#engine-information" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">engine:</span> <span class="pre">[Dict]</span></code></p>
 <p>This is a dictionary that contains the information of the engine. The information of the engine contains following items:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">search_strategy:</span> <span class="pre">[Dict]</span></code> The search strategy of the engine. It contains the following items:</p>
 <ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">search_strategy:</span> <span class="pre">[Dict</span> <span class="pre">|</span> <span class="pre">Boolean</span> <span class="pre">|</span> <span class="pre">None]</span></code> The search strategy of the engine. It contains the following items:</p>
+<ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">execution_order:</span> <span class="pre">[str]</span></code> The execution order of the optimizations of passes. The options are <code class="docutils literal notranslate"><span class="pre">pass-by-pass</span></code> and <code class="docutils literal notranslate"><span class="pre">joint</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">search_algorithm:</span> <span class="pre">[str]</span></code> The search algorithm of the engine. The available search algorithms are <code class="docutils literal notranslate"><span class="pre">exhaustive</span></code>, <code class="docutils literal notranslate"><span class="pre">random</span></code> and <code class="docutils literal notranslate"><span class="pre">tpe</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">search_algorithm_config:</span> <span class="pre">[Dict]</span></code> The configuration of the search algorithm. The configuration of the search algorithm depends on
@@ -435,6 +435,11 @@ maximum number of iterations.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_time:</span> <span class="pre">[int]</span></code> The maximum time of the search in seconds. Only valid for <code class="docutils literal notranslate"><span class="pre">joint</span></code> execution order. By default, there is no
 maximum time.</p></li>
 </ul>
+<p>If <code class="docutils literal notranslate"><span class="pre">search_strategy</span></code> is <code class="docutils literal notranslate"><span class="pre">null</span></code> or <code class="docutils literal notranslate"><span class="pre">false</span></code>, the engine will run the passes in the order they were registered without. Thus, the passes must
+have empty search spaces. The output of the final pass will be evaluated if there is a valid evaluator. The output of the engine will be
+the output model of the final pass and its evaluation result.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">search_strategy</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code>, the search strategy will be the default search strategy. The default search strategy is <code class="docutils literal notranslate"><span class="pre">exhaustive</span></code> search
+algorithm with <code class="docutils literal notranslate"><span class="pre">joint</span></code> execution order.</p>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">host:</span> <span class="pre">[str</span> <span class="pre">|</span> <span class="pre">Dict]</span></code> The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in <code class="docutils literal notranslate"><span class="pre">systems</span></code>.
 If it is a dictionary, it contains the system information. If not specified, it is the local system.</p></li>
@@ -445,6 +450,11 @@ under the current working directory.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">clean_cache:</span> <span class="pre">[Boolean]</span></code> This decides whether to clean the cache of the engine before running the engine. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by default.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">clean_evaluation_cache:</span> <span class="pre">[Boolean]</span></code> This decides whether to clean the evaluation cache of the engine before running the engine. This is
 <code class="docutils literal notranslate"><span class="pre">false</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_dir:</span> <span class="pre">[str]</span></code> The directory to store the output of the engine. If not specified, the output will be stored in the current working
+directory. For a run with no search, the output is the output model of the final pass and its evaluation result. For a run with search, the
+output is a json file with the search results.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_name:</span> <span class="pre">[str]</span></code> The name of the output. This string will be used as the prefix of the output file name. If not specified, there is no
+prefix.</p></li>
 </ul>
 <p>Please find the detailed config options from following table for each search algorithm:</p>
 <table class="docutils align-default">
