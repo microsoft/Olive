@@ -103,7 +103,7 @@ def create_config_class(
             config[param] = (type_, ...)
             continue
 
-        type_ = Union[type_, SearchParameter, PassParamDefault]
+        type_ = Optional[Union[type_, SearchParameter, PassParamDefault]]
         if not disable_search and param_config.default_search is not None:
             config[param] = (type_, param_config.default_search)
         else:

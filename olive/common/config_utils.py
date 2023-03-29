@@ -179,7 +179,7 @@ def create_config_class(
             config[param] = (type_, ...)
             continue
 
-        config[param] = (type_, param_config.default)
+        config[param] = (Optional[type_], param_config.default)
 
     return create_model(class_name, **config, __base__=base, __validators__=validators)
 
