@@ -53,8 +53,8 @@ class RunConfig(ConfigBase):
         if "engine" not in values:
             raise ValueError("Invalid engine")
 
-        if values["engine"].search_strategy is None:
-            # disable search if search_strategy is None, user cannot override
+        if not values["engine"].search_strategy:
+            # disable search if search_strategy is None/False/{}, user cannot override
             disable_search = True
         else:
             # disable search if user explicitly set disable_search to True
