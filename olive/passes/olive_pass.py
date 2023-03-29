@@ -33,13 +33,14 @@ class Pass(AutoConfigClass):
     # True if pass configuration requires user script for non-local host support
     _requires_user_script: bool = False
 
-    def __init__(self, config: Union[Dict[str, Any], PassConfigBase] = None, disable_search: Optional[bool] = False):
+    def __init__(
+        self, config: Optional[Union[Dict[str, Any], PassConfigBase]] = None, disable_search: Optional[bool] = False
+    ):
         """
         Initialize the pass.
         disable_search: If False, use default search parameters, if any, for parameters that are not specified
         in the config. Only applies when the config is a dictionary.
         """
-        config = config or {}
         self._config_class = self.get_config_class(disable_search)
         self._config = validate_config(config, PassConfigBase, self._config_class)
         self._config = self._config.dict()
