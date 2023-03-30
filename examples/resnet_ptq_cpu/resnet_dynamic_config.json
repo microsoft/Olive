@@ -64,12 +64,12 @@
                 },
                 "target_opset": 13
             },
-            "default_to_search": true,
             "host": "local_system",
             "evaluator": "common_evaluator"
         },
         "onnx_dynamic_quantization": {
             "type": "OnnxDynamicQuantization",
+            "disable_search": true,
             "config": {
                 "weight_type": "QUInt8",
                 "per_channel": "DEFAULT_SEARCH",

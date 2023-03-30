@@ -64,12 +64,12 @@
                 },
                 "target_opset": 13
             },
-            "default_to_search": true,
             "host": "local_system",
             "evaluator": "common_evaluator"
         },
         "onnx_static_quantization": {
             "type": "OnnxStaticQuantization",
+            "disable_search": true,
             "config": {
                 "user_script": "user_script.py",
                 "data_dir": "data",

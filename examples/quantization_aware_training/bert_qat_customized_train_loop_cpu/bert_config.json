@@ -61,9 +61,7 @@
             }
         },
         "model_optimizer": {
-            "type": "ONNXModelOptimizer",
-            "config": {
-            }
+            "type": "ONNXModelOptimizer"
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",

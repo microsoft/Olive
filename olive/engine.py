@@ -75,11 +75,11 @@ class Engine:
             self.host = LocalSystem()
 
         # default evaluator
-        self._evaluator = None
+        self.evaluator = None
         if evaluator is not None:
-            self._evaluator = evaluator
+            self.evaluator = evaluator
         elif self._config.evaluator is not None:
-            self._evaluator = self._config.evaluator.create_evaluator()
+            self.evaluator = self._config.evaluator.create_evaluator()
 
         # dictionary of passes
         # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator, "clean_run_cache": clean_run_cache}}
@@ -163,7 +163,14 @@ class Engine:
         }
         self.pass_order.append(name)
 
-    def run(self, input_model: OliveModel, verbose: bool = False, output_dir: str = None, output_name: str = None):
+    def run(
+        self,
+        input_model: OliveModel,
+        verbose: bool = False,
+        output_dir: str = None,
+        output_name: str = None,
+        evaluation_only: bool = False,
+    ):
         """
         Run all the registered Olive passes on the input model and produce one or more candidate models.
 
@@ -174,9 +181,14 @@ class Engine:
 
         if search strategy is not None, run the search strategy to find candidate models.
         TODO: save the results using updated RunResult
+
+        if evaluation_only is True, run the evaluation on the input model and return the results.
         """
         if not self._initialized:
             self.initialize()
+
+        output_dir = Path(output_dir) if output_dir else Path.cwd()
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         if self.no_search:
             for pass_id in self.pass_order:
@@ -185,6 +197,14 @@ class Engine:
 
         # hash the input model
         input_model_id = self._init_input_model(input_model)
+
+        if evaluation_only:
+            assert self.evaluator is not None, "Evaluation only is True but no evaluator provided"
+            results = self._evaluate_model(input_model, input_model_id, self.evaluator, verbose)
+            result_name = f"{output_name}_metrics" if output_name is not None else "metrics"
+            results_path = output_dir / f"{result_name}.json"
+            json.dump(results, open(results_path, "w"), indent=2)
+            return results
 
         # get objective_dict
         evaluator = self.evaluator_for_pass(self.pass_order[-1])
@@ -277,8 +297,7 @@ class Engine:
 
             # save the evaluation results to output_dir
             result_name = f"{output_name}_metrics" if output_name is not None else "metrics"
-            output_dir = output_dir if output_dir is not None else "."
-            results_path = Path(output_dir) / f"{result_name}.json"
+            results_path = output_dir / f"{result_name}.json"
             if signal is not None:
                 json.dump(signal, open(results_path, "w"), indent=4)
 
@@ -323,10 +342,10 @@ class Engine:
         baseline = {}
         for _, goal in goals.items():
             if goal.type != "threshold":
-                assert self._evaluator is not None, "Default evaluator must be provided to resolve goals"
+                assert self.evaluator is not None, "Default evaluator must be provided to resolve goals"
                 if verbose:
                     logger.info("Computing baseline for metrics ...")
-                baseline = self._evaluate_model(input_model, input_model_id, self._evaluator, verbose=False)
+                baseline = self._evaluate_model(input_model, input_model_id, self.evaluator, verbose=False)
                 break
         if verbose and len(baseline) > 0:
             logger.info(f"Baseline: {baseline}")
@@ -362,7 +381,7 @@ class Engine:
         """
         e = self.passes[pass_id]["evaluator"]
         if e is None:
-            return self._evaluator
+            return self.evaluator
         return e
 
     def _get_new_model_number(self):
@@ -538,7 +557,7 @@ class Engine:
         Evaluate a model.
         """
         if verbose:
-            logger.info("Evaluating output model ...")
+            logger.info("Evaluating model ...")
         # load evaluation from cache if it exists
         signal = self._load_evaluation(model_id)
         if signal is not None:

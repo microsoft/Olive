@@ -59,7 +59,7 @@ class TestEngine:
 
     def test_register_no_search(self):
         # setup
-        p = get_onnx_dynamic_quantization_pass(default_to_search=False)
+        p = get_onnx_dynamic_quantization_pass(disable_search=True)
         name = p.__class__.__name__
 
         options = {
@@ -76,7 +76,7 @@ class TestEngine:
 
     def test_register_no_search_fail(self):
         # setup
-        p = get_onnx_dynamic_quantization_pass(default_to_search=True)
+        p = get_onnx_dynamic_quantization_pass(disable_search=False)
         name = p.__class__.__name__
 
         options = {
@@ -196,3 +196,39 @@ class TestEngine:
 
             # assert
             assert "Exception: test" in caplog.text
+
+    @patch("olive.engine.LocalSystem")
+    def test_run_evaluation_only(self, mock_local_system):
+        # setup
+        pytorch_model = get_pytorch_model()
+        p = get_onnxconversion_pass()
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        evaluator = OliveEvaluator(metrics=[metric], target=mock_local_system)
+        options = {
+            "cache_dir": "./cache",
+            "clean_cache": True,
+            "search_strategy": None,
+            "clean_evaluation_cache": True,
+        }
+        engine = Engine(options, host=mock_local_system, evaluator=evaluator)
+        engine.register(p, clean_run_cache=True)
+        onnx_model = get_onnx_model()
+        mock_local_system.run_pass.return_value = onnx_model
+        mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
+
+        # output model to output_dir
+        output_dir = Path("cache") / "output"
+        shutil.rmtree(output_dir, ignore_errors=True)
+
+        expected_res = {metric.name: 0.998}
+
+        # execute
+        actual_res = engine.run(pytorch_model, output_dir=output_dir, evaluation_only=True)
+
+        assert expected_res == actual_res
+        result_json_path = Path(output_dir / "metrics.json")
+        assert result_json_path.is_file()
+        assert json.load(open(result_json_path, "r")) == actual_res
+
+        # clean up
+        shutil.rmtree(output_dir, ignore_errors=True)

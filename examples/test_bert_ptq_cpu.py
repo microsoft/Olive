@@ -45,6 +45,8 @@ def test_bert(search_algorithm, execution_order, system, olive_json):
 
     # update search strategy
     olive_config["engine"]["search_strategy"]["search_algorithm"] = search_algorithm
+    if search_algorithm == "random" or search_algorithm == "tpe":
+        olive_config["engine"]["search_strategy"]["search_algorithm_config"] = {"num_samples": 3, "seed": 0}
     olive_config["engine"]["search_strategy"]["execution_order"] = execution_order
 
     # set aml_system as dev

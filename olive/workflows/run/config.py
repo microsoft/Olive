@@ -22,6 +22,7 @@ class RunPassConfig(FullPassConfig):
 
 
 class RunEngineConfig(EngineConfig):
+    evaluation_only: bool = False
     output_dir: Union[Path, str] = None
     output_name: str = None
 
@@ -43,10 +44,31 @@ class RunConfig(ConfigBase):
         v = _resolve_system(v, values, "host")
         return _resolve_evaluator(v, values)
 
+    @validator("engine")
+    def validate_evaluation_only(cls, v):
+        if v.evaluation_only and v.evaluator is None:
+            raise ValueError("Evaluation only requires evaluator")
+        return v
+
     @validator("passes", pre=True, each_item=True)
-    def validate_pass_host(cls, v, values):
+    def validate_pass_host_evaluator(cls, v, values):
         v = _resolve_system(v, values, "host")
         return _resolve_evaluator(v, values)
+
+    @validator("passes", pre=True, each_item=True)
+    def validate_pass_search(cls, v, values):
+        if "engine" not in values:
+            raise ValueError("Invalid engine")
+
+        if not values["engine"].search_strategy:
+            # disable search if search_strategy is None/False/{}, user cannot override
+            disable_search = True
+        else:
+            # disable search if user explicitly set disable_search to True
+            disable_search = v.get("disable_search", False)
+
+        v["disable_search"] = disable_search
+        return v
 
 
 def _resolve_system(v, values, system_alias):

@@ -33,13 +33,15 @@ class Pass(AutoConfigClass):
     # True if pass configuration requires user script for non-local host support
     _requires_user_script: bool = False
 
-    def __init__(self, config: Union[Dict[str, Any], PassConfigBase], default_to_search: Optional[bool] = False):
+    def __init__(
+        self, config: Optional[Union[Dict[str, Any], PassConfigBase]] = None, disable_search: Optional[bool] = False
+    ):
         """
         Initialize the pass.
-        default_to_search: If True, use default search parameters, if any, for parameters that are not specified
+        disable_search: If False, use default search parameters, if any, for parameters that are not specified
         in the config. Only applies when the config is a dictionary.
         """
-        self._config_class = self.get_config_class(default_to_search)
+        self._config_class = self.get_config_class(disable_search)
         self._config = validate_config(config, PassConfigBase, self._config_class)
         self._config = self._config.dict()
         self._config = self._resolve_defaults(self._config)
@@ -58,11 +60,11 @@ class Pass(AutoConfigClass):
         self._initialized = False
 
     @classmethod
-    def get_config_class(cls, default_to_search: Optional[bool] = False) -> Type[PassConfigBase]:
+    def get_config_class(cls, disable_search: Optional[bool] = False) -> Type[PassConfigBase]:
         """
         Get the configuration class for the pass.
         """
-        return create_config_class(cls.__name__, cls.default_config(), default_to_search, cls._validators())
+        return create_config_class(cls.__name__, cls.default_config(), disable_search, cls._validators())
 
     @classmethod
     def default_config(cls) -> Dict[str, PassConfigParam]:
@@ -210,13 +212,17 @@ class Pass(AutoConfigClass):
         """
         Convert the pass to json.
         """
-        return {"type": self.__class__.__name__, "config": self.serialize_config(self._config, check_objects)}
+        return {
+            "type": self.__class__.__name__,
+            "disable_search": True,
+            "config": self.serialize_config(self._config, check_objects),
+        }
 
 
 # TODO rename. We are using FullPassConfig since PassConfigBase already refers to inner config
 class FullPassConfig(ConfigBase):
     type: str
-    default_to_search: bool = False
+    disable_search: bool = False
     config: PassConfigBase = None
 
     @validator("type")
@@ -229,13 +235,13 @@ class FullPassConfig(ConfigBase):
     def validate_config(cls, v, values):
         if "type" not in values:
             raise ValueError("Invalid type")
-        if "default_to_search" not in values:
-            raise ValueError("Invalid default_to_search")
+        if "disable_search" not in values:
+            raise ValueError("Invalid disable_search")
 
         pass_type = values["type"].lower()
-        default_to_search = values["default_to_search"]
-        config_class = Pass.registry[pass_type].get_config_class(default_to_search)
+        disable_search = values["disable_search"]
+        config_class = Pass.registry[pass_type].get_config_class(disable_search)
         return validate_config(v, PassConfigBase, config_class)
 
     def create_pass(self):
-        return Pass.registry[self.type.lower()](self.config, self.default_to_search)
+        return Pass.registry[self.type.lower()](self.config, self.disable_search)

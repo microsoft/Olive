@@ -189,8 +189,9 @@ another dictionary that contains the information of the pass. The information of
 
 - `type: [str]` The type of the pass.
 
-- `default_to_search: [Boolean]` This decides whether to use the default value (`false`) or the default search space,
-  if any, (`true`) for the optional parameters. This is `false` by default.
+- `disable_search: [Boolean]` This decides whether to use the default value (`true`) or the default search space,
+  if any, (`false`) for the optional parameters. This is `false` by default and can be overridden if `search_strategy` under `engine` is
+  specified. Otherwise, it is always `true`.
 
 - `config: [Dict]` The configuration of the pass.
 
@@ -203,7 +204,7 @@ will be used.
 
 - `clean_run_cache: [Boolean]` This decides whether to clean the run cache of the pass before running the pass. This is `false` by default.
 
-Please refer to [Configuring Pass](configuring_pass) for more details on `type`, `default_to_search` and `config`.
+Please refer to [Configuring Pass](configuring_pass) for more details on `type`, `disable_search` and `config`.
 
 Please also find the detailed options from following table for each pass:
 
@@ -246,8 +247,7 @@ Please also find the detailed options from following table for each pass:
             "data_dir": "data",
             "dataloader_func": "resnet_calibration_reader",
             "weight_type": "QUInt8"
-        },
-        "default_to_search": true
+        }
     }
 }
 ```
@@ -282,11 +282,15 @@ This is a dictionary that contains the information of the engine. The informatio
   If `search_strategy` is `true`, the search strategy will be the default search strategy. The default search strategy is `exhaustive` search
   algorithm with `joint` execution order.
 
+- `evaluation_only: [Boolean]` This decides whether to run the engine in evaluation only mode. In this mode, the engine will evaluate the input
+    model using the engine's evaluator and return the results. If the engine has no evaluator, it will raise an error. This is `false` by default.
+
 - `host: [str | Dict]` The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.
     If it is a dictionary, it contains the system information. If not specified, it is the local system.
 
 - `evaluator: [str | Dict]` The evaluator of the engine. It can be a string or a dictionary. If it is a string, it is the name of an evaluator
-    in `evaluators`. If it is a dictionary, it contains the evaluator information.
+    in `evaluators`. If it is a dictionary, it contains the evaluator information. This evaluator will be used to evaluate the input model if
+    needed. It is also used to evaluate the output models of passes that don't have their own evaluators.
 
 - `cache_dir: [str]` The directory to store the cache of the engine. If not specified, the cache will be stored in the `.olive-cache` directory
     under the current working directory.
