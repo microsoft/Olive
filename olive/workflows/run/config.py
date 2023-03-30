@@ -22,6 +22,7 @@ class RunPassConfig(FullPassConfig):
 
 
 class RunEngineConfig(EngineConfig):
+    evaluation_only: bool = False
     output_dir: Union[Path, str] = None
     output_name: str = None
 
@@ -42,6 +43,12 @@ class RunConfig(ConfigBase):
     def validate_engine(cls, v, values):
         v = _resolve_system(v, values, "host")
         return _resolve_evaluator(v, values)
+
+    @validator("engine")
+    def validate_evaluation_only(cls, v):
+        if v.evaluation_only and v.evaluator is None:
+            raise ValueError("Evaluation only requires evaluator")
+        return v
 
     @validator("passes", pre=True, each_item=True)
     def validate_pass_host(cls, v, values):
