@@ -326,8 +326,9 @@ in order of their definintion in this dictionary. The key of the dictionary is t
 another dictionary that contains the information of the pass. The information of the pass contains following items:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> The type of the pass.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">default_to_search:</span> <span class="pre">[Boolean]</span></code> This decides whether to use the default value (<code class="docutils literal notranslate"><span class="pre">false</span></code>) or the default search space,
-if any, (<code class="docutils literal notranslate"><span class="pre">true</span></code>) for the optional parameters. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by default.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">disable_search:</span> <span class="pre">[Boolean]</span></code> This decides whether to use the default value (<code class="docutils literal notranslate"><span class="pre">true</span></code>) or the default search space,
+if any, (<code class="docutils literal notranslate"><span class="pre">false</span></code>) for the optional parameters. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by default and can be overridden if <code class="docutils literal notranslate"><span class="pre">search_strategy</span></code> under <code class="docutils literal notranslate"><span class="pre">engine</span></code> is
+specified. Otherwise, it is always <code class="docutils literal notranslate"><span class="pre">true</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The configuration of the pass.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">host:</span> <span class="pre">[str</span> <span class="pre">|</span> <span class="pre">Dict]</span></code> The host of the pass. It can be a string or a dictionary. If it is a string, it is the name of a system in
 <code class="docutils literal notranslate"><span class="pre">systems</span></code>. If it is a dictionary, it contains the system information. If not specified, the host of the engine will be used.</p></li>
@@ -336,7 +337,7 @@ evaluator in <code class="docutils literal notranslate"><span class="pre">evalua
 will be used.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">clean_run_cache:</span> <span class="pre">[Boolean]</span></code> This decides whether to clean the run cache of the pass before running the pass. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by default.</p></li>
 </ul>
-<p>Please refer to <a class="reference internal" href="../tutorials/configure_pass.html#configuring-pass"><span class="std std-ref">Configuring Pass</span></a> for more details on <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">default_to_search</span></code> and <code class="docutils literal notranslate"><span class="pre">config</span></code>.</p>
+<p>Please refer to <a class="reference internal" href="../tutorials/configure_pass.html#configuring-pass"><span class="std std-ref">Configuring Pass</span></a> for more details on <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">disable_search</span></code> and <code class="docutils literal notranslate"><span class="pre">config</span></code>.</p>
 <p>Please also find the detailed options from following table for each pass:</p>
 <table class="docutils align-default">
 <thead>
@@ -409,8 +410,7 @@ will be used.</p></li>
 <span class="w">            </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
 <span class="w">            </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resnet_calibration_reader&quot;</span><span class="p">,</span>
 <span class="w">            </span><span class="nt">&quot;weight_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QUInt8&quot;</span>
-<span class="w">        </span><span class="p">},</span>
-<span class="w">        </span><span class="nt">&quot;default_to_search&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -441,10 +441,13 @@ the output model of the final pass and its evaluation result.</p>
 <p>If <code class="docutils literal notranslate"><span class="pre">search_strategy</span></code> is <code class="docutils literal notranslate"><span class="pre">true</span></code>, the search strategy will be the default search strategy. The default search strategy is <code class="docutils literal notranslate"><span class="pre">exhaustive</span></code> search
 algorithm with <code class="docutils literal notranslate"><span class="pre">joint</span></code> execution order.</p>
 </li>
+<li><p><code class="docutils literal notranslate"><span class="pre">evaluation_only:</span> <span class="pre">[Boolean]</span></code> This decides whether to run the engine in evaluation only mode. In this mode, the engine will evaluate the input
+model using the engine’s evaluator and return the results. If the engine has no evaluator, it will raise an error. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by default.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">host:</span> <span class="pre">[str</span> <span class="pre">|</span> <span class="pre">Dict]</span></code> The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in <code class="docutils literal notranslate"><span class="pre">systems</span></code>.
 If it is a dictionary, it contains the system information. If not specified, it is the local system.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">evaluator:</span> <span class="pre">[str</span> <span class="pre">|</span> <span class="pre">Dict]</span></code> The evaluator of the engine. It can be a string or a dictionary. If it is a string, it is the name of an evaluator
-in <code class="docutils literal notranslate"><span class="pre">evaluators</span></code>. If it is a dictionary, it contains the evaluator information.</p></li>
+in <code class="docutils literal notranslate"><span class="pre">evaluators</span></code>. If it is a dictionary, it contains the evaluator information. This evaluator will be used to evaluate the input model if
+needed. It is also used to evaluate the output models of passes that don’t have their own evaluators.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cache_dir:</span> <span class="pre">[str]</span></code> The directory to store the cache of the engine. If not specified, the cache will be stored in the <code class="docutils literal notranslate"><span class="pre">.olive-cache</span></code> directory
 under the current working directory.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">clean_cache:</span> <span class="pre">[Boolean]</span></code> This decides whether to clean the cache of the engine before running the engine. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by default.</p></li>

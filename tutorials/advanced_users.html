@@ -227,7 +227,7 @@ Passes available in Olive can be found at …</p>
     <span class="s2">&quot;weight_type&quot;</span> <span class="p">:</span> <span class="s2">&quot;QUInt8&quot;</span>
 <span class="p">}</span>
 <span class="c1"># search over the values for the other config parameters</span>
-<span class="n">quantization_pass</span> <span class="o">=</span> <span class="n">OnnxQuantization</span><span class="p">(</span><span class="n">quantization_config</span><span class="p">,</span> <span class="n">default_to_search</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">quantization_pass</span> <span class="o">=</span> <span class="n">OnnxQuantization</span><span class="p">(</span><span class="n">quantization_config</span><span class="p">)</span>
 <span class="n">engine</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">quantization_pass</span><span class="p">)</span>
 </pre></div>
 </div>

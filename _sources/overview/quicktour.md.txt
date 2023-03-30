@@ -138,8 +138,7 @@ let us first convert the pytorch model to ONNX and quantize it.
         "data_dir": "data",
         "dataloader_func": "resnet_calibration_reader",
         "weight_type" : "QUInt8"
-    },
-    "default_to_search": true
+    }
 }
 ```
 
@@ -203,8 +202,7 @@ python -m olive.workflows.run --config config.json
                 "data_dir": "data",
                 "dataloader_func": "resnet_calibration_reader",
                 "weight_type" : "QUInt8"
-            },
-            "default_to_search": true
+            }
         }
     },
     "engine": {
