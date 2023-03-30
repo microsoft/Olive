@@ -85,7 +85,7 @@ class SearchStrategy(ABC):
         self._spaces_order = [search_space[0] for search_space in search_spaces_list]
         self._spaces_dict = {search_space[0]: search_space[1] for search_space in search_spaces_list}
 
-        # search space dictionaries for pass are grouped based on exection_order
+        # search space dictionaries for pass are grouped based on execution_order
         self._spaces_groups = self._group_search_spaces(self._spaces_order)
         self._done_spaces_groups = []
         self._active_spaces_group = None
@@ -120,13 +120,15 @@ class SearchStrategy(ABC):
         """
         Get the next search space group and initialize the search algorithm.
         """
-        # TODO: organize the state better and make exection order more flexible using a graph
+        # TODO: organize the state better and make execution order more flexible using a graph
         if self._active_spaces_group is not None:
             self._done_spaces_groups.append(self._active_spaces_group)
             # legacy, will update once search results has info function
             sorted_model_ids, sorted_search_points, sorted_results = self._search_results[
                 tuple(self._active_spaces_group)
-            ].sort_search_points()
+            ].sort_search_points(apply_goals=True)
+            # TODO: this is a hack to get the best search point for the current search space group
+            #      it totally work for joint execution order, but not for pass-by-pass
             if sorted_search_points and sorted_results:
                 best_search_point = (sorted_search_points[0], list(sorted_results[0].values()), sorted_model_ids[0])
                 self._best_search_points[tuple(self._active_spaces_group)] = best_search_point
@@ -205,6 +207,9 @@ class SearchStrategy(ABC):
         Check if the olive search_strategy should exit.
         """
         self.exit_criteria_met = False
+        if not self._config.stop_when_goals_met:
+            # stop early stopping when stop_when_goals_met is False, but still apply goals check without stopping
+            return
         # early exit is not supported for pass-by-pass execution order currently
         if self._config.execution_order == "pass-by-pass":
             return
