@@ -28,7 +28,7 @@ class SNPEtoONNXConversion(Pass):
     """
 
     @staticmethod
-    def _default_config() -> Dict[str, Dict[str, Any]]:
+    def _default_config() -> Dict[str, PassConfigParam]:
         return {
             "target_device": PassConfigParam(
                 type_=str,

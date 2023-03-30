@@ -11,7 +11,7 @@ from onnxruntime.transformers.onnx_model import OnnxModel as TransformersOnnxMod
 
 from olive.model import ONNXModel
 from olive.passes import Pass
-
+from olive.passes.pass_config import PassConfigParam
 
 class ModelOptimizer:
     def __init__(self, source_model_path, target_model_path):
@@ -119,7 +119,7 @@ class OnnxModelOptimizer(Pass):
     """Optimize ONNX model by fusing nodes."""
 
     @staticmethod
-    def _default_config() -> Dict[str, Dict[str, Any]]:
+    def _default_config() -> Dict[str, PassConfigParam]:
         return {}
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:

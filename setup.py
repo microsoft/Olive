@@ -14,8 +14,7 @@ def get_version(rel_path):
         if line.startswith("__version__"):
             delim = '"' if '"' in line else "'"
             return line.split(delim)[1]
-    else:
-        raise RuntimeError("Unable to find version string.")
+    raise RuntimeError("Unable to find version string.")
 
 
 # use techniques described at https://packaging.python.org/en/latest/guides/single-sourcing-package-version/

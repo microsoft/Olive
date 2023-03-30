@@ -20,11 +20,11 @@ class NewOptimizationTrick(Pass):
 ## 2. Define configuration
 
 Next, define the options used to configure this new technique by defining static method `_default_config`. The method should
-return `Dict[str, Any]`.
+return `Dict[str, PassConfigParam]`.
 
 ```python
     @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    def _default_config() -> Dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(
                 type_=str,
