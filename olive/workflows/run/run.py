@@ -7,7 +7,6 @@ import logging
 from pathlib import Path
 from typing import Union
 
-from olive.engine import Engine
 from olive.workflows.run.config import RunConfig
 
 logger = logging.getLogger(__name__)
@@ -40,7 +39,7 @@ def automatically_insert_passes(config):
 
     new_config_dict["passes"] = new_passes
     new_config = RunConfig.parse_obj(new_config_dict)
-    new_engine = Engine(new_config.engine)
+    new_engine = new_config.engine.create_engine()
 
     return new_engine, new_config
 
@@ -56,7 +55,7 @@ def run(config: Union[str, Path, dict]):
     input_model = config.input_model.create_model()
 
     # engine
-    engine = Engine(config.engine.dict())
+    engine = config.engine.create_engine()
 
     if (config.passes is None or not config.passes) and (not config.engine.evaluation_only):
         # TODO enhance this logic for more passes templates

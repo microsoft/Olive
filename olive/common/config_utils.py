@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import inspect
 import json
+import logging
 from functools import partial
 from pathlib import Path
 from types import FunctionType, MethodType
@@ -12,6 +13,8 @@ from typing import Any, Callable, Dict, Optional, Union
 from pydantic import BaseModel, create_model, validator
 
 from olive.common.utils import hash_function, hash_object
+
+logger = logging.getLogger(__name__)
 
 
 def serialize_function(function: Union[FunctionType, MethodType]) -> dict:
@@ -185,7 +188,10 @@ def create_config_class(
 
 
 def validate_config(
-    config: Union[Dict[str, Any], ConfigBase, None], base_class: ConfigBase, instance_class: Optional[ConfigBase] = None
+    config: Union[Dict[str, Any], ConfigBase, None],
+    base_class: ConfigBase,
+    instance_class: Optional[ConfigBase] = None,
+    warn_unused_keys: bool = True,
 ):
     """
     Validate a config dictionary or object against a base class and instance class.
@@ -196,10 +202,13 @@ def validate_config(
     if instance_class is None:
         instance_class = base_class
 
-    if config is None:
-        config = instance_class()
-    elif isinstance(config, dict):
+    if isinstance(config, dict):
+        user_keys = set(config.keys())
         config = instance_class(**config)
+        config_keys = set(config.dict().keys())
+        unused_keys = user_keys - config_keys
+        if unused_keys and warn_unused_keys:
+            logger.warning(f"Keys {unused_keys} are not part of {instance_class.__name__}. Ignoring them.")
     elif isinstance(config, base_class) and config.__class__.__name__ == instance_class.__name__:
         pass
     else:

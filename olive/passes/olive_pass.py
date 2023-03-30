@@ -143,7 +143,7 @@ class Pass(AutoConfigClass):
             if isinstance(value, SearchParameter):
                 # resolve conditional parameters
                 # if categorical with single choice, use that choice directly
-                value = self._resolve_search_parameters(value, fixed_params)
+                value = self._resolve_search_parameter(value, fixed_params)
             if value == SpecialParamValue.INVALID:
                 # TODO: better error message, e.g. what the parent values were, how it was invalid
                 raise ValueError(
