@@ -57,14 +57,16 @@ class QuantizationAwareTraining(Pass):
             ),
             "train_batch_size": PassConfigParam(type_=int, description="Batch size for training."),
             "num_epochs": PassConfigParam(type_=int, description="Maximum number of epochs for training."),
-            "num_steps": PassConfigParam(type_=int, default=-1, description="Maximum number of steps for training."),
+            "num_steps": PassConfigParam(
+                type_=int, default_value=-1, description="Maximum number of steps for training."
+            ),
             "do_validate": PassConfigParam(
                 type_=bool,
-                default=False,
+                default_value=False,
                 description="Whether perform one evaluation epoch over the validation set after training.",
             ),
             "modules_to_fuse": PassConfigParam(
-                type_=List[List[str]], default=None, description="List of list of module names to fuse."
+                type_=List[List[str]], default_value=None, description="List of list of module names to fuse."
             ),
             "input_shapes": PassConfigParam(
                 type_=List[List[int]],
@@ -73,12 +75,12 @@ class QuantizationAwareTraining(Pass):
             ),
             "input_types": PassConfigParam(
                 type_=List[str],
-                default=None,
+                default_value=None,
                 description="List ot input types. It is used to create dummy input for PyTorch model tracing.",
             ),
             "qconfig_func": PassConfigParam(
                 type_=Union[Callable, str],
-                default=None,
+                default_value=None,
                 is_object=True,
                 description=(
                     "Customized function to create a QConfig for QAT. Please refer to "
@@ -88,12 +90,12 @@ class QuantizationAwareTraining(Pass):
             "logger": PassConfigParam(
                 type_=Union[Logger, Iterable[Logger], Callable, bool],
                 required=False,
-                default=False,
+                default_value=False,
                 is_object=True,
                 description="Logger for training.",
             ),
             "gpus": PassConfigParam(type_=int, description="Number of GPUs to use."),
-            "seed": PassConfigParam(type_=int, default=None, description="Random seed for training."),
+            "seed": PassConfigParam(type_=int, default_value=None, description="Random seed for training."),
         }
 
     def _run_for_config(self, model: PyTorchModel, config: Dict[str, Any], output_model_path: str) -> PyTorchModel:

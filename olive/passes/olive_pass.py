@@ -100,13 +100,13 @@ class Pass(AutoConfigClass):
         """
         default_config = self.default_config()
         for key, value in config.items():
-            if value == PassParamDefault.DEFAULT:
-                config[key] = default_config[key].default
+            if value == PassParamDefault.DEFAULT_VALUE:
+                config[key] = default_config[key].default_value
             elif value == PassParamDefault.SEARCHABLE_VALUES:
                 value = default_config[key].searchable_values
                 if value is None:
                     logger.warning(f"Parameter {key} does not have searchable values. Using default value instead.")
-                    value = default_config[key].default
+                    value = default_config[key].default_value
                 config[key] = value
         return config
 

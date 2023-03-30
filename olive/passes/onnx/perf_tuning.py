@@ -224,34 +224,40 @@ class OrtPerfTuning(Pass):
                 description="Dataloader function to load data from given data_dir with given batch size.",
             ),
             "batch_size": PassConfigParam(type_=int, required=True, description="Batch size for inference."),
-            "device": PassConfigParam(type_=str, default="cpu", description="Device selected for tuning process."),
-            "cpu_cores": PassConfigParam(type_=int, default=None, description="CPU cores used for thread tuning."),
+            "device": PassConfigParam(
+                type_=str, default_value="cpu", description="Device selected for tuning process."
+            ),
+            "cpu_cores": PassConfigParam(
+                type_=int, default_value=None, description="CPU cores used for thread tuning."
+            ),
             "io_bind": PassConfigParam(
                 type_=Union[bool, List[bool]],
-                default=False,
+                default_value=False,
                 description="Whether enable IOBingding for ONNX Runimte infernece.",
             ),
             "providers_list": PassConfigParam(
-                type_=list, default=None, description="Execution providers framework list to execute the ONNX models."
+                type_=list,
+                default_value=None,
+                description="Execution providers framework list to execute the ONNX models.",
             ),
             "execution_mode_list": PassConfigParam(
-                type_=list, default=None, description="Parallelism list between operators."
+                type_=list, default_value=None, description="Parallelism list between operators."
             ),
             "opt_level_list": PassConfigParam(
-                type_=list, default=None, description="Optimization level list for ONNX model."
+                type_=list, default_value=None, description="Optimization level list for ONNX model."
             ),
             "trt_fp16_enable": PassConfigParam(
-                type_=bool, default=False, description="Whether enable FP16 mode for TensorRT execution provider."
+                type_=bool, default_value=False, description="Whether enable FP16 mode for TensorRT execution provider."
             ),
             "intra_thread_num_list": PassConfigParam(
-                type_=list, default=[None], description="List of intra thread number for test."
+                type_=list, default_value=[None], description="List of intra thread number for test."
             ),
             "inter_thread_num_list": PassConfigParam(
-                type_=list, default=[None], description="List of inter thread number for test."
+                type_=list, default_value=[None], description="List of inter thread number for test."
             ),
             "extra_session_config": PassConfigParam(
                 type_=Dict[str, Any],
-                default=None,
+                default_value=None,
                 description="Extra customized session options during tuning process.",
             ),
         }

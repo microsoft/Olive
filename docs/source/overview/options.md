@@ -189,7 +189,7 @@ another dictionary that contains the information of the pass. The information of
 
 - `type: [str]` The type of the pass.
 
-- `disable_search: [Boolean]` This decides whether to use the default value (`true`) or the default search space,
+- `disable_search: [Boolean]` This decides whether to use the default value (`true`) or the default searchable values,
   if any, (`false`) for the optional parameters. This is `false` by default and can be overridden if `search_strategy` under `engine` is
   specified. Otherwise, it is always `true`.
 

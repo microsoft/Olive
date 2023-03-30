@@ -25,8 +25,8 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
     @staticmethod
     def _default_config() -> Dict[str, ConfigParam]:
         return {
-            "num_samples": ConfigParam(type_=int, default=1, description="Number of samples to suggest."),
-            "seed": ConfigParam(type_=int, default=1, description="Seed for the rng."),
+            "num_samples": ConfigParam(type_=int, default_value=1, description="Number of samples to suggest."),
+            "seed": ConfigParam(type_=int, default_value=1, description="Seed for the rng."),
         }
 
     def initialize(self):

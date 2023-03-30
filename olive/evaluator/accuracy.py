@@ -29,11 +29,11 @@ class AccuracyBase(AutoConfigClass):
     def _default_config() -> Dict[str, ConfigParam]:
         return {
             "num_classes": ConfigParam(type_=int),
-            "threshold": ConfigParam(type_=float, default=0.5),
-            "average": ConfigParam(type_=str, default="micro"),
-            "ignore_index": ConfigParam(type_=list, default=None),
-            "top_k": ConfigParam(type_=int, default=None),
-            "mdmc_average": ConfigParam(type_=str, default="global"),
+            "threshold": ConfigParam(type_=float, default_value=0.5),
+            "average": ConfigParam(type_=str, default_value="micro"),
+            "ignore_index": ConfigParam(type_=list, default_value=None),
+            "top_k": ConfigParam(type_=int, default_value=None),
+            "mdmc_average": ConfigParam(type_=str, default_value="global"),
         }
 
     @abstractmethod
@@ -90,7 +90,7 @@ class AUC(AccuracyBase):
 
     @staticmethod
     def _default_config():
-        return {"reorder": ConfigParam(type_=bool, default=False)}
+        return {"reorder": ConfigParam(type_=bool, default_value=False)}
 
     def evaluate(self, preds, target):
         preds = np.array(preds).flatten()
