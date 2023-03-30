@@ -17,7 +17,7 @@ To fully configure a Pass, we require three things: :code:`type`, :code:`disable
 * :code:`config`: This is a dictionary of the config parameters and values. It must contain all required parameters. For optional parameters
   the default value or default search space (dependending on whether :code:`disable_search` is :code:`True` or :code:`False`) can be
   overridden by providing user defined values. You can also assign the value for a specific parameter as :code:`"DEFAULT"` to use the default
-  value or :code:`"DEFAULT_SEARCH"` to use the default search values (if available).
+  value or :code:`"SEARCHABLE_VALUES"` to use the default search values (if available).
 
 Let's take the example of the :ref:`onnx_quantization` Pass:
 
@@ -34,9 +34,9 @@ Let's take the example of the :ref:`onnx_quantization` Pass:
                     "dataloader_func": "glue_calibration_reader",
                     // set per_channel to "DEFAULT" value
                     "per_channel": "DEFAULT",
-                    // set reduce_range to "DEFAULT_SEARCH" value
+                    // set reduce_range to "SEARCHABLE_VALUES" value
                     // redundant since disable_search is false
-                    "reduce_range": "DEFAULT_SEARCH",
+                    "reduce_range": "SEARCHABLE_VALUES",
                     // user defined value for weight_type
                     "weight_type": "QUInt8"
                 }
@@ -59,9 +59,9 @@ Let's take the example of the :ref:`onnx_quantization` Pass:
                     "dataloader_func": "glue_calibration_reader",
                     # set per_channel to "DEFAULT" value
                     "per_channel": "DEFAULT",
-                    # set reduce_range to "DEFAULT_SEARCH" value
+                    # set reduce_range to "SEARCHABLE_VALUES" value
                     # redundant since disable_search is false
-                    "reduce_range": "DEFAULT_SEARCH"
+                    "reduce_range": "SEARCHABLE_VALUES"
                     # user defined value for weight_type
                     "weight_type": "QUInt8"
                 },
