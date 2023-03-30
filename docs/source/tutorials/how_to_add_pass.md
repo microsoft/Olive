@@ -29,7 +29,7 @@ return `Dict[str, PassConfigParam]`.
             "quant_mode": PassConfigParam(
                 type_=str,
                 default="static",
-                default_search=Categorical(["dynamic", "static"]),
+                searchable_values=Categorical(["dynamic", "static"]),
                 description="""
                     Onnx Quantization mode. 'dynamic' for dynamic quantization,
                     'static' for static quantization.

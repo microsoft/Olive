@@ -39,7 +39,7 @@ class SNPEQuantization(Pass):
             "use_enhanced_quantizer": PassConfigParam(
                 type_=bool,
                 default=False,
-                default_search=Boolean(),
+                searchable_values=Boolean(),
                 description=(
                     "Use the enhanced quantizer feature when quantizing the model. Uses an algorithm to determine"
                     " optimal range instead of min and max range of data.  It can be useful for quantizing models that"
@@ -49,7 +49,7 @@ class SNPEQuantization(Pass):
             "enable_htp": PassConfigParam(
                 type_=bool,
                 default=False,
-                default_search=Boolean(),
+                searchable_values=Boolean(),
                 description="Pack HTP information in quantized DLC.",
             ),
             "htp_socs": PassConfigParam(

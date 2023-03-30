@@ -120,9 +120,9 @@ b. Select parameters to tune
 {
     "type": "OnnxQuantization",
     "config": {
-        // select per_channel to tune with "DEFAULT_SEARCH".
+        // select per_channel to tune with "SEARCHABLE_VALUES".
         // other parameters will use the default value, not to be tuned.
-        "per_channel": "DEFAULT_SEARCH",
+        "per_channel": "SEARCHABLE_VALUES",
         "user_script": "./user_script.py",
         "dataloader_func": "glue_calibration_reader",
     },

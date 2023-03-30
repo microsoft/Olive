@@ -25,7 +25,7 @@ _onnx_quantization_config = {
     "weight_type": PassConfigParam(
         type_=str,
         default="QInt8",
-        default_search=Categorical(["QInt8", "QUInt8"]),
+        searchable_values=Categorical(["QInt8", "QUInt8"]),
         description="""
             Data type for quantizing weights which is used both in dynamic
             and static quantization. 'QInt8' for signed 8-bit integer,
@@ -56,7 +56,7 @@ _onnx_quantization_config = {
     "per_channel": PassConfigParam(
         type_=bool,
         default=False,
-        default_search=Boolean(),
+        searchable_values=Boolean(),
         description="""
             Quantize weights per channel.
             Tips: When to use reduce_range and per-channel quantization:
@@ -66,7 +66,7 @@ _onnx_quantization_config = {
     "reduce_range": PassConfigParam(
         type_=bool,
         default=False,
-        default_search=Boolean(),
+        searchable_values=Boolean(),
         description="""
             Quantize weights with 7-bits. It may improve the accuracy for
             some models running on non-VNNI machine, especially for per-channel mode.
@@ -77,7 +77,7 @@ _onnx_quantization_config = {
     "optimize_model": PassConfigParam(
         type_=bool,
         default=False,
-        default_search=Boolean(),
+        searchable_values=Boolean(),
         description="""
             Deprecating Soon in ONNX! Optimize model before quantization. NOT recommended, optimization will
             change the computation graph, making debugging of quantization loss difficult.
@@ -94,7 +94,7 @@ _onnx_quantization_config = {
     "quant_preprocess": PassConfigParam(
         type_=bool,
         default=True,
-        default_search=Boolean(),
+        searchable_values=Boolean(),
         description="""
             Shape inference and model optimization, in preparation for quantization.
             https://onnxruntime.ai/docs/performance/quantization.html#pre-processing
@@ -134,7 +134,7 @@ _static_optional_config = {
     "calibrate_method": PassConfigParam(
         type_=str,
         default="MinMax",
-        default_search=Categorical(["MinMax", "Entropy", "Percentile"]),
+        searchable_values=Categorical(["MinMax", "Entropy", "Percentile"]),
         description="""
             Current calibration methods supported are MinMax and Entropy,
             Please use CalibrationMethod.MinMax or CalibrationMethod.Entropy as options.
@@ -143,7 +143,7 @@ _static_optional_config = {
     "quant_format": PassConfigParam(
         type_=str,
         default="QDQ",
-        default_search=Categorical(["QOperator", "QDQ"]),
+        searchable_values=Categorical(["QOperator", "QDQ"]),
         description="""
             QOperator format quantizes the model with quantized operators directly.
             QDQ format quantize the model by inserting QuantizeLinear/DeQuantizeLinear on the tensor.
@@ -152,7 +152,7 @@ _static_optional_config = {
     "activation_type": PassConfigParam(
         type_=str,
         default="QInt8",
-        default_search=Conditional(
+        searchable_values=Conditional(
             parents=("quant_format", "weight_type"),
             support={
                 ("QDQ", "QInt8"): Categorical(["QInt8"]),
@@ -187,7 +187,7 @@ class OnnxQuantization(Pass):
             "quant_mode": PassConfigParam(
                 type_=str,
                 default="static",
-                default_search=Categorical(["dynamic", "static"]),
+                searchable_values=Categorical(["dynamic", "static"]),
                 description="""
                     Onnx Quantization mode. 'dynamic' for dynamic quantization,
                     'static' for static quantization.
@@ -206,17 +206,18 @@ class OnnxQuantization(Pass):
                 parents=("quant_mode",),
                 support={("static",): value.default, ("dynamic",): ConditionalDefault.get_ignored_choice()},
             )
-            if isinstance(value.default_search, Categorical):
-                value.default_search = Conditional(
+            if isinstance(value.searchable_values, Categorical):
+                value.searchable_values = Conditional(
                     parents=("quant_mode",),
-                    support={("static",): value.default_search},
+                    support={("static",): value.searchable_values},
                     default=Conditional.get_ignored_choice(),
                 )
-            elif isinstance(value.default_search, Conditional):
-                value.default_search = Conditional(
-                    parents=("quant_mode",) + value.default_search.parents,
+            elif isinstance(value.searchable_values, Conditional):
+                value.searchable_values = Conditional(
+                    parents=("quant_mode",) + value.searchable_values.parents,
                     support={
-                        ("static",) + key: value.default_search.support[key] for key in value.default_search.support
+                        ("static",) + key: value.searchable_values.support[key]
+                        for key in value.searchable_values.support
                     },
                     default=Conditional.get_ignored_choice(),
                 )

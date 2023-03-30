@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Type, Union
@@ -28,6 +29,8 @@ from olive.strategy.search_parameter import (
 )
 from olive.strategy.search_space import SearchSpace
 from olive.strategy.utils import cyclic_search_space, order_search_parameters
+
+logger = logging.getLogger(__name__)
 
 
 class Pass(AutoConfigClass):
@@ -99,10 +102,12 @@ class Pass(AutoConfigClass):
         for key, value in config.items():
             if value == PassParamDefault.DEFAULT:
                 config[key] = default_config[key].default
-            elif value == PassParamDefault.DEFAULT_SEARCH:
-                default_search = default_config[key].default_search
-                assert default_search is not None, f"Parameter {key} does not have a default search."
-                config[key] = default_search
+            elif value == PassParamDefault.SEARCHABLE_VALUES:
+                value = default_config[key].searchable_values
+                if value is None:
+                    logger.warning(f"Parameter {key} does not have searchable values. Using default value instead.")
+                    value = default_config[key].default
+                config[key] = value
         return config
 
     def _validate_user_script(self, config: Dict[str, Any], user_module_loader: UserModuleLoader) -> Dict[str, Any]:

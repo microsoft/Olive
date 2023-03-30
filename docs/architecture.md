@@ -53,7 +53,7 @@ It is initialized using:
 
 Optional parameters can be fixed values or search values which are prescribed using `SearchParameter`.
 
-Searchable parameters have default search values which can be used by assigning the config value as `DEFAULT_SEARCH`. Optional parameters use the default fixed value, also assignable using `DEFAULT`, if not assigned.
+Searchable parameters have default search values which can be used by assigning the config value as `SEARCHABLE_VALUES`. Optional parameters use the default fixed value, also assignable using `DEFAULT`, if not assigned.
 
 During initialization, the pass compares the user provided config and pass config class to create a dictionary for fixed parameters (`_fixed_params`) and search parameters (`_search_space`).
 

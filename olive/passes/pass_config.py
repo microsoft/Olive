@@ -18,7 +18,7 @@ class PassParamDefault(str, Enum):
     """
 
     DEFAULT = "DEFAULT"
-    DEFAULT_SEARCH = "DEFAULT_SEARCH"
+    SEARCHABLE_VALUES = "SEARCHABLE_VALUES"
 
 
 class PassConfigParam(ConfigParam):
@@ -26,7 +26,7 @@ class PassConfigParam(ConfigParam):
     Dataclass for pass configuration parameters.
     """
 
-    default_search: SearchParameter = None
+    searchable_values: SearchParameter = None
     is_path: bool = False
 
     def __repr__(self):
@@ -104,8 +104,8 @@ def create_config_class(
             continue
 
         type_ = Optional[Union[type_, SearchParameter, PassParamDefault]]
-        if not disable_search and param_config.default_search is not None:
-            config[param] = (type_, param_config.default_search)
+        if not disable_search and param_config.searchable_values is not None:
+            config[param] = (type_, param_config.searchable_values)
         else:
             config[param] = (type_, param_config.default)
 

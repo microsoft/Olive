@@ -28,7 +28,7 @@ def automatically_insert_passes(config):
 
     # insert quantization
     q_config = {"type": "OnnxDynamicQuantization"}
-    q_config["config"] = {"per_channel": "DEFAULT_SEARCH", "reduce_range": "DEFAULT_SEARCH"}
+    q_config["config"] = {"per_channel": "SEARCHABLE_VALUES", "reduce_range": "SEARCHABLE_VALUES"}
     q_config["clean_run_cache"] = False
     new_passes["dynamic_quantization"] = q_config
 
