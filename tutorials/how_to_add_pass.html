@@ -135,9 +135,9 @@ represented as a Pass in Olive.</p>
 <section id="define-configuration">
 <h2>2. Define configuration<a class="headerlink" href="#define-configuration" title="Permalink to this heading">¶</a></h2>
 <p>Next, define the options used to configure this new technique by defining static method <code class="docutils literal notranslate"><span class="pre">_default_config</span></code>. The method should
-return <code class="docutils literal notranslate"><span class="pre">Dict[str,</span> <span class="pre">Any]</span></code>.</p>
+return <code class="docutils literal notranslate"><span class="pre">Dict[str,</span> <span class="pre">PassConfigParam]</span></code>.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_default_config</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">_default_config</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
         <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;quant_mode&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
                 <span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
