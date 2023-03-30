@@ -212,7 +212,7 @@ class OrtPerfTuning(Pass):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config() -> Dict[str, Dict[str, Any]]:
+    def _default_config() -> Dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
                 type_=Union[Path, str], is_path=True, description="Directory of sample inference data."

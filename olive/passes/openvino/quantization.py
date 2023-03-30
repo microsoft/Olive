@@ -20,7 +20,7 @@ class OpenVINOQuantization(Pass):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config() -> Dict[str, Dict[str, Any]]:
+    def _default_config() -> Dict[str, PassConfigParam]:
         return {
             "engine_config": PassConfigParam(
                 type_=Dict,

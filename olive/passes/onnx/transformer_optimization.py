@@ -16,7 +16,7 @@ class OrtTransformersOptimization(Pass):
     It is based on onnxruntime.transformers.optimizer."""
 
     @staticmethod
-    def _default_config() -> Dict[str, Dict[str, Any]]:
+    def _default_config() -> Dict[str, PassConfigParam]:
         # TODO: add default search if supported
         return {
             "model_type": PassConfigParam(

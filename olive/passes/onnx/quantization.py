@@ -177,7 +177,7 @@ class OnnxQuantization(Pass):
         self.tmp_dir = tempfile.TemporaryDirectory()
 
     @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    def _default_config() -> Dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(
                 type_=str,
@@ -315,7 +315,7 @@ class OnnxDynamicQuantization(OnnxQuantization):
     _requires_user_script = False
 
     @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    def _default_config() -> Dict[str, PassConfigParam]:
         config = {"quant_mode": PassConfigParam(type_=str, default="dynamic", description="dynamic quantization mode")}
         # common quantization config
         config.update(deepcopy(_onnx_quantization_config))
@@ -328,7 +328,7 @@ class OnnxStaticQuantization(OnnxQuantization):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    def _default_config() -> Dict[str, PassConfigParam]:
         config = {"quant_mode": PassConfigParam(type_=str, default="static", description="static quantization mode")}
         # common quantization config
         config.update(deepcopy(_onnx_quantization_config))

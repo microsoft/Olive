@@ -29,7 +29,7 @@ class OnnxConversion(Pass):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config() -> Dict[str, Dict[str, Any]]:
+    def _default_config() -> Dict[str, PassConfigParam]:
         return {
             "input_names": PassConfigParam(type_=List[str], required=True, description="List of input names."),
             # required for if input_tensors_func is not provided

@@ -17,7 +17,7 @@ class OpenVINOConversion(Pass):
     """
 
     @staticmethod
-    def _default_config() -> Dict[str, Dict[str, Any]]:
+    def _default_config() -> Dict[str, PassConfigParam]:
         return {
             "input": PassConfigParam(
                 type_=List[Tuple],
