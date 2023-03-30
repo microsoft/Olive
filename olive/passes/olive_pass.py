@@ -161,7 +161,7 @@ class Pass(AutoConfigClass):
 
         return fixed_params, search_space
 
-    def _resolve_search_parameters(self, param: SearchParameter, fixed_params: Dict[str, Any]) -> Any:
+    def _resolve_search_parameter(self, param: SearchParameter, fixed_params: Dict[str, Any]) -> Any:
         """
         Resolve a search parameter.
         """
