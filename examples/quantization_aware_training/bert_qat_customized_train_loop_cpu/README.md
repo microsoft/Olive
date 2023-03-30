@@ -14,13 +14,7 @@ Install the necessary python packages:
 python -m pip install -r requirements.txt
 ```
 
-## Run sample using config (Preferred)
+## Run sample using config
 ```
 python -m olive.workflows.run --config bert_config.json
-```
-
-## Run sample using custom code
-```
-python bert.py --search_algorithm {exhaustive,random} \
-    --execution_order {joint,pass-by-pass}
 ```
