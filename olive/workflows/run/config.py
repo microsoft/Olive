@@ -8,7 +8,7 @@ from typing import Dict, Union
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase
-from olive.engine import EngineConfig
+from olive.engine import Engine, EngineConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
 from olive.passes import FullPassConfig
@@ -25,6 +25,11 @@ class RunEngineConfig(EngineConfig):
     evaluation_only: bool = False
     output_dir: Union[Path, str] = None
     output_name: str = None
+
+    def create_engine(self):
+        config = self.dict()
+        del config["evaluation_only"], config["output_dir"], config["output_name"]
+        return Engine(config)
 
 
 class RunConfig(ConfigBase):
