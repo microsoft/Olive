@@ -109,6 +109,6 @@ def get_onnxconversion_pass():
     return p
 
 
-def get_onnx_dynamic_quantization_pass(default_to_search=False):
-    p = OnnxDynamicQuantization({}, default_to_search=default_to_search)
+def get_onnx_dynamic_quantization_pass(disable_search=False):
+    p = OnnxDynamicQuantization(disable_search=disable_search)
     return p

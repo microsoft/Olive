@@ -31,11 +31,11 @@ Passes are the building blocks of an Olive workflow. Olive uses multiple Passes 
 The base class for Pass:
 ```python
 class Pass(ABC):
-    def __init__(self, config: Union[Dict[str, Any], BaseModel], default_to_search: Optional[bool] = False):
+    def __init__(self, config: Union[Dict[str, Any], BaseModel], disable_search: Optional[bool] = False):
         ...
 
     @classmethod
-    def get_config_class(cls, default_to_search: Optional[bool] = False) -> Type[BaseModel]:
+    def get_config_class(cls, disable_search: Optional[bool] = False) -> Type[BaseModel]:
         ...
 
     @staticmethod
@@ -45,9 +45,9 @@ class Pass(ABC):
 where `BaseModel` is a [pydantic model](https://docs.pydantic.dev/usage/models/)
 
 It is initialized using:
-- Config dictionary `{“param_name”: param_value}` and boolean `default_to_search`.
+- Config dictionary `{“param_name”: param_value}` and boolean `disable_search`.
 
-  If `default_to_search=True`, use default search parameters, if any, for parameters that are not specified
+  If `disable_search=False`, use default search parameters, if any, for parameters that are not specified
         in the config. Else use the default value.
 - Pydantic model which behaves like a dataclass with type validation. Each pass class has a class method `get_config_class` which returns the pass specific pydantic model that users can instantiate.
 

@@ -73,8 +73,7 @@
                 "data_dir": "data",
                 "dataloader_func": "resnet_calibration_reader",
                 "weight_type": "QUInt8"
-            },
-            "default_to_search": true
+            }
         }
     },
     "engine": {

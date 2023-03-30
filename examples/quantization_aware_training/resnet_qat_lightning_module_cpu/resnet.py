@@ -110,7 +110,7 @@ def main():
         "qconfig_func": "create_qat_config",
         "seed": 42,
     }
-    qat_pass = QuantizationAwareTraining(qat_config, default_to_search=False)
+    qat_pass = QuantizationAwareTraining(qat_config, disable_search=True)
     engine.register(qat_pass)
 
     # ------------------------------------------------------------------
@@ -123,7 +123,7 @@ def main():
         "dynamic_axes": {"input": {0: "batch_size"}, "output": {0: "batch_size"}},
         "target_opset": 17,
     }
-    onnx_conversion_pass = OnnxConversion(onnx_conversion_config, default_to_search=False)
+    onnx_conversion_pass = OnnxConversion(onnx_conversion_config, disable_search=True)
     engine.register(onnx_conversion_pass)
 
     # ------------------------------------------------------------------

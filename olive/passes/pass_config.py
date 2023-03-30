@@ -86,7 +86,7 @@ class PassConfigBase(ConfigBase):
 def create_config_class(
     pass_type: str,
     default_config: Dict[str, PassConfigParam],
-    default_to_search: Optional[bool] = True,
+    disable_search: Optional[bool] = False,
     validators: Dict[str, Callable] = None,
 ) -> Type[PassConfigBase]:
     """
@@ -103,8 +103,8 @@ def create_config_class(
             config[param] = (type_, ...)
             continue
 
-        type_ = Union[type_, SearchParameter, PassParamDefault]
-        if default_to_search and param_config.default_search is not None:
+        type_ = Optional[Union[type_, SearchParameter, PassParamDefault]]
+        if not disable_search and param_config.default_search is not None:
             config[param] = (type_, param_config.default_search)
         else:
             config[param] = (type_, param_config.default)

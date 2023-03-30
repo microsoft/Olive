@@ -59,7 +59,7 @@ class TestEngine:
 
     def test_register_no_search(self):
         # setup
-        p = get_onnx_dynamic_quantization_pass(default_to_search=False)
+        p = get_onnx_dynamic_quantization_pass(disable_search=True)
         name = p.__class__.__name__
 
         options = {
@@ -76,7 +76,7 @@ class TestEngine:
 
     def test_register_no_search_fail(self):
         # setup
-        p = get_onnx_dynamic_quantization_pass(default_to_search=True)
+        p = get_onnx_dynamic_quantization_pass(disable_search=False)
         name = p.__class__.__name__
 
         options = {
