@@ -13,6 +13,7 @@ from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
 
+
 class ModelOptimizer:
     def __init__(self, source_model_path, target_model_path):
         self.source_model_path = str(source_model_path)
