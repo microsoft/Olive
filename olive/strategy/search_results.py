@@ -6,7 +6,6 @@ from copy import deepcopy
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
-import pandas as pd
 
 from olive.common.utils import hash_dict
 from olive.strategy.utils import find_pareto_frontier_points
@@ -62,50 +61,24 @@ class SearchResults:
         If objectives is None, use all objectives.
         If apply_goals is True, only return results that satisfy the goals.
         """
-        search_point_hashes, results = self._get_results_list(objectives, apply_goals)
+        results, search_point_hashes = self._get_results_list(objectives, apply_goals)
 
         pareto_frontier_points = find_pareto_frontier_points(np.array(results))
         pareto_frontier_hashes = [search_point_hashes[i] for i in pareto_frontier_points]
 
-        return [self.model_ids[point_hash][-1].split("_")[0] for point_hash in pareto_frontier_hashes]
-
-    def get_results_df(self, show_search_points: bool = False):
-        """
-        Return the results as a dataframe.
-        """
-        pareto_frontier = self.get_pareto_frontier(apply_constraints=False)["model_numbers"]
-
-        headers_1 = ["model_number"] + self.metrics + ["constraint_met", "is_pareto"]
-        if show_search_points:
-            search_point = self.search_point_hash_table[list(self.search_point_hash_table.keys())[0]]
-            for pass_name in search_point:
-                for pass_param in search_point[pass_name]:
-                    headers_1.append(f"{pass_name}:{pass_param}")
-
-        df = pd.DataFrame(columns=headers_1)
-        for search_point_hash, result in self.results.items():
-            if result == {}:
-                continue
-            model_id = self.model_ids[search_point_hash][-1]
-            model_number = model_id.split("_")[0]
-            row = [model_number] + [result.get(metric, "") for metric in self.metrics]
-            row.append(self.check_constraints(result))
-            row.append(model_number in pareto_frontier)
-            if show_search_points:
-                search_point = self.search_point_hash_table[search_point_hash]
-                for pass_name in search_point:
-                    for pass_param in search_point[pass_name]:
-                        row.append(search_point[pass_name][pass_param])
-            df.loc[len(df)] = row
-
-        return df
+        # TODO this is temporary fix, will be done using olive tuning history feature
+        model_ids = [self.model_ids[point_hash] for point_hash in pareto_frontier_hashes]
+        search_points = [self.search_point_hash_table[point_hash] for point_hash in pareto_frontier_hashes]
+        results = [self.results[point_hash] for point_hash in pareto_frontier_hashes]
+        return model_ids, search_points, results
 
     def check_goals(self, result: Dict[str, Union[float, int]]) -> bool:
         """
         Check if the result satisfies the constraints.
         """
+        # if goals are not set, return True always
         if self.goals == {}:
-            return False
+            return True
 
         for obj, goal in self.goals.items():
             if self.obj_mul[obj] * result[obj] < self.obj_mul[obj] * goal:
@@ -128,6 +101,7 @@ class SearchResults:
         # sort by objectives
         results = np.array(results)
         results *= np.array([self.obj_mul[obj] for obj in objectives])
+        # TODO lexsort default sort by the last column, will support sorting by multiple columns later
         sorted_indices = np.lexsort(results.T)
         sorted_hashes = [search_point_hashes[i] for i in sorted_indices]
 
