@@ -20,8 +20,8 @@ from olive.passes.pass_config import PassConfigParam
 logger = logging.getLogger(__name__)
 
 
-def generate_tuning_combos(config):
-    providers_list = config.providers_list if config.providers_list else ort.get_available_providers()
+def generate_tuning_combos(model, config):
+    providers_list = config.providers_list if config.providers_list else model.get_execution_providers(config.device)
     execution_mode_list = (
         config.execution_mode_list
         if config.execution_mode_list
@@ -51,7 +51,7 @@ def tune_onnx_model(model, config):
     pretuning_inference_result = get_benchmark(model, latency_metric, config)
 
     tuning_results = []
-    for tuning_combo in generate_tuning_combos(config):
+    for tuning_combo in generate_tuning_combos(model, config):
         logger.info("Run tuning for: {}".format(tuning_combo))
         if tuning_combo[0] == "CPUExecutionProvider" and tuning_combo[3]:
             continue

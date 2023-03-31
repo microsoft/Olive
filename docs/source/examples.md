@@ -12,3 +12,6 @@
 
 # ResNet optimization with QAT PyTorch Lightning Module on CPU
 [resnet_qat_lightning_module_cpu](https://github.com/microsoft/Olive/tree/main/examples/quantization_aware_training/resnet_qat_lightning_module_cpu)
+
+# SqueezeNet latency optimization with DirectML
+[directml/squeezenet](https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet)

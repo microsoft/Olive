@@ -112,6 +112,7 @@ class ONNXModel(OliveModel):
     EXECUTION_PROVIDERS = {
         "cpu": ["CPUExecutionProvider", "OpenVINOExecutionProvider"],
         "gpu": [
+            "DmlExecutionProvider",
             "CUDAExecutionProvider",
             "OpenVINOExecutionProvider",
             "TensorrtExecutionProvider",
@@ -171,10 +172,14 @@ class ONNXModel(OliveModel):
 
         if not execution_provider:
             execution_provider = self.get_execution_providers(device)
-        elif isinstance(execution_provider, tuple):
-            execution_provider = execution_provider
+        elif isinstance(execution_provider, list):
+            # execution_provider may be a list of tuples where the first item in each tuple is the EP name
+            execution_provider = [i[0] if isinstance(i, tuple) else i for i in execution_provider]
         elif isinstance(execution_provider, str):
             execution_provider = [execution_provider]
+
+        if len(execution_provider) >= 1 and execution_provider[0] == "DmlExecutionProvider":
+            sess_options.enable_mem_pattern = False
 
         return ort.InferenceSession(self.model_path, sess_options, providers=execution_provider)
 
