@@ -196,7 +196,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_spaces_order</span> <span class="o">=</span> <span class="p">[</span><span class="n">search_space</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">search_space</span> <span class="ow">in</span> <span class="n">search_spaces_list</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_spaces_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">search_space</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">search_space</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">search_space</span> <span class="ow">in</span> <span class="n">search_spaces_list</span><span class="p">}</span>
 
-        <span class="c1"># search space dictionaries for pass are grouped based on exection_order</span>
+        <span class="c1"># search space dictionaries for pass are grouped based on execution_order</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_spaces_groups</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_group_search_spaces</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_spaces_order</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_done_spaces_groups</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="o">=</span> <span class="kc">None</span>
@@ -231,13 +231,15 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get the next search space group and initialize the search algorithm.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># TODO: organize the state better and make exection order more flexible using a graph</span>
+        <span class="c1"># TODO: organize the state better and make execution order more flexible using a graph</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_done_spaces_groups</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)</span>
             <span class="c1"># legacy, will update once search results has info function</span>
             <span class="n">sorted_model_ids</span><span class="p">,</span> <span class="n">sorted_search_points</span><span class="p">,</span> <span class="n">sorted_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_results</span><span class="p">[</span>
                 <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)</span>
-            <span class="p">]</span><span class="o">.</span><span class="n">sort_search_points</span><span class="p">()</span>
+            <span class="p">]</span><span class="o">.</span><span class="n">sort_search_points</span><span class="p">(</span><span class="n">apply_goals</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="c1"># TODO: this is a hack to get the best search point for the current search space group</span>
+            <span class="c1">#      it totally work for joint execution order, but not for pass-by-pass</span>
             <span class="k">if</span> <span class="n">sorted_search_points</span> <span class="ow">and</span> <span class="n">sorted_results</span><span class="p">:</span>
                 <span class="n">best_search_point</span> <span class="o">=</span> <span class="p">(</span><span class="n">sorted_search_points</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">list</span><span class="p">(</span><span class="n">sorted_results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="n">sorted_model_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_best_search_points</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)]</span> <span class="o">=</span> <span class="n">best_search_point</span>
@@ -316,6 +318,9 @@
 <span class="sd">        Check if the olive search_strategy should exit.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">exit_criteria_met</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">stop_when_goals_met</span><span class="p">:</span>
+            <span class="c1"># stop early stopping when stop_when_goals_met is False, but still apply goals check without stopping</span>
+            <span class="k">return</span>
         <span class="c1"># early exit is not supported for pass-by-pass execution order currently</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_order</span> <span class="o">==</span> <span class="s2">&quot;pass-by-pass&quot;</span><span class="p">:</span>
             <span class="k">return</span>
