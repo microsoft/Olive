@@ -12,6 +12,7 @@ from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
 
+
 class OnnxFloatToFloat16(Pass):
     """Converts a model to float16.
     It is based on onnxconverter-common.convert_float_to_float16.
