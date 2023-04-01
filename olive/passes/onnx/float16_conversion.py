@@ -45,7 +45,7 @@ class OnnxFloatToFloat16(Pass):
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
         if Path(output_model_path).suffix != ".onnx":
             output_model_path += ".onnx"
-        
+
         config = self._config_class(**config)
 
         model_fp32 = onnx.load(str(model.model_path))
@@ -56,7 +56,7 @@ class OnnxFloatToFloat16(Pass):
             keep_io_types=config.keep_io_types,
             disable_shape_infer=config.disable_shape_infer,
             op_block_list=config.op_block_list,
-            node_block_list=config.node_block_list
+            node_block_list=config.node_block_list,
         )
         onnx.save(model_fp16, output_model_path)
 
