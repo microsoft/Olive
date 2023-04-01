@@ -127,6 +127,14 @@ class SearchStrategy(ABC):
             sorted_model_ids, sorted_search_points, sorted_results = self._search_results[
                 tuple(self._active_spaces_group)
             ].sort_search_points(apply_goals=True)
+            if sorted_model_ids is None:
+                logger.warning(
+                    f"No models in this search group {self._active_spaces_group} met the goals. Sorting the models"
+                    " without applying goals..."
+                )
+                sorted_model_ids, sorted_search_points, sorted_results = self._search_results[
+                    tuple(self._active_spaces_group)
+                ].sort_search_points(apply_goals=False)
             # TODO: this is a hack to get the best search point for the current search space group
             #      it totally work for joint execution order, but not for pass-by-pass
             if sorted_search_points and sorted_results:
@@ -137,6 +145,14 @@ class SearchStrategy(ABC):
         if len(self._spaces_groups) == 0:
             self._active_spaces_group = None
             return None
+
+        if init_model_id is None and self._active_spaces_group is None:
+            raise ValueError("init_model_id must be provided for the first search group")
+        if init_model_id is None and self._active_spaces_group is not None:
+            raise ValueError(
+                f"The previous search group {self._active_spaces_group} has no output models that were created and"
+                " evaluated successfully. Cannot continue."
+            )
 
         self._active_spaces_group = self._spaces_groups.pop(0)
         self._searchers[tuple(self._active_spaces_group)] = self._create_searcher(self._active_spaces_group)
