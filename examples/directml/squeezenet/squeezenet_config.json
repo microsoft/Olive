@@ -54,7 +54,8 @@
                 "dataloader_func": "create_dataloader",
                 "device": "gpu",
                 "batch_size": 1,
-                "execution_mode_list": [ "ORT_SEQUENTIAL" ]
+                "execution_mode_list": [ "ORT_SEQUENTIAL" ],
+                "providers_list": [ "DmlExecutionProvider" ]
             }
         }
     },
