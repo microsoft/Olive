@@ -238,6 +238,14 @@
             <span class="n">sorted_model_ids</span><span class="p">,</span> <span class="n">sorted_search_points</span><span class="p">,</span> <span class="n">sorted_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_results</span><span class="p">[</span>
                 <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)</span>
             <span class="p">]</span><span class="o">.</span><span class="n">sort_search_points</span><span class="p">(</span><span class="n">apply_goals</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">sorted_model_ids</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;No models in this search group </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="si">}</span><span class="s2"> met the goals. Sorting the models&quot;</span>
+                    <span class="s2">&quot; without applying goals...&quot;</span>
+                <span class="p">)</span>
+                <span class="n">sorted_model_ids</span><span class="p">,</span> <span class="n">sorted_search_points</span><span class="p">,</span> <span class="n">sorted_results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_results</span><span class="p">[</span>
+                    <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)</span>
+                <span class="p">]</span><span class="o">.</span><span class="n">sort_search_points</span><span class="p">(</span><span class="n">apply_goals</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
             <span class="c1"># TODO: this is a hack to get the best search point for the current search space group</span>
             <span class="c1">#      it totally work for joint execution order, but not for pass-by-pass</span>
             <span class="k">if</span> <span class="n">sorted_search_points</span> <span class="ow">and</span> <span class="n">sorted_results</span><span class="p">:</span>
@@ -248,6 +256,14 @@
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_spaces_groups</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">init_model_id</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;init_model_id must be provided for the first search group&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">init_model_id</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The previous search group </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="si">}</span><span class="s2"> has no output models that were created and&quot;</span>
+                <span class="s2">&quot; evaluated successfully. Cannot continue.&quot;</span>
+            <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spaces_groups</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_searchers</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_searcher</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)</span>
