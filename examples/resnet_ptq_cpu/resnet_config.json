@@ -28,6 +28,7 @@
                     "name": "accuracy",
                     "type": "custom",
                     "higher_is_better": true,
+                    "is_first_priority": true,
                     "goal": {"type": "max-degradation", "value": 0.01},
                     "user_config":{
                         "user_script": "user_script.py",

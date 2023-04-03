@@ -49,6 +49,7 @@ class Metric(ConfigBase):
     type: MetricType
     sub_type: Union[AccuracySubType, LatencySubType] = None
     higher_is_better: bool = True
+    is_first_priority: bool = False
     goal: MetricGoal = None
     metric_config: ConfigBase = None
     user_config: ConfigBase

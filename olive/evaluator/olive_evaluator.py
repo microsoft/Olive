@@ -43,6 +43,15 @@ class OliveEvaluatorConfig(ConfigBase):
     def validate_metrics(cls, v):
         metric_names = set([metric.name for metric in v])
         assert len(metric_names) == len(v), "Metric names must be unique"
+        has_first_priority = False
+        for metric in v:
+            if metric.is_first_priority:
+                assert not has_first_priority, "Only one metric can be first priority"
+                has_first_priority = True
+        if len(v) > 1 and not has_first_priority:
+            raise ValueError("Must have at least one metric with first priority")
+        if len(v) == 1 and not v[0].is_first_priority:
+            v[0].is_first_priority = True
         return v
 
     def create_evaluator(self):
