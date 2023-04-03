@@ -214,7 +214,7 @@ Please also find the detailed options from following table for each pass:
 | [OnnxModelOptimizer](onnx_model_optimizer) | Optimize ONNX model by fusing nodes. |
 | [OnnxTransformersOptimization](onnx_transformers_optimization) | Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time. It is based on onnxruntime.transformers.optimizer. |
 | [OnnxThreadTuning](onnx_thread_tuning) | Optimize ONNX Runtime inference settings. |
-| [OnnxDynamicQuantization](onnx_dynamic_quantization) | Convert a PyTorch model to ONNX model. |
+| [OnnxDynamicQuantization](onnx_dynamic_quantization) | ONNX Dynamic Quantization Pass. |
 | [OnnxStaticQuantization](onnx_static_quantization) | ONNX Static Quantization Pass. |
 | [OnnxQuantization](onnx_quantization) | Quantize ONNX model with onnxruntime where we can search for best parameters for static/dynamic quantization at same time. |
 | [QuantizationAwareTraining](onnx_quantization_aware_training) | Run quantization aware training on PyTorch model. |
