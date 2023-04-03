@@ -186,3 +186,31 @@ for an example implementation of `"user_script.py"` and `"create_dataloader"`.
 [1]: <https://onnxruntime.ai/docs/performance/quantization.html> "ONNX Runtime Quantization"
 [2]: <https://onnxruntime.ai/docs/performance/quantization.html#dynamic-quantization> "Dynamic Quantization"
 [3]: <https://onnxruntime.ai/docs/performance/quantization.html#static-quantization> "Static Quantization"
+
+## Float16 Conversion
+
+Converting a model to use Float16 instead of Float32 can decrease the model size and improve performance on some GPUs. The `OnnxFloatToFloat16` pass wraps [onnxconverter_common.float16.convert_float_to_float16](https://github.com/microsoft/onnxconverter-common/blob/master/onnxconverter_common/float16.py#L111), which convert most nodes/operators to use Float16 instead of Float32.
+
+Conversion to Float16 is often exposed at multiple stages of optimization, including model conversion and transformer optimization. This stand-alone pass is best suited for models that are not transformer architectures, where fusions may rely on a specific data types in node patterns.
+
+### Example Configuration
+
+a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:
+```json
+{
+    "type": "OnnxFloatToFloat16"
+}
+```
+
+b. More fine-grained control of the conversion conditions is also possible:
+```json
+{
+    "type": "OnnxFloatToFloat16",
+    "config": {
+        // Don't convert input/output nodes to Float16
+        "keep_io_types": true
+    }
+}
+```
+
+See [Float16 Conversion](https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion) for more detailed description of the available configuration parameters.
