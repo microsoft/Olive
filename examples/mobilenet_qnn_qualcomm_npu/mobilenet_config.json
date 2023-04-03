@@ -1,0 +1,67 @@
+{
+    "verbose": true,
+    "input_model":{
+        "type": "OnnxModel",
+        "config": {
+            "model_path": "models/mobilenetv2-12.onnx",
+            "is_file": true
+        }
+    },
+    "evaluators": {
+        "common_evaluator":{
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "custom",
+                    "higher_is_better": true,
+                    "is_first_priority": true,
+                    "user_config":{
+                        "user_script": "script_dir/user_script.py",
+                        "script_dir": "script_dir",
+                        "data_dir": "data/eval",
+                        "evaluate_func": "eval_accuracy",
+                        "batch_size": 1
+                    }
+                },
+                {
+                    "name": "latency",
+                    "type": "custom",
+                    "higher_is_better": false,
+                    "user_config":{
+                        "user_script": "script_dir/user_script.py",
+                        "script_dir": "script_dir",
+                        "data_dir": "data/eval",
+                        "evaluate_func": "eval_latency",
+                        "batch_size": 1
+                    }
+                }
+            ],
+            "target": {
+                "type": "LocalSystem",
+                "config": {
+                    "device": "npu"
+                }
+            }
+        }
+    },
+    "passes": {
+        "quantization": {
+            "type": "OnnxStaticQuantization",
+            "config": {
+                "user_script": "script_dir/user_script.py",
+                "dataloader_func": "mobilenet_calibration_reader",
+                "data_dir": "data/quant",
+                "quant_format": "QDQ",
+                "per_channel": false
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": true,
+        "cache_dir": "cache",
+        "output_dir": "models",
+        "evaluator": "common_evaluator",
+        "evaluation_only": false,
+        "clean_cache": true
+    }
+}
