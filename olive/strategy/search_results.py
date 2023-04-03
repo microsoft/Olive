@@ -98,10 +98,10 @@ class SearchResults:
         if not results:
             return None, None, None
 
-        # sort by objectives
-        results = np.array(results)
-        results *= np.array([self.obj_mul[obj] for obj in objectives])
-        # TODO lexsort default sort by the last column, will support sorting by multiple columns later
+        # sort by objectives, left most objective has highest priority
+        # flip the order of the objectives since np.lexsort prioritizes the last column
+        # negate the results since np.lexsort sorts in ascending order
+        results = -np.flip(np.array(results), 1)
         sorted_indices = np.lexsort(results.T)
         sorted_hashes = [search_point_hashes[i] for i in sorted_indices]
 
@@ -117,6 +117,8 @@ class SearchResults:
     ) -> Tuple[List[List[float]], List[str]]:
         """
         Return the results as a list of lists.
+
+        Values are multiplied by the objective multiplier so that higher is better for all objectives.
         """
         if objectives is None:
             objectives = self.objectives
