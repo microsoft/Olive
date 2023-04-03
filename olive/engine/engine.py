@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Union
 import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
+from olive.engine.footprint import Footprint, FootprintNodeMetric
 from olive.evaluator.metric import Metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorConfig
 from olive.model import ModelConfig, OliveModel
@@ -20,8 +21,6 @@ from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import SystemConfig
-
-from olive.engine.footprint import Footprint, FootprintNodeMetric
 
 logger = logging.getLogger(__name__)
 
@@ -606,7 +605,10 @@ class Engine:
             # footprint evaluation
             self.footprints.record(
                 model_id=model_id,
-                metrics=FootprintNodeMetric(metrics=signal, is_goals_met=False,)
+                metrics=FootprintNodeMetric(
+                    metrics=signal,
+                    is_goals_met=False,
+                ),
             )
             return signal
 
@@ -619,6 +621,9 @@ class Engine:
         # footprint evaluation
         self.footprints.record(
             model_id=model_id,
-            metrics=FootprintNodeMetric(metrics=signal, is_goals_met=False,)
+            metrics=FootprintNodeMetric(
+                metrics=signal,
+                is_goals_met=False,
+            ),
         )
         return signal
