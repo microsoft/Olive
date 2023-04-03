@@ -5,6 +5,7 @@ RUN pip install azure-ai-ml \
             onnxruntime \
             datasets \
             transformers \
+            onnxconverter_common \
             olive-ai==0.1.0
 
 WORKDIR /olive

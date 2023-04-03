@@ -11,4 +11,5 @@ dependencies:
       - datasets
       - transformers
       - torchvision
+      - onnxconverter_common
       - olive-ai==0.1.0

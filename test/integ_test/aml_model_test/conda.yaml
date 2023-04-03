@@ -13,4 +13,5 @@ dependencies:
       - datasets
       - scipy
       - transformers
+      - onnxconverter_common
       - olive-ai==0.1.0
