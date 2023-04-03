@@ -9,7 +9,7 @@ can be tuned to achieve the best metrics, say accuracy and latency, that are eva
 The Engine employs a **Search Strategy** that uses a **Search Algorithm** to auto-tune each Pass one by one or set of Passes
 together.
 
-Each Pass can be run on any host **System** and its output model can be evaulated on the desired target **System**.
+Each Pass can be run on any host **System** and its output model can be evaluated on the desired target **System**.
 
 Olive can be used to find the "best" candidate model, pareto frontier models (for multi-objective search), or the first model
 that meets some metric goals.

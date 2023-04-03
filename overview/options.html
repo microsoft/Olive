@@ -272,7 +272,7 @@ dictionary contains following items:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">dataloader_func:</span> <span class="pre">[str]</span></code> The name of the function provided by the user to load the data for the metric evaluation. The
 function should take the <code class="docutils literal notranslate"><span class="pre">data_dir</span></code> and <code class="docutils literal notranslate"><span class="pre">batch_size</span></code> as input and return the data loader. Only valid for <code class="docutils literal notranslate"><span class="pre">accuracy</span></code> and <code class="docutils literal notranslate"><span class="pre">latency</span></code>
 type.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">infererence_settings:</span> <span class="pre">[Dict]</span></code> Inference settings for the different runtime. Only valid for <code class="docutils literal notranslate"><span class="pre">accuracy</span></code> and <code class="docutils literal notranslate"><span class="pre">latency</span></code> type.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">inference_settings:</span> <span class="pre">[Dict]</span></code> Inference settings for the different runtime. Only valid for <code class="docutils literal notranslate"><span class="pre">accuracy</span></code> and <code class="docutils literal notranslate"><span class="pre">latency</span></code> type.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">post_processing_func:</span> <span class="pre">[str]</span></code> The name of the function provided by the user to post process the model output. The function
 should take the model output and return the post processed output. Only valid for <code class="docutils literal notranslate"><span class="pre">accuracy</span></code> type.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">evaluate_func:</span> <span class="pre">[str]</span></code> The name of the function provided by the user to evaluate the model. The function should take the
@@ -359,7 +359,7 @@ will be used.</p></li>
 <td class="text-left"><p>Optimize ONNX Runtime inference settings.</p></td>
 </tr>
 <tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#onnx-dynamic-quantization"><span class="std std-ref">OnnxDynamicQuantization</span></a></p></td>
-<td class="text-left"><p>Convert a PyTorch model to ONNX model.</p></td>
+<td class="text-left"><p>ONNX Dynamic Quantization Pass.</p></td>
 </tr>
 <tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#onnx-static-quantization"><span class="std std-ref">OnnxStaticQuantization</span></a></p></td>
 <td class="text-left"><p>ONNX Static Quantization Pass.</p></td>
