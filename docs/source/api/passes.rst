@@ -20,6 +20,11 @@ OrtTransformersOptimization
 ----------------------------
 .. autoconfigclass:: olive.passes.OrtTransformersOptimization
 
+.. _ort_stable_diffusion_optimization:
+OrtStableDiffusionOptimization
+------------------------------
+.. autoconfigclass:: olive.passes.OrtStableDiffusionOptimization
+
 .. _ort_perf_tuning:
 OrtPerfTuning
 ----------------
