@@ -37,6 +37,9 @@ class SearchParameter(ABC):
 class SpecialParamValue(str, Enum):
     """
     Special values for parameters.
+
+    IGNORED: the parameter gets the value "OLIVE_IGNORED_PARAM_VALUE". The pass might ignore this parameter.
+    INVALID: Any seach point with this value is invalid. The search algorithm will not suggest such a search point.
     """
 
     IGNORED = "OLIVE_IGNORED_PARAM_VALUE"
@@ -46,6 +49,10 @@ class SpecialParamValue(str, Enum):
 class Categorical(SearchParameter):
     """
     Search parameter that supports a list of values
+
+    Examples
+    --------
+    >>> Categorical([1, 2, 3])
     """
 
     def __init__(self, support: Union[List[str], List[int], List[float], List[bool]]):
@@ -67,6 +74,10 @@ class Categorical(SearchParameter):
 class Boolean(Categorical):
     """
     Search parameter that supports a boolean value
+
+    Examples
+    --------
+    >>> Boolean()
     """
 
     def __init__(self):
@@ -76,6 +87,37 @@ class Boolean(Categorical):
 class Conditional(SearchParameter):
     """
     Conditional search parameter
+
+    Examples
+    --------
+    # conditional search parameter with one parent
+    # when parent1 is value1, the support is [1, 2, 3],
+    # when parent1 is value2, the support is [4, 5, 6],
+    # otherwise the support is [7, 8, 9]
+    >>> Conditional(
+            parents=("parent1",),
+            support={
+                ("value1",): Categorical([1, 2, 3]),
+                ("value2",): Categorical([4, 5, 6])
+            },
+            default=Categorical([4, 5, 6])
+        )
+
+    # conditional search parameter with two parents
+    # when parent1 is value1 and parent2 is value2, the support is [1, 2, 3], otherwise the support is Invalid
+    >>> Conditional(parents=("parent1", "parent2"), support={("value1", "value2"): Categorical([1, 2, 3])})
+
+    # when parent1 is value1 and parent2 is value2, the support is [1, 2, 3],
+    # when parent1 is value1 and parent2 is value3, the support is Invalid,
+    # otherwise the support is Ignored
+    >>> Conditional(
+            parents=("parent1", "parent2"),
+            support={
+                ("value1", "value2"): Categorical([1, 2, 3]),
+                ("value1", "value3"): Conditional.get_invalid_choice()
+            },
+            default=Conditional.get_ignored_choice()
+        )
     """
 
     def __init__(
@@ -170,6 +212,29 @@ class Conditional(SearchParameter):
 class ConditionalDefault(Conditional):
     """
     Parameter with conditional default value
+
+    Examples
+    --------
+    # conditional default with one parent
+    # when parent1 is value1, the default is 1,
+    # when parent1 is value2, the default is 2,
+    # otherwise the default is 3
+    >>> ConditionalDefault(
+            parents=("parent1",),
+            support={
+                ("value1",): 1,
+                ("value2",): 2
+            },
+            default=3
+        )
+
+    # conditional default with two parents
+    # when parent1 is value1 and parent2 is value2, the default is 1,
+    # otherwise the default is Invalid
+    >>> ConditionalDefault(
+            parents=("parent1", "parent2"),
+            support={("value1", "value2"): 1}
+        )
     """
 
     def __init__(self, parents: Tuple[str], support: Dict[Tuple[Any], Any], default: Any = SpecialParamValue.INVALID):

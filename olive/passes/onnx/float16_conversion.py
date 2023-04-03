@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import onnx
 from onnxconverter_common import float16
@@ -35,10 +35,10 @@ class OnnxFloatToFloat16(Pass):
                 type_=bool, default_value=False, description="Skips running onnx shape/type inference."
             ),
             "op_block_list": PassConfigParam(
-                type_=list[str], default_value=None, description="List of op types to leave as float32"
+                type_=List[str], default_value=None, description="List of op types to leave as float32"
             ),
             "node_block_list": PassConfigParam(
-                type_=list[str], default_value=None, description="List of node names to leave as float32"
+                type_=List[str], default_value=None, description="List of node names to leave as float32"
             ),
         }
 

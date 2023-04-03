@@ -24,6 +24,19 @@ class PassParamDefault(str, Enum):
 class PassConfigParam(ConfigParam):
     """
     Dataclass for pass configuration parameters.
+
+    Parameters
+    ----------
+    type_ : type of the parameter
+    required : whether the parameter is required
+    is_object : whether the parameter is an object/function. If so, this parameter accepts the object or a string with
+        the name of the object/function in the user script. The type must include str.
+    is_path : whether the parameter is a path. If so, this file/folder will be uploaded to the host system.
+    description : description of the parameter
+    default_value: default value for the parameter. This value is used if search is disabled or there are no searchable
+        values. Must be the same type as the parameter or a ConditionalDefault SearchParameter.
+    searchable_values: default searchable values for the parameter. This value is used if search is enabled.
+        Must be a Categorical or Conditional SearchParameter.
     """
 
     searchable_values: SearchParameter = None

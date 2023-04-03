@@ -152,12 +152,16 @@ _static_optional_config = {
     "activation_type": PassConfigParam(
         type_=str,
         default_value="QInt8",
+        # the search space is conditional on quant_format and weight_type
+        # the equivalent joint search space for (quant_format, weight_type, activation) is
+        # {(QDQ, QInt8, QInt8), (QDQ, QUInt8, QUInt8), (QOperator, QUInt8, QUInt8)}
         searchable_values=Conditional(
             parents=("quant_format", "weight_type"),
             support={
                 ("QDQ", "QInt8"): Categorical(["QInt8"]),
                 ("QDQ", "QUInt8"): Categorical(["QUInt8"]),
                 ("QOperator", "QUInt8"): Categorical(["QUInt8"]),
+                # invalid choice for QOperator, QInt8
                 ("QOperator", "QInt8"): Conditional.get_invalid_choice(),
             },
         ),
@@ -202,17 +206,24 @@ class OnnxQuantization(Pass):
         config.update(deepcopy(_static_dataloader_config))
         static_optional_config = deepcopy(_static_optional_config)
         for _, value in static_optional_config.items():
+            # default value is conditional on quant_mode
+            # if quant_mode is static, use the default value in static_optional_config
+            # if quant_mode is dynamic, set default value as ignored. dynamic quantization doesn't use this parameter
             value.default_value = ConditionalDefault(
                 parents=("quant_mode",),
                 support={("static",): value.default_value, ("dynamic",): ConditionalDefault.get_ignored_choice()},
             )
             if isinstance(value.searchable_values, Categorical):
+                # ignore the parameter if quant_mode is dynamic
+                # if quant_mode is static, use the searchable_values in static_optional_config by making it conditional
                 value.searchable_values = Conditional(
                     parents=("quant_mode",),
                     support={("static",): value.searchable_values},
                     default=Conditional.get_ignored_choice(),
                 )
             elif isinstance(value.searchable_values, Conditional):
+                # ignore the parameter if quant_mode is dynamic
+                # if quant_mode is static, use the searchable_values in static_optional_config by expanding the parents
                 value.searchable_values = Conditional(
                     parents=("quant_mode",) + value.searchable_values.parents,
                     support={

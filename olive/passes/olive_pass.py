@@ -91,6 +91,47 @@ class Pass(AutoConfigClass):
     def _default_config() -> Dict[str, PassConfigParam]:
         """
         Get the default configuration for the pass. Doesn't include user_script and script_dir.
+
+        Example:
+            return {
+                # required parameter
+                "param1": PassConfigParam(type_=int, required=True, description="param1 description"),
+                # optional parameter with default value
+                "param2": PassConfigParam(type_=int, default_value=1, description="param2 description"),
+                # optional parameter with default value and searchable values
+                "param3": PassConfigParam(
+                    type_=int,
+                    default_value=1,
+                    searchable_values=Categorical([1, 2, 3]),
+                    description="param3 description",
+                ),
+                # optional parameter with `is_object` set to True
+                # the value of this parameter can be a string or a function that takes a string and returns the object,
+                # say a class ObjectClass
+                "param4": PassConfigParam(
+                    type_=Union[str, Callable[[str], Pass]], is_object=True, description="param4 description"
+                ),
+                # optional parameter with default_value that depends on another parameter value
+                "param5": PassConfigParam(
+                    type_=int,
+                    default_value=ConditionalDefault(parents="param2", support={(1,): 2, (2,): 3}, default=4),
+                    description="param5 description",
+                ),
+                # optional parameter with searchable_values that depends on other parameter values
+                "param6": PassConfigParam(
+                    type_=int,
+                    default_value=1,
+                    searchable_values=Conditional(
+                        parents=("param2", "param3"),
+                        # invalid if (param2, param3) not in [(1, 1), (1, 2)]
+                        support={
+                            (1, 1): Categorical([1, 2, 3]),
+                            (1, 2): Categorical([4, 5, 6]),
+                        },
+                    ),
+                    description="param6 description",
+                ),
+            }
         """
         raise NotImplementedError()
 
