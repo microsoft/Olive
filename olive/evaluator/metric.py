@@ -41,7 +41,7 @@ class LatencySubType(str, Enum):
 # TODO: support multiple subtypes at the same type for the same type
 # Otherwise it's a waste of compute and time if we have to evaluate a model for different subtypes
 # names, subtypes: Union[str, List[str]]
-# However accurcacy metric poses a slight problem since AUC has a different config. Need to resolve this
+# However accuracy metric poses a slight problem since AUC has a different config. Need to resolve this
 # so that we get a single metric config for a single type
 # This way, the user can return multiple metrics at once
 class Metric(ConfigBase):

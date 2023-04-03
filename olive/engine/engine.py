@@ -21,6 +21,8 @@ from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import SystemConfig
 
+from olive.engine.footprint import Footprint, FootprintNodeMetric
+
 logger = logging.getLogger(__name__)
 
 # pass search-point/config was pruned due invalid config or failed run
@@ -86,6 +88,8 @@ class Engine:
         self.passes = {}
         # list of pass names in the order they were registered
         self.pass_order = []
+
+        self.footprints = Footprint()
 
         self._initialized = False
 
@@ -306,7 +310,7 @@ class Engine:
                 output["metrics"] = signal
             return output
 
-        return self.search_strategy.get_best_execution()
+        return self.footprints.get_pareto_frontier()
 
     def resolve_objectives(
         self, input_model: OliveModel, input_model_id: str, metrics: List[Metric], verbose: bool = False
@@ -321,6 +325,7 @@ class Engine:
             metric.name: {"higher_is_better": metric.higher_is_better, "goal": goals.get(metric.name)}
             for metric in metrics
         }
+        self.footprints.record_objective_dict(objective_dict)
         return objective_dict
 
     def resolve_goals(
@@ -395,6 +400,12 @@ class Engine:
                 break
         return new_model_number
 
+    def get_model_json_path(self, model_id: str) -> Path:
+        """
+        Get the path to the model json file.
+        """
+        return self._model_cache_path / f"{model_id}.json"
+
     def _cache_model(self, model: Union[OliveModel, str], model_id: str, check_objects: bool = True):
         """
         Cache the model in the cache directory.
@@ -403,7 +414,7 @@ class Engine:
             model_json = {}
         else:
             model_json = model.to_json(check_object=check_objects)
-        model_json_path = self._model_cache_path / f"{model_id}.json"
+        model_json_path = self.get_model_json_path(model_id)
         try:
             json.dump(model_json, open(model_json_path, "w"))
         except Exception as e:
@@ -437,6 +448,14 @@ class Engine:
 
         return model_hash
 
+    def get_run_json_path(self, pass_name: int, input_model_number: str, pass_config: dict):
+        """
+        Get the path to the run json.
+        """
+        pass_config_hash = hash_dict(pass_config)
+        run_json_path = self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}.json"
+        return run_json_path
+
     def _cache_run(self, pass_name: int, pass_config: dict, input_model_id: str, output_model_id: str):
         """
         Cache the run in the cache directory.
@@ -448,7 +467,7 @@ class Engine:
             "output_model_id": output_model_id,
         }
         input_model_number = input_model_id.split("_")[0]
-        run_json_path = self._run_cache_path / f"{pass_name}-{input_model_number}-{hash_dict(pass_config)}.json"
+        run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config)
         try:
             json.dump(run_json, open(run_json_path, "w"))
         except Exception as e:
@@ -490,6 +509,13 @@ class Engine:
                 logger.info("Loading model from cache ...")
             output_model = self._load_model(output_model_id)
             if output_model is not None:
+                # footprint model and run
+                self.footprints.record(
+                    model_id=output_model_id,
+                    parent_model_id=input_model_id,
+                    from_pass=pass_name,
+                    config=pass_config,
+                )
                 return output_model, output_model_id
 
         # new model id
@@ -520,7 +546,21 @@ class Engine:
         # cache run
         self._cache_run(pass_name, pass_config, input_model_id, output_model_id)
 
+        # footprint model and run
+        self.footprints.record(
+            model_id=output_model_id,
+            parent_model_id=input_model_id,
+            from_pass=pass_name,
+            config=pass_config,
+        )
         return output_model, output_model_id
+
+    def get_evaluation_json_path(self, model_id: str):
+        """
+        Get the path to the evaluation json.
+        """
+        evaluation_json_path = self._evaluation_cache_path / f"{model_id}.json"
+        return evaluation_json_path
 
     def _cache_evaluation(self, model_id: str, signal: dict):
         """
@@ -530,7 +570,7 @@ class Engine:
             "model_id": model_id,
             "signal": signal,
         }
-        evaluation_json_path = self._evaluation_cache_path / f"{model_id}.json"
+        evaluation_json_path = self.get_evaluation_json_path(model_id)
         try:
             json.dump(evaluation_json, open(evaluation_json_path, "w"))
         except Exception as e:
@@ -563,6 +603,11 @@ class Engine:
         if signal is not None:
             if verbose:
                 logger.info("Loading evaluation from cache ...")
+            # footprint evaluation
+            self.footprints.record(
+                model_id=model_id,
+                metrics=FootprintNodeMetric(metrics=signal, is_goals_met=False,)
+            )
             return signal
 
         # evaluate model
@@ -571,4 +616,9 @@ class Engine:
         # cache evaluation
         self._cache_evaluation(model_id, signal)
 
+        # footprint evaluation
+        self.footprints.record(
+            model_id=model_id,
+            metrics=FootprintNodeMetric(metrics=signal, is_goals_met=False,)
+        )
         return signal
