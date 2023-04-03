@@ -207,7 +207,8 @@ class OnnxQuantization(Pass):
                 value.default_search = Conditional(
                     parents=("quant_mode",) + value.default_search.parents,
                     support={
-                        ("static",) + key: value.default_search.support[key] for key in value.default_search.support
+                        ("static",) + key: value.default_search.support[key] \
+                            for key in value.default_search.support
                     },
                     default=Categorical(["Invalid"]),
                 )
@@ -286,7 +287,9 @@ class OnnxQuantization(Pass):
         if is_static:
             # get the dataloader
             dataloader = self._user_module_loader.call_object(
-                self._fixed_params["dataloader_func"], self._fixed_params["data_dir"], self._fixed_params["batch_size"]
+                self._fixed_params["dataloader_func"], 
+                self._fixed_params["data_dir"], 
+                self._fixed_params["batch_size"]
             )
             quantize_static(
                 model_input=model.model_path,
