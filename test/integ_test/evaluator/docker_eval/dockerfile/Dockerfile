@@ -10,6 +10,7 @@ RUN pip install onnxruntime \
             transformers \
             openvino \
             openvino-dev \
+            onnxconverter_common \
             olive-ai==0.1.0
 
 WORKDIR /olive

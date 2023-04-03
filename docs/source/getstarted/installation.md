@@ -23,6 +23,10 @@ With onnxruntime-gpu:
 ```
 pip install olive-ai[gpu]
 ```
+With onnxruntime-directml:
+```
+pip install olive-ai[directml]
+```
 
 ## Install from source
 Install the latest `main` version of Olive from source. Please note that this is a development version and may not be stable.
@@ -39,6 +43,11 @@ With onnxruntime-gpu:
 
 ```
 pip install git+https://github.com/microsoft/Olive#egg=olive-ai[gpu]
+```
+With onnxruntime-directml:
+
+```
+pip install git+https://github.com/microsoft/Olive#egg=olive-ai[directml]
 ```
 
 ## Editable install

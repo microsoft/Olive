@@ -44,6 +44,10 @@ With onnxruntime-gpu:
 ```
 pip install olive-ai[gpu]
 ```
+With onnxruntime-directml:
+```
+pip install olive-ai[directml]
+```
 
 ### Optional Dependencies
 Olive has optional dependencies that can be installed to enable additional features. These dependencies can be installed as extras:
