@@ -8,7 +8,7 @@ To introduce a new Pass follow these 3 steps.
 
 ## 1. Define a new class
 
-Define a new class using Pass as the base clase. For example
+Define a new class using Pass as the base class. For example
 
 ```python
 from olive.passes import Pass
