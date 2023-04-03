@@ -14,7 +14,7 @@ Please refer to [QuantizationAwareTraining](quantization_aware_training) for mor
 ### Example Configuration
 Olive provides the 3 ways to run QAT training process:
 
-a. Run QAT training with customized traing loop.
+a. Run QAT training with customized training loop.
 ```json
 {
     "type": "QuantizationAwareTraining",
