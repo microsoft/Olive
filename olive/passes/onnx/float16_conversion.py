@@ -35,10 +35,10 @@ class OnnxFloatToFloat16(Pass):
                 type_=bool, default=False, description=("Skips running onnx shape/type inference.")
             ),
             "op_block_list": PassConfigParam(
-                type_=list[str], default=[], description=("List of op types to leave as float32")
+                type_=list[str], default=None, description=("List of op types to leave as float32")
             ),
             "node_block_list": PassConfigParam(
-                type_=list[str], default=[], description=("List of node names to leave as float32")
+                type_=list[str], default=None, description=("List of node names to leave as float32")
             ),
         }
 
