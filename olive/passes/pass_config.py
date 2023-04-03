@@ -17,7 +17,7 @@ class PassParamDefault(str, Enum):
     Default values for passes.
     """
 
-    DEFAULT = "DEFAULT"
+    DEFAULT_VALUE = "DEFAULT_VALUE"
     SEARCHABLE_VALUES = "SEARCHABLE_VALUES"
 
 
@@ -107,6 +107,6 @@ def create_config_class(
         if not disable_search and param_config.searchable_values is not None:
             config[param] = (type_, param_config.searchable_values)
         else:
-            config[param] = (type_, param_config.default)
+            config[param] = (type_, param_config.default_value)
 
     return create_model(f"{pass_type}Config", **config, __base__=PassConfigBase, __validators__=validators)

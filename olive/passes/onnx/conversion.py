@@ -35,7 +35,7 @@ class OnnxConversion(Pass):
             # required for if input_tensors_func is not provided
             "input_shapes": PassConfigParam(
                 type_=List[List[int]],
-                default=None,
+                default_value=None,
                 description=(
                     "List of input shapes. Must be provided if input_tensor_func is not provided. It is used to create"
                     " dummy inputs for the model during onnx export."
@@ -43,7 +43,7 @@ class OnnxConversion(Pass):
             ),
             "input_types": PassConfigParam(
                 type_=List[str],
-                default=None,
+                default_value=None,
                 description=(
                     "List of input types. If provided, must be the same length as input_shapes. Otherwise, defaults to"
                     " float32 for all inputs. Used with input_shapes to create dummy inputs for the model during onnx"
@@ -52,7 +52,7 @@ class OnnxConversion(Pass):
             ),
             "input_tensor_func": PassConfigParam(
                 type_=Union[Callable, str],
-                default=None,
+                default_value=None,
                 is_object=True,
                 description=(
                     "Function (no input) to create dummy inputs for the model. Can be a function (local use) or name of"
@@ -64,14 +64,14 @@ class OnnxConversion(Pass):
             "output_names": PassConfigParam(type_=List[str], required=True, description="List of output names."),
             "dynamic_axes": PassConfigParam(
                 type_=dict,
-                default=None,
+                default_value=None,
                 description=(
                     "Dynamic axes for the model. Refer to 'dynamic_axes' at"
                     " https://pytorch.org/docs/stable/onnx.html#torch.onnx.export for more details."
                 ),
             ),
             "target_opset": PassConfigParam(
-                type_=int, default=14, description="The version of the default (ai.onnx) opset to target."
+                type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
             ),
         }
 

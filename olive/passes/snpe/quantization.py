@@ -38,7 +38,7 @@ class SNPEQuantization(Pass):
             ),
             "use_enhanced_quantizer": PassConfigParam(
                 type_=bool,
-                default=False,
+                default_value=False,
                 searchable_values=Boolean(),
                 description=(
                     "Use the enhanced quantizer feature when quantizing the model. Uses an algorithm to determine"
@@ -48,16 +48,16 @@ class SNPEQuantization(Pass):
             ),
             "enable_htp": PassConfigParam(
                 type_=bool,
-                default=False,
+                default_value=False,
                 searchable_values=Boolean(),
                 description="Pack HTP information in quantized DLC.",
             ),
             "htp_socs": PassConfigParam(
-                type_=List[str], default=None, description="List of SoCs to generate HTP Offline cache for."
+                type_=List[str], default_value=None, description="List of SoCs to generate HTP Offline cache for."
             ),
             "extra_args": PassConfigParam(
                 type_=str,
-                default=None,
+                default_value=None,
                 description=(
                     "Extra arguments to pass to snpe conversion tool. Refer to"
                     " https://developer.qualcomm.com/sites/default/files/docs/snpe/tools.html#tools_snpe-dlc-quantize"

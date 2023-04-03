@@ -32,10 +32,10 @@ class SNPEtoONNXConversion(Pass):
         return {
             "target_device": PassConfigParam(
                 type_=str,
-                default="cpu",
+                default_value="cpu",
                 description="Target device for the ONNX model. Refer to olive.snpe.SNPEDevice for valid values.",
             ),
-            "target_opset": PassConfigParam(type_=int, default=12, description="Target ONNX opset version."),
+            "target_opset": PassConfigParam(type_=int, default_value=12, description="Target ONNX opset version."),
         }
 
     @staticmethod

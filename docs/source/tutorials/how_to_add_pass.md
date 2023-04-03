@@ -28,7 +28,7 @@ return `Dict[str, PassConfigParam]`.
         config = {
             "quant_mode": PassConfigParam(
                 type_=str,
-                default="static",
+                default_value="static",
                 searchable_values=Categorical(["dynamic", "static"]),
                 description="""
                     Onnx Quantization mode. 'dynamic' for dynamic quantization,

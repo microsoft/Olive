@@ -60,7 +60,7 @@ class SNPEConversion(Pass):
             ),
             "input_types": PassConfigParam(
                 type_=List[Union[str, None]],
-                default=None,
+                default_value=None,
                 description=(
                     "List of input types. If not None, it must be a list of the same length as input_names. List"
                     " members can be None to use default value. Refer to olive.snpe.constants.InputType for valid"
@@ -69,7 +69,7 @@ class SNPEConversion(Pass):
             ),
             "input_layouts": PassConfigParam(
                 type_=List[Union[str, None]],
-                default=None,
+                default_value=None,
                 description=(
                     "List of input layouts. If not None, it must be a list of the same length as input_names. List"
                     " members can be None to use infered value. Refer to olive.snpe.constants.InputLayout for valid"
@@ -78,7 +78,7 @@ class SNPEConversion(Pass):
             ),
             "extra_args": PassConfigParam(
                 type_=str,
-                default=None,
+                default_value=None,
                 description=(
                     "Extra arguments to pass to snpe conversion tool. Refer to snpe-onnx-to-dlc and"
                     " snpe-tensorflow-to-dlc at https://developer.qualcomm.com/sites/default/files/docs/snpe/tools.html"

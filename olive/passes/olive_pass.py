@@ -100,13 +100,13 @@ class Pass(AutoConfigClass):
         """
         default_config = self.default_config()
         for key, value in config.items():
-            if value == PassParamDefault.DEFAULT:
-                config[key] = default_config[key].default
+            if value == PassParamDefault.DEFAULT_VALUE:
+                config[key] = default_config[key].default_value
             elif value == PassParamDefault.SEARCHABLE_VALUES:
                 value = default_config[key].searchable_values
                 if value is None:
                     logger.warning(f"Parameter {key} does not have searchable values. Using default value instead.")
-                    value = default_config[key].default
+                    value = default_config[key].default_value
                 config[key] = value
         return config
 
@@ -143,7 +143,7 @@ class Pass(AutoConfigClass):
             if isinstance(value, SearchParameter):
                 # resolve conditional parameters
                 # if categorical with single choice, use that choice directly
-                value = self._resolve_search_parameters(value, fixed_params)
+                value = self._resolve_search_parameter(value, fixed_params)
             if value == SpecialParamValue.INVALID:
                 # TODO: better error message, e.g. what the parent values were, how it was invalid
                 raise ValueError(
@@ -161,7 +161,7 @@ class Pass(AutoConfigClass):
 
         return fixed_params, search_space
 
-    def _resolve_search_parameters(self, param: SearchParameter, fixed_params: Dict[str, Any]) -> Any:
+    def _resolve_search_parameter(self, param: SearchParameter, fixed_params: Dict[str, Any]) -> Any:
         """
         Resolve a search parameter.
         """

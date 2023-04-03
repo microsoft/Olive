@@ -122,7 +122,7 @@ class ConfigParam(ConfigBase):
 
     type_: Any
     required: bool = False
-    default: Any = None
+    default_value: Any = None
     is_object: bool = False
     description: str = None
 
@@ -182,7 +182,7 @@ def create_config_class(
             config[param] = (type_, ...)
             continue
 
-        config[param] = (Optional[type_], param_config.default)
+        config[param] = (Optional[type_], param_config.default_value)
 
     return create_model(class_name, **config, __base__=base, __validators__=validators)
 
