@@ -72,6 +72,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../examples.html#bert-optimization-with-qat-customized-training-loop-on-cpu">BERT optimization with QAT Customized Training Loop on CPU</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../examples.html#resnet-optimization-with-qat-default-training-loop-on-cpu">ResNet optimization with QAT Default Training Loop on CPU</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../examples.html#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu">ResNet optimization with QAT PyTorch Lightning Module on CPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html#squeezenet-latency-optimization-with-directml">SqueezeNet latency optimization with DirectML</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
 <ul>
@@ -223,6 +224,7 @@
     <span class="n">EXECUTION_PROVIDERS</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;cpu&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;OpenVINOExecutionProvider&quot;</span><span class="p">],</span>
         <span class="s2">&quot;gpu&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;DmlExecutionProvider&quot;</span><span class="p">,</span>
             <span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">,</span>
             <span class="s2">&quot;OpenVINOExecutionProvider&quot;</span><span class="p">,</span>
             <span class="s2">&quot;TensorrtExecutionProvider&quot;</span><span class="p">,</span>
@@ -282,10 +284,14 @@
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">execution_provider</span><span class="p">:</span>
             <span class="n">execution_provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">execution_provider</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
-            <span class="n">execution_provider</span> <span class="o">=</span> <span class="n">execution_provider</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">execution_provider</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="c1"># execution_provider may be a list of tuples where the first item in each tuple is the EP name</span>
+            <span class="n">execution_provider</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">execution_provider</span><span class="p">]</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">execution_provider</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="n">execution_provider</span> <span class="o">=</span> <span class="p">[</span><span class="n">execution_provider</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">execution_provider</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">execution_provider</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;DmlExecutionProvider&quot;</span><span class="p">:</span>
+            <span class="n">sess_options</span><span class="o">.</span><span class="n">enable_mem_pattern</span> <span class="o">=</span> <span class="kc">False</span>
 
         <span class="k">return</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">sess_options</span><span class="p">,</span> <span class="n">providers</span><span class="o">=</span><span class="n">execution_provider</span><span class="p">)</span>
 
