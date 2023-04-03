@@ -2,14 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import importlib as imp
 import json
 import os
-import sys
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
+
+from olive.common.utils import run_subprocess
 
 
 @pytest.fixture()
@@ -22,20 +21,12 @@ def setup(example_dir):
     """setup any state specific to the execution of the given module."""
     cur_dir = Path(__file__).resolve().parent
     os.chdir(example_dir)
-    sys.path.append(example_dir)
-    import prepare_model_data
 
-    # reload the module if there are multiple same name module.
-    imp.reload(prepare_model_data)
-
-    test_args = "prepare_model_data.py".split()
-
-    with patch.object(sys, "argv", test_args):
-        prepare_model_data.main()
+    # import prepare_model_data
+    run_subprocess("python prepare_model_data.py")
 
     yield
     os.chdir(cur_dir)
-    sys.path.remove(example_dir)
 
 
 def check_output(metrics):
