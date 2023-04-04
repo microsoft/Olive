@@ -309,7 +309,8 @@ class Engine:
                 output["metrics"] = signal
             return output
 
-        return self.footprints.get_pareto_frontier()
+        # TODO adapt different strategies when metrics prioritization is implemented @xiaoyu
+        return self.footprints
 
     def resolve_objectives(
         self, input_model: OliveModel, input_model_id: str, metrics: List[Metric], verbose: bool = False

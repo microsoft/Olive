@@ -47,6 +47,7 @@ class Footprint:
     ):
         self.footprints = OrderedDict()
         self.objective_dict = None
+        self.is_marked_pareto_frontier = False
 
     def record_objective_dict(self, objective_dict):
         self.objective_dict = objective_dict
@@ -84,6 +85,8 @@ class Footprint:
         return {k: v for k, v in self.footprints.items() if v.metrics is not None}
 
     def mark_pareto_frontier(self):
+        if self.is_marked_pareto_frontier:
+            return
         for k, v in self.footprints.items():
             # if current point's metrics is less than any other point's metrics, it is not pareto frontier
             cmp_flag = True and v.metrics is not None and len(v.metrics.metrics) > 0
@@ -103,6 +106,7 @@ class Footprint:
                         _against_pareto_frontier_check &= current_point_metrics < other_point_metrics
                     cmp_flag &= not _against_pareto_frontier_check
             self.footprints[k].is_pareto_frontier = cmp_flag
+        self.is_marked_pareto_frontier = True
 
     def get_pareto_frontier(self):
         self.mark_pareto_frontier()
@@ -111,9 +115,10 @@ class Footprint:
             logger.info(f"pareto frontier points: {v.model_id} {v.metrics.metrics}")
         return rls
 
-    def plot_pareto_frontier(self):
+    def _plot_pareto_frontier(self, index=[0, 1]):
         self.mark_pareto_frontier()
         # plot pareto frontier
+        # import plotly.graph_objects as go
         pass
 
     def trace_back_run_history(self, model_id):
