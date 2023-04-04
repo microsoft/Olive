@@ -49,7 +49,9 @@ class OliveEvaluatorConfig(ConfigBase):
                 assert not has_first_priority, "Only one metric can be first priority"
                 has_first_priority = True
         if len(v) > 1 and not has_first_priority:
-            raise ValueError("Must have at least one metric with first priority when more then one metric are used for evaluation.")
+            raise ValueError(
+                "Must have at least one metric with first priority when more then one metric are used for evaluation."
+            )
         if len(v) == 1 and not v[0].is_first_priority:
             v[0].is_first_priority = True
         return v

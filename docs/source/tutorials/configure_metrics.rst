@@ -145,7 +145,7 @@ for :code:`"user_script.py"`.
 Multi Metrics configuration
 ---------
 If you have multiple metrics to evaluate, you can configure them in the following way::
-    
+
         {
             "metrics": [
                 {
