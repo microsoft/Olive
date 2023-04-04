@@ -39,3 +39,4 @@ jobs:
     job_name: Test_BuildDocs
     display_name: Test Build Docs
     pool: $(OLIVE_POOL_UBUNTU2004)
+    publish_docs: false

@@ -13,6 +13,7 @@ stages:
         job_name: BuildDocs
         display_name: Build Docs
         pool: $(OLIVE_POOL_UBUNTU2004)
+        publish_docs: true
 
   - stage: Publish_Docs
     dependsOn: [Build_Docs]

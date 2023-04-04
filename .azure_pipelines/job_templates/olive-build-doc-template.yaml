@@ -4,6 +4,7 @@ parameters:
   job_name: ''
   display_name: ''
   pool: ''
+  publish_docs: false
 
 jobs:
   - job: ${{parameters.job_name}}
@@ -34,3 +35,4 @@ jobs:
         artifactName: olive_doc_src
         artifactType: pipeline
       displayName: Publish Docs to Pipeline Artifact
+      condition: and(succeeded(), eq('${{ parameters.publish_docs }}', 'true'))
