@@ -19,7 +19,7 @@ jobs:
     - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
       displayName: Install Olive
 
-    - template: job_templates/run-olive-script.yaml
+    - template: run-olive-script.yaml
       parameters:
         displayName: Make Docs
         script: |
