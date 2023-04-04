@@ -49,11 +49,11 @@ It is initialized using:
 
   If `disable_search=False`, use default search parameters, if any, for parameters that are not specified
         in the config. Else use the default value.
-- Pydantic model which behaves like a dataclass with type validation. Each pass class has a class method `get_config_class` which returns the pass specific pydantic model that users can instantiate.
+- Pydantic model which behaves like a Dataclass with type validation. Each pass class has a class method `get_config_class` which returns the pass specific pydantic model that users can instantiate.
 
 Optional parameters can be fixed values or search values which are prescribed using `SearchParameter`.
 
-Searchable parameters have default search values which can be used by assigning the config value as `DEFAULT_SEARCH`. Optional parameters use the default fixed value, also assignable using `DEFAULT`, if not assigned.
+Searchable parameters have default search values which can be used by assigning the config value as `SEARCHABLE_VALUES`. Optional parameters use the default fixed value, also assignable using `DEFAULT_VALUE`, if not assigned.
 
 During initialization, the pass compares the user provided config and pass config class to create a dictionary for fixed parameters (`_fixed_params`) and search parameters (`_search_space`).
 
@@ -67,7 +67,7 @@ Each pass must implement the default_config static method. It returns a dictiona
 
 **Note:**
 - To support hashing, the parameter values must be jasonify-able. So, they can only be string, int, float, tuple, bool, list, dict, or None.
-- We will add support for other python objects and callables in the future for local use.
+- We will add support for other python objects and callable in the future for local use.
 
 ### run
 To run a pass, the search parameters need to be assigned a value each from their search options (support). We call this a `search_point`.

@@ -16,7 +16,7 @@ from onnxruntime.quantization.preprocess import quant_pre_process
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
-from olive.strategy.search_parameter import Boolean, Categorical, Conditional
+from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 _onnx_quantization_config = {
     "weight_type": PassConfigParam(
         type_=str,
-        default="QInt8",
-        default_search=Categorical(["QInt8", "QUInt8"]),
+        default_value="QInt8",
+        searchable_values=Categorical(["QInt8", "QUInt8"]),
         description="""
             Data type for quantizing weights which is used both in dynamic
             and static quantization. 'QInt8' for signed 8-bit integer,
@@ -34,29 +34,29 @@ _onnx_quantization_config = {
     ),
     "op_types_to_quantize": PassConfigParam(
         type_=list,
-        default=None,
+        default_value=None,
         description="""
             List of operator types to quantize. If None, all quantizable.
         """,
     ),
     "nodes_to_quantize": PassConfigParam(
         type_=list,
-        default=None,
+        default_value=None,
         description="""
             List of node names to quantize. If None, all quantizable.
         """,
     ),
     "nodes_to_exclude": PassConfigParam(
         type_=list,
-        default=None,
+        default_value=None,
         description="""
             List of node names to exclude from quantization. If None, all quantizable.
         """,
     ),
     "per_channel": PassConfigParam(
         type_=bool,
-        default=False,
-        default_search=Boolean(),
+        default_value=False,
+        searchable_values=Boolean(),
         description="""
             Quantize weights per channel.
             Tips: When to use reduce_range and per-channel quantization:
@@ -65,8 +65,8 @@ _onnx_quantization_config = {
     ),
     "reduce_range": PassConfigParam(
         type_=bool,
-        default=False,
-        default_search=Boolean(),
+        default_value=False,
+        searchable_values=Boolean(),
         description="""
             Quantize weights with 7-bits. It may improve the accuracy for
             some models running on non-VNNI machine, especially for per-channel mode.
@@ -76,8 +76,8 @@ _onnx_quantization_config = {
     ),
     "optimize_model": PassConfigParam(
         type_=bool,
-        default=False,
-        default_search=Boolean(),
+        default_value=False,
+        searchable_values=Boolean(),
         description="""
             Deprecating Soon in ONNX! Optimize model before quantization. NOT recommended, optimization will
             change the computation graph, making debugging of quantization loss difficult.
@@ -86,15 +86,15 @@ _onnx_quantization_config = {
     # TODO: enable search if we support onnx external data format
     "use_external_data_format": PassConfigParam(
         type_=bool,
-        default=False,
+        default_value=False,
         description="""
             option used for large size (>2GB) model. Set to False by default.
         """,
     ),
     "quant_preprocess": PassConfigParam(
         type_=bool,
-        default=True,
-        default_search=Boolean(),
+        default_value=True,
+        searchable_values=Boolean(),
         description="""
             Shape inference and model optimization, in preparation for quantization.
             https://onnxruntime.ai/docs/performance/quantization.html#pre-processing
@@ -114,7 +114,7 @@ _static_dataloader_config = {
     ),
     "batch_size": PassConfigParam(
         type_=int,
-        default=1,
+        default_value=1,
         description="""
             Batch size for calibration, required if quant_mode is 'static'.
         """,
@@ -133,8 +133,8 @@ _static_dataloader_config = {
 _static_optional_config = {
     "calibrate_method": PassConfigParam(
         type_=str,
-        default="MinMax",
-        default_search=Categorical(["MinMax", "Entropy", "Percentile"]),
+        default_value="MinMax",
+        searchable_values=Categorical(["MinMax", "Entropy", "Percentile"]),
         description="""
             Current calibration methods supported are MinMax and Entropy,
             Please use CalibrationMethod.MinMax or CalibrationMethod.Entropy as options.
@@ -142,8 +142,8 @@ _static_optional_config = {
     ),
     "quant_format": PassConfigParam(
         type_=str,
-        default="QDQ",
-        default_search=Categorical(["QOperator", "QDQ"]),
+        default_value="QDQ",
+        searchable_values=Categorical(["QOperator", "QDQ"]),
         description="""
             QOperator format quantizes the model with quantized operators directly.
             QDQ format quantize the model by inserting QuantizeLinear/DeQuantizeLinear on the tensor.
@@ -151,10 +151,19 @@ _static_optional_config = {
     ),
     "activation_type": PassConfigParam(
         type_=str,
-        default="QInt8",
-        default_search=Conditional(
-            parents=("quant_format",),
-            support={("QDQ",): Categorical(["QInt8", "QUInt8"]), ("QOperator",): Categorical(["QInt8"])},
+        default_value="QInt8",
+        # the search space is conditional on quant_format and weight_type
+        # the equivalent joint search space for (quant_format, weight_type, activation) is
+        # {(QDQ, QInt8, QInt8), (QDQ, QUInt8, QUInt8), (QOperator, QUInt8, QUInt8)}
+        searchable_values=Conditional(
+            parents=("quant_format", "weight_type"),
+            support={
+                ("QDQ", "QInt8"): Categorical(["QInt8"]),
+                ("QDQ", "QUInt8"): Categorical(["QUInt8"]),
+                ("QOperator", "QUInt8"): Categorical(["QUInt8"]),
+                # invalid choice for QOperator, QInt8
+                ("QOperator", "QInt8"): Conditional.get_invalid_choice(),
+            },
         ),
         description="""
             Quantization data type of activation. Please refer to
@@ -181,8 +190,8 @@ class OnnxQuantization(Pass):
         config = {
             "quant_mode": PassConfigParam(
                 type_=str,
-                default="static",
-                default_search=Categorical(["dynamic", "static"]),
+                default_value="static",
+                searchable_values=Categorical(["dynamic", "static"]),
                 description="""
                     Onnx Quantization mode. 'dynamic' for dynamic quantization,
                     'static' for static quantization.
@@ -197,19 +206,31 @@ class OnnxQuantization(Pass):
         config.update(deepcopy(_static_dataloader_config))
         static_optional_config = deepcopy(_static_optional_config)
         for _, value in static_optional_config.items():
-            if isinstance(value.default_search, Categorical):
-                value.default_search = Conditional(
+            # default value is conditional on quant_mode
+            # if quant_mode is static, use the default value in static_optional_config
+            # if quant_mode is dynamic, set default value as ignored. dynamic quantization doesn't use this parameter
+            value.default_value = ConditionalDefault(
+                parents=("quant_mode",),
+                support={("static",): value.default_value, ("dynamic",): ConditionalDefault.get_ignored_choice()},
+            )
+            if isinstance(value.searchable_values, Categorical):
+                # ignore the parameter if quant_mode is dynamic
+                # if quant_mode is static, use the searchable_values in static_optional_config by making it conditional
+                value.searchable_values = Conditional(
                     parents=("quant_mode",),
-                    support={("static",): value.default_search},
-                    default=Categorical(["Invalid"]),
+                    support={("static",): value.searchable_values},
+                    default=Conditional.get_ignored_choice(),
                 )
-            elif isinstance(value.default_search, Conditional):
-                value.default_search = Conditional(
-                    parents=("quant_mode",) + value.default_search.parents,
+            elif isinstance(value.searchable_values, Conditional):
+                # ignore the parameter if quant_mode is dynamic
+                # if quant_mode is static, use the searchable_values in static_optional_config by expanding the parents
+                value.searchable_values = Conditional(
+                    parents=("quant_mode",) + value.searchable_values.parents,
                     support={
-                        ("static",) + key: value.default_search.support[key] for key in value.default_search.support
+                        ("static",) + key: value.searchable_values.support[key]
+                        for key in value.searchable_values.support
                     },
-                    default=Categorical(["Invalid"]),
+                    default=Conditional.get_ignored_choice(),
                 )
         config.update(static_optional_config)
         return config
@@ -316,7 +337,9 @@ class OnnxDynamicQuantization(OnnxQuantization):
 
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
-        config = {"quant_mode": PassConfigParam(type_=str, default="dynamic", description="dynamic quantization mode")}
+        config = {
+            "quant_mode": PassConfigParam(type_=str, default_value="dynamic", description="dynamic quantization mode")
+        }
         # common quantization config
         config.update(deepcopy(_onnx_quantization_config))
         return config
@@ -329,7 +352,9 @@ class OnnxStaticQuantization(OnnxQuantization):
 
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
-        config = {"quant_mode": PassConfigParam(type_=str, default="static", description="static quantization mode")}
+        config = {
+            "quant_mode": PassConfigParam(type_=str, default_value="static", description="static quantization mode")
+        }
         # common quantization config
         config.update(deepcopy(_onnx_quantization_config))
         # static quantization specific config

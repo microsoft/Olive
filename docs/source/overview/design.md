@@ -9,7 +9,7 @@ can be tuned to achieve the best metrics, say accuracy and latency, that are eva
 The Engine employs a **Search Strategy** that uses a **Search Algorithm** to auto-tune each Pass one by one or set of Passes
 together.
 
-Each Pass can be run on any host **System** and its output model can be evaulated on the desired target **System**.
+Each Pass can be run on any host **System** and its output model can be evaluated on the desired target **System**.
 
 Olive can be used to find the "best" candidate model, pareto frontier models (for multi-objective search), or the first model
 that meets some metric goals.
@@ -27,8 +27,8 @@ Passes are the building blocks of an Olive workflow. A Pass performs a specific 
 conversion or ONNX quantization.
 
 Each pass is configured using a set of required and optional parameters. A Pass config parameter might have a
-default value and pre-defined search space. When initializing a pass, the user can chose to set the values of parameters to
-their default value (no search), pre-defined search space (search for the best value from the possible options) or a
+default value and default searchable values. When initializing a pass, the user can chose to set the values of parameters to
+their default value (no search), default searchable values (search for the best value from the possible options) or a
 combination of the two (fix some parameters to a certain value, default or user provided, and/or search for other parameters).
 
 ## System

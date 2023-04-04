@@ -25,11 +25,11 @@ class TPESearchAlgorithm(OptunaSearchAlgorithm):
         return {
             **OptunaSearchAlgorithm._default_config(),
             "multivariate": ConfigParam(
-                type_=bool, default=True, description="Use multivariate TPE when suggesting parameters."
+                type_=bool, default_value=True, description="Use multivariate TPE when suggesting parameters."
             ),
             "group": ConfigParam(
                 type_=bool,
-                default=True,
+                default_value=True,
                 description=(
                     "If this and multivariate are True, the multivariate TPE with the group decomposed search space is"
                     " used when suggesting parameters. Refer to 'group' at"

@@ -1,0 +1,38 @@
+# Olive Build Doc Template
+
+parameters:
+  job_name: ''
+  display_name: ''
+  pool: ''
+  publish_docs: false
+
+jobs:
+  - job: ${{parameters.job_name}}
+    displayName: ${{parameters.display_name}}
+    pool: ${{ parameters.pool}}
+
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: 3.8
+      displayName: Use Python 3.8
+
+    - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
+      displayName: Install Olive
+
+    - template: run-olive-script.yaml
+      parameters:
+        displayName: Make Docs
+        script: |
+          cd docs
+          python -m pip install -r requirements.txt
+          make html
+        windows: False
+
+    - task:  PublishPipelineArtifact@1
+      inputs:
+        path: $(Build.SourcesDirectory)/docs/build/html
+        artifactName: olive_doc_src
+        artifactType: pipeline
+      displayName: Publish Docs to Pipeline Artifact
+      condition: and(succeeded(), eq('${{ parameters.publish_docs }}', 'true'))

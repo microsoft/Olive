@@ -1,5 +1,6 @@
 numpy <= 1.23.4
 onnx
+onnxconverter_common
 optuna
 pandas
 pydantic

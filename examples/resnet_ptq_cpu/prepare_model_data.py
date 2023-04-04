@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import argparse
+import random
 import tarfile
 import urllib.request
 
@@ -35,6 +36,11 @@ def update_lr(optimizer, lr):
 
 
 def prepare_model(num_epochs=0, models_dir="models", data_dir="data"):
+    # seed everything to 0
+    random.seed(0)
+    torch.manual_seed(0)
+    torch.cuda.manual_seed(0)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Hyper-parameters

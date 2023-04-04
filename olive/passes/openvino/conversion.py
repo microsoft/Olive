@@ -38,7 +38,7 @@ class OpenVINOConversion(Pass):
             ),
             "extra_config": PassConfigParam(
                 type_=Dict,
-                default=None,
+                default_value=None,
                 required=False,
                 description=(
                     "Extra configurations for OpenVINO model conversion. extra_config can be set by"

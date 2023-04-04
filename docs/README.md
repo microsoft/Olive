@@ -1,4 +1,4 @@
-# Generating the documation
+# Generating the documentation
 
 To generate the documentation, you first have to build it.
 

@@ -27,34 +27,36 @@ class OrtTransformersOptimization(Pass):
                     "bert_tf (BERT exported by tf2onnx), bert_keras (BERT exported by keras2onnx)."
                 ),
             ),
-            "num_heads": PassConfigParam(type_=int, default=0, description="Number of attention heads."),
-            "hidden_size": PassConfigParam(type_=int, default=0, description="Number of hidden nodes."),
+            "num_heads": PassConfigParam(type_=int, default_value=0, description="Number of attention heads."),
+            "hidden_size": PassConfigParam(type_=int, default_value=0, description="Number of hidden nodes."),
             # TODO: Figure out what the expected type is
             "optimization_options": PassConfigParam(
-                type_=Any, default=None, description="Optimization options that turn on/off some fusions."
+                type_=Any, default_value=None, description="Optimization options that turn on/off some fusions."
             ),
             "opt_level": PassConfigParam(
                 type_=Any,
-                default=None,
+                default_value=None,
                 description=(
                     "Graph optimization level of Onnx Runtime: "
                     "0 - disable all (default), 1 - basic, 2 - extended, 99 - all."
                 ),
             ),
-            "use_gpu": PassConfigParam(type_=bool, default=False, description="Flag for GPU inference."),
+            "use_gpu": PassConfigParam(type_=bool, default_value=False, description="Flag for GPU inference."),
             "only_onnxruntime": PassConfigParam(
                 type_=bool,
-                default=False,
+                default_value=False,
                 description="Whether only use onnxruntime to optimize model, and no python fusion.",
             ),
             "float16": PassConfigParam(
-                type_=bool, default=False, description="Whether half-precision float will be used."
+                type_=bool, default_value=False, description="Whether half-precision float will be used."
             ),
             "input_int32": PassConfigParam(
-                type_=bool, default=False, description="Whether int32 tensors will be used as input."
+                type_=bool, default_value=False, description="Whether int32 tensors will be used as input."
             ),
             "use_external_data_format": PassConfigParam(
-                type_=bool, default=False, description="Whether use external data format to store large model (>2GB)"
+                type_=bool,
+                default_value=False,
+                description="Whether use external data format to store large model (>2GB)",
             ),
         }
 
