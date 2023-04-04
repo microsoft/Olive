@@ -17,16 +17,29 @@ class PassParamDefault(str, Enum):
     Default values for passes.
     """
 
-    DEFAULT = "DEFAULT"
-    DEFAULT_SEARCH = "DEFAULT_SEARCH"
+    DEFAULT_VALUE = "DEFAULT_VALUE"
+    SEARCHABLE_VALUES = "SEARCHABLE_VALUES"
 
 
 class PassConfigParam(ConfigParam):
     """
     Dataclass for pass configuration parameters.
+
+    Parameters
+    ----------
+    type_ : type of the parameter
+    required : whether the parameter is required
+    is_object : whether the parameter is an object/function. If so, this parameter accepts the object or a string with
+        the name of the object/function in the user script. The type must include str.
+    is_path : whether the parameter is a path. If so, this file/folder will be uploaded to the host system.
+    description : description of the parameter
+    default_value: default value for the parameter. This value is used if search is disabled or there are no searchable
+        values. Must be the same type as the parameter or a ConditionalDefault SearchParameter.
+    searchable_values: default searchable values for the parameter. This value is used if search is enabled.
+        Must be a Categorical or Conditional SearchParameter.
     """
 
-    default_search: SearchParameter = None
+    searchable_values: SearchParameter = None
     is_path: bool = False
 
     def __repr__(self):
@@ -104,9 +117,9 @@ def create_config_class(
             continue
 
         type_ = Optional[Union[type_, SearchParameter, PassParamDefault]]
-        if not disable_search and param_config.default_search is not None:
-            config[param] = (type_, param_config.default_search)
+        if not disable_search and param_config.searchable_values is not None:
+            config[param] = (type_, param_config.searchable_values)
         else:
-            config[param] = (type_, param_config.default)
+            config[param] = (type_, param_config.default_value)
 
     return create_model(f"{pass_type}Config", **config, __base__=PassConfigBase, __validators__=validators)

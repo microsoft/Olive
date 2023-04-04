@@ -18,7 +18,7 @@ _common_user_config = {
     "script_dir": ConfigParam(type_=Union[Path, str]),
     "user_script": ConfigParam(type_=Union[Path, str]),
     "data_dir": ConfigParam(type_=Union[Path, str]),
-    "batch_size": ConfigParam(type_=int, default=1),
+    "batch_size": ConfigParam(type_=int, default_value=1),
 }
 
 _common_user_config_validators = {}
@@ -27,7 +27,7 @@ _type_to_user_config = {
     "latency": {
         "dataloader_func": ConfigParam(type_=Union[Callable, str], required=True, is_object=True),
         "inference_settings": ConfigParam(type_=dict),
-        "io_bind": ConfigParam(type_=bool, default=False),
+        "io_bind": ConfigParam(type_=bool, default_value=False),
     },
     "accuracy": {
         "dataloader_func": ConfigParam(type_=Union[Callable, str], required=True, is_object=True),

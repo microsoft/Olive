@@ -27,8 +27,8 @@ Passes are the building blocks of an Olive workflow. A Pass performs a specific 
 conversion or ONNX quantization.
 
 Each pass is configured using a set of required and optional parameters. A Pass config parameter might have a
-default value and pre-defined search space. When initializing a pass, the user can chose to set the values of parameters to
-their default value (no search), pre-defined search space (search for the best value from the possible options) or a
+default value and default searchable values. When initializing a pass, the user can chose to set the values of parameters to
+their default value (no search), default searchable values (search for the best value from the possible options) or a
 combination of the two (fix some parameters to a certain value, default or user provided, and/or search for other parameters).
 
 ## System

@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from abc import abstractmethod
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Type, Union
@@ -19,8 +20,17 @@ from olive.passes.pass_config import (
     create_config_class,
     get_user_script_config,
 )
-from olive.strategy.search_parameter import Conditional, SearchParameter
-from olive.strategy.utils import cyclic_search_space
+from olive.strategy.search_parameter import (
+    Categorical,
+    Conditional,
+    ConditionalDefault,
+    SearchParameter,
+    SpecialParamValue,
+)
+from olive.strategy.search_space import SearchSpace
+from olive.strategy.utils import cyclic_search_space, order_search_parameters
+
+logger = logging.getLogger(__name__)
 
 
 class Pass(AutoConfigClass):
@@ -81,6 +91,47 @@ class Pass(AutoConfigClass):
     def _default_config() -> Dict[str, PassConfigParam]:
         """
         Get the default configuration for the pass. Doesn't include user_script and script_dir.
+
+        Example:
+            return {
+                # required parameter
+                "param1": PassConfigParam(type_=int, required=True, description="param1 description"),
+                # optional parameter with default value
+                "param2": PassConfigParam(type_=int, default_value=1, description="param2 description"),
+                # optional parameter with default value and searchable values
+                "param3": PassConfigParam(
+                    type_=int,
+                    default_value=1,
+                    searchable_values=Categorical([1, 2, 3]),
+                    description="param3 description",
+                ),
+                # optional parameter with `is_object` set to True
+                # the value of this parameter can be a string or a function that takes a string and returns the object,
+                # say a class ObjectClass
+                "param4": PassConfigParam(
+                    type_=Union[str, Callable[[str], Pass]], is_object=True, description="param4 description"
+                ),
+                # optional parameter with default_value that depends on another parameter value
+                "param5": PassConfigParam(
+                    type_=int,
+                    default_value=ConditionalDefault(parents="param2", support={(1,): 2, (2,): 3}, default=4),
+                    description="param5 description",
+                ),
+                # optional parameter with searchable_values that depends on other parameter values
+                "param6": PassConfigParam(
+                    type_=int,
+                    default_value=1,
+                    searchable_values=Conditional(
+                        parents=("param2", "param3"),
+                        # invalid if (param2, param3) not in [(1, 1), (1, 2)]
+                        support={
+                            (1, 1): Categorical([1, 2, 3]),
+                            (1, 2): Categorical([4, 5, 6]),
+                        },
+                    ),
+                    description="param6 description",
+                ),
+            }
         """
         raise NotImplementedError()
 
@@ -90,12 +141,14 @@ class Pass(AutoConfigClass):
         """
         default_config = self.default_config()
         for key, value in config.items():
-            if value == PassParamDefault.DEFAULT:
-                config[key] = default_config[key].default
-            elif value == PassParamDefault.DEFAULT_SEARCH:
-                default_search = default_config[key].default_search
-                assert default_search is not None, f"Parameter {key} does not have a default search."
-                config[key] = default_search
+            if value == PassParamDefault.DEFAULT_VALUE:
+                config[key] = default_config[key].default_value
+            elif value == PassParamDefault.SEARCHABLE_VALUES:
+                value = default_config[key].searchable_values
+                if value is None:
+                    logger.warning(f"Parameter {key} does not have searchable values. Using default value instead.")
+                    value = default_config[key].default_value
+                config[key] = value
         return config
 
     def _validate_user_script(self, config: Dict[str, Any], user_module_loader: UserModuleLoader) -> Dict[str, Any]:
@@ -121,22 +174,31 @@ class Pass(AutoConfigClass):
         Get the fixed and search parameters from the config.
         """
         default_config = self.default_config()
+        param_order = order_search_parameters(config)
 
         # fixed parameters
         fixed_params = {}
-        for key, value in config.items():
-            if isinstance(value, SearchParameter):
-                continue
-            if default_config[key].is_path and value is not None:
-                value = str(Path(value).resolve())
-            fixed_params[key] = value
-
-        # search parameters
         search_space = {}
-        for key, value in config.items():
+        for key in param_order:
+            value = config[key]
             if isinstance(value, SearchParameter):
-                search_space[key] = self._resolve_search_parameter(value, fixed_params)
+                # resolve conditional parameters
+                # if categorical with single choice, use that choice directly
+                value = self._resolve_search_parameter(value, fixed_params)
+            if value == SpecialParamValue.INVALID:
+                # TODO: better error message, e.g. what the parent values were, how it was invalid
+                raise ValueError(
+                    f"Invalid value for parameter '{key}'. Either the parameter or its parents are not fixed."
+                )
+            if isinstance(value, SearchParameter):
+                search_space[key] = value
+            else:
+                if default_config[key].is_path and value is not None:
+                    value = str(Path(value).resolve())
+                fixed_params[key] = value
         assert not cyclic_search_space(search_space), "Search space is cyclic."
+        # TODO: better error message, e.g. which parameters are invalid, how they are invalid
+        assert SearchSpace({"search_space": search_space}).size() > 0, "There are no valid points in the search space."
 
         return fixed_params, search_space
 
@@ -147,12 +209,15 @@ class Pass(AutoConfigClass):
         if isinstance(param, Conditional):
             # if value is conditional and one/more parents are fixed, use the condition to get new value
             parent_values = {parent: fixed_params[parent] for parent in param.parents if parent in fixed_params}
-            if len(parent_values) == 0:
-                return param
-            else:
-                return param.condition(parent_values)
-        else:
-            return param
+            if len(parent_values) > 0:
+                param = param.condition(parent_values)
+            if isinstance(param, ConditionalDefault):
+                # if there are still searchable parents, convert to conditional
+                param = ConditionalDefault.conditional_default_to_conditional(param)
+        if isinstance(param, Categorical) and len(param.get_support()) == 1:
+            # if there is only one choice, use that choice
+            param = param.get_support()[0]
+        return param
 
     def _initialize(self):
         """
@@ -181,6 +246,12 @@ class Pass(AutoConfigClass):
         Validate the search point for the pass.
         """
         return True
+
+    def filter_ignored_params(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Filter out ignored parameters.
+        """
+        return {key: value for key, value in config.items() if value != SpecialParamValue.IGNORED}
 
     @abstractmethod
     def _run_for_config(self, model: OliveModel, config: Dict[str, Any], output_model_path: str) -> OliveModel:
