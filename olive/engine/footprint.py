@@ -3,9 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from datetime import datetime
-from collections import OrderedDict
 import logging
+from collections import OrderedDict
+from datetime import datetime
+
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 
 logger = logging.getLogger(__name__)
@@ -25,9 +26,7 @@ class FootprintNode(ConfigBase):
     from_pass: str
     pass_run_config: dict = None
     is_pareto_frontier: bool = False
-    metrics: FootprintNodeMetric = FootprintNodeMetric(
-        metrics={}, is_goals_met=False
-    )
+    metrics: FootprintNodeMetric = FootprintNodeMetric(metrics={}, is_goals_met=False)
 
     date_time: float = datetime.now().timestamp()
 
@@ -36,14 +35,16 @@ class FootprintNode(ConfigBase):
             setattr(self, k, v)
 
 
-class Footprint():
+class Footprint:
     """
     The engine footprint is a class that contains the footprint of the engine runtime.
     It is used to collect the runtime state of the Olive engine and to organize the state
     in a way that is easy to visualize and understand for customers.
     """
 
-    def __init__(self,):
+    def __init__(
+        self,
+    ):
         self.footprints = OrderedDict()
         self.objective_dict = None
 
@@ -63,9 +64,7 @@ class Footprint():
                     if _goal is None:
                         is_goals_met.append(True)
                     else:
-                        is_goals_met.append(
-                            v.metrics.metrics[metric_name] * cmp_direction >= _goal
-                        )
+                        is_goals_met.append(v.metrics.metrics[metric_name] * cmp_direction >= _goal)
                 else:
                     logger.warning(f"Metric {metric_name} is not in the objective dict")
             self.footprints[k].metrics.is_goals_met = all(is_goals_met)
@@ -93,9 +92,11 @@ class Footprint():
                     break
                 if _v.metrics is not None and len(_v.metrics.metrics) > 0:
                     _against_pareto_frontier_check = True
-                    # if all the metrics of current point is less than any other point's metrics, it is not pareto frontier
-                    # e.g. current point's metrics is [1, 2, 3], other point's metrics is [2, 3, 4], then current point is not pareto frontier
-                    # but if current point's metrics is [3, 2, 3], other point's metrics is [2, 3, 4], then current point is pareto frontier
+                    # if all the metrics of current point is less than any other point's metrics, 
+                    # it is not pareto frontier e.g. current point's metrics is [1, 2, 3],
+                    # other point's metrics is [2, 3, 4], then current point is not pareto frontier
+                    # but if current point's metrics is [3, 2, 3], other point's metrics is [2, 3, 4],
+                    # then current point is pareto frontier
                     for metric_name in v.metrics.metrics:
                         other_point_metrics = _v.metrics.metrics[metric_name] * _v.metrics.cmp_direction[metric_name]
                         current_point_metrics = v.metrics.metrics[metric_name] * v.metrics.cmp_direction[metric_name]
