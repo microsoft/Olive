@@ -310,7 +310,7 @@ class Engine:
             return output
 
         # TODO adapt different strategies when metrics prioritization is implemented @xiaoyu
-        return self.footprints
+        return self.footprints.get_pareto_frontier()
 
     def resolve_objectives(
         self, input_model: OliveModel, input_model_id: str, metrics: List[Metric], verbose: bool = False
@@ -513,6 +513,7 @@ class Engine:
                 # footprint model and run
                 self.footprints.record(
                     model_id=output_model_id,
+                    model_config=output_model.to_json() if output_model != PRUNED_CONFIG else {"is_pruned": True},
                     parent_model_id=input_model_id,
                     from_pass=pass_name,
                     pass_run_config=pass_config,
@@ -550,6 +551,7 @@ class Engine:
         # footprint model and run
         self.footprints.record(
             model_id=output_model_id,
+            model_config=output_model.to_json() if output_model != PRUNED_CONFIG else {"is_pruned": True},
             parent_model_id=input_model_id,
             from_pass=pass_name,
             pass_run_config=pass_config,
@@ -608,7 +610,7 @@ class Engine:
             self.footprints.record(
                 model_id=model_id,
                 metrics=FootprintNodeMetric(
-                    metrics=signal,
+                    value=signal,
                     is_goals_met=False,
                 ),
             )
@@ -624,7 +626,7 @@ class Engine:
         self.footprints.record(
             model_id=model_id,
             metrics=FootprintNodeMetric(
-                metrics=signal,
+                value=signal,
                 is_goals_met=False,
             ),
         )

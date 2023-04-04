@@ -6,6 +6,7 @@
 import logging
 from collections import OrderedDict
 from datetime import datetime
+from pathlib import Path
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class FootprintNodeMetric(ConfigBase):
-    metrics: dict
+    value: dict
     cmp_direction: dict = {}
     is_goals_met: bool = False
 
@@ -21,12 +22,12 @@ class FootprintNodeMetric(ConfigBase):
 class FootprintNode(ConfigBase):
     # None for no parent which means current model is the input model
     parent_model_id: str = None
-
     model_id: str
-    from_pass: str
+    model_config: dict = None
+    from_pass: str = None
     pass_run_config: dict = None
     is_pareto_frontier: bool = False
-    metrics: FootprintNodeMetric = FootprintNodeMetric(metrics={}, is_goals_met=False)
+    metrics: FootprintNodeMetric = FootprintNodeMetric(value={}, is_goals_met=False)
 
     date_time: float = datetime.now().timestamp()
 
@@ -44,10 +45,13 @@ class Footprint:
 
     def __init__(
         self,
+        footprints: OrderedDict = {},
+        objective_dict: dict = {},
+        is_marked_pareto_frontier: bool = False,
     ):
-        self.footprints = OrderedDict()
-        self.objective_dict = None
-        self.is_marked_pareto_frontier = False
+        self.footprints = footprints
+        self.objective_dict = objective_dict
+        self.is_marked_pareto_frontier = is_marked_pareto_frontier
 
     def record_objective_dict(self, objective_dict):
         self.objective_dict = objective_dict
@@ -57,7 +61,7 @@ class Footprint:
             if v.metrics is None:
                 continue
             is_goals_met = []
-            for metric_name in v.metrics.metrics:
+            for metric_name in v.metrics.value:
                 if metric_name in self.objective_dict:
                     cmp_direction = 1 if self.objective_dict[metric_name]["higher_is_better"] else -1
                     self.footprints[k].metrics.cmp_direction[metric_name] = cmp_direction
@@ -65,7 +69,7 @@ class Footprint:
                     if _goal is None:
                         is_goals_met.append(True)
                     else:
-                        is_goals_met.append(v.metrics.metrics[metric_name] * cmp_direction >= _goal)
+                        is_goals_met.append(v.metrics.value[metric_name] * cmp_direction >= _goal)
                 else:
                     logger.warning(f"Metric {metric_name} is not in the objective dict")
             self.footprints[k].metrics.is_goals_met = all(is_goals_met)
@@ -89,20 +93,20 @@ class Footprint:
             return
         for k, v in self.footprints.items():
             # if current point's metrics is less than any other point's metrics, it is not pareto frontier
-            cmp_flag = True and v.metrics is not None and len(v.metrics.metrics) > 0
+            cmp_flag = True and v.metrics is not None and len(v.metrics.value) > 0
             for _, _v in self.footprints.items():
                 if not cmp_flag:
                     break
-                if _v.metrics is not None and len(_v.metrics.metrics) > 0:
+                if _v.metrics is not None and len(_v.metrics.value) > 0:
                     _against_pareto_frontier_check = True
                     # if all the metrics of current point is less than any other point's metrics,
                     # it is not pareto frontier e.g. current point's metrics is [1, 2, 3],
                     # other point's metrics is [2, 3, 4], then current point is not pareto frontier
                     # but if current point's metrics is [3, 2, 3], other point's metrics is [2, 3, 4],
                     # then current point is pareto frontier
-                    for metric_name in v.metrics.metrics:
-                        other_point_metrics = _v.metrics.metrics[metric_name] * _v.metrics.cmp_direction[metric_name]
-                        current_point_metrics = v.metrics.metrics[metric_name] * v.metrics.cmp_direction[metric_name]
+                    for metric_name in v.metrics.value:
+                        other_point_metrics = _v.metrics.value[metric_name] * _v.metrics.cmp_direction[metric_name]
+                        current_point_metrics = v.metrics.value[metric_name] * v.metrics.cmp_direction[metric_name]
                         _against_pareto_frontier_check &= current_point_metrics < other_point_metrics
                     cmp_flag &= not _against_pareto_frontier_check
             self.footprints[k].is_pareto_frontier = cmp_flag
@@ -112,8 +116,10 @@ class Footprint:
         self.mark_pareto_frontier()
         rls = {k: v for k, v in self.footprints.items() if v.is_pareto_frontier}
         for _, v in rls.items():
-            logger.info(f"pareto frontier points: {v.model_id} {v.metrics.metrics}")
-        return rls
+            logger.info(f"pareto frontier points: {v.model_id} {v.metrics.value}")
+
+        # restructure the pareto frontier points to instance of Footprints for further analysis
+        return Footprint(footprints=rls, objective_dict=self.objective_dict, is_marked_pareto_frontier=True)
 
     def _plot_pareto_frontier(self, index=[0, 1]):
         self.mark_pareto_frontier()
@@ -143,10 +149,10 @@ class Footprint:
 
     @classmethod
     def from_json(cls, json_str):
-        footprint_obj = cls()
+        footprints = OrderedDict()
         for k, v in config_json_loads(json_str, object_pairs_hook=OrderedDict).items():
-            footprint_obj.footprints[k] = FootprintNode(**v)
-        return footprint_obj
+            footprints[k] = FootprintNode(**v)
+        return cls(footprints=footprints)
 
     def to_file(self, file_path):
         with open(file_path, "w") as f:
@@ -156,3 +162,17 @@ class Footprint:
     def from_file(cls, file_path):
         with open(file_path, "r") as f:
             return cls.from_json(f.read())
+
+    def get_model_inference_config(self, model_id):
+        model_config = self.footprints[model_id].model_config
+        if model_config is None:
+            return None
+
+        return model_config.get("config", {}).get("inference_settings", None)
+
+    def get_model_path(self, model_id):
+        model_config = self.footprints[model_id].model_config
+        if model_config is None:
+            return None
+
+        return Path(model_config.get("config", {}).get("model_path", None))
