@@ -410,6 +410,7 @@ class Engine:
         """
         Cache the model in the cache directory.
         """
+        # TODO move model/pass run/evaluation cache into footprints
         if model == PRUNED_CONFIG:
             model_json = {}
         else:
@@ -514,7 +515,7 @@ class Engine:
                     model_id=output_model_id,
                     parent_model_id=input_model_id,
                     from_pass=pass_name,
-                    config=pass_config,
+                    pass_run_config=pass_config,
                 )
                 return output_model, output_model_id
 
@@ -551,7 +552,7 @@ class Engine:
             model_id=output_model_id,
             parent_model_id=input_model_id,
             from_pass=pass_name,
-            config=pass_config,
+            pass_run_config=pass_config,
         )
         return output_model, output_model_id
 

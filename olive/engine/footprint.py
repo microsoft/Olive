@@ -23,7 +23,7 @@ class FootprintNode(ConfigBase):
 
     model_id: str
     from_pass: str
-    config: dict = None
+    pass_run_config: dict = None
     is_pareto_frontier: bool = False
     metrics: FootprintNodeMetric = FootprintNodeMetric(
         metrics={}, is_goals_met=False
@@ -114,6 +114,19 @@ class Footprint():
         self.mark_pareto_frontier()
         # plot pareto frontier
         pass
+
+    def trace_back_run_history(self, model_id):
+        """
+        Trace back the run history of a model with the order of
+        model_id -> parent_model_id1 -> parent_model_id2 -> ...
+        """
+        rls = OrderedDict()
+        while model_id is not None:
+            if model_id in rls:
+                raise ValueError(f"Loop detected in the run history of model {model_id}")
+            rls[model_id] = self.footprints[model_id].pass_run_config
+            model_id = self.footprints[model_id].parent_model_id
+        return rls
 
     def to_df(self):
         # to pandas.DataFrame
