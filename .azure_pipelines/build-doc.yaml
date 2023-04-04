@@ -8,34 +8,11 @@ pr: none
 stages:
   - stage: Build_Docs
     jobs:
-    - job: BuildDocs
-      displayName: Build Docs
-      pool: $(OLIVE_POOL_UBUNTU2004)
-
-      steps:
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: 3.8
-        displayName: Use Python 3.8
-
-      - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
-        displayName: Install Olive
-
-      - template: job_templates/run-olive-script.yaml
-        parameters:
-          displayName: Make Docs
-          script: |
-            cd docs
-            python -m pip install -r requirements.txt
-            make html
-          windows: False
-
-      - task:  PublishPipelineArtifact@1
-        inputs:
-          path: $(Build.SourcesDirectory)/docs/build/html
-          artifactName: olive_doc_src
-          artifactType: pipeline
-        displayName: Publish Docs to Pipeline Artifact
+    - template: job_templates/olive-build-doc-template.yaml
+      parameters:
+        job_name: BuildDocs
+        display_name: Build Docs
+        pool: $(OLIVE_POOL_UBUNTU2004)
 
   - stage: Publish_Docs
     dependsOn: [Build_Docs]
