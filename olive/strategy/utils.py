@@ -4,8 +4,6 @@
 # --------------------------------------------------------------------------
 from typing import Dict, List, Set, Tuple
 
-import numpy as np
-
 from olive.strategy.search_parameter import Conditional, SearchParameter
 
 

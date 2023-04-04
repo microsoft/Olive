@@ -95,7 +95,7 @@ class Footprint:
                     break
                 if _v.metrics is not None and len(_v.metrics.metrics) > 0:
                     _against_pareto_frontier_check = True
-                    # if all the metrics of current point is less than any other point's metrics, 
+                    # if all the metrics of current point is less than any other point's metrics,
                     # it is not pareto frontier e.g. current point's metrics is [1, 2, 3],
                     # other point's metrics is [2, 3, 4], then current point is not pareto frontier
                     # but if current point's metrics is [3, 2, 3], other point's metrics is [2, 3, 4],
