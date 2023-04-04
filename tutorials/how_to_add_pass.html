@@ -67,6 +67,7 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">How to add new Pass</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#define-a-new-class">1. Define a new class</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#define-configuration">2. Define configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#example">Example</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#implement-the-run-function">3. Implement the run function</a></li>
 </ul>
 </li>
@@ -130,6 +131,9 @@ represented as a Pass in Olive.</p>
 
 <span class="k">class</span> <span class="nc">NewOptimizationTrick</span><span class="p">(</span><span class="n">Pass</span><span class="p">):</span>
 
+    <span class="c1"># set this to True if the pass has paremeters that are functions or objects and the user script is required</span>
+    <span class="c1"># to import the module containing the function or object</span>
+    <span class="n">_requires_user_script</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 </pre></div>
 </div>
 </section>
@@ -137,22 +141,63 @@ represented as a Pass in Olive.</p>
 <h2>2. Define configuration<a class="headerlink" href="#define-configuration" title="Permalink to this heading">¶</a></h2>
 <p>Next, define the options used to configure this new technique by defining static method <code class="docutils literal notranslate"><span class="pre">_default_config</span></code>. The method should
 return <code class="docutils literal notranslate"><span class="pre">Dict[str,</span> <span class="pre">PassConfigParam]</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">PassConfigParam</span></code> is a dataclass that holds the information about the configuration option. The dataclass has the following fields:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">type_</span></code> : type of the parameter</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">required</span></code> : whether the parameter is required</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">is_object</span></code> : whether the parameter is an object/function. If so, this parameter accepts the object or a string with the
+name of the object in the user script. The type must include <code class="docutils literal notranslate"><span class="pre">str</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">is_path</span></code> : whether the parameter is a path. If so, this file/folder will be uploaded to the host system.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">description</span></code> : description of the parameter</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">default_value</span></code>: default value for the parameter. This value is used as the default if <code class="docutils literal notranslate"><span class="pre">disable_search=False</span></code> or there are no searchable values.
+Must be the same type as the parameter or a ConditionalDefault SearchParameter.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">searchable_values</span></code>: default searchable values for the parameter. This value is used as the default if <code class="docutils literal notranslate"><span class="pre">disable_search=True</span></code>.
+Must be a Categorical or Conditional SearchParameter.</p></li>
+</ul>
+<section id="example">
+<h3>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_default_config</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
-        <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">&quot;quant_mode&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
-                <span class="n">default</span><span class="o">=</span><span class="s2">&quot;static&quot;</span><span class="p">,</span>
-                <span class="n">default_search</span><span class="o">=</span><span class="n">Categorical</span><span class="p">([</span><span class="s2">&quot;dynamic&quot;</span><span class="p">,</span> <span class="s2">&quot;static&quot;</span><span class="p">]),</span>
-                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;</span>
-<span class="s2">                    Onnx Quantization mode. &#39;dynamic&#39; for dynamic quantization,</span>
-<span class="s2">                    &#39;static&#39; for static quantization.</span>
-<span class="s2">                &quot;&quot;&quot;</span><span class="p">,</span>
-            <span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="c1"># required parameter</span>
+            <span class="s2">&quot;param1&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param1 description&quot;</span><span class="p">),</span>
+            <span class="c1"># optional parameter with default value</span>
+            <span class="s2">&quot;param2&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param2 description&quot;</span><span class="p">),</span>
+            <span class="c1"># optional parameter with default value and searchable values</span>
+            <span class="s2">&quot;param3&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">searchable_values</span><span class="o">=</span><span class="n">Categorical</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]),</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param3 description&quot;</span>
+            <span class="p">),</span>
+            <span class="c1"># optional parameter with `is_object` set to True</span>
+            <span class="c1"># the value of this parameter can be a string or a function that takes a string and returns the object,</span>
+            <span class="c1"># say a class ObjectClass</span>
+            <span class="s2">&quot;param4&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Pass</span><span class="p">]],</span> <span class="n">is_object</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param4 description&quot;</span>
+            <span class="p">),</span>
+            <span class="c1"># optional parameter with default_value that depends on another parameter value</span>
+            <span class="s2">&quot;param5&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+                <span class="n">default_value</span><span class="o">=</span><span class="n">ConditionalDefault</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="s2">&quot;param2&quot;</span><span class="p">,</span> <span class="n">support</span><span class="o">=</span><span class="p">{(</span><span class="mi">1</span><span class="p">,):</span> <span class="mi">2</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">,):</span> <span class="mi">3</span><span class="p">},</span> <span class="n">default</span><span class="o">=</span><span class="mi">4</span><span class="p">),</span>
+                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param5 description&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="c1"># optional parameter with searchable_values that depends on other parameter values</span>
+            <span class="s2">&quot;param6&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+                <span class="n">default_value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="n">searchable_values</span><span class="o">=</span><span class="n">Conditional</span><span class="p">(</span>
+                    <span class="n">parents</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;param2&quot;</span><span class="p">,</span> <span class="s2">&quot;param3&quot;</span><span class="p">),</span>
+                    <span class="c1"># invalid if (param2, param3) not in [(1, 1), (1, 2)]</span>
+                    <span class="n">support</span><span class="o">=</span><span class="p">{</span>
+                        <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span> <span class="n">Categorical</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]),</span>
+                        <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span> <span class="n">Categorical</span><span class="p">([</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">]),</span>
+                    <span class="p">},</span>
+                <span class="p">),</span>
+                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param6 description&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
         <span class="p">}</span>
 
 </pre></div>
 </div>
+</section>
 <section id="implement-the-run-function">
 <h3>3. Implement the run function<a class="headerlink" href="#implement-the-run-function" title="Permalink to this heading">¶</a></h3>
 <p>The final step is to implement the <code class="docutils literal notranslate"><span class="pre">_run_for_config</span></code> method to optimize the input model. Olive Engine will invoke the

@@ -84,6 +84,10 @@
 <li class="toctree-l4"><a class="reference internal" href="#id4">Example Configuration</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#float16-conversion">Float16 Conversion</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id5">Example Configuration</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="pytorch.html">PyTorch related – General</a></li>
@@ -243,7 +247,7 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <a class="reference internal" href="../../api/passes.html#onnx-static-quantization"><span class="std std-ref">OnnxStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
 <section id="id3">
 <h3>Example Configuration<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
-<p>a. Tune the parameters of the OlivePass with pre-defined search space</p>
+<p>a. Tune the parameters of the OlivePass with pre-defined searchable values</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -257,9 +261,9 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="c1">// select per_channel to tune with &quot;DEFAULT_SEARCH&quot;.</span>
+<span class="w">        </span><span class="c1">// select per_channel to tune with &quot;SEARCHABLE_VALUES&quot;.</span>
 <span class="w">        </span><span class="c1">// other parameters will use the default value, not to be tuned.</span>
-<span class="w">        </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DEFAULT_SEARCH&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SEARCHABLE_VALUES&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;./user_script.py&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue_calibration_reader&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
@@ -271,8 +275,8 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="c1">// set per_channel to &quot;DEFAULT&quot; value.</span>
-<span class="w">        </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DEFAULT&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="c1">// set per_channel to &quot;DEFAULT_VALUE&quot;</span>
+<span class="w">        </span><span class="nt">&quot;per_channel&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DEFAULT_VALUE&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;./user_script.py&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;glue_calibration_reader&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="p">},</span>
@@ -318,6 +322,31 @@ improve performance.
 </div>
 <p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert_ptq_cpu/user_script.py">this file</a>
 for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;create_dataloader&quot;</span></code>.</p>
+</section>
+</section>
+<section id="float16-conversion">
+<h2>Float16 Conversion<a class="headerlink" href="#float16-conversion" title="Permalink to this heading">¶</a></h2>
+<p>Converting a model to use Float16 instead of Float32 can decrease the model size and improve performance on some GPUs. The <code class="docutils literal notranslate"><span class="pre">OnnxFloatToFloat16</span></code> pass wraps <a class="reference external" href="https://github.com/microsoft/onnxconverter-common/blob/master/onnxconverter_common/float16.py#L111">onnxconverter_common.float16.convert_float_to_float16</a>, which convert most nodes/operators to use Float16 instead of Float32.</p>
+<p>Conversion to Float16 is often exposed at multiple stages of optimization, including model conversion and transformer optimization. This stand-alone pass is best suited for models that are not transformer architectures, where fusions may rely on a specific data types in node patterns.</p>
+<section id="id5">
+<h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
+<p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxFloatToFloat16&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>b. More fine-grained control of the conversion conditions is also possible:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxFloatToFloat16&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="c1">// Don&#39;t convert input/output nodes to Float16</span>
+<span class="w">        </span><span class="nt">&quot;keep_io_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>See <a class="reference external" href="https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion">Float16 Conversion</a> for more detailed description of the available configuration parameters.</p>
 </section>
 </section>
 </section>
