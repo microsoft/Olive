@@ -104,7 +104,7 @@ Please refer to [OnnxQuantization](onnx_quantization), [OnnxDynamicQuantization]
 [OnnxStaticQuantization](onnx_static_quantization) for more details about the passes and their config parameters.
 
 ### Example Configuration
-a. Tune the parameters of the OlivePass with pre-defined search space
+a. Tune the parameters of the OlivePass with pre-defined searchable values
 ```json
 {
     "type": "OnnxQuantization",
@@ -120,9 +120,9 @@ b. Select parameters to tune
 {
     "type": "OnnxQuantization",
     "config": {
-        // select per_channel to tune with "DEFAULT_SEARCH".
+        // select per_channel to tune with "SEARCHABLE_VALUES".
         // other parameters will use the default value, not to be tuned.
-        "per_channel": "DEFAULT_SEARCH",
+        "per_channel": "SEARCHABLE_VALUES",
         "user_script": "./user_script.py",
         "dataloader_func": "glue_calibration_reader",
     },
@@ -135,8 +135,8 @@ c. Use default values of the OlivePass (no tuning in this way)
 {
     "type": "OnnxQuantization",
     "config": {
-        // set per_channel to "DEFAULT" value.
-        "per_channel": "DEFAULT",
+        // set per_channel to "DEFAULT_VALUE"
+        "per_channel": "DEFAULT_VALUE",
         "user_script": "./user_script.py",
         "dataloader_func": "glue_calibration_reader",
     },

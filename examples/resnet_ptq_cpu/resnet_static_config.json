@@ -74,8 +74,8 @@
                 "user_script": "user_script.py",
                 "data_dir": "data",
                 "dataloader_func": "resnet_calibration_reader",
-                "per_channel": "DEFAULT_SEARCH",
-                "reduce_range": "DEFAULT_SEARCH"
+                "per_channel": "SEARCHABLE_VALUES",
+                "reduce_range": "SEARCHABLE_VALUES"
             },
             "clean_run_cache": false
         }

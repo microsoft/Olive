@@ -27,7 +27,7 @@ OrtPerfTuning
 
 .. _onnx_float_to_float16:
 OnnxFloatToFloat16
-----------------
+-------------------
 .. autoconfigclass:: olive.passes.OnnxFloatToFloat16
 
 .. _onnx_dynamic_quantization:

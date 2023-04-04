@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import onnx
 from onnxconverter_common import float16
@@ -23,22 +23,22 @@ class OnnxFloatToFloat16(Pass):
     def _default_config() -> Dict[str, PassConfigParam]:
         return {
             "min_positive_val": PassConfigParam(
-                type_=float, default=1e-7, description=("Constant values will be clipped against this value")
+                type_=float, default_value=1e-7, description="Constant values will be clipped against this value"
             ),
             "max_finite_val": PassConfigParam(
-                type_=float, default=1e4, description=("Constant values will be clipped against this value")
+                type_=float, default_value=1e4, description="Constant values will be clipped against this value"
             ),
             "keep_io_types": PassConfigParam(
-                type_=bool, default=False, description=("Whether model inputs/outputs should be left as float32")
+                type_=bool, default_value=False, description="Whether model inputs/outputs should be left as float32"
             ),
             "disable_shape_infer": PassConfigParam(
-                type_=bool, default=False, description=("Skips running onnx shape/type inference.")
+                type_=bool, default_value=False, description="Skips running onnx shape/type inference."
             ),
             "op_block_list": PassConfigParam(
-                type_=list[str], default=None, description=("List of op types to leave as float32")
+                type_=List[str], default_value=None, description="List of op types to leave as float32"
             ),
             "node_block_list": PassConfigParam(
-                type_=list[str], default=None, description=("List of node names to leave as float32")
+                type_=List[str], default_value=None, description="List of node names to leave as float32"
             ),
         }
 

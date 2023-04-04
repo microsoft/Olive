@@ -42,9 +42,9 @@ class OpenVINOQuantization(Pass):
             "data_dir": PassConfigParam(
                 type_=Union[Path, str],
                 is_path=True,
-                description=("Dataset path. 'data_dir' can be by a str or Pathlib.Path."),
+                description="Dataset path. 'data_dir' can be by a str or Pathlib.Path.",
             ),
-            "batch_size": PassConfigParam(type_=int, default=1, description=("Batch size for the dataloader.")),
+            "batch_size": PassConfigParam(type_=int, default_value=1, description="Batch size for the dataloader."),
             "metric_func": PassConfigParam(
                 type_=Union[Callable, str],
                 required=False,

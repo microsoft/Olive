@@ -72,8 +72,8 @@
             "disable_search": true,
             "config": {
                 "weight_type": "QUInt8",
-                "per_channel": "DEFAULT_SEARCH",
-                "reduce_range": "DEFAULT_SEARCH"
+                "per_channel": "SEARCHABLE_VALUES",
+                "reduce_range": "SEARCHABLE_VALUES"
             },
             "clean_run_cache": false
         }
