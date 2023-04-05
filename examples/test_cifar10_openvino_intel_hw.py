@@ -17,9 +17,9 @@ def setup():
     sys.path.remove(CIFAR10_DIR)
 
 
-def check_output(metrics):
-    assert metrics is not None
-    assert all([value > 0 for value in metrics])
+def check_output(footprint):
+    assert footprint is not None
+    assert all([value > 0 for value in footprint.metrics.value.values()])
 
 
 def test_cifar10():
