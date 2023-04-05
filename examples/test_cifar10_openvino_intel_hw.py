@@ -19,7 +19,8 @@ def setup():
 
 def check_output(footprint):
     assert footprint.footprints is not None
-    assert all([value > 0 for value in footprint.footprints.metrics.value.values()])
+    for v in footprint.footprints.values():
+        assert all([value > 0 for value in v.metrics.value.values()])
 
 
 def test_cifar10():
