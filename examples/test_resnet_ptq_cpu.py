@@ -29,9 +29,9 @@ def setup(example_dir):
     os.chdir(cur_dir)
 
 
-def check_output(metrics):
-    assert metrics is not None
-    assert all([value > 0 for value in metrics])
+def check_output(footprint):
+    assert footprint is not None
+    assert all([value > 0 for value in footprint.metrics.value.values()])
 
 
 @pytest.mark.parametrize("search_algorithm", ["random"])
@@ -62,8 +62,8 @@ def test_resnet(search_algorithm, execution_order, system, olive_json):
     if system == "aml_system":
         generate_olive_workspace_config("olive-workspace-config.json")
 
-    best_execution = olive_run(olive_config)
-    check_output(best_execution["metric"])
+    footprint = olive_run(olive_config)
+    check_output(footprint)
 
 
 def generate_olive_workspace_config(workspace_config_path):
