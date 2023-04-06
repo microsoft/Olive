@@ -129,14 +129,14 @@ class TestEngine:
         actual_res = engine.run(pytorch_model)
 
         # assert
-        assert len(actual_res.footprints) == 1
-        assert model_id in actual_res.footprints
-        assert actual_res.footprints[model_id].model_id == model_id
+        assert len(actual_res.nodes) == 1
+        assert model_id in actual_res.nodes
+        assert actual_res.nodes[model_id].model_id == model_id
         for k, v in expected_res[model_id].items():
             if k == "metrics":
-                assert getattr(actual_res.footprints[model_id].metrics, "is_goals_met")
-            assert getattr(actual_res.footprints[model_id], k) == v
-        assert engine.get_model_json_path(actual_res.footprints[model_id].model_id).exists()
+                assert getattr(actual_res.nodes[model_id].metrics, "is_goals_met")
+            assert getattr(actual_res.nodes[model_id], k) == v
+        assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
         mock_local_system.run_pass.assert_called_once()
         mock_local_system.evaluate_model.assert_called_once_with(onnx_model, [metric])
 
