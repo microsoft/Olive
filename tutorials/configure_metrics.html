@@ -62,9 +62,13 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="configure_systems.html">Configuring OliveSystem</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Configuring Metric</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#accuracy-metric">Accuracy Metric</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#latency-metric">Latency Metric</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#custom-metric">Custom Metric</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#metric-types">Metric Types</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#accuracy-metric">Accuracy Metric</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#latency-metric">Latency Metric</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#custom-metric">Custom Metric</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#multi-metrics-configuration">Multi Metrics configuration</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="configure_pass.html">Configuring Pass</a></li>
@@ -120,8 +124,10 @@
   <section id="configuring-metric">
 <h1>Configuring Metric<a class="headerlink" href="#configuring-metric" title="Permalink to this heading">¶</a></h1>
 <p>This document describes how to configure the different types of Metrics.</p>
+<section id="metric-types">
+<h2>Metric Types<a class="headerlink" href="#metric-types" title="Permalink to this heading">¶</a></h2>
 <section id="accuracy-metric">
-<h2>Accuracy Metric<a class="headerlink" href="#accuracy-metric" title="Permalink to this heading">¶</a></h2>
+<h3>Accuracy Metric<a class="headerlink" href="#accuracy-metric" title="Permalink to this heading">¶</a></h3>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
@@ -161,7 +167,7 @@
 for <code class="code docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code>.</p>
 </section>
 <section id="latency-metric">
-<h2>Latency Metric<a class="headerlink" href="#latency-metric" title="Permalink to this heading">¶</a></h2>
+<h3>Latency Metric<a class="headerlink" href="#latency-metric" title="Permalink to this heading">¶</a></h3>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-1-1-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-1-1-0" name="1-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-1-1-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-1-1-1" name="1-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-1-1-0" class="sphinx-tabs-panel" id="panel-1-1-0" name="1-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
@@ -199,7 +205,9 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;user
 for <code class="code docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code>.</p>
 </section>
 <section id="custom-metric">
-<h2>Custom Metric<a class="headerlink" href="#custom-metric" title="Permalink to this heading">¶</a></h2>
+<h3>Custom Metric<a class="headerlink" href="#custom-metric" title="Permalink to this heading">¶</a></h3>
+<p>You can define your own metric by using the <code class="code docutils literal notranslate"><span class="pre">&quot;custom&quot;</span></code> type. Your custome metric evaluation function will be defined in your own <code class="code docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code>,
+sepcify its name in <code class="code docutils literal notranslate"><span class="pre">&quot;evaluate_func&quot;</span></code> field, and Olive will call your function to evaluate the model.</p>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-2-2-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-2-2-0" name="2-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-2-2-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-2-2-1" name="2-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-2-2-0" class="sphinx-tabs-panel" id="panel-2-2-0" name="2-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
@@ -236,6 +244,58 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;user
 </div></div>
 <p>Please refer to this <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/resnet_ptq_cpu/user_script.py">example</a>
 for <code class="code docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code>.</p>
+<p>Here is an example of the <code class="code docutils literal notranslate"><span class="pre">&quot;eval_accuracy&quot;</span></code> function in <code class="code docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code>:
+In your <code class="code docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code>, you need to define a function that takes in an Olive model, the data directory, and the batch size, and returns a metric value:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">eval_accuracy</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data_dir</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
+    <span class="c1"># load data</span>
+    <span class="c1"># evaluate model</span>
+    <span class="c1"># return metric value</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="multi-metrics-configuration">
+<h2>Multi Metrics configuration<a class="headerlink" href="#multi-metrics-configuration" title="Permalink to this heading">¶</a></h2>
+<p>If you have multiple metrics to evaluate, you can configure them in the following way:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;metrics&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;sub_type&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy_score&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;is_first_priority&quot;</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
+            <span class="s2">&quot;user_config&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;post_processing_func&quot;</span><span class="p">:</span> <span class="s2">&quot;post_process&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="mf">0.01</span>
+            <span class="p">}</span>
+        <span class="p">},</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;latency&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;latency&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;sub_type&quot;</span><span class="p">:</span> <span class="s2">&quot;avg&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;user_config&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span>
+            <span class="p">},</span>
+            <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;value&quot;</span><span class="p">:</span> <span class="mi">20</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>You need to specify <code class="code docutils literal notranslate"><span class="pre">&quot;is_first_priority&quot;:</span> <span class="pre">true</span></code> for the first priority metric if you have multiple metrics.
+The first priority metric is the metric that Olive will use to determine the best model.
+If you only have one metric, you can omit <code class="code docutils literal notranslate"><span class="pre">&quot;is_first_priority&quot;:</span> <span class="pre">true</span></code>.</p>
 </section>
 </section>
 

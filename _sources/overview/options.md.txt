@@ -156,6 +156,7 @@ in `systems`. If it is a dictionary, it contains the system information. If not 
                 "name": "accuracy",
                 "type": "accuracy",
                 "sub_type": "accuracy_score",
+                "is_first_priority": true,
                 "user_config":{
                     "post_processing_func": "post_process",
                     "user_script": "user_script.py",
