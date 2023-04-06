@@ -3,8 +3,11 @@ Configuring Metric
 
 This document describes how to configure the different types of Metrics.
 
+Metric Types
+---------
+
 Accuracy Metric
-----------------
+~~~~~~~~~~~~~~~
 
 .. tabs::
     .. tab:: Config JSON
@@ -50,7 +53,7 @@ Please refer to this `example <https://github.com/microsoft/Olive/blob/main/exam
 for :code:`"user_script.py"`.
 
 Latency Metric
---------------
+~~~~~~~~~~~~~~~
 
 .. tabs::
     .. tab:: Config JSON
@@ -94,7 +97,10 @@ Please refer to this `example <https://github.com/microsoft/Olive/blob/main/exam
 for :code:`"user_script.py"`.
 
 Custom Metric
---------------
+~~~~~~~~~~~~~
+
+You can define your own metric by using the :code:`"custom"` type. Your custome metric evaluation function will be defined in your own :code:`"user_script.py"`,
+sepcify its name in :code:`"evaluate_func"` field, and Olive will call your function to evaluate the model.
 
 .. tabs::
     .. tab:: Config JSON
@@ -137,3 +143,55 @@ Custom Metric
 
 Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/resnet_ptq_cpu/user_script.py>`_
 for :code:`"user_script.py"`.
+
+Here is an example of the :code:`"eval_accuracy"` function in :code:`"user_script.py"`:
+In your :code:`"user_script.py"`, you need to define a function that takes in an Olive model, the data directory, and the batch size, and returns a metric value::
+
+        def eval_accuracy(model, data_dir, batch_size):
+            # load data
+            # evaluate model
+            # return metric value
+
+
+Multi Metrics configuration
+---------
+If you have multiple metrics to evaluate, you can configure them in the following way::
+
+        {
+            "metrics": [
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "sub_type": "accuracy_score",
+                    "is_first_priority": true,
+                    "user_config": {
+                        "post_processing_func": "post_process",
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 1
+                    },
+                    "goal": {
+                        "type": "max-degradation",
+                        "value": 0.01
+                    }
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_type": "avg",
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 1
+                    },
+                    "goal": {
+                        "type": "percent-min-improvement",
+                        "value": 20
+                    }
+                }
+            ]
+        }
+
+You need to specify :code:`"is_first_priority": true` for the first priority metric if you have multiple metrics.
+The first priority metric is the metric that Olive will use to determine the best model.
+If you only have one metric, you can omit :code:`"is_first_priority": true`.
