@@ -1,0 +1,71 @@
+{
+    "node2": {
+        "model_id": "node2",
+        "parent_model_id": "node1",
+        "model_config": {
+            "config": {
+                "model_path": "a/b/c/model2.onnx",
+                "inference_settings": {
+                    "provided_list": [
+                        "CPUExecutionProvider"
+                    ]
+                }
+            }
+        },
+        "metrics": {
+            "value": {
+                "accuracy": 0.92,
+                "latency": 112
+            },
+            "cmp_direction": {
+                "accuracy": 1,
+                "latency": -1
+            },
+            "is_goals_met": true
+        }
+    },
+    "node1": {
+        "model_id": "node1",
+        "parent_model_id": "node0",
+        "model_config": {
+            "config": {
+                "model_path": "a/b/c/model1.onnx",
+                "inference_settings": {
+                    "provided_list": [
+                        "CPUExecutionProvider"
+                    ]
+                }
+            }
+        },
+        "metrics": {
+            "value": {
+                "accuracy": 0.91,
+                "latency": 111
+            },
+            "cmp_direction": {
+                "accuracy": 1,
+                "latency": -1
+            },
+            "is_goals_met": true
+        }
+    },
+    "node0": {
+        "model_id": "node0",
+        "model_config": {
+            "config": {
+                "model_path": "a/b/c/model.pt",
+                "inference_settings": null
+            }
+        },
+        "metrics": {
+            "value": {
+                "accuracy": 0.90,
+                "latency": 120
+            },
+            "cmp_direction": {
+                "accuracy": 1,
+                "latency": -1
+            }
+        }
+    }
+}
