@@ -102,48 +102,6 @@ _onnx_quantization_config = {
     ),
 }
 
-_exposed_extra_options_config = {
-    "extra.Sigmoid.nnapi": PassConfigParam(type_=bool, default_value=False, description=""),
-    "ActivationSymmetric": PassConfigParam(
-        type_=bool, default_value=False, description="symmetrize calibration data for activations"
-    ),
-    "WeightSymmetric": PassConfigParam(
-        type_=bool, default_value=True, description="symmetrize calibration data for weights"
-    ),
-    "EnableSubgraph": PassConfigParam(
-        type_=bool,
-        default_value=False,
-        description="If enabled, subgraph will be quantized. Dyanmic mode currently is supported.",
-    ),
-    "ForceQuantizeNoInputCheck": PassConfigParam(
-        type_=bool,
-        default_value=False,
-        description="""
-            By default, some latent operators like maxpool, transpose, do not quantize if their input is not
-            quantized already. Setting to True to force such operator always quantize input and so generate
-            quantized output. Also the True behavior could be disabled per node using the nodes_to_exclude.
-        """,
-    ),
-    "MatMulConstBOnly ": PassConfigParam(
-        type_=bool,
-        default_value=ConditionalDefault(parents=("quant_mode",), support={("dynamic",): True, ("static",): False}),
-        description="If enabled, only MatMul with const B will be quantized.",
-    ),
-}
-
-_extra_options_config = {
-    "extra_options": PassConfigParam(
-        type_=dict,
-        default_value=None,
-        description=f"""
-            Key value pair dictionary for `extra_options` in quantization. Please refer to
-            https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/quantize.py
-            for details about the supported options. If an option is one of {set(_exposed_extra_options_config.keys())},
-            it will be overwritten by the corresponding config parameter value.
-        """,
-    ),
-}
-
 # static quantization specific config
 _static_dataloader_config = {
     "data_dir": PassConfigParam(
@@ -275,10 +233,6 @@ class OnnxQuantization(Pass):
                     default=Conditional.get_ignored_choice(),
                 )
         config.update(static_optional_config)
-
-        # exposed extra options config
-        config.update(deepcopy(_exposed_extra_options_config))
-        config.update(deepcopy(_extra_options_config))
         return config
 
     def validate_search_point(self, search_point: Dict[str, Any]) -> bool:
@@ -294,9 +248,6 @@ class OnnxQuantization(Pass):
             if config["weight_type"] != config["activation_type"]:
                 logger.info("Weight type and activation type must be the same.")
                 return False
-            if config["EnableSubgraph "] is True:
-                logger.info("Subgraph is not supported for static quantization.")
-                return False
         return True
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
@@ -307,21 +258,6 @@ class OnnxQuantization(Pass):
         # add onnx extension if not present
         if Path(output_model_path).suffix != ".onnx":
             output_model_path += ".onnx"
-
-        # extra config
-        extra_options = deepcopy(config["extra_options"]) if config["extra_options"] else {}
-        # keys in extra_options that are already exposed
-        intersection = set(extra_options.keys()).intersection(set(_exposed_extra_options_config.keys()))
-        if intersection:
-            message = (
-                f"Extra config keys {intersection} are already exposed in the pass config. They will be overwritten by"
-                " the corresponding pass config parameter values."
-            )
-            logger.warning(message)
-        for key in _exposed_extra_options_config:
-            extra_options[key] = run_config[key]
-            del run_config[key]
-        print(extra_options)
 
         # preprocess the model
         preprocessed_temp_model_path = Path(self.tmp_dir.name) / f"{Path(model.model_path).stem}_preprocessed.onnx"
@@ -346,7 +282,7 @@ class OnnxQuantization(Pass):
                     "quant_format": QuantFormat[run_config["quant_format"]],
                     "activation_type": QuantType[run_config["activation_type"]],
                     "weight_type": QuantType[run_config["weight_type"]],
-                    "extra_options": extra_options,
+                    "extra_options": {},
                 }
             )
         else:
@@ -355,12 +291,17 @@ class OnnxQuantization(Pass):
             run_config.update(
                 {
                     "weight_type": QuantType[run_config["weight_type"]],
-                    "extra_options": extra_options,
+                    "extra_options": {},
                 }
             )
         # remove keys not needed for quantization
         for key in to_delete:
             if key in run_config:
+                del run_config[key]
+        # add extra options to the extra options dictionary
+        for key, value in config.items():
+            if key.startswith("eo_"):
+                run_config["extra_options"][key] = value
                 del run_config[key]
 
         if is_static:
@@ -401,9 +342,6 @@ class OnnxDynamicQuantization(OnnxQuantization):
         }
         # common quantization config
         config.update(deepcopy(_onnx_quantization_config))
-        # exposed extra options config
-        config.update(deepcopy(_exposed_extra_options_config))
-        config.update(deepcopy(_extra_options_config))
         return config
 
 
@@ -422,7 +360,4 @@ class OnnxStaticQuantization(OnnxQuantization):
         # static quantization specific config
         config.update(deepcopy(_static_dataloader_config))
         config.update(deepcopy(_static_optional_config))
-        # exposed extra options config
-        config.update(deepcopy(_exposed_extra_options_config))
-        config.update(deepcopy(_extra_options_config))
         return config
