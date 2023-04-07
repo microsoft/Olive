@@ -19,6 +19,7 @@
                     "name": "accuracy",
                     "type": "accuracy",
                     "sub_type": "accuracy_score",
+                    "is_first_priority": true,
                     "user_config":{
                         "post_processing_func": "post_process",
                         "user_script": "{USER_SCRIPT}",
