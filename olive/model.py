@@ -139,7 +139,6 @@ class ONNXModel(OliveModel):
         )
         self.inference_settings = inference_settings
 
-
     @staticmethod
     def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
         """
@@ -150,7 +149,7 @@ class ONNXModel(OliveModel):
         returned. Examples:
 
         resolve_path("c:/foo/bar.onnx") -> c:/foo/bar.onnx
-        
+
         resolve_path("c:/foo/bar") -> c:/foo/bar/model.onnx
         """
         path = Path(file_or_dir_path)
