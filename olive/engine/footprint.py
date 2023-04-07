@@ -14,8 +14,15 @@ logger = logging.getLogger(__name__)
 
 
 class FootprintNodeMetric(ConfigBase):
+    """
+    value: {"metric_name": metrics_value, ...}
+    cmp_direction: will be auto suggested. The format will be like: {"metric_name": 1, ...},
+        1: higher is better, -1: lower is better
+    is_goals_met: if the goals set by users is met
+    """
+
     value: dict
-    cmp_direction: dict = {}
+    cmp_direction: dict = None
     is_goals_met: bool = False
 
 
@@ -27,7 +34,8 @@ class FootprintNode(ConfigBase):
     from_pass: str = None
     pass_run_config: dict = None
     is_pareto_frontier: bool = False
-    metrics: FootprintNodeMetric = FootprintNodeMetric(value={}, is_goals_met=False)
+    # TODO add EP/accelerators for same_model_id metrics
+    metrics: FootprintNodeMetric = FootprintNodeMetric(value={}, cmp_direction={}, is_goals_met=False)
 
     date_time: float = datetime.now().timestamp()
 
@@ -45,12 +53,12 @@ class Footprint:
 
     def __init__(
         self,
-        nodes: OrderedDict = {},
-        objective_dict: dict = {},
+        nodes: OrderedDict = None,
+        objective_dict: dict = None,
         is_marked_pareto_frontier: bool = False,
     ):
-        self.nodes = nodes
-        self.objective_dict = objective_dict
+        self.nodes = nodes if nodes is not None else {}
+        self.objective_dict = objective_dict if objective_dict is not None else {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
 
     def record_objective_dict(self, objective_dict):
@@ -60,6 +68,9 @@ class Footprint:
         for k, v in self.nodes.items():
             if v.metrics is None:
                 continue
+            if self.nodes[k].metrics.cmp_direction is None:
+                self.nodes[k].metrics.cmp_direction = {}
+
             is_goals_met = []
             for metric_name in v.metrics.value:
                 if metric_name in self.objective_dict:
