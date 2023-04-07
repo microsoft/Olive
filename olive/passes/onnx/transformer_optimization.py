@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from pathlib import Path
 from typing import Any, Dict
 
 from olive.model import ONNXModel
@@ -73,9 +72,7 @@ class OrtTransformersOptimization(Pass):
         if config["input_int32"]:
             optimizer.change_graph_inputs_to_int32()
 
-        # add onnx extension if not present
-        if Path(output_model_path).suffix != ".onnx":
-            output_model_path += ".onnx"
+        output_model_path = ONNXModel.resolve_path(output_model_path)
 
         optimizer.save_model_to_file(output_model_path, config["use_external_data_format"])
 

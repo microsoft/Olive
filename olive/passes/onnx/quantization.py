@@ -304,9 +304,7 @@ class OnnxQuantization(Pass):
         run_config = deepcopy(config)
         is_static = run_config["quant_mode"] == "static"
 
-        # add onnx extension if not present
-        if Path(output_model_path).suffix != ".onnx":
-            output_model_path += ".onnx"
+        output_model_path = ONNXModel.resolve_path(output_model_path)
 
         # extra config
         extra_options = deepcopy(config["extra_options"]) if config["extra_options"] else {}

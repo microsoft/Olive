@@ -139,6 +139,27 @@ class ONNXModel(OliveModel):
         )
         self.inference_settings = inference_settings
 
+    @staticmethod
+    def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
+        """
+        The engine provides output paths to ONNX passes that do not contain .onnx
+        extension (these paths are generally locations in the cache). This function
+        will convert such paths to absolute file paths and also ensure the parent
+        directories exist. If the input path is already an ONNX file it is simply
+        returned. Examples:
+
+        resolve_path("c:/foo/bar.onnx") -> c:/foo/bar.onnx
+
+        resolve_path("c:/foo/bar") -> c:/foo/bar/model.onnx
+        """
+        path = Path(file_or_dir_path)
+        if path.suffix != ".onnx":
+            path = path / model_filename
+            parent_dir = path.parent
+            if not parent_dir.exists():
+                parent_dir.mkdir(parents=True, exist_ok=True)
+        return str(path)
+
     def load_model(self) -> onnx.ModelProto:
         # HACK: ASSUME no external data
         return onnx.load(self.model_path)

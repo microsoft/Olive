@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from pathlib import Path
 from typing import Any, Callable, Dict
 
 from pydantic import validator
@@ -47,8 +46,7 @@ class SNPEtoONNXConversion(Pass):
     def _run_for_config(self, model: SNPEModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
         config = self._config_class(**config)
 
-        if Path(output_model_path).suffix != ".onnx":
-            output_model_path += ".onnx"
+        output_model_path = ONNXModel.resolve_path(output_model_path)
 
         dlc_to_onnx(model.model_path, config.dict(), output_model_path, **model.io_config)
         return ONNXModel(output_model_path, name=model.name)

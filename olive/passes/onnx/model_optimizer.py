@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from pathlib import Path
 from typing import Any, Dict
 
 import numpy as np
@@ -124,8 +123,7 @@ class OnnxModelOptimizer(Pass):
         return {}
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
-        if Path(output_model_path).suffix != ".onnx":
-            output_model_path += ".onnx"
+        output_model_path = ONNXModel.resolve_path(output_model_path)
 
         model_optimizer = ModelOptimizer(model.model_path, output_model_path)
         model_optimizer.optimize()
