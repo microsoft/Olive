@@ -251,6 +251,27 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span> <span class="o">=</span> <span class="n">inference_settings</span>
 
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">resolve_path</span><span class="p">(</span><span class="n">file_or_dir_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model_filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;model.onnx&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The engine provides output paths to ONNX passes that do not contain .onnx</span>
+<span class="sd">        extension (these paths are generally locations in the cache). This function</span>
+<span class="sd">        will convert such paths to absolute file paths and also ensure the parent</span>
+<span class="sd">        directories exist. If the input path is already an ONNX file it is simply</span>
+<span class="sd">        returned. Examples:</span>
+
+<span class="sd">        resolve_path(&quot;c:/foo/bar.onnx&quot;) -&gt; c:/foo/bar.onnx</span>
+
+<span class="sd">        resolve_path(&quot;c:/foo/bar&quot;) -&gt; c:/foo/bar/model.onnx</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">file_or_dir_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span> <span class="o">!=</span> <span class="s2">&quot;.onnx&quot;</span><span class="p">:</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="n">path</span> <span class="o">/</span> <span class="n">model_filename</span>
+            <span class="n">parent_dir</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">parent</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">parent_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="n">parent_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">onnx</span><span class="o">.</span><span class="n">ModelProto</span><span class="p">:</span>
         <span class="c1"># HACK: ASSUME no external data</span>
         <span class="k">return</span> <span class="n">onnx</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
