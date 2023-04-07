@@ -113,7 +113,7 @@ _exposed_extra_options_config = {
     "EnableSubgraph": PassConfigParam(
         type_=bool,
         default_value=False,
-        description="If enabled, subgraph will be quantized. Dyanmic mode currently is supported.",
+        description="If enabled, subgraph will be quantized. Dynamic mode currently is supported.",
     ),
     "ForceQuantizeNoInputCheck": PassConfigParam(
         type_=bool,
@@ -295,7 +295,7 @@ class OnnxQuantization(Pass):
                 logger.info("Weight type and activation type must be the same.")
                 return False
             if config["EnableSubgraph "] is True:
-                logger.info("Subgraph is not supported for static quantization.")
+                logger.info("EnabaleSubgraph is not supported for static quantization.")
                 return False
         return True
 
