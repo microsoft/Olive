@@ -21,7 +21,7 @@ class FootprintNodeMetric(ConfigBase):
     is_goals_met: if the goals set by users is met
     """
 
-    value: dict
+    value: dict = None
     cmp_direction: dict = None
     is_goals_met: bool = False
 
@@ -35,7 +35,7 @@ class FootprintNode(ConfigBase):
     pass_run_config: dict = None
     is_pareto_frontier: bool = False
     # TODO add EP/accelerators for same_model_id metrics
-    metrics: FootprintNodeMetric = FootprintNodeMetric(value={}, cmp_direction={}, is_goals_met=False)
+    metrics: FootprintNodeMetric = FootprintNodeMetric()
 
     date_time: float = datetime.now().timestamp()
 
@@ -70,6 +70,8 @@ class Footprint:
                 continue
             if self.nodes[k].metrics.cmp_direction is None:
                 self.nodes[k].metrics.cmp_direction = {}
+            if self.nodes[k].metrics.value is None:
+                self.nodes[k].metrics.value = {}
 
             is_goals_met = []
             for metric_name in v.metrics.value:
@@ -97,7 +99,7 @@ class Footprint:
         self.resolve_metrics()
 
     def get_candidates(self):
-        return {k: v for k, v in self.nodes.items() if v.metrics is not None}
+        return {k: v for k, v in self.nodes.items() if v.metrics is not None and v.parent_model_id is not None}
 
     def mark_pareto_frontier(self):
         if self.is_marked_pareto_frontier:

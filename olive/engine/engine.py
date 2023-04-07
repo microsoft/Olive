@@ -193,6 +193,8 @@ class Engine:
         output_dir = Path(output_dir) if output_dir else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        prefix_output_name = f"{output_name}_" if output_name is not None else ""
+
         if self.no_search:
             for pass_id in self.pass_order:
                 if len(self.passes[pass_id]["pass"].search_space()) > 0:
@@ -204,7 +206,7 @@ class Engine:
         if evaluation_only:
             assert self.evaluator is not None, "Evaluation only is True but no evaluator provided"
             results = self._evaluate_model(input_model, input_model_id, self.evaluator, verbose)
-            result_name = f"{output_name}_metrics" if output_name is not None else "metrics"
+            result_name = f"{prefix_output_name}metrics"
             results_path = output_dir / f"{result_name}.json"
             json.dump(results, open(results_path, "w"), indent=2)
             return results
@@ -295,11 +297,11 @@ class Engine:
 
         if self.no_search:
             # save the model to output_dir
-            output_model_name = f"{output_name}_model" if output_name is not None else "model"
+            output_model_name = f"{prefix_output_name}model"
             output_model_json = cache_utils.save_model(model_id, output_dir, output_model_name, self._config.cache_dir)
 
             # save the evaluation results to output_dir
-            result_name = f"{output_name}_metrics" if output_name is not None else "metrics"
+            result_name = f"{prefix_output_name}metrics"
             results_path = output_dir / f"{result_name}.json"
             if signal is not None:
                 json.dump(signal, open(results_path, "w"), indent=4)
@@ -310,7 +312,10 @@ class Engine:
             return output
 
         # TODO adapt different strategies when metrics prioritization is implemented @xiaoyu
-        return self.footprints.get_pareto_frontier()
+        pf_footprints = self.footprints.get_pareto_frontier()
+        pf_footprints.to_file(output_dir / f"{prefix_output_name}pareto_frontier_footprints.json")
+        self.footprints.to_file(output_dir / f"{prefix_output_name}footprints.json")
+        return pf_footprints
 
     def resolve_objectives(
         self, input_model: OliveModel, input_model_id: str, metrics: List[Metric], verbose: bool = False
