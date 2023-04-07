@@ -134,7 +134,11 @@ class Footprint:
         # restructure the pareto frontier points to instance of Footprints node for further analysis
         return Footprint(nodes=rls, objective_dict=self.objective_dict, is_marked_pareto_frontier=True)
 
-    def _plot_pareto_frontier(self, index=[0, 1]):
+    def _plot_pareto_frontier(self, index=None):
+        if index is None:
+            assert len(self.nodes) > 0, "you can not plot pareto frontier with empty nodes"
+            assert len(self.nodes[0].metrics.value) >= 2, "you can not plot pareto frontier with less than 2 metrics"
+            index = [0, 1]
         self.mark_pareto_frontier()
         # plot pareto frontier
         # import plotly.graph_objects as go
