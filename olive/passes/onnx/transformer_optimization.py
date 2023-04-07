@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from pathlib import Path
 from typing import Any, Dict
 
 from olive.model import ONNXModel
