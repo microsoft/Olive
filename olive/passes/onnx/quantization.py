@@ -321,7 +321,6 @@ class OnnxQuantization(Pass):
         for key in _exposed_extra_options_config:
             extra_options[key] = run_config[key]
             del run_config[key]
-        print(extra_options)
 
         # preprocess the model
         preprocessed_temp_model_path = Path(self.tmp_dir.name) / f"{Path(model.model_path).stem}_preprocessed.onnx"
