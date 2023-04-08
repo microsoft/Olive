@@ -68,25 +68,25 @@ def optimize(original_model: str, optimized_model_dir: Path):
 
     # Save the original models in a directory structure that the diffusers library can load and run.
     # This is optional, and the optimized models can be used directly in a custom pipeline if desired.
-    # pipeline = StableDiffusionPipeline.from_pretrained(original_model, torch_dtype=torch.float32)
-    # onnx_pipeline = OnnxStableDiffusionPipeline(
-    #     vae_encoder=OnnxRuntimeModel.from_pretrained(original_model_paths["vae_encoder"].parent),
-    #     vae_decoder=OnnxRuntimeModel.from_pretrained(original_model_paths["vae_decoder"].parent),
-    #     text_encoder=OnnxRuntimeModel.from_pretrained(original_model_paths["text_encoder"].parent),
-    #     tokenizer=pipeline.tokenizer,
-    #     unet=OnnxRuntimeModel.from_pretrained(original_model_paths["unet"].parent),
-    #     scheduler=pipeline.scheduler,
-    #     safety_checker=OnnxRuntimeModel.from_pretrained(original_model_paths["safety_checker"].parent),
-    #     feature_extractor=pipeline.feature_extractor,
-    #     requires_safety_checker=True,
-    # )
-    # onnx_pipeline.save_pretrained(optimized_model_dir)
+    pipeline = StableDiffusionPipeline.from_pretrained(original_model, torch_dtype=torch.float32)
+    onnx_pipeline = OnnxStableDiffusionPipeline(
+        vae_encoder=OnnxRuntimeModel.from_pretrained(original_model_paths["vae_encoder"].parent),
+        vae_decoder=OnnxRuntimeModel.from_pretrained(original_model_paths["vae_decoder"].parent),
+        text_encoder=OnnxRuntimeModel.from_pretrained(original_model_paths["text_encoder"].parent),
+        tokenizer=pipeline.tokenizer,
+        unet=OnnxRuntimeModel.from_pretrained(original_model_paths["unet"].parent),
+        scheduler=pipeline.scheduler,
+        safety_checker=OnnxRuntimeModel.from_pretrained(original_model_paths["safety_checker"].parent),
+        feature_extractor=pipeline.feature_extractor,
+        requires_safety_checker=True,
+    )
+    onnx_pipeline.save_pretrained(optimized_model_dir)
 
-    # # Copy the optimized models.
-    # for model_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
-    #     src_path = optimized_model_paths[model_name]
-    #     dst_path = optimized_model_dir / model_name / "model.onnx"
-    #     shutil.copyfile(src_path, dst_path)
+    # Copy the optimized models.
+    for model_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
+        src_path = optimized_model_paths[model_name]
+        dst_path = optimized_model_dir / model_name / "model.onnx"
+        shutil.copyfile(src_path, dst_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

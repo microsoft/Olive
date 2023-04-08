@@ -13,7 +13,7 @@ huggingface-cli.exe login
 
 The above command will ask for your access token, which you can find on your account profile `Settings -> Access Tokens`, just copy it from here and carefully paste it on this prompt. Note that you won't see anything appear on the prompt when you paste it, that's fine. It's there already, just hit Enter. You'll start downloading the model from Hugging Face.
 
-Next, make sure that your Python environment has `onnxruntime-directml` along with other dependencies in this sample's [requirements.txt](requirements.txt). You also need to log into Huggin
+Next, make sure that your Python environment has `onnxruntime-directml` along with other dependencies in this sample's [requirements.txt](requirements.txt):
 
 ```
 pip install -r requirements.txt
