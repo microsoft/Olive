@@ -106,12 +106,13 @@ class TestAzureMLSystem:
         # setup
         temp_model = tempfile.NamedTemporaryFile(dir=".", suffix=".onnx", prefix="model_0")
         model_json = {
+            "type": "onnxmodel",
             "config": {
                 "model_script": "model_script",
                 "script_dir": "script_dir",
                 "model_path": temp_model.name,
                 "is_file": True,
-            }
+            },
         }
         model_json["config"].update({"is_aml_model": is_aml_model})
         tem_dir = Path(".")
