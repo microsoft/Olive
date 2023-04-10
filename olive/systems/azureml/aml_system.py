@@ -159,8 +159,23 @@ class AzureMLSystem(OliveSystem):
         else:
             if model_json["config"].get("model_path"):
                 original_model_path = Path(model_json["config"]["model_path"]).resolve()
+                if model_json["type"].lower() == "onnxmodel" and not model_json["config"]["is_file"]:
+                    # onnx model with external data
+                    # need to upload the parent directory of .onnx file
+                    original_model_path = original_model_path.parent
+                # use common name "model" for model_path
                 tmp_model_path = (tmp_dir / "model").with_suffix(original_model_path.suffix)
-                tmp_model_path.symlink_to(original_model_path)
+                if original_model_path.is_dir():
+                    # copy model directory
+                    # symlink doesn't work for directory
+                    shutil.copytree(original_model_path, tmp_model_path, symlinks=True)
+                    if model_json["type"].lower() == "onnxmodel":
+                        # rename .onnx file to model.onnx
+                        onnx_model_file = Path(model_json["config"]["model_path"]).resolve().name
+                        (tmp_model_path / onnx_model_file).rename(tmp_model_path / "model.onnx")
+                else:
+                    # symlink model file
+                    tmp_model_path.symlink_to(original_model_path)
                 model_path = Input(
                     type=AssetTypes.URI_FILE if model_json["config"].get("is_file") else AssetTypes.URI_FOLDER,
                     path=tmp_model_path,

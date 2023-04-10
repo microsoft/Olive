@@ -86,7 +86,7 @@ class OnnxConversion(Pass):
             ),
             "all_tensors_to_one_file": PassConfigParam(
                 type_=bool,
-                default_value=False,
+                default_value=True,
                 description="If true, external data is written to a single file instead of one file per tensor.",
             ),
         }
@@ -188,6 +188,7 @@ class OnnxConversion(Pass):
         # now we can move the files to the final location
         for path in tmp_dir_path.glob("*"):
             shutil.move(path, Path(output_model_path).parent / path.name)
+        tmp_dir.cleanup()
 
         is_file = not (has_external_data or config["save_as_external_data"])
         model = ONNXModel(output_model_path, model.name, is_file=is_file)
