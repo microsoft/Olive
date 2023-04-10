@@ -87,7 +87,7 @@ class TestAzureMLSystem:
         output_model_path = "output_model_path"
         output_folder = Path(__file__).absolute().parent / "output_pass"
         mock_tempdir.return_value.__enter__.return_value = output_folder
-        expected_model = ONNXModel(model_path=f"{output_model_path}.onnx", name="test_model")
+        expected_model = ONNXModel(model_path=ONNXModel.resolve_path(output_model_path), name="test_model")
 
         # execute
         actual_res = self.aml_system.run_pass(p, olive_model, output_model_path)
