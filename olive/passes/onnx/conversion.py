@@ -87,7 +87,10 @@ class OnnxConversion(Pass):
             "all_tensors_to_one_file": PassConfigParam(
                 type_=bool,
                 default_value=True,
-                description="If true, external data is written to a single file instead of one file per tensor.",
+                description=(
+                    "Effective only if save_as_external_data is True. If true, save all tensors to one external file"
+                    " specified by location. If false, save each tensor to a file named with the tensor name."
+                ),
             ),
         }
 

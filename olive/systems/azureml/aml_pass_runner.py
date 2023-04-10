@@ -66,7 +66,7 @@ def main(raw_args=None):
             shutil.copy(old_path, new_path)
         else:
             new_path.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(old_path, new_path)
+            shutil.copytree(old_path, new_path, dirs_exist_ok=True)
         common_args.model_path = str(new_path)
 
     # pass specific args
