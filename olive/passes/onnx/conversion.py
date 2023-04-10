@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
@@ -77,8 +79,10 @@ class OnnxConversion(Pass):
             "save_as_external_data": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                description="Serializes tensor data to separate files instead of directly in the ONNX file."
-                " Large models (>2GB) may be forced to save external data regardless of the value of this parameter.",
+                description=(
+                    "Serializes tensor data to separate files instead of directly in the ONNX file. Large models (>2GB)"
+                    " may be forced to save external data regardless of the value of this parameter."
+                ),
             ),
             "all_tensors_to_one_file": PassConfigParam(
                 type_=bool,
@@ -131,17 +135,24 @@ class OnnxConversion(Pass):
 
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
+        # there might be multiple files created during export, so we need to track the dir
+        # if there are other processes writing to the same dir, we might end up deleting files created by
+        # other processes
+        tmp_dir = tempfile.TemporaryDirectory(dir=Path.cwd(), prefix="olive_tmp")
+        tmp_dir_path = Path(tmp_dir.name)
+        tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
+
         # When converting to ONNX, torch.onnx.export (1.11+) automatically saves tensor data as external data if the
         # ONNX protobuf would exceed 2GB. With sufficiently large models, any tensor exceeding a size threshold will
         # have its data stored in a separate file on disk in the same directory as the exported ONNX file. We track
         # the files in the output directory to see if any external data has been emitted.
-        files_before_export = set(Path(output_model_path).parent.glob("*"))
+        files_before_export = set(tmp_dir_path.glob("*"))
 
         torch.onnx.export(
             pytorch_model,
             # TODO: support custom input tensor. Will implement once we decide how to handle non-hashable config params
             self._dummy_inputs,
-            output_model_path,
+            tmp_model_path,
             export_params=True,
             opset_version=config["target_opset"],
             input_names=config["input_names"],
@@ -149,7 +160,7 @@ class OnnxConversion(Pass):
             dynamic_axes=self._dynamic_axes,
         )
 
-        files_after_export = set(Path(output_model_path).parent.glob("*"))
+        files_after_export = set(tmp_dir_path.glob("*"))
         has_external_data = len(files_after_export) - len(files_before_export) > 1
 
         # A second pass to serialize the model is required if either is true:
@@ -158,21 +169,26 @@ class OnnxConversion(Pass):
         if (config["save_as_external_data"] and not has_external_data) or (
             has_external_data and config["all_tensors_to_one_file"]
         ):
-            onnx_model = onnx.load(output_model_path)
+            onnx_model = onnx.load(tmp_model_path)
 
             # The model is loaded into memory, so it's safe to delete previously exported files.
             for path in files_after_export - files_before_export:
                 path.unlink()
 
-            external_data_path = str(Path(output_model_path).name + ".data")
+            external_data_path = str(Path(tmp_model_path).name + ".data")
             onnx.save_model(
                 onnx_model,
-                output_model_path,
+                tmp_model_path,
                 save_as_external_data=True,
                 all_tensors_to_one_file=config["all_tensors_to_one_file"],
                 location=external_data_path,
                 convert_attribute=False,
             )
 
-        model = ONNXModel(output_model_path, model.name)
+        # now we can move the files to the final location
+        for path in tmp_dir_path.glob("*"):
+            shutil.move(path, Path(output_model_path).parent / path.name)
+
+        is_file = not (has_external_data or config["save_as_external_data"])
+        model = ONNXModel(output_model_path, model.name, is_file=is_file)
         return model
