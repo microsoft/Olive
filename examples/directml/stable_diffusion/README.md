@@ -56,3 +56,4 @@ This sample is incomplete.
 - Perform ORT runtime graph optimizations to save on session creation time. Perhaps augment `OrtPerfTuning` pass to serialize the model in ["offline mode"](https://onnxruntime.ai/docs/performance/model-optimizations/graph-optimizations.html#onlineoffline-mode)? Disable graph optimizations in inference test if this is done.
 - Support ORT 1.14 (need to set appropriate fusion defaults); currently only works with main branch / nightly builds.
 - Consider Torch 2.0.0 support (see https://github.com/pytorch/pytorch/issues/97262).
+- Investigate bland output images with batch_size > 1

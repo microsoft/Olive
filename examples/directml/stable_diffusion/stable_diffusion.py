@@ -13,25 +13,31 @@ import onnxruntime as ort
 from olive.workflows import run as olive_run
 
 
-def run_inference(optimized_model_dir):
+def run_inference(optimized_model_dir, prompt, num_images, batch_size):
     ort.set_default_logger_severity(3)
 
     sess_options = ort.SessionOptions()
     sess_options.enable_mem_pattern = False
-    pipe = OnnxStableDiffusionPipeline.from_pretrained(
+    pipeline = OnnxStableDiffusionPipeline.from_pretrained(
         optimized_model_dir, provider="DmlExecutionProvider", sess_options=sess_options
     )
 
-    # Keep running until a result passes the safety checker
-    succeeded = False
-    attempt = 1
-    while not succeeded and attempt < 10:
-        result = pipe(args.prompt)
-        print(f"NSFW Content: {result.nsfw_content_detected[0]}")
-        succeeded = not result.nsfw_content_detected[0]
-        attempt += 1
+    images_saved = 0
+    while images_saved < num_images:
+        print(f"\nInference Batch Start (batch size = {batch_size}).")
+        result = pipeline([prompt] * batch_size)
+        passed_safety_checker = 0
 
-    result.images[0].save("./result.png")
+        for image_index in range(batch_size):
+            if not result.nsfw_content_detected[image_index]:
+                passed_safety_checker += 1
+                if images_saved < num_images:
+                    output_path = f"result_{images_saved}.png"
+                    result.images[image_index].save(output_path)
+                    images_saved += 1
+                    print(f"Generated {output_path}")
+        
+        print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
 
 
 def optimize(original_model: str, optimized_model_dir: Path):
@@ -88,11 +94,14 @@ def optimize(original_model: str, optimized_model_dir: Path):
         dst_path = optimized_model_dir / model_name / "model.onnx"
         shutil.copyfile(src_path, dst_path)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--optimize", action="store_true", help="Optimize the models with Olive (no inference)")
     parser.add_argument("--model", default="runwayml/stable-diffusion-v1-5", type=str)
     parser.add_argument("--prompt", default="a photo of an astronaut riding a horse on mars.", type=str)
+    parser.add_argument("--num_images", default=1, type=int, help="Number of images to generate")
+    parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
     args = parser.parse_args()
 
     optimized_model_dir = Path(__file__).resolve().parent / "models" / args.model
@@ -101,4 +110,4 @@ if __name__ == "__main__":
         optimize(args.model, optimized_model_dir)
 
     if not args.optimize:
-        run_inference(optimized_model_dir)
+        run_inference(optimized_model_dir, args.prompt, args.num_images, args.batch_size)
