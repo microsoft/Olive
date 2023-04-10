@@ -11,7 +11,6 @@ RUN pip install onnxruntime \
             openvino \
             openvino-dev \
             onnxconverter_common \
-            olive-ai==0.1.0 \
-            neural-compressor
+            olive-ai==0.1.0
 
 WORKDIR /olive

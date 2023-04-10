@@ -13,4 +13,3 @@ dependencies:
       - torchvision
       - onnxconverter_common
       - olive-ai==0.1.0
-      - neural-compressor

@@ -13,8 +13,6 @@ from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, q
 from onnxruntime.quantization.calibrate import CalibrationMethod
 from onnxruntime.quantization.preprocess import quant_pre_process
 
-from neural_compressor import quantization, PostTrainingQuantConfig
-
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
@@ -369,7 +367,7 @@ _inc_quantization_config = {
         type_=str,
         default_value="cpu",
         description="""
-            Inc quantization device. Support 'cpu' and 'gpu'.
+            Intel® Neural Compressor quantization device. Support 'cpu' and 'gpu'.
         """,
     ),
     "backend": PassConfigParam(
@@ -384,8 +382,8 @@ _inc_quantization_config = {
         default_value="auto",
         description="""
             Model domain. Support 'auto', 'cv', 'object_detection', 'nlp' and 'recommendation_system'.
-            INC Adaptor will use specific quantization settings for different domains automatically, and
-            explicitly specified quantization settings will override the automatic setting.
+            Intel® Neural Compressor Adaptor will use specific quantization settings for different domains 
+            automatically, and explicitly specified quantization settings will override the automatic setting.
             If users set domain as auto, automatic detection for domain will be executed.
         """,
     ),
@@ -393,7 +391,7 @@ _inc_quantization_config = {
         type_=dict,
         default_value={},
         description="""
-            Recipes for INC quantiztaion, support list is as below.
+            Recipes for Intel® Neural Compressor quantiztaion, support list is as below.
                 'smooth_quant': whether do smooth quant
                 'smooth_quant_args': parameters for smooth_quant
                 'fast_bias_correction': whether do fast bias correction
@@ -409,44 +407,6 @@ _inc_quantization_config = {
                 'dedicated_qdq_pair': whether dedicate QDQ pair, only vaild for onnxrt_trt_ep
         """,
     ),
-    "op_type_dict": PassConfigParam(
-        type_=dict,
-        default_value=None,
-        description="""
-            INC quantization tuning constraints on optype-wise for advance user to reduce tuning space.
-            User can specify the quantization config by op type:
-            example:
-            {
-                'Conv': {
-                    'weight': {
-                        'dtype': ['fp32']
-                    },
-                    'activation': {
-                        'dtype': ['fp32']
-                    }
-                }
-            }
-        """,
-    ),
-    "op_name_dict": PassConfigParam(
-        type_=dict,
-        default_value=None,
-        description="""
-            INC quantization tuning constraints on op-wise for advance user to reduce tuning space.
-            User can specify the quantization config by op name:
-            example:
-            {
-                "layer1.0.conv1": {
-                    "activation": {
-                        "dtype": ["fp32"]
-                    },
-                    "weight": {
-                        "dtype": ["fp32"]
-                    }
-                },
-            }
-        """,
-    ),
     "reduce_range": PassConfigParam(
         type_=bool,
         default_value=False,
@@ -460,7 +420,7 @@ _inc_quantization_config = {
         default_value=[],
         description="""
             Precisions to be excluded, Default value is empty list.
-            Intel Neural compressor enable the mixed precision with 
+            Intel® Neural Compressor enable the mixed precision with 
             fp32 + bf16(only when device is 'gpu' and backend is 'CUDAExecutionProvider') + int8 by default.
             If you want to disable bf16 data type, you can specify excluded_precisions = ['bf16].
         """,
@@ -496,7 +456,7 @@ _inc_static_optional_config = {
 
 class IncQuantization(Pass):
     """
-    Quantize ONNX model with Intel Neural Compressor.
+    Quantize ONNX model with Intel® Neural Compressor.
     """
 
     _requires_user_script = True
@@ -512,7 +472,7 @@ class IncQuantization(Pass):
             default_value="static",
             searchable_values=Categorical(["dynamic", "static"]),
             description="""
-                Inc Quantization mode. 'dynamic' for dynamic quantization,
+                Intel® Neural Compressor Quantization mode. 'dynamic' for dynamic quantization,
                 'static' for static quantization.
             """,
             )
@@ -550,6 +510,12 @@ class IncQuantization(Pass):
 
     
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+
+        try:
+            from neural_compressor import quantization, PostTrainingQuantConfig
+        except ImportError:
+            raise ImportError("Please install neural-compressor to use Intel® Neural Compressor quantization")
+        
         # start with a copy of the config
         run_config = deepcopy(config)
         is_static = run_config["approach"] == "static"
@@ -579,7 +545,7 @@ class IncQuantization(Pass):
         return ONNXModel(output_model_path, model.name)
     
 class IncDynamicQuantization(IncQuantization):
-    """INC Dynamic Quantization Pass"""
+    """Intel® Neural Compressor Dynamic Quantization Pass"""
 
     _requires_user_script = False
 
@@ -592,7 +558,7 @@ class IncDynamicQuantization(IncQuantization):
     
     
 class IncStaticQuantization(IncQuantization):
-    """INC Static Quantization Pass"""
+    """Intel® Neural Compressor Static Quantization Pass"""
 
     _requires_user_script = True
 

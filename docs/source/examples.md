@@ -15,3 +15,6 @@
 
 # SqueezeNet latency optimization with DirectML
 [directml/squeezenet](https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet)
+
+# BERT optimization with Intel® Neural Compressor Post Training quantization on CPU
+[bert_qat_customized_train_loop_cpu](https://github.com/microsoft/Olive/tree/main/examples/bert_inc_ptq_cpu)
