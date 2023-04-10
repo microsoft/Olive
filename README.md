@@ -70,7 +70,7 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-Everytime, you make a git commit after the above, the hooks will automatically point out issues in code for changed files and fix them if possible.
+Everytime you make a git commit, the hooks will automatically point out issues in code for changed files and fix them if possible.
 
 ## License
 Copyright (c) Microsoft Corporation. All rights reserved.
