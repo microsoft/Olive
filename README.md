@@ -58,6 +58,20 @@ Olive has optional dependencies that can be installed to enable additional featu
 ## Contributing
 We’d love to embrace your contribution to Olive. Please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).
 
+### Formatting
+Olive uses pre-commit hooks to check and format code. To install the pre-commit hooks, run the following commands from the root of the repository:
+
+```bash
+# install pre-commit and other dev requirements
+python -m pip install pre-commit
+# install the git hook scripts
+pre-commit install
+# for the first time, run on all files
+pre-commit run --all-files
+```
+
+Everytime you make a git commit, the hooks will automatically point out issues in code for changed files and fix them if possible.
+
 ## License
 Copyright (c) Microsoft Corporation. All rights reserved.
 
