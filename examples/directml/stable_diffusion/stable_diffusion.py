@@ -51,22 +51,21 @@ def optimize(model_name: str, cache_dir: Path, unoptimized_model_dir: Path, opti
     for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
         # Optimize the model with Olive
         print(f"\nOptimizing {submodel_name}")
-        best_execution = olive_run(str(script_dir / f"config_{submodel_name}.json"))
 
-        # Save path to the unoptimized ONNX model
-        conversion_pass_id = 0
-        model_info_json_path = cache_dir / "models" / (best_execution["model_ids"][conversion_pass_id] + ".json")
-        with model_info_json_path.open("r") as model_info_json_file:
-            model_info = json.load(model_info_json_file)
-            unoptimized_submodel_paths[submodel_name] = Path(model_info["config"]["model_path"])
+        olive_run(str(script_dir / f"config_{submodel_name}.json"))
+
+        footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_footprints.json"
+        with footprints_file_path.open("r") as footprint_file:
+            footprints = json.load(footprint_file)
+
+            # Save path to the unoptimized ONNX model
+            converted_model_path = footprints[list(footprints)[0]]["model_config"]["config"]["model_path"]
+            unoptimized_submodel_paths[submodel_name] = converted_model_path
             print(f"Unoptimized Model: {unoptimized_submodel_paths[submodel_name]}")
 
-        # Save path to the optimized model
-        optimization_pass_id = 1
-        model_info_json_path = cache_dir / "models" / (best_execution["model_ids"][optimization_pass_id] + ".json")
-        with model_info_json_path.open("r") as model_info_json_file:
-            model_info = json.load(model_info_json_file)
-            optimized_submodel_paths[submodel_name] = Path(model_info["config"]["model_path"])
+            # Save path to the optimized model
+            optimized_model_path = footprints[list(footprints)[1]]["model_config"]["config"]["model_path"]
+            optimized_submodel_paths[submodel_name] = optimized_model_path
             print(f"Optimized Model: {optimized_submodel_paths[submodel_name]}")
 
     # Save the unoptimized models in a directory structure that the diffusers library can load and run.
@@ -95,7 +94,8 @@ def optimize(model_name: str, cache_dir: Path, unoptimized_model_dir: Path, opti
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--optimize", action="store_true", help="Cleans caches and forces the optimization step")
+    parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
+    parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
     parser.add_argument("--model", default="runwayml/stable-diffusion-v1-5", type=str)
     parser.add_argument("--prompt", default="a photo of an astronaut riding a horse on mars.", type=str)
@@ -115,9 +115,10 @@ if __name__ == "__main__":
     # Path to directory containing the converted and optimized ONNX models laid out in diffusers format
     optimized_model_dir = script_dir / "models" / "optimized" / args.model
 
-    # Start from scratch if --optimize is provided.
-    if args.optimize:
+    if args.clean_cache:
         shutil.rmtree(cache_dir, ignore_errors=True)
+
+    if args.optimize:
         shutil.rmtree(unoptimized_model_dir, ignore_errors=True)
         shutil.rmtree(optimized_model_dir, ignore_errors=True)
 

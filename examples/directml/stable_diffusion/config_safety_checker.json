@@ -64,6 +64,8 @@
         },
         "evaluator": "common_evaluator",
         "host": "local_system",
-        "cache_dir": "cache"
+        "cache_dir": "cache",
+        "output_name": "safety_checker",
+        "output_dir": "footprints"
     }
 }
