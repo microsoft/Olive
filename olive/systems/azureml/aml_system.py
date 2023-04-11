@@ -20,7 +20,7 @@ from olive.common.config_utils import validate_config
 from olive.common.utils import retry_func
 from olive.constants import Framework
 from olive.evaluator.metric import Metric
-from olive.model import ModelConfig, OliveModel
+from olive.model import ModelConfig, OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import AzureMLDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
@@ -159,8 +159,23 @@ class AzureMLSystem(OliveSystem):
         else:
             if model_json["config"].get("model_path"):
                 original_model_path = Path(model_json["config"]["model_path"]).resolve()
+                if model_json["type"].lower() == "onnxmodel" and not model_json["config"]["is_file"]:
+                    # onnx model with external data
+                    # need to upload the parent directory of .onnx file
+                    original_model_path = original_model_path.parent
+                # use common name "model" for model_path
                 tmp_model_path = (tmp_dir / "model").with_suffix(original_model_path.suffix)
-                tmp_model_path.symlink_to(original_model_path)
+                if original_model_path.is_dir():
+                    # copy model directory
+                    # symlink doesn't work for directory
+                    shutil.copytree(original_model_path, tmp_model_path, symlinks=True)
+                    if model_json["type"].lower() == "onnxmodel":
+                        # rename .onnx file to model.onnx
+                        onnx_model_file = Path(model_json["config"]["model_path"]).resolve().name
+                        (tmp_model_path / onnx_model_file).rename(tmp_model_path / "model.onnx")
+                else:
+                    # symlink model file
+                    tmp_model_path.symlink_to(original_model_path)
                 model_path = Input(
                     type=AssetTypes.URI_FILE if model_json["config"].get("is_file") else AssetTypes.URI_FOLDER,
                     path=tmp_model_path,
@@ -308,10 +323,29 @@ class AzureMLSystem(OliveSystem):
             )
         elif model_json["config"]["model_path"] is not None:
             downloaded_model_path = pipeline_output_path / model_json["config"]["model_path"]
-            if Path(output_model_path).suffix != Path(downloaded_model_path).suffix:
-                output_model_path += Path(downloaded_model_path).suffix
-            # TODO: handle cases where output_model_path is a directory
-            shutil.copy(downloaded_model_path, output_model_path)
+            if model_json["type"].lower() == "onnxmodel":
+                # onnx model can have external data
+                output_model_path = ONNXModel.resolve_path(output_model_path)
+                if not model_json["config"]["is_file"]:
+                    # has external data
+                    # copy the .onnx file along with external data files
+                    shutil.copytree(downloaded_model_path.parent, Path(output_model_path).parent, dirs_exist_ok=True)
+                    # rename the .onnx file to the output_model_path, the downloaded model has "model.onnx" name
+                    (Path(output_model_path).parent / downloaded_model_path.name).rename(output_model_path)
+                else:
+                    # no external data
+                    # just copy over the .onnx file
+                    shutil.copy(downloaded_model_path, output_model_path)
+            else:
+                # handle other model types
+                if Path(output_model_path).suffix != Path(downloaded_model_path).suffix:
+                    output_model_path += Path(downloaded_model_path).suffix
+                if downloaded_model_path.is_file():
+                    # model is a file
+                    shutil.copy(downloaded_model_path, output_model_path)
+                else:
+                    # model is a directory
+                    shutil.copytree(downloaded_model_path, output_model_path, dirs_exist_ok=True)
             model_path = output_model_path
             model_json["config"]["is_aml_model"] = False
         model_json["config"]["model_path"] = model_path
@@ -355,7 +389,6 @@ class AzureMLSystem(OliveSystem):
         }
 
     def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> Dict[str, Any]:
-
         if model.framework == Framework.SNPE:
             raise NotImplementedError("SNPE model does not support azureml evaluation")
         if model.framework == Framework.OPENVINO:

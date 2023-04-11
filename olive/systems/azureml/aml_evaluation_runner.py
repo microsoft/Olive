@@ -25,6 +25,8 @@ def parse_metric_args(raw_args):
 
 def create_metric(metric_config, metric_args):
     for key, value in vars(metric_args).items():
+        if key == "metric_config":
+            continue
         if value is not None:
             key = key.replace("metric_", "")
             metric_config["user_config"][key] = value
