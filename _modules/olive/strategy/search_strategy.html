@@ -351,31 +351,7 @@
             <span class="k">return</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">exit_criteria_met</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">stop_when_goals_met</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_results</span><span class="p">[</span>
             <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)</span>
-        <span class="p">]</span><span class="o">.</span><span class="n">check_goals</span><span class="p">(</span><span class="n">metric_signal</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">get_best_execution</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Get the best execution found so far.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">best_search_points</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">best_metric</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">best_model_ids</span> <span class="o">=</span> <span class="p">[]</span>
-
-        <span class="c1"># legacy will update once search results has info function</span>
-        <span class="k">for</span> <span class="n">spaces_group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_done_spaces_groups</span><span class="p">:</span>
-            <span class="n">annotated_search_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_best_search_points</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">spaces_group</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">annotated_search_point</span><span class="p">:</span>
-                <span class="k">continue</span>
-            <span class="k">for</span> <span class="n">space_name</span> <span class="ow">in</span> <span class="n">spaces_group</span><span class="p">:</span>
-                <span class="n">best_search_points</span><span class="p">[</span><span class="n">space_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">annotated_search_point</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">space_name</span><span class="p">]</span>
-            <span class="n">best_metric</span> <span class="o">=</span> <span class="n">annotated_search_point</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-            <span class="n">best_model_ids</span> <span class="o">+=</span> <span class="n">annotated_search_point</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
-
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;search_points&quot;</span><span class="p">:</span> <span class="n">best_search_points</span><span class="p">,</span>
-            <span class="s2">&quot;metric&quot;</span><span class="p">:</span> <span class="n">best_metric</span><span class="p">,</span>
-            <span class="s2">&quot;model_ids&quot;</span><span class="p">:</span> <span class="n">best_model_ids</span><span class="p">,</span>
-        <span class="p">}</span></div>
+        <span class="p">]</span><span class="o">.</span><span class="n">check_goals</span><span class="p">(</span><span class="n">metric_signal</span><span class="p">)</span></div>
 </pre></div>
 
            </div>
