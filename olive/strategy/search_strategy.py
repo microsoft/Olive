@@ -240,27 +240,3 @@ class SearchStrategy(ABC):
         self.exit_criteria_met = self._config.stop_when_goals_met and self._search_results[
             tuple(self._active_spaces_group)
         ].check_goals(metric_signal)
-
-    def get_best_execution(self) -> Dict[str, Any]:
-        """
-        Get the best execution found so far.
-        """
-        best_search_points = {}
-        best_metric = None
-        best_model_ids = []
-
-        # legacy will update once search results has info function
-        for spaces_group in self._done_spaces_groups:
-            annotated_search_point = self._best_search_points.get(tuple(spaces_group), None)
-            if not annotated_search_point:
-                continue
-            for space_name in spaces_group:
-                best_search_points[space_name] = annotated_search_point[0][space_name]
-            best_metric = annotated_search_point[1]
-            best_model_ids += annotated_search_point[2]
-
-        return {
-            "search_points": best_search_points,
-            "metric": best_metric,
-            "model_ids": best_model_ids,
-        }

@@ -4,8 +4,6 @@
 # --------------------------------------------------------------------------
 from typing import Dict, List, Set, Tuple
 
-import numpy as np
-
 from olive.strategy.search_parameter import Conditional, SearchParameter
 
 
@@ -93,34 +91,3 @@ def order_search_parameters(search_space: Dict[str, SearchParameter]) -> List[st
     """
     graph = _search_space_graph(search_space)
     return graph.topological_sort()
-
-
-def find_pareto_frontier_points(points: np.ndarray) -> List[int]:
-    """
-    Find the pareto frontier points in a set of points.
-    """
-    assert points.ndim == 2, "Points must be a 2D array."
-    # assert points.shape[1] > 1, "Points must have more than 1 dimension."
-
-    # Find the pareto frontier points
-    pareto_frontier_points = np.array([])
-    for idx, point in enumerate(points):
-        if len(pareto_frontier_points) == 0:
-            pareto_frontier_points = np.append(pareto_frontier_points, idx)
-            continue
-
-        frontier = points[pareto_frontier_points.astype(int)]
-
-        # check if point is dominated by another point on the pareto front
-        is_dominated = np.all(point <= frontier, axis=1)
-        if np.any(is_dominated):
-            continue
-
-        # remove points from the pareto front dominated by point
-        dominates = np.all(point >= frontier, axis=1)
-        pareto_frontier_points = pareto_frontier_points[~dominates]
-
-        # add point to the pareto front
-        pareto_frontier_points = np.append(pareto_frontier_points, idx)
-
-    return pareto_frontier_points.astype(int).tolist()
