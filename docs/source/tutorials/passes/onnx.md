@@ -78,9 +78,6 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
 }
 ```
 
-## ORT Stable Diffusion Optimization
-TODO
-
 ## Post Training Quantization (PTQ)
 [Quantization][1] is a technique to compress deep learning models by reducing the precision of the model weights from 32 bits to 8 bits. This
 technique is used to reduce the memory footprint and improve the inference performance of the model. Quantization can be applied to the

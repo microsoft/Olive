@@ -53,10 +53,12 @@
             }
         },
         "optimize": {
-            "type": "OrtStableDiffusionOptimization",
+            "type": "OrtTransformersOptimization",
             "config": {
                 "model_type": "unet",
-                "float16": true
+                "float16": true,
+                "use_gpu": true,
+                "keep_io_types": false
             }
         }
     },

@@ -22,7 +22,7 @@ pip install -r requirements.txt
 
 ## Conversion to ONNX and Latency Optimization
 
-Stable Diffusion comprises multiple PyTorch models glued together into a *pipeline*. Each model is converted to ONNX, and then each ONNX model is optimized using the `OrtStableDiffusionOptimization` pass. The optimization pass performs several time-consuming graph transformations that make the model more efficient for inference with DirectML. The easiest way to optimize everything is with the `stable_diffusion.py` helper script:
+Stable Diffusion comprises multiple PyTorch models glued together into a *pipeline*. Each model is converted to ONNX, and then each ONNX model is optimized using the `OrtTransformersOptimization` pass. The optimization pass performs several time-consuming graph transformations that make the model more efficient for inference with DirectML. The easiest way to optimize everything is with the `stable_diffusion.py` helper script:
 
 ```
 python stable_diffusion.py --optimize

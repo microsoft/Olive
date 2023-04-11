@@ -42,7 +42,7 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size):
         print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
 
 
-def optimize(model_name: str, cache_dir: Path, unoptimized_model_dir: Path, optimized_model_dir: Path):
+def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: Path):
     ort.set_default_logger_severity(4)
 
     model_info = dict()
@@ -107,22 +107,15 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
     args = parser.parse_args()
 
-    # Path to the directory containing this script
     script_dir = Path(__file__).resolve().parent
-
-    # Path to Olive's cache for this example
-    cache_dir = script_dir / "cache"
-
-    # Path to directory containing the converted (but not optimized) ONNX models laid out in diffusers format
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model
-
-    # Path to directory containing the converted and optimized ONNX models laid out in diffusers format
     optimized_model_dir = script_dir / "models" / "optimized" / args.model
 
     if args.clean_cache:
-        shutil.rmtree(cache_dir, ignore_errors=True)
+        shutil.rmtree(script_dir / "cache", ignore_errors=True)
 
     if args.optimize:
+        shutil.rmtree(script_dir / "footprints", ignore_errors=True)
         shutil.rmtree(unoptimized_model_dir, ignore_errors=True)
         shutil.rmtree(optimized_model_dir, ignore_errors=True)
 
@@ -130,7 +123,7 @@ if __name__ == "__main__":
         # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            optimize(args.model, cache_dir, unoptimized_model_dir, optimized_model_dir)
+            optimize(args.model, unoptimized_model_dir, optimized_model_dir)
 
     if not args.optimize:
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
