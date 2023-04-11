@@ -226,9 +226,9 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-all_tensors_to_one_file">
 <span id="cmdoption-arg-all-tensors-to-one-file"></span><span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-all_tensors_to_one_file" title="Permalink to this definition">¶</a></dt>
-<dd><p>If true, external data is written to a single file instead of one file per tensor.</p>
+<dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by location. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
-<p><strong>default_value:</strong> False</p>
+<p><strong>default_value:</strong> True</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
@@ -711,7 +711,7 @@
 <dd><p>
             Key value pair dictionary for <cite>extra_options</cite> in quantization. Please refer to
             <a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/quantize.py">https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/quantize.py</a>
-            for details about the supported options. If an option is one of {‘ActivationSymmetric’, ‘ForceQuantizeNoInputCheck’, ‘MatMulConstBOnly ‘, ‘EnableSubgraph’, ‘WeightSymmetric’, ‘extra.Sigmoid.nnapi’},
+            for details about the supported options. If an option is one of {‘WeightSymmetric’, ‘MatMulConstBOnly ‘, ‘ActivationSymmetric’, ‘extra.Sigmoid.nnapi’, ‘EnableSubgraph’, ‘ForceQuantizeNoInputCheck’},
             it will be overwritten by the corresponding config parameter value.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
@@ -976,7 +976,7 @@
 <dd><p>
             Key value pair dictionary for <cite>extra_options</cite> in quantization. Please refer to
             <a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/quantize.py">https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/quantize.py</a>
-            for details about the supported options. If an option is one of {‘ActivationSymmetric’, ‘ForceQuantizeNoInputCheck’, ‘MatMulConstBOnly ‘, ‘EnableSubgraph’, ‘WeightSymmetric’, ‘extra.Sigmoid.nnapi’},
+            for details about the supported options. If an option is one of {‘WeightSymmetric’, ‘MatMulConstBOnly ‘, ‘ActivationSymmetric’, ‘extra.Sigmoid.nnapi’, ‘EnableSubgraph’, ‘ForceQuantizeNoInputCheck’},
             it will be overwritten by the corresponding config parameter value.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
@@ -1245,7 +1245,7 @@
 <dd><p>
             Key value pair dictionary for <cite>extra_options</cite> in quantization. Please refer to
             <a class="reference external" href="https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/quantize.py">https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/quantize.py</a>
-            for details about the supported options. If an option is one of {‘ActivationSymmetric’, ‘ForceQuantizeNoInputCheck’, ‘MatMulConstBOnly ‘, ‘EnableSubgraph’, ‘WeightSymmetric’, ‘extra.Sigmoid.nnapi’},
+            for details about the supported options. If an option is one of {‘WeightSymmetric’, ‘MatMulConstBOnly ‘, ‘ActivationSymmetric’, ‘extra.Sigmoid.nnapi’, ‘EnableSubgraph’, ‘ForceQuantizeNoInputCheck’},
             it will be overwritten by the corresponding config parameter value.</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> None</p>
