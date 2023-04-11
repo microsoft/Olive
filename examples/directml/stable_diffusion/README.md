@@ -53,8 +53,6 @@ python -m olive.workflows.run --config .\config_unet.json
 # TODO
 This sample is incomplete.
 
-- Fix copying of external weights in unoptimized model.
-- Currently assumes FP16 conversion is always done. There should be an option to use FP32 and copy the external weights.
 - Perform ORT runtime graph optimizations to save on session creation time. Perhaps augment `OrtPerfTuning` pass to serialize the model in ["offline mode"](https://onnxruntime.ai/docs/performance/model-optimizations/graph-optimizations.html#onlineoffline-mode)? Disable graph optimizations in inference test if this is done.
 - Support ORT 1.14 (need to set appropriate fusion defaults); currently only works with main branch / nightly builds.
 - Consider Torch 2.0.0 support (see https://github.com/pytorch/pytorch/issues/97262).

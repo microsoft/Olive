@@ -45,49 +45,53 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size):
 def optimize(model_name: str, cache_dir: Path, unoptimized_model_dir: Path, optimized_model_dir: Path):
     ort.set_default_logger_severity(4)
 
-    unoptimized_submodel_paths = {}
-    optimized_submodel_paths = {}
+    model_info = dict()
 
     for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
         # Optimize the model with Olive
         print(f"\nOptimizing {submodel_name}")
-
         olive_run(str(script_dir / f"config_{submodel_name}.json"))
 
         footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_footprints.json"
         with footprints_file_path.open("r") as footprint_file:
             footprints = json.load(footprint_file)
+            unoptimized_config = footprints[list(footprints)[0]]["model_config"]["config"]
+            optimized_config = footprints[list(footprints)[1]]["model_config"]["config"]
 
-            # Save path to the unoptimized ONNX model
-            converted_model_path = footprints[list(footprints)[0]]["model_config"]["config"]["model_path"]
-            unoptimized_submodel_paths[submodel_name] = converted_model_path
-            print(f"Unoptimized Model: {unoptimized_submodel_paths[submodel_name]}")
+            model_info[submodel_name] = {
+                "unoptimized": {
+                    "path": Path(unoptimized_config["model_path"]),
+                    "is_file": unoptimized_config["is_file"],
+                },
+                "optimized": {
+                    "path": Path(optimized_config["model_path"]),
+                    "is_file": optimized_config["is_file"],
+                },
+            }
 
-            # Save path to the optimized model
-            optimized_model_path = footprints[list(footprints)[1]]["model_config"]["config"]["model_path"]
-            optimized_submodel_paths[submodel_name] = optimized_model_path
-            print(f"Optimized Model: {optimized_submodel_paths[submodel_name]}")
+            print(f"Unoptimized Model : {model_info[submodel_name]['unoptimized']['path']}")
+            print(f"Optimized Model   : {model_info[submodel_name]['optimized']['path']}")
 
     # Save the unoptimized models in a directory structure that the diffusers library can load and run.
     # This is optional, and the optimized models can be used directly in a custom pipeline if desired.
     pipeline = StableDiffusionPipeline.from_pretrained(model_name, torch_dtype=torch.float32)
     onnx_pipeline = OnnxStableDiffusionPipeline(
-        vae_encoder=OnnxRuntimeModel.from_pretrained(unoptimized_submodel_paths["vae_encoder"].parent),
-        vae_decoder=OnnxRuntimeModel.from_pretrained(unoptimized_submodel_paths["vae_decoder"].parent),
-        text_encoder=OnnxRuntimeModel.from_pretrained(unoptimized_submodel_paths["text_encoder"].parent),
+        vae_encoder=OnnxRuntimeModel.from_pretrained(model_info["vae_encoder"]["unoptimized"]["path"].parent),
+        vae_decoder=OnnxRuntimeModel.from_pretrained(model_info["vae_decoder"]["unoptimized"]["path"].parent),
+        text_encoder=OnnxRuntimeModel.from_pretrained(model_info["text_encoder"]["unoptimized"]["path"].parent),
         tokenizer=pipeline.tokenizer,
-        unet=OnnxRuntimeModel.from_pretrained(unoptimized_submodel_paths["unet"].parent),
+        unet=OnnxRuntimeModel.from_pretrained(model_info["unet"]["unoptimized"]["path"].parent),
         scheduler=pipeline.scheduler,
-        safety_checker=OnnxRuntimeModel.from_pretrained(unoptimized_submodel_paths["safety_checker"].parent),
+        safety_checker=OnnxRuntimeModel.from_pretrained(model_info["safety_checker"]["unoptimized"]["path"].parent),
         feature_extractor=pipeline.feature_extractor,
         requires_safety_checker=True,
     )
     onnx_pipeline.save_pretrained(unoptimized_model_dir)
 
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
-    shutil.copytree(unoptimized_model_dir, optimized_model_dir)
+    shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns('weights.pb'))
     for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
-        src_path = optimized_submodel_paths[submodel_name]
+        src_path = model_info[submodel_name]["optimized"]["path"]
         dst_path = optimized_model_dir / submodel_name / "model.onnx"
         shutil.copyfile(src_path, dst_path)
 

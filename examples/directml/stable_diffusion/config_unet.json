@@ -48,7 +48,8 @@
                     "encoder_hidden_states": {"0": "batch", "1": "sequence"}
                 },
                 "target_opset": 14,
-                "all_tensors_to_one_file": true
+                "all_tensors_to_one_file": true,
+                "external_data_name": "weights.pb"
             }
         },
         "optimize": {
