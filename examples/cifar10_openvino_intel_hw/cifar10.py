@@ -25,8 +25,8 @@ def main():
     with open(config_file.name, "w") as f:
         f.write(file_template_content)
 
-    best_execution = olive_run(config_file.name)
-    return best_execution["metric"]
+    footprint = olive_run(config_file.name)
+    return footprint
 
 
 if __name__ == "__main__":

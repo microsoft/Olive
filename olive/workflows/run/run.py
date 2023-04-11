@@ -71,5 +71,4 @@ def run(config: Union[str, Path, dict]):
     best_execution = engine.run(
         input_model, config.verbose, config.engine.output_dir, config.engine.output_name, config.engine.evaluation_only
     )
-    logger.info(best_execution)
     return best_execution

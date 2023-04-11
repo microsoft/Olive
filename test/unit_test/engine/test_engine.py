@@ -90,11 +90,12 @@ class TestEngine:
 
         assert str(exc_info.value) == f"Search strategy is None but pass {name} has search space"
 
-    @patch("olive.engine.LocalSystem")
+    @patch("olive.engine.engine.LocalSystem")
     def test_run(self, mock_local_system):
         # setup
         pytorch_model = get_pytorch_model()
-        p = get_onnxconversion_pass()
+        input_model_id = hash_dict(pytorch_model.to_json())
+        p, pass_config = get_onnxconversion_pass(ignore_pass_config=False)
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator = OliveEvaluator(metrics=[metric], target=mock_local_system)
         options = {
@@ -111,23 +112,35 @@ class TestEngine:
         onnx_model = get_onnx_model()
         mock_local_system.run_pass.return_value = onnx_model
         mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
-        model_id = f"0_{p.__class__.__name__}-{hash_dict(pytorch_model.to_json())}"
+        model_id = f"0_{p.__class__.__name__}-{input_model_id}-{hash_dict(pass_config)}"
         expected_res = {
-            "search_points": {"OnnxConversion": {}},
-            "metric": [0.998],
+            model_id: {
+                "model_id": model_id,
+                "parent_model_id": input_model_id,
+                "metrics": {
+                    "value": {metric.name: 0.998},
+                    "cmp_direction": {metric.name: 1},
+                    "is_goals_met": True,
+                },
+            }
         }
 
         # execute
         actual_res = engine.run(pytorch_model)
 
         # assert
-        assert expected_res.items() < actual_res.items()
-        assert len(actual_res["model_ids"]) == 1
-        assert model_id in actual_res["model_ids"][0]
+        assert len(actual_res.nodes) == 1
+        assert model_id in actual_res.nodes
+        assert actual_res.nodes[model_id].model_id == model_id
+        for k, v in expected_res[model_id].items():
+            if k == "metrics":
+                assert getattr(actual_res.nodes[model_id].metrics, "is_goals_met")
+            assert getattr(actual_res.nodes[model_id], k) == v
+        assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
         mock_local_system.run_pass.assert_called_once()
         mock_local_system.evaluate_model.assert_called_once_with(onnx_model, [metric])
 
-    @patch("olive.engine.LocalSystem")
+    @patch("olive.engine.engine.LocalSystem")
     def test_run_no_search(self, mock_local_system):
         # setup
         pytorch_model = get_pytorch_model()
@@ -197,7 +210,7 @@ class TestEngine:
             # assert
             assert "Exception: test" in caplog.text
 
-    @patch("olive.engine.LocalSystem")
+    @patch("olive.engine.engine.LocalSystem")
     def test_run_evaluation_only(self, mock_local_system):
         # setup
         pytorch_model = get_pytorch_model()
