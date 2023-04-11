@@ -105,7 +105,7 @@ Please refer to [OnnxQuantization](onnx_quantization), [OnnxDynamicQuantization]
 [OnnxStaticQuantization](onnx_static_quantization) for more details about the passes and their config parameters.
 
 ### Quantize with Intel® Neural Compressor
-In addition to the default onnxruntime quantization tool, Olive also integrates  [Intel® Neural Compressor](https://github.com/intel/neural-compressor). 
+In addition to the default onnxruntime quantization tool, Olive also integrates  [Intel® Neural Compressor](https://github.com/intel/neural-compressor).
 
 Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach “quantize once, run everywhere” goal.
 

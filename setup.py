@@ -32,6 +32,7 @@ EXTRAS = {
     "directml": ["onnxruntime-directml"],
     "openvino": ["openvino==2022.3.0", "openvino-dev[tensorflow,onnx]==2022.3.0"],
     "tf": ["tensorflow==1.15.0"],
+    "inc": ["neural-compressor"],
 }
 
 CLASSIFIERS = [

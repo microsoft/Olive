@@ -362,6 +362,7 @@ class OnnxStaticQuantization(OnnxQuantization):
         config.update(deepcopy(_static_optional_config))
         return config
 
+
 _inc_quantization_config = {
     "device": PassConfigParam(
         type_=str,
@@ -382,7 +383,7 @@ _inc_quantization_config = {
         default_value="auto",
         description="""
             Model domain. Support 'auto', 'cv', 'object_detection', 'nlp' and 'recommendation_system'.
-            Intel® Neural Compressor Adaptor will use specific quantization settings for different domains 
+            Intel® Neural Compressor Adaptor will use specific quantization settings for different domains
             automatically, and explicitly specified quantization settings will override the automatic setting.
             If users set domain as auto, automatic detection for domain will be executed.
         """,
@@ -420,7 +421,7 @@ _inc_quantization_config = {
         default_value=[],
         description="""
             Precisions to be excluded, Default value is empty list.
-            Intel® Neural Compressor enable the mixed precision with 
+            Intel® Neural Compressor enable the mixed precision with
             fp32 + bf16(only when device is 'gpu' and backend is 'CUDAExecutionProvider') + int8 by default.
             If you want to disable bf16 data type, you can specify excluded_precisions = ['bf16].
         """,
@@ -429,8 +430,8 @@ _inc_quantization_config = {
         type_=bool,
         default_value=False,
         description="""
-            Intel® Neural Compressor provides distributed tuning to speed up the tuning 
-            process by leveraging the multi-node cluster. Prerequisites: A working MPI 
+            Intel® Neural Compressor provides distributed tuning to speed up the tuning
+            process by leveraging the multi-node cluster. Prerequisites: A working MPI
             implementation and installed mpi4py.
         """,
     ),
@@ -454,6 +455,7 @@ _inc_static_optional_config = {
     ),
 }
 
+
 class IncQuantization(Pass):
     """
     Quantize ONNX model with Intel® Neural Compressor.
@@ -468,16 +470,16 @@ class IncQuantization(Pass):
     def _default_config() -> Dict[str, PassConfigParam]:
         config = {
             "approach": PassConfigParam(
-            type_=str,
-            default_value="static",
-            searchable_values=Categorical(["dynamic", "static"]),
-            description="""
+                type_=str,
+                default_value="static",
+                searchable_values=Categorical(["dynamic", "static"]),
+                description="""
                 Intel® Neural Compressor Quantization mode. 'dynamic' for dynamic quantization,
                 'static' for static quantization.
             """,
             )
         }
-        
+
         # common quantization config
         config.update(deepcopy(_inc_quantization_config))
 
@@ -487,16 +489,16 @@ class IncQuantization(Pass):
         for _, value in inc_static_optional_config.items():
             # default value of quant_format is conditional on approach
             if isinstance(value.searchable_values, Categorical):
-                # ignore the parameter quant_format if approach is dynamic
-                # if approach is static, use the searchable_values in inc_static_optional_config by making it conditional
+                # ignore the parameter quant_format if approach is dynamic, if approach is static,
+                # use the searchable_values in inc_static_optional_config by making it conditional
                 value.searchable_values = Conditional(
                     parents=("approach",),
                     support={("static",): value.searchable_values},
                     default=Categorical(["default"]),
                 )
             elif isinstance(value.searchable_values, Conditional):
-                # ignore the parameter quant_format if approach is dynamic
-                # if approach is static, use the searchable_values in inc_static_optional_config by expanding the parents
+                # ignore the parameter quant_format if approach is dynamic, if approach is static,
+                # use the searchable_values in inc_static_optional_config by expanding the parents
                 value.searchable_values = Conditional(
                     parents=("approach",) + value.searchable_values.parents,
                     support={
@@ -508,14 +510,13 @@ class IncQuantization(Pass):
         config.update(inc_static_optional_config)
         return config
 
-    
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
 
         try:
-            from neural_compressor import quantization, PostTrainingQuantConfig
+            from neural_compressor import PostTrainingQuantConfig, quantization
         except ImportError:
             raise ImportError("Please install neural-compressor to use Intel® Neural Compressor quantization")
-        
+
         # start with a copy of the config
         run_config = deepcopy(config)
         is_static = run_config["approach"] == "static"
@@ -529,21 +530,22 @@ class IncQuantization(Pass):
         for key in to_delete:
             if key in run_config:
                 del run_config[key]
-        
+
         config = PostTrainingQuantConfig(**run_config)
-        inc_calib_dataloader = self._user_module_loader.call_object(
-            self._fixed_params["dataloader_func"], 
-            self._fixed_params["data_dir"], 
-            self._fixed_params["batch_size"]
-        ) if is_static else None
+        inc_calib_dataloader = (
+            self._user_module_loader.call_object(
+                self._fixed_params["dataloader_func"], self._fixed_params["data_dir"], self._fixed_params["batch_size"]
+            )
+            if is_static
+            else None
+        )
         inc_model = model.load_model()
-        q_model = quantization.fit(inc_model, 
-                                   config,
-                                   calib_dataloader=inc_calib_dataloader)
+        q_model = quantization.fit(inc_model, config, calib_dataloader=inc_calib_dataloader)
         q_model.save(output_model_path)
 
         return ONNXModel(output_model_path, model.name)
-    
+
+
 class IncDynamicQuantization(IncQuantization):
     """Intel® Neural Compressor Dynamic Quantization Pass"""
 
@@ -551,12 +553,14 @@ class IncDynamicQuantization(IncQuantization):
 
     @staticmethod
     def _default_config() -> Dict[str, Any]:
-        config = {"approach": PassConfigParam(type_=str, default_value="dynamic", description="dynamic quantization mode")}
+        config = {
+            "approach": PassConfigParam(type_=str, default_value="dynamic", description="dynamic quantization mode")
+        }
         # common quantization config
         config.update(deepcopy(_inc_quantization_config))
         return config
-    
-    
+
+
 class IncStaticQuantization(IncQuantization):
     """Intel® Neural Compressor Static Quantization Pass"""
 
@@ -564,7 +568,9 @@ class IncStaticQuantization(IncQuantization):
 
     @staticmethod
     def _default_config() -> Dict[str, Any]:
-        config = {"approach": PassConfigParam(type_=str, default_value="static", description="static quantization mode")}
+        config = {
+            "approach": PassConfigParam(type_=str, default_value="static", description="static quantization mode")
+        }
         # common quantization config
         config.update(deepcopy(_inc_quantization_config))
         # static quantization specific config

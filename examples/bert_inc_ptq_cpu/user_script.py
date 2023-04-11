@@ -2,15 +2,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import numpy as np
 import torch
 import transformers
 from datasets import load_dataset
 from datasets.utils.logging import disable_progress_bar
-from onnxruntime.quantization.calibrate import CalibrationDataReader
+from neural_compressor.data import DefaultDataLoader
 from torch.utils.data import Dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
-from neural_compressor.data import DefaultDataLoader
-import numpy as np
 
 disable_progress_bar()
 
@@ -99,10 +98,12 @@ def load_pytorch_origin_model(model_path):
     model.eval()
     return model
 
+
 class IncBertDataset:
     """
-    Dataset for Intel Neural Compressor must implement __iter__ or __getitem__ magic method.
+    Dataset for Intel® Neural Compressor must implement __iter__ or __getitem__ magic method.
     """
+
     def __init__(self, dataset):
         self.dataset = dataset
 
@@ -119,7 +120,8 @@ class IncBertDataset:
         }
         label = data["label"]
         return input_dict, label
-    
+
+
 def inc_glue_calibration_reader(data_dir, batch_size=1):
     bert_dataset = BertDataset("Intel/bert-base-uncased-mrpc")
     bert_dataset = IncBertDataset(bert_dataset.get_eval_dataset())
