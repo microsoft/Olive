@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 import logging
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -99,7 +99,11 @@ class Footprint:
         self.resolve_metrics()
 
     def get_candidates(self):
-        return {k: v for k, v in self.nodes.items() if v.metrics is not None and v.parent_model_id is not None}
+        return {
+            k: v
+            for k, v in self.nodes.items()
+            if v.metrics is not None and len(v.metrics.value) > 0 and v.parent_model_id is not None
+        }
 
     def mark_pareto_frontier(self):
         if self.is_marked_pareto_frontier:
@@ -134,15 +138,78 @@ class Footprint:
         # restructure the pareto frontier points to instance of Footprints node for further analysis
         return Footprint(nodes=rls, objective_dict=self.objective_dict, is_marked_pareto_frontier=True)
 
-    def _plot_pareto_frontier(self, index=None):
+    def _get_metrics_name_by_indices(self, indices):
+        for _, v in self.nodes.items():
+            if v.metrics is not None and len(v.metrics.value) > 0:
+                rls = list()
+                for index in indices:
+                    if isinstance(index, str):
+                        assert index in v.metrics.value, f"the metric {index} is not in the metrics"
+                        rls.append(index)
+                    if isinstance(index, int):
+                        assert index < len(v.metrics.value), f"the index {index} is out of range"
+                        rls.append(list(v.metrics.value.keys())[index])
+                return rls
+        return None
+
+    def plot_pareto_frontier(self, index=None):
         if index is None:
             assert len(self.nodes) > 0, "you can not plot pareto frontier with empty nodes"
-            assert len(self.nodes[0].metrics.value) >= 2, "you can not plot pareto frontier with less than 2 metrics"
             index = [0, 1]
         self.mark_pareto_frontier()
+        nodes_to_be_plotted = self.get_candidates()
+
         # plot pareto frontier
-        # import plotly.graph_objects as go
-        pass
+        try:
+            import pandas as pd
+            import plotly.graph_objects as go
+
+            pd.options.mode.chained_assignment = None
+        except Exception:
+            logger.error("Please make sure you installed pandas and plotly successfully.")
+            return
+
+        # select column to shown in pareto frontier chat
+        metric_column = self._get_metrics_name_by_indices(index)
+        assert len(metric_column) >= 2, "you can not plot pareto frontier with less than 2 metrics"
+        dict_data = defaultdict(list)
+        for k, v in nodes_to_be_plotted.items():
+            dict_data["model_id"].append(k)
+            dict_data["is_pareto_frontier"].append(v.is_pareto_frontier)
+            dict_data["marker_color"].append("red" if v.is_pareto_frontier else "blue")
+            dict_data["marker_size"].append(12 if v.is_pareto_frontier else 8)
+            show_list = [k]
+            for metric_name in metric_column:
+                dict_data[metric_name].append(v.metrics.value[metric_name])
+                show_list.append(f"{metric_name}: {v.metrics.value[metric_name]}")
+            dict_data["show_text"].append("<br>".join(show_list))
+        data = pd.DataFrame(dict_data)
+
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=dict_data[metric_column[index[0]]],
+                y=dict_data[metric_column[index[1]]],
+                mode="markers",
+                name="all footprints",
+                marker=dict(color=dict_data["marker_color"], size=dict_data["marker_size"]),
+                customdata=dict_data["show_text"],
+                hovertemplate="%{customdata}",
+            )
+        )
+        pareto_frontiers_data = data.loc[data["is_pareto_frontier"]]
+        pareto_frontiers_data.sort_values(metric_column, ascending=True, inplace=True)
+        fig.add_trace(
+            go.Scatter(
+                x=pareto_frontiers_data[metric_column[index[0]]],
+                y=pareto_frontiers_data[metric_column[index[1]]],
+                mode="lines",
+                name="pareto frontiers",
+            )
+        )
+        size_params = {"width": 1000, "height": 600}
+        fig.update_layout(xaxis_title=metric_column[index[0]], yaxis_title=metric_column[index[1]], **size_params)
+        fig.show()
 
     def trace_back_run_history(self, model_id):
         """

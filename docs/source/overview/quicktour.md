@@ -217,4 +217,83 @@ python -m olive.workflows.run --config config.json
 ```
 
 ### Olive Footprint
-<!-- TODO -->
+When the optimization process is complete, Olive will generate a report(json) under the `output_dir` if you specified already in `engine.run`. The report contains the:
+- `footprints.json`: A dictionary of all the footprints generated during the optimization process. The structure of footprints value is:
+```python
+class FootprintNode(ConfigBase):
+    # None for no parent which means current model is the input model
+    parent_model_id: str = None
+    model_id: str
+    model_config: dict = None
+    from_pass: str = None
+    pass_run_config: dict = None
+    is_pareto_frontier: bool = False
+    metrics: FootprintNodeMetric = FootprintNodeMetric()
+    date_time: float = datetime.now().timestamp()
+
+class FootprintNodeMetric(ConfigBase):
+    """
+    value: {"metric_name": metrics_value, ...}
+    cmp_direction: will be auto suggested. The format will be like: {"metric_name": 1, ...},
+        1: higher is better, -1: lower is better
+    is_goals_met: if the goals set by users is met
+    """
+    value: dict = None
+    cmp_direction: dict = None
+    is_goals_met: bool = False
+```
+- `pareto_frontier_footprints.json`: A dictionary of the footprints that are on the Pareto frontier based on the metrics goal you set in config of `evaluators.metrics`.
+
+Here is an example of that:
+```json
+{
+    "24_OrtTransformersOptimization-23-28b039f9e50b7a04f9ab69bcfe75b9a2": {
+        "parent_model_id": "23_OnnxConversion-9d98a0131bcdfd593432adfa2190016b-fa609d8c8586ea9b21b129a124e3fdb0",
+        "model_id": "24_OrtTransformersOptimization-23-28b039f9e50b7a04f9ab69bcfe75b9a2",
+        "model_config": {
+            "type": "ONNXModel",
+            "config": {
+                "model_path": "path",
+                "name": null,
+                "is_file": true,
+                "is_aml_model": false,
+                "version": null,
+                "inference_settings": null
+            }
+        },
+        "from_pass": "OrtTransformersOptimization",
+        "pass_run_config": {
+            "model_type": "bert",
+            "num_heads": 0,
+            "hidden_size": 0,
+            "optimization_options": null,
+            "opt_level": null,
+            "use_gpu": false,
+            "only_onnxruntime": false,
+            "float16": false,
+            "input_int32": false,
+            "use_external_data_format": false
+        },
+        "is_pareto_frontier": true,
+        "metrics": {
+            "value": {
+                "accuracy": 0.8602941036224365,
+                "latency": 87.4454
+            },
+            "cmp_direction": {
+                "accuracy": 1,
+                "latency": -1
+            },
+            "is_goals_met": true
+        },
+        "date_time": 1681211541.682187
+    }
+}
+```
+
+You can also call the following methods to plot the Pareto frontier footprints. Also please make sure you installed `plotly` successfully.
+```python
+from olive.engine.footprint import Footprint
+footprint = Footprint.from_file("footprints.json")
+footprint.plot_pareto_frontier()
+```
