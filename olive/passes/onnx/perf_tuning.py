@@ -8,9 +8,6 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
-import onnxruntime as ort
-import psutil
-
 from olive.evaluator.evaluation import evaluate_latency
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.model import ONNXModel
@@ -21,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 def generate_tuning_combos(model, config):
+    import onnxruntime as ort
+
     providers_list = config.providers_list if config.providers_list else model.get_execution_providers(config.device)
     execution_mode_list = (
         config.execution_mode_list
@@ -110,6 +109,9 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
 
 
 def threads_num_binary_search(model, latency_metric, config, test_params, tuning_results):
+    import onnxruntime as ort
+    import psutil
+
     if test_params["session_options"].get("extra_session_config"):
         extra_session_config = test_params["session_options"].get("extra_session_config")
         if extra_session_config.get("session.intra_op_thread_affinities"):

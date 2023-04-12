@@ -8,9 +8,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import onnx
-import onnxruntime as ort
 import torch
-import transformers
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, serialize_to_json
@@ -165,6 +163,8 @@ class ONNXModel(OliveModel):
         return onnx.load(self.model_path)
 
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device):
+        import onnxruntime as ort
+
         sess_options = ort.SessionOptions()
         execution_provider = None
         ort_inference_settings = inference_settings or self.inference_settings
@@ -210,6 +210,8 @@ class ONNXModel(OliveModel):
         return serialize_to_json(config, check_object)
 
     def get_execution_providers(self, device: Device):
+        import onnxruntime as ort
+
         available_providers = ort.get_available_providers()
         eps_per_device = self.EXECUTION_PROVIDERS.get(device)
 
@@ -388,14 +390,14 @@ class OpenVINOModel(OliveModel):
         try:
             from openvino.tools.pot import load_model
         except ImportError:
-            raise ImportError("Please install olive[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
         return load_model(self.model_config)
 
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device):
         try:
             from openvino.runtime import Core
         except ImportError:
-            raise ImportError("Please install olive[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
         ie = Core()
         model_pot = ie.read_model(model=self.model_config["model"])
         if device == Device.INTEL_MYRIAD:
@@ -405,6 +407,8 @@ class OpenVINOModel(OliveModel):
 
 
 def huggingface_model_loader(model_loader):
+    import transformers
+
     if model_loader is None:
         model_loader = "AutoModel"
     if isinstance(model_loader, str):
