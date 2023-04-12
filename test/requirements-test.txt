@@ -3,6 +3,9 @@ azure-identity
 azure-storage-blob
 coverage
 docker
+onnxconverter_common
 openvino
 openvino-dev
+psutil
+pytorch_lightning
 torchvision
