@@ -18,7 +18,7 @@ def get_version(rel_path):
 
 
 # use techniques described at https://packaging.python.org/en/latest/guides/single-sourcing-package-version/
-# Don't use technique 6 since it need extra dependencies.
+# Don't use technique 6 since it needs extra dependencies.
 VERSION = get_version("olive/__init__.py")
 
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "requirements.txt")) as req_file:

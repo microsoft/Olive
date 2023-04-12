@@ -23,7 +23,7 @@ Olive model optimization workflows are defined using config JSON files. You can 
 
 First, install required packages according to passes.
 ```
-python -m olive.workflows.run --config user_provided_info.json --setup 
+python -m olive.workflows.run --config user_provided_info.json --setup
 ```
 Then, optimize the model
 ```

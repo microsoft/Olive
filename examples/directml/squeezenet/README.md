@@ -10,7 +10,7 @@ Outputs the best metrics, model, and corresponding Olive config.
 ## Optimize SqueezeNet
 First, install required packages according to passes.
 ```
-python -m olive.workflows.run --config squeezenet_config.json --setup 
+python -m olive.workflows.run --config squeezenet_config.json --setup
 ```
 Then, optimize the model
 ```

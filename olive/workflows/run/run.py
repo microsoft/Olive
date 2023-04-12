@@ -65,13 +65,6 @@ def automatically_insert_passes(config):
 def dependency_setup(config):
     required_packages = []
 
-    if config.engine.host.type == SystemType.Local:
-        required_packages.extend(
-            DEPENDENCY_MAPPING["device"][config.engine.host.type][config.engine.host.config.device]
-        )
-    else:
-        required_packages.extend(DEPENDENCY_MAPPING["device"][config.engine.host.type])
-
     for _, pass_config in config.passes.items():
         if DEPENDENCY_MAPPING["pass"].get(pass_config.type):
             required_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type))
@@ -83,13 +76,27 @@ def dependency_setup(config):
                 )
             )
 
-    logger.info("The following packages will be installed: {}".format(" ".join(required_packages)))
-
-    for package in set(required_packages):
-        try:
-            __import__(package)
-        except (ImportError):
-            subprocess.check_call(["pip", "install", "{}".format(package)])
+    if config.engine.host.type == SystemType.Local:
+        required_packages.extend(
+            DEPENDENCY_MAPPING["device"][config.engine.host.type][config.engine.host.config.device]
+        )
+        logger.info("The following packages will be installed: {}".format(" ".join(required_packages)))
+        for package in set(required_packages):
+            try:
+                __import__(package)
+            except (ImportError):
+                subprocess.check_call(["pip", "install", "{}".format(package)])
+    else:
+        for package in set(DEPENDENCY_MAPPING["device"][config.engine.host.type]):
+            try:
+                __import__(package)
+            except (ImportError):
+                subprocess.check_call(["pip", "install", "{}".format(package)])
+        logger.info(
+            "Please make sure the following packages are installed in {} environment: {}".format(
+                config.engine.host.type, required_packages
+            )
+        )
 
 
 def run(config: Union[str, Path, dict], setup: bool):
