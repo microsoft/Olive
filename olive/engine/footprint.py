@@ -64,6 +64,13 @@ class Footprint:
     def record_objective_dict(self, objective_dict):
         self.objective_dict = objective_dict
 
+    def _is_empty_metric(self, metric: FootprintNodeMetric):
+        if metric is None:
+            return True
+        if metric.value is None or len(metric.value) == 0:
+            return True
+        return False
+
     def resolve_metrics(self):
         for k, v in self.nodes.items():
             if v.metrics is None:
@@ -102,7 +109,7 @@ class Footprint:
         return {
             k: v
             for k, v in self.nodes.items()
-            if v.metrics is not None and len(v.metrics.value) > 0 and v.parent_model_id is not None
+            if not self._is_empty_metric(v.metrics) and v.parent_model_id is not None
         }
 
     def mark_pareto_frontier(self):
@@ -110,11 +117,11 @@ class Footprint:
             return
         for k, v in self.nodes.items():
             # if current point's metrics is less than any other point's metrics, it is not pareto frontier
-            cmp_flag = True and v.metrics is not None and len(v.metrics.value) > 0
+            cmp_flag = True and not self._is_empty_metric(v.metrics)
             for _, _v in self.nodes.items():
                 if not cmp_flag:
                     break
-                if _v.metrics is not None and len(_v.metrics.value) > 0:
+                if not self._is_empty_metric(_v.metrics):
                     _against_pareto_frontier_check = True
                     # if all the metrics of current point is less than any other point's metrics,
                     # it is not pareto frontier e.g. current point's metrics is [1, 2, 3],
@@ -139,9 +146,9 @@ class Footprint:
         return Footprint(nodes=rls, objective_dict=self.objective_dict, is_marked_pareto_frontier=True)
 
     def _get_metrics_name_by_indices(self, indices):
+        rls = list()
         for _, v in self.nodes.items():
-            if v.metrics is not None and len(v.metrics.value) > 0:
-                rls = list()
+            if not self._is_empty_metric(v.metrics):
                 for index in indices:
                     if isinstance(index, str):
                         assert index in v.metrics.value, f"the metric {index} is not in the metrics"
@@ -150,7 +157,7 @@ class Footprint:
                         assert index < len(v.metrics.value), f"the index {index} is out of range"
                         rls.append(list(v.metrics.value.keys())[index])
                 return rls
-        return None
+        return rls
 
     def plot_pareto_frontier(self, index=None):
         if index is None:
@@ -158,7 +165,9 @@ class Footprint:
             index = [0, 1]
         self.mark_pareto_frontier()
         nodes_to_be_plotted = self.get_candidates()
-
+        if len(nodes_to_be_plotted) == 0:
+            logger.warning("there is no candidate to be plotted.")
+            return
         # plot pareto frontier
         try:
             import pandas as pd
@@ -166,12 +175,15 @@ class Footprint:
 
             pd.options.mode.chained_assignment = None
         except Exception:
-            logger.error("Please make sure you installed pandas and plotly successfully.")
+            logger.warning("Please make sure you installed pandas and plotly successfully.")
             return
 
         # select column to shown in pareto frontier chat
         metric_column = self._get_metrics_name_by_indices(index)
-        assert len(metric_column) >= 2, "you can not plot pareto frontier with less than 2 metrics"
+        # to support 3d pareto_frontier
+        if len(metric_column) < 2:
+            logger.error("you can not plot pareto frontier with less than 2 metrics")
+            return
         dict_data = defaultdict(list)
         for k, v in nodes_to_be_plotted.items():
             dict_data["model_id"].append(k)
