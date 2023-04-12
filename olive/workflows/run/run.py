@@ -127,5 +127,4 @@ def run(config: Union[str, Path, dict], setup: bool):
             config.engine.output_name,
             config.engine.evaluation_only,
         )
-        logger.info(best_execution)
         return best_execution

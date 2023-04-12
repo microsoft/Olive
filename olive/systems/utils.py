@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+from pathlib import Path
 
 
 def parse_common_args(raw_args):
@@ -28,5 +29,7 @@ def get_model_config(common_args):
     for key, value in common_args.__dict__.items():
         if value and key in model_json["config"]:
             model_json["config"][key] = value
+    if model_json["type"].lower() == "onnxmodel" and not model_json["config"]["is_file"]:
+        model_json["config"]["model_path"] = str(Path(model_json["config"]["model_path"]) / "model.onnx")
 
     return model_json

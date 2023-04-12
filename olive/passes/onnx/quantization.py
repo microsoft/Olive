@@ -134,8 +134,9 @@ _extra_options_config = {
         description=f"""
             Key value pair dictionary for `extra_options` in quantization. Please refer to
             https://github.com/microsoft/onnxruntime/blob/main/onnxruntime/python/tools/quantization/quantize.py
-            for details about the supported options. If an option is one of {set(_exposed_extra_options_config.keys())},
-            it will be overwritten by the corresponding config parameter value.
+            for details about the supported options. If an option is one of
+            {list(_exposed_extra_options_config.keys())}, it will be overwritten by the corresponding config parameter
+            value.
         """,
     ),
 }
