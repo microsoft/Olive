@@ -34,3 +34,6 @@ or run simply with python code:
 from olive.workflows import run as olive_run
 olive_run("auto_bert_config.json")
 ```
+
+After running the above command, the model candidates and corresponding config will be saved in the output directory.
+You can then select the best model and config from the candidates and run the model with the selected config.
