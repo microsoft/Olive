@@ -65,10 +65,7 @@ class Footprint:
         self.objective_dict = objective_dict
 
     def _is_empty_metric(self, metric: FootprintNodeMetric):
-        if not metric:
-            return True
-        else:
-            return not metric.value
+        return not metric or not metric.value
 
     def resolve_metrics(self):
         for k, v in self.nodes.items():
