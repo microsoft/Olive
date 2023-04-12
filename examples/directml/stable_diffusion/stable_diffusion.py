@@ -2,14 +2,15 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from pathlib import Path
-import shutil
-import torch
 import argparse
 import json
+import shutil
 import warnings
-from diffusers import OnnxStableDiffusionPipeline, OnnxRuntimeModel, StableDiffusionPipeline
+from pathlib import Path
+
 import onnxruntime as ort
+import torch
+from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffusionPipeline
 
 from olive.workflows import run as olive_run
 

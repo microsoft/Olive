@@ -4,8 +4,9 @@
 # --------------------------------------------------------------------------
 from copy import deepcopy
 from typing import Any, Dict, List
-from packaging import version
+
 import onnxruntime as ort
+from packaging import version
 
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -145,7 +146,7 @@ class OrtTransformersOptimization(Pass):
             model_fp32,
             keep_io_types=config["keep_io_types"],
             op_block_list=op_block_list,
-            disable_shape_infer=disable_shape_infer
+            disable_shape_infer=disable_shape_infer,
         )
         onnx.save(model_fp16, output_model_path)
         return ONNXModel(output_model_path, model.name)
@@ -163,7 +164,7 @@ class OrtTransformersOptimization(Pass):
             run_config["force_fp32_ops"],
             run_config["target_provider"],
         )
-        
+
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
         if config["model_type"] in OrtTransformersOptimization.sd_model_types():
