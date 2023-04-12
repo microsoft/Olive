@@ -65,11 +65,10 @@ class Footprint:
         self.objective_dict = objective_dict
 
     def _is_empty_metric(self, metric: FootprintNodeMetric):
-        if metric is None:
+        if not metric:
             return True
-        if metric.value is None or len(metric.value) == 0:
-            return True
-        return False
+        else:
+            return not metric.value
 
     def resolve_metrics(self):
         for k, v in self.nodes.items():
@@ -165,7 +164,7 @@ class Footprint:
             index = [0, 1]
         self.mark_pareto_frontier()
         nodes_to_be_plotted = self.get_candidates()
-        if len(nodes_to_be_plotted) == 0:
+        if not nodes_to_be_plotted:
             logger.warning("there is no candidate to be plotted.")
             return
         # plot pareto frontier
