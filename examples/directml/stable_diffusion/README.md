@@ -7,6 +7,7 @@ This sample shows how to optimize [Stable Diffusion v1-5](https://huggingface.co
 Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*. This Olive sample will convert each PyTorch model to ONNX, and then run the converted ONNX models through the `OrtTransformersOptimization` pass. The transformer optimization pass performs several time-consuming graph transformations that make the models more efficient for inference at runtime. 
 
 ![](readme/pipeline.png)
+*Based on figure from [Hugging Face Blog](https://huggingface.co/blog/stable_diffusion) that covers Stable Diffusion with Diffusers library*
 
 ## Setup
 
