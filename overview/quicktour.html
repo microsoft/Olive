@@ -58,6 +58,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#engine">Engine</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#passes">Passes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#example-json">Example JSON</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#olive-footprint">Olive Footprint</a></li>
 </ul>
 </li>
 </ul>
@@ -325,6 +326,91 @@ let us first convert the pytorch model to ONNX and quantize it.</p>
 <span class="w">        </span><span class="nt">&quot;host&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LocalSystem&quot;</span><span class="p">},</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="olive-footprint">
+<h3>Olive Footprint<a class="headerlink" href="#olive-footprint" title="Permalink to this heading">¶</a></h3>
+<p>When the optimization process is complete, Olive will generate a report(json) under the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> if you specified already in <code class="docutils literal notranslate"><span class="pre">engine.run</span></code>. The report contains the:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">footprints.json</span></code>: A dictionary of all the footprints generated during the optimization process. The structure of footprints value is:</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">FootprintNode</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+    <span class="c1"># None for no parent which means current model is the input model</span>
+    <span class="n">parent_model_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">model_config</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">from_pass</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">pass_run_config</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">is_pareto_frontier</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">metrics</span><span class="p">:</span> <span class="n">FootprintNodeMetric</span> <span class="o">=</span> <span class="n">FootprintNodeMetric</span><span class="p">()</span>
+    <span class="n">date_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
+
+<span class="k">class</span> <span class="nc">FootprintNodeMetric</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    value: {&quot;metric_name&quot;: metrics_value, ...}</span>
+<span class="sd">    cmp_direction: will be auto suggested. The format will be like: {&quot;metric_name&quot;: 1, ...},</span>
+<span class="sd">        1: higher is better, -1: lower is better</span>
+<span class="sd">    is_goals_met: if the goals set by users is met</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">value</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">cmp_direction</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">is_goals_met</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">pareto_frontier_footprints.json</span></code>: A dictionary of the footprints that are on the Pareto frontier based on the metrics goal you set in config of <code class="docutils literal notranslate"><span class="pre">evaluators.metrics</span></code>.</p></li>
+</ul>
+<p>Here is an example of that:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;24_OrtTransformersOptimization-23-28b039f9e50b7a04f9ab69bcfe75b9a2&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;parent_model_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;23_OnnxConversion-9d98a0131bcdfd593432adfa2190016b-fa609d8c8586ea9b21b129a124e3fdb0&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;model_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;24_OrtTransformersOptimization-23-28b039f9e50b7a04f9ab69bcfe75b9a2&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;model_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;is_file&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;is_aml_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;inference_settings&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;from_pass&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtTransformersOptimization&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;pass_run_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;model_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bert&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;num_heads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;hidden_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;optimization_options&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;opt_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;use_gpu&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;only_onnxruntime&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;float16&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;input_int32&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;use_external_data_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;is_pareto_frontier&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;metrics&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;accuracy&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8602941036224365</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;latency&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">87.4454</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="nt">&quot;cmp_direction&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;accuracy&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;latency&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="nt">&quot;is_goals_met&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;date_time&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1681211541.682187</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>You can also call the following methods to plot the Pareto frontier footprints. Also please make sure you installed <code class="docutils literal notranslate"><span class="pre">plotly</span></code> successfully.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span>
+<span class="n">footprint</span> <span class="o">=</span> <span class="n">Footprint</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;footprints.json&quot;</span><span class="p">)</span>
+<span class="n">footprint</span><span class="o">.</span><span class="n">plot_pareto_frontier</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>
