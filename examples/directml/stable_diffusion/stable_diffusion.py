@@ -14,7 +14,7 @@ import onnxruntime as ort
 from olive.workflows import run as olive_run
 
 
-def run_inference(optimized_model_dir, prompt, num_images, batch_size):
+def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_inference_steps):
     ort.set_default_logger_severity(3)
 
     print("Loading models into ORT session...")
@@ -27,7 +27,7 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size):
     images_saved = 0
     while images_saved < num_images:
         print(f"\nInference Batch Start (batch size = {batch_size}).")
-        result = pipeline([prompt] * batch_size)
+        result = pipeline([prompt] * batch_size, num_inference_steps=num_inference_steps)
         passed_safety_checker = 0
 
         for image_index in range(batch_size):
@@ -89,7 +89,7 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
     onnx_pipeline.save_pretrained(unoptimized_model_dir)
 
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
-    shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns('weights.pb'))
+    shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))
     for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
         src_path = model_info[submodel_name]["optimized"]["path"]
         dst_path = optimized_model_dir / submodel_name / "model.onnx"
@@ -105,6 +105,7 @@ if __name__ == "__main__":
     parser.add_argument("--prompt", default="a photo of an astronaut riding a horse on mars.", type=str)
     parser.add_argument("--num_images", default=1, type=int, help="Number of images to generate")
     parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
+    parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
     args = parser.parse_args()
 
     script_dir = Path(__file__).resolve().parent
@@ -129,4 +130,4 @@ if __name__ == "__main__":
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            run_inference(model_dir, args.prompt, args.num_images, args.batch_size)
+            run_inference(model_dir, args.prompt, args.num_images, args.batch_size, args.num_inference_steps)
