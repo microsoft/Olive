@@ -303,8 +303,9 @@
                 <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">extra_session_config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
                     <span class="n">sess_options</span><span class="o">.</span><span class="n">add_session_config_entry</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
 
+        <span class="c1"># if use doesn&#39;t not providers ep list, use default value([ep]). Otherwise, use the user&#39;s ep list</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">execution_provider</span><span class="p">:</span>
-            <span class="n">execution_provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="n">execution_provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_execution_provider</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">execution_provider</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
             <span class="c1"># execution_provider may be a list of tuples where the first item in each tuple is the EP name</span>
             <span class="n">execution_provider</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">execution_provider</span><span class="p">]</span>
@@ -320,6 +321,27 @@
         <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
         <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;inference_settings&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">})</span>
         <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">is_valid_ep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># TODO: should be remove if future accelerators is implemented</span>
+        <span class="c1"># It should be a bug for onnxruntime where the execution provider is not be fallback.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">providers</span><span class="o">=</span><span class="p">[</span><span class="n">ep</span><span class="p">])</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">Olive will ignore this </span><span class="si">{</span><span class="n">ep</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;Please make sure the environment with </span><span class="si">{</span><span class="n">ep</span><span class="si">}</span><span class="s2"> has the required dependencies.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="nf">get_default_execution_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+        <span class="c1"># return firstly available ep as ort default ep</span>
+        <span class="n">available_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">available_providers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_valid_ep</span><span class="p">(</span><span class="n">ep</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">[</span><span class="n">ep</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">get_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
         <span class="n">available_providers</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">get_available_providers</span><span class="p">()</span>
