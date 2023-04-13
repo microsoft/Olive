@@ -94,7 +94,7 @@ class OnnxConversion(Pass):
             ),
             "external_data_name": PassConfigParam(
                 type_=str,
-                default_value="model.onnx.data",
+                default_value=None,
                 description=("Effective only if all_tensors_to_one_file is True and save_as_external_data is True."),
             ),
         }
@@ -183,12 +183,16 @@ class OnnxConversion(Pass):
             for path in files_after_export - files_before_export:
                 path.unlink()
 
+            external_data_path = config["external_data_name"]
+            if external_data_path is None:
+                external_data_path = str(Path(tmp_model_path).name + ".data")
+
             onnx.save_model(
                 onnx_model,
                 tmp_model_path,
                 save_as_external_data=True,
                 all_tensors_to_one_file=config["all_tensors_to_one_file"],
-                location=config["external_data_name"],
+                location=external_data_path,
                 convert_attribute=False,
             )
 
