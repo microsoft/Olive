@@ -416,14 +416,29 @@ _inc_quantization_config = {
             Whether use 7 bit to quantization.
         """,
     ),
+    "quant_level": PassConfigParam(
+        type_=str,
+        default_value="auto",
+        searchable_values=Boolean(),
+        description="""
+            Intel® Neural Compressor allows users to choose different tuning processes by specifying
+            the quantization level (quant_level). Currently 3 quant_levels are supported.
+            0 is conservative strategy, 1 is basic or user-specified strategy,
+            auto (default) is the combination of 0 and 1.
+            Please refer to
+            https://github.com/intel/neural-compressor/blob/master/docs/source/tuning_strategies.md#tuning-process
+            https://github.com/intel/neural-compressor/blob/master/docs/source/tuning_strategies.md#tuning-algorithms
+            for more details
+        """,
+    ),
     "excluded_precisions": PassConfigParam(
         type_=list,
         default_value=[],
         description="""
             Precisions to be excluded, Default value is empty list.
             Intel® Neural Compressor enable the mixed precision with
-            fp32 + bf16(only when device is 'gpu' and backend is 'CUDAExecutionProvider') + int8 by default.
-            If you want to disable bf16 data type, you can specify excluded_precisions = ['bf16].
+            fp32 + bf16(only when device is 'gpu' and backend is 'onnxrt_cuda_ep') + int8 by default.
+            If you want to disable bf16 data type, you can specify excluded_precisions = ['bf16'].
         """,
     ),
     "use_distributed_tuning": PassConfigParam(
