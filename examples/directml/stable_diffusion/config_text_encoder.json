@@ -1,0 +1,70 @@
+{
+    "verbose": false,
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "model_path": "runwayml/stable-diffusion-v1-5",
+            "is_file": false,
+            "model_loader": "text_encoder_load",
+            "model_script": "user_script.py"
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "device": "gpu"
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_type": "avg",
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "text_encoder_data_loader",
+                        "batch_size": 1
+                    }
+                }
+            ],
+            "target": "local_system"
+        }
+    },
+    "passes": {
+        "convert": {
+            "type": "OnnxConversion",
+            "config": {
+                "user_script": "user_script.py",
+                "input_names": [ "input_ids" ],
+                "input_tensor_func": "text_encoder_conversion_inputs",
+                "output_names": [ "last_hidden_state", "pooler_output" ],
+                "dynamic_axes": { "input_ids": { "0": "batch", "1": "sequence" } },
+                "target_opset": 14
+            }
+        },
+        "optimize": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "clip",
+                "float16": true,
+                "use_gpu": true,
+                "keep_io_types": false
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "exhaustive"
+        },
+        "evaluator": "common_evaluator",
+        "host": "local_system",
+        "cache_dir": "cache",
+        "output_name": "text_encoder",
+        "output_dir": "footprints"
+    }
+}

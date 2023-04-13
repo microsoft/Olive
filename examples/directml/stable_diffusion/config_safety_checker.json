@@ -1,0 +1,73 @@
+{
+    "verbose": false,
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "model_path": "runwayml/stable-diffusion-v1-5",
+            "is_file": false,
+            "model_loader": "safety_checker_load",
+            "model_script": "user_script.py"
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "device": "gpu"
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_type": "avg",
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "safety_checker_data_loader",
+                        "batch_size": 1
+                    }
+                }
+            ],
+            "target": "local_system"
+        }
+    },
+    "passes": {
+        "convert": {
+            "type": "OnnxConversion",
+            "config": {
+                "user_script": "user_script.py",
+                "input_names": [ "clip_input", "images" ],
+                "input_tensor_func": "safety_checker_conversion_inputs",
+                "output_names": [ "out_images", "has_nsfw_concepts" ],
+                "dynamic_axes": {
+                    "clip_input": { "0": "batch", "1": "channels", "2": "height", "3": "width" },
+                    "images": { "0": "batch", "1": "height", "2": "width", "3": "channels" }
+                },
+                "target_opset": 14
+            }
+        },
+        "optimize": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "unet",
+                "float16": true,
+                "use_gpu": true,
+                "keep_io_types": false
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "exhaustive"
+        },
+        "evaluator": "common_evaluator",
+        "host": "local_system",
+        "cache_dir": "cache",
+        "output_name": "safety_checker",
+        "output_dir": "footprints"
+    }
+}
