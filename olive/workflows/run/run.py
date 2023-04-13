@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import os
 import subprocess
 from pathlib import Path
 from typing import Union
@@ -12,22 +13,6 @@ from olive.systems.common import Device, SystemType
 from olive.workflows.run.config import RunConfig
 
 logger = logging.getLogger(__name__)
-
-
-DEPENDENCY_MAPPING = {
-    "device": {
-        SystemType.AzureML: ["azure-ai-ml>=0.1.0b6", "azure-identity"],
-        SystemType.Docker: ["docker"],
-        SystemType.Local: {Device.CPU: ["onnxruntime==1.13.1"], Device.GPU: ["onnxruntime-gpu==1.13.1"]},
-    },
-    "pass": {
-        "OnnxFloatToFloat16": ["onnxconverter-common"],
-        "OrtPerfTuning": ["psutil"],
-        "QuantizationAwareTraining": ["pytorch-lightning"],
-        "OpenVINOConversion": ["openvino==2022.3.0", "openvino-dev[tensorflow,onnx]==2022.3.0"],
-        "OpenVINOQuantization": ["openvino==2022.3.0", "openvino-dev[tensorflow,onnx]==2022.3.0"],
-    },
-}
 
 
 def automatically_insert_passes(config):
@@ -63,6 +48,23 @@ def automatically_insert_passes(config):
 
 
 def dependency_setup(config):
+    here = os.path.abspath(os.path.dirname(__file__))
+    EXTRAS = json.load(open(os.path.join(here, "../../extra_dependencies.json"), "r"))
+    DEPENDENCY_MAPPING = {
+        "device": {
+            SystemType.AzureML: EXTRAS.get("azureml"),
+            SystemType.Docker: EXTRAS.get("docker"),
+            SystemType.Local: {Device.CPU: EXTRAS.get("cpu"), Device.GPU: EXTRAS.get("gpu")},
+        },
+        "pass": {
+            "OnnxFloatToFloat16": ["onnxconverter-common"],
+            "OrtPerfTuning": ["psutil"],
+            "QuantizationAwareTraining": ["pytorch-lightning"],
+            "OpenVINOConversion": EXTRAS.get("openvino"),
+            "OpenVINOQuantization": EXTRAS.get("openvino"),
+        },
+    }
+
     required_packages = []
 
     for _, pass_config in config.passes.items():
