@@ -1,0 +1,134 @@
+{
+    "verbose": true,
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "model_path": null,
+            "is_file": false,
+            "model_loader": "load_model",
+            "model_script": "user_script.py"
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "device": "gpu"
+            }
+        },
+        "aml_system": {
+            "type": "AzureML",
+            "config": {
+                "aml_config_path": "olive-workspace-config.json",
+                "aml_compute": "OliveGPU1",
+                "aml_docker_config": {
+                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.3-cudnn8-ubuntu20.04",
+                    "conda_file_path": "conda.yaml"
+                },
+                "is_dev": true
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "sub_type": "accuracy_score",
+                    "is_first_priority": true,
+                    "user_config": {
+                        "post_processing_func": "post_process",
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 1
+                    },
+                    "goal": {"type": "max-degradation", "value": 0.01}
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_type": "avg",
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 1
+                    },
+                    "goal": {"type": "percent-min-improvement", "value": 20}
+                }
+            ],
+            "target": "aml_system"
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "input_names": [
+                    "input_ids",
+                    "attention_mask"
+                ],
+                "input_shapes": [
+                    [
+                        1,
+                        128
+                    ],
+                    [
+                        1,
+                        128
+                    ]
+                ],
+                "input_types": [
+                    "int64",
+                    "int64"
+                ],
+                "output_names": [
+                    "output"
+                ],
+                "dynamic_axes": {
+                    "input_ids": {
+                        "0": "batch_size",
+                        "1": "seq_length"
+                    },
+                    "attention_mask": {
+                        "0": "batch_size",
+                        "1": "seq_length"
+                    }
+                },
+                "target_opset": 17
+            }
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "bert",
+                "num_heads": 16,
+                "hidden_size": 1024,
+                "float16": true
+            }
+        },
+        "perf_tuning": {
+            "type": "OrtPerfTuning",
+            "config": {
+                "user_script": "user_script.py",
+                "dataloader_func": "create_dataloader",
+                "device": "gpu",
+                "batch_size": 1
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "tpe",
+            "search_algorithm_config": {
+                "num_samples": 5,
+                "seed": 0
+            }
+        },
+        "evaluator": "common_evaluator",
+        "host": "aml_system",
+        "clean_cache": false,
+        "cache_dir": "cache"
+    }
+}

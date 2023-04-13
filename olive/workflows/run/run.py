@@ -44,12 +44,24 @@ def automatically_insert_passes(config):
     return new_engine, new_config
 
 
-def run(config: Union[str, Path, dict]):
+def update_config_with_cmd_instructions(config, **cmd_kwargs):
+    if cmd_kwargs.get("clean_cache"):
+        config.engine.clean_cache = True
+    if cmd_kwargs.get("output_dir"):
+        config.engine.output_dir = cmd_kwargs.get("output_dir")
+    if cmd_kwargs.get("output_name"):
+        config.engine.output_name = cmd_kwargs.get("output_name")
+
+
+def run(config: Union[str, Path, dict], **kwargs):
     # we use parse_file and parse_obj to be safe. If implemented as expected, both should be equivalent.
     if isinstance(config, str) or isinstance(config, Path):
         config = RunConfig.parse_file(config)
     else:
         config = RunConfig.parse_obj(config)
+
+    # replace the config with the one from the cmd
+    update_config_with_cmd_instructions(config, **kwargs)
 
     # input model
     input_model = config.input_model.create_model()

@@ -176,6 +176,7 @@ def evaluate_accuracy_pytorch(sess, dataloader, post_func, device):
         #  ValueError: expected sequence of length 128 at dim 1 (got 3)
         preds.extend(outputs.tolist())
         targets.extend(labels.data.tolist())
+    sess.to(torch.device(Device.CPU))
     return preds, targets
 
 
@@ -272,6 +273,7 @@ def evaluate_latency_pytorch(sess, dataloader, device, warmup_num, repeat_test_n
             t = time.perf_counter()
             sess(input_data)
             latencies.append(time.perf_counter() - t)
+    sess.to(torch.device(Device.CPU))
     return latencies
 
 
