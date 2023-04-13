@@ -229,7 +229,7 @@ class ONNXModel(OliveModel):
         for ep in available_providers:
             if self.is_valid_ep(ep):
                 return [ep]
-        raise Exception("No available execution provider")
+        return ["CPUExecutionProvider"]
 
     def get_execution_providers(self, device: Device):
         available_providers = ort.get_available_providers()
