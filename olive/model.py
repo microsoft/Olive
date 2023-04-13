@@ -109,7 +109,6 @@ class ModelConfig(ConfigBase):
 class ONNXModel(OliveModel):
 
     # device type definition: https://github.com/pytorch/pytorch/blob/master/c10/core/DeviceType.h
-    DEFAULT_EXECUTION_PROVIDERS = {"cpu": "CPUExecutionProvider", "gpu": "CUDAExecutionProvider"}
     EXECUTION_PROVIDERS = {
         "cpu": ["CPUExecutionProvider", "OpenVINOExecutionProvider"],
         "gpu": [
@@ -211,11 +210,26 @@ class ONNXModel(OliveModel):
         config["config"].update({"inference_settings": self.inference_settings})
         return serialize_to_json(config, check_object)
 
+    def is_valid_ep(self, ep: str = None):
+        # TODO: should be remove if future accelerators is implemented
+        # It should be a bug for onnxruntime where the execution provider is not be fallback.
+        try:
+            ort.InferenceSession(self.model_path, providers=[ep])
+        except Exception as e:
+            logger.warning(
+                f"Error: {e}Olive will ignore this {ep}."
+                + f"Please make sure the environment with {ep} has the required dependencies."
+            )
+            return False
+        return True
+
     def get_default_execution_provider(self, device: Device):
-        available_providers = ort.get_available_providers()
-        default_ep = self.DEFAULT_EXECUTION_PROVIDERS.get(device)
-        assert default_ep in available_providers, f"Default execution provider {default_ep} is not available."
-        return [default_ep]
+        # return firstly available ep as ort default ep
+        available_providers = self.get_execution_providers(device)
+        for ep in available_providers:
+            if self.is_valid_ep(ep):
+                return [ep]
+        raise Exception("No available execution provider")
 
     def get_execution_providers(self, device: Device):
         available_providers = ort.get_available_providers()
