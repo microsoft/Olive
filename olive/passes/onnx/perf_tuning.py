@@ -233,7 +233,7 @@ class OrtPerfTuning(Pass):
             "io_bind": PassConfigParam(
                 type_=Union[bool, List[bool]],
                 default_value=False,
-                description="Whether enable IOBingding for ONNX Runimte infernece.",
+                description="Whether enable IOBinding for ONNX Runtime inference.",
             ),
             "providers_list": PassConfigParam(
                 type_=list,
