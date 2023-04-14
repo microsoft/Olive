@@ -88,8 +88,9 @@
             "type": "OrtPerfTuning",
             "config": {
                 "user_script": "user_script.py",
-                "dataloader_func": "create_dataloader",
-                "batch_size": 1
+                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                "input_shapes": [[1, 128], [1, 128], [1, 128]],
+                "input_types": ["int64", "int64", "int64"]
             }
         }
     },
