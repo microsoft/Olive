@@ -15,3 +15,6 @@
 
 # SqueezeNet latency optimization with DirectML
 [directml/squeezenet](https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet)
+
+# Stable Diffusion optimization with DirectML
+[directml/stable_diffusion](https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion)
