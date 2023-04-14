@@ -10,6 +10,8 @@ from typing import Any, Callable, Dict, List, Union
 
 import onnxruntime as ort
 import psutil
+import torch
+from torch.utils.data import Dataset
 
 from olive.evaluator.evaluation import evaluate_latency
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
@@ -42,6 +44,13 @@ def generate_tuning_combos(model, config):
 
 
 def tune_onnx_model(model, config):
+    def create_dummy_dataloader(data_dir, batchsize):
+        dummy_dataloader = DummyDataloader(config.input_names, config.input_shapes, config.input_types)
+        return dummy_dataloader
+
+    if not config.dataloader_func:
+        config.dataloader_func = create_dummy_dataloader
+
     latency_user_config = config.dict()
     latency_user_config.pop("io_bind")
     latency_metric = Metric(
@@ -206,6 +215,27 @@ def get_thread_affinity_nums(affinity_str):
     return len(affinities)
 
 
+class DummyDataloader(Dataset):
+    def __init__(self, input_names, input_shapes, input_types):
+        self.input_names = input_names
+        self.input_shapes = input_shapes
+        self.input_types = input_types
+
+    def __len__(self):
+        return 100
+
+    def __getitem__(self, index):
+        str_to_type = {"float32": torch.float32, "float16": torch.float16, "int32": torch.int32, "int64": torch.int64}
+        input_types = []
+        for input_type in self.input_types:
+            input_types.append(str_to_type[input_type])
+        dummy_inputs = {}
+        for input_name, input_shape, input_type in zip(self.input_names, self.input_shapes, input_types):
+            dummy_inputs.update({input_name: torch.ones(input_shape, dtype=input_type)})
+        label = 0
+        return dummy_inputs, label
+
+
 class OrtPerfTuning(Pass):
     """Optimize ONNX Runtime inference settings."""
 
@@ -219,11 +249,19 @@ class OrtPerfTuning(Pass):
             ),
             "dataloader_func": PassConfigParam(
                 type_=Union[Callable, str],
-                required=True,
                 is_object=True,
                 description="Dataloader function to load data from given data_dir with given batch size.",
             ),
-            "batch_size": PassConfigParam(type_=int, required=True, description="Batch size for inference."),
+            "batch_size": PassConfigParam(type_=int, description="Batch size for inference."),
+            "input_names": PassConfigParam(
+                type_=list, default_value=None, description="Input names list for ONNX model."
+            ),
+            "input_shapes": PassConfigParam(
+                type_=list, default_value=None, description="Input shapes list for ONNX model."
+            ),
+            "input_types": PassConfigParam(
+                type_=list, default_value=None, description="Input types list for ONNX model."
+            ),
             "device": PassConfigParam(
                 type_=str, default_value="cpu", description="Device selected for tuning process."
             ),
