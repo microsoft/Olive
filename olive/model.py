@@ -213,6 +213,8 @@ class ONNXModel(OliveModel):
     def is_valid_ep(self, ep: str = None):
         # TODO: should be remove if future accelerators is implemented
         # It should be a bug for onnxruntime where the execution provider is not be fallback.
+        import onnxruntime as ort
+
         try:
             ort.InferenceSession(self.model_path, providers=[ep])
         except Exception as e:

@@ -5,7 +5,6 @@
 from copy import deepcopy
 from typing import Any, Dict, List
 
-import onnxruntime as ort
 from packaging import version
 
 from olive.model import ONNXModel
@@ -85,6 +84,8 @@ class OrtTransformersOptimization(Pass):
     @staticmethod
     def _set_sd_fusion_options(run_config: Dict[str, Any], use_float16: bool):
         """Configures fusion options for stable diffusion models"""
+        import onnxruntime as ort
+
         input_model_type = run_config["model_type"]
 
         # default to no specific fusion options in earlier releases of ORT
@@ -110,6 +111,8 @@ class OrtTransformersOptimization(Pass):
 
     @staticmethod
     def _get_op_block_list(config: Dict[str, Any]):
+        import onnxruntime as ort
+
         op_block_list = []
 
         if config["float16"]:
@@ -152,6 +155,7 @@ class OrtTransformersOptimization(Pass):
         return ONNXModel(output_model_path, model.name)
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+        import onnxruntime as ort
         from onnxruntime.transformers import optimizer as transformers_optimizer
 
         # start with a copy of the config
