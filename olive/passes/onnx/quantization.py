@@ -85,14 +85,6 @@ _onnx_quantization_config = {
             change the computation graph, making debugging of quantization loss difficult.
         """,
     ),
-    # TODO: enable search if we support onnx external data format
-    "use_external_data_format": PassConfigParam(
-        type_=bool,
-        default_value=False,
-        description="""
-            option used for large size (>2GB) model. Set to False by default.
-        """,
-    ),
     "quant_preprocess": PassConfigParam(
         type_=bool,
         default_value=True,
@@ -126,7 +118,7 @@ _exposed_extra_options_config = {
             quantized output. Also the True behavior could be disabled per node using the nodes_to_exclude.
         """,
     ),
-    "MatMulConstBOnly ": PassConfigParam(
+    "MatMulConstBOnly": PassConfigParam(
         type_=bool,
         default_value=ConditionalDefault(parents=("quant_mode",), support={("dynamic",): True, ("static",): False}),
         description="If enabled, only MatMul with const B will be quantized.",
