@@ -111,33 +111,33 @@ class Footprint:
     def mark_pareto_frontier(self):
         if self.is_marked_pareto_frontier:
             return
-        for k, v in self.nodes.items():
+        candidates = self.get_candidates()
+        for k, v in candidates.items():
             # if current point's metrics is less than any other point's metrics, it is not pareto frontier
-            cmp_flag = True and not self._is_empty_metric(v.metrics)
-            for _k, _v in self.nodes.items():
+            cmp_flag = True
+            for _k, _v in candidates.items():
                 if k == _k:
                     # don't compare the point with itself
                     continue
                 if not cmp_flag:
                     break
-                if not self._is_empty_metric(_v.metrics):
-                    # if all the metrics of current point is less than or equal to any other point's metrics
-                    # (i.e., it is dominated by the other point), it is not pareto frontier
-                    # e.g. current point's metrics is [1, 2, 3],
-                    # other point's metrics is [2, 3, 4], then current point is not pareto frontier
-                    # but if current point's metrics is [3, 2, 3], other point's metrics is [2, 3, 4],
-                    # then current point is pareto frontier
-                    # Note: equal points don't dominate one another
-                    equal = True  # two points are equal
-                    dominated = True  # current point is dominated by other point
-                    for metric_name in v.metrics.value:
-                        other_point_metrics = _v.metrics.value[metric_name] * _v.metrics.cmp_direction[metric_name]
-                        current_point_metrics = v.metrics.value[metric_name] * v.metrics.cmp_direction[metric_name]
-                        dominated &= current_point_metrics <= other_point_metrics
-                        equal &= current_point_metrics == other_point_metrics
-                    # point is not on pareto frontier if dominated and not equal
-                    _against_pareto_frontier_check = dominated and not equal
-                    cmp_flag &= not _against_pareto_frontier_check
+                # if all the metrics of current point is less than or equal to any other point's metrics
+                # (i.e., it is dominated by the other point), it is not pareto frontier
+                # e.g. current point's metrics is [1, 2, 3],
+                # other point's metrics is [2, 3, 4], then current point is not pareto frontier
+                # but if current point's metrics is [3, 2, 3], other point's metrics is [2, 3, 4],
+                # then current point is pareto frontier
+                # Note: equal points don't dominate one another
+                equal = True  # two points are equal
+                dominated = True  # current point is dominated by other point
+                for metric_name in v.metrics.value:
+                    other_point_metrics = _v.metrics.value[metric_name] * _v.metrics.cmp_direction[metric_name]
+                    current_point_metrics = v.metrics.value[metric_name] * v.metrics.cmp_direction[metric_name]
+                    dominated &= current_point_metrics <= other_point_metrics
+                    equal &= current_point_metrics == other_point_metrics
+                # point is not on pareto frontier if dominated and not equal
+                _against_pareto_frontier_check = dominated and not equal
+                cmp_flag &= not _against_pareto_frontier_check
             self.nodes[k].is_pareto_frontier = cmp_flag
         self.is_marked_pareto_frontier = True
 
