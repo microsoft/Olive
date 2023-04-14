@@ -315,6 +315,7 @@
 
         <span class="c1"># hash the input model</span>
         <span class="n">input_model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_input_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="o">.</span><span class="n">record</span><span class="p">(</span><span class="n">model_id</span><span class="o">=</span><span class="n">input_model_id</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">evaluation_only</span><span class="p">:</span>
             <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Evaluation only is True but no evaluator provided&quot;</span>
