@@ -10,13 +10,13 @@ from onnxruntime.transformers.onnx_model import OnnxModel as TransformersOnnxMod
 
 from olive.model import ONNXModel
 from olive.passes import Pass
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 
 
 class ModelOptimizer:
-    def __init__(self, source_model_path, target_model_path):
+    def __init__(self, source_model_path):
         self.source_model_path = str(source_model_path)
-        self.target_model_path = str(target_model_path)
         self.prepare()
 
     def prepare(self):
@@ -59,8 +59,6 @@ class ModelOptimizer:
                         new_x_val, x_scale_val, x_zero_point_val, new_dequant_node_output, node_index
                     )
                     self.add_nodes(self.graph, [new_dequant, x, x_scale, x_zero_point], node_index)
-
-        onnx.save(self.onnx_model.model, self.target_model_path)
 
     def create_dequantizelinear_node(self, x_val, x_scale_val, x_zero_point_val, outputs, node_name_suffix):
         x_tensor = onnx.helper.make_tensor(
@@ -120,11 +118,14 @@ class OnnxModelOptimizer(Pass):
 
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
-        return {}
+        return get_external_data_config()
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
-        model_optimizer = ModelOptimizer(model.model_path, output_model_path)
+        # optimize model
+        model_optimizer = ModelOptimizer(model.model_path)
         model_optimizer.optimize()
-        return ONNXModel(output_model_path, model.name)
+
+        # save the model to the output path and return the model
+        return model_proto_to_olive_model(model_optimizer.model, output_model_path, config, model.name)

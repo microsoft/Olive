@@ -10,6 +10,7 @@ from packaging import version
 
 from olive.model import ONNXModel
 from olive.passes import Pass
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 
 
@@ -20,7 +21,7 @@ class OrtTransformersOptimization(Pass):
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
         # TODO: add default search if supported
-        return {
+        config = {
             "model_type": PassConfigParam(
                 type_=str,
                 required=True,
@@ -56,11 +57,6 @@ class OrtTransformersOptimization(Pass):
             "input_int32": PassConfigParam(
                 type_=bool, default_value=False, description="Whether int32 tensors will be used as input."
             ),
-            "use_external_data_format": PassConfigParam(
-                type_=bool,
-                default_value=False,
-                description="Whether use external data format to store large model (>2GB)",
-            ),
             "keep_io_types": PassConfigParam(
                 type_=bool,
                 default_value=True,
@@ -72,10 +68,14 @@ class OrtTransformersOptimization(Pass):
             "target_provider": PassConfigParam(
                 type_=str,
                 default_value=None,
-                description="Target execution provider. This parameter will be removed when "
-                "accelerators/targets are visible to passes.",
+                description=(
+                    "Target execution provider. This parameter will be removed when "
+                    "accelerators/targets are visible to passes."
+                ),
             ),
         }
+        config.update(get_external_data_config())
+        return config
 
     @staticmethod
     def sd_model_types():
@@ -148,8 +148,8 @@ class OrtTransformersOptimization(Pass):
             op_block_list=op_block_list,
             disable_shape_infer=disable_shape_infer,
         )
-        onnx.save(model_fp16, output_model_path)
-        return ONNXModel(output_model_path, model.name)
+        # save the model to the output path and return the model
+        return model_proto_to_olive_model(model_fp16, output_model_path, config, model.name)
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
         from onnxruntime.transformers import optimizer as transformers_optimizer
@@ -159,11 +159,12 @@ class OrtTransformersOptimization(Pass):
         del (
             run_config["float16"],
             run_config["input_int32"],
-            run_config["use_external_data_format"],
             run_config["keep_io_types"],
             run_config["force_fp32_ops"],
             run_config["target_provider"],
         )
+        for key in get_external_data_config():
+            del run_config[key]
 
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
@@ -184,6 +185,5 @@ class OrtTransformersOptimization(Pass):
         if config["input_int32"]:
             optimizer.change_graph_inputs_to_int32()
 
-        optimizer.save_model_to_file(output_model_path, config["use_external_data_format"])
-
-        return ONNXModel(output_model_path, model.name)
+        # save the model to the output path and return the model
+        return model_proto_to_olive_model(optimizer.model, output_model_path, config, model.name)
