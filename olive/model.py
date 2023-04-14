@@ -191,8 +191,9 @@ class ONNXModel(OliveModel):
                 for key, value in extra_session_config.items():
                     sess_options.add_session_config_entry(key, value)
 
+        # if use doesn't not providers ep list, use default value([ep]). Otherwise, use the user's ep list
         if not execution_provider:
-            execution_provider = self.get_execution_providers(device)
+            execution_provider = self.get_default_execution_provider(device)
         elif isinstance(execution_provider, list):
             # execution_provider may be a list of tuples where the first item in each tuple is the EP name
             execution_provider = [i[0] if isinstance(i, tuple) else i for i in execution_provider]
@@ -208,6 +209,27 @@ class ONNXModel(OliveModel):
         config = super().to_json(check_object)
         config["config"].update({"inference_settings": self.inference_settings})
         return serialize_to_json(config, check_object)
+
+    def is_valid_ep(self, ep: str = None):
+        # TODO: should be remove if future accelerators is implemented
+        # It should be a bug for onnxruntime where the execution provider is not be fallback.
+        try:
+            ort.InferenceSession(self.model_path, providers=[ep])
+        except Exception as e:
+            logger.warning(
+                f"Error: {e}Olive will ignore this {ep}."
+                + f"Please make sure the environment with {ep} has the required dependencies."
+            )
+            return False
+        return True
+
+    def get_default_execution_provider(self, device: Device):
+        # return firstly available ep as ort default ep
+        available_providers = self.get_execution_providers(device)
+        for ep in available_providers:
+            if self.is_valid_ep(ep):
+                return [ep]
+        return ["CPUExecutionProvider"]
 
     def get_execution_providers(self, device: Device):
         import onnxruntime as ort

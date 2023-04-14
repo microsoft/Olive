@@ -202,6 +202,7 @@ class Engine:
 
         # hash the input model
         input_model_id = self._init_input_model(input_model)
+        self.footprints.record(model_id=input_model_id)
 
         if evaluation_only:
             assert self.evaluator is not None, "Evaluation only is True but no evaluator provided"

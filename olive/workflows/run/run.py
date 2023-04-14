@@ -35,10 +35,10 @@ def automatically_insert_passes(config):
     q_config["clean_run_cache"] = False
     new_passes["dynamic_quantization"] = q_config
 
-    # insert thread_tuning
-    t_config = {"type": "OnnxThreadTuning"}
+    # insert perf_tuning
+    t_config = {"type": "OrtPerfTuning"}
     t_config["config"] = {"user_script": "user_script.py", "dataloader_func": "create_dataloader", "batch_size": 1}
-    new_passes["thread_tuning"] = t_config
+    new_passes["perf_tuning"] = t_config
 
     new_config_dict["passes"] = new_passes
     new_config = RunConfig.parse_obj(new_config_dict)

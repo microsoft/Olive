@@ -1,0 +1,76 @@
+{
+    "verbose": false,
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "model_path": "runwayml/stable-diffusion-v1-5",
+            "is_file": false,
+            "model_loader": "unet_load",
+            "model_script": "user_script.py"
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "device": "gpu"
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_type": "avg",
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "unet_data_loader",
+                        "batch_size": 2
+                    }
+                }
+            ],
+            "target": "local_system"
+        }
+    },
+    "passes": {
+        "convert": {
+            "type": "OnnxConversion",
+            "config": {
+                "user_script": "user_script.py",
+                "input_names": [ "sample", "timestep", "encoder_hidden_states", "return_dict" ],
+                "input_tensor_func": "unet_conversion_inputs",
+                "output_names": [ "out_sample" ],
+                "dynamic_axes": {
+                    "sample": {"0": "batch", "1": "channels", "2": "height", "3": "width"},
+                    "timestep": {"0": "batch"},
+                    "encoder_hidden_states": {"0": "batch", "1": "sequence"}
+                },
+                "target_opset": 14,
+                "all_tensors_to_one_file": true,
+                "external_data_name": "weights.pb"
+            }
+        },
+        "optimize": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "unet",
+                "float16": true,
+                "use_gpu": true,
+                "keep_io_types": false
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "exhaustive"
+        },
+        "evaluator": "common_evaluator",
+        "host": "local_system",
+        "cache_dir": "cache",
+        "output_name": "unet",
+        "output_dir": "footprints"
+    }
+}

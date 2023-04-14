@@ -128,6 +128,11 @@ class TestEngine:
         # execute
         actual_res = engine.run(pytorch_model)
 
+        # make sure the input model always be in engine.footprints
+        assert input_model_id in engine.footprints.nodes
+        # make sure the input model always not in engine's pareto frontier
+        assert input_model_id not in actual_res.nodes
+
         # assert
         assert len(actual_res.nodes) == 1
         assert model_id in actual_res.nodes
