@@ -78,16 +78,15 @@ def model_proto_to_file(
         try:
             # save model
             onnx.save_model(model, str(output_path))
-        except ValueError as e:
+        except ValueError:
             # model is too large to save as a single file
-            if "Please use save_as_external_data to save tensors separately from the model file." in str(e):
+            if model.ByteSize() >= onnx.checker.MAXIMUM_PROTOBUF:
                 logger.warning(
                     "Model is too large to save as a single file but 'save_as_external_data' is False. Saving tensors"
                     " as external data regardless."
                 )
                 return model_proto_to_file(model, output_path, True, all_tensors_to_one_file, external_data_name)
-            else:
-                raise e
+            raise
         return False
 
     # location for external data
