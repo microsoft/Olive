@@ -65,11 +65,16 @@ def dependency_setup(config):
         },
     }
 
-    required_packages = []
+    local_packages = []
+    remote_packages = []
 
+    # add dependencies for passes
     for _, pass_config in config.passes.items():
-        if DEPENDENCY_MAPPING["pass"].get(pass_config.type):
-            required_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type))
+        host = pass_config.host or config.engine.host
+        if (host and host.type == SystemType.Local) or not host:
+            local_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type, []))
+        else:
+            remote_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type, []))
         if pass_config.type in ["SNPEConversion", "SNPEQuantization", "SNPEtoONNXConversion"]:
             logger.info(
                 "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html \
@@ -78,25 +83,25 @@ def dependency_setup(config):
                 )
             )
 
-    if config.engine.host.type == SystemType.Local:
-        required_packages.extend(
-            DEPENDENCY_MAPPING["device"][config.engine.host.type][config.engine.host.config.device]
-        )
-        logger.info("The following packages will be installed: {}".format(" ".join(required_packages)))
-        for package in set(required_packages):
-            try:
-                __import__(package)
-            except (ImportError):
-                subprocess.check_call(["pip", "install", "{}".format(package)])
+    # add dependencies for engine
+    if config.engine.host and config.engine.host.type == SystemType.Local:
+        local_packages.extend(DEPENDENCY_MAPPING["device"][SystemType.Local][config.engine.host.config.device])
+    elif not config.engine.host:
+        local_packages.extend(DEPENDENCY_MAPPING["device"][SystemType.Local]["cpu"])
     else:
-        for package in set(DEPENDENCY_MAPPING["device"][config.engine.host.type]):
-            try:
-                __import__(package)
-            except (ImportError):
-                subprocess.check_call(["pip", "install", "{}".format(package)])
+        local_packages.extend(DEPENDENCY_MAPPING["device"][config.engine.host.type])
+
+    # install packages to local or tell user to install packages in their environment
+    logger.info("The following packages will be installed: {}".format(" ".join(local_packages)))
+    for package in set(local_packages):
+        try:
+            __import__(package)
+        except (ImportError):
+            subprocess.check_call(["pip", "install", "{}".format(package)])
+    if remote_packages:
         logger.info(
             "Please make sure the following packages are installed in {} environment: {}".format(
-                config.engine.host.type, required_packages
+                config.engine.host.type, remote_packages
             )
         )
 
