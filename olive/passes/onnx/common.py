@@ -29,7 +29,7 @@ def get_external_data_config():
             default_value=True,
             description=(
                 "Effective only if save_as_external_data is True. If true, save all tensors to one external file"
-                " specified by location. If false, save each tensor to a file named with the tensor name."
+                " specified by 'external_data_name'. If false, save each tensor to a file named with the tensor name."
             ),
         ),
         "external_data_name": PassConfigParam(
@@ -57,8 +57,9 @@ def model_proto_to_file(
     :param output_path: The path to save the ONNX model to.
     :param save_as_external_data: If True, save tensor data to separate files instead of directly in the ONNX file.
         Large models (>2GB) may be forced to save external data regardless of the value of this parameter.
-    :param all_tensors_to_one_file: Effective only if save_as_external_data is True. If true, save all tensors to one
-        external file specified by location. If false, save each tensor to a file named with the tensor name.
+    :param all_tensors_to_one_file: Effective only if save_as_external_data is True. If True, save all tensors to one
+        external file specified by 'external_data_name'. If False, save each tensor to a file named with the tensor
+        name.
     :param external_data_name: Effective only if all_tensors_to_one_file is True and save_as_external_data is True.
         If not specified, the external data file will be named with <model_path_name>.data
 
