@@ -16,6 +16,7 @@ class TestFootprint:
     def setup(self):
         self.footprint_file = Path(__file__).parent / "mock_data" / "footprints.json"
         self.fp = Footprint.from_file(self.footprint_file)
+        self.input_node = {k: v for k, v in self.fp.nodes.items() if v.parent_model_id is None}
 
     def test_file_dump(self):
         with tempfile.TemporaryDirectory() as tempdir:
@@ -33,3 +34,20 @@ class TestFootprint:
         assert isinstance(pareto_frontier_fp, Footprint)
         assert len(pareto_frontier_fp.nodes) == 2
         assert all([v.is_pareto_frontier for v in pareto_frontier_fp.nodes.values()])
+
+    def test_trace_back_run_history(self):
+        for model_id in self.fp.nodes:
+            run_history = self.fp.trace_back_run_history(model_id)
+            assert run_history is not None
+            assert next(reversed(run_history)) in self.input_node
+
+    def test_get_model_info(self):
+        for model_id in self.fp.nodes:
+            inference_config = self.fp.get_model_inference_config(model_id)
+            model_path = self.fp.get_model_path(model_id)
+            if model_id in self.input_node:
+                assert inference_config is None
+                assert str(model_path).endswith(".pt")
+            else:
+                assert inference_config is not None
+                assert str(model_path).endswith(".onnx")
