@@ -56,17 +56,27 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
         footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_footprints.json"
         with footprints_file_path.open("r") as footprint_file:
             footprints = json.load(footprint_file)
-            unoptimized_config = footprints[list(footprints)[0]]["model_config"]["config"]
-            optimized_config = footprints[list(footprints)[1]]["model_config"]["config"]
+
+            conversion_footprint = None
+            optimizer_footprint = None
+            for f in footprints:
+                footprint = footprints[f]
+                if footprint["from_pass"] == "OnnxConversion":
+                    conversion_footprint = footprint
+                elif footprint["from_pass"] == "OrtTransformersOptimization":
+                    optimizer_footprint = footprint
+
+            assert conversion_footprint and optimizer_footprint
+
+            unoptimized_config = conversion_footprint["model_config"]["config"]
+            optimized_config = optimizer_footprint["model_config"]["config"]
 
             model_info[submodel_name] = {
                 "unoptimized": {
                     "path": Path(unoptimized_config["model_path"]),
-                    "is_file": unoptimized_config["is_file"],
                 },
                 "optimized": {
                     "path": Path(optimized_config["model_path"]),
-                    "is_file": optimized_config["is_file"],
                 },
             }
 
