@@ -59,8 +59,7 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
 
             conversion_footprint = None
             optimizer_footprint = None
-            for f in footprints:
-                footprint = footprints[f]
+            for _, footprint in footprints.items():
                 if footprint["from_pass"] == "OnnxConversion":
                     conversion_footprint = footprint
                 elif footprint["from_pass"] == "OrtTransformersOptimization":
