@@ -19,6 +19,9 @@ _common_user_config = {
     "user_script": ConfigParam(type_=Union[Path, str]),
     "data_dir": ConfigParam(type_=Union[Path, str]),
     "batch_size": ConfigParam(type_=int, default_value=1),
+    "input_names": ConfigParam(type_=List, is_object=True),
+    "input_shapes": ConfigParam(type_=List, is_object=True),
+    "input_types": ConfigParam(type_=List, is_object=True),
 }
 
 _common_user_config_validators = {}
@@ -28,9 +31,6 @@ _type_to_user_config = {
         "dataloader_func": ConfigParam(type_=Union[Callable, str], is_object=True),
         "inference_settings": ConfigParam(type_=dict),
         "io_bind": ConfigParam(type_=bool, default_value=False),
-        "input_names": ConfigParam(type_=List, is_object=True),
-        "input_shapes": ConfigParam(type_=List, is_object=True),
-        "input_types": ConfigParam(type_=List, is_object=True),
     },
     "accuracy": {
         "dataloader_func": ConfigParam(type_=Union[Callable, str], required=True, is_object=True),
