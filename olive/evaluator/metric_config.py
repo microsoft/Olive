@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Callable, Union
+from typing import Callable, List, Union
 
 from pydantic import validator
 
@@ -19,13 +19,16 @@ _common_user_config = {
     "user_script": ConfigParam(type_=Union[Path, str]),
     "data_dir": ConfigParam(type_=Union[Path, str]),
     "batch_size": ConfigParam(type_=int, default_value=1),
+    "input_names": ConfigParam(type_=List, is_object=True),
+    "input_shapes": ConfigParam(type_=List, is_object=True),
+    "input_types": ConfigParam(type_=List, is_object=True),
 }
 
 _common_user_config_validators = {}
 
 _type_to_user_config = {
     "latency": {
-        "dataloader_func": ConfigParam(type_=Union[Callable, str], required=True, is_object=True),
+        "dataloader_func": ConfigParam(type_=Union[Callable, str], is_object=True),
         "inference_settings": ConfigParam(type_=dict),
         "io_bind": ConfigParam(type_=bool, default_value=False),
     },
