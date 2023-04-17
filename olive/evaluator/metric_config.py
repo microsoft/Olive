@@ -19,9 +19,9 @@ _common_user_config = {
     "user_script": ConfigParam(type_=Union[Path, str]),
     "data_dir": ConfigParam(type_=Union[Path, str]),
     "batch_size": ConfigParam(type_=int, default_value=1),
-    "input_names": ConfigParam(type_=List, is_object=True),
-    "input_shapes": ConfigParam(type_=List, is_object=True),
-    "input_types": ConfigParam(type_=List, is_object=True),
+    "input_names": ConfigParam(type_=List),
+    "input_shapes": ConfigParam(type_=List),
+    "input_types": ConfigParam(type_=List),
 }
 
 _common_user_config_validators = {}
