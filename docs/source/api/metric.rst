@@ -8,17 +8,23 @@ Metric
 
 MetricType
 ^^^^^^^^^^
-.. autoenum:: olive.evaluator.metric.MetricType
+.. autoclass:: olive.evaluator.metric.MetricType
+    :members:
+    :undoc-members:
 
 .. _accuracy_sub_type:
 AccuracySubType
 ^^^^^^^^^^^^^^^
-.. autoenum:: olive.evaluator.metric.AccuracySubType
+.. autoclass:: olive.evaluator.metric.AccuracySubType
+    :members:
+    :undoc-members:
 
 .. _latency_sub_type:
 LatencySubType
 ^^^^^^^^^^^^^^
-.. autoenum:: olive.evaluator.metric.LatencySubType
+.. autoclass:: olive.evaluator.metric.LatencySubType
+    :members:
+    :undoc-members:
 
 MetricGoal
 ^^^^^^^^^^

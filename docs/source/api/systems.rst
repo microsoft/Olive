@@ -11,7 +11,9 @@ Config
 SystemType
 ^^^^^^^^^^^
 
-.. autoenum:: olive.systems.common.SystemType
+.. autoclass:: olive.systems.common.SystemType
+    :members:
+    :undoc-members:
 
 .. _local_system_config:
 LocalTargetUserConfig
@@ -21,7 +23,9 @@ LocalTargetUserConfig
 
 **Device**
 
-.. autoenum:: olive.systems.common.Device
+.. autoclass:: olive.systems.common.Device
+    :members:
+    :undoc-members:
 
 .. _docker_system_config:
 DockerTargetUserConfig
