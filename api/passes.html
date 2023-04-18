@@ -1683,7 +1683,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-engine_config">
 <span id="cmdoption-arg-engine-config"></span><span class="sig-name descname"><span class="pre">engine_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-engine_config" title="Permalink to this definition">¶</a></dt>
-<dd><p>Specific config for openvino.tools.pot.IEEngine. ‘engine_config’ can be set by passing a dictonary, for example engine_config = {‘device’: ‘CPU’}</p>
+<dd><p>Specific config for openvino.tools.pot.IEEngine. ‘engine_config’ can be set by passing a dictonary, for example engine_config: {‘device’: ‘CPU’}</p>
 <p><strong>type:</strong> Dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
@@ -1727,7 +1727,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-algorithms">
 <span class="sig-name descname"><span class="pre">algorithms</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-algorithms" title="Permalink to this definition">¶</a></dt>
-<dd><p>A list defining optimization algorithms and their parameters included in the optimization pipeline. The order in which they are applied to the model in the optimization pipeline is determined by the order in the list. example: algorithms =  [{‘name’: ‘DefaultQuantization’, ‘params’: {‘preset’: ‘performance’, ‘stat_subset_size’: 500},}]</p>
+<dd><p>A list defining optimization algorithms and their parameters included in the optimization pipeline. The order in which they are applied to the model in the optimization pipeline is determined by the order in the list. example: algorithms:  [{‘name’: ‘DefaultQuantization’, ‘params’: {‘preset’: ‘performance’, ‘stat_subset_size’: 500},}]</p>
 <p><strong>type:</strong> List[Dict]</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
