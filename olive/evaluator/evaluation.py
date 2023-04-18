@@ -293,14 +293,15 @@ def get_user_config(config: dict):
     dataloader = None
     dataloader_func = getattr(config, "dataloader_func", None)
     dataloader = user_module.call_object(dataloader_func, config.data_dir, config.batch_size)
-    if not dataloader:
-        dataloader = DummyDataloader(config.input_names, config.input_shapes, config.input_types)
 
     post_func = getattr(config, "post_processing_func", None)
     post_func = user_module.load_object(post_func)
 
     eval_func = getattr(config, "evaluate_func", None)
     eval_func = user_module.load_object(eval_func)
+
+    if not dataloader and not eval_func:
+        dataloader = DummyDataloader(config.input_names, config.input_shapes, config.input_types)
 
     return dataloader, post_func, eval_func
 
