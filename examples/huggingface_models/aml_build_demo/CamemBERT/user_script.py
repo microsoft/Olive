@@ -47,7 +47,7 @@ class CalibrationDataLoader(CalibrationDataReader):
 # -------------------- model -------------------
 def load_model(model_path=None):
     model = CamembertForTokenClassification.from_pretrained(model_name)
-    model = model.to('cpu')
+    model = model.to("cpu")
     return model
 
 
