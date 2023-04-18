@@ -34,7 +34,7 @@ int main() {
         Ort::SessionOptions options;
         updateSessOptions(options, sessOpts);
         updateExecutionProvider(options, executionProvider);
-        
+
         // Create inference session
         session = std::make_unique<Ort::Session>(env, L"model.onnx", options);
     }
