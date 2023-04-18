@@ -8,9 +8,6 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
-import torch
-from torch.utils.data import Dataset
-
 from olive.evaluator.evaluation import evaluate_latency
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.model import ONNXModel
