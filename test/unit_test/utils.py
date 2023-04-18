@@ -46,9 +46,13 @@ def get_pytorch_model():
     return PyTorchModel(model_loader=pytorch_model_loader, model_path=None)
 
 
+def get_pytorch_model_dummy_input():
+    return torch.randn(1, 10)
+
+
 def create_onnx_model_file():
     pytorch_model = pytorch_model_loader(model_path=None)
-    dummy_input = torch.randn(1, 10)
+    dummy_input = get_pytorch_model_dummy_input()
     torch.onnx.export(
         pytorch_model, dummy_input, ONNX_MODEL_PATH, opset_version=10, input_names=["input"], output_names=["output"]
     )
