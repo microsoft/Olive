@@ -10,9 +10,6 @@ from shutil import copyfile
 from typing import Any, Callable, Dict, Union
 
 import onnx
-from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
-from onnxruntime.quantization.calibrate import CalibrationMethod
-from onnxruntime.quantization.preprocess import quant_pre_process
 
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -298,6 +295,9 @@ class OnnxQuantization(Pass):
         return True
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+        from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
+        from onnxruntime.quantization.calibrate import CalibrationMethod
+
         # start with a copy of the config
         run_config = deepcopy(config)
         is_static = run_config["quant_mode"] == "static"
@@ -394,6 +394,8 @@ class OnnxQuantization(Pass):
         return model_proto_to_olive_model(onnx_model, output_model_path, config, model.name)
 
     def _quant_preprocess(self, model: ONNXModel, output_model_path: str) -> ONNXModel:
+        from onnxruntime.quantization.preprocess import quant_pre_process
+
         try:
             quant_pre_process(input_model_path=model.model_path, output_model_path=output_model_path, auto_merge=True)
         except Exception as e:

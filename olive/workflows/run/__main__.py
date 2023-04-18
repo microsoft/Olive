@@ -9,6 +9,7 @@ from olive.workflows import run
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Olive Workflow: Custom Run")
     parser.add_argument("--config", type=str, help="Path to json config file", required=True)
+    parser.add_argument("--setup", help="Whether run environment setup", action="store_true")
 
     args = parser.parse_args()
 

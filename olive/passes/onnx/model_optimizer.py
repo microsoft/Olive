@@ -6,7 +6,6 @@ from typing import Any, Dict
 
 import numpy as np
 import onnx
-from onnxruntime.transformers.onnx_model import OnnxModel as TransformersOnnxModel
 
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -20,6 +19,8 @@ class ModelOptimizer:
         self.prepare()
 
     def prepare(self):
+        from onnxruntime.transformers.onnx_model import OnnxModel as TransformersOnnxModel
+
         self.model = onnx.load(self.source_model_path)
         self.onnx_model = TransformersOnnxModel(self.model)
         self.graph = self.onnx_model.graph()
