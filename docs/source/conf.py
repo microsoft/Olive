@@ -33,7 +33,6 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx_tabs.tabs",
     # "nbsphinx",
-    "enum_tools.autoenum",
     "auto_config_doc",
     "sphinxcontrib.autodoc_pydantic",
     "sphinxcontrib.jquery",

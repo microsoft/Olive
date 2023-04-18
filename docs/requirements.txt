@@ -2,7 +2,6 @@ autodoc_pydantic
 azure-ai-ml>=0.1.0b6
 azure-identity
 docker
-enum-tools[sphinx]
 myst_parser
 onnxconverter_common
 psutil
