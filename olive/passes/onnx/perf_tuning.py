@@ -44,15 +44,17 @@ def generate_tuning_combos(model, config):
 
 
 def tune_onnx_model(model, config):
-    def create_dummy_dataloader(data_dir, batchsize):
-        dummy_dataloader = DummyDataloader(config.input_names, config.input_shapes, config.input_types)
-        return dummy_dataloader
-
-    if not config.dataloader_func:
-        config.dataloader_func = create_dummy_dataloader
-
-    latency_user_config = config.dict()
-    latency_user_config.pop("io_bind")
+    latency_user_config = {}
+    for eval_config in [
+        "data_dir",
+        "dataloader_func",
+        "batch_size",
+        "input_names",
+        "input_shapes",
+        "input_types",
+        "device",
+    ]:
+        latency_user_config[eval_config] = config.dict().get(eval_config)
     latency_metric = Metric(
         name="latency", type=MetricType.LATENCY, sub_type=LatencySubType.AVG, user_config=latency_user_config
     )
@@ -216,27 +218,6 @@ def parse_tuning_result(*tuning_results):
 def get_thread_affinity_nums(affinity_str):
     affinities = affinity_str.split(";")
     return len(affinities)
-
-
-class DummyDataloader(Dataset):
-    def __init__(self, input_names, input_shapes, input_types):
-        self.input_names = input_names
-        self.input_shapes = input_shapes
-        self.input_types = input_types
-
-    def __len__(self):
-        return 100
-
-    def __getitem__(self, index):
-        str_to_type = {"float32": torch.float32, "float16": torch.float16, "int32": torch.int32, "int64": torch.int64}
-        input_types = []
-        for input_type in self.input_types:
-            input_types.append(str_to_type[input_type])
-        dummy_inputs = {}
-        for input_name, input_shape, input_type in zip(self.input_names, self.input_shapes, input_types):
-            dummy_inputs.update({input_name: torch.ones(input_shape, dtype=input_type)})
-        label = 0
-        return dummy_inputs, label
 
 
 class OrtPerfTuning(Pass):

@@ -7,6 +7,7 @@ from typing import Any, Dict
 
 import numpy as np
 import torch
+from torch.utils.data import Dataset
 
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework
@@ -175,6 +176,7 @@ def evaluate_accuracy_pytorch(sess, dataloader, post_func, device):
         #  ValueError: expected sequence of length 128 at dim 1 (got 3)
         preds.extend(outputs.tolist())
         targets.extend(labels.data.tolist())
+    sess.to(torch.device(Device.CPU))
     return preds, targets
 
 
@@ -271,6 +273,7 @@ def evaluate_latency_pytorch(sess, dataloader, device, warmup_num, repeat_test_n
             t = time.perf_counter()
             sess(input_data)
             latencies.append(time.perf_counter() - t)
+    sess.to(torch.device(Device.CPU))
     return latencies
 
 
@@ -298,6 +301,8 @@ def get_user_config(config: dict):
     dataloader = None
     dataloader_func = getattr(config, "dataloader_func", None)
     dataloader = user_module.call_object(dataloader_func, config.data_dir, config.batch_size)
+    if not dataloader:
+        dataloader = DummyDataloader(config.input_names, config.input_shapes, config.input_types)
 
     post_func = getattr(config, "post_processing_func", None)
     post_func = user_module.load_object(post_func)
@@ -311,3 +316,31 @@ def get_user_config(config: dict):
 def device_string_to_torch_device(device: Device):
     device = torch.device("cuda") if device == Device.GPU else torch.device(device)
     return device
+
+
+class DummyDataloader(Dataset):
+    def __init__(self, input_names, input_shapes, input_types):
+        self.input_names = input_names
+        self.input_shapes = input_shapes
+        self.input_types = input_types
+
+    def __len__(self):
+        return 100
+
+    def __getitem__(self, index):
+        str_to_type = {"float32": torch.float32, "float16": torch.float16, "int32": torch.int32, "int64": torch.int64}
+        input_types = []
+        if self.input_types:
+            for input_type in self.input_types:
+                input_types.append(str_to_type[input_type])
+        else:
+            for _ in range(len(self.input_names)):
+                input_types.append(torch.float32)
+        if len(self.input_names) == 1:
+            dummy_inputs = torch.ones(self.input_shapes[0], dtype=input_types[0])
+        else:
+            dummy_inputs = {}
+            for input_name, input_shape, input_type in zip(self.input_names, self.input_shapes, input_types):
+                dummy_inputs.update({input_name: torch.ones(input_shape, dtype=input_type)})
+        label = 0
+        return dummy_inputs, label
