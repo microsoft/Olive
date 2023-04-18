@@ -14,8 +14,7 @@ for filename in $AML_BENCHMARK_PATH/*; do
         echo "Current directory: $(pwd)"
         pip install -r requirements.txt
         mkdir -p cache
-        python -m olive.workflows.run --config cpu_config.json --output_dir ./engine_results --output_name cpu 2>&1 > ./cache/engine_logs.log
-        # python -m olive.workflows.run --config gpu_config.json --clean_cache --output_dir ./engine_results --output_name gpu
+        python -m olive.workflows.run --config gpu_config.json --output_dir ./cache --output_name gpu 2>&1 > ./cache/engine_logs.log &
         cd ..
     fi
 done
