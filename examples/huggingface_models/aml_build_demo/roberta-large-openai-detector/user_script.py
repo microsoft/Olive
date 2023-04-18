@@ -87,7 +87,7 @@ def create_evaluation_dataset(dataset_dir):
             return self.dataset[index], self.dataset[index]["labels"]
 
         def __len__(self):
-            len(self.dataset)
+            return len(self.dataset)
 
     return _Dateset(rls)
 
