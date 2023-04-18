@@ -121,9 +121,7 @@
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">onnx</span>
-<span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
 <span class="kn">import</span> <span class="nn">torch</span>
-<span class="kn">import</span> <span class="nn">transformers</span>
 <span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">validator</span>
 
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">serialize_to_json</span>
@@ -278,6 +276,8 @@
         <span class="k">return</span> <span class="n">onnx</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+        <span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
+
         <span class="n">sess_options</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">SessionOptions</span><span class="p">()</span>
         <span class="n">execution_provider</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="n">ort_inference_settings</span> <span class="o">=</span> <span class="n">inference_settings</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span>
@@ -326,6 +326,8 @@
     <span class="k">def</span> <span class="nf">is_valid_ep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="c1"># TODO: should be remove if future accelerators is implemented</span>
         <span class="c1"># It should be a bug for onnxruntime where the execution provider is not be fallback.</span>
+        <span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
+
         <span class="k">try</span><span class="p">:</span>
             <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">providers</span><span class="o">=</span><span class="p">[</span><span class="n">ep</span><span class="p">])</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
@@ -345,6 +347,8 @@
         <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">get_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+        <span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
+
         <span class="n">available_providers</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">get_available_providers</span><span class="p">()</span>
         <span class="n">eps_per_device</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">EXECUTION_PROVIDERS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
@@ -523,14 +527,14 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="kn">from</span> <span class="nn">openvino.tools.pot</span> <span class="kn">import</span> <span class="n">load_model</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Please install olive[openvino] to use OpenVINO model&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Please install olive-ai[openvino] to use OpenVINO model&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">load_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_config</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="kn">from</span> <span class="nn">openvino.runtime</span> <span class="kn">import</span> <span class="n">Core</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Please install olive[openvino] to use OpenVINO model&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Please install olive-ai[openvino] to use OpenVINO model&quot;</span><span class="p">)</span>
         <span class="n">ie</span> <span class="o">=</span> <span class="n">Core</span><span class="p">()</span>
         <span class="n">model_pot</span> <span class="o">=</span> <span class="n">ie</span><span class="o">.</span><span class="n">read_model</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">])</span>
         <span class="k">if</span> <span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">INTEL_MYRIAD</span><span class="p">:</span>
@@ -540,6 +544,8 @@
 
 
 <span class="k">def</span> <span class="nf">huggingface_model_loader</span><span class="p">(</span><span class="n">model_loader</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">transformers</span>
+
     <span class="k">if</span> <span class="n">model_loader</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">model_loader</span> <span class="o">=</span> <span class="s2">&quot;AutoModel&quot;</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_loader</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
