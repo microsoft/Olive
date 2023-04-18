@@ -9,8 +9,8 @@ from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataloader import default_collate
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-# https://huggingface.co/microsoft/deberta-base-mnli
-model_name = "microsoft/deberta-base-mnli"
+# https://huggingface.co/roberta-large-mnli
+model_name = "roberta-large-mnli"
 dataset_name = "glue"
 subset = "mnli_matched"
 split = "validation"
@@ -82,8 +82,7 @@ def create_evaluation_dataset():
             return self.dataset[index], self.dataset[index]["labels"]
 
         def __len__(self):
-            return 1000
-            # len(self.dataset)
+            len(self.dataset)
 
     return _Dateset(tokenized_datasets)
 

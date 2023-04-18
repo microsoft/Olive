@@ -10,8 +10,8 @@ from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataloader import default_collate
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-# https://huggingface.co/roberta-base-openai-detector
-model_name = "roberta-base-openai-detector"
+# https://huggingface.co/roberta-large-openai-detector
+model_name = "roberta-large-openai-detector"
 dataset_name = "glue"
 subset = "mnli_matched"
 split = "validation"
@@ -87,8 +87,7 @@ def create_evaluation_dataset(dataset_dir):
             return self.dataset[index], self.dataset[index]["labels"]
 
         def __len__(self):
-            return 50
-            # len(self.dataset)
+            len(self.dataset)
 
     return _Dateset(rls)
 

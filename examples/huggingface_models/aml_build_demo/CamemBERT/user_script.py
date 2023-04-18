@@ -167,15 +167,10 @@ def evaluate_accuracy(model, data_dir, batch_size, device):
     dataloader = create_dataloader(batch_size=batch_size)
     seqeval = evaluate.load("seqeval")
 
-    idx = 0
     pre = []
     ref = []
 
     for item in tqdm(dataloader):
-        idx += batch_size
-        if idx > 10:
-            break
-
         for v in item[-1]:
             ref.append(_convert_idx_to_ner_tags(v))
 
