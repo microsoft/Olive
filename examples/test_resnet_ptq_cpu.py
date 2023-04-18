@@ -40,7 +40,7 @@ def check_output(footprint):
 @pytest.mark.parametrize("system", ["local_system", "aml_system"])
 @pytest.mark.parametrize("olive_json", ["resnet_config.json"])
 def test_resnet(search_algorithm, execution_order, system, olive_json):
-
+    # TODO: add gpu e2e test
     from olive.workflows import run as olive_run
 
     olive_config = None

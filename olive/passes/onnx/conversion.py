@@ -120,9 +120,11 @@ class OnnxConversion(Pass):
     def _run_for_config(self, model: PyTorchModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
         pytorch_model = model.load_model()
         pytorch_model.eval()
+
+        # TODO: add e2e test for model on cpu but data on gpu; model on gpu but data on cpu
         # put pytorch_model and dummy_inputs at the same device
-        torch_device = pytorch_model.device
-        dummy_inputs = tensor_data_to_device(self._dummy_inputs, torch_device)
+        pytorch_model.to("cpu")
+        dummy_inputs = tensor_data_to_device(self._dummy_inputs, "cpu")
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
 
