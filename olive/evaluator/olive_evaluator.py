@@ -41,19 +41,18 @@ class OliveEvaluatorConfig(ConfigBase):
 
     @validator("metrics")
     def validate_metrics(cls, v):
+        metric_len = len(v)
+        if metric_len == 1:
+            return v
+
         metric_names = set([metric.name for metric in v])
-        assert len(metric_names) == len(v), "Metric names must be unique"
-        has_first_priority = False
-        for metric in v:
-            if metric.is_first_priority:
-                assert not has_first_priority, "Only one metric can be first priority"
-                has_first_priority = True
-        if len(v) > 1 and not has_first_priority:
-            raise ValueError(
-                "Must have at least one metric with first priority when more then one metric are used for evaluation."
-            )
-        if len(v) == 1 and not v[0].is_first_priority:
-            v[0].is_first_priority = True
+        assert len(metric_names) == metric_len, "Metric names must be unique"
+
+        rank_set = set([metric.priority_rank for metric in v])
+        expected_rank_set = set(range(1, metric_len + 1))
+        # Check if all ranks are present
+        if rank_set != expected_rank_set:
+            raise ValueError(f"Priority ranks must be unique and in the range 1 to {metric_len}")
         return v
 
     def create_evaluator(self):

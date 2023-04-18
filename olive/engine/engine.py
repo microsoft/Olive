@@ -11,10 +11,12 @@ from typing import Any, Dict, List, Optional, Union
 import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
-from olive.engine.footprint import Footprint, FootprintNodeMetric
+from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
 from olive.evaluator.metric import Metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorConfig
 from olive.model import ModelConfig, OliveModel
+from olive.packaging.packaging_config import PackagingConfig
+from olive.packaging.packaging_generator import generate_output_artifacts
 from olive.passes.olive_pass import Pass
 from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
@@ -34,6 +36,7 @@ class EngineConfig(ConfigBase):
     target: SystemConfig = None
     model_io_config: Dict[str, List] = None
     evaluator: OliveEvaluatorConfig = None
+    packaging_config: PackagingConfig = None
     cache_dir: Union[Path, str] = ".olive-cache"
     clean_cache: bool = False
     clean_evaluation_cache: bool = False
@@ -169,6 +172,7 @@ class Engine:
     def run(
         self,
         input_model: OliveModel,
+        packaging_config: Optional[PackagingConfig] = None,
         verbose: bool = False,
         output_dir: str = None,
         output_name: str = None,
@@ -224,6 +228,7 @@ class Engine:
 
         # initialize the search strategy
         self.search_strategy.initialize(self.pass_search_spaces, input_model_id, objective_dict)
+        output_model_num = self.search_strategy.get_output_model_num()
 
         # record start time
         start_time = time.time()
@@ -312,10 +317,24 @@ class Engine:
                 output["metrics"] = signal
             return output
 
-        # TODO adapt different strategies when metrics prioritization is implemented @xiaoyu
-        pf_footprints = self.footprints.get_pareto_frontier()
-        pf_footprints.to_file(output_dir / f"{prefix_output_name}pareto_frontier_footprints.json")
         self.footprints.to_file(output_dir / f"{prefix_output_name}footprints.json")
+
+        pf_footprints = self.footprints.get_pareto_frontier()
+        if output_model_num is None or len(pf_footprints.nodes) <= output_model_num or self.no_search:
+            logger.info(f"Output all {len(pf_footprints.nodes)} models")
+        else:
+            top_ranked_nodes = self._get_top_ranked_nodes(evaluator.metrics, pf_footprints, output_model_num)
+            logger.info(f"Output top ranked {len(top_ranked_nodes)} models based on metric priorities")
+            pf_footprints.update_nodes(top_ranked_nodes)
+
+        pf_footprints.to_file(output_dir / f"{prefix_output_name}pareto_frontier_footprints.json")
+
+        if packaging_config:
+            logger.info(f"Package top ranked {len(pf_footprints.nodes)} models as artifacts")
+            generate_output_artifacts(packaging_config, self.footprints, pf_footprints, output_dir)
+        else:
+            logger.info("No packaging config provided, skip packaging artifacts")
+
         return pf_footprints
 
     def resolve_objectives(
@@ -637,3 +656,17 @@ class Engine:
             ),
         )
         return signal
+
+    def _get_top_ranked_nodes(self, metrics: List[Metric], footprint: Footprint, k: int) -> List[FootprintNode]:
+        metric_priority = [metric.name for metric in sorted(metrics, key=lambda x: x.priority_rank)]
+        footprint_node_list = footprint.nodes.values()
+        sorted_footprint_node_list = sorted(
+            footprint_node_list,
+            key=lambda x: tuple(
+                x.metrics.value[metric] if x.metrics.cmp_direction[metric] == 1 else -x.metrics.value[metric]
+                for metric in metric_priority
+            ),
+            reverse=True,
+        )
+        selected_footprint_nodes = sorted_footprint_node_list[:k]
+        return selected_footprint_nodes
