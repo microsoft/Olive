@@ -104,8 +104,8 @@
             "type": "OrtTransformersOptimization",
             "config": {
                 "model_type": "bert",
-                "num_heads": 12,
-                "hidden_size": 768,
+                "num_heads": 16,
+                "hidden_size": 1024,
                 "float16": true
             }
         },
