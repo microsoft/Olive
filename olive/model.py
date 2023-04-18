@@ -170,7 +170,7 @@ class ONNXModel(OliveModel):
         ort_inference_settings = inference_settings or self.inference_settings
         if ort_inference_settings:
             execution_provider = ort_inference_settings.get("execution_provider")
-            session_options = ort_inference_settings.get("session_options")
+            session_options = ort_inference_settings.get("session_options", {})
             inter_op_num_threads = session_options.get("inter_op_num_threads")
             intra_op_num_threads = session_options.get("intra_op_num_threads")
             execution_mode = session_options.get("execution_mode")
