@@ -9,6 +9,7 @@ from typing import Any, Callable, Dict, List, Union
 import onnx
 import torch
 
+from olive.evaluator.evaluation import tensor_data_to_device
 from olive.model import ONNXModel, PyTorchModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -119,6 +120,9 @@ class OnnxConversion(Pass):
     def _run_for_config(self, model: PyTorchModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
         pytorch_model = model.load_model()
         pytorch_model.eval()
+        # put pytorch_model and dummy_inputs at the same device
+        torch_device = pytorch_model.device
+        dummy_inputs = tensor_data_to_device(self._dummy_inputs, torch_device)
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
 
@@ -133,7 +137,7 @@ class OnnxConversion(Pass):
 
         torch.onnx.export(
             pytorch_model,
-            self._dummy_inputs,
+            dummy_inputs,
             tmp_model_path,
             export_params=True,
             opset_version=config["target_opset"],
