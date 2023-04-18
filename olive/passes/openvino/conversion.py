@@ -58,7 +58,7 @@ class OpenVINOConversion(Pass):
             from openvino.runtime import serialize
             from openvino.tools.mo import convert_model
         except ImportError:
-            raise ImportError("Please install olive[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
 
         model_name = model.name if model.name else "ov_model"
 

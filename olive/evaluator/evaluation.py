@@ -7,6 +7,7 @@ from typing import Any, Dict
 
 import numpy as np
 import torch
+from torch.utils.data import Dataset
 
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework
@@ -157,13 +158,10 @@ def evaluate_accuracy_pytorch(sess, dataloader, post_func, device):
     if device:
         sess.to(device)
     for input_data, labels in dataloader:
+        input_data = tensor_data_to_device(input_data, device)
         if isinstance(input_data, dict):
-            if device:
-                input_data = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in input_data.items()}
             result = sess(**input_data)
         else:
-            if device:
-                input_data = input_data.to(device)
             result = sess(input_data)
         if post_func:
             outputs = post_func(result)
@@ -253,9 +251,8 @@ def evaluate_latency_pytorch(sess, dataloader, device, warmup_num, repeat_test_n
     device = device_string_to_torch_device(device)
     if device:
         sess.to(device)
+        input_data = tensor_data_to_device(input_data, device)
     if isinstance(input_data, dict):
-        if device:
-            input_data = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in input_data.items()}
         for _ in range(warmup_num):
             sess(**input_data)
         for _ in range(repeat_test_num):
@@ -263,8 +260,6 @@ def evaluate_latency_pytorch(sess, dataloader, device, warmup_num, repeat_test_n
             sess(**input_data)
             latencies.append(time.perf_counter() - t)
     else:
-        if device:
-            input_data = input_data.to(device)
         for _ in range(warmup_num):
             sess(input_data)
         for _ in range(repeat_test_num):
@@ -305,9 +300,57 @@ def get_user_config(config: dict):
     eval_func = getattr(config, "evaluate_func", None)
     eval_func = user_module.load_object(eval_func)
 
+    if not dataloader and not eval_func:
+        dataloader = DummyDataloader(config.input_names, config.input_shapes, config.input_types)
+
     return dataloader, post_func, eval_func
 
 
 def device_string_to_torch_device(device: Device):
     device = torch.device("cuda") if device == Device.GPU else torch.device(device)
     return device
+
+
+def tensor_data_to_device(data, device: torch.device):
+    if device is None:
+        return data
+    if isinstance(data, torch.Tensor):
+        return data.to(device)
+    if isinstance(data, dict):
+        return {k: tensor_data_to_device(v, device) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [tensor_data_to_device(v, device) for v in data]
+    elif isinstance(data, tuple):
+        return tuple(tensor_data_to_device(v, device) for v in data)
+    elif isinstance(data, set):
+        return set(tensor_data_to_device(v, device) for v in data)
+    else:
+        return data
+
+
+class DummyDataloader(Dataset):
+    def __init__(self, input_names, input_shapes, input_types):
+        self.input_names = input_names
+        self.input_shapes = input_shapes
+        self.input_types = input_types
+
+    def __len__(self):
+        return 100
+
+    def __getitem__(self, index):
+        str_to_type = {"float32": torch.float32, "float16": torch.float16, "int32": torch.int32, "int64": torch.int64}
+        input_types = []
+        if self.input_types:
+            for input_type in self.input_types:
+                input_types.append(str_to_type[input_type])
+        else:
+            for _ in range(len(self.input_names)):
+                input_types.append(torch.float32)
+        if len(self.input_names) == 1:
+            dummy_inputs = torch.ones(self.input_shapes[0], dtype=input_types[0])
+        else:
+            dummy_inputs = {}
+            for input_name, input_shape, input_type in zip(self.input_names, self.input_shapes, input_types):
+                dummy_inputs.update({input_name: torch.ones(input_shape, dtype=input_type)})
+        label = 0
+        return dummy_inputs, label

@@ -21,7 +21,12 @@ Refer to the [Installation](Installation) section for more details.
 ## Model Optimization Workflow
 Olive model optimization workflows are defined using config JSON files. You can use the Olive CLI to run the pipeline:
 
-```bash
+First, install required packages according to passes.
+```
+python -m olive.workflows.run --config user_provided_info.json --setup
+```
+Then, optimize the model
+```
 python -m olive.workflows.run --config user_provided_info.json
 ```
 

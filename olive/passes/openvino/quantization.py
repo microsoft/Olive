@@ -71,7 +71,7 @@ class OpenVINOQuantization(Pass):
         try:
             from openvino.tools.pot import IEEngine, compress_model_weights, create_pipeline, save_model
         except ImportError:
-            raise ImportError("Please install olive[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
 
         model_name = model.name if model.name else "ov_model"
 

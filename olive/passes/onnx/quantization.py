@@ -9,12 +9,11 @@ from pathlib import Path
 from shutil import copyfile
 from typing import Any, Callable, Dict, Union
 
-from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
-from onnxruntime.quantization.calibrate import CalibrationMethod
-from onnxruntime.quantization.preprocess import quant_pre_process
+import onnx
 
 from olive.model import ONNXModel
 from olive.passes import Pass
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
 
@@ -83,14 +82,6 @@ _onnx_quantization_config = {
             change the computation graph, making debugging of quantization loss difficult.
         """,
     ),
-    # TODO: enable search if we support onnx external data format
-    "use_external_data_format": PassConfigParam(
-        type_=bool,
-        default_value=False,
-        description="""
-            option used for large size (>2GB) model. Set to False by default.
-        """,
-    ),
     "quant_preprocess": PassConfigParam(
         type_=bool,
         default_value=True,
@@ -124,7 +115,7 @@ _exposed_extra_options_config = {
             quantized output. Also the True behavior could be disabled per node using the nodes_to_exclude.
         """,
     ),
-    "MatMulConstBOnly ": PassConfigParam(
+    "MatMulConstBOnly": PassConfigParam(
         type_=bool,
         default_value=ConditionalDefault(parents=("quant_mode",), support={("dynamic",): True, ("static",): False}),
         description="If enabled, only MatMul with const B will be quantized.",
@@ -280,6 +271,9 @@ class OnnxQuantization(Pass):
         # exposed extra options config
         config.update(deepcopy(_exposed_extra_options_config))
         config.update(deepcopy(_extra_options_config))
+
+        # external data config
+        config.update(get_external_data_config())
         return config
 
     def validate_search_point(self, search_point: Dict[str, Any]) -> bool:
@@ -301,6 +295,9 @@ class OnnxQuantization(Pass):
         return True
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+        from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
+        from onnxruntime.quantization.calibrate import CalibrationMethod
+
         # start with a copy of the config
         run_config = deepcopy(config)
         is_static = run_config["quant_mode"] == "static"
@@ -330,10 +327,11 @@ class OnnxQuantization(Pass):
                 model = self._quant_preprocess(model, preprocessed_temp_model_path)
             else:
                 logger.info("Already processed model for quantization, skipping preprocessing")
-                model = ONNXModel(preprocessed_temp_model_path)
+                model = ONNXModel(preprocessed_temp_model_path, model.name)
 
         # keys not needed for quantization
         to_delete = ["quant_mode", "script_dir", "user_script", "quant_preprocess"]
+        to_delete += list(get_external_data_config().keys())
 
         # update string values to enum values
         if is_static:
@@ -361,6 +359,15 @@ class OnnxQuantization(Pass):
             if key in run_config:
                 del run_config[key]
 
+        # to be safe, run the quantizer with use_external_data_format set to `True` and
+        # `model_output` to a temporary directory
+        # reload the model and save to output_model_path using the external data config
+        # TODO: don't default to use_external_data_format=True if the loading and saving model makes
+        # the pass inefficient
+        tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+        tmp_dir_path = Path(tmp_dir.name)
+        tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
+
         if is_static:
             # get the dataloader
             dataloader = self._user_module_loader.call_object(
@@ -368,23 +375,34 @@ class OnnxQuantization(Pass):
             )
             quantize_static(
                 model_input=model.model_path,
-                model_output=output_model_path,
+                model_output=tmp_model_path,
                 calibration_data_reader=dataloader,
+                use_external_data_format=True,
                 **run_config,
             )
         else:
-            quantize_dynamic(model_input=model.model_path, model_output=output_model_path, **run_config)
+            quantize_dynamic(
+                model_input=model.model_path, model_output=tmp_model_path, use_external_data_format=True, **run_config
+            )
 
-        return ONNXModel(output_model_path, model.name)
+        # load the model
+        onnx_model = onnx.load(tmp_model_path)
+        # the model is loaded into memory, so it's safe to delete previously exported files
+        tmp_dir.cleanup()
+
+        # save the model to the output path and return the model
+        return model_proto_to_olive_model(onnx_model, output_model_path, config, model.name)
 
     def _quant_preprocess(self, model: ONNXModel, output_model_path: str) -> ONNXModel:
+        from onnxruntime.quantization.preprocess import quant_pre_process
+
         try:
             quant_pre_process(input_model_path=model.model_path, output_model_path=output_model_path, auto_merge=True)
         except Exception as e:
             logger.warning(f"failed to run quantization preprocessing with error of {e}")
             copyfile(model.model_path, output_model_path)
 
-        return ONNXModel(output_model_path)
+        return ONNXModel(output_model_path, model.name)
 
 
 class OnnxDynamicQuantization(OnnxQuantization):
@@ -402,6 +420,8 @@ class OnnxDynamicQuantization(OnnxQuantization):
         # exposed extra options config
         config.update(deepcopy(_exposed_extra_options_config))
         config.update(deepcopy(_extra_options_config))
+        # external data config
+        config.update(get_external_data_config())
         return config
 
 
@@ -423,4 +443,6 @@ class OnnxStaticQuantization(OnnxQuantization):
         # exposed extra options config
         config.update(deepcopy(_exposed_extra_options_config))
         config.update(deepcopy(_extra_options_config))
+        # external data config
+        config.update(get_external_data_config())
         return config

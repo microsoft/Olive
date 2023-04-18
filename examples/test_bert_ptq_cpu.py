@@ -35,6 +35,7 @@ def check_output(footprint):
 @pytest.mark.parametrize("system", ["local_system", "aml_system", "docker_system"])
 @pytest.mark.parametrize("olive_json", ["bert_config.json"])
 def test_bert(search_algorithm, execution_order, system, olive_json):
+    # TODO: add gpu e2e test
     if system == "docker_system" and platform.system() == "Windows":
         pytest.skip("Skip Linux containers on Windows host test case.")
 

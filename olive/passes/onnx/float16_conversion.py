@@ -5,10 +5,10 @@
 from typing import Any, Dict, List
 
 import onnx
-from onnxconverter_common import float16
 
 from olive.model import ONNXModel
 from olive.passes import Pass
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 
 
@@ -20,7 +20,7 @@ class OnnxFloatToFloat16(Pass):
 
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
-        return {
+        config = {
             "min_positive_val": PassConfigParam(
                 type_=float, default_value=1e-7, description="Constant values will be clipped against this value"
             ),
@@ -40,8 +40,12 @@ class OnnxFloatToFloat16(Pass):
                 type_=List[str], default_value=None, description="List of node names to leave as float32"
             ),
         }
+        config.update(get_external_data_config())
+        return config
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+        from onnxconverter_common import float16
+
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
         config = self._config_class(**config)
@@ -56,6 +60,6 @@ class OnnxFloatToFloat16(Pass):
             op_block_list=config.op_block_list,
             node_block_list=config.node_block_list,
         )
-        onnx.save(model_fp16, output_model_path)
 
-        return ONNXModel(output_model_path, model.name)
+        # save the model to the output path and return the model
+        return model_proto_to_olive_model(model_fp16, output_model_path, config.dict(), model.name)
