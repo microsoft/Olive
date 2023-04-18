@@ -158,13 +158,10 @@ def evaluate_accuracy_pytorch(sess, dataloader, post_func, device):
     if device:
         sess.to(device)
     for input_data, labels in dataloader:
+        input_data = tensor_data_to_device(input_data, device)
         if isinstance(input_data, dict):
-            if device:
-                input_data = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in input_data.items()}
             result = sess(**input_data)
         else:
-            if device:
-                input_data = input_data.to(device)
             result = sess(input_data)
         if post_func:
             outputs = post_func(result)
@@ -176,7 +173,6 @@ def evaluate_accuracy_pytorch(sess, dataloader, post_func, device):
         #  ValueError: expected sequence of length 128 at dim 1 (got 3)
         preds.extend(outputs.tolist())
         targets.extend(labels.data.tolist())
-    sess.to(torch.device(Device.CPU))
     return preds, targets
 
 
@@ -255,9 +251,8 @@ def evaluate_latency_pytorch(sess, dataloader, device, warmup_num, repeat_test_n
     device = device_string_to_torch_device(device)
     if device:
         sess.to(device)
+        input_data = tensor_data_to_device(input_data, device)
     if isinstance(input_data, dict):
-        if device:
-            input_data = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in input_data.items()}
         for _ in range(warmup_num):
             sess(**input_data)
         for _ in range(repeat_test_num):
@@ -265,15 +260,12 @@ def evaluate_latency_pytorch(sess, dataloader, device, warmup_num, repeat_test_n
             sess(**input_data)
             latencies.append(time.perf_counter() - t)
     else:
-        if device:
-            input_data = input_data.to(device)
         for _ in range(warmup_num):
             sess(input_data)
         for _ in range(repeat_test_num):
             t = time.perf_counter()
             sess(input_data)
             latencies.append(time.perf_counter() - t)
-    sess.to(torch.device(Device.CPU))
     return latencies
 
 
@@ -301,6 +293,8 @@ def get_user_config(config: dict):
     dataloader = None
     dataloader_func = getattr(config, "dataloader_func", None)
     dataloader = user_module.call_object(dataloader_func, config.data_dir, config.batch_size)
+    if not dataloader:
+        dataloader = DummyDataloader(config.input_names, config.input_shapes, config.input_types)
 
     post_func = getattr(config, "post_processing_func", None)
     post_func = user_module.load_object(post_func)
@@ -308,15 +302,29 @@ def get_user_config(config: dict):
     eval_func = getattr(config, "evaluate_func", None)
     eval_func = user_module.load_object(eval_func)
 
-    if not dataloader and not eval_func:
-        dataloader = DummyDataloader(config.input_names, config.input_shapes, config.input_types)
-
     return dataloader, post_func, eval_func
 
 
 def device_string_to_torch_device(device: Device):
     device = torch.device("cuda") if device == Device.GPU else torch.device(device)
     return device
+
+
+def tensor_data_to_device(data, device: torch.device):
+    if device is None:
+        return data
+    if isinstance(data, torch.Tensor):
+        return data.to(device)
+    if isinstance(data, dict):
+        return {k: tensor_data_to_device(v, device) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [tensor_data_to_device(v, device) for v in data]
+    elif isinstance(data, tuple):
+        return tuple(tensor_data_to_device(v, device) for v in data)
+    elif isinstance(data, set):
+        return set(tensor_data_to_device(v, device) for v in data)
+    else:
+        return data
 
 
 class DummyDataloader(Dataset):
