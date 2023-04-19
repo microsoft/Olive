@@ -160,11 +160,12 @@ class Pass(AutoConfigClass):
         """
         raise NotImplementedError()
 
-    def _resolve_defaults(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    @classmethod
+    def _resolve_defaults(cls, config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Resolve default values.
         """
-        default_config = self.default_config()
+        default_config = cls.default_config()
         for key, value in config.items():
             if value == PassParamDefault.DEFAULT_VALUE:
                 config[key] = default_config[key].default_value
