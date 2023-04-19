@@ -96,6 +96,7 @@ Passes available in Olive can be found at ...
 
 ```python
 from olive.passes import OnnxConversion, OnnxQuantization
+from olive.passes.olive_pass import create_pass_from_dict
 
 # Onnx conversion pass
 onnx_conversion_config = {
@@ -105,7 +106,7 @@ onnx_conversion_config = {
     "dynamic_axes": {"input": {0: "batch_size"}, "output": {0: "batch_size"}},
     "target_opset": 13,
 }
-onnx_conversion_pass = OnnxConversion(onnx_conversion_config)
+onnx_conversion_pass = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
 # override the default host with pass specific host
 engine.register(onnx_conversion_pass, host=LocalSystem())
 

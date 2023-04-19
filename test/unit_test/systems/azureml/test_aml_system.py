@@ -14,6 +14,7 @@ from azure.ai.ml.constants import AssetTypes
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType
 from olive.model import ONNXModel
+from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.systems.azureml.aml_system import AzureMLSystem
 from olive.systems.common import AzureMLDockerConfig
@@ -82,7 +83,7 @@ class TestAzureMLSystem:
             "input_names": ["input"],
             "output_names": ["output"],
         }
-        p = OnnxConversion(onnx_conversion_config)
+        p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
         olive_model = get_pytorch_model()
         output_model_path = "output_model_path"
         output_folder = Path(__file__).absolute().parent / "output_pass"
