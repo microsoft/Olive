@@ -16,6 +16,11 @@ python -m pip install -r requirements.txt
 ```
 
 ## Run sample using config. The optimization techniques to run are specified in bert_config.json
+First, install required packages according to passes.
+```
+python -m olive.workflows.run --config bert_config.json --setup
+```
+Then, optimize the model
 ```
 python -m olive.workflows.run --config bert_config.json
 ```
@@ -26,6 +31,11 @@ olive_run("bert_config.json")
 ```
 
 ## Optimize model automatically without selecting any optimization technique.
+First, install required packages according to passes.
+```
+python -m olive.workflows.run --config auto_bert_config.json --setup
+```
+Then, optimize the model
 ```
 python -m olive.workflows.run --config auto_bert_config.json
 ```
@@ -34,3 +44,6 @@ or run simply with python code:
 from olive.workflows import run as olive_run
 olive_run("auto_bert_config.json")
 ```
+
+After running the above command, the model candidates and corresponding config will be saved in the output directory.
+You can then select the best model and config from the candidates and run the model with the selected config.

@@ -1,3 +1,4 @@
+include olive/extra_dependencies.json
 include olive/snpe/create_python36_env.sh
 include olive/snpe/copy_libcdsprpc.ps1
 include olive/systems/docker/Dockerfile

@@ -2,13 +2,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import tempfile
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
+import onnx
 import torch
 
+from olive.evaluator.evaluation import tensor_data_to_device
 from olive.model import ONNXModel, PyTorchModel
 from olive.passes import Pass
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 
 
@@ -30,7 +34,7 @@ class OnnxConversion(Pass):
 
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
-        return {
+        config = {
             "input_names": PassConfigParam(type_=List[str], required=True, description="List of input names."),
             # required for if input_tensors_func is not provided
             "input_shapes": PassConfigParam(
@@ -74,6 +78,8 @@ class OnnxConversion(Pass):
                 type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
             ),
         }
+        config.update(get_external_data_config())
+        return config
 
     def _initialize(self):
         # input shapes
@@ -114,17 +120,27 @@ class OnnxConversion(Pass):
     def _run_for_config(self, model: PyTorchModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
         pytorch_model = model.load_model()
         pytorch_model.eval()
+
+        # TODO: add e2e test for model on cpu but data on gpu; model on gpu but data on cpu
+        # put pytorch_model and dummy_inputs at the same device
+        pytorch_model.to("cpu")
+        dummy_inputs = tensor_data_to_device(self._dummy_inputs, "cpu")
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
 
-        if Path(output_model_path).suffix != ".onnx":
-            output_model_path += ".onnx"
+        output_model_path = ONNXModel.resolve_path(output_model_path)
+
+        # there might be multiple files created during export, so we need to track the dir
+        # if there are other processes writing to the same dir, we might end up deleting files created by
+        # other processes
+        tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+        tmp_dir_path = Path(tmp_dir.name)
+        tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
 
         torch.onnx.export(
             pytorch_model,
-            # TODO: support custom input tensor. Will implement once we decide how to handle non-hashable config params
-            self._dummy_inputs,
-            output_model_path,
+            dummy_inputs,
+            tmp_model_path,
             export_params=True,
             opset_version=config["target_opset"],
             input_names=config["input_names"],
@@ -132,5 +148,10 @@ class OnnxConversion(Pass):
             dynamic_axes=self._dynamic_axes,
         )
 
-        model = ONNXModel(output_model_path, model.name)
-        return model
+        # load the model
+        onnx_model = onnx.load(tmp_model_path)
+        # the model is loaded into memory, so it's safe to delete previously exported file(s)
+        tmp_dir.cleanup()
+
+        # save the model to the output path and return the model
+        return model_proto_to_olive_model(onnx_model, output_model_path, config, model.name)

@@ -29,9 +29,10 @@ def setup(example_dir):
     os.chdir(cur_dir)
 
 
-def check_output(metrics):
-    assert metrics is not None
-    assert all([value > 0 for value in metrics])
+def check_output(footprint):
+    assert footprint.nodes is not None
+    for v in footprint.nodes.values():
+        assert all([value > 0 for value in v.metrics.value.values()])
 
 
 @pytest.mark.parametrize("search_algorithm", ["random"])
@@ -39,7 +40,7 @@ def check_output(metrics):
 @pytest.mark.parametrize("system", ["local_system", "aml_system"])
 @pytest.mark.parametrize("olive_json", ["resnet_config.json"])
 def test_resnet(search_algorithm, execution_order, system, olive_json):
-
+    # TODO: add gpu e2e test
     from olive.workflows import run as olive_run
 
     olive_config = None
@@ -62,8 +63,8 @@ def test_resnet(search_algorithm, execution_order, system, olive_json):
     if system == "aml_system":
         generate_olive_workspace_config("olive-workspace-config.json")
 
-    best_execution = olive_run(olive_config)
-    check_output(best_execution["metric"])
+    footprint = olive_run(olive_config)
+    check_output(footprint)
 
 
 def generate_olive_workspace_config(workspace_config_path):

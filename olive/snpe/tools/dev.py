@@ -216,15 +216,22 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str)
         raise Exception(stderr)
 
 
-def dlc_to_onnx(dlc_path, config, output_file, input_names, input_shapes, output_names, output_shapes):
+def dlc_to_onnx(
+    dlc_path: str,
+    config: dict,
+    input_names: List[str],
+    input_shapes: List[List[int]],
+    output_names: List[str],
+    output_shapes: List[List[int]],
+) -> onnx.ModelProto:
     """
     Convert a SNPE DLC to ONNX. The DLC is wrapped in a ONNX model for use with onnxruntime SNPE EP.
+    Returns an ONNX ModelProto.
 
     dlc_path: path to the DLC file.
     config: Config dict with the following keys:
         target_device: str = target device for the ONNX-wrapped SNPE model.
         target_opset: int = target ONNX opset for the ONNX-wrapped SNPE model.
-    output_file: path to the output ONNX file.
     input_names: List[str] = list of input names.
     input_shapes: List[List[int]] = list of input shapes.
     output_names: List[str] = list of output names.
@@ -273,5 +280,4 @@ def dlc_to_onnx(dlc_path, config, output_file, input_names, input_shapes, output
     op.version = config["target_opset"]
     model_def = helper.make_model(graph_def, producer_name="Olive", opset_imports=[op])
 
-    # Save the model
-    onnx.save(model_def, output_file)
+    return model_def

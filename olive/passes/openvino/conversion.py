@@ -58,7 +58,7 @@ class OpenVINOConversion(Pass):
             from openvino.runtime import serialize
             from openvino.tools.mo import convert_model
         except ImportError:
-            raise ImportError("Please install olive[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
 
         model_name = model.name if model.name else "ov_model"
 
@@ -69,8 +69,13 @@ class OpenVINOConversion(Pass):
         if model.framework == Framework.PYTORCH:
             input_model = model.load_model()
 
-        extra_config = config["extra_config"] or {}
-        if not extra_config.get("example_input") and config.get("input_shape"):
+        if config.get("extra_config") is None:
+            config["extra_config"] = {}
+
+        extra_config = config["extra_config"]
+        example_input = extra_config.get("example_input")
+        input_shape = config.get("input_shape")
+        if example_input is None and input_shape:
             extra_config["example_input"] = torch.randn(config["input_shape"])
         args = {model_input_param: input_model, "model_name": model_name, **extra_config}
 

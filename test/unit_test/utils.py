@@ -46,9 +46,13 @@ def get_pytorch_model():
     return PyTorchModel(model_loader=pytorch_model_loader, model_path=None)
 
 
+def get_pytorch_model_dummy_input():
+    return torch.randn(1, 10)
+
+
 def create_onnx_model_file():
     pytorch_model = pytorch_model_loader(model_path=None)
-    dummy_input = torch.randn(1, 10)
+    dummy_input = get_pytorch_model_dummy_input()
     torch.onnx.export(
         pytorch_model, dummy_input, ONNX_MODEL_PATH, opset_version=10, input_names=["input"], output_names=["output"]
     )
@@ -100,13 +104,17 @@ def get_latency_metric(lat_subtype):
     return latency_metric
 
 
-def get_onnxconversion_pass():
+def get_onnxconversion_pass(ignore_pass_config=True):
     onnx_conversion_config = {
         "input_names": ["input"],
         "output_names": ["output"],
     }
     p = OnnxConversion(onnx_conversion_config)
-    return p
+    if ignore_pass_config:
+        return p
+    pass_config = p.config_at_search_point({})
+    pass_config = p.serialize_config(pass_config)
+    return p, pass_config
 
 
 def get_onnx_dynamic_quantization_pass(disable_search=False):

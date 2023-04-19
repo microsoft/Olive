@@ -12,7 +12,7 @@ Note: OpenVINO version in Olive: 2022.3.0
 
 ### Option 1: install Olive with OpenVINO extras
 ```
-pip install olive[openvino]
+pip install olive-ai[openvino]
 ```
 
 ### Option 2: Install OpenVINO Runtime and OpenVINO Development Tools from Pypi

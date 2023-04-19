@@ -1,3 +1,4 @@
+import json
 import os
 
 from setuptools import find_packages, setup
@@ -17,23 +18,20 @@ def get_version(rel_path):
     raise RuntimeError("Unable to find version string.")
 
 
+def get_extra_deps(rel_path):
+    here = os.path.abspath(os.path.dirname(__file__))
+    extra_deps = json.load(open(os.path.join(here, rel_path), "r"))
+    return extra_deps
+
+
 # use techniques described at https://packaging.python.org/en/latest/guides/single-sourcing-package-version/
-# Don't use technique 6 since it need extra dependencies.
+# Don't use technique 6 since it needs extra dependencies.
 VERSION = get_version("olive/__init__.py")
+EXTRAS = get_extra_deps("olive/extra_dependencies.json")
 
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), "requirements.txt")) as req_file:
     requirements = req_file.read().splitlines()
 
-EXTRAS = {
-    "azureml": ["azure-ai-ml>=0.1.0b6", "azure-identity"],
-    "docker": ["docker"],
-    "cpu": ["onnxruntime"],
-    "gpu": ["onnxruntime-gpu"],
-    "directml": ["onnxruntime-directml"],
-    "openvino": ["openvino==2022.3.0", "openvino-dev[tensorflow,onnx]==2022.3.0"],
-    "tf": ["tensorflow==1.15.0"],
-    "inc": ["neural-compressor"],
-}
 
 CLASSIFIERS = [
     "Development Status :: 3 - Alpha",

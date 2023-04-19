@@ -8,9 +8,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import onnx
-import onnxruntime as ort
 import torch
-import transformers
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, serialize_to_json
@@ -139,17 +137,40 @@ class ONNXModel(OliveModel):
         )
         self.inference_settings = inference_settings
 
+    @staticmethod
+    def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
+        """
+        The engine provides output paths to ONNX passes that do not contain .onnx
+        extension (these paths are generally locations in the cache). This function
+        will convert such paths to absolute file paths and also ensure the parent
+        directories exist. If the input path is already an ONNX file it is simply
+        returned. Examples:
+
+        resolve_path("c:/foo/bar.onnx") -> c:/foo/bar.onnx
+
+        resolve_path("c:/foo/bar") -> c:/foo/bar/model.onnx
+        """
+        path = Path(file_or_dir_path)
+        if path.suffix != ".onnx":
+            path = path / model_filename
+            parent_dir = path.parent
+            if not parent_dir.exists():
+                parent_dir.mkdir(parents=True, exist_ok=True)
+        return str(path)
+
     def load_model(self) -> onnx.ModelProto:
         # HACK: ASSUME no external data
         return onnx.load(self.model_path)
 
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device):
+        import onnxruntime as ort
+
         sess_options = ort.SessionOptions()
         execution_provider = None
         ort_inference_settings = inference_settings or self.inference_settings
         if ort_inference_settings:
             execution_provider = ort_inference_settings.get("execution_provider")
-            session_options = ort_inference_settings.get("session_options")
+            session_options = ort_inference_settings.get("session_options", {})
             inter_op_num_threads = session_options.get("inter_op_num_threads")
             intra_op_num_threads = session_options.get("intra_op_num_threads")
             execution_mode = session_options.get("execution_mode")
@@ -170,8 +191,9 @@ class ONNXModel(OliveModel):
                 for key, value in extra_session_config.items():
                     sess_options.add_session_config_entry(key, value)
 
+        # if use doesn't not providers ep list, use default value([ep]). Otherwise, use the user's ep list
         if not execution_provider:
-            execution_provider = self.get_execution_providers(device)
+            execution_provider = self.get_default_execution_provider(device)
         elif isinstance(execution_provider, list):
             # execution_provider may be a list of tuples where the first item in each tuple is the EP name
             execution_provider = [i[0] if isinstance(i, tuple) else i for i in execution_provider]
@@ -188,7 +210,32 @@ class ONNXModel(OliveModel):
         config["config"].update({"inference_settings": self.inference_settings})
         return serialize_to_json(config, check_object)
 
+    def is_valid_ep(self, ep: str = None):
+        # TODO: should be remove if future accelerators is implemented
+        # It should be a bug for onnxruntime where the execution provider is not be fallback.
+        import onnxruntime as ort
+
+        try:
+            ort.InferenceSession(self.model_path, providers=[ep])
+        except Exception as e:
+            logger.warning(
+                f"Error: {e}Olive will ignore this {ep}."
+                + f"Please make sure the environment with {ep} has the required dependencies."
+            )
+            return False
+        return True
+
+    def get_default_execution_provider(self, device: Device):
+        # return firstly available ep as ort default ep
+        available_providers = self.get_execution_providers(device)
+        for ep in available_providers:
+            if self.is_valid_ep(ep):
+                return [ep]
+        return ["CPUExecutionProvider"]
+
     def get_execution_providers(self, device: Device):
+        import onnxruntime as ort
+
         available_providers = ort.get_available_providers()
         eps_per_device = self.EXECUTION_PROVIDERS.get(device)
 
@@ -367,14 +414,14 @@ class OpenVINOModel(OliveModel):
         try:
             from openvino.tools.pot import load_model
         except ImportError:
-            raise ImportError("Please install olive[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
         return load_model(self.model_config)
 
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device):
         try:
             from openvino.runtime import Core
         except ImportError:
-            raise ImportError("Please install olive[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
         ie = Core()
         model_pot = ie.read_model(model=self.model_config["model"])
         if device == Device.INTEL_MYRIAD:
@@ -384,6 +431,8 @@ class OpenVINOModel(OliveModel):
 
 
 def huggingface_model_loader(model_loader):
+    import transformers
+
     if model_loader is None:
         model_loader = "AutoModel"
     if isinstance(model_loader, str):

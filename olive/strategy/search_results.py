@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Tuple, Union
 import numpy as np
 
 from olive.common.utils import hash_dict
-from olive.strategy.utils import find_pareto_frontier_points
 
 
 class SearchResults:
@@ -54,24 +53,6 @@ class SearchResults:
         self.results[search_point_hash] = deepcopy(result)
         self.model_ids[search_point_hash] = model_ids
 
-    def get_pareto_frontier(self, objectives: List[str] = None, apply_goals: bool = False) -> List[str]:
-        """
-        Return the pareto frontier of the search results.
-
-        If objectives is None, use all objectives.
-        If apply_goals is True, only return results that satisfy the goals.
-        """
-        results, search_point_hashes = self._get_results_list(objectives, apply_goals)
-
-        pareto_frontier_points = find_pareto_frontier_points(np.array(results))
-        pareto_frontier_hashes = [search_point_hashes[i] for i in pareto_frontier_points]
-
-        # TODO this is temporary fix, will be done using olive tuning history feature
-        model_ids = [self.model_ids[point_hash] for point_hash in pareto_frontier_hashes]
-        search_points = [self.search_point_hash_table[point_hash] for point_hash in pareto_frontier_hashes]
-        results = [self.results[point_hash] for point_hash in pareto_frontier_hashes]
-        return model_ids, search_points, results
-
     def check_goals(self, result: Dict[str, Union[float, int]]) -> bool:
         """
         Check if the result satisfies the constraints.
@@ -89,6 +70,8 @@ class SearchResults:
         """
         Return the search points sorted by the objectives.
         """
+        # TODO this function only works for pass-by-pass execution order, but only return with the first model
+        # with the best latency results which is not correct. One pass may generate multiple models.
         if objectives is None:
             objectives = self.objectives
         else:

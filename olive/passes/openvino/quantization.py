@@ -27,7 +27,7 @@ class OpenVINOQuantization(Pass):
                 required=True,
                 description=(
                     "Specific config for openvino.tools.pot.IEEngine. 'engine_config' can be set"
-                    " by passing a dictonary, for example engine_config = {'device': 'CPU'}"
+                    " by passing a dictonary, for example engine_config: {'device': 'CPU'}"
                 ),
             ),
             "dataloader_func": PassConfigParam(
@@ -60,7 +60,7 @@ class OpenVINOQuantization(Pass):
                 description=(
                     "A list defining optimization algorithms and their parameters included"
                     " in the optimization pipeline. The order in which they are applied to the model"
-                    " in the optimization pipeline is determined by the order in the list. example: algorithms = "
+                    " in the optimization pipeline is determined by the order in the list. example: algorithms: "
                     " [{'name': 'DefaultQuantization', 'params': {'preset': 'performance', 'stat_subset_size': 500},}]"
                 ),
             ),
@@ -71,7 +71,7 @@ class OpenVINOQuantization(Pass):
         try:
             from openvino.tools.pot import IEEngine, compress_model_weights, create_pipeline, save_model
         except ImportError:
-            raise ImportError("Please install olive[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
 
         model_name = model.name if model.name else "ov_model"
 

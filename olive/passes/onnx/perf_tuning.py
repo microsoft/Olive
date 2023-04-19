@@ -8,9 +8,6 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
-import onnxruntime as ort
-import psutil
-
 from olive.evaluator.evaluation import evaluate_latency
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.model import ONNXModel
@@ -21,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 def generate_tuning_combos(model, config):
+    import onnxruntime as ort
+
     providers_list = config.providers_list if config.providers_list else model.get_execution_providers(config.device)
     execution_mode_list = (
         config.execution_mode_list
@@ -42,8 +41,17 @@ def generate_tuning_combos(model, config):
 
 
 def tune_onnx_model(model, config):
-    latency_user_config = config.dict()
-    latency_user_config.pop("io_bind")
+    latency_user_config = {}
+    for eval_config in [
+        "data_dir",
+        "dataloader_func",
+        "batch_size",
+        "input_names",
+        "input_shapes",
+        "input_types",
+        "device",
+    ]:
+        latency_user_config[eval_config] = config.dict().get(eval_config)
     latency_metric = Metric(
         name="latency", type=MetricType.LATENCY, sub_type=LatencySubType.AVG, user_config=latency_user_config
     )
@@ -110,6 +118,9 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
 
 
 def threads_num_binary_search(model, latency_metric, config, test_params, tuning_results):
+    import onnxruntime as ort
+    import psutil
+
     if test_params["session_options"].get("extra_session_config"):
         extra_session_config = test_params["session_options"].get("extra_session_config")
         if extra_session_config.get("session.intra_op_thread_affinities"):
@@ -219,11 +230,19 @@ class OrtPerfTuning(Pass):
             ),
             "dataloader_func": PassConfigParam(
                 type_=Union[Callable, str],
-                required=True,
                 is_object=True,
                 description="Dataloader function to load data from given data_dir with given batch size.",
             ),
-            "batch_size": PassConfigParam(type_=int, required=True, description="Batch size for inference."),
+            "batch_size": PassConfigParam(type_=int, description="Batch size for inference."),
+            "input_names": PassConfigParam(
+                type_=list, default_value=None, description="Input names list for ONNX model."
+            ),
+            "input_shapes": PassConfigParam(
+                type_=list, default_value=None, description="Input shapes list for ONNX model."
+            ),
+            "input_types": PassConfigParam(
+                type_=list, default_value=None, description="Input types list for ONNX model."
+            ),
             "device": PassConfigParam(
                 type_=str, default_value="cpu", description="Device selected for tuning process."
             ),
@@ -233,7 +252,7 @@ class OrtPerfTuning(Pass):
             "io_bind": PassConfigParam(
                 type_=Union[bool, List[bool]],
                 default_value=False,
-                description="Whether enable IOBingding for ONNX Runimte infernece.",
+                description="Whether enable IOBinding for ONNX Runtime inference.",
             ),
             "providers_list": PassConfigParam(
                 type_=list,
