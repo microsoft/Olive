@@ -44,22 +44,24 @@ class Pass(AutoConfigClass):
     _requires_user_script: bool = False
 
     def __init__(
-        self, config: Optional[Union[Dict[str, Any], PassConfigBase]] = None, disable_search: Optional[bool] = False
+        self,
+        config_class: Type[PassConfigBase],
+        config: Union[Dict[str, Any], PassConfigBase],
+        fixed_params: Dict[str, Any],
+        search_space: Dict[str, SearchParameter],
     ):
         """
         Initialize the pass.
         disable_search: If False, use default search parameters, if any, for parameters that are not specified
         in the config. Only applies when the config is a dictionary.
         """
-        self._config_class = self.get_config_class(disable_search)
-        self._config = validate_config(config, PassConfigBase, self._config_class)
-        self._config = self._config.dict()
-        self._config = self._resolve_defaults(self._config)
+        self._config_class = config_class
+        self._config = config
         if self._requires_user_script:
             self._user_module_loader = UserModuleLoader(self._config["user_script"], self._config["script_dir"])
-            self._config = self._validate_user_script(self._config, self._user_module_loader)
 
-        self._fixed_params, self._search_space = self._init_fixed_and_search_params(self._config)
+        self._fixed_params = fixed_params
+        self._search_space = search_space
 
         # Params that are paths [(param_name, required)]
         self.path_params = []
@@ -68,6 +70,29 @@ class Pass(AutoConfigClass):
                 self.path_params.append((param, param_config.required))
 
         self._initialized = False
+
+    @classmethod
+    def resolve_config(
+        cls, config_class: Type[PassConfigBase], input_config: Union[Dict[str, Any], PassConfigBase]
+    ) -> PassConfigBase:
+        """
+        Resolve config to PassConfigBase.
+        """
+        config = validate_config(input_config, PassConfigBase, config_class)
+        config = config.dict()
+        config = cls._resolve_defaults(config)
+        if cls._requires_user_script:
+            user_module_loader = UserModuleLoader(config["user_script"], config["script_dir"])
+            config = cls._validate_user_script(config, user_module_loader)
+        return config
+
+    @classmethod
+    def generate_search_space(
+        cls,
+        config: Optional[Union[Dict[str, Any], PassConfigBase]] = None,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any], SearchSpace]:
+        fixed_params, search_space = cls._init_fixed_and_search_params(config)
+        return fixed_params, search_space
 
     @classmethod
     def get_config_class(cls, disable_search: Optional[bool] = False) -> Type[PassConfigBase]:
@@ -151,11 +176,12 @@ class Pass(AutoConfigClass):
                 config[key] = value
         return config
 
-    def _validate_user_script(self, config: Dict[str, Any], user_module_loader: UserModuleLoader) -> Dict[str, Any]:
+    @classmethod
+    def _validate_user_script(cls, config: Dict[str, Any], user_module_loader: UserModuleLoader) -> Dict[str, Any]:
         """
         Validate callables in the config.
         """
-        default_config = self.default_config()
+        default_config = cls.default_config()
         for key, value in config.items():
             if default_config[key].is_object and isinstance(value, str):
                 assert user_module_loader is not None, f"'user_script' must be specified if a {key} is a string."
@@ -167,13 +193,12 @@ class Pass(AutoConfigClass):
             config["script_dir"] = str(Path(config["script_dir"]).resolve())
         return config
 
-    def _init_fixed_and_search_params(
-        self, config: Dict[str, Any]
-    ) -> Tuple[Dict[str, Any], Dict[str, SearchParameter]]:
+    @classmethod
+    def _init_fixed_and_search_params(cls, config: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, SearchParameter]]:
         """
         Get the fixed and search parameters from the config.
         """
-        default_config = self.default_config()
+        default_config = cls.default_config()
         param_order = order_search_parameters(config)
 
         # fixed parameters
@@ -184,7 +209,7 @@ class Pass(AutoConfigClass):
             if isinstance(value, SearchParameter):
                 # resolve conditional parameters
                 # if categorical with single choice, use that choice directly
-                value = self._resolve_search_parameter(value, fixed_params)
+                value = cls._resolve_search_parameter(value, fixed_params)
             if value == SpecialParamValue.INVALID:
                 # TODO: better error message, e.g. what the parent values were, how it was invalid
                 raise ValueError(
@@ -202,7 +227,8 @@ class Pass(AutoConfigClass):
 
         return fixed_params, search_space
 
-    def _resolve_search_parameter(self, param: SearchParameter, fixed_params: Dict[str, Any]) -> Any:
+    @classmethod
+    def _resolve_search_parameter(cls, param: SearchParameter, fixed_params: Dict[str, Any]) -> Any:
         """
         Resolve a search parameter.
         """
@@ -315,4 +341,15 @@ class FullPassConfig(ConfigBase):
         return validate_config(v, PassConfigBase, config_class)
 
     def create_pass(self):
-        return Pass.registry[self.type.lower()](self.config, self.disable_search)
+        pass_cls = Pass.registry[self.type.lower()]
+        return create_pass_from_dict(pass_cls, self.config, self.disable_search)
+
+
+def create_pass_from_dict(pass_cls: Type[Pass], config: Dict[str, Any] = None, disable_search=False) -> Pass:
+    """
+    Create a pass from a dictionary.
+    """
+    config_class = pass_cls.get_config_class(disable_search)
+    config = pass_cls.resolve_config(config_class, config)
+    fixed_params, search_space = pass_cls.generate_search_space(config)
+    return pass_cls(config_class, config, fixed_params, search_space)

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from olive.model import PyTorchModel
 from olive.passes import OnnxConversion
+from olive.passes.olive_pass import create_pass_from_dict
 from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
 
 
@@ -45,7 +46,7 @@ def test_aml_model():
     }
     with tempfile.TemporaryDirectory() as tempdir:
         onnx_model_file = str(Path(tempdir) / "model.onnx")
-        onnx_conversion_pass = OnnxConversion(onnx_conversion_config, disable_search=True)
+        onnx_conversion_pass = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
         onnx_model = aml_system.run_pass(onnx_conversion_pass, pytorch_model, onnx_model_file)
         assert Path(onnx_model.model_path).is_file()
 
