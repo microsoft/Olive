@@ -56,11 +56,14 @@ def tune_onnx_model(model, config):
 
     tuning_results = []
     for tuning_combo in generate_tuning_combos(model, config):
-        logger.info("Run tuning for: {}".format(tuning_combo))
+        tuning_item = ["provider", "execution_mode", "ort_opt_level", "io_bind"]
+        logger.info("Run tuning for: {}".format(list(zip(tuning_item, tuning_combo))))
         if tuning_combo[0] == "CPUExecutionProvider" and tuning_combo[3]:
             continue
         tuning_results.extend(threads_num_tuning(model, latency_metric, config, tuning_combo))
-        logger.info("Current tuning results: {}".format(tuning_results[-1]["latency_ms"]))
+
+    for tuning_result in tuning_results:
+        logger.debug("Tuning result: {}".format(tuning_result["latency_ms"]))
 
     best_result = parse_tuning_result(*tuning_results, pretuning_inference_result)
     logger.info("Best result: {}".format(best_result))
