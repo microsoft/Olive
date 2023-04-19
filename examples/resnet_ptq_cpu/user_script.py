@@ -46,16 +46,16 @@ class PytorchResNetDataset(Dataset):
         return input_data, label
 
 
-def create_dataloader(data_dir, batchsize):
+def create_dataloader(data_dir, batch_size):
     cifar10_dataset = CIFAR10DataSet(data_dir)
     _, val_set = torch.utils.data.random_split(cifar10_dataset.val_dataset, [49000, 1000])
-    benchmark_dataloader = DataLoader(PytorchResNetDataset(val_set), batch_size=batchsize, drop_last=True)
+    benchmark_dataloader = DataLoader(PytorchResNetDataset(val_set), batch_size=batch_size, drop_last=True)
     return benchmark_dataloader
 
 
 def post_process(output):
     # max_elements, max_indices = torch.max(input_tensor, dim)
-    # This is a two classes classifcation task, result is a 2D array [[ 1.1541, -0.6622],[[-0.2137,  0.0360]]]
+    # This is a two classes classification task, result is a 2D array [[ 1.1541, -0.6622],[[-0.2137,  0.0360]]]
     # the index of this array among dimension 1 will be [1, 0], which are labels of this task
     _, preds = torch.max(output, 1)
     return preds
@@ -77,7 +77,7 @@ def resnet_calibration_reader(data_dir, batch_size=16):
     return ResnetCalibrationDataReader(data_dir, batch_size=batch_size)
 
 
-# TODO: use these functions to demo custom evaluation fucntions once the new evaluator is ready
+# keep this to demo/test custom evaluation function
 def eval_accuracy(model: OliveModel, data_dir, batch_size, device):
     sess = model.prepare_session(inference_settings=None, device=device)
     dataloader = create_dataloader(data_dir, batch_size)

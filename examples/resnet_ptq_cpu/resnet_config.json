@@ -73,7 +73,18 @@
                 "user_script": "user_script.py",
                 "data_dir": "data",
                 "dataloader_func": "resnet_calibration_reader",
-                "weight_type": "QUInt8"
+                "weight_type": "QUInt8",
+                "activation_type": "QUInt8",
+                "quant_preprocess": true
+            }
+        },
+        "perf_tuning": {
+            "type": "OrtPerfTuning",
+            "config": {
+                "user_script": "user_script.py",
+                "dataloader_func": "create_dataloader",
+                "batch_size": 1,
+                "data_dir": "data"
             }
         }
     },
