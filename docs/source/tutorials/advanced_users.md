@@ -118,7 +118,7 @@ quantization_config = {
     "weight_type" : "QUInt8"
 }
 # search over the values for the other config parameters
-quantization_pass = OnnxQuantization(quantization_config)
+quantization_pass = create_pass_from_dict(OnnxQuantization, quantization_config)
 engine.register(quantization_pass)
 ```
 

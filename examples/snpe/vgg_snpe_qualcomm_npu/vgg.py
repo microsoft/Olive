@@ -10,6 +10,7 @@ from vgg_utils import get_directories
 
 from olive.model import ONNXModel
 from olive.passes import SNPEConversion, SNPEQuantization, SNPEtoONNXConversion
+from olive.passes.olive_pass import create_pass_from_dict
 from olive.snpe import SNPEDevice, SNPEProcessedDataLoader
 
 
@@ -41,7 +42,8 @@ def main():
     print("Converting ONNX model to SNPE...")
     snpe_model_file = str(models_dir / f"{name}_snpe.dlc")
 
-    snpe_conversion = SNPEConversion(
+    snpe_conversion = create_pass_from_dict(
+        SNPEConversion,
         {
             "input_names": ["data"],
             "input_shapes": [[1, 3, 224, 224]],
@@ -63,8 +65,10 @@ def main():
     print("Quantizing SNPE model...")
     snpe_quantized_model_file = str(models_dir / f"{name}_snpe_quantized.dlc")
 
-    snpe_quantization = SNPEQuantization(
-        {"data_dir": str(data_dir), "dataloader_func": create_quant_dataloader, "enable_htp": True}, disable_search=True
+    snpe_quantization = create_pass_from_dict(
+        SNPEQuantization,
+        {"data_dir": str(data_dir), "dataloader_func": create_quant_dataloader, "enable_htp": True},
+        disable_search=True,
     )
     snpe_quantized_model = snpe_quantization.run(snpe_model, snpe_quantized_model_file)
     assert Path(snpe_quantized_model.model_path).is_file()
@@ -79,7 +83,9 @@ def main():
     print("Converting SNPE Quantized model to ONNX...")
     snpe_quantized_onnx_model_file = str(models_dir / f"{name}_snpe_quantized.onnx")
 
-    snpe_to_onnx_conversion = SNPEtoONNXConversion({"target_device": SNPEDevice.DSP}, disable_search=True)
+    snpe_to_onnx_conversion = create_pass_from_dict(
+        SNPEtoONNXConversion, {"target_device": SNPEDevice.DSP}, disable_search=True
+    )
     snpe_quantized_onnx_model = snpe_to_onnx_conversion.run(snpe_quantized_model, snpe_quantized_onnx_model_file)
     assert Path(snpe_quantized_onnx_model.model_path).is_file()
 
