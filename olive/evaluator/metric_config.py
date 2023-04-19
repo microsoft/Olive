@@ -55,7 +55,7 @@ def get_user_config_class(metric_type: str):
 
 def get_properties_from_metric_type(metric_type):
     user_config_class = get_user_config_class(metric_type)
-    # list(user_config_class.schema()["properties"].keys()) # will ignore dataloader_func
+    # avoid to use schema() to get the fields, because it will skip the ones with object type
     return list(user_config_class.__fields__)
 
 

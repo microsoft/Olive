@@ -44,8 +44,10 @@ def generate_tuning_combos(model, config):
 def tune_onnx_model(model, config):
     latency_user_config = {}
     # which should be the same as the config in the metric
+    config_dict = config.dict()
     for eval_config in get_properties_from_metric_type(MetricType.LATENCY):
-        latency_user_config[eval_config] = config.dict().get(eval_config)
+        if eval_config in config_dict:
+            latency_user_config[eval_config] = config_dict.get(eval_config)
     latency_metric = Metric(
         name="latency", type=MetricType.LATENCY, sub_type=LatencySubType.AVG, user_config=latency_user_config
     )
