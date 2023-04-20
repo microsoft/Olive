@@ -87,7 +87,7 @@ class Pass(ABC):
         """
         Generate search space for the pass.
         """
-        default_config = cls._get_config_class()
+        default_config = cls.default_config()
         # Get the config class with default value or default search value
         config_class = cls.get_config_class(default_config, disable_search)
         # Generate the search space by using both default value and default search value and user provided config
@@ -96,7 +96,7 @@ class Pass(ABC):
         return config_class, config
 
     @classmethod
-    def _get_config_class(
+    def get_config_class(
         cls, default_config: Dict[str, PassConfigParam], disable_search: Optional[bool] = False
     ) -> Type[PassConfigBase]:
         """
@@ -367,7 +367,10 @@ class FullPassConfig(ConfigBase):
 
         pass_type = values["type"].lower()
         disable_search = values["disable_search"]
-        config_class = Pass.registry[pass_type].get_config_class(disable_search)
+        pass_cls = Pass.registry[pass_type]
+        # TODO: remove the default config call since it will accept hardware/EP info.
+        default_config = pass_cls.default_config()
+        config_class = pass_cls.get_config_class(default_config, disable_search)
         return validate_config(v, PassConfigBase, config_class)
 
     def create_pass(self):
