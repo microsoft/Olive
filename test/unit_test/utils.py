@@ -119,5 +119,5 @@ def get_onnxconversion_pass(ignore_pass_config=True):
 
 
 def get_onnx_dynamic_quantization_pass(disable_search=False):
-    p = OnnxDynamicQuantization(disable_search=disable_search)
+    p = create_pass_from_dict(OnnxDynamicQuantization, disable_search=disable_search)
     return p
