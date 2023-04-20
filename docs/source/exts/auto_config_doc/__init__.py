@@ -1,5 +1,6 @@
 import inspect
 from importlib import import_module
+from typing import Union
 
 from docutils import nodes
 from docutils.parsers.rst import Directive
@@ -24,7 +25,7 @@ class AutoConfigDirective(Directive):
     required_arguments = 1
     option_spec = {}
 
-    def make_doc(self, auto_config_class: AutoConfigClass):
+    def make_doc(self, auto_config_class: Union[AutoConfigClass, Pass]):
         class_doc = auto_config_class.__doc__
         lines = []
         if class_doc is not None:
@@ -58,7 +59,9 @@ class AutoConfigDirective(Directive):
     def run(self):
         (class_name,) = self.arguments
         auto_config_class = import_class(class_name)
-        assert issubclass(auto_config_class, AutoConfigClass), f"{class_name} is not a subclass of AutoConfigClass"
+        assert issubclass(auto_config_class, AutoConfigClass) or issubclass(
+            auto_config_class, Pass
+        ), f"{class_name} is not a subclass of AutoConfigClass or Pass"
 
         node = nodes.section()
         node.document = self.state.document
