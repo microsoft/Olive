@@ -1,0 +1,44 @@
+{
+    "verbose": true,
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "name": "supres",
+            "model_path": null,
+            "is_file": false,
+            "model_loader": "load_pytorch_model",
+            "model_script": "examples/supres/loader.py"
+        }
+    },
+    "systems": {
+        "local_system": {"type": "LocalSystem"}
+    },
+    "evaluators": {},
+    "passes": {
+        "exporter": {
+            "type": "OnnxConversion",
+            "config": {
+                "input_names": ["input"],
+                "input_shapes": [[1, 1, 224, 224]],
+                "input_types": ["float32"],
+                "output_names": ["output"],
+                "target_opset": 15                
+            }
+        },
+        "prepost": {
+            "type": "PrePostProcessing",
+            "config": {
+                "tool_command": "superresolution",
+                "tool_command_args": {
+                    "output_format": "png"
+                }
+            }
+        }
+    },
+    "engine": {
+        "host": "local_system",
+        "clean_cache": true,
+        "cache_dir": "examples/supres/cache",
+        "output_dir": "examples/supres"
+    }
+}
