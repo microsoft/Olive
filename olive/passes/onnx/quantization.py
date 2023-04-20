@@ -504,7 +504,6 @@ _inc_quantization_config = {
     "quant_level": PassConfigParam(
         type_=str,
         default_value="auto",
-        searchable_values=Boolean(),
         description="""
             Intel® Neural Compressor allows users to choose different tuning processes by specifying
             the quantization level (quant_level). Currently 3 quant_levels are supported.
