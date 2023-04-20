@@ -115,7 +115,7 @@ def dependency_setup(config):
         )
 
 
-def run(config: Union[str, Path, dict], setup: bool = False):
+def run(config: Union[str, Path, dict], setup: bool = False, **kwargs):
     # we use parse_file and parse_obj to be safe. If implemented as expected, both should be equivalent.
     if isinstance(config, str) or isinstance(config, Path):
         config = RunConfig.parse_file(config)
