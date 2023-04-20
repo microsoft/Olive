@@ -3,10 +3,10 @@ azure-identity
 azure-storage-blob
 coverage
 docker
+neural-compressor
 onnxconverter_common
 openvino
 openvino-dev
 psutil
 pytorch_lightning
 torchvision
-neural-compressor
