@@ -37,7 +37,7 @@ def _generate_zipfile_output(
 
 def _package_sample_code(cur_path, tempdir):
     shutil.copytree(cur_path / "sample_code", tempdir / "SampleCode")
-    
+
 
 def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footprint) -> None:
     candidate_models_dir = tempdir / "CandidateModels"
@@ -67,7 +67,7 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
         configuration_path = str(model_dir / "configurations.json")
         with open(configuration_path, "w") as f:
             json.dump(OrderedDict(reversed(footprint.trace_back_run_history(model_id).items())), f)
-            
+
         # Copy metrics
         # TODO: Add target info to metrics file
         metric_path = str(model_dir / "metrics.json")
