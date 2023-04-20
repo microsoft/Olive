@@ -43,25 +43,20 @@ class Pass(AutoConfigClass):
     # True if pass configuration requires user script for non-local host support
     _requires_user_script: bool = False
 
-    def __init__(
-        self,
-        config_class: Type[PassConfigBase],
-        config: Union[Dict[str, Any], PassConfigBase],
-        fixed_params: Dict[str, Any],
-        search_space: Dict[str, SearchParameter],
-    ):
-        """
-        Initialize the pass.
-        disable_search: If False, use default search parameters, if any, for parameters that are not specified
-        in the config. Only applies when the config is a dictionary.
+    def __init__(self, config_class: Type[PassConfigBase], config: Dict[str, Any]):
+        """Initialize the pass.
+
+        :param config_class: the PassConfig class with the default value or default search values.
+        :type config_class: Type[PassConfigBase]
+        :param config: the configuration representing search space.
+        :type config: Dict[str, Any]
         """
         self._config_class = config_class
         self._config = config
         if self._requires_user_script:
             self._user_module_loader = UserModuleLoader(self._config["user_script"], self._config["script_dir"])
 
-        self._fixed_params = fixed_params
-        self._search_space = search_space
+        self._fixed_params, self._search_space = self._init_fixed_and_search_params(config)
 
         # Params that are paths [(param_name, required)]
         self.path_params = []
@@ -72,27 +67,17 @@ class Pass(AutoConfigClass):
         self._initialized = False
 
     @classmethod
-    def resolve_config(
-        cls, config_class: Type[PassConfigBase], input_config: Union[Dict[str, Any], PassConfigBase]
-    ) -> PassConfigBase:
-        """
-        Resolve config to PassConfigBase.
-        """
-        config = validate_config(input_config, PassConfigBase, config_class)
-        config = config.dict()
-        config = cls._resolve_defaults(config)
-        if cls._requires_user_script:
-            user_module_loader = UserModuleLoader(config["user_script"], config["script_dir"])
-            config = cls._validate_user_script(config, user_module_loader)
-        return config
-
-    @classmethod
     def generate_search_space(
-        cls,
-        config: Optional[Union[Dict[str, Any], PassConfigBase]] = None,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any], SearchSpace]:
-        fixed_params, search_space = cls._init_fixed_and_search_params(config)
-        return fixed_params, search_space
+        cls, config: Optional[Union[Dict[str, Any], PassConfigBase]] = None, disable_search: Optional[bool] = False
+    ) -> Tuple[Type[PassConfigBase], Dict[str, Any]]:
+        """
+        Generate search space for the pass.
+        """
+        # Get the config class with default value or default search value
+        config_class = cls.get_config_class(disable_search)
+        # Generate the search space by using both default value and default search value and user provided config
+        config = cls._resolve_config(config_class, config)
+        return config_class, config
 
     @classmethod
     def get_config_class(cls, disable_search: Optional[bool] = False) -> Type[PassConfigBase]:
@@ -246,6 +231,21 @@ class Pass(AutoConfigClass):
             param = param.get_support()[0]
         return param
 
+    @classmethod
+    def _resolve_config(
+        cls, config_class: Type[PassConfigBase], input_config: Union[Dict[str, Any], PassConfigBase]
+    ) -> Dict[str, Any]:
+        """
+        Resolve config to PassConfigBase.
+        """
+        config = validate_config(input_config, PassConfigBase, config_class)
+        config = config.dict()
+        config = cls._resolve_defaults(config)
+        if cls._requires_user_script:
+            user_module_loader = UserModuleLoader(config["user_script"], config["script_dir"])
+            config = cls._validate_user_script(config, user_module_loader)
+        return config
+
     def _initialize(self):
         """
         Initialize the pass. Pass specific initialization should be done here.
@@ -350,7 +350,5 @@ def create_pass_from_dict(pass_cls: Type[Pass], config: Dict[str, Any] = None, d
     """
     Create a pass from a dictionary.
     """
-    config_class = pass_cls.get_config_class(disable_search)
-    config = pass_cls.resolve_config(config_class, config)
-    fixed_params, search_space = pass_cls.generate_search_space(config)
-    return pass_cls(config_class, config, fixed_params, search_space)
+    config_class, config = pass_cls.generate_search_space(config, disable_search)
+    return pass_cls(config_class, config)
