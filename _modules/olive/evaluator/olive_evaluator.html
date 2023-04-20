@@ -64,6 +64,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_users.html">Advanced User Tour</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/how_to_add_pass.html">How to add new Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/packaging_output_models.html">Packaing Olive artifacts</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
 <ul>
@@ -154,19 +155,18 @@
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;metrics&quot;</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">validate_metrics</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="n">metric_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">metric_len</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">v</span>
+
         <span class="n">metric_names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">v</span><span class="p">])</span>
-        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">metric_names</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">),</span> <span class="s2">&quot;Metric names must be unique&quot;</span>
-        <span class="n">has_first_priority</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">v</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">is_first_priority</span><span class="p">:</span>
-                <span class="k">assert</span> <span class="ow">not</span> <span class="n">has_first_priority</span><span class="p">,</span> <span class="s2">&quot;Only one metric can be first priority&quot;</span>
-                <span class="n">has_first_priority</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">has_first_priority</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Must have at least one metric with first priority when more then one metric are used for evaluation.&quot;</span>
-            <span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">is_first_priority</span><span class="p">:</span>
-            <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">is_first_priority</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">metric_names</span><span class="p">)</span> <span class="o">==</span> <span class="n">metric_len</span><span class="p">,</span> <span class="s2">&quot;Metric names must be unique&quot;</span>
+
+        <span class="n">rank_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">metric</span><span class="o">.</span><span class="n">priority_rank</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">v</span><span class="p">])</span>
+        <span class="n">expected_rank_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">metric_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="c1"># Check if all ranks are present</span>
+        <span class="k">if</span> <span class="n">rank_set</span> <span class="o">!=</span> <span class="n">expected_rank_set</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Priority ranks must be unique and in the range 1 to </span><span class="si">{</span><span class="n">metric_len</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">v</span>
 
 <div class="viewcode-block" id="OliveEvaluatorConfig.create_evaluator"><a class="viewcode-back" href="../../../api/engine.html#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.create_evaluator">[docs]</a>    <span class="k">def</span> <span class="nf">create_evaluator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

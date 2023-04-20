@@ -89,6 +89,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_add_pass.html">How to add new Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/packaging_output_models.html">Packaing Olive artifacts</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
 <ul>
@@ -431,6 +432,7 @@ will be used.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">search_algorithm:</span> <span class="pre">[str]</span></code> The search algorithm of the engine. The available search algorithms are <code class="docutils literal notranslate"><span class="pre">exhaustive</span></code>, <code class="docutils literal notranslate"><span class="pre">random</span></code> and <code class="docutils literal notranslate"><span class="pre">tpe</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">search_algorithm_config:</span> <span class="pre">[Dict]</span></code> The configuration of the search algorithm. The configuration of the search algorithm depends on
 the search algorithm.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_model_num:</span> <span class="pre">[int]</span></code> The number of output models from the engine based on metric priority rank. If not specified, the engine will output all qualified models.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">stop_when_goals_met:</span> <span class="pre">[Boolean]</span></code> This decides whether to stop the search when the metric goals, if any,  are met. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by
 default.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_iter:</span> <span class="pre">[int]</span></code> The maximum number of iterations of the search. Only valid for <code class="docutils literal notranslate"><span class="pre">joint</span></code> execution order. By default, there is no
@@ -461,6 +463,7 @@ directory. For a run with no search, the output is the output model of the final
 output is a json file with the search results.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">output_name:</span> <span class="pre">[str]</span></code> The name of the output. This string will be used as the prefix of the output file name. If not specified, there is no
 prefix.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">packaging_config:</span> <span class="pre">[PackagingConfig]</span></code> Olive artifacts packaging configurations. If not specified, Olive will not package artifacts.</p></li>
 </ul>
 <p>Please find the detailed config options from following table for each search algorithm:</p>
 <table class="docutils align-default">

@@ -66,6 +66,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_add_pass.html">How to add new Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/packaging_output_models.html">Packaing Olive artifacts</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
 <ul>
@@ -87,9 +88,9 @@
 <li class="toctree-l3"><a class="reference internal" href="#olive.evaluator.metric.Metric"><code class="docutils literal notranslate"><span class="pre">Metric</span></code></a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.goal"><code class="docutils literal notranslate"><span class="pre">Metric.goal</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.higher_is_better"><code class="docutils literal notranslate"><span class="pre">Metric.higher_is_better</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.is_first_priority"><code class="docutils literal notranslate"><span class="pre">Metric.is_first_priority</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.metric_config"><code class="docutils literal notranslate"><span class="pre">Metric.metric_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.name"><code class="docutils literal notranslate"><span class="pre">Metric.name</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.priority_rank"><code class="docutils literal notranslate"><span class="pre">Metric.priority_rank</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.sub_type"><code class="docutils literal notranslate"><span class="pre">Metric.sub_type</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.type"><code class="docutils literal notranslate"><span class="pre">Metric.type</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.user_config"><code class="docutils literal notranslate"><span class="pre">Metric.user_config</span></code></a></li>
@@ -162,11 +163,6 @@
 <dd></dd></dl>
 
 <dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.evaluator.metric.Metric.is_first_priority">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_first_priority</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#olive.evaluator.metric.Metric.is_first_priority" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute pydantic_field">
 <dt class="sig sig-object py" id="olive.evaluator.metric.Metric.metric_config">
 <em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metric_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ConfigBase</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.evaluator.metric.Metric.metric_config" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -174,6 +170,11 @@
 <dl class="py attribute pydantic_field">
 <dt class="sig sig-object py" id="olive.evaluator.metric.Metric.name">
 <em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"> <span class="pre">[Required]</span></em><a class="headerlink" href="#olive.evaluator.metric.Metric.name" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.evaluator.metric.Metric.priority_rank">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">priority_rank</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#olive.evaluator.metric.Metric.priority_rank" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute pydantic_field">

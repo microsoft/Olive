@@ -267,6 +267,8 @@ This is a dictionary that contains the information of the engine. The informatio
     - `search_algorithm_config: [Dict]` The configuration of the search algorithm. The configuration of the search algorithm depends on
     the search algorithm.
 
+    - `output_model_num: [int]` The number of output models from the engine based on metric priority rank. If not specified, the engine will output all qualified models.
+
     - `stop_when_goals_met: [Boolean]` This decides whether to stop the search when the metric goals, if any,  are met. This is `false` by
     default.
 
@@ -307,6 +309,8 @@ This is a dictionary that contains the information of the engine. The informatio
 
 - `output_name: [str]` The name of the output. This string will be used as the prefix of the output file name. If not specified, there is no
     prefix.
+
+- `packaging_config: [PackagingConfig]` Olive artifacts packaging configurations. If not specified, Olive will not package artifacts.
 
 Please find the detailed config options from following table for each search algorithm:
 

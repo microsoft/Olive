@@ -64,6 +64,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_users.html">Advanced User Tour</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/how_to_add_pass.html">How to add new Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/packaging_output_models.html">Packaing Olive artifacts</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
 <ul>
@@ -136,6 +137,7 @@
     <span class="n">execution_order</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">search_algorithm</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">search_algorithm_config</span><span class="p">:</span> <span class="n">ConfigBase</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">output_model_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">stop_when_goals_met</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">max_iter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">max_time</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span>
@@ -352,7 +354,10 @@
             <span class="k">return</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">exit_criteria_met</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">stop_when_goals_met</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_search_results</span><span class="p">[</span>
             <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_active_spaces_group</span><span class="p">)</span>
-        <span class="p">]</span><span class="o">.</span><span class="n">check_goals</span><span class="p">(</span><span class="n">metric_signal</span><span class="p">)</span></div>
+        <span class="p">]</span><span class="o">.</span><span class="n">check_goals</span><span class="p">(</span><span class="n">metric_signal</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_output_model_num</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">output_model_num</span></div>
 </pre></div>
 
            </div>
