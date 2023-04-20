@@ -23,6 +23,7 @@ class SearchStrategyConfig(ConfigBase):
     execution_order: str
     search_algorithm: str
     search_algorithm_config: ConfigBase = None
+    output_model_num: int = None
     stop_when_goals_met: bool = False
     max_iter: int = None
     max_time: int = None
@@ -240,3 +241,6 @@ class SearchStrategy(ABC):
         self.exit_criteria_met = self._config.stop_when_goals_met and self._search_results[
             tuple(self._active_spaces_group)
         ].check_goals(metric_signal)
+
+    def get_output_model_num(self):
+        return self._config.output_model_num

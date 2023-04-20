@@ -150,6 +150,12 @@ class Footprint:
         # restructure the pareto frontier points to instance of Footprints node for further analysis
         return Footprint(nodes=rls, objective_dict=self.objective_dict, is_marked_pareto_frontier=True)
 
+    def update_nodes(self, nodes):
+        node_dict = OrderedDict()
+        for node in nodes:
+            node_dict[node.model_id] = node
+        self.nodes = node_dict
+
     def _get_metrics_name_by_indices(self, indices):
         rls = list()
         for _, v in self.nodes.items():
@@ -277,3 +283,10 @@ class Footprint:
             return None
 
         return Path(model_config.get("config", {}).get("model_path", None))
+
+    def get_model_type(self, model_id):
+        model_config = self.nodes[model_id].model_config
+        if model_config is None:
+            return None
+
+        return model_config.get("type", None)

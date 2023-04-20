@@ -136,6 +136,7 @@ def run(config: Union[str, Path, dict], setup: bool = False):
         # run
         best_execution = engine.run(
             input_model,
+            config.engine.packaging_config,
             config.verbose,
             config.engine.output_dir,
             config.engine.output_name,

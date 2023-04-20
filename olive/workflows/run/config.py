@@ -11,6 +11,7 @@ from olive.common.config_utils import ConfigBase
 from olive.engine import Engine, EngineConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
+from olive.packaging.packaging_config import PackagingConfig
 from olive.passes import FullPassConfig
 from olive.systems.system_config import SystemConfig
 
@@ -25,10 +26,11 @@ class RunEngineConfig(EngineConfig):
     evaluation_only: bool = False
     output_dir: Union[Path, str] = None
     output_name: str = None
+    packaging_config: PackagingConfig = None
 
     def create_engine(self):
         config = self.dict()
-        del config["evaluation_only"], config["output_dir"], config["output_name"]
+        del config["evaluation_only"], config["output_dir"], config["output_name"], config["packaging_config"]
         return Engine(config)
 
 
