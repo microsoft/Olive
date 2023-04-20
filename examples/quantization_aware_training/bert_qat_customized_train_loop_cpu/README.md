@@ -15,6 +15,11 @@ python -m pip install -r requirements.txt
 ```
 
 ## Run sample using config
+First, install required packages according to passes.
+```
+python -m olive.workflows.run --config bert_config.json --setup
+```
+Then, optimize the model
 ```
 python -m olive.workflows.run --config bert_config.json
 ```

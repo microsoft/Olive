@@ -19,9 +19,9 @@ _common_user_config = {
     "user_script": ConfigParam(type_=Union[Path, str]),
     "data_dir": ConfigParam(type_=Union[Path, str]),
     "batch_size": ConfigParam(type_=int, default_value=1),
-    "input_names": ConfigParam(type_=List, is_object=True),
-    "input_shapes": ConfigParam(type_=List, is_object=True),
-    "input_types": ConfigParam(type_=List, is_object=True),
+    "input_names": ConfigParam(type_=List),
+    "input_shapes": ConfigParam(type_=List),
+    "input_types": ConfigParam(type_=List),
 }
 
 _common_user_config_validators = {}
@@ -51,6 +51,12 @@ def get_user_config_class(metric_type: str):
     validators = _common_user_config_validators.copy()
     validators.update(_type_to_user_config_validators.get(metric_type, {}))
     return create_config_class(f"{metric_type.title()}UserConfig", default_config, ConfigBase, validators)
+
+
+def get_properties_from_metric_type(metric_type):
+    user_config_class = get_user_config_class(metric_type)
+    # avoid to use schema() to get the fields, because it will skip the ones with object type
+    return list(user_config_class.__fields__)
 
 
 # TODO: automate latency metric config also we standardize accuracy metric config

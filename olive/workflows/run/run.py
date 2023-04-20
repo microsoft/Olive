@@ -4,9 +4,12 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import os
+import subprocess
 from pathlib import Path
 from typing import Union
 
+from olive.systems.common import Device, SystemType
 from olive.workflows.run.config import RunConfig
 
 logger = logging.getLogger(__name__)
@@ -53,7 +56,66 @@ def update_config_with_cmd_instructions(config, **cmd_kwargs):
         config.engine.output_name = cmd_kwargs.get("output_name")
 
 
-def run(config: Union[str, Path, dict], **kwargs):
+def dependency_setup(config):
+    here = os.path.abspath(os.path.dirname(__file__))
+    EXTRAS = json.load(open(os.path.join(here, "../../extra_dependencies.json"), "r"))
+    DEPENDENCY_MAPPING = {
+        "device": {
+            SystemType.AzureML: EXTRAS.get("azureml"),
+            SystemType.Docker: EXTRAS.get("docker"),
+            SystemType.Local: {Device.CPU: EXTRAS.get("cpu"), Device.GPU: EXTRAS.get("gpu")},
+        },
+        "pass": {
+            "OnnxFloatToFloat16": ["onnxconverter-common"],
+            "OrtPerfTuning": ["psutil"],
+            "QuantizationAwareTraining": ["pytorch-lightning"],
+            "OpenVINOConversion": EXTRAS.get("openvino"),
+            "OpenVINOQuantization": EXTRAS.get("openvino"),
+        },
+    }
+
+    local_packages = []
+    remote_packages = []
+
+    # add dependencies for passes
+    for _, pass_config in config.passes.items():
+        host = pass_config.host or config.engine.host
+        if (host and host.type == SystemType.Local) or not host:
+            local_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type, []))
+        else:
+            remote_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type, []))
+        if pass_config.type in ["SNPEConversion", "SNPEQuantization", "SNPEtoONNXConversion"]:
+            logger.info(
+                "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html \
+                to install SNPE Prerequisites for pass {}".format(
+                    pass_config.type
+                )
+            )
+
+    # add dependencies for engine
+    if config.engine.host and config.engine.host.type == SystemType.Local:
+        local_packages.extend(DEPENDENCY_MAPPING["device"][SystemType.Local][config.engine.host.config.device])
+    elif not config.engine.host:
+        local_packages.extend(DEPENDENCY_MAPPING["device"][SystemType.Local]["cpu"])
+    else:
+        local_packages.extend(DEPENDENCY_MAPPING["device"][config.engine.host.type])
+
+    # install packages to local or tell user to install packages in their environment
+    logger.info("The following packages will be installed: {}".format(" ".join(local_packages)))
+    for package in set(local_packages):
+        try:
+            __import__(package)
+        except (ImportError):
+            subprocess.check_call(["pip", "install", "{}".format(package)])
+    if remote_packages:
+        logger.info(
+            "Please make sure the following packages are installed in {} environment: {}".format(
+                config.engine.host.type, remote_packages
+            )
+        )
+
+
+def run(config: Union[str, Path, dict], setup: bool = False):
     # we use parse_file and parse_obj to be safe. If implemented as expected, both should be equivalent.
     if isinstance(config, str) or isinstance(config, Path):
         config = RunConfig.parse_file(config)
@@ -72,15 +134,23 @@ def run(config: Union[str, Path, dict], **kwargs):
     if (config.passes is None or not config.passes) and (not config.engine.evaluation_only):
         # TODO enhance this logic for more passes templates
         engine, config = automatically_insert_passes(config)
-    # passes
-    for pass_name, pass_config in config.passes.items():
-        p = pass_config.create_pass()
-        host = pass_config.host.create_system() if pass_config.host is not None else None
-        evaluator = pass_config.evaluator.create_evaluator() if pass_config.evaluator is not None else None
-        engine.register(p, pass_name, host, evaluator, pass_config.clean_run_cache)
 
-    # run
-    best_execution = engine.run(
-        input_model, config.verbose, config.engine.output_dir, config.engine.output_name, config.engine.evaluation_only
-    )
-    return best_execution
+    if setup:
+        dependency_setup(config)
+    else:
+        # passes
+        for pass_name, pass_config in config.passes.items():
+            p = pass_config.create_pass()
+            host = pass_config.host.create_system() if pass_config.host is not None else None
+            evaluator = pass_config.evaluator.create_evaluator() if pass_config.evaluator is not None else None
+            engine.register(p, pass_name, host, evaluator, pass_config.clean_run_cache)
+
+        # run
+        best_execution = engine.run(
+            input_model,
+            config.verbose,
+            config.engine.output_dir,
+            config.engine.output_name,
+            config.engine.evaluation_only,
+        )
+        return best_execution

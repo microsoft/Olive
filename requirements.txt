@@ -1,12 +1,9 @@
 numpy <= 1.23.4
 onnx
-onnxconverter_common
 optuna
 pandas
 pydantic
 protobuf !=3.20.0, !=3.20.1
-psutil
-pytorch_lightning
 pyyaml
 torch
 torchmetrics>=0.7.0, <0.10.1

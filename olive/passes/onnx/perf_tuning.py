@@ -8,11 +8,9 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
-import onnxruntime as ort
-import psutil
-
 from olive.evaluator.evaluation import evaluate_latency
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
+from olive.evaluator.metric_config import get_properties_from_metric_type
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
@@ -21,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 
 def generate_tuning_combos(model, config):
+    import onnxruntime as ort
+
     providers_list = config.providers_list if config.providers_list else model.get_execution_providers(config.device)
     execution_mode_list = (
         config.execution_mode_list
@@ -43,16 +43,11 @@ def generate_tuning_combos(model, config):
 
 def tune_onnx_model(model, config):
     latency_user_config = {}
-    for eval_config in [
-        "data_dir",
-        "dataloader_func",
-        "batch_size",
-        "input_names",
-        "input_shapes",
-        "input_types",
-        "device",
-    ]:
-        latency_user_config[eval_config] = config.dict().get(eval_config)
+    # which should be the same as the config in the metric
+    config_dict = config.dict()
+    for eval_config in get_properties_from_metric_type(MetricType.LATENCY):
+        if eval_config in config_dict:
+            latency_user_config[eval_config] = config_dict.get(eval_config)
     latency_metric = Metric(
         name="latency", type=MetricType.LATENCY, sub_type=LatencySubType.AVG, user_config=latency_user_config
     )
@@ -61,11 +56,14 @@ def tune_onnx_model(model, config):
 
     tuning_results = []
     for tuning_combo in generate_tuning_combos(model, config):
-        logger.info("Run tuning for: {}".format(tuning_combo))
+        tuning_item = ["provider", "execution_mode", "ort_opt_level", "io_bind"]
+        logger.info("Run tuning for: {}".format(list(zip(tuning_item, tuning_combo))))
         if tuning_combo[0] == "CPUExecutionProvider" and tuning_combo[3]:
             continue
         tuning_results.extend(threads_num_tuning(model, latency_metric, config, tuning_combo))
-        logger.info("Current tuning results: {}".format(tuning_results[-1]["latency_ms"]))
+
+    for tuning_result in tuning_results:
+        logger.debug("Tuning result: {}".format(tuning_result["latency_ms"]))
 
     best_result = parse_tuning_result(*tuning_results, pretuning_inference_result)
     logger.info("Best result: {}".format(best_result))
@@ -119,6 +117,9 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
 
 
 def threads_num_binary_search(model, latency_metric, config, test_params, tuning_results):
+    import onnxruntime as ort
+    import psutil
+
     if test_params["session_options"].get("extra_session_config"):
         extra_session_config = test_params["session_options"].get("extra_session_config")
         if extra_session_config.get("session.intra_op_thread_affinities"):
