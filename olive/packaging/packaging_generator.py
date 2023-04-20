@@ -29,21 +29,21 @@ def _generate_zipfile_output(
     cur_path = Path(__file__).parent
     with tempfile.TemporaryDirectory() as tempdir:
         tempdir = Path(tempdir)
-        _packaging_sample_code(cur_path, tempdir)
-        _packaging_candidate_models(tempdir, footprint, pf_footprint)
+        _package_sample_code(cur_path, tempdir)
+        _package_candidate_models(tempdir, footprint, pf_footprint)
         shutil.make_archive(packaging_config.name, "zip", tempdir)
         shutil.move(f"{packaging_config.name}.zip", output_dir / f"{packaging_config.name}.zip")
 
 
-def _packaging_sample_code(cur_path, tempdir):
+def _package_sample_code(cur_path, tempdir):
     shutil.copytree(cur_path / "sample_code", tempdir / "SampleCode")
+    
 
-
-def _packaging_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footprint) -> None:
+def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footprint) -> None:
     candidate_models_dir = tempdir / "CandidateModels"
     candidate_models_dir.mkdir()
     model_rank = 1
-    for model_id, _ in pf_footprint.nodes.items():
+    for model_id, node in pf_footprint.nodes.items():
         model_dir = candidate_models_dir / f"BestCandidateModel_{model_rank}"
         model_dir.mkdir()
         model_rank += 1
@@ -60,10 +60,16 @@ def _packaging_candidate_models(tempdir, footprint: Footprint, pf_footprint: Foo
 
         # Copy inference config
         inference_config_path = str(model_dir / "inference_config.json")
-        with open(inference_config_path, "w") as fp:
-            json.dump(pf_footprint.get_model_inference_config(model_id), fp)
+        with open(inference_config_path, "w") as f:
+            json.dump(pf_footprint.get_model_inference_config(model_id), f)
 
         # Copy Passes configurations
         configuration_path = str(model_dir / "configurations.json")
-        with open(configuration_path, "w") as fp:
-            json.dump(OrderedDict(reversed(footprint.trace_back_run_history(model_id).items())), fp)
+        with open(configuration_path, "w") as f:
+            json.dump(OrderedDict(reversed(footprint.trace_back_run_history(model_id).items())), f)
+            
+        # Copy metrics
+        # TODO: Add target info to metrics file
+        metric_path = str(model_dir / "metrics.json")
+        with open(metric_path, "w") as f:
+            json.dump(node.metrics.value, f)
