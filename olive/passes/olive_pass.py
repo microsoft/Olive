@@ -47,11 +47,8 @@ class Pass(ABC):
     def __init_subclass__(cls, **kwargs) -> None:
         """Register the Pass."""
         super().__init_subclass__(**kwargs)
-        if inspect.isabstract(cls):
-            return
-
-        name = cls.name if cls.name is not None else cls.__name__.lower()
-        cls.registry[name] = cls
+        if not inspect.isabstract(cls):
+            cls.registry[cls.__name__.lower()] = cls
 
     def __init__(self, config_class: Type[PassConfigBase], config: Dict[str, Any]):
         """Initialize the pass.
