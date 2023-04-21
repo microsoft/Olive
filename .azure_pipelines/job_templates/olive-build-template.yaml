@@ -33,6 +33,12 @@ jobs:
       WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
       WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
       WORKSPACE_NAME: $(workspace-name)
+  
+  - task: CredScan@3
+    displayName: 'Run CredScan'
+    inputs:
+      debugMode: false
+    continueOnError: true
 
   - task: ComponentGovernanceComponentDetection@0
     inputs:
@@ -98,12 +104,6 @@ jobs:
       verbosity: 'Verbose'
       alertWarningLevel: 'High'
     displayName: Component Detection
-
-  - task: CredScan@3
-    displayName: 'Run CredScan'
-    inputs:
-      debugMode: false
-    continueOnError: true
 
   - task: PublishTestResults@2
     condition: succeededOrFailed()
