@@ -12,34 +12,38 @@
             "metrics":[
                 {
                     "name": "accuracy",
-                    "type": "custom",
+                    "type": "accuracy",
+                    "sub_type": "accuracy_score",
                     "higher_is_better": true,
-                    "is_first_priority": true,
+                    "priority_rank": 1,
                     "user_config":{
-                        "user_script": "script_dir/user_script.py",
-                        "script_dir": "script_dir",
+                        "user_script": "user_script.py",
                         "data_dir": "data/eval",
-                        "evaluate_func": "eval_accuracy",
-                        "batch_size": 1
+                        "batch_size": 1,
+                        "dataloader_func": "evaluation_dataloader",
+                        "post_processing_func": "post_process"
+
                     }
                 },
                 {
                     "name": "latency",
-                    "type": "custom",
-                    "higher_is_better": false,
+                    "type": "latency",
+                    "sub_type": "avg",
+                    "priority_rank": 2,
                     "user_config":{
-                        "user_script": "script_dir/user_script.py",
-                        "script_dir": "script_dir",
+                        "user_script": "user_script.py",
                         "data_dir": "data/eval",
-                        "evaluate_func": "eval_latency",
-                        "batch_size": 1
+                        "batch_size": 1,
+                        "dataloader_func": "evaluation_dataloader"
                     }
                 }
             ],
             "target": {
-                "type": "LocalSystem",
+                "type": "PythonEnvironment",
                 "config": {
-                    "device": "npu"
+                    "python_environment_path": "<python-environment-path>",
+                    "device": "npu",
+                    "prepend_to_path": ["<qnn-lib-path>"]
                 }
             }
         }
@@ -48,7 +52,7 @@
         "quantization": {
             "type": "OnnxStaticQuantization",
             "config": {
-                "user_script": "script_dir/user_script.py",
+                "user_script": "user_script.py",
                 "dataloader_func": "mobilenet_calibration_reader",
                 "data_dir": "data/quant",
                 "quant_format": "QDQ",

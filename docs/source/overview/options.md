@@ -156,7 +156,7 @@ in `systems`. If it is a dictionary, it contains the system information. If not 
                 "name": "accuracy",
                 "type": "accuracy",
                 "sub_type": "accuracy_score",
-                "is_first_priority": true,
+                "priority_rank": 1,
                 "user_config":{
                     "post_processing_func": "post_process",
                     "user_script": "user_script.py",
@@ -168,6 +168,7 @@ in `systems`. If it is a dictionary, it contains the system information. If not 
                 "name": "latency",
                 "type": "latency",
                 "sub_type": "avg",
+                "priority_rank": 2,
                 "user_config":{
                     "user_script": "user_script.py",
                     "dataloader_func": "create_dataloader",

@@ -15,6 +15,11 @@ Set the path to the directory with arm64 python executable as environment variab
 
 For example if you used a python venv located at `C:\qnn\qnn-venv`, then `QNN_ENV_PATH` is `C:\qnn\qnn-venv\Scripts`
 
+### Prepare workflow config json
+```
+python prepare_config.json
+```
+
 ### Pip requirements
 Install the necessary python packages in your x64 python Olive environment:
 ```
