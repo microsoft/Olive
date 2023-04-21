@@ -15,7 +15,11 @@ python -m pip install -r requirements.txt
 
 ## Run sample
 ### Run with both Intel® Neural Compressor static and dynamic quantization
-run with config
+First, install required packages according to passes.
+```
+python -m olive.workflows.run --config bert_inc_config.json --setup
+```
+Then, optimize the model
 ```
 python -m olive.workflows.run --config bert_inc_config.json
 ```
@@ -26,7 +30,11 @@ olive_run("bert_inc_config.json")
 ```
 
 ### Run with Intel® Neural Compressor static quantization
-run with config
+First, install required packages according to passes.
+```
+python -m olive.workflows.run --config bert_inc_static_config.json --setup
+```
+Then, optimize the model
 ```
 python -m olive.workflows.run --config bert_inc_static_config.json
 ```
@@ -37,7 +45,11 @@ olive_run("bert_inc_static_config.json")
 ```
 
 ### Run with Intel® Neural Compressor dynamic quantization
-run with config
+First, install required packages according to passes.
+```
+python -m olive.workflows.run --config bert_inc_dynamic_config.json --setup
+```
+Then, optimize the model
 ```
 python -m olive.workflows.run --config bert_inc_dynamic_config.json
 ```
