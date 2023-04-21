@@ -59,7 +59,8 @@
                 "model_type": "unet",
                 "float16": true,
                 "use_gpu": true,
-                "keep_io_types": false
+                "keep_io_types": false,
+                "target_provider": "directml"
             }
         }
     },
