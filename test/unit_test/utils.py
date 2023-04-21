@@ -5,6 +5,7 @@
 import os
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
@@ -33,6 +34,19 @@ class DummyDataset(Dataset):
 
     def __getitem__(self, idx):
         return torch.randn(10), 1
+
+    def __len__(self):
+        return self.size
+
+
+class FixedDummyDataset(Dataset):
+    def __init__(self, size):
+        self.size = size
+        self.rng = np.random.default_rng(0)
+        self.data = torch.tensor(self.rng.random((size, 10)))
+
+    def __getitem__(self, idx):
+        return self.data[idx], 1
 
     def __len__(self):
         return self.size
@@ -72,8 +86,13 @@ def create_dataloader(datadir, batchsize):
     return dataloader
 
 
-def get_accuracy_metric(acc_subtype):
-    accuracy_metric_config = {"dataloader_func": create_dataloader}
+def create_fixed_dataloader(datadir, batchsize):
+    dataloader = DataLoader(FixedDummyDataset(10))
+    return dataloader
+
+
+def get_accuracy_metric(acc_subtype, random_dataloader=True):
+    accuracy_metric_config = {"dataloader_func": create_dataloader if random_dataloader else create_fixed_dataloader}
     accuracy_metric = Metric(
         name="accuracy",
         type=MetricType.ACCURACY,
