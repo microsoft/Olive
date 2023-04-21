@@ -34,6 +34,12 @@ jobs:
       WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
       WORKSPACE_NAME: $(workspace-name)
 
+  - task: CredScan@3
+    displayName: 'Run CredScan'
+    inputs:
+      debugMode: false
+    continueOnError: true
+
   - task: ComponentGovernanceComponentDetection@0
     inputs:
       scanType: 'Register'

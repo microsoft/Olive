@@ -15,6 +15,12 @@ steps:
     python setup.py bdist_wheel
   displayName: 'Build package'
 
+- task: CredScan@3
+  displayName: 'Run CredScan'
+  inputs:
+    debugMode: false
+  continueOnError: true
+
 - script: |
     python -m twine upload --repository-url https://upload.pypi.org/legacy/ -u $(PYPI_USERNAME) -p $(PYPI_PASSWORD) dist/*.whl
   displayName: 'Upload to PyPI'
