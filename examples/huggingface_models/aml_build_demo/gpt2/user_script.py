@@ -2,24 +2,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import onnx
+import onnxruntime as ort
 import torch
 from transformers import GPT2Tokenizer
 
-from olive.common.utils import run_subprocess
+ort.set_default_logger_severity(3)
 
 # https://huggingface.co/finiteautomata/bertweet-base-sentiment-analysis
 model_name = "gpt2"
-
-
-# -------------------- model -------------------
-def load_model(model_path):
-    model_name = "gpt2"
-    run_subprocess(
-        f"python -m onnxruntime.transformers.convert_generation -m {model_name}"
-        + f" --model_type {model_name} --output {model_path}"
-    )
-    return onnx.load(model_path)
 
 
 # -------------------- dataset -------------------

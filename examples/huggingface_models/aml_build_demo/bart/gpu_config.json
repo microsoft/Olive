@@ -3,7 +3,7 @@
     "input_model": {
         "type": "ONNXModel",
         "config": {
-            "model_path": "./models/models/onnx_models_fp16/t5_beam_search.onnx"
+            "model_path": "./models/model_final.onnx"
         }
     },
     "systems": {

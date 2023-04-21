@@ -1,6 +1,7 @@
 ## Prepare model
-python -m onnxruntime.transformers.convert_generation -m gpt2 --model_type gpt2 --output ./models/onnx_models/gpt2_beam_search.onnx --cache_dir ./models
-python -m onnxruntime.transformers.convert_generation -m gpt2 -p fp16 --use_gpu --model_type gpt2 --output ./gpt2_fp16/onnx_models/gpt2_beam_search.onnx
+python -m onnxruntime.transformers.convert_generation -m gpt2 --model_type gpt2 --output ./onnx_models/gpt2_beam_search.onnx --cache_dir ./cache
+<!-- Met the same bugs with T5 for fp16 -->
+python -m onnxruntime.transformers.convert_generation -m gpt2 -p fp16 --use_gpu --model_type gpt2 --output ./onnx_models_fp16/gpt2_beam_search.onnx --cache_dir ./cache
 
 
 ## CPU

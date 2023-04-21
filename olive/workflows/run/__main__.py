@@ -13,6 +13,8 @@ if __name__ == "__main__":
     # engine results
     parser.add_argument("--output_dir", type=str, default=None, help="Output directory")
     parser.add_argument("--output_name", type=str, default=None, help="Output directory")
+    # log level
+    parser.add_argument("--log_level", type=int, default=2, help="Log level")
     parser.add_argument("--setup", help="Whether run environment setup", action="store_true")
 
     args = parser.parse_args()

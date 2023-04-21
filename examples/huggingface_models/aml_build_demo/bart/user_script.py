@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import evaluate
+import onnxruntime as ort
 import torch
 from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
@@ -11,6 +12,8 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from olive.constants import Framework
+
+ort.set_default_logger_severity(3)
 
 # https://huggingface.co/sshleifer/distilbart-cnn-12-6
 model_name = "facebook/bart-large-cnn"
@@ -63,8 +66,8 @@ def create_evaluation_dataset():
             return self.dataset[index], self.dataset[index]["labels"]
 
         def __len__(self):
-            return 5
-            # return len(self.dataset)
+            # return 5
+            return len(self.dataset)
 
     return _Dateset(tokenized_datasets)
 

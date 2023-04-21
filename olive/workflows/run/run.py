@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 from typing import Union
 
+from olive import set_log_level
 from olive.systems.common import Device, SystemType
 from olive.workflows.run.config import RunConfig
 
@@ -54,6 +55,8 @@ def update_config_with_cmd_instructions(config, **cmd_kwargs):
         config.engine.output_dir = cmd_kwargs.get("output_dir")
     if cmd_kwargs.get("output_name"):
         config.engine.output_name = cmd_kwargs.get("output_name")
+    if cmd_kwargs.get("log_level"):
+        set_log_level(cmd_kwargs.get("log_level"))
 
 
 def dependency_setup(config):

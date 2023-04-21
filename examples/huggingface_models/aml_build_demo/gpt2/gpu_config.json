@@ -3,7 +3,7 @@
     "input_model": {
         "type": "ONNXModel",
         "config": {
-            "model_path": "./models/models/onnx_models_fp16/gpt2_beam_search.onnx"
+            "model_path": "./models/onnx_models/gpt2_beam_search.onnx"
         }
     },
     "systems": {

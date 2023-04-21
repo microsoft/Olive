@@ -1,6 +1,7 @@
 ## Prepare model
-python -m onnxruntime.transformers.convert_generation -m t5-small --model_type t5 --output ./models/t5/onnx_models/t5_small_beam_search.onnx --cache_dir ./models
-python -m onnxruntime.transformers.convert_generation -m t5-small -p fp16 --use_gpu --model_type t5 --output ./models/t5/onnx_models_fp16/t5_small_beam_search.onnx --cache_dir ./models
+python -m onnxruntime.transformers.convert_generation -m t5-small --model_type t5 --output ./onnx_models/t5_small_beam_search.onnx --cache_dir ./cache
+ <!-- There is still the bug for fp15 T5 -->
+python -m onnxruntime.transformers.convert_generation -m t5-small -p fp16 --use_gpu --model_type t5 --output ./onnx_models_fp16/t5_small_beam_search.onnx --cache_dir ./cache
 
 
 ## CPU

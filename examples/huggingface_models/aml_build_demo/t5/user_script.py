@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import evaluate
+import onnxruntime as ort
 import torch
 from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
@@ -11,6 +12,8 @@ from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from olive.constants import Framework
+
+ort.set_default_logger_severity(3)
 
 # https://huggingface.co/t5-small
 model_name = "t5-small"
@@ -125,19 +128,6 @@ def evaluate_accuracy(model, data_dir, batch_size, device):
             ort_outputs = prepared_model.run(None, input)[0]
             outputs = post_process(ort_outputs)
             pre.extend(outputs)
-
-        # elif model.framework == Framework.PYTORCH:
-        #     with torch.no_grad():
-        #         config = prepared_model.config
-        #         ort_outputs = prepared_model.generate(
-        #             input_ids=item["input_ids"],
-        #             eos_token_id=config.eos_token_id,
-        #             pad_token_id=config.pad_token_id,
-        #             return_dict_in_generate=True,
-        #             **beam_config
-        #         )
-        #         outputs = post_process(ort_outputs)
-        #         pre.append(outputs)
     _rls = _evaluate(pre, ref, rough)
     rls = _rls["rouge1"]
     return rls
