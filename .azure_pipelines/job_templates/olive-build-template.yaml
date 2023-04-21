@@ -99,6 +99,12 @@ jobs:
       alertWarningLevel: 'High'
     displayName: Component Detection
 
+  - task: CredScan@3
+    displayName: 'Run CredScan'
+    inputs:
+      debugMode: false
+    continueOnError: true
+
   - task: PublishTestResults@2
     condition: succeededOrFailed()
     inputs:
