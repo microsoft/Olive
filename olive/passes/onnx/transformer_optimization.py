@@ -110,7 +110,7 @@ class OrtTransformersOptimization(Pass):
         if provider == "directml":
             fusion_options.enable_gelu = is_ort_1_15_0_or_newer
             fusion_options.enable_layer_norm = is_ort_1_15_0_or_newer
-            fusion_options.enable_attention = is_ort_1_15_0_or_newer
+            fusion_options.enable_attention = is_ort_1_15_1_or_newer
             fusion_options.use_multi_head_attention = is_ort_1_15_1_or_newer
             fusion_options.enable_skip_layer_norm = is_ort_1_15_0_or_newer
             fusion_options.enable_embed_layer_norm = is_ort_1_15_0_or_newer
@@ -121,7 +121,7 @@ class OrtTransformersOptimization(Pass):
             fusion_options.enable_shape_inference = is_ort_1_15_0_or_newer
             fusion_options.enable_gemm_fast_gelu = False
             fusion_options.enable_nhwc_conv = False
-            fusion_options.enable_group_norm = is_ort_1_15_0_or_newer
+            fusion_options.enable_group_norm = is_ort_1_15_1_or_newer
             fusion_options.enable_bias_splitgelu = is_ort_1_15_0_or_newer
             fusion_options.enable_packed_qkv = use_float16 and is_ort_1_15_0_or_newer
             fusion_options.enable_packed_kv = use_float16 and is_ort_1_15_0_or_newer
