@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
+from olive.data_container.constants import DefaultDataContainer
 from olive.evaluator.evaluation import evaluate_latency
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import get_properties_from_metric_type
@@ -226,7 +227,10 @@ def get_thread_affinity_nums(affinity_str):
 class OrtPerfTuning(Pass):
     """Optimize ONNX Runtime inference settings."""
 
+    # TODO: Remove this flag once the data container is fully implemented.
     _requires_user_script = True
+
+    _requires_data_container = True
 
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
@@ -284,6 +288,11 @@ class OrtPerfTuning(Pass):
                 type_=Dict[str, Any],
                 default_value=None,
                 description="Extra customized session options during tuning process.",
+            ),
+            "data_container": PassConfigParam(
+                type_=str,
+                default_value=DefaultDataContainer.DATA_CONTAINER.value,
+                description="Data container to store the data components which can serve model evaluation.",
             ),
         }
 

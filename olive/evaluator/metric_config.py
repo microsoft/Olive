@@ -22,6 +22,7 @@ _common_user_config = {
     "input_names": ConfigParam(type_=List),
     "input_shapes": ConfigParam(type_=List),
     "input_types": ConfigParam(type_=List),
+    "data_container": ConfigParam(type_=str),
 }
 
 _common_user_config_validators = {}

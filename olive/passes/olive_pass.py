@@ -12,6 +12,7 @@ from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.user_module_loader import UserModuleLoader
+from olive.data_container.registry import Registry
 from olive.model import OliveModel
 from olive.passes.pass_config import (
     PassConfigBase,
@@ -42,6 +43,7 @@ class Pass(ABC):
     registry: Dict[str, "Pass"] = {}
     # True if pass configuration requires user script for non-local host support
     _requires_user_script: bool = False
+    _requires_data_container: bool = False
 
     @classmethod
     def __init_subclass__(cls, **kwargs) -> None:
@@ -62,6 +64,8 @@ class Pass(ABC):
         self._config = config
         if self._requires_user_script:
             self._user_module_loader = UserModuleLoader(self._config["user_script"], self._config["script_dir"])
+        if self._requires_data_container:
+            self._data_container = Registry.get_component(self._config["data_container"])
 
         self._fixed_params = {}
         self._search_space = {}

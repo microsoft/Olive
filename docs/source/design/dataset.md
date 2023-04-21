@@ -127,131 +127,211 @@ We should try to optimize this with low priority?
 
 ### Design
 
-#### Unify dataset interface
+#### General workflow for dataset load and processing
 Before the introduction on Olive `DatasetPipeline` interface, we will first give the general workflow for
 dataset load and processing in machine learning.
 ![figure](../images/dataset-flow.png)
 
-Then based on this figure, we expect:
+Then in above workflow, we can see the dataset load and processing can be divided into three steps(*not in Olive, just introduce the general workflow*):
 
 1. User to prepare the dataset with given format before call Olive: `[data, annotation(optional), meta_data(optional)]`.
     - `data`: the input data for model to process, it can be a single tensor/text/files... or a list of tensors/text/files.
     - `annotation`: the label for the data, it can be a single tensor/text/files or a list of tensors/text/files.
     - `meta_data`: the meta data for the data, some information to tell the structure/parse way... of current data
-2. After the data preparation, user can implement their DataPipeline(interface is shown below) to load the dataset and get the dataloader.
+2. After the data preparation, user can implement their methods to load the dataset and get the dataloader.
 The steps would be like:
-    - User to inherit the DataPipeline class to implement data pipeline:
-        - `load_dataset` to load the dataset.
-        - `pre_process` to format the dataset and make it ready for model to consume. Could be optional if the dataset is ready for model inference.
-        - `post_precess` to format the model output to the format which can be used for evaluation. Could be optional.
-        - `calibration_post_func` to format the dataset and make it ready for quantization. Could be optional if there is no quantization.
-    After these, the DataPipeline will generate the dataloader with given batch_size/sample_ratio which can be used for model inference. User can also overwrite it with their own version.
+    - `load_dataset` to load the dataset.
+    - `pre_process` to format the dataset and make it ready for model to consume. Could be optional if the dataset is ready for model inference.
+    - `post_precess` to format the model output to the format which can be used for evaluation. Could be optional.
+    - `calibration_post_func` to format the dataset and make it ready for quantization. Could be optional if there is no quantization.
+After these, the DataPipeline will generate the dataloader with given batch_size/sample_ratio which can be used for model inference. User can also overwrite it with their own version.
 
 3. After the dataloader is ready, user can call Olive to run the pass or evaluation.
 
-Besides that, Olive can also follow the `DataPipeline` to implement the interface for huggingface dataset, might be called `HuggingfaceDataPipeline`.
 
-```python
-from torch.utils.data import DataLoader, Dataset
-from abc import ABC, abstractmethod
-from onnxruntime.quantization import CalibrationDataReader
+#### Olive DataPipeline interface
+Based on above workflow, we introduce the Olive `DataPipeline` interface which
+1. unifies the dataset interface for different dataset, models and tasks.
+2. gives the chance for Olive to implement the build-in `dataset`, `pre_process` and `post_process` and `dataloader`.
+3. simplifies the user experience to implement their own `dataset`, `pre_process` and `post_process` and `dataloader`.
+4. simplifies the user experience for some popular dataset models and tasks.
 
+Then the design for `DataPipeline` interface will be like:
+![figure](../images/datapipeline_example.png)
 
-class OliveInputDataset(Dataset):
-    """
-    Load the dataset with the format of [data, label, meta_data(optional)]
-    """
-    def __init__(self, input):
-        self.input = input
-
-    def __len__(self):
-        return len(self.input)
-
-    def __getitem__(self, idx):
-        if len(self.input[-1]) == 2:
-            return self.input[idx][0], self.input[idx][1]
-        else:
-            return self.input[idx][0], self.input[idx][1], self.input[idx][2]
-
-
-class OliveCalibrationDataset(CalibrationDataReader):
-    def __init__(self, iter_data, post_func=lambda x: x[0]):
-        self.iter_data = iter_data
-        self.iter = iter(self.iter_data)
-        self.post_func = post_func
-
-    def get_next(self):
-        if self.iter is None:
-            self.iter = iter(self.iter_data)
-        try:
-            return self.post_func(next(self.iter))
-        except StopIteration:
-            return None
-
-    def rewind(self):
-        self.iter = None
-
-
-class DatasetPipeline(ABC):
-
-    def __init__(
-        self,
-        batch_size: int = 1,
-        inputs: list = None,
-        **kwargs,
-    ):
-        """
-        batch_size: batch size
-        inputs: user directly give the input samplers with the format of ['data', 'label', 'meta_data'(optional)]
-        kwargs: other parameters
-        """
-        self.batch_size = batch_size
-        self.inputs = inputs
-        self.kwargs = kwargs
-
-        if self.inputs is not None:
-            self.dataset = OliveInputDataset()
-        else:
-            self.dataset = self.load_dataset(kwargs["load_dataset"]).pre_process()
-
-    @abstractmethod
-    def load_dataset(self, **kwargs):
-        raise NotImplementedError
-
-    def pre_process(self):
+1. There will be build-in DataPipelines for different dataset, models and tasks which implement the Olive `DataPipeline` interface, like `HuggingfaceDataPipeline`, `VideoDataPipeline`, `VoiceDataPipeline`...
+Each build-in DataPipeline uniquely corresponds to a template of config like:
+    ```json
+    {
+        "data_pipeline": {
+            "type": "OliveDataPipeline", // Olive DataPipeline interface, can be other available DataPipelines like HuggingfaceDataPipeline, VideoDataPipeline...
+            "config": {
+                "task_type": "QuestionAnswering", // Olive TaskType interface, can be other available TaskTypes like ClassificationTaskType, RegressionTaskType, SequenceLabelingTaskType, QuestionAnsweringTaskType ...
+                "load_dataset": {
+                    "type": "OliveDataset", // Olive Dataset interface, can be other available Datasets like HuggingfaceDataset, LocalDataset, SamplerDataset ...
+                    "config": {
+                        "dataset_name": "glue",
+                        "param1": "value1",
+                        "param2": "value2",
+                        ...
+                    }
+                }, // optional
+                "pre_processing": {
+                    "type": "PreProcess", // Olive PreProcess interface, can be other available PreProcess like HuggingfacePreProcess, ToTorchTensorPreProcess, TokenizerPreProcess ...
+                    "config": {
+                        "param1": "value1",
+                        "param2": "value2",
+                        ...
+                    }
+                }, // optional
+                "post_processing": {
+                    "type": "PostProcess", // Olive PostProcess interface, can be other available PostProcess like HuggingfacePostProcess, ToTorchTensorPostProcess, TokenizerPostProcess ...
+                    "config": {
+                        "param1": "value1",
+                        "param2": "value2",
+                        ...
+                    }
+                }, // optional
+                "dataloader": {
+                    "type": "OliveDataLoader", // Olive DataLoader interface, can be other available DataLoaders like HuggingfaceDataLoader, LocalDataLoader, SamplerDataLoader ...
+                    "config": {
+                        "batch_size": 10,
+                        "sample_ratio": 0.1,
+                        ...
+                    }
+                } // optional
+            }
+        }
+    }
+    ```
+2. User can implement their own `LoadDataset`, `PreProcess`, `PostProcess` and `DataLoader` to use the Olive `DataPipeline` interface. If one of the components is not implemented, the Olive will use the build-in default component to replace it.
+3. User can user pre-defined register(`BaseClass` or `Decorator`) to register their own `LoadDataset`, `PreProcess`, `PostProcess` and `DataLoader` in `user_scripts`, then replace the build-in default component with their own one. The register usage will be like:
+    ```python
+    ############################## Decorator ##############################
+    from olive import data_component_register
+    from olive.constants import DataComponentType
+    @data_component_register(DataComponentType.LoadDataset, "MyLoadDataset")
+    def load_dataset():
         pass
 
-    def post_process(self):
+    @data_component_register(DataComponentType.Preprocess, "MyPreprocess")
+    def load_dataset():
         pass
 
-    def calibration_post_func(self):
-        pass
+    ############################## BaseClass ##############################
+    from olive.data_component import BasePreProcess
 
-    def dataloader(self, **kwargs):
-        assert self.dataset is not None and len(self.dataset) > 0, "Dataset is empty"
-        return DataLoader(
-            self.dataset,
-            batch_size=self.batch_size,
-            **kwargs,
-        )
-
-    def calibration_dataset(self):
-        assert self.dataset is not None and len(self.dataset) > 0, "Dataset is empty"
-        return OliveCalibrationDataset(self.dataset, self.calibration_post_func)
-```
+    class MyPreProcess(BasePreProcess):
+        def run(self, **kwargs):
+            pass
+    ```
+4. `DataPipeline` will be used in `Pass` and `Evaluation` to load the dataset and get the dataloader. They will be used like the way of `System` in Olive config which can be defined once and used in different `Pass` and `Evaluation`.
 
 
-#### Generate dummy input
-For those pass or metric evaluation like perf-tuning where the dummy data is OK, Olive can generate the dummy input with settings like:
-1. input_name: `[intput1, input2, input3, ...]`
-2. dtype: `[int8, float16, float32, ...]`
-3. shape, `[[1, 128], [1, 128], [1, 256], ...]`
+The interface for `DataPipeline` and `DataComponent` will be like(to show the idea, not the final implementation):
 
-This improvement would be like some pass-oriented API/config to generate the dummy input for the model.
-For auto optimization which does not require user to provide passes, we may need to extract to common config with appropriate default key/value.
+    ```python
+    # could leverage the AutoConfigClass in Olive is possible
+    class DataComponent(ABC):
+        registry: Dict[str, Type] = {}
+        @classmethod
+        def __init_subclass__(cls, **kwargs) -> None:
+            """Register the metric."""
+            super().__init_subclass__(**kwargs)
+            if inspect.isabstract(cls):
+                return
+            name = cls.name if cls.name is not None else cls.__name__.lower()
+            cls.registry[name] = cls
+
+        def __init__(self, **kwargs):
+            pass
+
+        @abstractmethod
+        def run(self, dataset=None):
+            raise NotImplementedError
+
+        def __call__(self):
+            return self._run()
+
+    # Default DataComponent which can be overwritten by user/or use the build-in ones
+    class LoadDataSet(DataComponent):
+        def __init__(self, config):
+            super().__init__(config)
+
+        def run(self, kwargs):
+            return load_dataset(**kwargs)
+
+    class PreProcess(DataComponent):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
+        def run(self, dataset, **kwargs):
+            pass
+
+    class PostProcess(DataComponent):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
+        def run(self, model_output, **kwargs):
+            pass
+
+    class DataLoader(DataComponent):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+
+        def run(self, dataset=None, batch_size, sample_ratio=1, **kwargs):
+            return DataLoader(dataset, batch_size=batch_size, sample_ratio=sample_ratio, **kwargs)
+
+    class DatasetPipeline(ABC):
+
+        def __init__(
+            self,
+            pipeline_config: Dict[str, Any] = None,
+        ):
+            """
+            batch_size: batch size
+            inputs: user directly give the input samplers with the format of ['data', 'label', 'meta_data'(optional)]
+            kwargs: other parameters
+            """
+            self.pipeline_config = pipeline_config
+            self.init_component(self.pipeline_config)
+
+        def to_json(self):
+            return json.dumps(self.pipeline_config)
+
+        @staticmethod
+        def from_json(self, path):
+            with open(path, "r") as f:
+                pipeline_config = json.load(f)
+            return DatasetPipeline(pipeline_config)
+
+        def init_component(self, pipeline_config):
+            # generate callable object
+            self.load_dataset = LoadDataSet(**pipeline_config.get("load_dataset", {}))
+            self.pre_process = PreProcess(**pipeline_config.get("pre_process", {}))
+            self.post_process = PostProcess(**pipeline_config.get("post_process", {}))
+            self.dataloader = DataLoader(**pipeline_config.get("dataloader", {}))
+
+        def get_dataset(self, dataset_name, **kwargs):
+            dataset = self.load_dataset(dataset_name, **kwargs)
+            return self.pre_process(dataset, **kwargs)
+
+        def get_dataloader(self, dataset_name, **kwargs):
+            dataset = self.get_dataset(dataset_name, **kwargs)
+            return self.dataloader(dataset, **kwargs)
+
+        def get_calibration_dataloader(self, dataset_name, **kwargs):
+            return self.get_dataloader(dataset_name, **kwargs)
+
+        def get_post_process_func(self, **kwargs):
+            return self.post_process
+
+        def get_pre_process_func(self, **kwargs):
+            return self.pre_process
+    ```
 
 #### Implement Dataset examples
-When dataset interface is unified, we can tried to conduct more examples.
+When dataset interface is unified, we can tried to conduct more build-in data pipelines and data components.
 
 ### Reference
 - [Torch Dataset](https://pytorch.org/tutorials/beginner/basics/data_tutorial.html#datasets-dataloaders)

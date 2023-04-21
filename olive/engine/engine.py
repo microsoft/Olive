@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Union
 import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
+from olive.data_container.config import DataContainerConfig
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
 from olive.evaluator.metric import Metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorConfig
@@ -40,6 +41,7 @@ class EngineConfig(ConfigBase):
     cache_dir: Union[Path, str] = ".olive-cache"
     clean_cache: bool = False
     clean_evaluation_cache: bool = False
+    data_container: DataContainerConfig = DataContainerConfig()
 
 
 class Engine:
@@ -84,6 +86,9 @@ class Engine:
             self.evaluator = evaluator
         elif self._config.evaluator is not None:
             self.evaluator = self._config.evaluator.create_evaluator()
+
+        # default data containers
+        self.data_container = self._config.data_container.create_container()
 
         # dictionary of passes
         # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator, "clean_run_cache": clean_run_cache}}
