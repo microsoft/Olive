@@ -2,11 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import platform
 import tempfile
 from pathlib import Path
 
+import pytest
 import torch
-from neural_compressor.data import DefaultDataLoader
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
@@ -16,6 +17,9 @@ from olive.passes.onnx.quantization import IncDynamicQuantization, IncQuantizati
 from olive.systems.local import LocalSystem
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="Skip test on Windows. neural-compressor import is hanging on Windows."
+)
 def test_inc_quantization():
     with tempfile.TemporaryDirectory() as tempdir:
         # setup
@@ -84,6 +88,9 @@ def get_onnx_model(tempdir):
 
 
 def create_dataloader(data_dir, batchsize):
+    # import neural_compressor here to avoid hanging on Windows
+    from neural_compressor.data import DefaultDataLoader
+
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))]
     )
