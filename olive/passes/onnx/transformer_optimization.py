@@ -82,7 +82,7 @@ class OrtTransformersOptimization(Pass):
         return ("unet", "vae", "clip")
 
     @staticmethod
-    def _set_sd_fusion_options(run_config: Dict[str, Any], use_float16: bool, provider: str):
+    def _set_sd_fusion_options(run_config: Dict[str, Any], pass_config: Dict[str, Any]):
         """Configures fusion options for stable diffusion models"""
         import onnxruntime as ort
 
@@ -107,11 +107,16 @@ class OrtTransformersOptimization(Pass):
 
         fusion_options = FusionOptions(run_config["model_type"])
 
-        if provider == "directml":
+        # TODO: remove dml_future when ORT 1.15.1 with future version of DML is released
+        # This "provider" value is simply a way to test in-development changes without having
+        # to bump the ORT version.
+        dml_future = pass_config["target_provider"] == "directml_future"
+
+        if pass_config["target_provider"] == "directml" or dml_future:
             fusion_options.enable_gelu = is_ort_1_15_0_or_newer
             fusion_options.enable_layer_norm = is_ort_1_15_0_or_newer
-            fusion_options.enable_attention = is_ort_1_15_1_or_newer
-            fusion_options.use_multi_head_attention = is_ort_1_15_1_or_newer
+            fusion_options.enable_attention = is_ort_1_15_1_or_newer or dml_future
+            fusion_options.use_multi_head_attention = is_ort_1_15_1_or_newer or dml_future
             fusion_options.enable_skip_layer_norm = is_ort_1_15_0_or_newer
             fusion_options.enable_embed_layer_norm = is_ort_1_15_0_or_newer
             fusion_options.enable_bias_skip_layer_norm = is_ort_1_15_0_or_newer
@@ -121,15 +126,15 @@ class OrtTransformersOptimization(Pass):
             fusion_options.enable_shape_inference = is_ort_1_15_0_or_newer
             fusion_options.enable_gemm_fast_gelu = False
             fusion_options.enable_nhwc_conv = False
-            fusion_options.enable_group_norm = is_ort_1_15_1_or_newer
+            fusion_options.enable_group_norm = is_ort_1_15_1_or_newer or dml_future
             fusion_options.enable_bias_splitgelu = is_ort_1_15_0_or_newer
-            fusion_options.enable_packed_qkv = use_float16 and is_ort_1_15_0_or_newer
-            fusion_options.enable_packed_kv = use_float16 and is_ort_1_15_0_or_newer
+            fusion_options.enable_packed_qkv = pass_config["float16"] and is_ort_1_15_0_or_newer
+            fusion_options.enable_packed_kv = pass_config["float16"] and is_ort_1_15_0_or_newer
             fusion_options.enable_bias_add = is_ort_1_15_0_or_newer
         else:
             if input_model_type == "unet":
-                fusion_options.enable_packed_kv = use_float16
-                fusion_options.enable_packed_qkv = use_float16 and is_ort_1_15_0_or_newer
+                fusion_options.enable_packed_kv = pass_config["float16"]
+                fusion_options.enable_packed_qkv = pass_config["float16"] and is_ort_1_15_0_or_newer
                 fusion_options.enable_bias_add = is_ort_1_15_0_or_newer
 
         run_config["optimization_options"] = fusion_options
@@ -203,7 +208,7 @@ class OrtTransformersOptimization(Pass):
                 return self._run_without_optimization(model, config, output_model_path)
 
             if config["optimization_options"] is None:
-                self._set_sd_fusion_options(run_config, config["float16"], config["target_provider"])
+                self._set_sd_fusion_options(run_config, config)
 
         optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 
