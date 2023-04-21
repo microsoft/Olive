@@ -70,6 +70,9 @@ def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.
     sleep_num = metric.metric_config.sleep_num
 
     latencies = []
+    # user.config.inference_settings > model.inference_settings > default inference_settings
+    # when user.config.inference_settings is None, the model.inference_settings
+    # will be used in model.prepare_session(..)
     inference_settings = metric.user_config.inference_settings
     model_inference_settings = inference_settings.get(model.framework.lower()) if inference_settings else None
     sess = model.prepare_session(inference_settings=model_inference_settings, device=device)
