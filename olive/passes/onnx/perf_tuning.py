@@ -258,7 +258,7 @@ class OrtPerfTuning(Pass):
             "io_bind": PassConfigParam(
                 type_=bool,
                 default_value=True,
-                description="Whether enable IOBinding Search for ONNX Runtime inference."
+                description="Whether enable IOBinding Search for ONNX Runtime inference.",
             ),
             "providers_list": PassConfigParam(
                 type_=list,
