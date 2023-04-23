@@ -9,12 +9,13 @@ dependencies:
       - azure-identity
       - azureml-defaults
       - azureml-dataprep==4.8.4
-      - onnxruntime-gpu==1.13.1
+      - onnxruntime==1.13.1
       - datasets
       - scipy
       - transformers
       - onnxconverter_common
       - olive-ai==0.1.0
+      - evaluate
       - nltk
       - absl-py
       - rouge_score
