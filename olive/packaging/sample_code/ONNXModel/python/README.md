@@ -1,9 +1,15 @@
 # Olive output instruction
 
-## Pip requirements
-Install the necessary python packages:
+## ONNXRuntime installation
+### Option 1: install by pip
+Install onnxruntime package:
 ```
-python -m pip install -r requirements.txt
+python -m pip install onnxruntime
+```
+### Option 2: install by local wheel
+You can find ONNXRuntime wheel file is in `ONNXRuntime` folder. Install the local wheel file by pip:
+```
+python -m pip install ONNXRuntime/<onnxruntime_package_name.whl>
 ```
 
 ## Follow the code sample to use olive output model
