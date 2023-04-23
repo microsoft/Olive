@@ -3,7 +3,8 @@
     "input_model": {
         "type": "ONNXModel",
         "config": {
-            "model_path": "./models/model_final.onnx"
+            "model_path": "./models/model_final.onnx",
+            "is_file": false
         }
     },
     "systems": {

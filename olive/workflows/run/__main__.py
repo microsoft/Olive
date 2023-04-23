@@ -13,6 +13,10 @@ if __name__ == "__main__":
     # engine results
     parser.add_argument("--output_dir", type=str, default=None, help="Output directory")
     parser.add_argument("--output_name", type=str, default=None, help="Output directory")
+    # adjust metrics
+    parser.add_argument("--only_metrics", type=str, nargs="+", default=None, help="Only run metrics in given list")
+    # adjust systems
+    parser.add_argument("--system", type=str, default=None, help="Olive system to run")
     # log level
     parser.add_argument("--log_level", type=int, default=2, help="Log level")
     parser.add_argument("--setup", help="Whether run environment setup", action="store_true")

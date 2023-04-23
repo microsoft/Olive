@@ -48,6 +48,19 @@ def automatically_insert_passes(config):
     return new_engine, new_config
 
 
+def remove_metric_from_config(config, metrics_names):
+    new_metrics = []
+    for metric in config.evaluators['common_evaluator'].metrics:
+        if metric.name in metrics_names:
+            new_metrics.append(metric)
+    config.evaluators['common_evaluator'].metrics = new_metrics
+    return config
+
+
+def get_system_from_config(config, system_name):
+    return config.systems[system_name]
+
+
 def update_config_with_cmd_instructions(config, **cmd_kwargs):
     if cmd_kwargs.get("clean_cache"):
         config.engine.clean_cache = True
@@ -55,6 +68,11 @@ def update_config_with_cmd_instructions(config, **cmd_kwargs):
         config.engine.output_dir = cmd_kwargs.get("output_dir")
     if cmd_kwargs.get("output_name"):
         config.engine.output_name = cmd_kwargs.get("output_name")
+    if cmd_kwargs.get("only_metrics"):
+        remove_metric_from_config(config, cmd_kwargs.get("only_metrics"))
+    if cmd_kwargs.get("system"):
+        config.engine.host = config.systems[cmd_kwargs.get("system")]
+        config.evaluators['common_evaluator'].target = config.systems[cmd_kwargs.get("system")]
     if cmd_kwargs.get("log_level"):
         set_log_level(cmd_kwargs.get("log_level"))
 
