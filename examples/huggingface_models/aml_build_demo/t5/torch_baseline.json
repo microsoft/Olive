@@ -1,0 +1,66 @@
+{
+    "verbose": true,
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "model_path": null,
+            "is_file": false,
+            "model_loader": "load_model",
+            "model_script": "user_script.py"
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "device": "gpu"
+            }
+        },
+        "aml_system": {
+            "type": "AzureML",
+            "config": {
+                "aml_config_path": "olive-workspace-config.json",
+                "aml_compute": "OliveGPU1",
+                "aml_docker_config": {
+                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                    "conda_file_path": "conda.yaml"
+                },
+                "is_dev": true
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "custom",
+                    "is_first_priority": true,
+                    "user_config": {
+                        "evaluate_func": "evaluate_torch_latency",
+                        "user_script": "user_script.py",
+                        "batch_size": 1
+                    }
+                }
+            ],
+            "target": "local_system"
+        }
+    },
+    "passes": {
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "tpe",
+            "search_algorithm_config": {
+                "num_samples": 5,
+                "seed": 0
+            }
+        },
+        "evaluator": "common_evaluator",
+        "host": "local_system",
+        "clean_cache": false,
+        "cache_dir": "cache",
+        "evaluation_only": true
+    }
+}

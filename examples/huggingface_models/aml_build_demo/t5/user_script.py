@@ -9,7 +9,7 @@ from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.dataloader import default_collate
 from tqdm import tqdm
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, T5ForConditionalGeneration
 
 from olive.constants import Framework
 
@@ -27,6 +27,12 @@ num_beams = 4
 num_return_sequences = 1
 length_penalty = 1
 repetition_penalty = 1
+
+
+def load_model(model_path):
+    model = T5ForConditionalGeneration.from_pretrained(model_name)
+    model.to("cpu")
+    return model
 
 
 # -------------------- dataset -------------------
@@ -131,3 +137,43 @@ def evaluate_accuracy(model, data_dir, batch_size, device):
     _rls = _evaluate(pre, ref, rough)
     rls = _rls["rouge1"]
     return rls
+
+
+def _generate(model, item):
+    model.generate(
+        input_ids=item["input_ids"],
+        decoder_start_token_id=model.config.decoder_start_token_id,
+        num_beams=num_beams,
+        num_return_sequences=num_return_sequences,
+        min_length=min_length,
+        max_length=max_length,
+        repetition_penalty=repetition_penalty,
+        no_repeat_ngram_size=3,
+    )
+
+
+def evaluate_torch_latency(model, data_dir, batch_size, device):
+    import time
+
+    prepared_model = model.prepare_session(inference_settings=None, device=device)
+    dataloader = create_dataloader(batch_size=batch_size)
+    latency = []
+    for item in dataloader:
+        item = item[0]
+        if device == "gpu":
+            prepared_model = prepared_model.to("cuda")
+            item = {k: v.to("cuda") for k, v in item.items() if k in ["input_ids", "attention_mask"]}
+        with torch.no_grad():
+            for _ in range(10):
+                _generate(prepared_model, item)
+        with torch.no_grad():
+            for _ in range(20):
+                t = time.perf_counter()
+                _generate(prepared_model, item)
+                latency.append(time.perf_counter() - t)
+        break
+    latency_metrics = {
+        "latency": round(sum(latency) / len(latency) * 1000, 5),
+    }
+    print("latency_metrics: ", latency_metrics)
+    return latency_metrics
