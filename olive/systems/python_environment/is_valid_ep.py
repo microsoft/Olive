@@ -29,7 +29,6 @@ def main(raw_args=None):
     # inference settings
     inference_settings = {"execution_provider": args.ep}
 
-    print("here")
     # create inference session
     try:
         get_ort_inference_session(args.model_path, inference_settings)
