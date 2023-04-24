@@ -1,13 +1,23 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
 import argparse
 import pickle
 from pathlib import Path
 
 import onnxruntime as ort
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+
+def get_args(raw_args):
+    parser = argparse.ArgumentParser(description="Get available execution providers")
     parser.add_argument("--output_path", type=str, required=True)
-    args = parser.parse_args()
+
+    return parser.parse_args(raw_args)
+
+
+def main(raw_args=None):
+    args = get_args(raw_args)
 
     # get available execution providers
     available_eps = ort.get_available_providers()
@@ -15,3 +25,7 @@ if __name__ == "__main__":
     # save to pickle
     output_path = Path(args.output_path)
     pickle.dump(available_eps, output_path.open("wb"))
+
+
+if __name__ == "__main__":
+    main()

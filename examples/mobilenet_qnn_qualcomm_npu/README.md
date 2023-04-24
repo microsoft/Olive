@@ -17,7 +17,7 @@ For example if you used a python venv located at `C:\qnn\qnn-venv`, then `QNN_EN
 
 ### Prepare workflow config json
 ```
-python prepare_config.json
+python prepare_config.py
 ```
 
 ### Pip requirements

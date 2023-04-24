@@ -220,6 +220,14 @@ class ONNXModel(OliveModel):
         return eps if eps else available_providers
 
     def get_io_config(self):
+        """
+        Get input/output names, shapes, types of the onnx model
+
+        When an onnx model is optimized, it may change the input/output names, shapes, types.
+        This function will get the input/output names, shapes, types of the onnx model.
+        The correct types are used to convert the input/output data to the correct type before inference.
+        However, shapes can be dynamic. So, we cannot use the shapes to create dummy data for inference.
+        """
         if self.io_config:
             return self.io_config
 

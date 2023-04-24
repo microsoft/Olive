@@ -3,13 +3,17 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import argparse
-import importlib.util
 import pickle
+import sys
 import time
 from pathlib import Path
-from typing import Union
 
 import numpy as np
+
+ort_inference_utils_parent = Path(__file__).resolve().parent.parent.parent / "common"
+sys.path.append(str(ort_inference_utils_parent))
+
+from ort_inference import get_ort_inference_session  # noqa: E402
 
 
 def get_args(raw_args):
@@ -40,10 +44,6 @@ def main(raw_args=None):
     args = get_args(raw_args)
     args.input_dir = Path(args.input_dir)
     args.output_dir = Path(args.output_dir)
-
-    ort_inference_utils_path = Path(__file__).resolve().parent.parent.parent / "common" / "ort_inference.py"
-    ort_inference_utils = import_module_from_file(ort_inference_utils_path)
-    get_ort_inference_session = getattr(ort_inference_utils, "get_ort_inference_session")
 
     # load inference setting
     inference_settings = pickle.load(open(args.inference_settings_path, "rb"))
@@ -94,26 +94,6 @@ def main(raw_args=None):
         output = np.array(latencies)
         # save output
         np.save(args.output_dir / "output.npy", output)
-
-
-def import_module_from_file(module_path: Union[Path, str], module_name: str = None):
-    module_path = Path(module_path).resolve()
-    if not module_path.exists():
-        raise ValueError(f"{module_path} doesn't exist")
-
-    if module_name is None:
-        if module_path.is_dir():
-            module_name = module_path.name
-            module_path = module_path / "__init__.py"
-        elif module_path.name == "__init__.py":
-            module_name = module_path.parent.name
-        else:
-            module_name = module_path.stem
-
-    spec = importlib.util.spec_from_file_location(module_name, module_path)
-    new_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(new_module)
-    return new_module
 
 
 if __name__ == "__main__":

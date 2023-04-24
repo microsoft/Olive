@@ -196,7 +196,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
         # if user doesn't not provide ep list, use default value([ep]). Otherwise, use the user's ep list
         if not inference_settings.get("execution_provider"):
-            inference_settings["execution_provider"] = self.get_default_ep()
+            inference_settings["execution_provider"] = self.get_default_execution_provider(model)
 
         return inference_settings
 
@@ -215,9 +215,9 @@ class PythonEnvironmentSystem(OliveSystem):
             with open(output_path, "rb") as f:
                 return pickle.load(f)
 
-    def get_default_ep(self) -> List[str]:
+    def get_execution_providers(self) -> List[str]:
         """
-        Get the default execution provider.
+        Get the execution providers for the device.
         """
         eps_per_device = ONNXModel.EXECUTION_PROVIDERS.get(self.config.device)
         eps = []
@@ -225,5 +225,37 @@ class PythonEnvironmentSystem(OliveSystem):
             for ep in self.available_eps:
                 if ep in eps_per_device:
                     eps.append(ep)
-        eps = eps or self.available_eps
-        return eps[0]
+        return eps or self.available_eps
+
+    def get_default_execution_provider(self, model: ONNXModel) -> List[str]:
+        """
+        Get the default execution provider for the model.
+        """
+        # return first available ep as ort default ep
+        available_providers = self.get_execution_providers()
+        for ep in available_providers:
+            if self.is_valid_ep(ep, model):
+                return [ep]
+        return ["CPUExecutionProvider"]
+
+    def is_valid_ep(self, ep: str, model: ONNXModel) -> bool:
+        """
+        Check if the execution provider is valid for the model.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            is_valid_ep_path = Path(__file__).parent.resolve() / "is_valid_ep.py"
+            output_path = Path(temp_dir).resolve() / "result.pb"
+            run_subprocess(
+                f"python {is_valid_ep_path} --model_path {model.model_path} --ep {ep} --output_path {output_path}",
+                env=self.environ,
+                check=True,
+            )
+            result = pickle.load(open(output_path, "rb"))
+            if result["valid"]:
+                return True
+            else:
+                logger.warning(
+                    f"Error: {result['error']} Olive will ignore this {ep}."
+                    + f"Please make sure the environment with {ep} has the required dependencies."
+                )
+                return False
