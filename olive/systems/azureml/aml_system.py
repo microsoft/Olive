@@ -136,7 +136,7 @@ class AzureMLSystem(OliveSystem):
         }
 
     def _create_model_args(self, model_json: dict, tmp_dir: Path):
-        # TODO: consider symlinkinking model_script and model_script_dir also when we decide
+        # TODO: consider symlinking model_script and model_script_dir also when we decide
         # the relationship between the two
         model_script = None
         if model_json["config"].get("model_script"):
