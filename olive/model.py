@@ -326,7 +326,7 @@ class PyTorchModel(OliveModel):
             isinstance(model_loader, Callable)
             or (isinstance(model_loader, str) and model_script)
             or model_path
-            or str(model_type) == str(ModelType.AzureMLModel)
+            or model_type == ModelType.AzureMLModel
         ):
             raise ValueError(
                 "model_path or model_type/AzureMLModel is required "

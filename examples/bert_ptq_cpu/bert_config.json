@@ -19,7 +19,8 @@
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
                     "conda_file_path": "conda.yaml"
-                }
+                },
+                "is_dev": true
             }
         },
         "docker_system": {

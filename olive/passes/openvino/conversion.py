@@ -64,7 +64,7 @@ class OpenVINOConversion(Pass):
 
         model_input_param = "input_model"
         input_model = model.model_path
-        if model.framework == Framework.TENSORFLOW and model.model_type != ModelType.LocalFile:
+        if model.framework == Framework.TENSORFLOW and model.model_type == ModelType.LocalFolder:
             model_input_param = "saved_model_dir"
         if model.framework == Framework.PYTORCH:
             input_model = model.load_model()

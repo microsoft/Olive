@@ -33,7 +33,7 @@ case insensitive.
 
     - `name: [str]` The name of the model.
 
-    - `model_type: [str]` Identify whether the model. It could be 'file', 'folder', 'azureml'
+    - `model_type: [str]` Identify the model type. It could be 'file', 'folder', 'azureml'.
 
     - `model_loader: [str]` The name of the function provided by the user to load the model. The function should take the model path as
     input and return the loaded model.
