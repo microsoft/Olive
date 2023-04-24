@@ -112,7 +112,7 @@ class QatTrainer:
         barrier()
         # TODO: Add PyTorch model type flag
         qat_pytorch_model = PyTorchModel(
-            model_path=self.output_model_path, name="pytorch_qat_model", model_type=ModelType.LocalFile.value
+            model_path=self.output_model_path, name="pytorch_qat_model", model_type=ModelType.LocalFile
         )
         return qat_pytorch_model
 
