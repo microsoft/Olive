@@ -49,8 +49,11 @@ class OliveModel(ABC):
         model_path: Optional[Union[Path, str]] = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
-        model_type=ModelType.LocalFile,
+        model_type: Union[str, ModelType] = ModelType.LocalFile,
     ):
+        if isinstance(model_type, str):
+            model_type = ModelType(model_type)
+
         if model_type == ModelType.AzureMLModel:
             if not name:
                 raise Exception("Please specify model 'name' for Azure ML model")
@@ -63,6 +66,7 @@ class OliveModel(ABC):
         self.framework = framework
         self.name = name
         self.model_type = model_type
+        assert isinstance(self.model_type, ModelType)
 
     @abstractmethod
     def load_model(self, rank: int = None) -> object:
