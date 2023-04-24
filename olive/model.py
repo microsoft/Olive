@@ -49,10 +49,12 @@ class OliveModel(ABC):
         model_path: Optional[Union[Path, str]] = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
-        model_type: Union[str, ModelType] = ModelType.LocalFile,
+        model_type: ModelType = ModelType.LocalFile,
     ):
         if isinstance(model_type, str):
             model_type = ModelType(model_type)
+
+        assert isinstance(model_type, ModelType)
 
         if model_type == ModelType.AzureMLModel:
             if not name:
@@ -66,7 +68,6 @@ class OliveModel(ABC):
         self.framework = framework
         self.name = name
         self.model_type = model_type
-        assert isinstance(self.model_type, ModelType)
 
     @abstractmethod
     def load_model(self, rank: int = None) -> object:
@@ -126,7 +127,7 @@ class ONNXModelBase(OliveModel):
         model_path: str = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
-        model_type=ModelType.LocalFile,
+        model_type: Union[str, ModelType] = ModelType.LocalFile,
         inference_settings: Optional[dict] = None,
     ):
         super().__init__(
@@ -313,11 +314,14 @@ class PyTorchModel(OliveModel):
         model_path: str = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
-        model_type=ModelType.LocalFolder,
+        model_type: Union[str, ModelType] = ModelType.LocalFolder,
         model_loader=None,
         model_script=None,
         script_dir=None,
     ):
+        if isinstance(model_type, str):
+            model_type = ModelType(model_type)
+
         if not (
             isinstance(model_loader, Callable)
             or (isinstance(model_loader, str) and model_script)
