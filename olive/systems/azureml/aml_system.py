@@ -149,19 +149,18 @@ class AzureMLSystem(OliveSystem):
             model_json["config"]["script_dir"] = None
 
         model_path = None
-        if model_json["config"]["model_type"] == ModelType.AzureMLModel.value:
+        if model_json["config"]["model_type"] == str(ModelType.AzureMLModel):
             model_path = Input(
                 type=AssetTypes.CUSTOM_MODEL,
                 path=model_json["config"]["model_path"],
             )
-            model_json["config"]["model_type"] = ModelType.LocalFile.value
+            model_json["config"]["model_type"] = str(ModelType.LocalFile)
             model_json["config"]["version"] = None
         else:
             if model_json["config"].get("model_path"):
                 original_model_path = Path(model_json["config"]["model_path"]).resolve()
-                if (
-                    model_json["type"].lower() == "onnxmodel"
-                    and model_json["config"]["model_type"] != ModelType.LocalFile.value
+                if model_json["type"].lower() == "onnxmodel" and model_json["config"]["model_type"] != str(
+                    ModelType.LocalFile
                 ):
                     # onnx model with external data
                     # need to upload the parent directory of .onnx file
@@ -181,7 +180,7 @@ class AzureMLSystem(OliveSystem):
                     tmp_model_path.symlink_to(original_model_path)
                 model_path = Input(
                     type=AssetTypes.URI_FILE
-                    if model_json["config"].get("model_type") == ModelType.LocalFile.value
+                    if model_json["config"].get("model_type") == str(ModelType.LocalFile)
                     else AssetTypes.URI_FOLDER,
                     path=tmp_model_path,
                 )
@@ -331,7 +330,7 @@ class AzureMLSystem(OliveSystem):
             if model_json["type"].lower() == "onnxmodel":
                 # onnx model can have external data
                 output_model_path = ONNXModel.resolve_path(output_model_path)
-                if model_json["config"]["model_type"] != ModelType.LocalFile.value:
+                if model_json["config"]["model_type"] != str(ModelType.LocalFile):
                     # has external data
                     # copy the .onnx file along with external data files
                     shutil.copytree(downloaded_model_path.parent, Path(output_model_path).parent, dirs_exist_ok=True)
@@ -352,7 +351,7 @@ class AzureMLSystem(OliveSystem):
                     # model is a directory
                     shutil.copytree(downloaded_model_path, output_model_path, dirs_exist_ok=True)
             model_path = output_model_path
-            model_json["config"]["model_type"] = ModelType.LocalFile.value
+            model_json["config"]["model_type"] = str(ModelType.LocalFile)
         model_json["config"]["model_path"] = model_path
         return ModelConfig(**model_json).create_model()
 

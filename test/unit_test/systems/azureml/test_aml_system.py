@@ -139,7 +139,7 @@ class TestAzureMLSystem:
         assert actual_res == expected_res
         assert model_json["config"]["model_script"] is None
         assert model_json["config"]["script_dir"] is None
-        assert model_json["config"]["model_type"] == ModelType.LocalFile.value
+        assert model_json["config"]["model_type"] == str(ModelType.LocalFile)
         assert model_json["config"]["model_path"] is None
 
         # cleanup

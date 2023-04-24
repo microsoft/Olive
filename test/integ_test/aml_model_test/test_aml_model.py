@@ -32,7 +32,7 @@ def test_aml_model():
 
     # ------------------------------------------------------------------
     # Input model
-    pytorch_model = PyTorchModel(name="bert_glue", model_type=ModelType.LocalFile, version=10)
+    pytorch_model = PyTorchModel(name="bert_glue", model_type=ModelType.AzureMLModel, version=10)
 
     # ------------------------------------------------------------------
     # Onnx conversion pass

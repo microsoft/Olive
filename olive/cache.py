@@ -140,9 +140,8 @@ def save_model(
     # save model file/folder
     model_path = model_json["config"]["model_path"]
     if model_path is not None and Path(model_path).exists():
-        if (
-            model_json["type"].lower() == "onnxmodel"
-            and not model_json["config"]["model_type"] != ModelType.LocalFile.value
+        if model_json["type"].lower() == "onnxmodel" and not model_json["config"]["model_type"] != str(
+            ModelType.LocalFile
         ):
             # onnx model has external data
             output_path = ONNXModel.resolve_path(output_name)

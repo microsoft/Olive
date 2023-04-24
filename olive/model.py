@@ -30,6 +30,9 @@ class ModelType(str, Enum):
     LocalFolder = "folder"
     AzureMLModel = "azureml"
 
+    def __str__(self) -> str:
+        return self.value
+
 
 class OliveModel(ABC):
     """
@@ -319,14 +322,11 @@ class PyTorchModel(OliveModel):
         model_script=None,
         script_dir=None,
     ):
-        if isinstance(model_type, str):
-            model_type = ModelType(model_type)
-
         if not (
             isinstance(model_loader, Callable)
             or (isinstance(model_loader, str) and model_script)
             or model_path
-            or model_type == ModelType.AzureMLModel
+            or str(model_type) == str(ModelType.AzureMLModel)
         ):
             raise ValueError(
                 "model_path or model_type/AzureMLModel is required "
