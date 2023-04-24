@@ -6,8 +6,6 @@ import tempfile
 from pathlib import Path
 
 import torch
-from addict import Dict
-from openvino.tools.pot.api import DataLoader
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
@@ -70,53 +68,55 @@ def get_openvino_model(tempdir):
 
 
 def create_dataloader(data_dir, batchsize):
+    from addict import Dict
+    from openvino.tools.pot.api import DataLoader
+
+    class CifarDataLoader(DataLoader):
+        def __init__(self, config, dataset):
+            """
+            Initialize config and dataset.
+            :param config: created config with DATA_DIR path.
+            """
+            if not isinstance(config, Dict):
+                config = Dict(config)
+            super().__init__(config)
+            self.indexes, self.pictures, self.labels = self.load_data(dataset)
+
+        def __len__(self):
+            return len(self.labels)
+
+        def __getitem__(self, index):
+            """
+            Return one sample of index, label and picture.
+            :param index: index of the taken sample.
+            """
+            if index >= len(self):
+                raise IndexError
+
+            return (
+                self.pictures[index].numpy()[
+                    None,
+                ],
+                self.labels[index],
+            )
+
+        def load_data(self, dataset):
+            """
+            Load dataset in needed format.
+            :param dataset:  downloaded dataset.
+            """
+            pictures, labels, indexes = [], [], []
+
+            for idx, sample in enumerate(dataset):
+                pictures.append(sample[0])
+                labels.append(sample[1])
+                indexes.append(idx)
+
+            return indexes, pictures, labels
+
     dataset_config = {"data_source": data_dir}
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))]
     )
     dataset = CIFAR10(root=data_dir, train=False, transform=transform, download=True)
     return CifarDataLoader(dataset_config, dataset)
-
-
-class CifarDataLoader(DataLoader):
-    def __init__(self, config, dataset):
-        """
-        Initialize config and dataset.
-        :param config: created config with DATA_DIR path.
-        """
-        if not isinstance(config, Dict):
-            config = Dict(config)
-        super().__init__(config)
-        self.indexes, self.pictures, self.labels = self.load_data(dataset)
-
-    def __len__(self):
-        return len(self.labels)
-
-    def __getitem__(self, index):
-        """
-        Return one sample of index, label and picture.
-        :param index: index of the taken sample.
-        """
-        if index >= len(self):
-            raise IndexError
-
-        return (
-            self.pictures[index].numpy()[
-                None,
-            ],
-            self.labels[index],
-        )
-
-    def load_data(self, dataset):
-        """
-        Load dataset in needed format.
-        :param dataset:  downloaded dataset.
-        """
-        pictures, labels, indexes = [], [], []
-
-        for idx, sample in enumerate(dataset):
-            pictures.append(sample[0])
-            labels.append(sample[1])
-            indexes.append(idx)
-
-        return indexes, pictures, labels
