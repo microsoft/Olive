@@ -23,7 +23,7 @@ model can be loaded from file or using a model loader function. For a complete o
 ```python
 from olive.models import PytorchModel
 
-input_model = PyTorchModel(model_path="resnet.pt", is_file=True)
+input_model = PyTorchModel(model_path="resnet.pt", model_type=ModelType.LocalFile)
 ```
 
 ### Host and Target Systems

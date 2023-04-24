@@ -13,7 +13,7 @@ from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType
-from olive.model import ONNXModel
+from olive.model import ModelType, ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.systems.azureml.aml_system import AzureMLSystem
@@ -100,10 +100,10 @@ class TestAzureMLSystem:
         assert expected_model.to_json() == actual_res.to_json()
 
     @pytest.mark.parametrize(
-        "is_aml_model",
-        [True, False],
+        "model_type",
+        [ModelType.AzureMLModel, ModelType.LocalFile],
     )
-    def test__create_model_args(self, is_aml_model):
+    def test__create_model_args(self, model_type):
         # setup
         temp_model = tempfile.NamedTemporaryFile(dir=".", suffix=".onnx", prefix="model_0")
         model_json = {
@@ -112,14 +112,13 @@ class TestAzureMLSystem:
                 "model_script": "model_script",
                 "script_dir": "script_dir",
                 "model_path": temp_model.name,
-                "is_file": True,
+                "model_type": model_type,
             },
         }
-        model_json["config"].update({"is_aml_model": is_aml_model})
         tem_dir = Path(".")
         model_config_path = tem_dir / "model_config.json"
         model_path = tem_dir / "model.onnx"
-        if is_aml_model:
+        if model_type == ModelType.AzureMLModel:
             expected_model_path = Input(type=AssetTypes.CUSTOM_MODEL, path=temp_model.name)
         else:
             expected_model_path = Input(type=AssetTypes.URI_FILE, path=model_path)
@@ -140,7 +139,7 @@ class TestAzureMLSystem:
         assert actual_res == expected_res
         assert model_json["config"]["model_script"] is None
         assert model_json["config"]["script_dir"] is None
-        assert model_json["config"]["is_aml_model"] is False
+        assert model_json["config"]["model_type"] == ModelType.LocalFile.value
         assert model_json["config"]["model_path"] is None
 
         # cleanup
@@ -186,13 +185,13 @@ class TestAzureMLSystem:
             os.remove(metric_config_path)
 
     @pytest.mark.parametrize(
-        "is_aml_model",
-        [True, False],
+        "model_type",
+        [ModelType.AzureMLModel, ModelType.LocalFile],
     )
     @patch("olive.systems.azureml.aml_system.shutil.copy")
     @patch("olive.systems.azureml.aml_system.command")
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_metric_args")
-    def test__create_metric_component(self, mock_create_metric_args, mock_command, mock_copy, is_aml_model):
+    def test__create_metric_component(self, mock_create_metric_args, mock_command, mock_copy, model_type):
         # setup
         tem_dir = Path(".")
         code_path = tem_dir / "code"
@@ -203,7 +202,7 @@ class TestAzureMLSystem:
         model_inputs = {
             "model_config": Input(type=AssetTypes.URI_FILE),
             "model_path": Input(type=AssetTypes.CUSTOM_MODEL)
-            if is_aml_model
+            if model_type == ModelType.AzureMLModel
             else Input(type=AssetTypes.URI_FOLDER, optional=True),
             "model_script": Input(type=AssetTypes.URI_FILE, optional=True),
             "model_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
@@ -219,7 +218,7 @@ class TestAzureMLSystem:
         mock_command.return_value.return_value = expected_res
 
         # execute
-        actual_res = self.aml_system._create_metric_component(tem_dir, metric, model_args, is_aml_model)
+        actual_res = self.aml_system._create_metric_component(tem_dir, metric, model_args, model_type)
 
         # assert
         assert actual_res == expected_res

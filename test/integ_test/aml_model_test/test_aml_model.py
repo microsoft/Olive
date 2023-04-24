@@ -7,7 +7,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from olive.model import PyTorchModel
+from olive.model import ModelType, PyTorchModel
 from olive.passes import OnnxConversion
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
@@ -32,7 +32,7 @@ def test_aml_model():
 
     # ------------------------------------------------------------------
     # Input model
-    pytorch_model = PyTorchModel(name="bert_glue", is_file=True, is_aml_model=True, version=10)
+    pytorch_model = PyTorchModel(name="bert_glue", model_type=ModelType.LocalFile, version=10)
 
     # ------------------------------------------------------------------
     # Onnx conversion pass
