@@ -6,12 +6,11 @@ import json
 import logging
 import shutil
 import tempfile
+import urllib
 from collections import OrderedDict
 from pathlib import Path
 
-import urllib
 from olive.common.utils import run_subprocess
-
 from olive.engine.footprint import Footprint
 from olive.packaging.packaging_config import PackagingConfig, PackagingType
 
@@ -84,25 +83,29 @@ def _download_onnxruntime_package(cur_path):
     except ImportError:
         logger.warning("onnxruntime is not installed, skip packaging onnxruntime package")
         return
-    
+
     ort_version = onnxruntime.__version__
-    
+
     try:
         # Download Python onnxruntime package
         python_downlaod_path = str(cur_path / "sample_code" / "ONNXModel" / "python" / "ONNXRuntime")
         downlaod_command = f"python -m pip download onnxruntime=={ort_version} --no-deps -d {python_downlaod_path}"
         run_subprocess(downlaod_command)
-    
+
         # Download CPP onnxruntime package
         cpp_ort_download_path = cur_path / "sample_code" / "ONNXModel" / "cpp" / "ONNXRuntime"
         cpp_ort_download_path.mkdir(parents=True, exist_ok=True)
         cpp_downlaod_path = str(cpp_ort_download_path / f"microsoft.ml.onnxruntime.{ort_version}.nupkg")
-        urllib.request.urlretrieve(f"https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/{ort_version}", cpp_downlaod_path)
-    
+        urllib.request.urlretrieve(
+            f"https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/{ort_version}", cpp_downlaod_path
+        )
+
         # Download CS onnxruntime package
         cs_ort_download_path = cur_path / "sample_code" / "ONNXModel" / "cs" / "ONNXRuntime"
         cs_ort_download_path.mkdir(parents=True, exist_ok=True)
         cs_downlaod_path = str(cs_ort_download_path / f"microsoft.ml.onnxruntime.{ort_version}.nupkg")
-        urllib.request.urlretrieve(f"https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/{ort_version}", cs_downlaod_path)
+        urllib.request.urlretrieve(
+            f"https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/{ort_version}", cs_downlaod_path
+        )
     except Exception as e:
         logger.error(f"Failed to download onnxruntime package. Please manually download onnxruntime package. {e}")
