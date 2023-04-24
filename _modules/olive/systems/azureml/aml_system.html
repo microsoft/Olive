@@ -250,7 +250,7 @@
         <span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">_create_model_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_json</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
-        <span class="c1"># TODO: consider symlinkinking model_script and model_script_dir also when we decide</span>
+        <span class="c1"># TODO: consider symlinking model_script and model_script_dir also when we decide</span>
         <span class="c1"># the relationship between the two</span>
         <span class="n">model_script</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_script&quot;</span><span class="p">):</span>

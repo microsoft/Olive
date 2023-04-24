@@ -33,7 +33,7 @@ case insensitive.
 
     - `name: [str]` The name of the model.
 
-    - `is_file: [Boolean]` True if the model path points to a file.
+    - `is_file: [Boolean]` True if the model path points to a single model file which can be loaded directly. False: if there are external data files/folders that need to be loaded together with the model file.
 
     - `model_loader: [str]` The name of the function provided by the user to load the model. The function should take the model path as
     input and return the loaded model.
