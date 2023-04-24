@@ -12,7 +12,7 @@ from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.user_module_loader import UserModuleLoader
-from olive.model import OliveModel
+from olive.model import DistributedOnnxModel, OliveModel
 from olive.passes.pass_config import (
     PassConfigBase,
     PassConfigParam,
@@ -325,6 +325,17 @@ class Pass(ABC):
         if not self._initialized:
             self._initialize()
             self._initialized = True
+
+        # Optimization pass still works on individual graphs.
+        if isinstance(model, DistributedOnnxModel):
+            output_filepaths = []
+            for rank in range(0, model.ranks):
+                input_rank_model = model.load_model(rank)
+                output_rank_model = self._run_for_config(input_rank_model, config, output_model_path)
+                output_filepaths.append(output_rank_model.model_path)
+            return DistributedOnnxModel(
+                output_filepaths, model.name, version=model.version, inference_settings=model.inference_settings
+            )
 
         return self._run_for_config(model, config, output_model_path)
 
