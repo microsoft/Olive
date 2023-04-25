@@ -44,6 +44,7 @@ def get_ort_inference_session(model_path: Union[Path, str], inference_settings: 
         if ep == "QNNExecutionProvider":
             # add backend_path for QNNExecutionProvider
             execution_provider[idx] = ("QNNExecutionProvider", {"backend_path": "QnnHtp.dll"})
+            break
 
     # dml specific settings
     if len(execution_provider) >= 1 and execution_provider[0] == "DmlExecutionProvider":

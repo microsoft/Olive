@@ -49,8 +49,9 @@ class PythonEnvironmentSystem(OliveSystem):
             self.environ["PATH"] = os.pathsep.join(self.config.prepend_to_path) + os.pathsep + self.environ["PATH"]
         self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
 
-        # get available EPs
-        self.available_eps = self.get_available_eps()
+        # available eps. This will be populated the first time self.get_available_eps() is called.
+        # used for caching the available eps
+        self.available_eps = None
 
         # path to inference script
         self.inference_path = Path(__file__).parent.resolve() / "inference_runner.py"
@@ -204,6 +205,9 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         Get the available execution providers.
         """
+        if self.available_eps:
+            return self.available_eps
+
         with tempfile.TemporaryDirectory() as temp_dir:
             available_eps_path = Path(__file__).parent.resolve() / "available_eps.py"
             output_path = Path(temp_dir).resolve() / "available_eps.pb"
@@ -212,20 +216,22 @@ class PythonEnvironmentSystem(OliveSystem):
                 env=self.environ,
                 check=True,
             )
-            with open(output_path, "rb") as f:
-                return pickle.load(f)
+            available_eps = pickle.load(open(output_path, "rb"))
+            self.available_eps = available_eps
+            return available_eps
 
     def get_execution_providers(self) -> List[str]:
         """
         Get the execution providers for the device.
         """
+        available_eps = self.get_available_eps()
         eps_per_device = ONNXModel.EXECUTION_PROVIDERS.get(self.config.device)
         eps = []
         if eps_per_device:
-            for ep in self.available_eps:
+            for ep in available_eps:
                 if ep in eps_per_device:
                     eps.append(ep)
-        return eps or self.available_eps
+        return eps or available_eps
 
     def get_default_execution_provider(self, model: ONNXModel) -> List[str]:
         """
