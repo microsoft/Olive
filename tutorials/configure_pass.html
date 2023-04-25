@@ -154,8 +154,9 @@ value or <code class="code docutils literal notranslate"><span class="pre">&quot
 <p><code class="code docutils literal notranslate"><span class="pre">type</span></code> is case insensitive.</p>
 </div>
 </div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">OnnxQuantization</span>
+<span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">create_pass_from_dict</span>
 
-<span class="n">onnx_quantization</span> <span class="o">=</span> <span class="n">OnnxQuantization</span><span class="p">(</span>
+<span class="n">onnx_quantization</span> <span class="o">=</span> <span class="n">create_pass_from_dict</span><span class="p">(</span><span class="n">OnnxQuantization</span><span class="p">,</span>
     <span class="n">config</span><span class="o">=</span><span class="p">{</span>
         <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;./user_script.py&quot;</span><span class="p">,</span>
         <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;glue_calibration_reader&quot;</span><span class="p">,</span>

@@ -52,8 +52,9 @@ Let's take the example of the :ref:`onnx_quantization` Pass:
         .. code-block:: python
 
             from olive.passes import OnnxQuantization
+            from olive.passes.olive_pass import create_pass_from_dict
 
-            onnx_quantization = OnnxQuantization(
+            onnx_quantization = create_pass_from_dict(OnnxQuantization,
                 config={
                     "user_script": "./user_script.py",
                     "dataloader_func": "glue_calibration_reader",
