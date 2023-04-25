@@ -33,7 +33,7 @@ case insensitive.
 
     - `name: [str]` The name of the model.
 
-    - `model_type: [str]` Identify the model type. It could be 'file', 'folder', 'azureml'.
+    - `model_storage_kind: [str]` Identify the model storage kind. It could be 'file', 'folder', 'azureml'.
 
     - `model_loader: [str]` The name of the function provided by the user to load the model. The function should take the model path as
     input and return the loaded model.
@@ -56,7 +56,7 @@ Please find the detailed config options from following table for each model type
     "type": "PyTorchModel",
     "config": {
         "model_path": null,
-        "model_type": "folder",
+        "model_storage_kind": "folder",
         "model_loader": "load_pytorch_origin_model",
         "model_script": "user_script.py"
     }

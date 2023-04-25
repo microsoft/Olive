@@ -6,7 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
-from olive.model import ModelType
+from olive.model import ModelStorageKind
 
 
 def parse_common_args(raw_args):
@@ -31,7 +31,10 @@ def get_model_config(common_args):
     for key, value in common_args.__dict__.items():
         if value and key in model_json["config"]:
             model_json["config"][key] = value
-    if model_json["type"].lower() == "onnxmodel" and model_json["config"]["model_type"] == ModelType.LocalFolder:
+    if (
+        model_json["type"].lower() == "onnxmodel"
+        and model_json["config"]["model_storage_kind"] == ModelStorageKind.LocalFolder
+    ):
         model_json["config"]["model_path"] = str(Path(model_json["config"]["model_path"]) / "model.onnx")
 
     return model_json

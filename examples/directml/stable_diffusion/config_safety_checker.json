@@ -4,7 +4,7 @@
         "type": "PyTorchModel",
         "config": {
             "model_path": "runwayml/stable-diffusion-v1-5",
-            "model_type": "folder",
+            "model_storage_kind": "folder",
             "model_loader": "safety_checker_load",
             "model_script": "user_script.py"
         }

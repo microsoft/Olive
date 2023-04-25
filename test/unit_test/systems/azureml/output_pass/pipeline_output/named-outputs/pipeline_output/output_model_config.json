@@ -3,7 +3,7 @@
     "config": {
         "model_path": "output_model.onnx",
         "name": "test_model",
-        "model_type": "file",
+        "model_storage_kind": "file",
         "version": null,
         "inference_settings": null
     },

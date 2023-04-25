@@ -9,7 +9,7 @@ import torch.quantization.quantization_mappings as tqqm
 from pytorch_lightning import LightningModule, seed_everything
 from torch.ao.quantization.fake_quantize import FakeQuantize, MovingAverageMinMaxObserver
 
-from olive.model import ModelType, PyTorchModel
+from olive.model import ModelStorageKind, PyTorchModel
 from olive.passes.pytorch.cluster import barrier, create_cluster, is_master_proc
 from olive.passes.pytorch.pytorch_lightning_utils import create_ddp_strategy, create_trainer
 
@@ -112,7 +112,7 @@ class QatTrainer:
         barrier()
         # TODO: Add PyTorch model type flag
         qat_pytorch_model = PyTorchModel(
-            model_path=self.output_model_path, name="pytorch_qat_model", model_type=ModelType.LocalFile
+            model_path=self.output_model_path, name="pytorch_qat_model", model_storage_kind=ModelStorageKind.LocalFile
         )
         return qat_pytorch_model
 

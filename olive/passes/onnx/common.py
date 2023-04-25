@@ -8,7 +8,7 @@ from typing import Optional, Union
 
 import onnx
 
-from olive.model import ModelType, ONNXModel
+from olive.model import ModelStorageKind, ONNXModel
 from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
@@ -141,5 +141,5 @@ def model_proto_to_olive_model(
     return ONNXModel(
         model_path=output_model_path,
         name=name,
-        model_type=ModelType.LocalFile if not has_external_data else ModelType.LocalFolder,
+        model_storage_kind=ModelStorageKind.LocalFile if not has_external_data else ModelStorageKind.LocalFolder,
     )

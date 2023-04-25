@@ -14,7 +14,7 @@ from olive.common.utils import hash_dict
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
 from olive.evaluator.metric import Metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorConfig
-from olive.model import ModelConfig, ModelType, OliveModel
+from olive.model import ModelConfig, ModelStorageKind, OliveModel
 from olive.packaging.packaging_config import PackagingConfig
 from olive.packaging.packaging_generator import generate_output_artifacts
 from olive.passes.olive_pass import Pass
@@ -264,7 +264,7 @@ class Engine:
                     logger.info(message)
 
                 if (
-                    input_model.model_type == ModelType.AzureMLModel
+                    input_model.model_storage_kind == ModelStorageKind.AzureMLModel
                     and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
                 ):
                     error_msg = "Azure ML model only supports AzureMLSystem for Olive Pass"

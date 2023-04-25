@@ -25,7 +25,7 @@ REGISTRY = {}
 logger = logging.getLogger(__name__)
 
 
-class ModelType(str, Enum):
+class ModelStorageKind(str, Enum):
     LocalFile = "file"
     LocalFolder = "folder"
     AzureMLModel = "azureml"
@@ -52,14 +52,14 @@ class OliveModel(ABC):
         model_path: Optional[Union[Path, str]] = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
-        model_type: ModelType = ModelType.LocalFile,
+        model_storage_kind: ModelStorageKind = ModelStorageKind.LocalFile,
     ):
-        if isinstance(model_type, str):
-            model_type = ModelType(model_type)
+        if isinstance(model_storage_kind, str):
+            model_storage_kind = ModelStorageKind(model_storage_kind)
 
-        assert isinstance(model_type, ModelType)
+        assert isinstance(model_storage_kind, ModelStorageKind)
 
-        if model_type == ModelType.AzureMLModel:
+        if model_storage_kind == ModelStorageKind.AzureMLModel:
             if not name:
                 raise Exception("Please specify model 'name' for Azure ML model")
             if not version:
@@ -70,7 +70,7 @@ class OliveModel(ABC):
         self.version = version
         self.framework = framework
         self.name = name
-        self.model_type = model_type
+        self.model_storage_kind = model_storage_kind
 
     @abstractmethod
     def load_model(self, rank: int = None) -> object:
@@ -99,7 +99,7 @@ class OliveModel(ABC):
             "config": {
                 "model_path": model_path,
                 "name": self.name,
-                "model_type": self.model_type.value,
+                "model_storage_kind": self.model_storage_kind.value,
                 "version": self.version,
             },
         }
@@ -130,7 +130,7 @@ class ONNXModelBase(OliveModel):
         model_path: str = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
-        model_type: Union[str, ModelType] = ModelType.LocalFile,
+        model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
     ):
         super().__init__(
@@ -138,7 +138,7 @@ class ONNXModelBase(OliveModel):
             model_path=model_path,
             name=name,
             version=version,
-            model_type=model_type,
+            model_storage_kind=model_storage_kind,
         )
         self.inference_settings = inference_settings
 
@@ -317,7 +317,7 @@ class PyTorchModel(OliveModel):
         model_path: str = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
-        model_type: Union[str, ModelType] = ModelType.LocalFolder,
+        model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFolder,
         model_loader=None,
         model_script=None,
         script_dir=None,
@@ -326,10 +326,10 @@ class PyTorchModel(OliveModel):
             isinstance(model_loader, Callable)
             or (isinstance(model_loader, str) and model_script)
             or model_path
-            or model_type == ModelType.AzureMLModel
+            or model_storage_kind == ModelStorageKind.AzureMLModel
         ):
             raise ValueError(
-                "model_path or model_type/AzureMLModel is required "
+                "model_path or model_storage_kind/AzureMLModel is required "
                 "since model_loader is not callable or model_script is not provided"
             )
 
@@ -342,7 +342,7 @@ class PyTorchModel(OliveModel):
             model_path=model_path,
             name=name,
             version=version,
-            model_type=model_type,
+            model_storage_kind=model_storage_kind,
         )
 
     def load_model(self, rank: int = None) -> torch.nn.Module:
@@ -384,7 +384,7 @@ class SNPEModel(OliveModel):
         output_names: List[str],
         output_shapes: List[List[int]],
         model_path: str = None,
-        model_type=ModelType.LocalFile,
+        model_storage_kind=ModelStorageKind.LocalFile,
         name: Optional[str] = None,
         version: Optional[int] = None,
     ):
@@ -393,7 +393,7 @@ class SNPEModel(OliveModel):
             model_path=model_path,
             name=name,
             version=version,
-            model_type=model_type,
+            model_storage_kind=model_storage_kind,
         )
         self.io_config = {
             "input_names": input_names,
@@ -428,13 +428,13 @@ class TensorFlowModel(OliveModel):
         self,
         model_path: str = None,
         name: Optional[str] = None,
-        model_type=ModelType.LocalFolder,
+        model_storage_kind=ModelStorageKind.LocalFolder,
     ):
         super().__init__(
             model_path=model_path,
             framework=Framework.TENSORFLOW,
             name=name,
-            model_type=model_type,
+            model_storage_kind=model_storage_kind,
         )
 
     def load_model(self, rank: int = None):
@@ -449,7 +449,7 @@ class OpenVINOModel(OliveModel):
         self,
         model_path: str,
         name: str = None,
-        model_type=ModelType.LocalFolder,
+        model_storage_kind=ModelStorageKind.LocalFolder,
         version: Optional[int] = None,
     ):
         super().__init__(
@@ -457,7 +457,7 @@ class OpenVINOModel(OliveModel):
             framework=Framework.OPENVINO,
             name=name,
             version=version,
-            model_type=model_type,
+            model_storage_kind=model_storage_kind,
         )
 
         if len(list(Path(model_path).glob("*.xml"))) == 0 or len(list(Path(model_path).glob("*.bin"))) == 0:
