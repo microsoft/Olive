@@ -72,12 +72,10 @@ class Pass(ABC):
                 self._fixed_params[k] = v
 
         # Params that are paths [(param_name, required)]
-        # TODO: replace the default_config with the instance?
         self.path_params = []
-        for param, param_config in self.default_config().items():
+        for param, param_config in self._config_class._default_config.items():
             if param_config.is_path:
                 self.path_params.append((param, param_config.required))
-
         self._initialized = False
 
     @classmethod
@@ -350,28 +348,13 @@ class Pass(ABC):
 class FullPassConfig(ConfigBase):
     type: str
     disable_search: bool = False
-    config: PassConfigBase = None
+    config: Dict[str, Any] = None
 
     @validator("type")
     def validate_type(cls, v):
         if v.lower() not in Pass.registry:
             raise ValueError(f"Unknown pass type {v}")
         return v
-
-    @validator("config", pre=True, always=True)
-    def validate_config(cls, v, values):
-        if "type" not in values:
-            raise ValueError("Invalid type")
-        if "disable_search" not in values:
-            raise ValueError("Invalid disable_search")
-
-        pass_type = values["type"].lower()
-        disable_search = values["disable_search"]
-        pass_cls = Pass.registry[pass_type]
-        # TODO: remove the default config call since it will accept hardware/EP info.
-        default_config = pass_cls.default_config()
-        config_class = pass_cls.get_config_class(default_config, disable_search)
-        return validate_config(v, PassConfigBase, config_class)
 
     def create_pass(self):
         pass_cls = Pass.registry[self.type.lower()]
