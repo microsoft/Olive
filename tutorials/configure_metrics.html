@@ -265,7 +265,7 @@ In your <code class="code docutils literal notranslate"><span class="pre">&quot;
             <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
             <span class="s2">&quot;sub_type&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy_score&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;is_first_priority&quot;</span><span class="p">:</span> <span class="n">true</span><span class="p">,</span>
+            <span class="s2">&quot;priority_rank&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
             <span class="s2">&quot;user_config&quot;</span><span class="p">:</span> <span class="p">{</span>
                 <span class="s2">&quot;post_processing_func&quot;</span><span class="p">:</span> <span class="s2">&quot;post_process&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
@@ -281,6 +281,7 @@ In your <code class="code docutils literal notranslate"><span class="pre">&quot;
             <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;latency&quot;</span><span class="p">,</span>
             <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;latency&quot;</span><span class="p">,</span>
             <span class="s2">&quot;sub_type&quot;</span><span class="p">:</span> <span class="s2">&quot;avg&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;priority_rank&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
             <span class="s2">&quot;user_config&quot;</span><span class="p">:</span> <span class="p">{</span>
                 <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
                 <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
@@ -295,9 +296,9 @@ In your <code class="code docutils literal notranslate"><span class="pre">&quot;
 <span class="p">}</span>
 </pre></div>
 </div>
-<p>You need to specify <code class="code docutils literal notranslate"><span class="pre">&quot;is_first_priority&quot;:</span> <span class="pre">true</span></code> for the first priority metric if you have multiple metrics.
-The first priority metric is the metric that Olive will use to determine the best model.
-If you only have one metric, you can omit <code class="code docutils literal notranslate"><span class="pre">&quot;is_first_priority&quot;:</span> <span class="pre">true</span></code>.</p>
+<p>You need to specify <code class="code docutils literal notranslate"><span class="pre">&quot;priority_rank&quot;:</span> <span class="pre">&lt;rank&gt;</span></code> for the metrics if you have multiple metrics.
+Olive will use the priority_ranks of the metrics to determine the best model.
+If you only have one metric, you can omit <code class="code docutils literal notranslate"><span class="pre">&quot;priority_rank&quot;:</span> <span class="pre">1</span></code>.</p>
 </section>
 </section>
 

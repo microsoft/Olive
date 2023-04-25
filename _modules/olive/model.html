@@ -118,6 +118,7 @@
 <span class="c1"># --------------------------------------------------------------------------</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
@@ -126,6 +127,7 @@
 <span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">validator</span>
 
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">serialize_to_json</span>
+<span class="kn">from</span> <span class="nn">olive.common.ort_inference</span> <span class="kn">import</span> <span class="n">get_ort_inference_session</span>
 <span class="kn">from</span> <span class="nn">olive.common.user_module_loader</span> <span class="kn">import</span> <span class="n">UserModuleLoader</span>
 <span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span>
 <span class="kn">from</span> <span class="nn">olive.snpe</span> <span class="kn">import</span> <span class="n">SNPEDevice</span><span class="p">,</span> <span class="n">SNPEInferenceSession</span><span class="p">,</span> <span class="n">SNPESessionOptions</span>
@@ -219,7 +221,6 @@
 
 
 <div class="viewcode-block" id="ONNXModel"><a class="viewcode-back" href="../../api/models.html#olive.model.ONNXModel">[docs]</a><span class="k">class</span> <span class="nc">ONNXModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
-
     <span class="c1"># device type definition: https://github.com/pytorch/pytorch/blob/master/c10/core/DeviceType.h</span>
     <span class="n">EXECUTION_PROVIDERS</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;cpu&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;OpenVINOExecutionProvider&quot;</span><span class="p">],</span>
@@ -230,6 +231,7 @@
             <span class="s2">&quot;TensorrtExecutionProvider&quot;</span><span class="p">,</span>
             <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
         <span class="p">],</span>
+        <span class="s2">&quot;npu&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;QNNExecutionProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">],</span>
     <span class="p">}</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
@@ -250,6 +252,7 @@
             <span class="n">is_aml_model</span><span class="o">=</span><span class="n">is_aml_model</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span> <span class="o">=</span> <span class="n">inference_settings</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">resolve_path</span><span class="p">(</span><span class="n">file_or_dir_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model_filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;model.onnx&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -277,47 +280,16 @@
         <span class="k">return</span> <span class="n">onnx</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
-        <span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
+        <span class="c1"># user provided inference_settings &gt; model&#39;s inference_settings &gt; default settings</span>
+        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">inference_settings</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="c1"># deep copy to avoid modifying the original settings</span>
+        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">inference_settings</span><span class="p">)</span>
 
-        <span class="n">sess_options</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">SessionOptions</span><span class="p">()</span>
-        <span class="n">execution_provider</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="n">ort_inference_settings</span> <span class="o">=</span> <span class="n">inference_settings</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span>
-        <span class="k">if</span> <span class="n">ort_inference_settings</span><span class="p">:</span>
-            <span class="n">execution_provider</span> <span class="o">=</span> <span class="n">ort_inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">)</span>
-            <span class="n">session_options</span> <span class="o">=</span> <span class="n">ort_inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;session_options&quot;</span><span class="p">,</span> <span class="p">{})</span>
-            <span class="n">inter_op_num_threads</span> <span class="o">=</span> <span class="n">session_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;inter_op_num_threads&quot;</span><span class="p">)</span>
-            <span class="n">intra_op_num_threads</span> <span class="o">=</span> <span class="n">session_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;intra_op_num_threads&quot;</span><span class="p">)</span>
-            <span class="n">execution_mode</span> <span class="o">=</span> <span class="n">session_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;execution_mode&quot;</span><span class="p">)</span>
-            <span class="n">graph_optimization_level</span> <span class="o">=</span> <span class="n">session_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;graph_optimization_level&quot;</span><span class="p">)</span>
-            <span class="n">extra_session_config</span> <span class="o">=</span> <span class="n">session_options</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;extra_session_config&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">inter_op_num_threads</span><span class="p">:</span>
-                <span class="n">sess_options</span><span class="o">.</span><span class="n">inter_op_num_threads</span> <span class="o">=</span> <span class="n">inter_op_num_threads</span>
-            <span class="k">if</span> <span class="n">intra_op_num_threads</span><span class="p">:</span>
-                <span class="n">sess_options</span><span class="o">.</span><span class="n">intra_op_num_threads</span> <span class="o">=</span> <span class="n">intra_op_num_threads</span>
-            <span class="k">if</span> <span class="n">execution_mode</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">execution_mode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="n">sess_options</span><span class="o">.</span><span class="n">execution_mode</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">ExecutionMode</span><span class="o">.</span><span class="n">ORT_SEQUENTIAL</span>
-                <span class="k">elif</span> <span class="n">execution_mode</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                    <span class="n">sess_options</span><span class="o">.</span><span class="n">execution_mode</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">ExecutionMode</span><span class="o">.</span><span class="n">ORT_PARALLEL</span>
-            <span class="k">if</span> <span class="n">graph_optimization_level</span><span class="p">:</span>
-                <span class="n">sess_options</span><span class="o">.</span><span class="n">graph_optimization_level</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">GraphOptimizationLevel</span><span class="p">(</span><span class="n">graph_optimization_level</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">extra_session_config</span><span class="p">:</span>
-                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">extra_session_config</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                    <span class="n">sess_options</span><span class="o">.</span><span class="n">add_session_config_entry</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="c1"># if user doesn&#39;t not provide ep list, use default value([ep]). Otherwise, use the user&#39;s ep list</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">):</span>
+            <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_execution_provider</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
-        <span class="c1"># if use doesn&#39;t not providers ep list, use default value([ep]). Otherwise, use the user&#39;s ep list</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">execution_provider</span><span class="p">:</span>
-            <span class="n">execution_provider</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_execution_provider</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">execution_provider</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-            <span class="c1"># execution_provider may be a list of tuples where the first item in each tuple is the EP name</span>
-            <span class="n">execution_provider</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span> <span class="k">else</span> <span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">execution_provider</span><span class="p">]</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">execution_provider</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="n">execution_provider</span> <span class="o">=</span> <span class="p">[</span><span class="n">execution_provider</span><span class="p">]</span>
-
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">execution_provider</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">execution_provider</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;DmlExecutionProvider&quot;</span><span class="p">:</span>
-            <span class="n">sess_options</span><span class="o">.</span><span class="n">enable_mem_pattern</span> <span class="o">=</span> <span class="kc">False</span>
-
-        <span class="k">return</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">sess_options</span><span class="p">,</span> <span class="n">providers</span><span class="o">=</span><span class="n">execution_provider</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">get_ort_inference_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
@@ -359,7 +331,53 @@
                 <span class="k">if</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">eps_per_device</span><span class="p">:</span>
                     <span class="n">eps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ep</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">eps</span> <span class="k">if</span> <span class="n">eps</span> <span class="k">else</span> <span class="n">available_providers</span></div>
+        <span class="k">return</span> <span class="n">eps</span> <span class="k">if</span> <span class="n">eps</span> <span class="k">else</span> <span class="n">available_providers</span>
+
+    <span class="k">def</span> <span class="nf">get_io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get input/output names, shapes, types of the onnx model without creating an ort session.</span>
+<span class="sd">        This function loads the onnx model and parses the graph to get the io config.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">onnx.helper</span> <span class="kn">import</span> <span class="n">tensor_dtype_to_np_dtype</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">onnx.mapping</span> <span class="kn">import</span> <span class="n">TENSOR_TYPE_TO_NP_TYPE</span>
+
+            <span class="k">def</span> <span class="nf">tensor_dtype_to_np_dtype</span><span class="p">(</span><span class="n">tensor_type</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">TENSOR_TYPE_TO_NP_TYPE</span><span class="p">[</span><span class="n">tensor_type</span><span class="p">]</span>
+
+        <span class="c1"># external data is not needed for io config parsing</span>
+        <span class="c1"># the .onnx model already contains all of the graph information</span>
+        <span class="c1"># this method works whether the external data is in the same directory or not</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">onnx</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">load_external_data</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">io_config</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;input_names&quot;</span><span class="p">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;input_shapes&quot;</span><span class="p">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;input_types&quot;</span><span class="p">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;output_names&quot;</span><span class="p">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;output_shapes&quot;</span><span class="p">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;output_types&quot;</span><span class="p">:</span> <span class="p">[],</span>
+        <span class="p">}</span>
+        <span class="k">for</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">ios</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">input</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;output&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">output</span><span class="p">)]:</span>
+            <span class="k">for</span> <span class="n">io</span> <span class="ow">in</span> <span class="n">ios</span><span class="p">:</span>
+                <span class="c1"># get name, type, shape</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">name</span>
+                <span class="n">tensor_type</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">tensor_type</span>
+                <span class="n">data_type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">tensor_dtype_to_np_dtype</span><span class="p">(</span><span class="n">tensor_type</span><span class="o">.</span><span class="n">elem_type</span><span class="p">))</span>
+                <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="n">dim</span><span class="o">.</span><span class="n">dim_param</span> <span class="k">if</span> <span class="n">dim</span><span class="o">.</span><span class="n">dim_param</span> <span class="k">else</span> <span class="n">dim</span><span class="o">.</span><span class="n">dim_value</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">tensor_type</span><span class="o">.</span><span class="n">shape</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span>
+
+                <span class="c1"># append to io_config</span>
+                <span class="n">io_config</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_names&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                <span class="n">io_config</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_types&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_type</span><span class="p">)</span>
+                <span class="n">io_config</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_shapes&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+
+        <span class="c1"># save io_config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="n">io_config</span>
+
+        <span class="k">return</span> <span class="n">io_config</span></div>
 
 
 <div class="viewcode-block" id="PyTorchModel"><a class="viewcode-back" href="../../api/models.html#olive.model.PyTorchModel">[docs]</a><span class="k">class</span> <span class="nc">PyTorchModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>

@@ -163,7 +163,7 @@ If you have multiple metrics to evaluate, you can configure them in the followin
                     "name": "accuracy",
                     "type": "accuracy",
                     "sub_type": "accuracy_score",
-                    "is_first_priority": true,
+                    "priority_rank": 1,
                     "user_config": {
                         "post_processing_func": "post_process",
                         "user_script": "user_script.py",
@@ -179,6 +179,7 @@ If you have multiple metrics to evaluate, you can configure them in the followin
                     "name": "latency",
                     "type": "latency",
                     "sub_type": "avg",
+                    "priority_rank": 2,
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
@@ -192,6 +193,6 @@ If you have multiple metrics to evaluate, you can configure them in the followin
             ]
         }
 
-You need to specify :code:`"is_first_priority": true` for the first priority metric if you have multiple metrics.
-The first priority metric is the metric that Olive will use to determine the best model.
-If you only have one metric, you can omit :code:`"is_first_priority": true`.
+You need to specify :code:`"priority_rank": <rank>` for the metrics if you have multiple metrics.
+Olive will use the priority_ranks of the metrics to determine the best model.
+If you only have one metric, you can omit :code:`"priority_rank": 1`.

@@ -72,6 +72,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#id4">System Configuration</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#python-environment-system">Python Environment System</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="configure_metrics.html">Configuring Metric</a></li>
@@ -269,6 +270,34 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;dock
 </div>
 <p>Please refer to <a class="reference internal" href="../api/systems.html#docker-system-config"><span class="std std-ref">DockerTargetUserConfig</span></a> for more details on the config options.</p>
 </section>
+</section>
+<section id="python-environment-system">
+<h2>Python Environment System<a class="headerlink" href="#python-environment-system" title="Permalink to this heading">¶</a></h2>
+<div class="sphinx-tabs docutils container">
+<div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-3-3-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-3-3-0" name="3-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-3-3-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-3-3-1" name="3-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-3-3-0" class="sphinx-tabs-panel" id="panel-3-3-0" name="3-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PythonEnvironment&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;python_environment_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/home/user/.virtualenvs/myenv&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div><div aria-labelledby="tab-3-3-1" class="sphinx-tabs-panel" hidden="true" id="panel-3-3-1" name="3-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.python_environment</span> <span class="kn">import</span> <span class="n">PythonEnvironmentSystem</span>
+<span class="kn">from</span> <span class="nn">olive.system.common</span> <span class="kn">import</span> <span class="n">Device</span>
+
+<span class="n">python_environment_system</span> <span class="o">=</span> <span class="n">PythonEnvironmentSystem</span><span class="p">(</span>
+    <span class="n">python_environment_path</span> <span class="o">=</span> <span class="s2">&quot;/home/user/.virtualenvs/myenv&quot;</span><span class="p">,</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div></div>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>The python environment system can only be used to evaluate onnx models. It must have <code class="code docutils literal notranslate"><span class="pre">onnxruntime</span></code> installed!</p>
+</div>
+<p>Please refer to <a class="reference internal" href="../api/systems.html#python-environment-system-config"><span class="std std-ref">PythonEnvironmentTargetUserConfig</span></a> for more details on the config options.</p>
 </section>
 </section>
 
