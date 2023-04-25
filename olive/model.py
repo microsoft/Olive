@@ -235,7 +235,7 @@ class ONNXModel(OliveModel):
             def tensor_dtype_to_np_dtype(tensor_type):
                 return TENSOR_TYPE_TO_NP_TYPE[tensor_type]
 
-        model = self.load_model()
+        model = onnx.load(self.model_path)
         io_config = {
             "input_names": [],
             "input_shapes": [],
