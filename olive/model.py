@@ -78,7 +78,7 @@ class OliveModel(ABC):
         """
         raise NotImplementedError()
 
-    def set_compsite_parent(self, cp):
+    def set_composite_parent(self, cp):
         self.composite_parent = cp
 
     def get_composite_parent(self):
