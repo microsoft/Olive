@@ -520,6 +520,7 @@ class DistributedOnnxModel(ONNXModelBase):
             version=version,
             is_file=False,
             is_aml_model=False,
+            inference_settings=inference_settings,
         )
         self.model_filepaths = model_filepaths
 
@@ -561,7 +562,7 @@ class DistributedOnnxModel(ONNXModelBase):
         return ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
     @staticmethod
-    def get_execution_providers(self, device: Device):
+    def get_execution_providers(device: Device):
         import onnxruntime as ort
 
         available_providers = ort.get_available_providers()
@@ -574,3 +575,15 @@ class DistributedOnnxModel(ONNXModelBase):
                     eps.append(ep)
 
         return eps if eps else available_providers
+
+    def to_json(self, check_object: bool = False):
+        config = {
+            "type": self.__class__.__name__,
+            "config": {
+                "model_filepaths": self.model_filepaths,
+                "name": self.name,
+                "version": self.version,
+                "inference_settings": self.inference_settings,
+            },
+        }
+        return serialize_to_json(config, check_object=check_object)
