@@ -24,7 +24,7 @@ class TestPythonEnvironmentSystem:
     def test_available_eps(self):
         import onnxruntime as ort
 
-        assert set(self.system.available_eps) == set(ort.get_available_providers())
+        assert set(self.system.get_available_eps()) == set(ort.get_available_providers())
 
     @patch("olive.systems.python_environment.PythonEnvironmentSystem.evaluate_accuracy")
     @patch("olive.systems.python_environment.PythonEnvironmentSystem.evaluate_latency")
