@@ -76,6 +76,7 @@ class Pass(ABC):
         for param, param_config in self._config_class._default_config.items():
             if param_config.is_path:
                 self.path_params.append((param, param_config.required))
+
         self._initialized = False
 
     @classmethod
