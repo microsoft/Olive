@@ -50,6 +50,10 @@ def get_ort_inference_session(model_path: Union[Path, str], inference_settings: 
     if len(execution_provider) >= 1 and execution_provider[0] == "DmlExecutionProvider":
         sess_options.enable_mem_pattern = False
 
+    provider_options = inference_settings.get("provider_options")
+
     # create session
-    sess = ort.InferenceSession(str(model_path), sess_options=sess_options, providers=execution_provider)
+    sess = ort.InferenceSession(
+        str(model_path), sess_options=sess_options, providers=execution_provider, provider_options=provider_options
+    )
     return sess
