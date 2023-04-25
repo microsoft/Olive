@@ -58,6 +58,7 @@ class OliveModel(ABC):
         self.name = name
         self.is_file = is_file
         self.is_aml_model = is_aml_model
+        self.composite_parent = None
 
     @abstractmethod
     def load_model(self, rank: int = None) -> object:
@@ -76,6 +77,12 @@ class OliveModel(ABC):
         Derived class should implement its specific logic if needed.
         """
         raise NotImplementedError()
+
+    def set_compsite_parent(self, cp):
+        self.composite_parent = cp
+
+    def get_composite_parent(self):
+        return self.composite_parent
 
     def to_json(self, check_object: bool = False):
         model_path = self.model_path
@@ -574,3 +581,37 @@ class DistributedOnnxModel(ONNXModelBase):
                     eps.append(ep)
 
         return eps if eps else available_providers
+
+class CompositeOnnxModel(OliveModel):
+    """
+    CompositeOnnxModel represents multi component models. Whisper is an example composite
+    model that has encoder and decoder components. CompositeOnnxModel is a collection of
+    OnnxModels.
+    """
+    def __init__(
+        self,
+        model_components: List[str],
+        name: Optional[str] = None,
+        version: Optional[int] = None,
+    ):
+        super().__init__(
+            model_path=None,
+            name=name,
+            version=version,
+            is_file=False,
+            is_aml_model=False,
+        )
+        self.model_components = model_components
+        for m in self.model_components:
+            m.set_composite_parent(self)
+
+    @property
+
+    def load_model(self, rank: int = None):
+        raise NotImplementedError()
+
+    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
+        raise NotImplementedError()
+
+    def get_model_components(self):
+        return self.model_components

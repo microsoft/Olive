@@ -12,7 +12,7 @@ from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.user_module_loader import UserModuleLoader
-from olive.model import DistributedOnnxModel, OliveModel
+from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel
 from olive.passes.pass_config import (
     PassConfigBase,
     PassConfigParam,
@@ -336,6 +336,11 @@ class Pass(ABC):
             return DistributedOnnxModel(
                 output_filepaths, model.name, version=model.version, inference_settings=model.inference_settings
             )
+        elif isinstance(model, CompositeOnnxModel):
+            components = []
+            for cidx, child in enumerate(model.get_model_components()):
+                components.append(self._run_for_config(child, config, str(f"{output_model_path}_{cidx}")))
+            return CompositeOnnxModel(components, model.name)
 
         return self._run_for_config(model, config, output_model_path)
 
