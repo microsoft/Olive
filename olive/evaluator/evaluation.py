@@ -30,10 +30,12 @@ def evaluate_accuracy(model: OliveModel, metric: Metric, device: Device = Device
     sess = model.prepare_session(inference_settings=model_inference_settings, device=device)
 
     if model.framework == Framework.ONNX:
-        preds, targets = evaluate_accuracy_onnx(sess=sess, dataloader=dataloader, post_func=post_func)
+        io_config = model.get_io_config()
+        preds, targets = evaluate_accuracy_onnx(
+            sess=sess, dataloader=dataloader, post_func=post_func, io_config=io_config
+        )
     elif model.framework == Framework.PYTORCH:
         preds, targets = evaluate_accuracy_pytorch(sess=sess, dataloader=dataloader, post_func=post_func, device=device)
-
     elif model.framework == Framework.SNPE:
         preds, targets = evaluate_accuracy_snpe(sess=sess, dataloader=dataloader, post_func=post_func)
     elif model.framework == Framework.OPENVINO:
@@ -43,20 +45,25 @@ def evaluate_accuracy(model: OliveModel, metric: Metric, device: Device = Device
             f"Current model framework {model.framework} doesn't support metric {metric.type}.{metric.sub_type}."
         )
 
-    metric_config = metric.metric_config
-    if metric.sub_type == AccuracySubType.ACCURACY_SCORE:
+    return compute_accuracy(preds, targets, metric.sub_type, metric.metric_config)
+
+
+def compute_accuracy(preds, targets, sub_type, metric_config) -> Dict[str, Any]:
+    """
+    Compute accuracy metrics
+    """
+    if sub_type == AccuracySubType.ACCURACY_SCORE:
         metric_res = AccuracyScore(metric_config).evaluate(preds, targets)
-    elif metric.sub_type == AccuracySubType.F1_SCORE:
+    elif sub_type == AccuracySubType.F1_SCORE:
         metric_res = F1Score(metric_config).evaluate(preds, targets)
-    elif metric.sub_type == AccuracySubType.PRECISION:
+    elif sub_type == AccuracySubType.PRECISION:
         metric_res = Precision(metric_config).evaluate(preds, targets)
-    elif metric.sub_type == AccuracySubType.RECALL:
+    elif sub_type == AccuracySubType.RECALL:
         metric_res = Recall(metric_config).evaluate(preds, targets)
-    elif metric.sub_type == AccuracySubType.AUC:
+    elif sub_type == AccuracySubType.AUC:
         metric_res = AUC(metric_config).evaluate(preds, targets)
     else:
-        raise TypeError(f"{metric.sub_type} is not a accuracy metric supported")
-
+        raise TypeError(f"{sub_type} is not a accuracy metric supported")
     return metric_res
 
 
@@ -78,6 +85,7 @@ def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.
     sess = model.prepare_session(inference_settings=model_inference_settings, device=device)
 
     if model.framework == Framework.ONNX:
+        io_config = model.get_io_config()
         latencies = evaluate_latency_onnx(
             sess=sess,
             dataloader=dataloader,
@@ -86,6 +94,7 @@ def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.
             warmup_num=warmup_num,
             repeat_test_num=repeat_test_num,
             sleep_num=sleep_num,
+            io_config=io_config,
         )
     elif model.framework == Framework.PYTORCH:
         latencies = evaluate_latency_pytorch(
@@ -107,6 +116,13 @@ def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.
             f"Current model framework {model.framework} doesn't support metric {metric.type}.{metric.subtype}."
         )
 
+    return compute_latency(latencies, metric.sub_type)
+
+
+def compute_latency(latencies, sub_type) -> float:
+    """
+    Compute latency metrics
+    """
     latency_metrics = {
         LatencySubType.AVG: round(sum(latencies) / len(latencies) * 1000, 5),
         LatencySubType.MAX: round(max(latencies) * 1000, 5),
@@ -118,7 +134,7 @@ def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.
         LatencySubType.P99: round(np.percentile(latencies, 99) * 1000, 5),
         LatencySubType.P999: round(np.percentile(latencies, 99.9) * 1000, 5),
     }
-    return latency_metrics[metric.sub_type]
+    return latency_metrics[sub_type]
 
 
 def evaluate_custom_metric(model: OliveModel, metric: Metric, device: Device = Device.CPU):
@@ -129,17 +145,12 @@ def evaluate_custom_metric(model: OliveModel, metric: Metric, device: Device = D
     return eval_func(model, metric.user_config.data_dir, metric.user_config.batch_size, device)
 
 
-def evaluate_accuracy_onnx(sess, dataloader, post_func):
+def evaluate_accuracy_onnx(sess, dataloader, post_func, io_config):
     preds = []
     targets = []
-    input_names = [i.name for i in sess.get_inputs()]
-    output_names = [o.name for o in sess.get_outputs()]
+    output_names = io_config["output_names"]
     for input_data, labels in dataloader:
-        if isinstance(input_data, dict):
-            input_dict = {k: input_data[k].tolist() for k in input_data.keys() if k in input_names}
-        else:
-            input_data = input_data.tolist()
-            input_dict = dict(zip(input_names, [input_data]))
+        input_dict = format_onnx_input(input_data, io_config)
         res = sess.run(input_feed=input_dict, output_names=None)
         if len(output_names) == 1:
             result = torch.Tensor(res[0])
@@ -209,18 +220,10 @@ def evaluate_accuracy_openvino(sess, dataloader, post_func):
     return preds, targets
 
 
-def evaluate_latency_onnx(sess, dataloader, user_config, device, warmup_num, repeat_test_num, sleep_num):
+def evaluate_latency_onnx(sess, dataloader, user_config, device, warmup_num, repeat_test_num, sleep_num, io_config):
     latencies = []
-    input_names = [i.name for i in sess.get_inputs()]
     input_data, _ = next(iter(dataloader))
-
-    if isinstance(input_data, dict):
-        input_dict = {
-            k: np.ascontiguousarray(input_data[k].cpu().numpy()) for k in input_data.keys() if k in input_names
-        }
-    else:
-        input_data = np.ascontiguousarray(input_data.cpu().numpy())
-        input_dict = dict(zip(input_names, [input_data]))
+    input_dict = format_onnx_input(input_data, io_config)
 
     if user_config.io_bind:
         io_bind_op = sess.io_binding()
@@ -245,6 +248,7 @@ def evaluate_latency_onnx(sess, dataloader, user_config, device, warmup_num, rep
             t = time.perf_counter()
             sess.run(input_feed=input_dict, output_names=None)
             latencies.append(time.perf_counter() - t)
+        time.sleep(sleep_num)
     return latencies
 
 
@@ -329,6 +333,22 @@ def tensor_data_to_device(data, device: torch.device):
         return set(tensor_data_to_device(v, device) for v in data)
     else:
         return data
+
+
+def format_onnx_input(input_data, io_config):
+    """
+    Format input data to ONNX input format.
+    """
+    input_names = io_config["input_names"]
+    name_to_type = {k: v for k, v in zip(io_config["input_names"], io_config["input_types"])}
+    if not isinstance(input_data, dict):
+        input_data = dict(zip(input_names, [input_data]))
+    input_dict = {
+        k: np.ascontiguousarray(input_data[k].cpu().numpy(), dtype=name_to_type[k])
+        for k in input_data.keys()
+        if k in input_names
+    }
+    return input_dict
 
 
 class DummyDataloader(Dataset):

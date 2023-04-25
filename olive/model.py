@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -12,6 +13,7 @@ import torch
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, serialize_to_json
+from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
@@ -105,7 +107,6 @@ class ModelConfig(ConfigBase):
 
 
 class ONNXModel(OliveModel):
-
     # device type definition: https://github.com/pytorch/pytorch/blob/master/c10/core/DeviceType.h
     EXECUTION_PROVIDERS = {
         "cpu": ["CPUExecutionProvider", "OpenVINOExecutionProvider"],
@@ -116,6 +117,7 @@ class ONNXModel(OliveModel):
             "TensorrtExecutionProvider",
             "CPUExecutionProvider",
         ],
+        "npu": ["QNNExecutionProvider", "CPUExecutionProvider"],
     }
 
     def __init__(
@@ -136,6 +138,7 @@ class ONNXModel(OliveModel):
             is_aml_model=is_aml_model,
         )
         self.inference_settings = inference_settings
+        self.io_config = None
 
     @staticmethod
     def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
@@ -163,47 +166,16 @@ class ONNXModel(OliveModel):
         return onnx.load(self.model_path)
 
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device):
-        import onnxruntime as ort
+        # user provided inference_settings > model's inference_settings > default settings
+        inference_settings = inference_settings or self.inference_settings or {}
+        # deep copy to avoid modifying the original settings
+        inference_settings = deepcopy(inference_settings)
 
-        sess_options = ort.SessionOptions()
-        execution_provider = None
-        ort_inference_settings = inference_settings or self.inference_settings
-        if ort_inference_settings:
-            execution_provider = ort_inference_settings.get("execution_provider")
-            session_options = ort_inference_settings.get("session_options", {})
-            inter_op_num_threads = session_options.get("inter_op_num_threads")
-            intra_op_num_threads = session_options.get("intra_op_num_threads")
-            execution_mode = session_options.get("execution_mode")
-            graph_optimization_level = session_options.get("graph_optimization_level")
-            extra_session_config = session_options.get("extra_session_config")
-            if inter_op_num_threads:
-                sess_options.inter_op_num_threads = inter_op_num_threads
-            if intra_op_num_threads:
-                sess_options.intra_op_num_threads = intra_op_num_threads
-            if execution_mode:
-                if execution_mode == 0:
-                    sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-                elif execution_mode == 1:
-                    sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
-            if graph_optimization_level:
-                sess_options.graph_optimization_level = ort.GraphOptimizationLevel(graph_optimization_level)
-            if extra_session_config:
-                for key, value in extra_session_config.items():
-                    sess_options.add_session_config_entry(key, value)
+        # if user doesn't not provide ep list, use default value([ep]). Otherwise, use the user's ep list
+        if not inference_settings.get("execution_provider"):
+            inference_settings["execution_provider"] = self.get_default_execution_provider(device)
 
-        # if use doesn't not providers ep list, use default value([ep]). Otherwise, use the user's ep list
-        if not execution_provider:
-            execution_provider = self.get_default_execution_provider(device)
-        elif isinstance(execution_provider, list):
-            # execution_provider may be a list of tuples where the first item in each tuple is the EP name
-            execution_provider = [i[0] if isinstance(i, tuple) else i for i in execution_provider]
-        elif isinstance(execution_provider, str):
-            execution_provider = [execution_provider]
-
-        if len(execution_provider) >= 1 and execution_provider[0] == "DmlExecutionProvider":
-            sess_options.enable_mem_pattern = False
-
-        return ort.InferenceSession(self.model_path, sess_options, providers=execution_provider)
+        return get_ort_inference_session(self.model_path, inference_settings)
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
@@ -246,6 +218,52 @@ class ONNXModel(OliveModel):
                     eps.append(ep)
 
         return eps if eps else available_providers
+
+    def get_io_config(self):
+        """
+        Get input/output names, shapes, types of the onnx model without creating an ort session.
+        This function loads the onnx model and parses the graph to get the io config.
+        """
+        if self.io_config:
+            return self.io_config
+
+        try:
+            from onnx.helper import tensor_dtype_to_np_dtype
+        except ImportError:
+            from onnx.mapping import TENSOR_TYPE_TO_NP_TYPE
+
+            def tensor_dtype_to_np_dtype(tensor_type):
+                return TENSOR_TYPE_TO_NP_TYPE[tensor_type]
+
+        # external data is not needed for io config parsing
+        # the .onnx model already contains all of the graph information
+        # this method works whether the external data is in the same directory or not
+        model = onnx.load(self.model_path, load_external_data=False)
+        io_config = {
+            "input_names": [],
+            "input_shapes": [],
+            "input_types": [],
+            "output_names": [],
+            "output_shapes": [],
+            "output_types": [],
+        }
+        for prefix, ios in [("input", model.graph.input), ("output", model.graph.output)]:
+            for io in ios:
+                # get name, type, shape
+                name = io.name
+                tensor_type = io.type.tensor_type
+                data_type = str(tensor_dtype_to_np_dtype(tensor_type.elem_type))
+                shape = [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
+
+                # append to io_config
+                io_config[f"{prefix}_names"].append(name)
+                io_config[f"{prefix}_types"].append(data_type)
+                io_config[f"{prefix}_shapes"].append(shape)
+
+        # save io_config
+        self.io_config = io_config
+
+        return io_config
 
 
 class PyTorchModel(OliveModel):

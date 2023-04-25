@@ -15,6 +15,7 @@ class SystemType(str, Enum):
     Docker = "Docker"
     Local = "LocalSystem"
     AzureML = "AzureML"
+    PythonEnvironment = "PythonEnvironment"
 
 
 class Device(str, Enum):
