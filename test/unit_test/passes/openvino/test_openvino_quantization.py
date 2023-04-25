@@ -12,6 +12,7 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
 from olive.model import PyTorchModel
+from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
 from olive.passes.openvino.quantization import OpenVINOQuantization
 from olive.systems.local import LocalSystem
@@ -34,7 +35,7 @@ def test_openvino_quantization():
                 }
             ],
         }
-        p = OpenVINOQuantization(config, disable_search=True)
+        p = create_pass_from_dict(OpenVINOQuantization, config, disable_search=True)
         output_folder = str(Path(tempdir) / "quantized")
 
         # execute
@@ -60,7 +61,7 @@ def get_openvino_model(tempdir):
         "input_shape": [1, 3, 32, 32],
     }
 
-    p = OpenVINOConversion(openvino_conversion_config, disable_search=True)
+    p = create_pass_from_dict(OpenVINOConversion, openvino_conversion_config, disable_search=True)
     output_folder = str(Path(tempdir) / "openvino")
 
     # execute
