@@ -582,12 +582,14 @@ class DistributedOnnxModel(ONNXModelBase):
 
         return eps if eps else available_providers
 
+
 class CompositeOnnxModel(OliveModel):
     """
     CompositeOnnxModel represents multi component models. Whisper is an example composite
     model that has encoder and decoder components. CompositeOnnxModel is a collection of
     OnnxModels.
     """
+
     def __init__(
         self,
         model_components: List[str],
@@ -606,7 +608,6 @@ class CompositeOnnxModel(OliveModel):
             m.set_composite_parent(self)
 
     @property
-
     def load_model(self, rank: int = None):
         raise NotImplementedError()
 
