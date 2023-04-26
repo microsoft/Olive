@@ -7,7 +7,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from olive.model import PyTorchModel
+from olive.model import ModelStorageKind, PyTorchModel
 from olive.passes import OnnxConversion
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
@@ -33,8 +33,7 @@ def test_aml_model():
     # Input model
     pytorch_model = PyTorchModel(
         name="bert_glue",
-        is_file=True,
-        is_aml_model=True,
+        model_storage_kind=ModelStorageKind.AzureMLModel,
         version=10,
         io_config={
             "input_names": ["input_ids", "attention_mask", "token_type_ids"],

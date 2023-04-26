@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Union
 
 from olive.common.config_utils import serialize_to_json
-from olive.model import ONNXModel
+from olive.model import ModelStorageKind, ONNXModel
 from olive.passes import REGISTRY as PASS_REGISTRY
 
 logger = logging.getLogger(__name__)
@@ -140,7 +140,10 @@ def save_model(
     # save model file/folder
     model_path = model_json["config"]["model_path"]
     if model_path is not None and Path(model_path).exists():
-        if model_json["type"].lower() == "onnxmodel" and not model_json["config"]["is_file"]:
+        if (
+            model_json["type"].lower() == "onnxmodel"
+            and model_json["config"]["model_storage_kind"] == ModelStorageKind.LocalFolder
+        ):
             # onnx model has external data
             output_path = ONNXModel.resolve_path(output_name)
             # copy the .onnx file along with external data files
