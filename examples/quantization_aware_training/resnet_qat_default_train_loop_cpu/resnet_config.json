@@ -64,7 +64,6 @@
         "conversion": {
             "type": "OnnxConversion",
             "config": {
-
                 "target_opset": 17
             }
         },
