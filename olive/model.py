@@ -21,6 +21,11 @@ from olive.common.config_utils import ConfigBase, serialize_to_json, validate_co
 from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework, ModelFileFormat
+from olive.hf_utils import (
+    huggingface_model_loader,
+    load_huggingface_model_from_model_loader,
+    load_huggingface_model_from_task,
+)
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
 from olive.systems.common import Device
@@ -173,6 +178,29 @@ class IOConfig(ConfigBase):
         for k, v in dynamic_axes.items():
             dynamic_axes[k] = {int(kk): vv for kk, vv in v.items()}
         return dynamic_axes
+
+
+class HFComponent(ConfigBase):
+    name: str
+    io_config: IOConfig = None
+    dummy_inputs_func: Union[str, Callable] = None
+
+
+class HFConfig(ConfigBase):
+    model_name: str
+    task: str = None
+    loader: str = None
+    use_ort_implementation: bool = False
+    components: List[HFComponent] = None
+
+    @validator("loader", always=True)
+    def task_or_loader_required(cls, v, values):
+        if "task" not in values:
+            raise ValueError("Invalid task")
+
+        if not v and not values["task"]:
+            raise ValueError("Either task or loader must be specified")
+        return v
 
 
 class ONNXModelBase(OliveModel):
@@ -383,12 +411,14 @@ class PyTorchModel(OliveModel):
         script_dir: Union[str, Path] = None,
         io_config: Union[Dict[str, Any], IOConfig] = None,
         dummy_inputs_func: Union[str, Callable] = None,
+        hf_config: Union[Dict[str, Any], HFConfig] = None,
     ):
         if not (
             isinstance(model_loader, Callable)
             or (isinstance(model_loader, str) and model_script)
             or model_path
             or model_storage_kind == ModelStorageKind.AzureMLModel
+            or hf_config
         ):
             raise ValueError(
                 "model_path or model_storage_kind/AzureMLModel is required "
@@ -414,6 +444,9 @@ class PyTorchModel(OliveModel):
 
         self.dummy_inputs = None
 
+        # huggingface config
+        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
+
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
             return self.model
@@ -421,6 +454,13 @@ class PyTorchModel(OliveModel):
         if self.model_loader is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
+        elif self.hf_config is not None:
+            if self.hf_config.task:
+                model = load_huggingface_model_from_task(self.hf_config.task, self.hf_config.model_name)
+            else:
+                model = load_huggingface_model_from_model_loader(
+                    self.hf_config.loader, self.hf_config.model_name, self.hf_config.use_ort_implementation
+                )
         else:
             if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
                 model = torch.load(self.model_path)
@@ -495,6 +535,42 @@ class PyTorchModel(OliveModel):
 
         return dummy_inputs
 
+    @property
+    def components(self) -> List[str]:
+        """
+        Names of the components of the model.
+        """
+        if not self.hf_config or not self.hf_config.components:
+            return None
+
+        return [component.name for component in self.hf_config.components]
+
+    def get_component(self, component_name: str) -> "PyTorchModel":
+        """
+        Get a component of the model as a PyTorchModel.
+        """
+        assert self.components, "hf_config.components must be provided to get component"
+        assert component_name in self.components, f"component {component_name} not found in hf_config"
+
+        model = self.load_model()
+        model_component = getattr(model, component_name)
+
+        # get the component from hf_config
+        components_dict = {component.name: component for component in self.hf_config.components}
+        hf_component = components_dict[component_name]
+
+        def model_loader(_):
+            return model_component
+
+        return PyTorchModel(
+            model_loader=model_loader,
+            name=hf_component.name,
+            io_config=hf_component.io_config,
+            dummy_inputs_func=hf_component.dummy_inputs_func,
+            model_script=self.model_script,
+            script_dir=self.script_dir,
+        )
+
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
         config["config"].update(
@@ -504,6 +580,7 @@ class PyTorchModel(OliveModel):
                 "script_dir": Path(self.script_dir) if self.script_dir else None,
                 "io_config": self.io_config,
                 "dummy_inputs_func": self.dummy_inputs_func,
+                "hf_config": self.hf_config,
             }
         )
         return serialize_to_json(config, check_object)
@@ -631,22 +708,6 @@ class OpenVINOModel(OliveModel):
             device = "MYRIAD"
         compiled_model = ie.compile_model(model=model_pot, device_name=device.upper())
         return compiled_model
-
-
-def huggingface_model_loader(model_loader):
-    import transformers
-
-    if model_loader is None:
-        model_loader = "AutoModel"
-    if isinstance(model_loader, str):
-        try:
-            model_loader = getattr(transformers, model_loader)
-        except AttributeError:
-            raise AttributeError(f"{model_loader} is not found in transformers")
-    elif not isinstance(model_loader, Callable):
-        raise ValueError("model_loader must be a callable or a string defined in transformers")
-
-    return model_loader.from_pretrained
 
 
 class DistributedOnnxModel(ONNXModelBase):
