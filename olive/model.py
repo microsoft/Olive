@@ -3,6 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
+import shutil
+import tempfile
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from enum import Enum
@@ -11,12 +14,13 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 import onnx
 import torch
+import yaml
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
 from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
-from olive.constants import Framework
+from olive.constants import Framework, ModelFileFormat
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
 from olive.systems.common import Device
@@ -49,6 +53,7 @@ class OliveModel(ABC):
     def __init__(
         self,
         framework: Framework,
+        model_file_format: ModelFileFormat,
         model_path: Optional[Union[Path, str]] = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
@@ -69,6 +74,7 @@ class OliveModel(ABC):
             self.model_path = model_path
         self.version = version
         self.framework = framework
+        self.model_file_format = model_file_format
         self.name = name
         self.model_storage_kind = model_storage_kind
 
@@ -177,6 +183,7 @@ class ONNXModelBase(OliveModel):
     ):
         super().__init__(
             framework=Framework.ONNX,
+            model_file_format=ModelFileFormat.ONNX,
             model_path=model_path,
             name=name,
             version=version,
@@ -360,6 +367,7 @@ class PyTorchModel(OliveModel):
     def __init__(
         self,
         model_path: str = None,
+        model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
         name: Optional[str] = None,
         version: Optional[int] = None,
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFolder,
@@ -386,6 +394,7 @@ class PyTorchModel(OliveModel):
         self.model = None
         super().__init__(
             framework=Framework.PYTORCH,
+            model_file_format=model_file_format,
             model_path=model_path,
             name=name,
             version=version,
@@ -406,13 +415,40 @@ class PyTorchModel(OliveModel):
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
         else:
-            try:
+            if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
                 model = torch.load(self.model_path)
-            except (RuntimeError, ModuleNotFoundError):
+            elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
                 model = torch.jit.load(self.model_path)
+            elif self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
+                model = self.load_mlflow_model()
+            elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
+                raise ValueError("Please use customized model loader to load state dict model.")
+            else:
+                raise ValueError(f"Unsupported model file format: {self.model_file_format}")
+
         self.model = model
 
         return model
+
+    def load_mlflow_model(self):
+        tmp_dir = tempfile.TemporaryDirectory(prefix="mlflow_tmp")
+        tmp_dir_path = Path(tmp_dir.name)
+
+        shutil.copytree(os.path.join(self.model_path, "data/model"), tmp_dir_path, dirs_exist_ok=True)
+        shutil.copytree(os.path.join(self.model_path, "data/config"), tmp_dir_path, dirs_exist_ok=True)
+        shutil.copytree(os.path.join(self.model_path, "data/tokenizer"), tmp_dir_path, dirs_exist_ok=True)
+
+        with open(os.path.join(self.model_path, "MLmodel"), "r") as fp:
+            mlflow_data = yaml.safe_load(fp)
+            hf_pretrained_class = mlflow_data["flavors"]["hftransformers"]["hf_pretrained_class"]
+
+        model_loader = huggingface_model_loader(hf_pretrained_class)
+        loaded_model = model_loader(tmp_dir_path)
+        loaded_model.eval()
+
+        tmp_dir.cleanup()
+
+        return loaded_model
 
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
         return self.load_model().eval()
@@ -480,6 +516,7 @@ class SNPEModel(OliveModel):
     ):
         super().__init__(
             framework=Framework.SNPE,
+            model_file_format=ModelFileFormat.SNPE_DLC,
             model_path=model_path,
             name=name,
             version=version,
@@ -517,12 +554,14 @@ class TensorFlowModel(OliveModel):
     def __init__(
         self,
         model_path: str = None,
+        model_file_format: ModelFileFormat = ModelFileFormat.TENSORFLOW_SAVED_MODEL,
         name: Optional[str] = None,
         model_storage_kind=ModelStorageKind.LocalFolder,
     ):
         super().__init__(
             model_path=model_path,
             framework=Framework.TENSORFLOW,
+            model_file_format=model_file_format,
             name=name,
             model_storage_kind=model_storage_kind,
         )
@@ -545,6 +584,7 @@ class OpenVINOModel(OliveModel):
         super().__init__(
             model_path=model_path,
             framework=Framework.OPENVINO,
+            model_file_format=ModelFileFormat.OPENVINO_IR,
             name=name,
             version=version,
             model_storage_kind=model_storage_kind,
