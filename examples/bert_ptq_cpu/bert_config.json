@@ -4,7 +4,7 @@
         "type": "PyTorchModel",
         "config": {
             "model_path": null,
-            "is_file": false,
+            "model_storage_kind": "folder",
             "model_loader": "load_pytorch_origin_model",
             "model_script": "user_script.py"
         }
@@ -19,7 +19,8 @@
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
                     "conda_file_path": "conda.yaml"
-                }
+                },
+                "is_dev": true
             }
         },
         "docker_system": {
