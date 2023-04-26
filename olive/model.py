@@ -76,6 +76,7 @@ class OliveModel(ABC):
         self.framework = framework
         self.model_file_format = model_file_format
         self.name = name
+        self.composite_parent = None
         self.model_storage_kind = model_storage_kind
 
     @abstractmethod
@@ -95,6 +96,12 @@ class OliveModel(ABC):
         Derived class should implement its specific logic if needed.
         """
         raise NotImplementedError()
+
+    def set_composite_parent(self, cp):
+        self.composite_parent = cp
+
+    def get_composite_parent(self):
+        return self.composite_parent
 
     def to_json(self, check_object: bool = False):
         model_path = self.model_path
@@ -727,3 +734,62 @@ class DistributedOnnxModel(ONNXModelBase):
             },
         }
         return serialize_to_json(config, check_object=check_object)
+
+
+class CompositeOnnxModel(OliveModel):
+    """
+    CompositeOnnxModel represents multi component models. Whisper is an example composite
+    model that has encoder and decoder components. CompositeOnnxModel is a collection of
+    OnnxModels.
+    """
+
+    def __init__(
+        self,
+        model_components: List[str],
+        name: Optional[str] = None,
+        version: Optional[int] = None,
+    ):
+        super().__init__(
+            model_path=None,
+            name=name,
+            version=version,
+            is_file=False,
+            is_aml_model=False,
+        )
+
+        if isinstance(model_components[0], dict):
+            assert all(
+                [m.get("type").lower() == "onnxmodel" for m in model_components]
+            ), "All components must be ONNXModel"
+            self.model_components = [ONNXModel(**m.get("config", {})) for m in model_components]
+        else:
+            assert all([isinstance(m, ONNXModel) for m in model_components]), "All components must be ONNXModel"
+            self.model_components = model_components
+
+        self.model_components = model_components
+        for m in self.model_components:
+            m.set_composite_parent(self)
+
+    @property
+    def load_model(self, rank: int = None):
+        raise NotImplementedError()
+
+    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
+        raise NotImplementedError()
+
+    def get_model_components(self):
+        return self.model_components
+
+    def to_json(self, check_object: bool = False):
+        json_dict = {
+            "type": self.__class__.__name__,
+            "config": {
+                "name": self.name,
+                "version": self.version,
+            },
+        }
+        json_dict["config"]["components"] = []
+        for m in self.model_components:
+            json_dict["config"]["components"].append(m.to_json(check_object))
+
+        return serialize_to_json(json_dict, check_object)
