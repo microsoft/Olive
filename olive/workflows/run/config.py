@@ -8,6 +8,8 @@ from typing import Dict, Union
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase
+from olive.data_container.config import DataContainerConfig
+from olive.data_container.constants import DefaultDataContainer
 from olive.engine import Engine, EngineConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
@@ -41,6 +43,10 @@ class RunConfig(ConfigBase):
     evaluators: Dict[str, OliveEvaluatorConfig] = None
     engine: RunEngineConfig
     passes: Dict[str, RunPassConfig]
+    data_container: Dict[str, DataContainerConfig] = {
+        DefaultDataContainer.DATA_CONTAINER.value: DataContainerConfig(),
+        # DefaultDataContainer.DUMMY_DATA_CONTAINER.value: DataContainerConfig(),
+    }
 
     @validator("evaluators", pre=True, each_item=True)
     def validate_evaluators(cls, v, values):

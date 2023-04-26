@@ -52,7 +52,13 @@ def simple_dataset(input_data, label_name=None, **kwargs):
 
 
 @Registry.register(DataComponentType.DATASET)
-def huggingface_dataset(data_name, subset, split_name, **kwargs):
+def huggingface_dataset(data_name, **kwargs):
+    """
+    This function is used to create a dataset from huggingface datasets
+    """
+    from datasets.utils.logging import disable_progress_bar
+
+    disable_progress_bar()
     from datasets import load_dataset
 
-    return load_dataset(data_name, subset=subset, split=split_name, **kwargs)
+    return load_dataset(data_name, **kwargs)

@@ -46,3 +46,5 @@ class DefaultDataContainer(Enum):
     """
 
     DATA_CONTAINER = "BaseDataContainer"
+    # TODO
+    DUMMY_DATA_CONTAINER = "DummyDataContainer"

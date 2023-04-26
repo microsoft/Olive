@@ -9,7 +9,7 @@ from olive.data_container.constants import DataComponentType, DefaultDataCompone
 from olive.data_container.registry import Registry
 
 
-@Registry.register(DataComponentType.DATALOADER, name=DefaultDataComponent.DATALOADER)
+@Registry.register(DataComponentType.DATALOADER, name=DefaultDataComponent.DATALOADER.value)
 def default_dataloader(dataset, batch_size=1, **kwargs):
     return DataLoader(dataset, batch_size=batch_size, **kwargs)
 

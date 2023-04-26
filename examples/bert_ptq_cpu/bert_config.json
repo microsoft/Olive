@@ -79,13 +79,6 @@
             "type": "OrtTransformersOptimization",
             "config": {"model_type": "bert"}
         },
-        "quantization": {
-            "type": "OnnxQuantization",
-            "config": {
-                "user_script": "user_script.py",
-                "dataloader_func": "glue_calibration_reader"
-            }
-        },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
@@ -107,7 +100,23 @@
         },
         "evaluator": "common_evaluator",
         "host": "local_system",
-        "clean_cache": true,
+        "clean_cache": false,
         "cache_dir": "cache"
+    },
+    "data_container": {
+        "my_container": {
+            "name": "glue",
+            "type": "HuggingfaceContainer",
+            "config": {
+                "task_type": "text-classification",
+                "model_name": "Intel/bert-base-uncased-mrpc",
+                "data_name": "glue",
+                "subset_name": "mrpc",
+                "split_name": "validation",
+                "input_cols": ["sentence1", "sentence2"],
+                "label_col": "label",
+                "batch_size": 1
+            }
+        }
     }
 }

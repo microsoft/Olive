@@ -5,7 +5,7 @@
 from pydantic import BaseModel
 
 from olive.data_container.config import DataContainerConfig
-from olive.data_container.constants import DataContainerType, DefaultDataComponent, DefaultDataContainer
+from olive.data_container.constants import DataContainerType, DefaultDataContainer
 from olive.data_container.registry import Registry
 
 
@@ -16,68 +16,27 @@ class BaseContainer(BaseModel):
     """
 
     config: DataContainerConfig = DataContainerConfig()
-    _dataset: str = DefaultDataComponent.DATASET.value
-    _pre_process: str = DefaultDataComponent.PRE_PROCESS.value
-    _post_process: str = DefaultDataComponent.POST_PROCESS.value
-    _dataloder: str = DefaultDataComponent.DATALOADER.value
 
-    def get_params(self, components_name):
-        """
-        Get the parameters of the data container.
-
-        Args:
-            components_name (str): the name of the data container component.
-            **kwargs: the keyword arguments.
-
-        Returns:
-            dict: the parameters of the data container.
-        """
-        return self.config.components[components_name].params
-
-    @property
     def dataset(self):
         """
-        Get the dataset of the data container.
-
-        Returns:
-            Dataset: the dataset of the data container.
+        Run dataset
         """
-        if self.config.components.dataset.name is not None:
-            return self.config.components.dataset.name
-        return Registry.get_dataset_component(self._dataset)
+        return self.config.dataset(self.config.dataset_params)
 
-    @property
     def pre_process(self):
         """
-        Get the pre-process of the data container.
-
-        Returns:
-            PreProcess: the pre-process of the data container.
+        Run pre_process
         """
-        if self.config.components.pre_process.name is not None:
-            return self.config.components.pre_process.name
-        return Registry.get_pre_process_component(self._pre_process)
+        return self.config.pre_process(self.config.pre_process_params)
 
-    @property
     def post_process(self):
         """
-        Get the post-process of the data container.
-
-        Returns:
-            PostProcess: the post-process of the data container.
+        Run post_process
         """
-        if self.config.components.post_process.name is not None:
-            return self.config.components.post_process.name
-        return Registry.get_post_process_component(self._post_process)
+        return self.config.post_process(self.config.post_process_params)
 
-    @property
-    def dataloder(self):
+    def dataloader(self):
         """
-        Get the dataloader of the data container.
-
-        Returns:
-            DataLoader: the dataloader of the data container.
+        Run dataloader
         """
-        if self.config.components.dataloader.name is not None:
-            return self.config.components.dataloader.name
-        return Registry.get_dataloader_component(self._dataloder)
+        return self.config.dataloader(self.config.dataloader_params)

@@ -8,7 +8,7 @@ from olive.data_container.constants import DataComponentType, DefaultDataCompone
 from olive.data_container.registry import Registry
 
 
-@Registry.register(DataComponentType.POST_PROCESS, DefaultDataComponent.POST_PROCESS.value)
+@Registry.register(DataComponentType.PRE_PROCESS, DefaultDataComponent.PRE_PROCESS.value)
 def pre_process(data):
     """Pre-process data.
 
@@ -22,8 +22,8 @@ def pre_process(data):
     return data
 
 
-@Registry.register(DataComponentType.POST_PROCESS)
-def huggingface_pre_process(dataset, model_name, input_cols, label_cols, batched=True, **kwargs):
+@Registry.register(DataComponentType.PRE_PROCESS)
+def huggingface_pre_process(dataset, model_name, input_cols, label_cols, **kwargs):
     """Pre-process data.
 
     Args:
@@ -37,19 +37,24 @@ def huggingface_pre_process(dataset, model_name, input_cols, label_cols, batched
 
     def _tokenizer_and_align_labels(examples):
         tokenizer = AutoTokenizer.from_pretrained(model_name)
+        # debug
+        kwargs = {}
         tokenized_inputs = tokenizer(
-            *examples[input_cols],
-            padding=True,
-            truncation=True,
-            **kwargs,
+            *[examples[input_col] for input_col in input_cols],
+            padding=kwargs.get("padding", True),
+            truncation=kwargs.get("truncation", True),
+            is_split_into_words=kwargs.get("is_split_into_words", False),
+            add_special_tokens=kwargs.get("add_special_tokens", True),
         )
         # TODO: support multiple label columns if needed
         tokenized_inputs["label"] = examples[label_cols[0]]
         return tokenized_inputs
 
+    # output type is list
     tokenized_datasets = dataset.map(
         _tokenizer_and_align_labels,
-        batched=batched,
+        batched=kwargs.get("batched", True),
         remove_columns=dataset.column_names,
     )
+    tokenized_datasets.set_format("torch", output_all_columns=True)
     return tokenized_datasets

@@ -8,6 +8,7 @@ from typing import List, Union
 from pydantic import BaseModel, validator
 
 from olive.common.config_utils import ConfigBase, validate_config
+from olive.data_container.config import DataContainerConfig
 from olive.evaluator.accuracy import AccuracyBase
 from olive.evaluator.metric_config import LatencyMetricConfig, MetricGoal, get_user_config_class
 
@@ -53,6 +54,7 @@ class Metric(ConfigBase):
     goal: MetricGoal = None
     metric_config: ConfigBase = None
     user_config: ConfigBase
+    data_container: DataContainerConfig = DataContainerConfig()
 
     @validator("sub_type", always=True, pre=True)
     def validate_sub_type(cls, v, values):

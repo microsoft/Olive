@@ -22,6 +22,8 @@ def evaluate_accuracy(model: OliveModel, metric: Metric, device: Device = Device
     Evaluate model accuracy according to config, return accuracy metrics
     """
     dataloader, post_func, _ = get_user_config(metric.user_config)
+    dc = metric.data_container.to_data_container()
+    print(dc)
 
     preds = []
     targets = []

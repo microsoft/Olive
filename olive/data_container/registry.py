@@ -6,7 +6,7 @@
 import logging
 from typing import Union
 
-from olive.data_container.constants import DataComponentType, DataContainerType
+from olive.data_container.constants import DataComponentType, DataContainerType, DefaultDataContainer
 
 logger = logging.getLogger(__name__)
 
@@ -61,23 +61,9 @@ class Registry:
         return cls._REGISTRY[sub_type][name]
 
     @classmethod
-    def get_component(cls, name: str):
-        """
-        Get a component class from the registry
-
-        Args:
-            component_type (DataComponentType): the type of the component
-            name (str): the name of the component
-
-        Returns:
-            Type: the component class
-        """
-        try:
-            return cls._REGISTRY[DataContainerType.DATA_CONTAINER][name]
-        except KeyError:
-            error_msg = f"Component {name} is not registered in {DataContainerType.DATA_CONTAINER.value}"
-            logger.error(error_msg)
-            raise KeyError(error_msg)
+    def get_component(cls, component, name: str):
+        """ """
+        return cls._REGISTRY[component][name]
 
     @classmethod
     def get_dataset_component(cls, name: str):
@@ -139,4 +125,5 @@ class Registry:
         Returns:
             Dict[str, Type]: the data container classes
         """
+        name = name or DefaultDataContainer.DATA_CONTAINER.value
         return cls._REGISTRY[DataContainerType.DATA_CONTAINER][name]
