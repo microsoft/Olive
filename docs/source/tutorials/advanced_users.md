@@ -23,7 +23,16 @@ model can be loaded from file or using a model loader function. For a complete o
 ```python
 from olive.models import PytorchModel
 
-input_model = PyTorchModel(model_path="resnet.pt", is_file=True)
+input_model = PyTorchModel(
+    model_path="resnet.pt",
+    is_file=True,
+    io_config={
+        "input_names": ["input"],
+        "input_shapes": [[1, 3, 32, 32]],
+        "output_names": ["output"]
+    },
+    dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}}
+)
 ```
 
 ### Host and Target Systems
@@ -100,10 +109,6 @@ from olive.passes.olive_pass import create_pass_from_dict
 
 # Onnx conversion pass
 onnx_conversion_config = {
-    "input_names": ["input"],
-    "input_shapes": [[1, 3, 32, 32]],
-    "output_names": ["output"],
-    "dynamic_axes": {"input": {0: "batch_size"}, "output": {0: "batch_size"}},
     "target_opset": 13,
 }
 onnx_conversion_pass = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
