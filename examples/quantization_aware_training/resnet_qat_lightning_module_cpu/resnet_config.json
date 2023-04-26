@@ -4,7 +4,7 @@
         "type": "PyTorchModel",
         "config": {
             "model_path": "models/resnet_trained_for_cifar10.pt",
-            "is_file": true
+            "model_storage_kind": "file"
         }
     },
     "systems": {
