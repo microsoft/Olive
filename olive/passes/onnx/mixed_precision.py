@@ -1,12 +1,13 @@
-
 import logging
 from typing import Any, Dict, List
+
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
+
 
 class OrtMixedPrecision(Pass):
     """Convert model to mixed precision."""
@@ -17,7 +18,9 @@ class OrtMixedPrecision(Pass):
     def _default_config() -> Dict[str, PassConfigParam]:
         config = {
             "op_block_list": PassConfigParam(
-                type_=List[str], default_value=["SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization", "Relu", "Add"], description="List of op types to leave as float32"
+                type_=List[str],
+                default_value=["SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization", "Relu", "Add"],
+                description="List of op types to leave as float32",
             ),
         }
         config.update(get_external_data_config())
@@ -25,7 +28,7 @@ class OrtMixedPrecision(Pass):
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
         """Convert model to mixed precision.
-           It detects whether original model has fp16 precision weights, and set parameters for float16 conversion automatically.
+        It detects whether original model has fp16 precision weights, and set parameters for float16 conversion automatically.
         """
         from onnxruntime.transformers.float16 import float_to_float16_max_diff
 
@@ -76,12 +79,13 @@ class OrtMixedPrecision(Pass):
         }
 
         logger.info(f"auto_mixed_precision parameters: {parameters}")
-        fp16_model = self._convert_float_to_float16(model=model.load_model(), use_symbolic_shape_infer=True, **parameters)
+        fp16_model = self._convert_float_to_float16(
+            model=model.load_model(), use_symbolic_shape_infer=True, **parameters
+        )
         output_model_path = ONNXModel.resolve_path(output_model_path)
         config = self._config_class(**config)
         return model_proto_to_olive_model(fp16_model, output_model_path, config.dict(), model.name)
-        
-        
+
     def _convert_float_to_float16(self, model, use_symbolic_shape_infer=True, **kwargs):
         """Convert a model to half (default) or mixed precision.
             To use mixed precision, user need specify which graph inputs, outputs, operator type
@@ -89,10 +93,10 @@ class OrtMixedPrecision(Pass):
 
             By default, we use symbolic shape inference to get shape and type information.
             If not, ONNX shape inference will be used.
-            
+
             Note that symbolic/ONNX shape inference might fail, and the conversion might not proceed
             without shape and type information.
-            
+
         Args:
             use_symbolic_shape_infer (bool, optional): use symbolic shape inference instead of onnx shape inference.
                                                    Defaults to True.
@@ -109,7 +113,7 @@ class OrtMixedPrecision(Pass):
         """
         from onnxruntime.transformers.float16 import convert_float_to_float16
         from onnxruntime.transformers.shape_infer_helper import SymbolicShapeInferenceHelper
-            
+
         if "keep_io_types" not in kwargs:
             kwargs["keep_io_types"] = True
 

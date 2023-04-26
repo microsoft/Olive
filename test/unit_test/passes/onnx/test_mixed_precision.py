@@ -1,11 +1,12 @@
-from pathlib import Path
 import tempfile
+from pathlib import Path
+from test.unit_test.utils import get_onnx_model
+
 from olive.model import ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.mixed_precision import OrtMixedPrecision
 from olive.systems.local import LocalSystem
-from test.unit_test.utils import get_onnx_model
 
 
 def test_ort_mixed_precision_pass():
