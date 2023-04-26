@@ -170,7 +170,15 @@ class Footprint:
                 return rls
         return rls
 
-    def plot_pareto_frontier(self, index=None):
+    def plot_pareto_frontier(self, index=None, save_path=None, is_show=True, save_format="html"):
+        """
+        plot pareto frontier with plotly
+        :param index: the index of the metrics to be shown in the pareto frontier chart
+        :param save_path: the path to save the pareto frontier chart
+        :param is_show: whether to show the pareto frontier chart
+        :param save_format: the format of the pareto frontier chart, can be "html" or "image"
+        """
+        assert save_path is not None or is_show, "you must specify the save path or set is_show to True"
         if index is None:
             assert len(self.nodes) > 0, "you can not plot pareto frontier with empty nodes"
             index = [0, 1]
@@ -232,7 +240,19 @@ class Footprint:
         )
         size_params = {"width": 1000, "height": 600}
         fig.update_layout(xaxis_title=metric_column[index[0]], yaxis_title=metric_column[index[1]], **size_params)
-        fig.show()
+
+        if save_path:
+            try:
+                if save_format == "html":
+                    save_path = f"{save_path}.html" if not str(save_path).endswith(".html") else save_path
+                    fig.write_html(save_path)
+                elif save_format == "image":
+                    save_path = f"{save_path}.png" if not str(save_path).endswith(".png") else save_path
+                    fig.write_image(save_path)
+            except ValueError as e:
+                logger.error(f"Failed to save the pareto frontier chart to {save_path} with error {e}")
+        if is_show:
+            fig.show()
 
     def trace_back_run_history(self, model_id):
         """
