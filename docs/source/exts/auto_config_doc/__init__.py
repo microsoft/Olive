@@ -40,6 +40,7 @@ class AutoConfigDirective(Directive):
             output_model_type = stringify_annotation(output_model_type).replace("olive.model.", "")
             lines += ["", f"**Output:** {stringify_annotation(output_model_type)}"]
 
+        # TODO: Use default accelerator spec for Passes when it is implemented
         default_config = auto_config_class.default_config()
         for key in default_config:
             param = default_config[key]

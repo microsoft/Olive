@@ -4,7 +4,7 @@
         "type": "PyTorchModel",
         "config": {
             "model_path": "models/resnet_trained_for_cifar10.pt",
-            "is_file": true
+            "model_storage_kind": "file"
         }
     },
     "systems": {
@@ -17,7 +17,8 @@
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
                     "conda_file_path": "conda.yaml"
-                }
+                },
+                "is_dev": true
             }
         }
     },

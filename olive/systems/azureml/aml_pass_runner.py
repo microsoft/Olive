@@ -28,6 +28,7 @@ def parse_pass_args(pass_type, raw_args):
 
     parser = argparse.ArgumentParser(f"{pass_type} pass args")
 
+    # TODO: get accelerator specs from args when it is implemented
     # parse pass args
     for param, param_config in pass_class.default_config().items():
         if param_config.is_path:

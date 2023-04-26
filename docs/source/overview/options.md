@@ -33,7 +33,7 @@ case insensitive.
 
     - `name: [str]` The name of the model.
 
-    - `is_file: [Boolean]` True if the model path points to a single model file which can be loaded directly. False: if there are external data files/folders that need to be loaded together with the model file.
+    - `model_storage_kind: [str]` Identify the model storage kind. It could be 'file', 'folder', 'azureml'.
 
     - `model_loader: [str]` The name of the function provided by the user to load the model. The function should take the model path as
     input and return the loaded model.
@@ -56,7 +56,7 @@ Please find the detailed config options from following table for each model type
     "type": "PyTorchModel",
     "config": {
         "model_path": null,
-        "is_file": false,
+        "model_storage_kind": "folder",
         "model_loader": "load_pytorch_origin_model",
         "model_script": "user_script.py"
     }
@@ -156,7 +156,7 @@ in `systems`. If it is a dictionary, it contains the system information. If not 
                 "name": "accuracy",
                 "type": "accuracy",
                 "sub_type": "accuracy_score",
-                "is_first_priority": true,
+                "priority_rank": 1,
                 "user_config":{
                     "post_processing_func": "post_process",
                     "user_script": "user_script.py",
@@ -168,6 +168,7 @@ in `systems`. If it is a dictionary, it contains the system information. If not 
                 "name": "latency",
                 "type": "latency",
                 "sub_type": "avg",
+                "priority_rank": 2,
                 "user_config":{
                     "user_script": "user_script.py",
                     "dataloader_func": "create_dataloader",
