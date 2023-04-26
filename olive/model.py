@@ -185,16 +185,14 @@ class ONNXModel(ONNXModelBase):
         model_path: str = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
-        is_file: bool = True,
-        is_aml_model: bool = False,
+        model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
     ):
         super().__init__(
             model_path=model_path,
             name=name,
             version=version,
-            is_file=is_file,
-            is_aml_model=is_aml_model,
+            model_storage_kind=model_storage_kind,
             inference_settings=inference_settings,
         )
         self.io_config = None
@@ -529,8 +527,7 @@ class DistributedOnnxModel(ONNXModelBase):
             model_path=None,
             name=name,
             version=version,
-            is_file=False,
-            is_aml_model=False,
+            model_storage_kind=ModelStorageKind.LocalFolder,
         )
         self.model_filepaths = model_filepaths
 
