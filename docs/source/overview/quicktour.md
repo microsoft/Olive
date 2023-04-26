@@ -51,7 +51,16 @@ You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOMode
     "type": "PyTorchModel",
     "config": {
         "model_path": "resnet.pt",
-        "model_storage_kind": "file"
+        "model_storage_kind": "file",
+        "io_config": {
+            "input_names": ["input"],
+            "input_shapes": [[1, 3, 32, 32]],
+            "output_names": ["output"],
+            "dynamic_axes": {
+                "input": {"0": "batch_size"},
+                "output": {"0": "batch_size"}
+            }
+        }
     }
 }
 ```
@@ -122,13 +131,6 @@ let us first convert the pytorch model to ONNX and quantize it.
 "onnx_conversion": {
     "type": "OnnxConversion",
     "config": {
-        "input_names": ["input"],
-        "input_shapes": [[1, 3, 32, 32]],
-        "output_names": ["output"],
-        "dynamic_axes": {
-            "input": {"0": "batch_size"},
-            "output": {"0": "batch_size"}
-        },
         "target_opset": 13
     },
     "host": {"type": "LocalSystem"}
@@ -161,7 +163,16 @@ python -m olive.workflows.run --config config.json
         "type": "PyTorchModel",
         "config": {
             "model_path": "resnet.pt",
-            "model_storage_kind": "file"
+            "model_storage_kind": "file",
+            "io_config": {
+                "input_names": ["input"],
+                "input_shapes": [[1, 3, 32, 32]],
+                "output_names": ["output"],
+                "dynamic_axes": {
+                    "input": {"0": "batch_size"},
+                    "output": {"0": "batch_size"}
+                }
+            }
         }
     },
     "systems": {
@@ -189,13 +200,6 @@ python -m olive.workflows.run --config config.json
         "onnx_conversion": {
             "type": "OnnxConversion",
             "config": {
-                "input_names": ["input"],
-                "input_shapes": [[1, 3, 32, 32]],
-                "output_names": ["output"],
-                "dynamic_axes": {
-                    "input": {"0": "batch_size"},
-                    "output": {"0": "batch_size"}
-                },
                 "target_opset": 13
             },
             "host": {"type": "LocalSystem"}

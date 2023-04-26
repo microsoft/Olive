@@ -13,36 +13,14 @@ The user might not have a model ready in the ONNX format. `OnnxConversion` conve
 Please refer to [OnnxConversion](onnx_conversion) for more details about the pass and its config parameters.
 
 ### Example Configuration
-a. Provide input shapes
 ```json
  {
     "type": "OnnxConversion",
     "config": {
-        "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-        "input_shapes": [[1, 128], [1, 128], [1, 128]],
-        "input_types": ["int64", "int64", "int64"],
-        "output_names": ["output"],
         "target_opset": 13
     }
  }
 ```
-
-b. Provide custom input tensor function
-```json
-{
-    "type": "OnnxConversion",
-    "config": {
-        "user_script": "user_script.py",
-        "input_tensor_func": "create_input_tensors",
-        "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-        "output_names": ["output"],
-        "target_opset": 13
-    }
-}
-```
-
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert_ptq_cpu/user_script.py)
-for an example implementation of `"user_script.py"` and `"create_input_tensors"`.
 
 ## Model Optimizer
 `OnnxModelOptimizer` optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
