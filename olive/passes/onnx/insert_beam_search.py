@@ -26,9 +26,10 @@ class InsertBeamSearchPass(Pass):
         }
         return {}
 
-    def chain_model(self, encoder_model, decoder_model, model_config, options):
-        encoder_model.graph.name = "e subgraph" # FIXME : Use "name_prefix" from CompositeModel 
-        decoder_model.graph.name = "d subgraph" # FIXME : Use "name_prefix" from CompositeModel
+    def chain_model(self, model_A, model_A_name, model_B, model_B_name, model_config, options):
+        # Chain two models (model_A and model_B) by inserting beam search op in between.
+        model_A.graph.name = model_A_name + " subgraph"
+        model_B.graph.name = model_B_name + " subgraph"
 
         beam_inputs = [
             "input_features",
@@ -90,11 +91,11 @@ class InsertBeamSearchPass(Pass):
 
         # Initializers/opsets
         # Delete shared data between decoder/encoder and move to larger graph initializers
-        initializers = get_shared_initializers(encoder_model, decoder_model)
+        initializers = get_shared_initializers(model_A, model_B)
         node.attribute.extend(
             [
-                helper.make_attribute("decoder", decoder_model.graph),
-                helper.make_attribute("encoder", encoder_model.graph),
+                helper.make_attribute(model_B_name, model_B.graph),
+                helper.make_attribute(model_A_name, model_A.graph),
             ]
         )
         opset_import = [helper.make_opsetid(domain="com.microsoft", version=1), helper.make_opsetid(domain="", version=17)]
@@ -104,9 +105,9 @@ class InsertBeamSearchPass(Pass):
 
         return beam_model
 
-    def add_attention_mask(self, model):
+    def add_attention_mask(self, model, mask_name):
         mask = helper.make_tensor_value_info(
-            "encoder_attention_mask", TensorProto.INT32, shape=["batch", "feature_size", "sequence"]
+            mask_name, TensorProto.INT32, shape=["batch", "feature_size", "sequence"]
         )
         model.graph.input.insert(1, mask)
 
@@ -122,14 +123,14 @@ class InsertBeamSearchPass(Pass):
         # the two components to chain together when there are more than 2 components in the composite model.
 
         # Load encoder/decoder and insert necessary (but unused) graph inputs expected by BeamSearch op
-        encoder_model = model.get_model_component(0)
-        decoder_model = model.get_model_component(1)
-        self.add_attention_mask(encoder_model)
-        self.add_attention_mask(decoder_model)
+        model_A = model.get_model_component(0)
+        model_B = model.get_model_component(1)
+        self.add_attention_mask(model_A, model_A.name + "_attention_mask")
+        self.add_attention_mask(model_B, model_B.name + "_attention_mask")
 
         model_config = model.get_hf_config_from_pretrained() # FIXME : Get WhisperConfig.from_pretrained(args.model_name_or_path)
 
-        combined_model = self.chain_model(encoder_model, decoder_model, model_config, config)
+        combined_model = self.chain_model(model_A, model_A.name, model_B, model_B.name, model_config, config)
 
         # save the model to the output path and return the model
         output_model_path = ONNXModel.resolve_path(output_model_path)
