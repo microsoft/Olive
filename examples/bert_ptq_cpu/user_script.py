@@ -13,7 +13,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 disable_progress_bar()
 
 
-def create_input_tensors():
+def create_input_tensors(model):
     return {
         "input_ids": torch.ones(1, 128, dtype=torch.int64),
         "attention_mask": torch.ones(1, 128, dtype=torch.int64),

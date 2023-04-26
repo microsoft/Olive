@@ -13,7 +13,7 @@ import onnx
 import torch
 from pydantic import validator
 
-from olive.common.config_utils import ConfigBase, serialize_to_json
+from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
 from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework
@@ -125,6 +125,48 @@ class ModelConfig(ConfigBase):
 
     def create_model(self):
         return REGISTRY[self.type.lower()](**self.config)
+
+
+class IOConfig(ConfigBase):
+    input_names: List[str]
+    input_shapes: List[List[int]] = None
+    input_types: List[str] = None
+    output_names: List[str]
+    output_shapes: List[List[int]] = None
+    output_types: List[str] = None
+    dynamic_axes: Dict[str, Dict[int, str]] = None
+
+    @validator("input_shapes", "input_types")
+    def check_input_shapes(cls, v, values):
+        if not v:
+            return v
+
+        if "input_names" not in values:
+            raise ValueError("Invalid input_names")
+        if len(v) != len(values["input_names"]):
+            raise ValueError("input_names and input_shapes must have the same length")
+        return v
+
+    @validator("output_shapes", "output_types")
+    def check_output_shapes(cls, v, values):
+        if not v:
+            return v
+
+        if "output_names" not in values:
+            raise ValueError("Invalid output_names")
+        if len(v) != len(values["output_names"]):
+            raise ValueError("output_names and output_shapes must have the same length")
+        return v
+
+    @validator("dynamic_axes")
+    def convert_dynamic_axes(cls, v):
+        if not v:
+            return v
+
+        dynamic_axes = v
+        for k, v in dynamic_axes.items():
+            dynamic_axes[k] = {int(kk): vv for kk, vv in v.items()}
+        return dynamic_axes
 
 
 class ONNXModelBase(OliveModel):
@@ -302,6 +344,11 @@ class ONNXModel(ONNXModelBase):
                 # get name, type, shape
                 name = io.name
                 tensor_type = io.type.tensor_type
+                if tensor_type.elem_type == 0:
+                    # sequence type
+                    # TODO: add support for different types
+                    # refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424
+                    tensor_type = io.type.sequence_type.elem_type.tensor_type
                 data_type = str(tensor_dtype_to_np_dtype(tensor_type.elem_type))
                 shape = [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
 
@@ -323,9 +370,11 @@ class PyTorchModel(OliveModel):
         name: Optional[str] = None,
         version: Optional[int] = None,
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFolder,
-        model_loader=None,
-        model_script=None,
-        script_dir=None,
+        model_loader: Union[str, Callable] = None,
+        model_script: Union[str, Path] = None,
+        script_dir: Union[str, Path] = None,
+        io_config: Union[Dict[str, Any], IOConfig] = None,
+        dummy_inputs_func: Union[str, Callable] = None,
     ):
         if not (
             isinstance(model_loader, Callable)
@@ -350,6 +399,12 @@ class PyTorchModel(OliveModel):
             model_storage_kind=model_storage_kind,
         )
 
+        # io config for conversion to onnx
+        self.io_config = validate_config(io_config, IOConfig) if io_config else None
+        self.dummy_inputs_func = dummy_inputs_func
+
+        self.dummy_inputs = None
+
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
             return self.model
@@ -369,6 +424,41 @@ class PyTorchModel(OliveModel):
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
         return self.load_model().eval()
 
+    # TODO: remove this method once we have olive datasets implemented.
+    # The dataset should be able to provide the dummy inputs.
+    def get_dummy_inputs(self):
+        """
+        Return a dummy input for the model.
+        """
+        if self.dummy_inputs is not None:
+            return self.dummy_inputs
+
+        assert self.dummy_inputs_func or (
+            self.io_config and self.io_config.input_shapes
+        ), "dummy_inputs_func or io_config.input_shapes must be provided to get dummy input"
+
+        if self.dummy_inputs_func is not None:
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
+        else:
+            str_to_type = {
+                "float32": torch.float32,
+                "float16": torch.float16,
+                "int32": torch.int32,
+                "int64": torch.int64,
+                "int8": torch.int8,
+                "bool": torch.bool,
+            }
+            input_types = self.io_config.input_types or ["float32"] * len(self.io_config.input_shapes)
+            dummy_inputs = []
+            for shape, dtype in zip(self.io_config.input_shapes, input_types):
+                dummy_inputs.append(torch.zeros(shape, dtype=str_to_type[dtype]))
+            dummy_inputs = tuple(dummy_inputs) if len(dummy_inputs) > 1 else dummy_inputs[0]
+
+        self.dummy_inputs = dummy_inputs
+
+        return dummy_inputs
+
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
         config["config"].update(
@@ -376,6 +466,8 @@ class PyTorchModel(OliveModel):
                 "model_loader": self.model_loader,
                 "model_script": Path(self.model_script) if self.model_script else None,
                 "script_dir": Path(self.script_dir) if self.script_dir else None,
+                "io_config": self.io_config,
+                "dummy_inputs_func": self.dummy_inputs_func,
             }
         )
         return serialize_to_json(config, check_object)
@@ -535,6 +627,7 @@ class DistributedOnnxModel(ONNXModelBase):
             name=name,
             version=version,
             model_storage_kind=ModelStorageKind.LocalFolder,
+            inference_settings=inference_settings,
         )
         self.model_filepaths = model_filepaths
 
@@ -576,7 +669,7 @@ class DistributedOnnxModel(ONNXModelBase):
         return ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
     @staticmethod
-    def get_execution_providers(self, device: Device):
+    def get_execution_providers(device: Device):
         import onnxruntime as ort
 
         available_providers = ort.get_available_providers()
@@ -589,6 +682,18 @@ class DistributedOnnxModel(ONNXModelBase):
                     eps.append(ep)
 
         return eps if eps else available_providers
+
+    def to_json(self, check_object: bool = False):
+        config = {
+            "type": self.__class__.__name__,
+            "config": {
+                "model_filepaths": self.model_filepaths,
+                "name": self.name,
+                "version": self.version,
+                "inference_settings": self.inference_settings,
+            },
+        }
+        return serialize_to_json(config, check_object=check_object)
 
 
 class CompositeOnnxModel(OliveModel):

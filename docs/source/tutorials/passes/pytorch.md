@@ -19,8 +19,6 @@ a. Run QAT training with customized training loop.
 {
     "type": "QuantizationAwareTraining",
     "config":{
-        "input_shapes": [[1, 128], [1, 128], [1, 128]],
-        "input_types": ["int64", "int64", "int64"],
         "user_script": "user_script.py",
         "training_loop_func": "training_loop_func"
     }
@@ -35,7 +33,6 @@ b. Run QAT training with PyTorch Lightning.
 {
     "type": "QuantizationAwareTraining",
     "config":{
-        "input_shapes": [[1, 3, 32, 32]],
         "user_script": "user_script.py",
         "num_epochs": 5,
         "ptl_data_module": "PTLDataModule",
@@ -53,7 +50,6 @@ c. Run QAT training with default training loop.
 {
     "type": "QuantizationAwareTraining",
     "config":{
-        "input_shapes": [[1, 3, 32, 32]],
         "user_script": "user_script.py",
         "num_epochs": 5,
         "train_dataloader_func": "create_train_dataloader",

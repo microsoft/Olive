@@ -6,7 +6,17 @@
             "model_path": "runwayml/stable-diffusion-v1-5",
             "model_storage_kind": "folder",
             "model_loader": "unet_load",
-            "model_script": "user_script.py"
+            "model_script": "user_script.py",
+            "io_config": {
+                "input_names": [ "sample", "timestep", "encoder_hidden_states", "return_dict" ],
+                "output_names": [ "out_sample" ],
+                "dynamic_axes": {
+                    "sample": {"0": "batch", "1": "channels", "2": "height", "3": "width"},
+                    "timestep": {"0": "batch"},
+                    "encoder_hidden_states": {"0": "batch", "1": "sequence"}
+                }
+            },
+            "dummy_inputs_func": "unet_conversion_inputs"
         }
     },
     "systems": {
@@ -38,15 +48,6 @@
         "convert": {
             "type": "OnnxConversion",
             "config": {
-                "user_script": "user_script.py",
-                "input_names": [ "sample", "timestep", "encoder_hidden_states", "return_dict" ],
-                "input_tensor_func": "unet_conversion_inputs",
-                "output_names": [ "out_sample" ],
-                "dynamic_axes": {
-                    "sample": {"0": "batch", "1": "channels", "2": "height", "3": "width"},
-                    "timestep": {"0": "batch"},
-                    "encoder_hidden_states": {"0": "batch", "1": "sequence"}
-                },
                 "target_opset": 14,
                 "save_as_external_data": true,
                 "all_tensors_to_one_file": true,
