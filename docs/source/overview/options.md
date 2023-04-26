@@ -44,7 +44,7 @@ case insensitive.
     - `model_script: [str]` The name of the script provided by the user to assist with model loading.
 
     - `model_metadata: [str]` The model related metadata, which is used only for PyTorch model for extensibility. The supported PyTorch
-    model metadata includes `hf_model_name`, `hf_model_loader` and `hf_task_type`.
+    model metadata includes `hf_model_name` and `hf_task_type`.
 
 Please find the detailed config options from following table for each model type:
 
