@@ -170,6 +170,12 @@ class Footprint:
                 return rls
         return rls
 
+    def plot_pareto_frontier_to_html(self, index=None, save_path=None, is_show=False):
+        self.plot_pareto_frontier(index, save_path, is_show, "html")
+
+    def plot_pareto_frontier_to_image(self, index=None, save_path=None, is_show=False):
+        self.plot_pareto_frontier(index, save_path, is_show, "image")
+
     def plot_pareto_frontier(self, index=None, save_path=None, is_show=True, save_format="html"):
         """
         plot pareto frontier with plotly

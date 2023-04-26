@@ -330,8 +330,8 @@ class Engine:
             pf_footprints.update_nodes(top_ranked_nodes)
 
         pf_footprints.to_file(output_dir / f"{prefix_output_name}pareto_frontier_footprints.json")
-        pf_footprints.plot_pareto_frontier(
-            save_path=output_dir / f"{prefix_output_name}pareto_frontier_footprints_chart.html", is_show=False
+        pf_footprints.plot_pareto_frontier_to_html(
+            save_path=output_dir / f"{prefix_output_name}pareto_frontier_footprints_chart.html"
         )
 
         if packaging_config:
