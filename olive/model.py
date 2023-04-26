@@ -419,9 +419,8 @@ class PyTorchModel(OliveModel):
         if self.model_loader is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
-        elif self.hf_model_name and self.hf_model_loader:
-            model_loader = huggingface_model_loader(self.hf_model_loader)
-            model = model_loader(self.hf_model_name)
+        elif self.hf_model_name and self.hf_task_type:
+            model = load_huggingface_model_from_task(self.hf_task_type, self.hf_model_name)
         else:
             if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
                 model = torch.load(self.model_path)
@@ -508,13 +507,6 @@ class PyTorchModel(OliveModel):
             }
         )
         return serialize_to_json(config, check_object)
-
-    @property
-    def hf_model_loader(self):
-        if self.model_metadata:
-            return self.model_metadata.get("hf_model_loader", None)
-        else:
-            return None
 
     @property
     def hf_model_name(self):
@@ -653,6 +645,34 @@ class OpenVINOModel(OliveModel):
             device = "MYRIAD"
         compiled_model = ie.compile_model(model=model_pot, device_name=device.upper())
         return compiled_model
+
+
+def load_huggingface_model_from_task(task, name):
+    from transformers import AutoModel
+    from transformers.pipelines import check_task
+
+    task_results = check_task(task)
+    assert isinstance(task_results, tuple)
+    if len(task_results) == 2:
+        targeted_task = task_results[0]
+    elif len(task_results) == 3:
+        targeted_task = task_results[1]
+    else:
+        raise ValueError("unsupported transfomers version")
+
+    model_class = {"pt": targeted_task["pt"]}
+    class_tuple = ()
+    class_tuple = class_tuple + model_class.get("pt", (AutoModel,))
+
+    model = None
+    for model_class in class_tuple:
+        try:
+            model = model_class.from_pretrained(name)
+            return model
+        except (OSError, ValueError):
+            continue
+
+    return model
 
 
 def huggingface_model_loader(model_loader):
