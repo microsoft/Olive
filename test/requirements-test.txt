@@ -9,3 +9,5 @@ openvino-dev
 psutil
 pytorch_lightning
 torchvision
+pandas
+plotly

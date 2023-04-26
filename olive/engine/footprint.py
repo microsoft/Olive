@@ -57,9 +57,12 @@ class Footprint:
         objective_dict: dict = None,
         is_marked_pareto_frontier: bool = False,
     ):
-        self.nodes = nodes if nodes is not None else {}
-        self.objective_dict = objective_dict if objective_dict is not None else {}
+        self.nodes = nodes or {}
+        self.objective_dict = objective_dict or {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
+
+    def is_multi_objective(self):
+        return len(self.objective_dict) > 1
 
     def record_objective_dict(self, objective_dict):
         self.objective_dict = objective_dict
@@ -162,11 +165,15 @@ class Footprint:
             if not self._is_empty_metric(v.metrics):
                 for index in indices:
                     if isinstance(index, str):
-                        assert index in v.metrics.value, f"the metric {index} is not in the metrics"
-                        rls.append(index)
+                        if index in v.metrics.value:
+                            rls.append(index)
+                        else:
+                            logger.error(f"the metric {index} is not in the metrics")
                     if isinstance(index, int):
-                        assert index < len(v.metrics.value), f"the index {index} is out of range"
-                        rls.append(list(v.metrics.value.keys())[index])
+                        if index < len(v.metrics.value):
+                            rls.append(list(v.metrics.value.keys())[index])
+                        else:
+                            logger.error(f"the index {index} is out of range")
                 return rls
         return rls
 
@@ -185,11 +192,11 @@ class Footprint:
         :param save_format: the format of the pareto frontier chart, can be "html" or "image"
         """
         assert save_path is not None or is_show, "you must specify the save path or set is_show to True"
-        if index is None:
-            assert len(self.nodes) > 0, "you can not plot pareto frontier with empty nodes"
-            index = [0, 1]
+
+        index = index or [0, 1]
         self.mark_pareto_frontier()
         nodes_to_be_plotted = self.get_candidates()
+
         if not nodes_to_be_plotted:
             logger.warning("there is no candidate to be plotted.")
             return
