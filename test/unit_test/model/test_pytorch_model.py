@@ -50,6 +50,4 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         )
         olive_predict_result = [olive_model.config.id2label[olive_result]]
 
-        print(mlflow_predict_result, olive_predict_result)
-
         assert mlflow_predict_result == olive_predict_result
