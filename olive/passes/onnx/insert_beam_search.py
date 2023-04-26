@@ -117,9 +117,13 @@ class InsertBeamSearchPass(Pass):
         if not isinstance(model, CompositeOnnxModel):
             raise ValueError
         
+        # FIXME : Right now we are assuming that the composite model only has two components and beam search op 
+        # will be inserted in between them to chain the components. We should add a config option to identify
+        # the two components to chain together when there are more than 2 components in the composite model.
+
         # Load encoder/decoder and insert necessary (but unused) graph inputs expected by BeamSearch op
-        encoder_model = model.component[0] # FIXME : CompositeOnnxModel method to retrive individual components
-        decoder_model = model.component[1] # FIXME : CompositeOnnxModel method to retrive individual components
+        encoder_model = model.get_model_component(0)
+        decoder_model = model.get_model_component(1)
         self.add_attention_mask(encoder_model)
         self.add_attention_mask(decoder_model)
 

@@ -780,6 +780,9 @@ class CompositeOnnxModel(OliveModel):
     def get_model_components(self):
         return self.model_components
 
+    def get_model_component(self, idx):
+        return self.model_components[idx]
+
     def to_json(self, check_object: bool = False):
         json_dict = {
             "type": self.__class__.__name__,
