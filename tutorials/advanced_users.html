@@ -140,7 +140,7 @@ approach may not take advantage of all the features supported by standard Olive 
 model can be loaded from file or using a model loader function. For a complete of available models and their initialization options, refer to <a class="reference internal" href="../api/models.html#models"><span class="std std-ref">OliveModels api reference</span></a>.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.models</span> <span class="kn">import</span> <span class="n">PytorchModel</span>
 
-<span class="n">input_model</span> <span class="o">=</span> <span class="n">PyTorchModel</span><span class="p">(</span><span class="n">model_path</span><span class="o">=</span><span class="s2">&quot;resnet.pt&quot;</span><span class="p">,</span> <span class="n">is_file</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">input_model</span> <span class="o">=</span> <span class="n">PyTorchModel</span><span class="p">(</span><span class="n">model_path</span><span class="o">=</span><span class="s2">&quot;resnet.pt&quot;</span><span class="p">,</span> <span class="n">model_storage_kind</span><span class="o">=</span><span class="n">ModelStorageKind</span><span class="o">.</span><span class="n">LocalFile</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>

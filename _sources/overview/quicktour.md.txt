@@ -51,7 +51,7 @@ You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOMode
     "type": "PyTorchModel",
     "config": {
         "model_path": "resnet.pt",
-        "is_file": true
+        "model_storage_kind": "file"
     }
 }
 ```
@@ -161,7 +161,7 @@ python -m olive.workflows.run --config config.json
         "type": "PyTorchModel",
         "config": {
             "model_path": "resnet.pt",
-            "is_file": true
+            "model_storage_kind": "file"
         }
     },
     "systems": {
@@ -260,8 +260,7 @@ Here is an example of that:
             "config": {
                 "model_path": "path",
                 "name": null,
-                "is_file": true,
-                "is_aml_model": false,
+                "model_storage_kind": "file",
                 "version": null,
                 "inference_settings": null
             }

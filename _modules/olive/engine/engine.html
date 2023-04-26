@@ -128,7 +128,7 @@
 <span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">FootprintNode</span><span class="p">,</span> <span class="n">FootprintNodeMetric</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">OliveEvaluatorConfig</span>
-<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">OliveModel</span>
+<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">ModelStorageKind</span><span class="p">,</span> <span class="n">OliveModel</span>
 <span class="kn">from</span> <span class="nn">olive.packaging.packaging_config</span> <span class="kn">import</span> <span class="n">PackagingConfig</span>
 <span class="kn">from</span> <span class="nn">olive.packaging.packaging_generator</span> <span class="kn">import</span> <span class="n">generate_output_artifacts</span>
 <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
@@ -377,7 +377,10 @@
                         <span class="n">message</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; with search point </span><span class="si">{</span><span class="n">pass_search_point</span><span class="si">}</span><span class="s2">&quot;</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
 
-                <span class="k">if</span> <span class="n">input_model</span><span class="o">.</span><span class="n">is_aml_model</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_for_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">)</span><span class="o">.</span><span class="n">system_type</span> <span class="o">==</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span><span class="p">:</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="n">input_model</span><span class="o">.</span><span class="n">model_storage_kind</span> <span class="o">==</span> <span class="n">ModelStorageKind</span><span class="o">.</span><span class="n">AzureMLModel</span>
+                    <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_for_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">)</span><span class="o">.</span><span class="n">system_type</span> <span class="o">==</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span>
+                <span class="p">):</span>
                     <span class="n">error_msg</span> <span class="o">=</span> <span class="s2">&quot;Azure ML model only supports AzureMLSystem for Olive Pass&quot;</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">error_msg</span><span class="p">)</span>
                     <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">error_msg</span><span class="p">)</span>
