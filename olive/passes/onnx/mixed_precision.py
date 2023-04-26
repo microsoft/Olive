@@ -12,8 +12,6 @@ logger = logging.getLogger(__name__)
 class OrtMixedPrecision(Pass):
     """Convert model to mixed precision."""
 
-    _requires_user_script = True
-
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
         config = {
