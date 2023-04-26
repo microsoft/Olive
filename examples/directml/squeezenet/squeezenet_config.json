@@ -6,7 +6,12 @@
             "model_path": null,
             "is_file": false,
             "model_loader": "load_pytorch_origin_model",
-            "model_script": "user_script.py"
+            "model_script": "user_script.py",
+            "io_config": {
+                "input_names": [ "input_image" ],
+                "input_shapes": [ [ 1, 3, 224, 224 ] ],
+                "output_names": [ "output" ]
+            }
         }
     },
     "systems": {
@@ -38,9 +43,6 @@
         "torch_to_onnx": {
             "type": "OnnxConversion",
             "config": {
-                "input_names": [ "input_image" ],
-                "input_shapes": [ [ 1, 3, 224, 224 ] ],
-                "output_names": [ "output" ],
                 "target_opset": 13
             }
         },

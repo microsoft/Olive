@@ -6,7 +6,13 @@
             "model_path": "runwayml/stable-diffusion-v1-5",
             "is_file": false,
             "model_loader": "vae_encoder_load",
-            "model_script": "user_script.py"
+            "model_script": "user_script.py",
+            "io_config": {
+                "input_names": [ "sample", "return_dict" ],
+                "output_names": [ "latent_sample" ]
+            },
+            "dummy_inputs_func": "vae_encoder_conversion_inputs",
+            "dynamic_axes": { "sample": { "0": "batch", "1": "channels", "2": "height", "3": "width" } }
         }
     },
     "systems": {
@@ -38,11 +44,6 @@
         "convert": {
             "type": "OnnxConversion",
             "config": {
-                "user_script": "user_script.py",
-                "input_names": [ "sample", "return_dict" ],
-                "input_tensor_func": "vae_encoder_conversion_inputs",
-                "output_names": [ "latent_sample" ],
-                "dynamic_axes": { "sample": { "0": "batch", "1": "channels", "2": "height", "3": "width" } },
                 "target_opset": 14
             }
         },

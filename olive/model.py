@@ -12,7 +12,7 @@ import onnx
 import torch
 from pydantic import validator
 
-from olive.common.config_utils import ConfigBase, serialize_to_json
+from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
 from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework
@@ -106,6 +106,31 @@ class ModelConfig(ConfigBase):
 
     def create_model(self):
         return REGISTRY[self.type.lower()](**self.config)
+
+
+class IOConfig(ConfigBase):
+    input_names: List[str]
+    input_shapes: List[List[int]] = None
+    input_types: List[str] = None
+    output_names: List[str]
+    output_shapes: List[List[int]] = None
+    output_types: List[str] = None
+
+    @validator("input_shapes", "input_types")
+    def check_input_shapes(cls, v, values):
+        if "input_names" not in values:
+            raise ValueError("Invalid input_names")
+        if len(v) != len(values["input_names"]):
+            raise ValueError("input_names and input_shapes must have the same length")
+        return v
+
+    @validator("output_shapes", "output_types")
+    def check_output_shapes(cls, v, values):
+        if "output_names" not in values:
+            raise ValueError("Invalid output_names")
+        if len(v) != len(values["output_names"]):
+            raise ValueError("output_names and output_shapes must have the same length")
+        return v
 
 
 class ONNXModelBase(OliveModel):
@@ -309,9 +334,12 @@ class PyTorchModel(OliveModel):
         version: Optional[int] = None,
         is_file: bool = False,
         is_aml_model: bool = False,
-        model_loader=None,
-        model_script=None,
-        script_dir=None,
+        model_loader: Union[str, Callable] = None,
+        model_script: Union[str, Path] = None,
+        script_dir: Union[str, Path] = None,
+        io_config: Union[Dict[str, Any], IOConfig] = None,
+        dummy_input_func: Union[str, Callable] = None,
+        dynamic_axes: Dict[str, Dict[int, str]] = None,
     ):
         if not (
             isinstance(model_loader, Callable)
@@ -337,6 +365,20 @@ class PyTorchModel(OliveModel):
             is_aml_model=is_aml_model,
         )
 
+        # io config for conversion to onnx
+        self.io_config = validate_config(io_config, IOConfig)
+        self.dummy_inputs_func = dummy_input_func
+
+        # dynamic axes for conversion to onnx
+        self.dynamic_axes = dynamic_axes
+        # during json serialization, the int keys in dynamic_axes will be converted to str
+        # so we need to convert them back to int when deserializing
+        if self.dynamic_axes:
+            for k, v in self.dynamic_axes.items():
+                self.dynamic_axes[k] = {int(kk): vv for kk, vv in v.items()}
+
+        self.dummy_inputs = None
+
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
             return self.model
@@ -356,6 +398,39 @@ class PyTorchModel(OliveModel):
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
         return self.load_model().eval()
 
+    def get_dummy_inputs(self):
+        """
+        Return a dummy input for the model.
+        """
+        if self.dummy_inputs is not None:
+            return self.dummy_inputs
+
+        assert self.dummy_inputs_func or (
+            self.io_config and self.io_config.input_shapes
+        ), "dummy_input_func or io_config.input_shapes must be provided to get dummy input"
+
+        if self.dummy_inputs_func is not None:
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            self.dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
+        else:
+            str_to_type = {
+                "float32": torch.float32,
+                "float16": torch.float16,
+                "int32": torch.int32,
+                "int64": torch.int64,
+                "int8": torch.int8,
+                "bool": torch.bool,
+            }
+            input_types = self.io_config.input_types or ["float32"] * len(self.io_config.input_shapes)
+            dummy_inputs = []
+            for shape, dtype in zip(self.io_config.input_shapes, input_types):
+                dummy_inputs.append(torch.zeros(shape, dtype=str_to_type[dtype]))
+            dummy_inputs = tuple(dummy_inputs) if len(dummy_inputs) > 1 else dummy_inputs[0]
+
+        self.dummy_inputs = dummy_inputs
+
+        return dummy_inputs
+
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
         config["config"].update(
@@ -363,6 +438,9 @@ class PyTorchModel(OliveModel):
                 "model_loader": self.model_loader,
                 "model_script": Path(self.model_script) if self.model_script else None,
                 "script_dir": Path(self.script_dir) if self.script_dir else None,
+                "io_config": self.io_config,
+                "dummy_input_func": self.dummy_inputs_func,
+                "dynamic_axes": self.dynamic_axes,
             }
         )
         return serialize_to_json(config, check_object)
