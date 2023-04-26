@@ -58,7 +58,11 @@ def pytorch_model_loader(model_path):
 
 
 def get_pytorch_model():
-    return PyTorchModel(model_loader=pytorch_model_loader, model_path=None)
+    return PyTorchModel(
+        model_loader=pytorch_model_loader,
+        model_path=None,
+        io_config={"input_names": ["input"], "output_names": ["output"]},
+    )
 
 
 def get_pytorch_model_dummy_input():
@@ -125,10 +129,7 @@ def get_latency_metric(lat_subtype):
 
 
 def get_onnxconversion_pass(ignore_pass_config=True):
-    onnx_conversion_config = {
-        "input_names": ["input"],
-        "output_names": ["output"],
-    }
+    onnx_conversion_config = {}
     p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
     if ignore_pass_config:
         return p
