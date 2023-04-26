@@ -28,7 +28,8 @@ class OrtMixedPrecision(Pass):
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
         """Convert model to mixed precision.
-        It detects whether original model has fp16 precision weights, and set parameters for float16 conversion automatically.
+        It detects whether original model has fp16 precision weights,
+        and set parameters for float16 conversion automatically.
         """
         from onnxruntime.transformers.float16 import float_to_float16_max_diff
 
@@ -41,7 +42,8 @@ class OrtMixedPrecision(Pass):
         # logits is the first output
         logits_output_name = model.graph().output[0].name
 
-        # We use the weight in last MatMul node to detect whether the model is stored with float16 weights from training.
+        # We use the weight in last MatMul node to detect
+        # whether the model is stored with float16 weights from training.
         is_weight_fp16_precision = False
         output_name_to_node = model.output_name_to_node()
         assert logits_output_name in output_name_to_node
@@ -67,7 +69,8 @@ class OrtMixedPrecision(Pass):
         keep_io_types = []
         node_block_list = []
         if (not is_weight_fp16_precision) and (last_matmul_node is not None):
-            # When original weight is float32 precision, keep logits and last MatMul in float32 could get better precision.
+            # When original weight is float32 precision,
+            # keep logits and last MatMul in float32 could get better precision.
             keep_io_types = [logits_output_name]
             node_block_list = [last_matmul_node.name]
 
