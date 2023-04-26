@@ -28,5 +28,5 @@ class ModelFileFormat(str, Enum):
     PYTORCH_TORCH_SCRIPT = "PyTorch.TorchScript"
     TENSORFLOW_PROTOBUF = "TensorFlow.Protobuf"
     TENSORFLOW_SAVED_MODEL = "TensorFlow.SavedModel"
-    SNEP_DLC = "SNPE.DLC"
+    SNPE_DLC = "SNPE.DLC"
     OPENVINO_IR = "OpenVINO.IR"
