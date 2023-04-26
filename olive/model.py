@@ -418,7 +418,7 @@ class PyTorchModel(OliveModel):
 
         assert self.dummy_inputs_func or (
             self.io_config and self.io_config.input_shapes
-        ), "dummy_input_funcs or io_config.input_shapes must be provided to get dummy input"
+        ), "dummy_inputs_func or io_config.input_shapes must be provided to get dummy input"
 
         if self.dummy_inputs_func is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
@@ -450,7 +450,7 @@ class PyTorchModel(OliveModel):
                 "model_script": Path(self.model_script) if self.model_script else None,
                 "script_dir": Path(self.script_dir) if self.script_dir else None,
                 "io_config": self.io_config,
-                "dummy_input_funcs": self.dummy_inputs_func,
+                "dummy_inputs_func": self.dummy_inputs_func,
                 "dynamic_axes": self.dynamic_axes,
             }
         )
