@@ -14,7 +14,6 @@ from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
 
 
 def test_aml_model():
-
     # ------------------------------------------------------------------
     # Azure ML System
     aml_compute = "cpu-cluster"
@@ -32,16 +31,23 @@ def test_aml_model():
 
     # ------------------------------------------------------------------
     # Input model
-    pytorch_model = PyTorchModel(name="bert_glue", is_file=True, is_aml_model=True, version=10)
+    pytorch_model = PyTorchModel(
+        name="bert_glue",
+        is_file=True,
+        is_aml_model=True,
+        version=10,
+        io_config={
+            "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+            "input_shapes": [[1, 128], [1, 128], [1, 128]],
+            "input_types": ["int64", "int64", "int64"],
+            "output_names": ["output"],
+        },
+    )
 
     # ------------------------------------------------------------------
     # Onnx conversion pass
     # config can be a dictionary
     onnx_conversion_config = {
-        "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-        "input_shapes": [[1, 128], [1, 128], [1, 128]],
-        "input_types": ["int64", "int64", "int64"],
-        "output_names": ["output"],
         "target_opset": 13,
     }
     with tempfile.TemporaryDirectory() as tempdir:
