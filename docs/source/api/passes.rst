@@ -45,6 +45,11 @@ OnnxQuantization
 ----------------
 .. autoconfigclass:: olive.passes.OnnxQuantization
 
+.. _insert_beam_search
+InsertBeamSearchPass
+--------------------
+.. autoconfigclass:: olive.passes.InsertBeamSearchPass
+
 .. _quantization_aware_training:
 QuantizationAwareTraining
 -------------------------

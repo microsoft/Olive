@@ -56,6 +56,18 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
 }
 ```
 
+## Insert Beam Serch Op
+
+`InsertBeamSearchPass` chains two model components (for example, encoder and decoder) togther by inserting beam search op in between them.
+
+### Example Configuration
+```json
+{
+    "type": "InsertBeamSearchPass",
+    "config": {"no_repeat_ngram_size": 4}
+}
+```
+
 ## Post Training Quantization (PTQ)
 [Quantization][1] is a technique to compress deep learning models by reducing the precision of the model weights from 32 bits to 8 bits. This
 technique is used to reduce the memory footprint and improve the inference performance of the model. Quantization can be applied to the
