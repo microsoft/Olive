@@ -79,10 +79,7 @@ class TestAzureMLSystem:
     @patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory")
     def test_run_pass(self, mock_tempdir, mock_create_pipeline, mock_retry_func, mock_copy):
         # setup
-        onnx_conversion_config = {
-            "input_names": ["input"],
-            "output_names": ["output"],
-        }
+        onnx_conversion_config = {}
         p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
         olive_model = get_pytorch_model()
         output_model_path = "output_model_path"

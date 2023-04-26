@@ -58,7 +58,16 @@ Please find the detailed config options from following table for each model type
         "model_path": null,
         "model_storage_kind": "folder",
         "model_loader": "load_pytorch_origin_model",
-        "model_script": "user_script.py"
+        "model_script": "user_script.py",
+        "io_config": {
+            "input_names": ["input"],
+            "input_shapes": [[1, 3, 32, 32]],
+            "output_names": ["output"],
+            "dynamic_axes": {
+                "input": {"0": "batch_size"},
+                "output": {"0": "batch_size"}
+            }
+        }
     }
 }
 ```
@@ -232,13 +241,6 @@ Please also find the detailed options from following table for each pass:
     "onnx_conversion": {
         "type": "OnnxConversion",
         "config": {
-            "input_names": ["input"],
-            "input_shapes": [[1, 3, 32, 32]],
-            "output_names": ["output"],
-            "dynamic_axes": {
-                "input": {"0": "batch_size"},
-                "output": {"0": "batch_size"}
-            },
             "target_opset": 13
         }
     },
