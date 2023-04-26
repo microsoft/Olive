@@ -395,7 +395,7 @@ class PyTorchModel(OliveModel):
         self.model_script = model_script
         self.script_dir = script_dir
         self.model = None
-        self.model_metadata = {} if model_metadata is None else model_metadata
+        self.model_metadata = model_metadata or {}
 
         super().__init__(
             framework=Framework.PYTORCH,
