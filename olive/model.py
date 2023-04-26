@@ -33,6 +33,7 @@ class ModelStorageKind(str, Enum):
     LocalFile = "file"
     LocalFolder = "folder"
     AzureMLModel = "azureml"
+    HuggingFaceModel = "huggingface"
 
     def __str__(self) -> str:
         return self.value
@@ -376,22 +377,26 @@ class PyTorchModel(OliveModel):
         script_dir: Union[str, Path] = None,
         io_config: Union[Dict[str, Any], IOConfig] = None,
         dummy_inputs_func: Union[str, Callable] = None,
+        model_metadata=None,
     ):
         if not (
             isinstance(model_loader, Callable)
             or (isinstance(model_loader, str) and model_script)
             or model_path
             or model_storage_kind == ModelStorageKind.AzureMLModel
+            or model_storage_kind == ModelStorageKind.HuggingFaceModel
         ):
             raise ValueError(
-                "model_path or model_storage_kind/AzureMLModel is required "
-                "since model_loader is not callable or model_script is not provided"
+                "model_path or ModelStorageKind.AzureMLModel or ModelStorageKind.HuggingFaceModel is required since"
+                " model_loader is not callable or model_script is not provided"
             )
 
         self.model_loader = model_loader
         self.model_script = model_script
         self.script_dir = script_dir
         self.model = None
+        self.model_metadata = {} if model_metadata is None else model_metadata
+
         super().__init__(
             framework=Framework.PYTORCH,
             model_file_format=model_file_format,
@@ -414,6 +419,9 @@ class PyTorchModel(OliveModel):
         if self.model_loader is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
+        elif self.hf_model_name and self.hf_model_loader:
+            model_loader = huggingface_model_loader(self.hf_model_loader)
+            model = model_loader(self.hf_model_name)
         else:
             if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
                 model = torch.load(self.model_path)
@@ -500,6 +508,27 @@ class PyTorchModel(OliveModel):
             }
         )
         return serialize_to_json(config, check_object)
+
+    @property
+    def hf_model_loader(self):
+        if self.model_metadata:
+            return self.model_metadata.get("hf_model_loader", None)
+        else:
+            return None
+
+    @property
+    def hf_model_name(self):
+        if self.model_metadata:
+            return self.model_metadata.get("hf_model_name", None)
+        else:
+            return None
+
+    @property
+    def hf_task_type(self):
+        if self.model_metadata:
+            return self.model_metadata.get("hf_task_type", None)
+        else:
+            return None
 
 
 class SNPEModel(OliveModel):

@@ -33,12 +33,18 @@ case insensitive.
 
     - `name: [str]` The name of the model.
 
+    - `model_file_format: [str]` The model file format. The flag is only used by PyTorchModel. The supported formats are
+    `PyTorch.EntireModel`, `PyTorch.StateDict` and `PyTorch.TorchScript`. The default value is `PyTorch.EntireModel`.
+
     - `model_storage_kind: [str]` Identify the model storage kind. It could be 'file', 'folder', 'azureml'.
 
     - `model_loader: [str]` The name of the function provided by the user to load the model. The function should take the model path as
     input and return the loaded model.
 
     - `model_script: [str]` The name of the script provided by the user to assist with model loading.
+
+    - `model_metadata: [str]` The model related metadata, which is used only for PyTorch model for extensibility. The supported PyTorch
+    model metadata includes `hf_model_name`, `hf_model_loader` and `hf_task_type`.
 
 Please find the detailed config options from following table for each model type:
 
