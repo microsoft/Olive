@@ -4,14 +4,12 @@
 # --------------------------------------------------------------------------
 from typing import Any, Dict
 
-import numpy as np
-import onnx
 from onnx import TensorProto, helper
 from onnxruntime.transformers.convert_generation import get_shared_initializers
 
 from olive.model import CompositeOnnxModel, OliveModel, ONNXModel
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 
 
@@ -27,7 +25,7 @@ class InsertBeamSearchPass(Pass):
                 description=" If set to int > 0, all ngrams of that size can only occur once.",
             ),
         }
-        return {}
+        return config
 
     def chain_model(self, model_A, model_A_name, model_B, model_B_name, model_config, options):
         # Chain two models (model_A and model_B) by inserting beam search op in between.
