@@ -16,7 +16,7 @@ from pydantic import validator
 from olive.common.config_utils import ConfigBase, serialize_to_json
 from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
-from olive.constants import Framework
+from olive.constants import Framework, ModelFileFormat
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
 from olive.systems.common import Device
@@ -49,6 +49,7 @@ class OliveModel(ABC):
     def __init__(
         self,
         framework: Framework,
+        model_file_format: ModelFileFormat,
         model_path: Optional[Union[Path, str]] = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
@@ -69,6 +70,7 @@ class OliveModel(ABC):
             self.model_path = model_path
         self.version = version
         self.framework = framework
+        self.model_file_format = model_file_format
         self.name = name
         self.model_storage_kind = model_storage_kind
 
@@ -135,6 +137,7 @@ class ONNXModelBase(OliveModel):
     ):
         super().__init__(
             framework=Framework.ONNX,
+            model_file_format=ModelFileFormat.ONNX,
             model_path=model_path,
             name=name,
             version=version,
@@ -313,6 +316,7 @@ class PyTorchModel(OliveModel):
     def __init__(
         self,
         model_path: str = None,
+        model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
         name: Optional[str] = None,
         version: Optional[int] = None,
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFolder,
@@ -337,6 +341,7 @@ class PyTorchModel(OliveModel):
         self.model = None
         super().__init__(
             framework=Framework.PYTORCH,
+            model_file_format=model_file_format,
             model_path=model_path,
             name=name,
             version=version,
@@ -351,10 +356,15 @@ class PyTorchModel(OliveModel):
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
         else:
-            try:
+            if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
                 model = torch.load(self.model_path)
-            except (RuntimeError, ModuleNotFoundError):
+            elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
                 model = torch.jit.load(self.model_path)
+            elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
+                raise ValueError("Please use customized model loader to load state dict model.")
+            else:
+                raise ValueError(f"Unsupported model file format: {self.model_file_format}")
+
         self.model = model
 
         return model
@@ -388,6 +398,7 @@ class SNPEModel(OliveModel):
     ):
         super().__init__(
             framework=Framework.SNPE,
+            model_file_format=ModelFileFormat.SNPE_DLC,
             model_path=model_path,
             name=name,
             version=version,
@@ -425,12 +436,14 @@ class TensorFlowModel(OliveModel):
     def __init__(
         self,
         model_path: str = None,
+        model_file_format: ModelFileFormat = ModelFileFormat.TENSORFLOW_SAVED_MODEL,
         name: Optional[str] = None,
         model_storage_kind=ModelStorageKind.LocalFolder,
     ):
         super().__init__(
             model_path=model_path,
             framework=Framework.TENSORFLOW,
+            model_file_format=model_file_format,
             name=name,
             model_storage_kind=model_storage_kind,
         )
@@ -453,6 +466,7 @@ class OpenVINOModel(OliveModel):
         super().__init__(
             model_path=model_path,
             framework=Framework.OPENVINO,
+            model_file_format=ModelFileFormat.OPENVINO_IR,
             name=name,
             version=version,
             model_storage_kind=model_storage_kind,
@@ -528,6 +542,7 @@ class DistributedOnnxModel(ONNXModelBase):
             name=name,
             version=version,
             model_storage_kind=ModelStorageKind.LocalFolder,
+            inference_settings=inference_settings,
         )
         self.model_filepaths = model_filepaths
 
