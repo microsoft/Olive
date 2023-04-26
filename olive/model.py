@@ -3,6 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
+import shutil
+import tempfile
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from enum import Enum
@@ -360,6 +363,8 @@ class PyTorchModel(OliveModel):
                 model = torch.load(self.model_path)
             elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
                 model = torch.jit.load(self.model_path)
+            elif self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
+                model = self.load_mlflow_model()
             elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
                 raise ValueError("Please use customized model loader to load state dict model.")
             else:
@@ -368,6 +373,22 @@ class PyTorchModel(OliveModel):
         self.model = model
 
         return model
+
+    def load_mlflow_model(self):
+        from transformers import AutoModel
+
+        tmp_dir = tempfile.TemporaryDirectory(prefix="mlflow_tmp")
+        tmp_dir_path = Path(tmp_dir.name)
+
+        shutil.copytree(os.path.join(self.model_path, "data/model"), tmp_dir_path, dirs_exist_ok=True)
+        shutil.copytree(os.path.join(self.model_path, "data/config"), tmp_dir_path, dirs_exist_ok=True)
+        shutil.copytree(os.path.join(self.model_path, "data/tokenizer"), tmp_dir_path, dirs_exist_ok=True)
+        loaded_model = AutoModel.from_pretrained(tmp_dir_path)
+        loaded_model.eval()
+
+        tmp_dir.cleanup()
+
+        return loaded_model
 
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
         return self.load_model().eval()
