@@ -1,0 +1,55 @@
+import unittest
+
+import mlflow
+import pandas as pd
+import transformers
+from azureml.evaluate import mlflow as aml_mlflow
+
+from olive.model import PyTorchModel
+
+
+class TestPyTorchMLflowModel(unittest.TestCase):
+    def setup(self):
+        self.model_path = "mlflow_test"
+        self.task = "text-classification"
+        self.architecture = "distilbert-base-uncased-finetuned-sst-2-english"
+        self.original_model = transformers.AutoModelForSequenceClassification.from_pretrained(self.architecture)
+        self.tokenizer = transformers.DistilBertTokenizerFast.from_pretrained(self.architecture)
+        self.input_text = ["Today was an amazing day!"]
+        self.hf_conf = {
+            "task_type": self.task,
+        }
+        aml_mlflow.hftransformers.save_model(
+            self.original_model,
+            self.model_path,
+            tokenizer=self.tokenizer,
+            config=self.original_model.config,
+            hf_conf=self.hf_conf,
+        )
+
+    def test_load_model(self):
+        self.setup()
+
+        olive_model = PyTorchModel(model_path=self.model_path, model_file_format="PyTorch.MLflow").load_model()
+        mlflow_model = mlflow.pyfunc.load_model(self.model_path)
+
+        sample_input = {"inputs": {"input_string": self.input_text}}
+        mlflow_predict_result = mlflow_model.predict(pd.DataFrame.from_dict(sample_input)).values[0]
+
+        encoded_input = self.tokenizer(
+            self.input_text,
+            padding="max_length",
+            truncation=True,
+            max_length=128,
+            return_tensors="pt",
+        )
+        olive_result = (
+            olive_model(input_ids=encoded_input["input_ids"], attention_mask=encoded_input["attention_mask"])
+            .logits.argmax()
+            .item()
+        )
+        olive_predict_result = [olive_model.config.id2label[olive_result]]
+
+        print(mlflow_predict_result, olive_predict_result)
+
+        assert mlflow_predict_result == olive_predict_result

@@ -14,6 +14,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 import onnx
 import torch
+import yaml
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, serialize_to_json
@@ -375,15 +376,19 @@ class PyTorchModel(OliveModel):
         return model
 
     def load_mlflow_model(self):
-        from transformers import AutoModel
-
         tmp_dir = tempfile.TemporaryDirectory(prefix="mlflow_tmp")
         tmp_dir_path = Path(tmp_dir.name)
 
         shutil.copytree(os.path.join(self.model_path, "data/model"), tmp_dir_path, dirs_exist_ok=True)
         shutil.copytree(os.path.join(self.model_path, "data/config"), tmp_dir_path, dirs_exist_ok=True)
         shutil.copytree(os.path.join(self.model_path, "data/tokenizer"), tmp_dir_path, dirs_exist_ok=True)
-        loaded_model = AutoModel.from_pretrained(tmp_dir_path)
+
+        with open(os.path.join(self.model_path, "MLmodel"), "r") as fp:
+            mlflow_data = yaml.safe_load(fp)
+            hf_pretrained_class = mlflow_data["flavors"]["hftransformers"]["hf_pretrained_class"]
+
+        model_loader = huggingface_model_loader(hf_pretrained_class)
+        loaded_model = model_loader(tmp_dir_path)
         loaded_model.eval()
 
         tmp_dir.cleanup()
