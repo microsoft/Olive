@@ -138,9 +138,18 @@ approach may not take advantage of all the features supported by standard Olive 
 <h2>Input Model<a class="headerlink" href="#input-model" title="Permalink to this heading">¶</a></h2>
 <p>Start by creating an instance of an OliveModel to represent the model to be optimized. Depending on the model framework, the
 model can be loaded from file or using a model loader function. For a complete of available models and their initialization options, refer to <a class="reference internal" href="../api/models.html#models"><span class="std std-ref">OliveModels api reference</span></a>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.models</span> <span class="kn">import</span> <span class="n">PytorchModel</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.models</span> <span class="kn">import</span> <span class="n">PytorchModel</span><span class="p">,</span> <span class="n">ModelStorageKind</span>
 
-<span class="n">input_model</span> <span class="o">=</span> <span class="n">PyTorchModel</span><span class="p">(</span><span class="n">model_path</span><span class="o">=</span><span class="s2">&quot;resnet.pt&quot;</span><span class="p">,</span> <span class="n">model_storage_kind</span><span class="o">=</span><span class="n">ModelStorageKind</span><span class="o">.</span><span class="n">LocalFile</span><span class="p">)</span>
+<span class="n">input_model</span> <span class="o">=</span> <span class="n">PyTorchModel</span><span class="p">(</span>
+    <span class="n">model_path</span><span class="o">=</span><span class="s2">&quot;resnet.pt&quot;</span><span class="p">,</span>
+    <span class="n">model_storage_kind</span><span class="o">=</span><span class="n">ModelStorageKind</span><span class="o">.</span><span class="n">LocalFile</span><span class="p">,</span>
+    <span class="n">io_config</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;input_names&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;input_shapes&quot;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">]],</span>
+        <span class="s2">&quot;output_names&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;dynamic_axes&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;input&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="s2">&quot;batch_size&quot;</span><span class="p">},</span> <span class="s2">&quot;output&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="s2">&quot;batch_size&quot;</span><span class="p">}}</span>
+    <span class="p">}</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -213,10 +222,6 @@ Passes available in Olive can be found at …</p>
 
 <span class="c1"># Onnx conversion pass</span>
 <span class="n">onnx_conversion_config</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;input_names&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">],</span>
-    <span class="s2">&quot;input_shapes&quot;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">]],</span>
-    <span class="s2">&quot;output_names&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">],</span>
-    <span class="s2">&quot;dynamic_axes&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;input&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="s2">&quot;batch_size&quot;</span><span class="p">},</span> <span class="s2">&quot;output&quot;</span><span class="p">:</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="s2">&quot;batch_size&quot;</span><span class="p">}},</span>
     <span class="s2">&quot;target_opset&quot;</span><span class="p">:</span> <span class="mi">13</span><span class="p">,</span>
 <span class="p">}</span>
 <span class="n">onnx_conversion_pass</span> <span class="o">=</span> <span class="n">create_pass_from_dict</span><span class="p">(</span><span class="n">OnnxConversion</span><span class="p">,</span> <span class="n">onnx_conversion_config</span><span class="p">)</span>
