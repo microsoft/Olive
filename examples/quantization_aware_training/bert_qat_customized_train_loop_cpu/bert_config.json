@@ -6,7 +6,13 @@
             "model_path": null,
             "is_file": false,
             "model_loader": "load_pytorch_origin_model",
-            "model_script": "user_script.py"
+            "model_script": "user_script.py",
+            "io_config": {
+                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                "input_shapes": [[1, 128], [1, 128], [1, 128]],
+                "input_types": ["int64", "int64", "int64"],
+                "output_names": ["output"]
+            }
         }
     },
     "systems": {
@@ -46,8 +52,6 @@
         "quantization_aware_training":{
             "type": "QuantizationAwareTraining",
             "config":{
-                "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                "input_types": ["int64", "int64", "int64"],
                 "user_script": "user_script.py",
                 "training_loop_func": "training_loop_func"
             }
@@ -55,10 +59,6 @@
         "conversion": {
             "type": "OnnxConversion",
             "config": {
-                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                "input_types": ["int64", "int64", "int64"],
-                "output_names": ["output"],
                 "target_opset": 17
             }
         },

@@ -118,6 +118,9 @@ class IOConfig(ConfigBase):
 
     @validator("input_shapes", "input_types")
     def check_input_shapes(cls, v, values):
+        if not v:
+            return v
+
         if "input_names" not in values:
             raise ValueError("Invalid input_names")
         if len(v) != len(values["input_names"]):
@@ -126,6 +129,9 @@ class IOConfig(ConfigBase):
 
     @validator("output_shapes", "output_types")
     def check_output_shapes(cls, v, values):
+        if not v:
+            return v
+
         if "output_names" not in values:
             raise ValueError("Invalid output_names")
         if len(v) != len(values["output_names"]):
@@ -312,6 +318,11 @@ class ONNXModel(ONNXModelBase):
                 # get name, type, shape
                 name = io.name
                 tensor_type = io.type.tensor_type
+                if tensor_type.elem_type == 0:
+                    # sequence type
+                    # TODO: add support for different types
+                    # refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424
+                    tensor_type = io.type.sequence_type.elem_type.tensor_type
                 data_type = str(tensor_dtype_to_np_dtype(tensor_type.elem_type))
                 shape = [dim.dim_param if dim.dim_param else dim.dim_value for dim in tensor_type.shape.dim]
 
@@ -366,7 +377,7 @@ class PyTorchModel(OliveModel):
         )
 
         # io config for conversion to onnx
-        self.io_config = validate_config(io_config, IOConfig)
+        self.io_config = validate_config(io_config, IOConfig) if io_config else None
         self.dummy_inputs_func = dummy_input_func
 
         # dynamic axes for conversion to onnx
