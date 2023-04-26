@@ -6,13 +6,14 @@ from typing import Any, Dict
 
 import numpy as np
 import onnx
+from onnx import TensorProto, helper
+from onnxruntime.transformers.convert_generation import get_shared_initializers
 
-from olive.model import CompositeOnnxModel, ONNXModel, OliveModel
+from olive.model import CompositeOnnxModel, OliveModel, ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-from onnx import TensorProto, helper
-from onnxruntime.transformers.convert_generation import get_shared_initializers
+
 
 class InsertBeamSearchPass(Pass):
     """Insert Beam Search Op."""
@@ -21,7 +22,9 @@ class InsertBeamSearchPass(Pass):
     def _default_config() -> Dict[str, PassConfigParam]:
         config = {
             "no_repeat_ngram_size": PassConfigParam(
-                type_=int, default_value=3, description=" If set to int > 0, all ngrams of that size can only occur once."
+                type_=int,
+                default_value=3,
+                description=" If set to int > 0, all ngrams of that size can only occur once.",
             ),
         }
         return {}
@@ -98,7 +101,10 @@ class InsertBeamSearchPass(Pass):
                 helper.make_attribute(model_A_name, model_A.graph),
             ]
         )
-        opset_import = [helper.make_opsetid(domain="com.microsoft", version=1), helper.make_opsetid(domain="", version=17)]
+        opset_import = [
+            helper.make_opsetid(domain="com.microsoft", version=1),
+            helper.make_opsetid(domain="", version=17),
+        ]
 
         beam_graph = helper.make_graph([node], "beam-search-test", graph_inputs, graph_outputs, initializers)
         beam_model = helper.make_model(beam_graph, producer_name="pytorch", opset_imports=opset_import)
@@ -106,19 +112,17 @@ class InsertBeamSearchPass(Pass):
         return beam_model
 
     def add_attention_mask(self, model, mask_name):
-        mask = helper.make_tensor_value_info(
-            mask_name, TensorProto.INT32, shape=["batch", "feature_size", "sequence"]
-        )
+        mask = helper.make_tensor_value_info(mask_name, TensorProto.INT32, shape=["batch", "feature_size", "sequence"])
         model.graph.input.insert(1, mask)
 
     def _run_for_config(self, model: OliveModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
         if isinstance(model, ONNXModel):
             return model
-        
+
         if not isinstance(model, CompositeOnnxModel):
             raise ValueError
-        
-        # FIXME : Right now we are assuming that the composite model only has two components and beam search op 
+
+        # FIXME : Right now we are assuming that the composite model only has two components and beam search op
         # will be inserted in between them to chain the components. We should add a config option to identify
         # the two components to chain together when there are more than 2 components in the composite model.
 
@@ -128,7 +132,9 @@ class InsertBeamSearchPass(Pass):
         self.add_attention_mask(model_A, model_A.name + "_attention_mask")
         self.add_attention_mask(model_B, model_B.name + "_attention_mask")
 
-        model_config = model.get_hf_config_from_pretrained() # FIXME : Get WhisperConfig.from_pretrained(args.model_name_or_path)
+        model_config = (
+            model.get_hf_config_from_pretrained()
+        )  # FIXME : Get WhisperConfig.from_pretrained(args.model_name_or_path)
 
         combined_model = self.chain_model(model_A, model_A.name, model_B, model_B.name, model_config, config)
 
