@@ -9,10 +9,10 @@
             "model_script": "user_script.py",
             "io_config": {
                 "input_names": [ "latent_sample", "return_dict" ],
-                "output_names": [ "sample" ]
+                "output_names": [ "sample" ],
+                "dynamic_axes": { "latent_sample": { "0": "batch", "1": "channels", "2": "height", "3": "width" } }
             },
-            "dummy_inputs_func": "vae_decoder_conversion_inputs",
-            "dynamic_axes": { "latent_sample": { "0": "batch", "1": "channels", "2": "height", "3": "width" } }
+            "dummy_inputs_func": "vae_decoder_conversion_inputs"
         }
     },
     "systems": {

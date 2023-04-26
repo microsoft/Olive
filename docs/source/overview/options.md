@@ -62,11 +62,11 @@ Please find the detailed config options from following table for each model type
         "io_config": {
             "input_names": ["input"],
             "input_shapes": [[1, 3, 32, 32]],
-            "output_names": ["output"]
-        },
-        "dynamic_axes": {
-            "input": {"0": "batch_size"},
-            "output": {"0": "batch_size"}
+            "output_names": ["output"],
+            "dynamic_axes": {
+                "input": {"0": "batch_size"},
+                "output": {"0": "batch_size"}
+            }
         }
     }
 }

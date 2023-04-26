@@ -9,13 +9,13 @@
             "model_script": "user_script.py",
             "io_config": {
                 "input_names": [ "clip_input", "images" ],
-                "output_names": [ "out_images", "has_nsfw_concepts" ]
+                "output_names": [ "out_images", "has_nsfw_concepts" ],
+                "dynamic_axes": {
+                    "clip_input": { "0": "batch", "1": "channels", "2": "height", "3": "width" },
+                    "images": { "0": "batch", "1": "height", "2": "width", "3": "channels" }
+                }
             },
-            "dummy_inputs_func": "safety_checker_conversion_inputs",
-            "dynamic_axes": {
-                "clip_input": { "0": "batch", "1": "channels", "2": "height", "3": "width" },
-                "images": { "0": "batch", "1": "height", "2": "width", "3": "channels" }
-            }
+            "dummy_inputs_func": "safety_checker_conversion_inputs"
         }
     },
     "systems": {

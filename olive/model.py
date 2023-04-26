@@ -127,6 +127,7 @@ class IOConfig(ConfigBase):
     output_names: List[str]
     output_shapes: List[List[int]] = None
     output_types: List[str] = None
+    dynamic_axes: Dict[str, Dict[int, str]] = None
 
     @validator("input_shapes", "input_types")
     def check_input_shapes(cls, v, values):
@@ -149,6 +150,16 @@ class IOConfig(ConfigBase):
         if len(v) != len(values["output_names"]):
             raise ValueError("output_names and output_shapes must have the same length")
         return v
+
+    @validator("dynamic_axes")
+    def convert_dynamic_axes(cls, v):
+        if not v:
+            return v
+
+        dynamic_axes = v
+        for k, v in dynamic_axes.items():
+            dynamic_axes[k] = {int(kk): vv for kk, vv in v.items()}
+        return dynamic_axes
 
 
 class ONNXModelBase(OliveModel):
@@ -357,7 +368,6 @@ class PyTorchModel(OliveModel):
         script_dir: Union[str, Path] = None,
         io_config: Union[Dict[str, Any], IOConfig] = None,
         dummy_inputs_func: Union[str, Callable] = None,
-        dynamic_axes: Dict[str, Dict[int, str]] = None,
     ):
         if not (
             isinstance(model_loader, Callable)
@@ -386,14 +396,6 @@ class PyTorchModel(OliveModel):
         self.io_config = validate_config(io_config, IOConfig) if io_config else None
         self.dummy_inputs_func = dummy_inputs_func
 
-        # dynamic axes for conversion to onnx
-        self.dynamic_axes = dynamic_axes
-        # during json serialization, the int keys in dynamic_axes will be converted to str
-        # so we need to convert them back to int when deserializing
-        if self.dynamic_axes:
-            for k, v in self.dynamic_axes.items():
-                self.dynamic_axes[k] = {int(kk): vv for kk, vv in v.items()}
-
         self.dummy_inputs = None
 
     def load_model(self, rank: int = None) -> torch.nn.Module:
@@ -415,6 +417,8 @@ class PyTorchModel(OliveModel):
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
         return self.load_model().eval()
 
+    # TODO: remove this method once we have olive datasets implemented.
+    # The dataset should be able to provide the dummy inputs.
     def get_dummy_inputs(self):
         """
         Return a dummy input for the model.
@@ -457,7 +461,6 @@ class PyTorchModel(OliveModel):
                 "script_dir": Path(self.script_dir) if self.script_dir else None,
                 "io_config": self.io_config,
                 "dummy_inputs_func": self.dummy_inputs_func,
-                "dynamic_axes": self.dynamic_axes,
             }
         )
         return serialize_to_json(config, check_object)

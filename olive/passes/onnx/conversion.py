@@ -46,13 +46,11 @@ class OnnxConversion(Pass):
         # get dummy inputs
         dummy_inputs = model.get_dummy_inputs()
 
-        # get input and output names
+        # get input and output names, and dynamic axes
         assert model.io_config, "Model IO config is not set."
         input_names = model.io_config.input_names
         output_names = model.io_config.output_names
-
-        # get dynamic axes
-        dynamic_axes = model.dynamic_axes
+        dynamic_axes = model.io_config.dynamic_axes
 
         # convert the model
         pytorch_model = model.load_model()

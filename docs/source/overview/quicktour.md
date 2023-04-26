@@ -55,11 +55,11 @@ You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOMode
         "io_config": {
             "input_names": ["input"],
             "input_shapes": [[1, 3, 32, 32]],
-            "output_names": ["output"]
-        },
-        "dynamic_axes": {
-            "input": {"0": "batch_size"},
-            "output": {"0": "batch_size"}
+            "output_names": ["output"],
+            "dynamic_axes": {
+                "input": {"0": "batch_size"},
+                "output": {"0": "batch_size"}
+            }
         }
     }
 }
@@ -167,11 +167,11 @@ python -m olive.workflows.run --config config.json
             "io_config": {
                 "input_names": ["input"],
                 "input_shapes": [[1, 3, 32, 32]],
-                "output_names": ["output"]
-            },
-            "dynamic_axes": {
-                "input": {"0": "batch_size"},
-                "output": {"0": "batch_size"}
+                "output_names": ["output"],
+                "dynamic_axes": {
+                    "input": {"0": "batch_size"},
+                    "output": {"0": "batch_size"}
+                }
             }
         }
     },

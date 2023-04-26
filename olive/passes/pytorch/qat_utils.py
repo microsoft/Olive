@@ -110,10 +110,10 @@ class QatTrainer:
         if is_master_proc():
             torch.jit.save(traced_model_converted, self.output_model_path)
         barrier()
-        # preserve the io_config, dummy_inputs_func, dynamic_axes, model_script, script_dir
+        # preserve the io_config, dummy_inputs_func, model_script, script_dir
         # from the original model
         original_config = self.model.to_json()["config"]
-        to_keep = ["io_config", "dummy_inputs_func", "dynamic_axes"]
+        to_keep = ["io_config", "dummy_inputs_func"]
         if isinstance(original_config["dummy_inputs_func"], str):
             to_keep += ["model_script", "script_dir"]
         config_to_keep = {k: original_config[k] for k in to_keep}

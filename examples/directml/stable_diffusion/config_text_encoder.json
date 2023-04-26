@@ -9,10 +9,10 @@
             "model_script": "user_script.py",
             "io_config": {
                 "input_names": [ "input_ids" ],
-                "output_names": [ "last_hidden_state", "pooler_output" ]
+                "output_names": [ "last_hidden_state", "pooler_output" ],
+                "dynamic_axes": { "input_ids": { "0": "batch", "1": "sequence" } }
             },
-            "dummy_inputs_func": "text_encoder_conversion_inputs",
-            "dynamic_axes": { "input_ids": { "0": "batch", "1": "sequence" } }
+            "dummy_inputs_func": "text_encoder_conversion_inputs"
         }
     },
     "systems": {

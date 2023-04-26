@@ -9,14 +9,14 @@
             "model_script": "user_script.py",
             "io_config": {
                 "input_names": [ "sample", "timestep", "encoder_hidden_states", "return_dict" ],
-                "output_names": [ "out_sample" ]
+                "output_names": [ "out_sample" ],
+                "dynamic_axes": {
+                    "sample": {"0": "batch", "1": "channels", "2": "height", "3": "width"},
+                    "timestep": {"0": "batch"},
+                    "encoder_hidden_states": {"0": "batch", "1": "sequence"}
+                }
             },
-            "dummy_inputs_func": "unet_conversion_inputs",
-            "dynamic_axes": {
-                "sample": {"0": "batch", "1": "channels", "2": "height", "3": "width"},
-                "timestep": {"0": "batch"},
-                "encoder_hidden_states": {"0": "batch", "1": "sequence"}
-            }
+            "dummy_inputs_func": "unet_conversion_inputs"
         }
     },
     "systems": {
