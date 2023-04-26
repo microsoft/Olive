@@ -603,6 +603,16 @@ class CompositeOnnxModel(OliveModel):
             is_file=False,
             is_aml_model=False,
         )
+
+        if isinstance(model_components[0], dict):
+            assert all(
+                [m.get("type").lower() == "onnxmodel" for m in model_components]
+            ), "All components must be ONNXModel"
+            self.model_components = [ONNXModel(**m.get("config", {})) for m in model_components]
+        else:
+            assert all([isinstance(m, ONNXModel) for m in model_components]), "All components must be ONNXModel"
+            self.model_components = model_components
+
         self.model_components = model_components
         for m in self.model_components:
             m.set_composite_parent(self)
