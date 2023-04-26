@@ -349,7 +349,7 @@ class PyTorchModel(OliveModel):
         model_script: Union[str, Path] = None,
         script_dir: Union[str, Path] = None,
         io_config: Union[Dict[str, Any], IOConfig] = None,
-        dummy_input_func: Union[str, Callable] = None,
+        dummy_inputs_func: Union[str, Callable] = None,
         dynamic_axes: Dict[str, Dict[int, str]] = None,
     ):
         if not (
@@ -378,7 +378,7 @@ class PyTorchModel(OliveModel):
 
         # io config for conversion to onnx
         self.io_config = validate_config(io_config, IOConfig) if io_config else None
-        self.dummy_inputs_func = dummy_input_func
+        self.dummy_inputs_func = dummy_inputs_func
 
         # dynamic axes for conversion to onnx
         self.dynamic_axes = dynamic_axes
@@ -418,11 +418,11 @@ class PyTorchModel(OliveModel):
 
         assert self.dummy_inputs_func or (
             self.io_config and self.io_config.input_shapes
-        ), "dummy_input_func or io_config.input_shapes must be provided to get dummy input"
+        ), "dummy_input_funcs or io_config.input_shapes must be provided to get dummy input"
 
         if self.dummy_inputs_func is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-            self.dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
+            dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
         else:
             str_to_type = {
                 "float32": torch.float32,
@@ -450,7 +450,7 @@ class PyTorchModel(OliveModel):
                 "model_script": Path(self.model_script) if self.model_script else None,
                 "script_dir": Path(self.script_dir) if self.script_dir else None,
                 "io_config": self.io_config,
-                "dummy_input_func": self.dummy_inputs_func,
+                "dummy_input_funcs": self.dummy_inputs_func,
                 "dynamic_axes": self.dynamic_axes,
             }
         )

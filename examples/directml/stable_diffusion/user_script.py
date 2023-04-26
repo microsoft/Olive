@@ -139,7 +139,7 @@ def safety_checker_load(model_name):
     return model
 
 
-def safety_checker_conversion_inputs():
+def safety_checker_conversion_inputs(model):
     return tuple(safety_checker_inputs(1, torch.float32).values())
 
 
