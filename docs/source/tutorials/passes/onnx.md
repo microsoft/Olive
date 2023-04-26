@@ -58,7 +58,7 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
 
 ## Insert Beam Serch Op
 
-`InsertBeamSearchPass` chains two model components (for example, encoder and decoder) togther by inserting beam search op in between them.
+`InsertBeamSearchPass` chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.
 
 ### Example Configuration
 ```json
