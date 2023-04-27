@@ -46,7 +46,7 @@ class InsertBeamSearchPass(Pass):
         ]
         beam_outputs = ["sequences"]
 
-        node = helper.make_node("BeamSearch", inputs=beam_inputs, outputs=beam_outputs, name="BeamSearch_zcode")
+        node = helper.make_node("BeamSearch", inputs=beam_inputs, outputs=beam_outputs, name="BeamSearch_node")
         node.domain = "com.microsoft"
         node.attribute.extend(
             [
