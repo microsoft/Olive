@@ -50,7 +50,7 @@ case insensitive.
 
         - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
 
-        - `model_config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See 
+        - `model_config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
         [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
 
 Please find the detailed config options from following table for each model type:
