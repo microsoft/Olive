@@ -849,8 +849,8 @@ class CompositeOnnxModel(OliveModel):
                 "version": self.version,
             },
         }
-        json_dict["config"]["components"] = []
+        json_dict["config"]["model_components"] = []
         for m in self.model_components:
-            json_dict["config"]["components"].append(m.to_json(check_object))
+            json_dict["config"]["model_components"].append(m.to_json(check_object))
 
         return serialize_to_json(json_dict, check_object)

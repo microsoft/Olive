@@ -12,7 +12,11 @@
                     {
                         "name": "encoder_decoder_init",
                         "io_config": {
-                            "input_names": ["encoder_input_ids", "encoder_attention_mask"],
+                            "input_names": [
+                                "encoder_input_ids",
+                                "encoder_attention_mask",
+                                "decoder_input_ids"
+                            ],
                             "dynamic_axes": {
                                 "encoder_input_ids": {
                                     "0": "batch_size",
@@ -318,6 +322,26 @@
             "config": {
                 "target_opset": 13
             }
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "whisper",
+                "num_heads": 6,
+                "hidden_size": 384
+            }
+        },
+        "onnx_dynamic_quantization": {
+            "type": "OnnxDynamicQuantization",
+            "disable_search": true,
+            "config": {
+                "weight_type": "QUInt8",
+                "per_channel": false,
+                "reduce_range": false,
+                "op_types_to_quantize": ["MatMul", "Gemm"],
+                "MatMulConstBOnly": false
+            },
+            "clean_run_cache": false
         }
     },
     "engine": {

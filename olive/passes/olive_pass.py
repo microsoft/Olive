@@ -340,7 +340,7 @@ class Pass(ABC):
         elif isinstance(model, CompositeOnnxModel):
             components = []
             for cidx, child in enumerate(model.get_model_components()):
-                component_output_path = Path(output_model_path).with_suffix("") / cidx
+                component_output_path = Path(output_model_path).with_suffix("") / str(cidx)
                 components.append(self._run_for_config(child, config, str(component_output_path)))
             return CompositeOnnxModel(components, model.name)
 
