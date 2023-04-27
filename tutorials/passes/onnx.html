@@ -88,6 +88,10 @@
 <li class="toctree-l4"><a class="reference internal" href="#id5">Example Configuration</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#mixed-precision-conversion">Mixed Precision Conversion</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id6">Example Configuration</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="pytorch.html">PyTorch related – General</a></li>
@@ -329,6 +333,36 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </pre></div>
 </div>
 <p>See <a class="reference external" href="https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion">Float16 Conversion</a> for more detailed description of the available configuration parameters.</p>
+</section>
+</section>
+<section id="mixed-precision-conversion">
+<h2>Mixed Precision Conversion<a class="headerlink" href="#mixed-precision-conversion" title="Permalink to this heading">¶</a></h2>
+<p>Converting model to mixed precision.</p>
+<p>If float16 conversion is giving poor results, you can convert most of the ops to float16 but leave some in float32. The <code class="docutils literal notranslate"><span class="pre">OrtMixedPrecision</span></code> pass finds a minimal set of ops to skip while retaining a certain level of accuracy.</p>
+<p>The default value for <code class="docutils literal notranslate"><span class="pre">op_block_list</span></code> is <code class="docutils literal notranslate"><span class="pre">[&quot;SimplifiedLayerNormalization&quot;,</span> <span class="pre">&quot;SkipSimplifiedLayerNormalization&quot;,</span> <span class="pre">&quot;Relu&quot;,</span> <span class="pre">&quot;Add&quot;]</span></code>.</p>
+<section id="id6">
+<h3>Example Configuration<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h3>
+<p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtMixedPrecision&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>b. More fine-grained control of the conversion conditions is also possible:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtMixedPrecision&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;op_block_list&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">            </span><span class="s2">&quot;Add&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="s2">&quot;LayerNormalization&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="s2">&quot;SkipLayerNormalization&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="s2">&quot;FastGelu&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="s2">&quot;EmbedLayerNormalization&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </section>
 </section>
 </section>
