@@ -162,7 +162,7 @@ to apply from user in the form of a json dictionary. In this document, we docume
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> Type of the input model. The supported types are <code class="docutils literal notranslate"><span class="pre">PyTorchModel</span></code>, <code class="docutils literal notranslate"><span class="pre">ONNXModel</span></code>, <code class="docutils literal notranslate"><span class="pre">OpenVINOModel</span></code>, and <code class="docutils literal notranslate"><span class="pre">SNPEModel</span></code>. It is
 case insensitive.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The input model config dictionary specifies following items.</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The input model config dictionary specifies following items:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">model_path:</span> <span class="pre">[str]</span></code> The model path.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">[str]</span></code> The name of the model.</p></li>
@@ -170,6 +170,15 @@ case insensitive.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">model_loader:</span> <span class="pre">[str]</span></code> The name of the function provided by the user to load the model. The function should take the model path as
 input and return the loaded model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">model_script:</span> <span class="pre">[str]</span></code> The name of the script provided by the user to assist with model loading.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hf_config:</span> <span class="pre">[Dict]</span></code> Instead of <code class="docutils literal notranslate"><span class="pre">model_path</span></code> or <code class="docutils literal notranslate"><span class="pre">model_loader</span></code>, the model can be specified using a dictionary describing a huggingface
+model. This dictionary specifies the following items:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_name:</span> <span class="pre">[str]</span></code>: This the model name of the huggingface model such as <code class="docutils literal notranslate"><span class="pre">distilbert-base-uncased</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">task:</span> <span class="pre">[str]</span></code>: This is the task type for the model such as <code class="docutils literal notranslate"><span class="pre">text-classification</span></code>. The complete list of supported task can be found
+at <a class="reference external" href="https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task">huggingface-tasks</a>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_class:</span> <span class="pre">[str]</span></code>: Instead of the <code class="docutils literal notranslate"><span class="pre">task</span></code>, the class of the model can be provided as well. Such as <code class="docutils literal notranslate"><span class="pre">DistilBertForSequenceClassification</span></code></p></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
