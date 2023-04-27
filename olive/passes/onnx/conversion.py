@@ -4,13 +4,13 @@
 # --------------------------------------------------------------------------
 import tempfile
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 import onnx
 import torch
 
 from olive.evaluator.evaluation import tensor_data_to_device
-from olive.model import ONNXModel, PyTorchModel
+from olive.model import CompositeOnnxModel, ONNXModel, PyTorchModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -42,7 +42,18 @@ class OnnxConversion(Pass):
         config.update(get_external_data_config())
         return config
 
-    def _run_for_config(self, model: PyTorchModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+    def _run_for_config(
+        self, model: PyTorchModel, config: Dict[str, Any], output_model_path: str
+    ) -> Union[ONNXModel, CompositeOnnxModel]:
+        # check if the model has components
+        if model.components:
+            onnx_models = []
+            for component_name in model.components:
+                component_model = model.get_component(component_name)
+                component_output_path = Path(output_model_path).with_suffix("") / component_name
+                onnx_models.append(self._run_for_config(component_model, config, str(component_output_path)))
+            return CompositeOnnxModel(onnx_models)
+
         # get dummy inputs
         dummy_inputs = model.get_dummy_inputs()
 

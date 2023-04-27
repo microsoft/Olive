@@ -55,3 +55,27 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         olive_predict_result = [olive_model.config.id2label[olive_result]]
 
         assert mlflow_predict_result == olive_predict_result
+
+
+class TestPyTorchHFModel(unittest.TestCase):
+    def setup(self):
+        # hf config values
+        self.task = "text-classification"
+        self.model_class = "DistilBertForSequenceClassification"
+        self.model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+
+    def test_hf_config_task(self):
+        self.setup()
+
+        olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.model_name})
+
+        pytorch_model = olive_model.load_model()
+        assert isinstance(pytorch_model, transformers.DistilBertForSequenceClassification)
+
+    def test_hf_config_model_class(self):
+        self.setup()
+
+        olive_model = PyTorchModel(hf_config={"model_class": self.model_class, "model_name": self.model_name})
+
+        pytorch_model = olive_model.load_model()
+        assert isinstance(pytorch_model, transformers.DistilBertForSequenceClassification)
