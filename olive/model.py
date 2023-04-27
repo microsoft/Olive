@@ -189,6 +189,7 @@ class HFComponent(ConfigBase):
 class HFConfig(ConfigBase):
     model_name: str
     task: str = None
+    # TODO: remove model_class and only use task
     model_class: str = None
     use_ort_implementation: bool = False
     components: List[HFComponent] = None

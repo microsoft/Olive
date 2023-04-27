@@ -68,6 +68,7 @@ def get_ort_whisper_for_conditional_generation(name: str):
     return ORTWhisperModel(encoder_decoder_init, decoder, model.config)
 
 
+# TODO: change keys to task and model_name once model_class is removed
 MODEL_CLASS_TO_ORT_IMPLEMENTATION = {"WhisperForConditionalGeneration": get_ort_whisper_for_conditional_generation}
 
 
