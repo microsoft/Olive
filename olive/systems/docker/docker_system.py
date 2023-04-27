@@ -97,7 +97,6 @@ class DockerSystem(OliveSystem):
         eval_file_mount_path, eval_file_mount_str = docker_utils.create_eval_script_mount(container_root_path)
         volumes_list.append(eval_file_mount_str)
 
-        dev_mount_path = None
         if self.is_dev:
             dev_mount_path, dev_mount_str = docker_utils.create_dev_mount(tempdir, container_root_path)
             volumes_list.append(dev_mount_str)
