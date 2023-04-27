@@ -824,11 +824,13 @@ class CompositeOnnxModel(ONNXModelBase):
         for m in self.model_components:
             m.set_composite_parent(self)
 
-    @property
     def load_model(self, rank: int = None):
         raise NotImplementedError()
 
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
+        raise NotImplementedError()
+
+    def get_default_execution_providers(self, device: Device):
         raise NotImplementedError()
 
     def get_model_components(self):
