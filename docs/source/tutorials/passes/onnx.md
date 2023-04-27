@@ -204,3 +204,35 @@ b. More fine-grained control of the conversion conditions is also possible:
 ```
 
 See [Float16 Conversion](https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion) for more detailed description of the available configuration parameters.
+
+## Mixed Precision Conversion
+Converting model to mixed precision.
+
+If float16 conversion is giving poor results, you can convert most of the ops to float16 but leave some in float32. The `OrtMixedPrecision` pass finds a minimal set of ops to skip while retaining a certain level of accuracy.
+
+The default value for `op_block_list` is `["SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization", "Relu", "Add"]`.
+
+### Example Configuration
+
+a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:
+```json
+{
+    "type": "OrtMixedPrecision"
+}
+```
+
+b. More fine-grained control of the conversion conditions is also possible:
+```json
+{
+    "type": "OrtMixedPrecision",
+    "config": {
+        "op_block_list": [
+            "Add",
+            "LayerNormalization",
+            "SkipLayerNormalization",
+            "FastGelu",
+            "EmbedLayerNormalization",
+        ]
+    }
+}
+```

@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Union
 
 import onnx
 
+from olive.common.utils import hash_string
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -319,7 +320,11 @@ class OnnxQuantization(Pass):
             del run_config[key]
 
         # preprocess the model
-        preprocessed_temp_model_path = Path(self.tmp_dir.name) / f"{Path(model.model_path).stem}_preprocessed.onnx"
+        # we hash the entire path of the input model to ensure we are not accidentally using a preprocessed model
+        # from a different model
+        preprocessed_temp_model_path = (
+            Path(self.tmp_dir.name) / f"{hash_string(str(Path(model.model_path).resolve()))}_preprocessed.onnx"
+        )
         if run_config["quant_preprocess"]:
             if not preprocessed_temp_model_path.exists():
                 # overwrite the model path with the preprocessed model path

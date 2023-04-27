@@ -137,6 +137,10 @@ def save_model(
 
     model_json = serialize_to_json(json.load(open(model_jsons[0], "r")))
 
+    if model_json["type"].lower() == "compositeonnxmodel":
+        logger.warning("Saving composite ONNX models is not supported yet.")
+        return
+
     # save model file/folder
     model_path = model_json["config"]["model_path"]
     if model_path is not None and Path(model_path).exists():

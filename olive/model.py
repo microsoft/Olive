@@ -15,12 +15,18 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import onnx
 import torch
 import yaml
+from onnx import AttributeProto, GraphProto
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
 from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework, ModelFileFormat
+from olive.hf_utils import (
+    huggingface_model_loader,
+    load_huggingface_model_from_model_class,
+    load_huggingface_model_from_task,
+)
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
 from olive.systems.common import Device
@@ -175,6 +181,30 @@ class IOConfig(ConfigBase):
         return dynamic_axes
 
 
+class HFComponent(ConfigBase):
+    name: str
+    io_config: IOConfig = None
+    dummy_inputs_func: Union[str, Callable] = None
+
+
+class HFConfig(ConfigBase):
+    model_name: str
+    task: str = None
+    # TODO: remove model_class and only use task
+    model_class: str = None
+    use_ort_implementation: bool = False
+    components: List[HFComponent] = None
+
+    @validator("model_class", always=True)
+    def task_or_model_class_required(cls, v, values):
+        if "task" not in values:
+            raise ValueError("Invalid task")
+
+        if not v and not values["task"]:
+            raise ValueError("Either task or model_class must be specified")
+        return v
+
+
 class ONNXModelBase(OliveModel):
     """
     Abstract class to manage ONNX models
@@ -244,6 +274,7 @@ class ONNXModel(ONNXModelBase):
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
     ):
+
         super().__init__(
             model_path=model_path,
             name=name,
@@ -252,6 +283,8 @@ class ONNXModel(ONNXModelBase):
             inference_settings=inference_settings,
         )
         self.io_config = None
+        self.graph = None
+        self.all_graphs: Optional[List[GraphProto]] = None
 
     @staticmethod
     def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
@@ -289,6 +322,51 @@ class ONNXModel(ONNXModelBase):
             inference_settings["execution_provider"] = self.get_default_execution_providers(device)
 
         return get_ort_inference_session(self.model_path, inference_settings)
+
+    def nodes(self):
+        for graph in self.get_all_graphs():
+            for node in graph.node:
+                yield node
+
+    def get_graph(self):
+        if self.graph is not None:
+            return self.graph
+        self.graph = self.load_model().graph
+        return self.graph
+
+    def get_all_graphs(self):
+        if self.all_graphs is not None:
+            return self.all_graphs
+        self.all_graphs = []
+        graph_queue = [self.get_graph()]
+        while graph_queue:
+            graph = graph_queue.pop(0)
+            self.all_graphs.append(graph)
+            for node in graph.node:
+                for attr in node.attribute:
+                    if attr.type == AttributeProto.AttributeType.GRAPH:
+                        assert isinstance(attr.g, GraphProto)
+                        graph_queue.append(attr.g)
+                    if attr.type == AttributeProto.AttributeType.GRAPHS:
+                        for g in attr.graphs:
+                            assert isinstance(g, GraphProto)
+                            graph_queue.append(g)
+        return self.all_graphs
+
+    def output_name_to_node(self):
+        output_name_to_node = {}
+        for node in self.nodes():
+            for output_name in node.output:
+                if output_name:  # could be empty when it is optional
+                    output_name_to_node[output_name] = node
+        return output_name_to_node
+
+    def get_initializer(self, name):
+        for graph in self.get_all_graphs():
+            for tensor in graph.initializer:
+                if tensor.name == name:
+                    return tensor
+        return None
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
@@ -383,12 +461,14 @@ class PyTorchModel(OliveModel):
         script_dir: Union[str, Path] = None,
         io_config: Union[Dict[str, Any], IOConfig] = None,
         dummy_inputs_func: Union[str, Callable] = None,
+        hf_config: Union[Dict[str, Any], HFConfig] = None,
     ):
         if not (
             isinstance(model_loader, Callable)
             or (isinstance(model_loader, str) and model_script)
             or model_path
             or model_storage_kind == ModelStorageKind.AzureMLModel
+            or hf_config
         ):
             raise ValueError(
                 "model_path or model_storage_kind/AzureMLModel is required "
@@ -414,6 +494,9 @@ class PyTorchModel(OliveModel):
 
         self.dummy_inputs = None
 
+        # huggingface config
+        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
+
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
             return self.model
@@ -421,6 +504,13 @@ class PyTorchModel(OliveModel):
         if self.model_loader is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
+        elif self.hf_config is not None:
+            if self.hf_config.task:
+                model = load_huggingface_model_from_task(self.hf_config.task, self.hf_config.model_name)
+            else:
+                model = load_huggingface_model_from_model_class(
+                    self.hf_config.model_class, self.hf_config.model_name, self.hf_config.use_ort_implementation
+                )
         else:
             if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
                 model = torch.load(self.model_path)
@@ -495,6 +585,42 @@ class PyTorchModel(OliveModel):
 
         return dummy_inputs
 
+    @property
+    def components(self) -> List[str]:
+        """
+        Names of the components of the model.
+        """
+        if not self.hf_config or not self.hf_config.components:
+            return None
+
+        return [component.name for component in self.hf_config.components]
+
+    def get_component(self, component_name: str) -> "PyTorchModel":
+        """
+        Get a component of the model as a PyTorchModel.
+        """
+        assert self.components, "hf_config.components must be provided to get component"
+        assert component_name in self.components, f"component {component_name} not found in hf_config"
+
+        model = self.load_model()
+        model_component = getattr(model, component_name)
+
+        # get the component from hf_config
+        components_dict = {component.name: component for component in self.hf_config.components}
+        hf_component = components_dict[component_name]
+
+        def model_loader(_):
+            return model_component
+
+        return PyTorchModel(
+            model_loader=model_loader,
+            name=hf_component.name,
+            io_config=hf_component.io_config,
+            dummy_inputs_func=hf_component.dummy_inputs_func,
+            model_script=self.model_script,
+            script_dir=self.script_dir,
+        )
+
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
         config["config"].update(
@@ -504,6 +630,7 @@ class PyTorchModel(OliveModel):
                 "script_dir": Path(self.script_dir) if self.script_dir else None,
                 "io_config": self.io_config,
                 "dummy_inputs_func": self.dummy_inputs_func,
+                "hf_config": self.hf_config,
             }
         )
         return serialize_to_json(config, check_object)
@@ -633,22 +760,6 @@ class OpenVINOModel(OliveModel):
         return compiled_model
 
 
-def huggingface_model_loader(model_loader):
-    import transformers
-
-    if model_loader is None:
-        model_loader = "AutoModel"
-    if isinstance(model_loader, str):
-        try:
-            model_loader = getattr(transformers, model_loader)
-        except AttributeError:
-            raise AttributeError(f"{model_loader} is not found in transformers")
-    elif not isinstance(model_loader, Callable):
-        raise ValueError("model_loader must be a callable or a string defined in transformers")
-
-    return model_loader.from_pretrained
-
-
 class DistributedOnnxModel(ONNXModelBase):
     EXECUTION_PROVIDERS = {
         "cpu": ["CPUExecutionProvider"],
@@ -736,7 +847,7 @@ class DistributedOnnxModel(ONNXModelBase):
         return serialize_to_json(config, check_object=check_object)
 
 
-class CompositeOnnxModel(OliveModel):
+class CompositeOnnxModel(ONNXModelBase):
     """
     CompositeOnnxModel represents multi component models. Whisper is an example composite
     model that has encoder and decoder components. CompositeOnnxModel is a collection of
@@ -749,13 +860,7 @@ class CompositeOnnxModel(OliveModel):
         name: Optional[str] = None,
         version: Optional[int] = None,
     ):
-        super().__init__(
-            model_path=None,
-            name=name,
-            version=version,
-            is_file=False,
-            is_aml_model=False,
-        )
+        super().__init__(model_path=None, name=name, version=version, model_storage_kind=ModelStorageKind.LocalFolder)
 
         if isinstance(model_components[0], dict):
             assert all(
@@ -766,15 +871,16 @@ class CompositeOnnxModel(OliveModel):
             assert all([isinstance(m, ONNXModel) for m in model_components]), "All components must be ONNXModel"
             self.model_components = model_components
 
-        self.model_components = model_components
         for m in self.model_components:
             m.set_composite_parent(self)
 
-    @property
     def load_model(self, rank: int = None):
         raise NotImplementedError()
 
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
+        raise NotImplementedError()
+
+    def get_default_execution_providers(self, device: Device):
         raise NotImplementedError()
 
     def get_model_components(self):
@@ -791,8 +897,8 @@ class CompositeOnnxModel(OliveModel):
                 "version": self.version,
             },
         }
-        json_dict["config"]["components"] = []
+        json_dict["config"]["model_components"] = []
         for m in self.model_components:
-            json_dict["config"]["components"].append(m.to_json(check_object))
+            json_dict["config"]["model_components"].append(m.to_json(check_object))
 
         return serialize_to_json(json_dict, check_object)
