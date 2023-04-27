@@ -8,7 +8,7 @@ from olive.data_container.registry import Registry
 
 
 @Registry.register_default_pre_process()
-def pre_process(data):
+def pre_process(_dataset):
     """Pre-process data.
 
     Args:
@@ -18,11 +18,11 @@ def pre_process(data):
     Returns:
         object: Pre-processed data.
     """
-    return data
+    return _dataset
 
 
 @Registry.register_pre_process()
-def huggingface_pre_process(dataset, model_name, input_cols, label_cols, **kwargs):
+def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, **kwargs):
     """Pre-process data.
 
     Args:
@@ -34,10 +34,10 @@ def huggingface_pre_process(dataset, model_name, input_cols, label_cols, **kwarg
     """
     from transformers import AutoTokenizer
 
+    dataset = _dataset
+
     def _tokenizer_and_align_labels(examples):
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        # debug
-        kwargs = {}
         tokenized_inputs = tokenizer(
             *[examples[input_col] for input_col in input_cols],
             padding=kwargs.get("padding", True),

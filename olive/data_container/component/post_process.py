@@ -7,7 +7,7 @@ from olive.data_container.registry import Registry
 
 
 @Registry.register_default_post_process()
-def post_process(data):
+def post_process(_output_data, **kwargs):
     """Post-process data.
 
     Args:
@@ -17,4 +17,4 @@ def post_process(data):
     Returns:
         object: Post-processed data.
     """
-    return data
+    return _output_data

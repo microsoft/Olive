@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
-from olive.data_container.config import DataContainerConfig
+from olive.data_container.config import DataComponentConfig, DataContainerConfig
 from olive.data_container.registry import Registry
 from olive.evaluator.metric import Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
@@ -177,17 +177,35 @@ def get_data_container_config():
     )
 
 
-def get_huggingface_data_container_config():
+def get_glue_huggingface_data_container_config():
     return DataContainerConfig(
         type="HuggingfaceContainer",
-        config={
-            "task_type": None,
-            "model_name": None,
-            "data_name": None,
-            "subset_name": None,
-            "split_name": None,
-            "input_cols": None,
-            "label_cols": None,
+        params_config={
+            "task_type": "",
+            "model_name": "bert-base-uncased",
+            "data_name": "glue",
+            "subset": "mrpc",
+            "split": "validation",
+            "input_cols": ["sentence1", "sentence2"],
+            "label_cols": ["label"],
             "batch_size": 1,
+        },
+    )
+
+
+def get_dc_params_config():
+    return DataContainerConfig(
+        params_config={
+            "data_dir": "./params_config",
+            "batch_size": 1,
+            "label_cols": ["label_from_params_config"],
+        },
+        components={
+            "dataset": DataComponentConfig(
+                params={
+                    "data_dir": "./params",
+                    "batch_size": 10,
+                }
+            )
         },
     )

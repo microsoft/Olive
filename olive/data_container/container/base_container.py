@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from typing import ClassVar
+
 from pydantic import BaseModel
 
 from olive.data_container.config import DataContainerConfig, DefaultDataComponentCombos
@@ -16,33 +18,55 @@ class BaseContainer(BaseModel):
     """
 
     # override the default components from config with baseclass or subclass
-    default_components_type: dict = DefaultDataComponentCombos
+    default_components_type: ClassVar[dict] = DefaultDataComponentCombos
+    # avoid to directly create the instance of DataComponentConfig,
+    # suggest to use config.to_data_container()
     config: DataContainerConfig = None
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.config = DataContainerConfig(default_components_type=self.default_components_type)
+    # not be used, for read only. when you update the components function,
+    # please update the _params_list. It should be key name of params_config
+    _params_list: list = [
+        "data_dir",
+        "label_cols",
+        "batch_size",
+    ]
+
+    # def __init__(self, **kwargs):
+    #     super().__init__(**kwargs)
+    #     self.config = DataContainerConfig(
+    #         type=self.__class__.__name__,
+    #         default_components_type=self.default_components_type,
+    #     )
 
     def dataset(self):
         """
         Run dataset
         """
-        return self.config.dataset(self.config.dataset_params)
+        return self.config.dataset(**self.config.dataset_params)
 
-    def pre_process(self):
+    def pre_process(self, dataset):
         """
         Run pre_process
         """
-        return self.config.pre_process(self.config.pre_process_params)
+        return self.config.pre_process(dataset, **self.config.pre_process_params)
 
-    def post_process(self):
+    def post_process(self, output_data):
         """
         Run post_process
         """
-        return self.config.post_process(self.config.post_process_params)
+        return self.config.post_process(output_data, **self.config.post_process_params)
 
-    def dataloader(self):
+    def dataloader(self, dataset):
         """
         Run dataloader
         """
-        return self.config.dataloader(self.config.dataloader_params)
+        return self.config.dataloader(dataset, **self.config.dataloader_params)
+
+    def create_dataloader(self):
+        """
+        Create dataloader
+        dataset -> preprocess -> dataloader
+        """
+        dataset = self.dataset()
+        pre_process_dataset = self.pre_process(dataset)
+        return self.dataloader(pre_process_dataset)

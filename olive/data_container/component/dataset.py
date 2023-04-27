@@ -36,12 +36,12 @@ class BaseDataset(Dataset):
 
 
 @Registry.register_default_dataset()
-def local_dataset(data_dir=None, label_name=None, **kwargs):
+def local_dataset(data_dir=None, label_cols=None, **kwargs):
     pass
 
 
 @Registry.register_dataset()
-def simple_dataset(input_data, label_name=None, **kwargs):
+def simple_dataset(input_data, label_cols=None, **kwargs):
     """
     This function is used to create a simple dataset from input data which can be:
     1. a text
@@ -51,7 +51,7 @@ def simple_dataset(input_data, label_name=None, **kwargs):
 
 
 @Registry.register_dataset()
-def huggingface_dataset(data_name, **kwargs):
+def huggingface_dataset(data_name=None, subset=None, split="validation", **kwargs):
     """
     This function is used to create a dataset from huggingface datasets
     """
@@ -60,4 +60,5 @@ def huggingface_dataset(data_name, **kwargs):
     disable_progress_bar()
     from datasets import load_dataset
 
-    return load_dataset(data_name, **kwargs)
+    assert data_name is not None, "Please specify the data name"
+    return load_dataset(path=data_name, name=subset, split=split, **kwargs)

@@ -3,7 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from test.unit_test.utils import get_data_container_config, get_huggingface_data_container_config
+from test.unit_test.utils import (
+    get_data_container_config,
+    get_dc_params_config,
+    get_glue_huggingface_data_container_config,
+)
 
 import pytest
 
@@ -23,10 +27,20 @@ class TestDataContainerConfig:
         assert dc.config
         assert dc
 
+    def test_params_override(self):
+        dc_config = get_dc_params_config()
+        assert dc_config.components["dataset"].params["batch_size"] == 10
+        assert "label_from_params_config" in dc_config.components["dataset"].params["label_cols"]
+
     def test_huggingface_constructor(self):
-        dc_config = get_huggingface_data_container_config()
+        dc_config = DataContainerConfig(type="HuggingfaceContainer")
         dc = dc_config.to_data_container()
         assert dc.config.dataset.__name__.startswith("huggingface")
+
+    def test_huggingface_dc_runner(self):
+        dc_config = get_glue_huggingface_data_container_config()
+        dc = dc_config.to_data_container()
+        dc.create_dataloader()
 
     def test_dc_runner(self):
         try:

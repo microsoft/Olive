@@ -28,7 +28,9 @@ DefaultDataComponentCombos = {
 class DataContainerConfig(ConfigBase):
     name: str = DefaultDataContainer.DATA_CONTAINER.value
     type: str = DefaultDataContainer.DATA_CONTAINER.value
-    config: dict = None
+
+    # used to store the params for each component
+    params_config: dict = None
 
     # use to update default components
     # 1. update default_components_type from BaseContainer or DefaultDataComponentCombos
@@ -49,17 +51,22 @@ class DataContainerConfig(ConfigBase):
         """
         self.components = self.components or {}
         self.default_components = self.default_components or {}
-        self.default_components_type = self.default_components_type or {}
         self._update_default_component_type()
         self._update_default_component()
         for k, v in self.default_components.items():
             if k not in self.components:
                 self.components[k] = v
+            else:
+                self.components[k].type = self.components[k].type or v.type
+                self.components[k].name = self.components[k].name or v.name
+                self.components[k].params = self.components[k].params or v.params
 
     def _update_default_component_type(self):
         """
         Resolve the default component type.
         """
+        dc_cls = Registry.get_container(self.type)
+        self.default_components_type = dc_cls.default_components_type or {}
         for k, v in DefaultDataComponentCombos.items():
             if k not in self.default_components_type:
                 self.default_components_type[k] = v
@@ -74,23 +81,30 @@ class DataContainerConfig(ConfigBase):
     def _fill_in_params(self):
         """
         Fill in the default parameters for each component.
+        1. if prams_config is not None, use the params_config to fill in the params
+        2. if params_config is None, use the default params from the function signature
+        3. if there is already define params under the component, use the params directly
         """
         from inspect import signature
 
+        self.params_config = self.params_config or {}
         for k, v in self.components.items():
             component = Registry.get_component(k, v.type)
+            # 1. user function signature to fill params firstly
             params = signature(component).parameters
             for param, info in params.items():
-                if param not in v.params:
-                    # params without default value
-                    if info.default is info.empty:
+                # 3. if it already defined params under the component, use the params directly
+                if param not in v.params and not param.startswith("_"):
+                    # 2. override the params with params_config
+                    if param in self.params_config:
+                        v.params[param] = self.params_config[param]
+                        continue
+
+                    if info.kind == info.VAR_POSITIONAL or info.kind == info.VAR_KEYWORD:
+                        continue
+                    elif info.default is info.empty:
                         logger.debug(f"Missing parameter {param} for component {k}")
                         v.params[param] = None
-                    # *args
-                    elif info.kind == info.VAR_POSITIONAL:
-                        v.params[param] = []
-                    elif info.kind == info.VAR_KEYWORD:
-                        v.params[param] = {}
                     else:
                         v.params[param] = params[param].default
 

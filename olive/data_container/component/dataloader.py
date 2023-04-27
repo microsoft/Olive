@@ -9,13 +9,15 @@ from olive.data_container.registry import Registry
 
 
 @Registry.register_default_dataloader()
-def default_dataloader(dataset, batch_size=1, **kwargs):
-    return DataLoader(dataset, batch_size=batch_size, **kwargs)
+def default_dataloader(_dataset, batch_size=1, **kwargs):
+    return DataLoader(_dataset, batch_size=batch_size, **kwargs)
 
 
 @Registry.register_dataloader()
-def default_calibration_dataloader(dataset, batch_size=1, **kwargs):
+def default_calibration_dataloader(_dataset, batch_size=1, **kwargs):
     from onnxruntime.quantization import CalibrationDataReader
+
+    dataset = _dataset
 
     class _CalibrationDataReader(CalibrationDataReader):
         def __init__(self, dataset, batch_size: int = 1, **kwargs):
