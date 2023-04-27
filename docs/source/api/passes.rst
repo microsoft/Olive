@@ -30,6 +30,11 @@ OnnxFloatToFloat16
 --------------------
 .. autoconfigclass:: olive.passes.OnnxFloatToFloat16
 
+.. _ort_mixed_precision:
+OrtMixedPrecision
+--------------------
+.. autoconfigclass:: olive.passes.OrtMixedPrecision
+
 .. _onnx_dynamic_quantization:
 OnnxDynamicQuantization
 -----------------------

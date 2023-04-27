@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import onnx
 import torch
 import yaml
+from onnx import AttributeProto, GraphProto
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
@@ -244,6 +245,7 @@ class ONNXModel(ONNXModelBase):
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
     ):
+
         super().__init__(
             model_path=model_path,
             name=name,
@@ -252,6 +254,8 @@ class ONNXModel(ONNXModelBase):
             inference_settings=inference_settings,
         )
         self.io_config = None
+        self.graph = None
+        self.all_graphs: Optional[List[GraphProto]] = None
 
     @staticmethod
     def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
@@ -289,6 +293,51 @@ class ONNXModel(ONNXModelBase):
             inference_settings["execution_provider"] = self.get_default_execution_providers(device)
 
         return get_ort_inference_session(self.model_path, inference_settings)
+
+    def nodes(self):
+        for graph in self.get_all_graphs():
+            for node in graph.node:
+                yield node
+
+    def get_graph(self):
+        if self.graph is not None:
+            return self.graph
+        self.graph = self.load_model().graph
+        return self.graph
+
+    def get_all_graphs(self):
+        if self.all_graphs is not None:
+            return self.all_graphs
+        self.all_graphs = []
+        graph_queue = [self.get_graph()]
+        while graph_queue:
+            graph = graph_queue.pop(0)
+            self.all_graphs.append(graph)
+            for node in graph.node:
+                for attr in node.attribute:
+                    if attr.type == AttributeProto.AttributeType.GRAPH:
+                        assert isinstance(attr.g, GraphProto)
+                        graph_queue.append(attr.g)
+                    if attr.type == AttributeProto.AttributeType.GRAPHS:
+                        for g in attr.graphs:
+                            assert isinstance(g, GraphProto)
+                            graph_queue.append(g)
+        return self.all_graphs
+
+    def output_name_to_node(self):
+        output_name_to_node = {}
+        for node in self.nodes():
+            for output_name in node.output:
+                if output_name:  # could be empty when it is optional
+                    output_name_to_node[output_name] = node
+        return output_name_to_node
+
+    def get_initializer(self, name):
+        for graph in self.get_all_graphs():
+            for tensor in graph.initializer:
+                if tensor.name == name:
+                    return tensor
+        return None
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
