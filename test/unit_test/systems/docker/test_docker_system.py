@@ -2,9 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import tempfile
 from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_pytorch_model
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from olive.evaluator.metric import AccuracySubType
 from olive.systems.common import LocalDockerConfig
@@ -12,6 +15,10 @@ from olive.systems.docker.docker_system import DockerSystem
 
 
 class TestDockerSystem:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+
     @patch("olive.systems.docker.docker_system.docker.from_env")
     def test__init_image_exist(self, mock_from_env):
         # setup
@@ -61,7 +68,7 @@ class TestDockerSystem:
         # setup
         import docker
 
-        tempdir = "tempdir"
+        tempdir = self.tmp_dir.name
         mock_tempdir.return_value.__enter__.return_value = tempdir
         mock_docker_client = MagicMock()
         mock_from_env.return_value = mock_docker_client
@@ -106,7 +113,7 @@ class TestDockerSystem:
         # setup
         mock_docker_client = MagicMock()
         mock_from_env.return_value = mock_docker_client
-        tempdir = "tempdir"
+        tempdir = self.tmp_dir.name
         mock_tempdir.return_value.__enter__.return_value = tempdir
         olive_model = get_pytorch_model()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
