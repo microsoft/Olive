@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import onnx
 import torch
 import yaml
+from onnx import AttributeProto, GraphProto
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
@@ -244,7 +245,6 @@ class ONNXModel(ONNXModelBase):
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
     ):
-        from onnx import GraphProto
 
         super().__init__(
             model_path=model_path,
@@ -254,6 +254,7 @@ class ONNXModel(ONNXModelBase):
             inference_settings=inference_settings,
         )
         self.io_config = None
+        self.graph = None
         self.all_graphs: Optional[List[GraphProto]] = None
 
     @staticmethod
@@ -295,21 +296,22 @@ class ONNXModel(ONNXModelBase):
 
     def nodes(self):
         all_nodes = []
-        for graph in self.graphs():
+        for graph in self.get_all_graphs():
             for node in graph.node:
                 all_nodes.append(node)
         return all_nodes
 
-    def graph(self):
-        return self.load_model().graph
+    def get_graph(self):
+        if self.graph is not None:
+            return self.graph
+        self.graph = self.load_model().graph
+        return self.graph
 
-    def graphs(self):
-        from onnx import AttributeProto, GraphProto
-
+    def get_all_graphs(self):
         if self.all_graphs is not None:
             return self.all_graphs
         self.all_graphs = []
-        graph_queue = [self.load_model().graph]
+        graph_queue = [self.get_graph()]
         while graph_queue:
             graph = graph_queue.pop(0)
             self.all_graphs.append(graph)
@@ -333,7 +335,7 @@ class ONNXModel(ONNXModelBase):
         return output_name_to_node
 
     def get_initializer(self, name):
-        for graph in self.graphs():
+        for graph in self.get_all_graphs():
             for tensor in graph.initializer:
                 if tensor.name == name:
                     return tensor

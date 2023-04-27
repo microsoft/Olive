@@ -38,7 +38,7 @@ class OrtMixedPrecision(Pass):
         logger.info(f"fp32 op: {fp32_op_set} fp16 op: {fp16_op_set}")
 
         # logits is the first output
-        logits_output_name = model.graph().output[0].name
+        logits_output_name = model.get_graph().output[0].name
 
         # We use the weight in last MatMul node to detect
         # whether the model is stored with float16 weights from training.
