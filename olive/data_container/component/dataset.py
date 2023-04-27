@@ -5,7 +5,6 @@
 
 from torch.utils.data import Dataset
 
-from olive.data_container.constants import DataComponentType, DefaultDataComponent
 from olive.data_container.registry import Registry
 
 
@@ -36,12 +35,12 @@ class BaseDataset(Dataset):
         pass
 
 
-@Registry.register(DataComponentType.DATASET, name=DefaultDataComponent.DATASET.value)
+@Registry.register_default_dataset()
 def local_dataset(data_dir=None, label_name=None, **kwargs):
     pass
 
 
-@Registry.register(DataComponentType.DATASET)
+@Registry.register_dataset()
 def simple_dataset(input_data, label_name=None, **kwargs):
     """
     This function is used to create a simple dataset from input data which can be:
@@ -51,7 +50,7 @@ def simple_dataset(input_data, label_name=None, **kwargs):
     pass
 
 
-@Registry.register(DataComponentType.DATASET)
+@Registry.register_dataset()
 def huggingface_dataset(data_name, **kwargs):
     """
     This function is used to create a dataset from huggingface datasets

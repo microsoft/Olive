@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from pydantic import BaseModel
 
-from olive.data_container.config import DataContainerConfig
+from olive.data_container.config import DataContainerConfig, DefaultDataComponentCombos
 from olive.data_container.constants import DataContainerType, DefaultDataContainer
 from olive.data_container.registry import Registry
 
@@ -15,7 +15,13 @@ class BaseContainer(BaseModel):
     Base class for data containers.
     """
 
-    config: DataContainerConfig = DataContainerConfig()
+    # override the default components from config with baseclass or subclass
+    default_components_type: dict = DefaultDataComponentCombos
+    config: DataContainerConfig = None
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.config = DataContainerConfig(default_components_type=self.default_components_type)
 
     def dataset(self):
         """

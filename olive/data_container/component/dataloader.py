@@ -5,16 +5,15 @@
 
 from torch.utils.data import DataLoader
 
-from olive.data_container.constants import DataComponentType, DefaultDataComponent
 from olive.data_container.registry import Registry
 
 
-@Registry.register(DataComponentType.DATALOADER, name=DefaultDataComponent.DATALOADER.value)
+@Registry.register_default_dataloader()
 def default_dataloader(dataset, batch_size=1, **kwargs):
     return DataLoader(dataset, batch_size=batch_size, **kwargs)
 
 
-@Registry.register(DataComponentType.DATALOADER)
+@Registry.register_dataloader()
 def default_calibration_dataloader(dataset, batch_size=1, **kwargs):
     from onnxruntime.quantization import CalibrationDataReader
 

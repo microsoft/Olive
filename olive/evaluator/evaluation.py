@@ -23,7 +23,14 @@ def evaluate_accuracy(model: OliveModel, metric: Metric, device: Device = Device
     """
     dataloader, post_func, _ = get_user_config(metric.user_config)
     dc = metric.data_container.to_data_container()
-    print(dc)
+
+    # TODO remove user_scripts dataloader: we should respect user scripts
+    # dataloder to meet back compatibility for time being.
+    dataloader = dataloader or dc.dataloader()
+    post_func = post_func or dc.config.post_process
+    # Debug
+    dataloader = dc.dataloader()
+    post_func = dc.config.post_process
 
     preds = []
     targets = []

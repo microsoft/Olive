@@ -3,11 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from olive.data_container.constants import DataComponentType, DefaultDataComponent
 from olive.data_container.registry import Registry
 
 
-@Registry.register(DataComponentType.POST_PROCESS, DefaultDataComponent.POST_PROCESS.value)
+@Registry.register_default_post_process()
 def post_process(data):
     """Post-process data.
 

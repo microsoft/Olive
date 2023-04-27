@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
+from olive.data_container.config import DataContainerConfig
+from olive.data_container.registry import Registry
 from olive.evaluator.metric import Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
 from olive.model import ONNXModel, PyTorchModel
@@ -140,3 +142,52 @@ def get_onnxconversion_pass(ignore_pass_config=True):
 def get_onnx_dynamic_quantization_pass(disable_search=False):
     p = create_pass_from_dict(OnnxDynamicQuantization, disable_search=disable_search)
     return p
+
+
+def get_data_container_config():
+    @Registry.register_dataset("test_dataset")
+    def _test_dataset(test_value):
+        ...
+
+    @Registry.register_dataloader()
+    def _test_dataloader(test_value):
+        ...
+
+    @Registry.register_pre_process()
+    def _pre_process(test_value):
+        ...
+
+    @Registry.register_post_process()
+    def _post_process(test_value):
+        ...
+
+    return DataContainerConfig(
+        components={
+            "dataset": {
+                "name": "test_dataset",
+                "type": "test_dataset",
+                "params": {"test_param": "test_value"},
+            },
+            "dataloader": {
+                "name": "test_dataloader",
+                "type": "_test_dataloader",  # This is the key to get dataloader
+                "params": {"test_param": "test_value"},
+            },
+        }
+    )
+
+
+def get_huggingface_data_container_config():
+    return DataContainerConfig(
+        type="HuggingfaceContainer",
+        config={
+            "task_type": None,
+            "model_name": None,
+            "data_name": None,
+            "subset_name": None,
+            "split_name": None,
+            "input_cols": None,
+            "label_cols": None,
+            "batch_size": 1,
+        },
+    )

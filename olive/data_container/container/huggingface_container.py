@@ -3,7 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from olive.data_container.constants import DataContainerType
+from typing import Any
+
+from olive.data_container.constants import DataComponentType, DataContainerType
 from olive.data_container.container.base_container import BaseContainer
 from olive.data_container.registry import Registry
 
@@ -12,20 +14,23 @@ from olive.data_container.registry import Registry
 class HuggingfaceContainer(BaseContainer):
     from transformers.pipelines import SUPPORTED_TASKS
 
-    _dataset: str = "huggingface_dataset"
-    _pre_process: str = "huggingface_pre_process"
-
-    _supported_tasks = SUPPORTED_TASKS
+    default_components_type = {
+        DataComponentType.DATASET.value: "huggingface_dataset",
+        DataComponentType.PRE_PROCESS.value: "huggingface_pre_process",
+    }
+    supported_tasks = SUPPORTED_TASKS
     # Extra arguments auto generation for data components
-    task_type: str = None
-    model_name: str = None
-    data_name: str = None
-    subset_name: str = None
-    split_name: str = None
-    input_cols: list = None
-    label_cols: list = None
-    batch_size: int = 1
-    extra_args: dict = None
+    config: dict[str, Any] = {
+        "task_type": None,
+        "model_name": None,
+        "data_name": None,
+        "subset_name": None,
+        "split_name": None,
+        "input_cols": None,
+        "label_cols": None,
+        "batch_size": 1,
+        "extra_args": None,
+    }
 
     def create_dataloader(self):
         dataset = self.dataset(data_name=self.data_name, subset=self.subset_name, split=self.split_name)

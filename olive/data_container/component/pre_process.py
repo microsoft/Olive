@@ -4,11 +4,10 @@
 # --------------------------------------------------------------------------
 
 
-from olive.data_container.constants import DataComponentType, DefaultDataComponent
 from olive.data_container.registry import Registry
 
 
-@Registry.register(DataComponentType.PRE_PROCESS, DefaultDataComponent.PRE_PROCESS.value)
+@Registry.register_default_pre_process()
 def pre_process(data):
     """Pre-process data.
 
@@ -22,7 +21,7 @@ def pre_process(data):
     return data
 
 
-@Registry.register(DataComponentType.PRE_PROCESS)
+@Registry.register_pre_process()
 def huggingface_pre_process(dataset, model_name, input_cols, label_cols, **kwargs):
     """Pre-process data.
 
