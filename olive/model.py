@@ -23,6 +23,7 @@ from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework, ModelFileFormat
 from olive.hf_utils import (
+    get_hf_model_config,
     huggingface_model_loader,
     load_huggingface_model_from_model_class,
     load_huggingface_model_from_task,
@@ -192,6 +193,7 @@ class HFConfig(ConfigBase):
     task: str = None
     # TODO: remove model_class and only use task
     model_class: str = None
+    model_config: str = None
     use_ort_implementation: bool = False
     components: List[HFComponent] = None
 
@@ -585,6 +587,11 @@ class PyTorchModel(OliveModel):
 
         return dummy_inputs
 
+    def get_model_config(self):
+        if self.hf_config is None or self.hf_config.model_config is None:
+            raise Exception(f"HF model_config is not available")
+        return get_hf_model_config (self.hf_config.model_config, self.hf_config.model_name)
+    
     @property
     def components(self) -> List[str]:
         """

@@ -6,6 +6,7 @@
             "model_script": "user_script.py",
             "hf_config": {
                 "model_class" : "WhisperForConditionalGeneration",
+                "model_config" : "WhisperConfig",
                 "model_name" : "<place_holder>",
                 "use_ort_implementation": true,
                 "components" : [
@@ -42,6 +43,9 @@
                 "optimization_options": {"use_multi_head_attention": true},
                 "use_gpu": true
             }
+        },
+        "insert_beam_search" : {
+            "type" : "InsertBeamSearch"
         }
     },
     "engine": {

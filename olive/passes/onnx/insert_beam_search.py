@@ -130,11 +130,7 @@ class InsertBeamSearchPass(Pass):
         self.add_attention_mask(model_A, model_A.name + "_attention_mask")
         self.add_attention_mask(model_B, model_B.name + "_attention_mask")
 
-        model_config = (
-            model.get_hf_config_from_pretrained()
-        )  # FIXME : Get WhisperConfig.from_pretrained(args.model_name_or_path)
-
-        combined_model = self.chain_model(model_A, model_A.name, model_B, model_B.name, model_config, config)
+        combined_model = self.chain_model(model_A, model_A.name, model_B, model_B.name, model.get_model_config(), config)
 
         # save the model to the output path and return the model
         output_model_path = ONNXModel.resolve_path(output_model_path)
