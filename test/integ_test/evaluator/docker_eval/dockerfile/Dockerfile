@@ -11,6 +11,6 @@ RUN pip install onnxruntime \
             openvino \
             openvino-dev \
             onnxconverter_common \
-            git+https://github.com/microsoft/Olive.git@jambayk/hf-config
+            git+https://github.com/microsoft/Olive.git
 
 WORKDIR /olive
