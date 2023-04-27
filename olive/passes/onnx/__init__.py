@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from olive.passes.onnx.conversion import OnnxConversion
-from olive.passes.onnx.float16_conversion import OnnxFloatToFloat1
+from olive.passes.onnx.float16_conversion import OnnxFloatToFloat16
 from olive.passes.onnx.insert_beam_search import InsertBeamSearchPass
 from olive.passes.onnx.mixed_precision import OrtMixedPrecision
 from olive.passes.onnx.model_optimizer import OnnxModelOptimizer
