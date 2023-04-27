@@ -23,7 +23,7 @@ from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework, ModelFileFormat
 from olive.hf_utils import (
     huggingface_model_loader,
-    load_huggingface_model_from_model_loader,
+    load_huggingface_model_from_model_class,
     load_huggingface_model_from_task,
 )
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
@@ -189,17 +189,17 @@ class HFComponent(ConfigBase):
 class HFConfig(ConfigBase):
     model_name: str
     task: str = None
-    loader: str = None
+    model_class: str = None
     use_ort_implementation: bool = False
     components: List[HFComponent] = None
 
-    @validator("loader", always=True)
-    def task_or_loader_required(cls, v, values):
+    @validator("model_class", always=True)
+    def task_or_model_class_required(cls, v, values):
         if "task" not in values:
             raise ValueError("Invalid task")
 
         if not v and not values["task"]:
-            raise ValueError("Either task or loader must be specified")
+            raise ValueError("Either task or model_class must be specified")
         return v
 
 
@@ -458,8 +458,8 @@ class PyTorchModel(OliveModel):
             if self.hf_config.task:
                 model = load_huggingface_model_from_task(self.hf_config.task, self.hf_config.model_name)
             else:
-                model = load_huggingface_model_from_model_loader(
-                    self.hf_config.loader, self.hf_config.model_name, self.hf_config.use_ort_implementation
+                model = load_huggingface_model_from_model_class(
+                    self.hf_config.model_class, self.hf_config.model_name, self.hf_config.use_ort_implementation
                 )
         else:
             if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
@@ -811,11 +811,11 @@ class CompositeOnnxModel(OliveModel):
         version: Optional[int] = None,
     ):
         super().__init__(
+            framework=Framework.ONNX,
+            model_file_format=ModelFileFormat.ONNX,
             model_path=None,
             name=name,
             version=version,
-            is_file=False,
-            is_aml_model=False,
         )
 
         if isinstance(model_components[0], dict):

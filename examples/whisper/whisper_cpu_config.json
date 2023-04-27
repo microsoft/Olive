@@ -1,0 +1,329 @@
+{
+    "verbose": true,
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_script": "user_script.py",
+            "hf_config": {
+                "model_class" : "WhisperForConditionalGeneration",
+                "model_name" : "openai/whisper-tiny.en",
+                "use_ort_implementation": true,
+                "components" : [
+                    {
+                        "name": "encoder_decoder_init",
+                        "io_config": {
+                            "input_names": ["encoder_input_ids", "encoder_attention_mask"],
+                            "dynamic_axes": {
+                                "encoder_input_ids": {
+                                    "0": "batch_size",
+                                    "1": "encode_sequence_length"
+                                },
+                                "encoder_attention_mask": {
+                                    "0": "batch_size",
+                                    "1": "encode_sequence_length"
+                                },
+                                "encoder_hidden_states": {
+                                    "0": "batch_size",
+                                    "1": "encode_sequence_length",
+                                    "2": "384"
+                                },
+                                "logits": {
+                                    "0": "batch_size",
+                                    "1": "1"
+                                },
+                                "decoder_input_ids": {
+                                    "0": "batch_size",
+                                    "1": "1"
+                                },
+                                "present_key_self_0": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "1",
+                                    "3": "64"
+                                },
+                                "present_value_self_0": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "1",
+                                    "3": "64"
+                                },
+                                "present_key_self_1": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "1",
+                                    "3": "64"
+                                },
+                                "present_value_self_1": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "1",
+                                    "3": "64"
+                                },
+                                "present_key_self_2": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "1",
+                                    "3": "64"
+                                },
+                                "present_value_self_2": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "1",
+                                    "3": "64"
+                                },
+                                "present_key_self_3": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "1",
+                                    "3": "64"
+                                },
+                                "present_value_self_3": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "1",
+                                    "3": "64"
+                                },
+                                "present_key_cross_0": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "encode_sequence_length",
+                                    "3": "64"
+                                },
+                                "present_value_cross_0": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "encode_sequence_length",
+                                    "3": "64"
+                                },
+                                "present_key_cross_1": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "encode_sequence_length",
+                                    "3": "64"
+                                },
+                                "present_value_cross_1": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "encode_sequence_length",
+                                    "3": "64"
+                                },
+                                "present_key_cross_2": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "encode_sequence_length",
+                                    "3": "64"
+                                },
+                                "present_value_cross_2": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "encode_sequence_length",
+                                    "3": "64"
+                                },
+                                "present_key_cross_3": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "encode_sequence_length",
+                                    "3": "64"
+                                },
+                                "present_value_cross_3": {
+                                    "0": "batch_size",
+                                    "1": "6",
+                                    "2": "encode_sequence_length",
+                                    "3": "64"
+                                }
+                            },
+                            "output_names": [
+                                "logits",
+                                "encoder_hidden_states",
+                                "present_key_self_0",
+                                "present_value_self_0",
+                                "present_key_self_1",
+                                "present_value_self_1",
+                                "present_key_self_2",
+                                "present_value_self_2",
+                                "present_key_self_3",
+                                "present_value_self_3",
+                                "present_key_cross_0",
+                                "present_value_cross_0",
+                                "present_key_cross_1",
+                                "present_value_cross_1",
+                                "present_key_cross_2",
+                                "present_value_cross_2",
+                                "present_key_cross_3",
+                                "present_value_cross_3"
+                            ]
+                        },
+                        "dummy_inputs_func": "encoder_decoder_init_dummy_inputs"
+                    },
+                    {
+                        "name": "decoder",
+                        "io_config": {
+                            "input_names": [
+                                "input_ids",
+                                "encoder_attention_mask",
+                                "past_key_self_0",
+                                "past_value_self_0",
+                                "past_key_self_1",
+                                "past_value_self_1",
+                                "past_key_self_2",
+                                "past_value_self_2",
+                                "past_key_self_3",
+                                "past_value_self_3",
+                                "past_key_cross_0",
+                                "past_value_cross_0",
+                                "past_key_cross_1",
+                                "past_value_cross_1",
+                                "past_key_cross_2",
+                                "past_value_cross_2",
+                                "past_key_cross_3",
+                                "past_value_cross_3"
+                            ],
+                            "dynamic_axes": {
+                                "input_ids": {
+                                    "0": "batch_size"
+                                },
+                                "encoder_attention_mask": {
+                                    "0": "batch_size",
+                                    "1": "encode_sequence_length"
+                                },
+                                "encoder_hidden_states": {
+                                    "0": "batch_size",
+                                    "1": "encode_sequence_length / 2"
+                                },
+                                "logits": {
+                                    "0": "batch_size",
+                                    "1": "sequence_length"
+                                },
+                                "past_key_self_0": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length"
+                                },
+                                "past_value_self_0": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length"
+                                },
+                                "past_key_self_1": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length"
+                                },
+                                "past_value_self_1": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length"
+                                },
+                                "past_key_self_2": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length"
+                                },
+                                "past_value_self_2": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length"
+                                },
+                                "past_key_self_3": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length"
+                                },
+                                "past_value_self_3": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length"
+                                },
+                                "past_key_cross_0": {
+                                    "0": "batch_size",
+                                    "2": "encode_sequence_length"
+                                },
+                                "past_value_cross_0": {
+                                    "0": "batch_size",
+                                    "2": "encode_sequence_length"
+                                },
+                                "past_key_cross_1": {
+                                    "0": "batch_size",
+                                    "2": "encode_sequence_length"
+                                },
+                                "past_value_cross_1": {
+                                    "0": "batch_size",
+                                    "2": "encode_sequence_length"
+                                },
+                                "past_key_cross_2": {
+                                    "0": "batch_size",
+                                    "2": "encode_sequence_length"
+                                },
+                                "past_value_cross_2": {
+                                    "0": "batch_size",
+                                    "2": "encode_sequence_length"
+                                },
+                                "past_key_cross_3": {
+                                    "0": "batch_size",
+                                    "2": "encode_sequence_length"
+                                },
+                                "past_value_cross_3": {
+                                    "0": "batch_size",
+                                    "2": "encode_sequence_length"
+                                },
+                                "present_key_self_0": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length + 1"
+                                },
+                                "present_value_self_0": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length + 1"
+                                },
+                                "present_key_self_1": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length + 1"
+                                },
+                                "present_value_self_1": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length + 1"
+                                },
+                                "present_key_self_2": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length + 1"
+                                },
+                                "present_value_self_2": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length + 1"
+                                },
+                                "present_key_self_3": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length + 1"
+                                },
+                                "present_value_self_3": {
+                                    "0": "batch_size",
+                                    "2": "past_decode_sequence_length + 1"
+                                }
+                            },
+                            "output_names": [
+                                "logits",
+                                "present_key_self_0",
+                                "present_value_self_0",
+                                "present_key_self_1",
+                                "present_value_self_1",
+                                "present_key_self_2",
+                                "present_value_self_2",
+                                "present_key_self_3",
+                                "present_value_self_3"
+                            ]
+                        },
+                        "dummy_inputs_func": "decoder_dummy_inputs"
+                    }
+                ]
+            }
+        }
+    },
+    "systems": {
+        "local_system": {"type": "LocalSystem"}
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 13
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": false,
+        "host": "local_system",
+        "clean_cache": true,
+        "cache_dir": "cache"
+    }
+}

@@ -1,5 +1,3 @@
-import sys
-from pathlib import Path
 from typing import Callable
 
 import torch
@@ -56,20 +54,14 @@ class ORTWhisperModel(torch.nn.Module):
 
 def get_ort_whisper_for_conditional_generation(name: str):
     """Load ORT implementation of whisper model"""
-    import onnxruntime.transformers.models.whisper as ort_whisper
-
-    whisper_dir = Path(ort_whisper.__file__).parent
-    sys.path.append(str(whisper_dir))
-
-    from whisper_helper import WhisperHelper
+    from onnxruntime.transformers.models.whisper.whisper_helper import WhisperHelper
 
     models = WhisperHelper.load_model(name, cache_dir=None, device="cpu")
 
     return ORTWhisperModel(models["encoder_decoder_init"], models["decoder"], models["decoder"].config)
 
 
-SUPPORTED_ORT_IMPLEMENTATIONS = ["WhisperForConditionalGeneration"]
-MODEL_LOADER_TO_ORT_IMPLEMENTATION = {"WhisperForConditionalGeneration": get_ort_whisper_for_conditional_generation}
+MODEL_CLASS_TO_ORT_IMPLEMENTATION = {"WhisperForConditionalGeneration": get_ort_whisper_for_conditional_generation}
 
 
 def huggingface_model_loader(model_loader):
@@ -88,7 +80,7 @@ def huggingface_model_loader(model_loader):
     return model_loader.from_pretrained
 
 
-def load_huggingface_model_from_model_loader(model_loader: str, name: str, use_ort_implementation: bool = False):
+def load_huggingface_model_from_model_class(model_class: str, name: str, use_ort_implementation: bool = False):
     """
     Load huggingface model from model_loader and name
 
@@ -96,8 +88,8 @@ def load_huggingface_model_from_model_loader(model_loader: str, name: str, use_o
     """
 
     if not use_ort_implementation:
-        huggingface_model_loader(model_loader)(name)
+        huggingface_model_loader(model_class)(name)
 
-    if model_loader not in SUPPORTED_ORT_IMPLEMENTATIONS:
-        raise ValueError(f"There is no ORT implementation for {model_loader}")
-    return MODEL_LOADER_TO_ORT_IMPLEMENTATION[model_loader](name)
+    if model_class not in MODEL_CLASS_TO_ORT_IMPLEMENTATION:
+        raise ValueError(f"There is no ORT implementation for {model_class}")
+    return MODEL_CLASS_TO_ORT_IMPLEMENTATION[model_class](name)
