@@ -7,6 +7,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.insert_beam_search import InsertBeamSearchPass
 from olive.systems.local import LocalSystem
 
+
 def test_ort_mixed_precision_pass():
     # setup
     local_system = LocalSystem()
