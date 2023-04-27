@@ -53,6 +53,8 @@ def test_bert(search_algorithm, execution_order, system, olive_json):
 
     # set aml_system as dev
     olive_config["systems"]["aml_system"]["config"]["is_dev"] = True
+    # set docker_system as dev
+    olive_config["systems"]["docker_system"]["config"]["is_dev"] = True
 
     # update host and target
     olive_config["engine"]["host"] = system if system != "docker_system" else "local_system"
