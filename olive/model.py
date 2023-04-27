@@ -827,7 +827,6 @@ class CompositeOnnxModel(OliveModel):
             assert all([isinstance(m, ONNXModel) for m in model_components]), "All components must be ONNXModel"
             self.model_components = model_components
 
-        self.model_components = model_components
         for m in self.model_components:
             m.set_composite_parent(self)
 
