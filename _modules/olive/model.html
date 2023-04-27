@@ -874,7 +874,7 @@
         <span class="k">return</span> <span class="n">compiled_model</span></div>
 
 
-<span class="k">class</span> <span class="nc">DistributedOnnxModel</span><span class="p">(</span><span class="n">ONNXModelBase</span><span class="p">):</span>
+<div class="viewcode-block" id="DistributedOnnxModel"><a class="viewcode-back" href="../../api/models.html#olive.model.DistributedOnnxModel">[docs]</a><span class="k">class</span> <span class="nc">DistributedOnnxModel</span><span class="p">(</span><span class="n">ONNXModelBase</span><span class="p">):</span>
     <span class="n">EXECUTION_PROVIDERS</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;cpu&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">],</span>
         <span class="s2">&quot;gpu&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">],</span>
@@ -958,10 +958,10 @@
                 <span class="s2">&quot;inference_settings&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">}</span>
-        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="n">check_object</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="n">check_object</span><span class="p">)</span></div>
 
 
-<span class="k">class</span> <span class="nc">CompositeOnnxModel</span><span class="p">(</span><span class="n">ONNXModelBase</span><span class="p">):</span>
+<div class="viewcode-block" id="CompositeOnnxModel"><a class="viewcode-back" href="../../api/models.html#olive.model.CompositeOnnxModel">[docs]</a><span class="k">class</span> <span class="nc">CompositeOnnxModel</span><span class="p">(</span><span class="n">ONNXModelBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    CompositeOnnxModel represents multi component models. Whisper is an example composite</span>
 <span class="sd">    model that has encoder and decoder components. CompositeOnnxModel is a collection of</span>
@@ -1012,7 +1012,7 @@
         <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span><span class="p">:</span>
             <span class="n">json_dict</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_components&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">))</span>
 
-        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">json_dict</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">json_dict</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span></div>
 </pre></div>
 
            </div>
