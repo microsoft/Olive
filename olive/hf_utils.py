@@ -42,23 +42,26 @@ class ORTWhisperModel(torch.nn.Module):
         self.config = config
 
 
-# def get_ort_whisper_for_conditional_generation(name: str):
-#     """Load ORT implementation of whisper model"""
-#     # TODO: use ort WhisperHelper to load model when it is ready
-#     from olive.ort_whisper import load_model
-
-#     models = load_model(name)
-
-#     return ORTWhisperModel(models["encoder_decoder_init"], models["decoder"], models["decoder"].config)
-
-
 def get_ort_whisper_for_conditional_generation(name: str):
     """Load ORT implementation of whisper model"""
-    from onnxruntime.transformers.models.whisper.whisper_helper import WhisperHelper
+    from onnxruntime.transformers.models.whisper.whisper_decoder import WhisperDecoder
+    from onnxruntime.transformers.models.whisper.whisper_encoder_decoder_init import WhisperEncoderDecoderInit
+    from transformers import WhisperForConditionalGeneration
 
-    models = WhisperHelper.load_model(name, cache_dir=None, device="cpu")
+    # get the original model
+    model = WhisperForConditionalGeneration.from_pretrained(name)
 
-    return ORTWhisperModel(models["encoder_decoder_init"], models["decoder"], models["decoder"].config)
+    # ort implementation
+    decoder = WhisperDecoder(model, None, model.config)
+    encoder_decoder_init = WhisperEncoderDecoderInit(
+        model,
+        model,
+        None,
+        model.config,
+        decoder_start_token_id=None,
+    )
+
+    return ORTWhisperModel(encoder_decoder_init, decoder, model.config)
 
 
 MODEL_CLASS_TO_ORT_IMPLEMENTATION = {"WhisperForConditionalGeneration": get_ort_whisper_for_conditional_generation}

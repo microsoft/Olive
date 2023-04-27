@@ -331,7 +331,7 @@ class Pass(ABC):
             output_filepaths = []
             for rank in range(0, model.ranks):
                 input_rank_model = model.load_model(rank)
-                rank_output_path = Path(output_model_path).with_suffix("") / rank
+                rank_output_path = Path(output_model_path).with_suffix("") / str(rank)
                 output_rank_model = self._run_for_config(input_rank_model, config, rank_output_path)
                 output_filepaths.append(output_rank_model.model_path)
             return DistributedOnnxModel(

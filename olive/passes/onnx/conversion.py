@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import tempfile
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 import onnx
 import torch
@@ -42,7 +42,9 @@ class OnnxConversion(Pass):
         config.update(get_external_data_config())
         return config
 
-    def _run_for_config(self, model: PyTorchModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+    def _run_for_config(
+        self, model: PyTorchModel, config: Dict[str, Any], output_model_path: str
+    ) -> Union[ONNXModel, CompositeOnnxModel]:
         # check if the model has components
         if model.components:
             onnx_models = []
