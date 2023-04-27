@@ -295,11 +295,9 @@ class ONNXModel(ONNXModelBase):
         return get_ort_inference_session(self.model_path, inference_settings)
 
     def nodes(self):
-        all_nodes = []
         for graph in self.get_all_graphs():
             for node in graph.node:
-                all_nodes.append(node)
-        return all_nodes
+                yield node
 
     def get_graph(self):
         if self.graph is not None:
