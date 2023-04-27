@@ -1,9 +1,11 @@
+from pathlib import Path
+from typing import Any, Callable, Dict, List
+
+from onnxruntime import __version__ as OrtVersion
+
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
-from onnxruntime import __version__ as OrtVersion
-from pathlib import Path
-from typing import Any, Callable, Dict, List
 
 
 class PrePostProcessing(Pass):
@@ -30,50 +32,53 @@ class PrePostProcessing(Pass):
                 description=("Composited tool commands to invoke."),
             ),
             "tool_command_args": PassConfigParam(
-                type_=Dict[str, Any],
-                default_value=None,
-                description="Arguments to pass to tool command."
+                type_=Dict[str, Any], default_value=None, description="Arguments to pass to tool command."
             ),
             "target_opset": PassConfigParam(
-                type_=int,
-                default_value=16,
-                description="The version of the default (ai.onnx) opset to target."
+                type_=int, default_value=16, description="The version of the default (ai.onnx) opset to target."
             ),
         }
 
-
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
-        tool_command = config.get('tool_command')
+        tool_command = config.get("tool_command")
         if tool_command:
-            # Use the pre-defined helper to add pre/post processing to a super resolution model based on YCbCr input.
-            # Note: if you're creating a custom pre/post processing pipeline, use
-            # `from onnxruntime_extensions.tools.pre_post_processing import *` to pull in the pre/post processing
-            # infrastructure and Step definitions.
-            from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
-            
-            # ORT 1.14 and later support ONNX opset 18, which added antialiasing to the Resize operator.
-            # Results are much better when that can be used. Minimum opset is 16.
-            onnx_opset = config.get('target_opset')
-            from packaging import version
-            if version.parse(OrtVersion) >= version.parse("1.14.0"):
-                onnx_opset = 18
+            if tool_command == "whisper":
+                from whisper import add_pre_post_processing_to_model as add_ppp
 
-            if isinstance(tool_command, str):
-                try:
-                    tool_command = getattr(add_ppp, tool_command)
-                except AttributeError:
-                    raise AttributeError(f"{tool_command} is not found in onnxruntime_extensions.tools")
-            elif not isinstance(tool_command, Callable):
-                raise ValueError("tool_command must be a callable or a string defined in onnxruntime_extensions.tools")
+                add_ppp(model.load_model(), output_model_path)
+            else:
+                # Use the pre-defined helper to add pre/post processing to a super resolution
+                # model based on YCbCr input.
+                # Note: if you're creating a custom pre/post processing pipeline, use
+                # `from onnxruntime_extensions.tools.pre_post_processing import *` to pull in the pre/post processing
+                # infrastructure and Step definitions.
+                from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
 
-            kwargs = config.get('tool_command_args', {})
-            kwargs['onnx_opset'] = onnx_opset
+                # ORT 1.14 and later support ONNX opset 18, which added antialiasing to the Resize operator.
+                # Results are much better when that can be used. Minimum opset is 16.
+                onnx_opset = config.get("target_opset")
+                from packaging import version
 
-            # add the processing to the model and output a PNG format image. JPG is also valid.
-            tool_command(Path(model.model_path), Path(output_model_path), **kwargs)
+                if version.parse(OrtVersion) >= version.parse("1.14.0"):
+                    onnx_opset = 18
+
+                if isinstance(tool_command, str):
+                    try:
+                        tool_command = getattr(add_ppp, tool_command)
+                    except AttributeError:
+                        raise AttributeError(f"{tool_command} is not found in onnxruntime_extensions.tools")
+                elif not isinstance(tool_command, Callable):
+                    raise ValueError(
+                        "tool_command must be a callable or a string defined in onnxruntime_extensions.tools"
+                    )
+
+                kwargs = config.get("tool_command_args", {})
+                kwargs["onnx_opset"] = onnx_opset
+
+                # add the processing to the model and output a PNG format image. JPG is also valid.
+                tool_command(Path(model.model_path), Path(output_model_path), **kwargs)
         else:
             # TODO: Handle args pre and post here!
             pass
 
         return ONNXModel(output_model_path, name=model.name, inference_settings=config)
-        
