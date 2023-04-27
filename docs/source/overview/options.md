@@ -45,7 +45,8 @@ case insensitive.
 
         - `model_name: [str]`: This the model name of the huggingface model such as `distilbert-base-uncased`.
 
-        - `task: [str]`: This is the task type for the model such as `text-classification`.
+        - `task: [str]`: This is the task type for the model such as `text-classification`. The complete list of supported task can be found
+        at [huggingface-tasks](https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task).
 
         - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
 

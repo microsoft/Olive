@@ -797,7 +797,7 @@ class DistributedOnnxModel(ONNXModelBase):
         return serialize_to_json(config, check_object=check_object)
 
 
-class CompositeOnnxModel(OliveModel):
+class CompositeOnnxModel(ONNXModelBase):
     """
     CompositeOnnxModel represents multi component models. Whisper is an example composite
     model that has encoder and decoder components. CompositeOnnxModel is a collection of
@@ -810,13 +810,7 @@ class CompositeOnnxModel(OliveModel):
         name: Optional[str] = None,
         version: Optional[int] = None,
     ):
-        super().__init__(
-            framework=Framework.ONNX,
-            model_file_format=ModelFileFormat.ONNX,
-            model_path=None,
-            name=name,
-            version=version,
-        )
+        super().__init__(model_path=None, name=name, version=version, model_storage_kind=ModelStorageKind.LocalFolder)
 
         if isinstance(model_components[0], dict):
             assert all(
