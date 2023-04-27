@@ -28,9 +28,6 @@ def evaluate_accuracy(model: OliveModel, metric: Metric, device: Device = Device
     # dataloder to meet back compatibility for time being.
     dataloader = dataloader or dc.dataloader()
     post_func = post_func or dc.config.post_process
-    # Debug
-    dataloader = dc.dataloader()
-    post_func = dc.config.post_process
 
     preds = []
     targets = []

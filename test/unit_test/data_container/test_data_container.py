@@ -44,9 +44,7 @@ class TestDataContainerConfig:
 
     def test_dc_runner(self):
         try:
-            self.dc.dataset()
-            self.dc.dataloader()
-            self.dc.pre_process()
-            self.dc.post_process()
+            dataset = self.dc.dataset()
+            self.dc.pre_process(dataset)
         except Exception as e:
             pytest.fail(f"Failed to run data container: {e}")

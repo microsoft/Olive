@@ -166,12 +166,12 @@ def get_data_container_config():
             "dataset": {
                 "name": "test_dataset",
                 "type": "test_dataset",
-                "params": {"test_param": "test_value"},
+                "params": {"test_value": "test_value"},
             },
             "dataloader": {
                 "name": "test_dataloader",
                 "type": "_test_dataloader",  # This is the key to get dataloader
-                "params": {"test_param": "test_value"},
+                "params": {"test_value": "test_value"},
             },
         }
     )
