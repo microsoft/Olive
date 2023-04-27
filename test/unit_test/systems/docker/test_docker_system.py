@@ -24,7 +24,7 @@ class TestDockerSystem:
         )
 
         # execute
-        docker_system = DockerSystem(docker_config)
+        docker_system = DockerSystem(docker_config, is_dev=True)
 
         # assert
         assert docker_system.image == mock_image
@@ -44,7 +44,7 @@ class TestDockerSystem:
         mock_docker_client.images.build = MagicMock()
 
         # execute
-        DockerSystem(docker_config)
+        DockerSystem(docker_config, is_dev=True)
 
         # assert
         mock_docker_client.images.build.called_once_with(
@@ -73,7 +73,7 @@ class TestDockerSystem:
         mock_docker_client.images.build = MagicMock()
 
         # execute
-        docker_system = DockerSystem(docker_config)
+        docker_system = DockerSystem(docker_config, is_dev=True)
 
         # assert
         mock_docker_client.images.build.called_once_with(
@@ -113,7 +113,7 @@ class TestDockerSystem:
         docker_config = LocalDockerConfig(
             image_name="image_name", build_context_path="build_context_path", dockerfile="dockerfile"
         )
-        docker_system = DockerSystem(docker_config)
+        docker_system = DockerSystem(docker_config, is_dev=True)
         container_root_path = Path("/olive/")
         eval_output_path = "eval_output"
         eval_output_name = "eval_res.json"

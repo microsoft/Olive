@@ -28,9 +28,10 @@ class DockerSystem(OliveSystem):
 
     BASE_DOCKERFILE = "Dockerfile"
 
-    def __init__(self, local_docker_config: Union[Dict[str, Any], LocalDockerConfig]):
+    def __init__(self, local_docker_config: Union[Dict[str, Any], LocalDockerConfig], is_dev: bool = False):
         logger.info("Initializing Docker System...")
         local_docker_config = validate_config(local_docker_config, LocalDockerConfig)
+        self.is_dev = is_dev
         self.docker_client = docker.from_env()
         self.run_params = local_docker_config.run_params
         try:
@@ -79,7 +80,7 @@ class DockerSystem(OliveSystem):
         raise NotImplementedError()
 
     def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> Dict[str, Any]:
-        container_root_path = Path("/olive/")
+        container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
             metrics_res = {}
             metric_json = self._run_container(tempdir, model, metrics, container_root_path)
@@ -95,6 +96,11 @@ class DockerSystem(OliveSystem):
         volumes_list = []
         eval_file_mount_path, eval_file_mount_str = docker_utils.create_eval_script_mount(container_root_path)
         volumes_list.append(eval_file_mount_str)
+
+        dev_mount_path = None
+        if self.is_dev:
+            dev_mount_path, dev_mount_str = docker_utils.create_dev_mount(tempdir, container_root_path)
+            volumes_list.append(dev_mount_str)
 
         model_copy = copy.deepcopy(model)
         model_mount_path, model_mount_str_list = docker_utils.create_model_mount(
@@ -131,9 +137,25 @@ class DockerSystem(OliveSystem):
 
         run_command = docker_utils.create_run_command(run_params=self.run_params)
 
-        logger.info(f"The volumes list is {volumes_list}")
-
-        self.docker_client.containers.run(image=self.image, command=eval_command, volumes=volumes_list, **run_command)
+        try:
+            logger.debug(f"Running container with eval command: {eval_command}")
+            logger.debug(f"The volumes list is {volumes_list}")
+            self.docker_client.containers.run(
+                image=self.image, command=eval_command, volumes=volumes_list, **run_command
+            )
+            logger.debug("Docker container evaluation completed successfully")
+        finally:
+            # clean up dev mount regardless of whether the run was successful or not
+            # otherwise __pycache__ will be created in the dev mount and will cause issues
+            if self.is_dev:
+                clean_up_mount_path, clean_up_mount_str = docker_utils.create_dev_cleanup_mount(container_root_path)
+                logger.debug("Cleaning up dev mount")
+                self.docker_client.containers.run(
+                    image=self.image,
+                    command=f"python {clean_up_mount_path} --dev_mount_path {dev_mount_path}",
+                    volumes=[dev_mount_str, clean_up_mount_str],
+                )
+                logger.debug("Dev mount cleaned up successfully")
 
         metric_json = Path(output_local_path) / f"{eval_output_name}"
         return metric_json

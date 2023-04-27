@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import shutil
 from pathlib import Path
 from typing import List
 
@@ -97,6 +98,29 @@ def create_eval_script_mount(container_root_path: Path):
     current_dir = Path(__file__).resolve().parent
     eval_file_mount_str = f"{str(current_dir / 'eval.py')}:{eval_file_mount_path}"
     return eval_file_mount_path, eval_file_mount_str
+
+
+def create_dev_mount(tempdir: Path, container_root_path: Path):
+    logger.warning(
+        "This mode is only enabled for CI pipeline! "
+        + "It will overwrite the Olive package in docker container with latest code."
+    )
+    tempdir = Path(tempdir)
+
+    # copy the whole project folder to tempdir
+    project_folder = Path(__file__).resolve().parent.parent.parent
+    shutil.copytree(project_folder, tempdir / "olive", ignore=shutil.ignore_patterns("__pycache__"))
+
+    project_folder_mount_path = str(container_root_path / "olive")
+    project_folder_mount_str = f"{tempdir / 'olive'}:{project_folder_mount_path}"
+    return project_folder_mount_path, project_folder_mount_str
+
+
+def create_dev_cleanup_mount(container_root_path: Path):
+    mount_path = str(container_root_path / "dev_mount_cleanup.py")
+    current_dir = Path(__file__).resolve().parent
+    mount_str = f"{str(current_dir / 'dev_mount_cleanup.py')}:{mount_path}"
+    return mount_path, mount_str
 
 
 def create_output_mount(tempdir, docker_eval_output_path: str, container_root_path: Path):
