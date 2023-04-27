@@ -589,7 +589,7 @@ class PyTorchModel(OliveModel):
 
     def get_model_config(self):
         if self.hf_config is None or self.hf_config.model_config is None:
-            raise Exception(f"HF model_config is not available")
+            raise Exception("HF model_config is not available")
         return get_hf_model_config(self.hf_config.model_config, self.hf_config.model_name)
 
     @property

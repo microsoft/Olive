@@ -94,7 +94,7 @@ def get_hf_model_config(model_config: str, model_name: str):
     """
     import transformers
 
-    model_config = getattr(transformers, model_loader)
+    model_config = getattr(transformers, model_config)
     return model_config(model_name)
 
 
