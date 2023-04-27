@@ -1,3 +1,7 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
 from typing import Callable
 
 import torch
@@ -91,7 +95,7 @@ def load_huggingface_model_from_model_class(model_class: str, name: str, use_ort
     """
 
     if not use_ort_implementation:
-        huggingface_model_loader(model_class)(name)
+        return huggingface_model_loader(model_class)(name)
 
     if model_class not in MODEL_CLASS_TO_ORT_IMPLEMENTATION:
         raise ValueError(f"There is no ORT implementation for {model_class}")

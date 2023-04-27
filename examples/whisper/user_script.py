@@ -1,3 +1,7 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
 from onnxruntime.transformers.models.whisper.whisper_decoder import WhisperDecoderInputs
 from onnxruntime.transformers.models.whisper.whisper_encoder_decoder_init import WhisperEncoderDecoderInitInputs
 
