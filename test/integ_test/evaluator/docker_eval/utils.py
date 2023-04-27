@@ -129,4 +129,4 @@ def get_docker_target():
         build_context_path=str(current_dir / "dockerfile"),
         dockerfile="Dockerfile",
     )
-    return DockerSystem(local_docker_config=local_docker_config)
+    return DockerSystem(local_docker_config=local_docker_config, is_dev=True)
