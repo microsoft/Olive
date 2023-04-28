@@ -43,11 +43,9 @@ def load_pytorch_model(model_path: str) -> nn.Module:
 
     # Load pretrained model weights
     model_url = "https://s3.amazonaws.com/pytorch/test_data/export/superres_epoch100-44c6958e.pth"
-    batch_size = 1  # fix batch size to 1 for use in mobile scenarios
 
     # Initialize model with the pretrained weights
-    map_location = lambda storage, loc: storage
-    torch_model.load_state_dict(model_zoo.load_url(model_url, map_location=map_location))
+    torch_model.load_state_dict(model_zoo.load_url(model_url, map_location=lambda storage, loc: storage))
 
     # set the model to inference mode
     torch_model.eval()
