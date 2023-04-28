@@ -7,6 +7,7 @@ REM --------------------------------------------------------------------------
 set PIPELINE=%1
 set ROOT_DIR=%2
 set EXAMPLE=%3
+set INSTALL_INDEX=%4
 
 if "%PIPELINE%"=="True" (
     call olive-venv\\Scripts\\activate.bat || goto :error
@@ -22,7 +23,7 @@ call python -m pip install -r %ROOT_DIR%\\examples\\%EXAMPLE%\\requirements.txt 
 rem need to remove later
 call python -m pip install --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime-extensions
 call python -m pip uninstall -y onnxruntime
-call python -m pip install --index-url https://olivemodels.azureedge.net/olive2/wheels onnxruntime
+call python -m pip install --index-url %INSTALL_INDEX% onnxruntime
 
 call python -m pytest -v -s --log-cli-level=WARNING --junitxml=%ROOT_DIR%\\logs\\test_examples-TestOlive.xml^
  %ROOT_DIR%\\examples\\test_%EXAMPLE%.py || goto :error

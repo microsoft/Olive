@@ -11,6 +11,6 @@ RUN pip install azure-ai-ml \
 # need to be removed later
 RUN pip install git+https://github.com/microsoft/onnxruntime-extensions.git
 RUN pip uninstall -y onnxruntime
-RUN pip install --index-url https://olivemodels.azureedge.net/olive2/wheels onnxruntime
+RUN pip install ort-nightly==1.15.0.dev20230426002 --index-url=https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 
 WORKDIR /olive
