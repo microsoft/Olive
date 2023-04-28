@@ -3,11 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-# Super Resolution model definition in PyTorch
-import torch.utils.model_zoo as model_zoo
-
 import torch.nn as nn
 import torch.nn.init as init
+
+# Super Resolution model definition in PyTorch
+import torch.utils.model_zoo as model_zoo
 
 
 class SuperResolutionNet(nn.Module):
@@ -18,7 +18,7 @@ class SuperResolutionNet(nn.Module):
         self.conv1 = nn.Conv2d(1, 64, (5, 5), (1, 1), (2, 2))
         self.conv2 = nn.Conv2d(64, 64, (3, 3), (1, 1), (1, 1))
         self.conv3 = nn.Conv2d(64, 32, (3, 3), (1, 1), (1, 1))
-        self.conv4 = nn.Conv2d(32, upscale_factor ** 2, (3, 3), (1, 1), (1, 1))
+        self.conv4 = nn.Conv2d(32, upscale_factor**2, (3, 3), (1, 1), (1, 1))
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
 
         self._initialize_weights()
@@ -31,9 +31,9 @@ class SuperResolutionNet(nn.Module):
         return x
 
     def _initialize_weights(self):
-        init.orthogonal_(self.conv1.weight, init.calculate_gain('relu'))
-        init.orthogonal_(self.conv2.weight, init.calculate_gain('relu'))
-        init.orthogonal_(self.conv3.weight, init.calculate_gain('relu'))
+        init.orthogonal_(self.conv1.weight, init.calculate_gain("relu"))
+        init.orthogonal_(self.conv2.weight, init.calculate_gain("relu"))
+        init.orthogonal_(self.conv3.weight, init.calculate_gain("relu"))
         init.orthogonal_(self.conv4.weight)
 
 
@@ -42,7 +42,7 @@ def load_pytorch_model(model_path: str) -> nn.Module:
     torch_model = SuperResolutionNet(upscale_factor=3)
 
     # Load pretrained model weights
-    model_url = 'https://s3.amazonaws.com/pytorch/test_data/export/superres_epoch100-44c6958e.pth'
+    model_url = "https://s3.amazonaws.com/pytorch/test_data/export/superres_epoch100-44c6958e.pth"
     batch_size = 1  # fix batch size to 1 for use in mobile scenarios
 
     # Initialize model with the pretrained weights

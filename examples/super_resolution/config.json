@@ -22,7 +22,7 @@
                 "input_shapes": [[1, 1, 224, 224]],
                 "input_types": ["float32"],
                 "output_names": ["output"],
-                "target_opset": 15                
+                "target_opset": 15
             }
         },
         "prepost": {
