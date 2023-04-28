@@ -8,7 +8,7 @@ from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
 
 
-class PrePostProcessing(Pass):
+class AppendPrePostProcessingOps(Pass):
     """
     Add Pre/Post nodes to the input model
     """
@@ -47,11 +47,7 @@ class PrePostProcessing(Pass):
 
                 add_ppp(model.load_model(), output_model_path)
             else:
-                # Use the pre-defined helper to add pre/post processing to a super resolution
-                # model based on YCbCr input.
-                # Note: if you're creating a custom pre/post processing pipeline, use
-                # `from onnxruntime_extensions.tools.pre_post_processing import *` to pull in the pre/post processing
-                # infrastructure and Step definitions.
+                # Use the pre-defined helper to add pre/post processing to model.
                 from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
 
                 # ORT 1.14 and later support ONNX opset 18, which added antialiasing to the Resize operator.
@@ -75,7 +71,7 @@ class PrePostProcessing(Pass):
                 kwargs = config.get("tool_command_args", {})
                 kwargs["onnx_opset"] = onnx_opset
 
-                # add the processing to the model and output a PNG format image. JPG is also valid.
+                # add the processing commands to the mode.
                 tool_command(Path(model.model_path), Path(output_model_path), **kwargs)
         else:
             # TODO: Handle args pre and post here!
