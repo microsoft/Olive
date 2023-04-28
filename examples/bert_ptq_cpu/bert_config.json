@@ -63,11 +63,7 @@
                     "sub_type": "avg",
                     "priority_rank": 2,
                     "goal": {"type": "percent-min-improvement", "value": 20},
-                    "user_config":{
-                        "user_script": "user_script.py",
-                        "dataloader_func": "create_dataloader",
-                        "batch_size": 1
-                    }
+                    "data_container": "my_container"
                 }
             ],
             "target": "local_system"
@@ -87,6 +83,12 @@
                 "num_heads": 12,
                 "hidden_size": 768,
                 "float16": false
+            }
+        },
+        "quantization": {
+            "type": "OnnxQuantization",
+            "config": {
+                "data_container": "my_container"
             }
         },
         "perf_tuning": {

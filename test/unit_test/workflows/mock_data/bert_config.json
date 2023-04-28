@@ -83,6 +83,12 @@
             "type": "OrtTransformersOptimization",
             "config": {"model_type": "bert"}
         },
+        "quantization": {
+            "type": "OnnxQuantization",
+            "config": {
+                "data_container": "my_container"
+            }
+        },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {

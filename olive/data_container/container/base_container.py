@@ -6,6 +6,7 @@ from typing import ClassVar
 
 from pydantic import BaseModel
 
+from olive.data_container.component.dataloader import default_calibration_dataloader
 from olive.data_container.config import DataContainerConfig, DefaultDataComponentCombos
 from olive.data_container.constants import DataContainerType, DefaultDataContainer
 from olive.data_container.registry import Registry
@@ -70,6 +71,13 @@ class BaseContainer(BaseModel):
         dataset = self.dataset()
         pre_process_dataset = self.pre_process(dataset)
         return self.dataloader(pre_process_dataset)
+
+    def create_calibration_dataloader(self):
+        """
+        Create calibration dataloader
+        """
+        dataloader = self.create_dataloader()
+        return default_calibration_dataloader(dataloader)
 
     def update_component(self):
         return None

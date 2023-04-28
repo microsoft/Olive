@@ -14,33 +14,31 @@ def default_dataloader(_dataset, batch_size=1, **kwargs):
 
 
 @Registry.register_dataloader()
-def default_calibration_dataloader(_dataset, batch_size=1, **kwargs):
+def default_calibration_dataloader(_dataloader, **kwargs):
     from onnxruntime.quantization import CalibrationDataReader
 
-    dataset = _dataset
+    dataloader = _dataloader
 
     class _CalibrationDataReader(CalibrationDataReader):
-        def __init__(self, dataset, batch_size: int = 1, **kwargs):
-            self.dataset = dataset
-            self.batch_size = batch_size
+        def __init__(self, dataloader, **kwargs):
+            self.dataloader = dataloader
             self.kwargs = kwargs
-            self.data_loader = DataLoader(dataset, batch_size=batch_size, **kwargs)
-            self.data_iter = iter(self.data_loader)
+            self.data_iter = iter(self.dataloader)
 
         def get_next(self):
             if self.data_iter is None:
-                self.data_iter = iter(self.data_loader)
+                self.data_iter = iter(self.dataloader)
             try:
                 batch = next(self.data_iter)
             except StopIteration:
                 return None
-            if isinstance(batch, (list, tuple)):
-                batch = [v.numpy() for v in batch]
-            elif isinstance(batch, dict):
-                batch = {k: v.numpy() for k, v in batch.items()}
+            if isinstance(batch, list):
+                batch = batch[0]
+            if isinstance(batch, dict):
+                batch = {k: v.detach().cpu().numpy() for k, v in batch.items()}
             return batch
 
         def rewind(self):
             self.data_iter = None
 
-    return _CalibrationDataReader(dataset, batch_size, **kwargs)
+    return _CalibrationDataReader(dataloader, **kwargs)

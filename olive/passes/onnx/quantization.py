@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, Union
 import onnx
 
 from olive.common.utils import hash_string
+from olive.data_container.config import DataContainerConfig
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -154,13 +155,22 @@ _static_dataloader_config = {
             Batch size for calibration, required if quant_mode is 'static'.
         """,
     ),
+    # TODO: remove this option once we have a data container ready
     "dataloader_func": PassConfigParam(
         type_=Union[Callable, str],
-        required=True,
+        required=False,
         is_object=True,
         description="""
             Function/function name to generate dataloader for calibration,
             required if quant_mode is 'static'
+        """,
+    ),
+    "data_container": PassConfigParam(
+        type_=Union[DataContainerConfig, str],
+        required=False,
+        description="""
+            Data container for calibration, required if quant_mode is 'static'.
+            If not provided, a default DataContainerConfig will be used.
         """,
     ),
 }
@@ -375,9 +385,16 @@ class OnnxQuantization(Pass):
 
         if is_static:
             # get the dataloader
-            dataloader = self._user_module_loader.call_object(
-                self._fixed_params["dataloader_func"], self._fixed_params["data_dir"], self._fixed_params["batch_size"]
-            )
+            # TODO: only use data container
+            if self._user_module_loader.user_module:
+                dataloader = self._user_module_loader.call_object(
+                    self._fixed_params["dataloader_func"],
+                    self._fixed_params["data_dir"],
+                    self._fixed_params["batch_size"],
+                )
+            elif self._fixed_params["data_container"]:
+                dc_cls = DataContainerConfig(**self._fixed_params["data_container"])
+                dataloader = dc_cls.to_data_container().create_calibration_dataloader()
             quantize_static(
                 model_input=model.model_path,
                 model_output=tmp_model_path,

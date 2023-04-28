@@ -96,7 +96,7 @@ class RunConfig(ConfigBase):
             disable_search = v.get("disable_search", False)
 
         v["disable_search"] = disable_search
-        v = _resolve_data_container(v, values, "data_container")
+        v["config"] = _resolve_data_container(v.get("config", {}), values, "data_container")
         return v
 
 

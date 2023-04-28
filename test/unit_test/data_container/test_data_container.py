@@ -43,6 +43,7 @@ class TestDataContainerConfig:
         assert dc_config.components["post_process"].type == "text_classification_post_process"
         dc = dc_config.to_data_container()
         dc.create_dataloader()
+        dc.create_calibration_dataloader()
 
     def test_dc_runner(self):
         try:
