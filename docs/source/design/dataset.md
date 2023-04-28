@@ -313,7 +313,7 @@ class DataContainerConfig(ConfigBase):
     type: str = DefaultDataContainer.DATA_CONTAINER.value
 
     # used to store the params for each component
-    params_config: dict = None
+    params_config: Dict = None
 
     components: dict[str, DataComponentConfig] = None
     default_components: dict[str, DataComponentConfig] = None

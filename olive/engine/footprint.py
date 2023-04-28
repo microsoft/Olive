@@ -7,6 +7,7 @@ import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from pathlib import Path
+from typing import Dict
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 
@@ -21,8 +22,8 @@ class FootprintNodeMetric(ConfigBase):
     is_goals_met: if the goals set by users is met
     """
 
-    value: dict = None
-    cmp_direction: dict = None
+    value: Dict = None
+    cmp_direction: Dict = None
     is_goals_met: bool = False
 
 
@@ -30,9 +31,9 @@ class FootprintNode(ConfigBase):
     # None for no parent which means current model is the input model
     parent_model_id: str = None
     model_id: str
-    model_config: dict = None
+    model_config: Dict = None
     from_pass: str = None
-    pass_run_config: dict = None
+    pass_run_config: Dict = None
     is_pareto_frontier: bool = False
     # TODO add EP/accelerators for same_model_id metrics
     metrics: FootprintNodeMetric = FootprintNodeMetric()
@@ -54,7 +55,7 @@ class Footprint:
     def __init__(
         self,
         nodes: OrderedDict = None,
-        objective_dict: dict = None,
+        objective_dict: Dict = None,
         is_marked_pareto_frontier: bool = False,
     ):
         self.nodes = nodes if nodes is not None else {}

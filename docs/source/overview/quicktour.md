@@ -233,9 +233,9 @@ class FootprintNode(ConfigBase):
     # None for no parent which means current model is the input model
     parent_model_id: str = None
     model_id: str
-    model_config: dict = None
+    model_config: Dict = None
     from_pass: str = None
-    pass_run_config: dict = None
+    pass_run_config: Dict = None
     is_pareto_frontier: bool = False
     metrics: FootprintNodeMetric = FootprintNodeMetric()
     date_time: float = datetime.now().timestamp()
@@ -247,8 +247,8 @@ class FootprintNodeMetric(ConfigBase):
         1: higher is better, -1: lower is better
     is_goals_met: if the goals set by users is met
     """
-    value: dict = None
-    cmp_direction: dict = None
+    value: Dict = None
+    cmp_direction: Dict = None
     is_goals_met: bool = False
 ```
 - `pareto_frontier_footprints.json`: A dictionary of the footprints that are on the Pareto frontier based on the metrics goal you set in config of `evaluators.metrics`.
