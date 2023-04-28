@@ -51,7 +51,7 @@ class AppendPrePostProcessingOps(Pass):
             if tool_command == "whisper":
                 from olive.passes.utils.whisper_prepost import add_pre_post_processing_to_model as add_ppp
 
-                kwargs = config["tool_command_args"] or {}
+                kwargs = config.get("tool_command_args") or {}
                 add_ppp(model.load_model(), output_model_path, **kwargs)
             else:
                 # Use the pre-defined helper to add pre/post processing to model.
@@ -75,7 +75,7 @@ class AppendPrePostProcessingOps(Pass):
                         "tool_command must be a callable or a string defined in onnxruntime_extensions.tools"
                     )
 
-                kwargs = config["tool_command_args"] or {}
+                kwargs = config.get("tool_command_args") or {}
                 kwargs["onnx_opset"] = onnx_opset
 
                 # add the processing commands to the mode.
