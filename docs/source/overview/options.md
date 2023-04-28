@@ -350,3 +350,56 @@ Please find the detailed config options from following table for each search alg
     "cache_dir": "cache"
 }
 ```
+
+## [Beta] Data Container
+
+`data_container: [Dict]`
+This is a dictionary that contains the information of the data container. The information of the data container contains following items:
+- `name: [str]` The name of the data container.
+- `type: [str]` The type of the data container. The available types are `HuggingfaceContainer` and `BaseContainer` (default type).
+- `params_config: [Dict]` The parameters dictionary of the data components. This configuration depends on the type of the data container. This is optional
+- `components: [Dict]` define the data components of the data container. This is optional. If not specified, the data container will fetch the default data components(`dataset`, `pre_process`, `post_process` and `dataloader`) from the registry.
+
+### Example
+```json
+// Example 1: use build-in data container which call the default data components
+"data_container": {
+    "my_container": {
+        "name": "glue",
+        "type": "HuggingfaceContainer",
+        "params_config": {
+            "data_name": "glue",
+            "subset": "mrpc",
+            "split": "validation",
+            "input_cols": ["sentence1", "sentence2"],
+            "label_cols": ["label"],
+            "batch_size": 1
+        }
+    }
+}
+
+// Example 2: use build-in data container but override some of the default data components with custom data components which are defined in the user_scripts like:
+// from olive.data_container.registry import Registry
+// @Registry.register_dataloader()
+//    def _test_dataloader(test_value):
+//        ...
+
+"data_container": {
+    "my_container": {
+        "components": {
+            "dataset": {
+                "name": "test_dataset",
+                "type": "test_dataset",
+                "params": {"test_value": "test_value"},
+            },
+            "dataloader": {
+                "name": "test_dataloader",
+                "type": "_test_dataloader",
+                "params": {"test_value": "test_value"},
+            },
+        }
+    }
+}
+
+// Finally if you do not provide any data components, the data container will fetch the default data components(`dataset`, `pre_process`, `post_process` and `dataloader`) from the registry.
+```
