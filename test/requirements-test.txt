@@ -9,6 +9,6 @@ openvino-dev
 psutil
 pytorch_lightning
 torchvision
-datset
+dataset
 azureml-evaluate-mlflow
 mlflow
