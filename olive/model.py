@@ -23,6 +23,7 @@ from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework, ModelFileFormat
 from olive.hf_utils import (
+    get_hf_model_config,
     huggingface_model_loader,
     load_huggingface_model_from_model_class,
     load_huggingface_model_from_task,
@@ -147,6 +148,11 @@ class IOConfig(ConfigBase):
     output_shapes: List[List[int]] = None
     output_types: List[str] = None
     dynamic_axes: Dict[str, Dict[int, str]] = None
+    # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference
+    # even though we want the dimension to be a constant int.
+    # We use a workaround here: first use dim_param like "1" to represent the dimension, and then
+    # convert it to int in the onnx model.
+    string_to_int_dim_params: List[str] = None
 
     @validator("input_shapes", "input_types")
     def check_input_shapes(cls, v, values):
@@ -179,6 +185,18 @@ class IOConfig(ConfigBase):
         for k, v in dynamic_axes.items():
             dynamic_axes[k] = {int(kk): vv for kk, vv in v.items()}
         return dynamic_axes
+
+    @validator("string_to_int_dim_params")
+    def check_string_to_int_dim_params(cls, v):
+        if not v:
+            return v
+
+        for dim_param in v:
+            try:
+                int(dim_param)
+            except ValueError:
+                raise ValueError(f"Invalid string_to_int_dim_params: {dim_param}. Must be castable to int.")
+        return v
 
 
 class HFComponent(ConfigBase):
@@ -274,7 +292,6 @@ class ONNXModel(ONNXModelBase):
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
     ):
-
         super().__init__(
             model_path=model_path,
             name=name,
@@ -585,6 +602,11 @@ class PyTorchModel(OliveModel):
 
         return dummy_inputs
 
+    def get_model_config(self):
+        if self.hf_config is None:
+            raise Exception("HF model_config is not available")
+        return get_hf_model_config(self.hf_config.model_name)
+
     @property
     def components(self) -> List[str]:
         """
@@ -859,6 +881,7 @@ class CompositeOnnxModel(ONNXModelBase):
         model_components: List[str],
         name: Optional[str] = None,
         version: Optional[int] = None,
+        hf_config: Union[Dict[str, Any], HFConfig] = None,
     ):
         super().__init__(model_path=None, name=name, version=version, model_storage_kind=ModelStorageKind.LocalFolder)
 
@@ -874,6 +897,8 @@ class CompositeOnnxModel(ONNXModelBase):
         for m in self.model_components:
             m.set_composite_parent(self)
 
+        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
+
     def load_model(self, rank: int = None):
         raise NotImplementedError()
 
@@ -886,13 +911,18 @@ class CompositeOnnxModel(ONNXModelBase):
     def get_model_components(self):
         return self.model_components
 
+    def get_model_component(self, idx):
+        return self.model_components[idx]
+
+    def get_model_config(self):
+        if self.hf_config is None:
+            raise Exception("HF model_config is not available")
+        return get_hf_model_config(self.hf_config.model_name)
+
     def to_json(self, check_object: bool = False):
         json_dict = {
             "type": self.__class__.__name__,
-            "config": {
-                "name": self.name,
-                "version": self.version,
-            },
+            "config": {"name": self.name, "version": self.version, "hf_config": self.hf_config},
         }
         json_dict["config"]["model_components"] = []
         for m in self.model_components:
