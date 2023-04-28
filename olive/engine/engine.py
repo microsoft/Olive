@@ -212,7 +212,7 @@ class Engine:
             results = self._evaluate_model(input_model, input_model_id, self.evaluator, verbose)
             result_name = f"{prefix_output_name}metrics"
             results_path = output_dir / f"{result_name}.json"
-            json.dump(results, open(results_path, "w"), indent=2)
+            json.dump(results, open(results_path, "w"), indent=4)
             return results
 
         # get objective_dict
@@ -444,7 +444,7 @@ class Engine:
             model_json = model.to_json(check_object=check_objects)
         model_json_path = self.get_model_json_path(model_id)
         try:
-            json.dump(model_json, open(model_json_path, "w"))
+            json.dump(model_json, open(model_json_path, "w"), indent=4)
         except Exception as e:
             logger.error(f"Failed to cache model: {e}")
 
@@ -497,7 +497,7 @@ class Engine:
         input_model_number = input_model_id.split("_")[0]
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config)
         try:
-            json.dump(run_json, open(run_json_path, "w"))
+            json.dump(run_json, open(run_json_path, "w"), indent=4)
         except Exception as e:
             logger.error(f"Failed to cache run: {e}")
 
@@ -602,7 +602,7 @@ class Engine:
         }
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         try:
-            json.dump(evaluation_json, open(evaluation_json_path, "w"))
+            json.dump(evaluation_json, open(evaluation_json_path, "w"), indent=4)
         except Exception as e:
             logger.error(f"Failed to cache evaluation: {e}")
 

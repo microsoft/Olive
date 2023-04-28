@@ -54,6 +54,11 @@ OnnxQuantization
 PrePostProcessing
 ----------------
 .. autoconfigclass:: olive.passes.PrePostProcessing
+.. _insert_beam_search
+
+InsertBeamSearch
+--------------------
+.. autoconfigclass:: olive.passes.InsertBeamSearch
 
 .. _quantization_aware_training:
 QuantizationAwareTraining

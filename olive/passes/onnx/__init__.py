@@ -5,6 +5,7 @@
 from olive.passes.onnx.append_pre_post_processing_ops import AppendPrePostProcessingOps
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.float16_conversion import OnnxFloatToFloat16
+from olive.passes.onnx.insert_beam_search import InsertBeamSearch
 from olive.passes.onnx.mixed_precision import OrtMixedPrecision
 from olive.passes.onnx.model_optimizer import OnnxModelOptimizer
 from olive.passes.onnx.perf_tuning import OrtPerfTuning
@@ -21,5 +22,6 @@ __all__ = [
     "OrtTransformersOptimization",
     "OnnxModelOptimizer",
     "OnnxFloatToFloat16",
+    "InsertBeamSearch",
     "OrtMixedPrecision",
 ]
