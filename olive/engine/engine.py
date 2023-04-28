@@ -84,8 +84,6 @@ class Engine:
         elif self._config.evaluator is not None:
             self.evaluator = self._config.evaluator.create_evaluator()
 
-        # default data containers
-
         # dictionary of passes
         # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator, "clean_run_cache": clean_run_cache}}
         self.passes = {}
