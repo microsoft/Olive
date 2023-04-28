@@ -94,7 +94,6 @@
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "user_script": "user_script.py",
                 "input_names": ["input_ids", "attention_mask", "token_type_ids"],
                 "input_shapes": [[1, 128], [1, 128], [1, 128]],
                 "input_types": ["int64", "int64", "int64"]

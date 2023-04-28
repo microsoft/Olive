@@ -318,9 +318,7 @@ def get_user_config(config: dict):
     eval_func = getattr(config, "evaluate_func", None)
     eval_func = user_module.load_object(eval_func)
 
-    # TODO: to generate dummy dataloader input_name/shapes/types are ready
-    # when there is no user_module/dataloader/eval_func
-    if user_module.user_module and not dataloader and not eval_func:
+    if config.input_names and config.input_shapes and config.input_types and not dataloader and not eval_func:
         dataloader = DummyDataloader(config.input_names, config.input_shapes, config.input_types)
 
     return dataloader, post_func, eval_func
