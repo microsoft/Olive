@@ -50,6 +50,11 @@ OnnxQuantization
 ----------------
 .. autoconfigclass:: olive.passes.OnnxQuantization
 
+.. _pre_post_processing:
+PrePostProcessing
+----------------
+.. autoconfigclass:: olive.passes.PrePostProcessing
+
 .. _quantization_aware_training:
 QuantizationAwareTraining
 -------------------------
