@@ -43,7 +43,7 @@ class PrePostProcessing(Pass):
         tool_command = config.get("tool_command")
         if tool_command:
             if tool_command == "whisper":
-                from whisper import add_pre_post_processing_to_model as add_ppp
+                from olive.passes.onnx.whisper_prepost import add_pre_post_processing_to_model as add_ppp
 
                 add_ppp(model.load_model(), output_model_path)
             else:
@@ -81,4 +81,4 @@ class PrePostProcessing(Pass):
             # TODO: Handle args pre and post here!
             pass
 
-        return ONNXModel(output_model_path, name=model.name, inference_settings=config)
+        return ONNXModel(output_model_path, name=model.name)
