@@ -10,6 +10,7 @@ from pydantic import validator
 from olive.common.config_utils import ConfigBase
 from olive.data_container.config import DataContainerConfig
 from olive.data_container.constants import DefaultDataContainer
+from olive.data_container.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
@@ -45,8 +46,22 @@ class RunConfig(ConfigBase):
     passes: Dict[str, RunPassConfig]
     data_container: Dict[str, DataContainerConfig] = {
         DefaultDataContainer.DATA_CONTAINER.value: DataContainerConfig(),
-        # DefaultDataContainer.DUMMY_DATA_CONTAINER.value: DataContainerConfig(),
     }
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self._resolve_data_container()
+
+    def _resolve_data_container(self):
+        if not self.data_container:
+            return {DefaultDataContainer.DATA_CONTAINER.value: DataContainerConfig()}
+        hf_config = self.input_model.dict()["config"]["hf_config"]
+        for _, dc_config in self.data_container.items():
+            if dc_config.type == HuggingfaceContainer.__name__:
+                if hf_config:
+                    dc_config.params_config["model_name"] = hf_config["model_name"]
+                    dc_config.params_config["task_type"] = hf_config["task"]
+            dc_config.fill_in_params()
 
     @validator("evaluators", pre=True, each_item=True)
     def validate_evaluators(cls, v, values):

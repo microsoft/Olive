@@ -42,10 +42,10 @@ class DataContainerConfig(ConfigBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._update_components()
-        self._fill_in_params()
+        self.update_components()
+        self.fill_in_params()
 
-    def _update_components(self):
+    def update_components(self):
         """
         Update the components in the data container with default_components if user do not provide.
         """
@@ -78,7 +78,7 @@ class DataContainerConfig(ConfigBase):
         for k, v in self.default_components_type.items():
             self.default_components[k] = DataComponentConfig(type=v, name=v, params={})
 
-    def _fill_in_params(self):
+    def fill_in_params(self):
         """
         Fill in the default parameters for each component.
         1. if prams_config is not None, use the params_config to fill in the params
@@ -93,13 +93,12 @@ class DataContainerConfig(ConfigBase):
             # 1. user function signature to fill params firstly
             params = signature(component).parameters
             for param, info in params.items():
+                # 2. override the params with params_config
+                if param in self.params_config:
+                    v.params[param] = self.params_config[param]
+                    continue
                 # 3. if it already defined params under the component, use the params directly
                 if param not in v.params and not param.startswith("_"):
-                    # 2. override the params with params_config
-                    if param in self.params_config:
-                        v.params[param] = self.params_config[param]
-                        continue
-
                     if info.kind == info.VAR_POSITIONAL or info.kind == info.VAR_KEYWORD:
                         continue
                     elif info.default is info.empty:

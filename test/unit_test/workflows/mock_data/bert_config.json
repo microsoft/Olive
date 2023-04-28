@@ -110,7 +110,7 @@
         "my_container": {
             "name": "glue",
             "type": "HuggingfaceContainer",
-            "config": {
+            "params_config": {
                 "data_name": "glue",
                 "subset": "mrpc",
                 "split": "validation",
