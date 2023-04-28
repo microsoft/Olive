@@ -4,17 +4,25 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+from copy import deepcopy
 
 from onnxruntime.transformers.models.t5.past_helper import PastKeyValuesHelper
 from onnxruntime.transformers.models.whisper.whisper_encoder_decoder_init import WhisperEncoderDecoderInitInputs
 
 from olive.hf_utils import get_ort_whisper_for_conditional_generation
 
+SUPPORTED_WORKFLOWS = {
+    ("cpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search"],
+    ("cpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search"],
+    ("gpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search"],
+    ("gpu", "fp16"): ["conversion", "transformers_optimization", "mixed_precision", "insert_beam_search"],
+    ("gpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search"],
+}
+
 
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Prepare config file for Whisper")
     parser.add_argument("--model_name", type=str, default="openai/whisper-base.en", help="Model name")
-    parser.add_argument("--device", type=str, default="cpu", choices=["cpu", "gpu"], help="Target device")
     return parser.parse_args(raw_args)
 
 
@@ -24,7 +32,7 @@ def main(raw_args=None):
     whisper_model = get_ort_whisper_for_conditional_generation(args.model_name)
 
     # load template
-    template_json = json.load(open(f"whisper_{args.device}_template.json", "r"))
+    template_json = json.load(open("whisper_template.json", "r"))
 
     # update model name
     template_json["input_model"]["config"]["hf_config"]["model_name"] = args.model_name
@@ -43,7 +51,26 @@ def main(raw_args=None):
     ] = whisper_model.config.encoder_attention_heads
     template_json["passes"]["transformers_optimization"]["config"]["hidden_size"] = whisper_model.config.d_model
 
-    json.dump(template_json, open(f"whisper_{args.device}_config.json", "w"), indent=4)
+    for device, precision in SUPPORTED_WORKFLOWS:
+        workflow = SUPPORTED_WORKFLOWS[(device, precision)]
+        config = deepcopy(template_json)
+
+        # set output name
+        config["engine"]["output_name"] = f"whisper_{device}_{precision}"
+
+        # set device for system
+        config["systems"]["local_system"]["config"]["device"] = device
+
+        # add passes
+        config["passes"] = {}
+        for pass_name in workflow:
+            pass_config = deepcopy(template_json["passes"][pass_name])
+            if pass_name == "transformers_optimization":
+                pass_config["config"]["use_gpu"] = device == "gpu"
+            config["passes"][pass_name] = pass_config
+
+        # dump config
+        json.dump(config, open(f"whisper_{device}_{precision}.json", "w"), indent=4)
 
 
 def get_encdec_io_config(model):
@@ -114,6 +141,7 @@ def get_encdec_io_config(model):
         "input_names": input_names,
         "dynamic_axes": dynamic_axes,
         "output_names": output_names,
+        "string_to_int_dim_params": [sequence_length, num_heads, hidden_size, head_size],
     }
 
 

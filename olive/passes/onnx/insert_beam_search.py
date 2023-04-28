@@ -4,17 +4,19 @@
 # --------------------------------------------------------------------------
 from typing import Any, Dict
 
-from onnx import TensorProto, helper
+from onnx import ModelProto, TensorProto, helper
 from onnxruntime.transformers.convert_generation import get_shared_initializers
 
 from olive.model import CompositeOnnxModel, OliveModel, ONNXModel
 from olive.passes import Pass
-from olive.passes.onnx.common import model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 
 
-class InsertBeamSearchPass(Pass):
+class InsertBeamSearch(Pass):
     """Insert Beam Search Op."""
+
+    _accepts_composite_model = True
 
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
@@ -25,12 +27,15 @@ class InsertBeamSearchPass(Pass):
                 description=" If set to int > 0, all ngrams of that size can only occur once.",
             ),
         }
+        config.update(get_external_data_config())
         return config
 
-    def chain_model(self, model_A, model_A_name, model_B, model_B_name, model_config, options):
+    def chain_model(
+        self, model_A: ModelProto, model_A_name: str, model_B: ModelProto, model_B_name: str, model_config, options
+    ):
         # Chain two models (model_A and model_B) by inserting beam search op in between.
-        model_A.graph.name = model_A_name + " subgraph"
-        model_B.graph.name = model_B_name + " subgraph"
+        model_A.graph.name = f"{model_A_name} subgraph"
+        model_B.graph.name = f"{model_B_name} subgraph"
 
         beam_inputs = [
             "input_features",
@@ -95,8 +100,8 @@ class InsertBeamSearchPass(Pass):
         initializers = get_shared_initializers(model_A, model_B)
         node.attribute.extend(
             [
-                helper.make_attribute(model_B_name, model_B.graph),
-                helper.make_attribute(model_A_name, model_A.graph),
+                helper.make_attribute("decoder", model_B.graph),
+                helper.make_attribute("encoder", model_A.graph),
             ]
         )
         opset_import = [
@@ -109,8 +114,10 @@ class InsertBeamSearchPass(Pass):
 
         return beam_model
 
-    def add_attention_mask(self, model, mask_name):
-        mask = helper.make_tensor_value_info(mask_name, TensorProto.INT32, shape=["batch", "feature_size", "sequence"])
+    def add_attention_mask(self, model: ModelProto):
+        mask = helper.make_tensor_value_info(
+            "encoder_attention_mask", TensorProto.INT32, shape=["batch", "feature_size", "sequence"]
+        )
         model.graph.input.insert(1, mask)
 
     def _run_for_config(self, model: OliveModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
@@ -127,13 +134,15 @@ class InsertBeamSearchPass(Pass):
         # Load encoder/decoder and insert necessary (but unused) graph inputs expected by BeamSearch op
         model_A = model.get_model_component(0)
         model_B = model.get_model_component(1)
-        self.add_attention_mask(model_A, model_A.name + "_attention_mask")
-        self.add_attention_mask(model_B, model_B.name + "_attention_mask")
+        model_proto_A = model_A.load_model()
+        model_proto_B = model_B.load_model()
+        self.add_attention_mask(model_proto_A)
+        self.add_attention_mask(model_proto_B)
 
         combined_model = self.chain_model(
-            model_A, model_A.name, model_B, model_B.name, model.get_model_config(), config
+            model_proto_A, model_A.name, model_proto_B, model_B.name, model.get_model_config(), config
         )
 
         # save the model to the output path and return the model
         output_model_path = ONNXModel.resolve_path(output_model_path)
-        return model_proto_to_olive_model(combined_model.model, output_model_path, config, model.name)
+        return model_proto_to_olive_model(combined_model, output_model_path, config, model.name)
