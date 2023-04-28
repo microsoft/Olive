@@ -1,5 +1,7 @@
-# Copyright (c) Microsoft Corporation.
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
+# --------------------------------------------------------------------------
 import io
 
 import numpy as np
@@ -193,10 +195,7 @@ def _to_onnx_stft(onnx_model: onnx.ModelProto) -> onnx.ModelProto:
     return onnx_model
 
 
-def _load_test_data(filepath: str = None) -> npt.NDArray[np.uint8]:
-    if not filepath:
-        filepath = util.get_test_data_file(".", "1272-141231-0002.mp3")
-
+def _load_test_data(filepath: str) -> npt.NDArray[np.uint8]:
     if USE_AUDIO_DECODER:
         with open(filepath, "rb") as strm:
             audio_blob = np.asarray(list(strm.read()), dtype=np.uint8)
@@ -275,11 +274,11 @@ def _merge_models(
 
 
 def add_pre_post_processing_to_model(
-    name: str, model: onnx.ModelProto, output_filepath: str, testdata_filepath: str = None
+    model: onnx.ModelProto, output_filepath: str, model_name: str, testdata_filepath: str
 ) -> onnx.ModelProto:
     audio_blob = _load_test_data(testdata_filepath)
     pre_model = _preprocessing(audio_blob)
-    post_model = _postprocessing(name)
+    post_model = _postprocessing(model_name)
     final_model = _merge_models(pre_model, model, post_model)
     onnx.checker.check_model(final_model)
 
