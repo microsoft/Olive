@@ -50,10 +50,10 @@ OnnxQuantization
 ----------------
 .. autoconfigclass:: olive.passes.OnnxQuantization
 
-.. _pre_post_processing:
-PrePostProcessing
+.. _append_pre_post_processing:
+AppendPrePostProcessingOps
 ----------------
-.. autoconfigclass:: olive.passes.PrePostProcessing
+.. autoconfigclass:: olive.passes.AppendPrePostProcessingOps
 .. _insert_beam_search
 
 InsertBeamSearch

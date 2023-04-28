@@ -55,13 +55,13 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
     "config": {"model_type": "bert"}
 }
 ```
-## Pre/Post Processing Ops
-'PrePostProcessing' inserts pre and post processing ops into the ONNX graph.
+## Append Pre/Post Processing Ops
+'AppendPrePostProcessingOps' inserts pre and post processing ops into the ONNX graph.
 
 ### Example Configuration
 ```json
 {
-    "type": "PrePostProcessing",
+    "type": "AppendPrePostProcessingOps",
     "config": {"tool_command": "superresolution"}
 }
 ```
