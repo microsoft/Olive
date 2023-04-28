@@ -76,24 +76,28 @@
 <li class="toctree-l4"><a class="reference internal" href="#id2">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#insert-beam-serch-op">Insert Beam Serch Op</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#append-pre-post-processing-ops">Append Pre/Post Processing Ops</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id3">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#post-training-quantization-ptq">Post Training Quantization (PTQ)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#insert-beam-serch-op">Insert Beam Serch Op</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id4">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#ort-performance-tuning">ORT Performance Tuning</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#post-training-quantization-ptq">Post Training Quantization (PTQ)</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id5">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#float16-conversion">Float16 Conversion</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#ort-performance-tuning">ORT Performance Tuning</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id6">Example Configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="#mixed-precision-conversion">Mixed Precision Conversion</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#float16-conversion">Float16 Conversion</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#id7">Example Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#mixed-precision-conversion">Mixed Precision Conversion</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id8">Example Configuration</a></li>
 </ul>
 </li>
 </ul>
@@ -213,11 +217,29 @@ for more details on the optimizations done by this tool.</p>
 </div>
 </section>
 </section>
+<section id="append-pre-post-processing-ops">
+<h2>Append Pre/Post Processing Ops<a class="headerlink" href="#append-pre-post-processing-ops" title="Permalink to this heading">¶</a></h2>
+<p>‘AppendPrePostProcessingOps’ inserts pre and post processing ops into the ONNX graph.</p>
+<section id="id3">
+<h3>Example Configuration<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AppendPrePostProcessingOps&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;tool_command&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;superresolution&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;tool_command_args&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;output_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;png&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+</section>
 <section id="insert-beam-serch-op">
 <h2>Insert Beam Serch Op<a class="headerlink" href="#insert-beam-serch-op" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">InsertBeamSearch</span></code> chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.</p>
-<section id="id3">
-<h3>Example Configuration<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
+<section id="id4">
+<h3>Example Configuration<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;InsertBeamSearch&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;no_repeat_ngram_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">}</span>
@@ -248,8 +270,8 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <code class="docutils literal notranslate"><span class="pre">OnnxStaticQuantization</span></code> respectively.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#onnx-quantization"><span class="std std-ref">OnnxQuantization</span></a>, <a class="reference internal" href="../../api/passes.html#onnx-dynamic-quantization"><span class="std std-ref">OnnxDynamicQuantization</span></a> and
 <a class="reference internal" href="../../api/passes.html#onnx-static-quantization"><span class="std std-ref">OnnxStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
-<section id="id4">
-<h3>Example Configuration<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
+<section id="id5">
+<h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
 <p>a. Tune the parameters of the OlivePass with pre-defined searchable values</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
@@ -311,8 +333,8 @@ environments.
 For each model running with each execution provider, there are settings that can be tuned (e.g. thread number, execution mode, etc) to
 improve performance.
 <code class="docutils literal notranslate"><span class="pre">OrtPerfTuning</span></code> covers basic knobs that can be leveraged to find the best performance for your model and hardware.</p>
-<section id="id5">
-<h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
+<section id="id6">
+<h3>Example Configuration<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtPerfTuning&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -331,8 +353,8 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <h2>Float16 Conversion<a class="headerlink" href="#float16-conversion" title="Permalink to this heading">¶</a></h2>
 <p>Converting a model to use Float16 instead of Float32 can decrease the model size and improve performance on some GPUs. The <code class="docutils literal notranslate"><span class="pre">OnnxFloatToFloat16</span></code> pass wraps <a class="reference external" href="https://github.com/microsoft/onnxconverter-common/blob/master/onnxconverter_common/float16.py#L111">onnxconverter_common.float16.convert_float_to_float16</a>, which convert most nodes/operators to use Float16 instead of Float32.</p>
 <p>Conversion to Float16 is often exposed at multiple stages of optimization, including model conversion and transformer optimization. This stand-alone pass is best suited for models that are not transformer architectures, where fusions may rely on a specific data types in node patterns.</p>
-<section id="id6">
-<h3>Example Configuration<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h3>
+<section id="id7">
+<h3>Example Configuration<a class="headerlink" href="#id7" title="Permalink to this heading">¶</a></h3>
 <p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxFloatToFloat16&quot;</span>
@@ -357,8 +379,8 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 <p>Converting model to mixed precision.</p>
 <p>If float16 conversion is giving poor results, you can convert most of the ops to float16 but leave some in float32. The <code class="docutils literal notranslate"><span class="pre">OrtMixedPrecision</span></code> pass finds a minimal set of ops to skip while retaining a certain level of accuracy.</p>
 <p>The default value for <code class="docutils literal notranslate"><span class="pre">op_block_list</span></code> is <code class="docutils literal notranslate"><span class="pre">[&quot;SimplifiedLayerNormalization&quot;,</span> <span class="pre">&quot;SkipSimplifiedLayerNormalization&quot;,</span> <span class="pre">&quot;Relu&quot;,</span> <span class="pre">&quot;Add&quot;]</span></code>.</p>
-<section id="id7">
-<h3>Example Configuration<a class="headerlink" href="#id7" title="Permalink to this heading">¶</a></h3>
+<section id="id8">
+<h3>Example Configuration<a class="headerlink" href="#id8" title="Permalink to this heading">¶</a></h3>
 <p>a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtMixedPrecision&quot;</span>
