@@ -68,16 +68,6 @@ class QuantizationAwareTraining(Pass):
             "modules_to_fuse": PassConfigParam(
                 type_=List[List[str]], default_value=None, description="List of list of module names to fuse."
             ),
-            "input_shapes": PassConfigParam(
-                type_=List[List[int]],
-                required=True,
-                description="List ot input shapes. It is used to create dummy input for PyTorch model tracing.",
-            ),
-            "input_types": PassConfigParam(
-                type_=List[str],
-                default_value=None,
-                description="List ot input types. It is used to create dummy input for PyTorch model tracing.",
-            ),
             "qconfig_func": PassConfigParam(
                 type_=Union[Callable, str],
                 default_value=None,

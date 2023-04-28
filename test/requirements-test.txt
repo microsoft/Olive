@@ -10,3 +10,5 @@ psutil
 pytorch_lightning
 torchvision
 datset
+azureml-evaluate-mlflow
+mlflow

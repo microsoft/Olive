@@ -9,6 +9,7 @@ import torch.quantization.quantization_mappings as tqqm
 from pytorch_lightning import LightningModule, seed_everything
 from torch.ao.quantization.fake_quantize import FakeQuantize, MovingAverageMinMaxObserver
 
+from olive.constants import ModelFileFormat
 from olive.model import ModelStorageKind, PyTorchModel
 from olive.passes.pytorch.cluster import barrier, create_cluster, is_master_proc
 from olive.passes.pytorch.pytorch_lightning_utils import create_ddp_strategy, create_trainer
@@ -39,7 +40,7 @@ class QatTrainer:
         cluster_environment = create_cluster()
         run_on_gpus = cluster_environment is not None or torch.cuda.is_available()
         input_model = self.model.load_model()
-        model_input_tensor = self.create_dummy_input()
+        model_input_tensor = self.model.get_dummy_inputs()
 
         if self.config.qconfig_func:
             qconfig = self.config.qconfig_func()
@@ -110,9 +111,20 @@ class QatTrainer:
         if is_master_proc():
             torch.jit.save(traced_model_converted, self.output_model_path)
         barrier()
+        # preserve the io_config, dummy_inputs_func, model_script, script_dir
+        # from the original model
+        original_config = self.model.to_json()["config"]
+        to_keep = ["io_config", "dummy_inputs_func"]
+        if isinstance(original_config["dummy_inputs_func"], str):
+            to_keep += ["model_script", "script_dir"]
+        config_to_keep = {k: original_config[k] for k in to_keep}
         # TODO: Add PyTorch model type flag
         qat_pytorch_model = PyTorchModel(
-            model_path=self.output_model_path, name="pytorch_qat_model", model_storage_kind=ModelStorageKind.LocalFile
+            model_path=self.output_model_path,
+            name="pytorch_qat_model",
+            model_file_format=ModelFileFormat.PYTORCH_TORCH_SCRIPT,
+            model_storage_kind=ModelStorageKind.LocalFile,
+            **config_to_keep
         )
         return qat_pytorch_model
 
@@ -157,22 +169,6 @@ class QatTrainer:
         if not all(self._recursive_hasattr(model, m) for m in group):
             return False
         return True
-
-    def create_dummy_input(self):
-        str_to_type = {"float32": torch.float32, "float16": torch.float16, "int32": torch.int32, "int64": torch.int64}
-        input_types = []
-        if self.config.input_types is not None:
-            for input_type in self.config.input_types:
-                input_types.append(str_to_type[input_type])
-        else:
-            input_types = [str_to_type["float32"] for _ in self.config.input_shapes]
-
-        # dummy inputs
-        dummy_inputs = []
-        for input_shape, input_type in zip(self.config.input_shapes, input_types):
-            dummy_inputs.append(torch.zeros(input_shape, dtype=input_type))
-        dummy_inputs = tuple(dummy_inputs) if len(dummy_inputs) > 1 else dummy_inputs[0]
-        return dummy_inputs
 
 
 class DefaultPTLModule(LightningModule):

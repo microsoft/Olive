@@ -36,6 +36,12 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
     return returncode, stdout, stderr
 
 
+def hash_string(string):  # pragma: no cover
+    md5_hash = hashlib.md5()
+    md5_hash.update(string.encode())
+    return md5_hash.hexdigest()
+
+
 def hash_io_stream(f):  # pragma: no cover
     md5_hash = hashlib.md5()
     # Read and update hash in chunks of 4K

@@ -34,7 +34,6 @@ class EngineConfig(ConfigBase):
     search_strategy: Union[SearchStrategyConfig, bool] = None
     host: SystemConfig = None
     target: SystemConfig = None
-    model_io_config: Dict[str, List] = None
     evaluator: OliveEvaluatorConfig = None
     packaging_config: PackagingConfig = None
     cache_dir: Union[Path, str] = ".olive-cache"

@@ -13,7 +13,7 @@ from pydantic import validator
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data_container.registry import Registry
-from olive.model import DistributedOnnxModel, OliveModel
+from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel
 from olive.passes.pass_config import (
     PassConfigBase,
     PassConfigParam,
@@ -335,11 +335,18 @@ class Pass(ABC):
             output_filepaths = []
             for rank in range(0, model.ranks):
                 input_rank_model = model.load_model(rank)
-                output_rank_model = self._run_for_config(input_rank_model, config, output_model_path)
+                rank_output_path = Path(output_model_path).with_suffix("") / str(rank)
+                output_rank_model = self._run_for_config(input_rank_model, config, rank_output_path)
                 output_filepaths.append(output_rank_model.model_path)
             return DistributedOnnxModel(
                 output_filepaths, model.name, version=model.version, inference_settings=model.inference_settings
             )
+        elif isinstance(model, CompositeOnnxModel):
+            components = []
+            for cidx, child in enumerate(model.get_model_components()):
+                component_output_path = Path(output_model_path).with_suffix("") / str(cidx)
+                components.append(self._run_for_config(child, config, str(component_output_path)))
+            return CompositeOnnxModel(components, model.name)
 
         return self._run_for_config(model, config, output_model_path)
 
