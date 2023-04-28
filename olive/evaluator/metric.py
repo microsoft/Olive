@@ -53,7 +53,7 @@ class Metric(ConfigBase):
     priority_rank: int = 1
     goal: MetricGoal = None
     metric_config: ConfigBase = None
-    user_config: ConfigBase
+    user_config: ConfigBase = None
     data_container: DataContainerConfig = DataContainerConfig()
 
     @validator("sub_type", always=True, pre=True)

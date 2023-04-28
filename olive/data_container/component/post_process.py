@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import torch
+import transformers
 
 from olive.data_container.registry import Registry
 
@@ -17,4 +19,9 @@ def post_process(_output_data, **kwargs):
     Returns:
         object: Post-processed data.
     """
-    return _output_data
+    if isinstance(_output_data, transformers.modeling_outputs.SequenceClassifierOutput):
+        _, preds = torch.max(_output_data.logits, dim=1)
+    else:
+        _, preds = torch.max(_output_data, dim=1)
+
+    return preds

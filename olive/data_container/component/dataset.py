@@ -16,6 +16,24 @@ class BaseDataset(Dataset):
     The data should be a list or dict of numpy arrays or torch tensors
     """
 
+    def __init__(self, data, label_cols=None, **kwargs):
+        """
+        This function is used to initialize the dataset
+        """
+        self.data = data
+        self.label_cols = label_cols or []
+
+    def __len__(self):
+        """
+        This function is used to return the length of the dataset
+        """
+        return len(self.data)
+
+    def __getitem__(self, index):
+        data = {k: v for k, v in self.data[index].items() if k not in self.label_cols}
+        label = self.data[index][self.label_cols[0]]
+        return data, label
+
     def to_numpy(self):
         """
         This function is used to convert the dataset to numpy array

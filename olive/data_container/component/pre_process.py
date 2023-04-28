@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 
 
+from olive.data_container.component.dataset import BaseDataset
 from olive.data_container.registry import Registry
 
 
@@ -47,6 +48,7 @@ def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, **kwar
         )
         # TODO: support multiple label columns if needed
         tokenized_inputs["label"] = examples[label_cols[0]]
+        # huggingface dataset api limit to return dict and arrow table
         return tokenized_inputs
 
     # output type is list
@@ -56,4 +58,4 @@ def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, **kwar
         remove_columns=dataset.column_names,
     )
     tokenized_datasets.set_format("torch", output_all_columns=True)
-    return tokenized_datasets
+    return BaseDataset(tokenized_datasets, label_cols=label_cols)

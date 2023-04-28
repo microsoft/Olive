@@ -26,7 +26,7 @@ def evaluate_accuracy(model: OliveModel, metric: Metric, device: Device = Device
 
     # TODO remove user_scripts dataloader: we should respect user scripts
     # dataloder to meet back compatibility for time being.
-    dataloader = dataloader or dc.dataloader()
+    dataloader = dataloader or dc.create_dataloader()
     post_func = post_func or dc.config.post_process
 
     preds = []
@@ -78,6 +78,11 @@ def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.
     Evaluate model latency according to config, return latency metrics
     """
     dataloader, _, _ = get_user_config(metric.user_config)
+    dc = metric.data_container.to_data_container()
+    # TODO remove user_scripts dataloader: we should respect user scripts
+    # dataloder to meet back compatibility for time being.
+    dataloader = dataloader or dc.create_dataloader()
+
     warmup_num = metric.metric_config.warmup_num
     repeat_test_num = metric.metric_config.repeat_test_num
     sleep_num = metric.metric_config.sleep_num
@@ -313,7 +318,7 @@ def get_user_config(config: dict):
     eval_func = getattr(config, "evaluate_func", None)
     eval_func = user_module.load_object(eval_func)
 
-    if not dataloader and not eval_func:
+    if user_module.user_module and not dataloader and not eval_func:
         dataloader = DummyDataloader(config.input_names, config.input_shapes, config.input_types)
 
     return dataloader, post_func, eval_func
