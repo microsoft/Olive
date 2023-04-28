@@ -29,6 +29,23 @@
             "config": {"device": "<place_holder>"}
         }
     },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_type": "avg",
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "data_dir": "data",
+                        "dataloader_func": "whisper_dataloader"
+                    }
+                }
+            ],
+            "target": "local_system"
+        }
+    },
     "passes": {
         "conversion": {
             "type": "OnnxConversion",
@@ -79,6 +96,7 @@
     "engine": {
         "search_strategy": false,
         "host": "local_system",
+        "evaluator": "common_evaluator",
         "clean_cache": false,
         "cache_dir": "cache",
         "output_dir": "models",

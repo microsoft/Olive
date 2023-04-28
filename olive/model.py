@@ -235,6 +235,7 @@ class ONNXModelBase(OliveModel):
         version: Optional[int] = None,
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
+        use_ort_extensions: bool = False,
     ):
         super().__init__(
             framework=Framework.ONNX,
@@ -245,15 +246,22 @@ class ONNXModelBase(OliveModel):
             model_storage_kind=model_storage_kind,
         )
         self.inference_settings = inference_settings
+        self.use_ort_extensions = use_ort_extensions
 
-    @staticmethod
-    def _is_valid_ep(filepath: str, ep: str = None):
+    def _is_valid_ep(self, filepath: str, ep: str = None):
         # TODO: should be remove if future accelerators is implemented
         # It should be a bug for onnxruntime where the execution provider is not be fallback.
         import onnxruntime as ort
 
         try:
-            ort.InferenceSession(filepath, providers=[ep])
+            sess_options = ort.SessionOptions()
+            if self.use_ort_extensions:
+                # register custom ops for onnxruntime-extensions
+                from onnxruntime_extensions import get_library_path
+
+                sess_options.register_custom_ops_library(get_library_path())
+
+            ort.InferenceSession(filepath, sess_options, providers=[ep])
         except Exception as e:
             logger.warning(
                 f"Error: {e}Olive will ignore this {ep}."
@@ -291,6 +299,7 @@ class ONNXModel(ONNXModelBase):
         version: Optional[int] = None,
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
+        use_ort_extensions: bool = False,
     ):
         super().__init__(
             model_path=model_path,
@@ -298,6 +307,7 @@ class ONNXModel(ONNXModelBase):
             version=version,
             model_storage_kind=model_storage_kind,
             inference_settings=inference_settings,
+            use_ort_extensions=use_ort_extensions,
         )
         self.io_config = None
         self.graph = None
@@ -338,7 +348,7 @@ class ONNXModel(ONNXModelBase):
         if not inference_settings.get("execution_provider"):
             inference_settings["execution_provider"] = self.get_default_execution_providers(device)
 
-        return get_ort_inference_session(self.model_path, inference_settings)
+        return get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions)
 
     def nodes(self):
         for graph in self.get_all_graphs():
@@ -387,14 +397,16 @@ class ONNXModel(ONNXModelBase):
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
-        config["config"].update({"inference_settings": self.inference_settings})
+        config["config"].update(
+            {"inference_settings": self.inference_settings, "use_ort_extensions": self.use_ort_extensions}
+        )
         return serialize_to_json(config, check_object)
 
     def get_default_execution_providers(self, device: Device):
         # return firstly available ep as ort default ep
         available_providers = ONNXModel.get_execution_providers(device)
         for ep in available_providers:
-            if ONNXModelBase._is_valid_ep(self.model_path, ep):
+            if self._is_valid_ep(self.model_path, ep):
                 return [ep]
         return super().get_default_execution_providers(device)
 
@@ -794,6 +806,7 @@ class DistributedOnnxModel(ONNXModelBase):
         name: Optional[str] = None,
         version: Optional[int] = None,
         inference_settings: Optional[dict] = None,
+        use_ort_extensions: bool = False,
     ):
         super().__init__(
             model_path=None,
@@ -801,6 +814,7 @@ class DistributedOnnxModel(ONNXModelBase):
             version=version,
             model_storage_kind=ModelStorageKind.LocalFolder,
             inference_settings=inference_settings,
+            use_ort_extensions=use_ort_extensions,
         )
         self.model_filepaths = model_filepaths
 
@@ -836,7 +850,7 @@ class DistributedOnnxModel(ONNXModelBase):
         # return firstly available ep as ort default ep
         available_providers = DistributedOnnxModel.get_execution_providers(device)
         for ep in available_providers:
-            if ONNXModelBase._is_valid_ep(filepath, ep):
+            if self._is_valid_ep(filepath, ep):
                 return [ep]
 
         return ["CUDAExecutionProvider", "CPUExecutionProvider"]
@@ -864,6 +878,7 @@ class DistributedOnnxModel(ONNXModelBase):
                 "name": self.name,
                 "version": self.version,
                 "inference_settings": self.inference_settings,
+                "use_ort_extensions": self.use_ort_extensions,
             },
         }
         return serialize_to_json(config, check_object=check_object)
