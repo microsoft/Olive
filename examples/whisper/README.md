@@ -32,5 +32,12 @@ python -m olive.workflows.run --config whisper_{device}_{precision}.json --setup
 
 Then, optimize the model
 ```
-python -m olive.workflows.run --config whisper_{device}_{precision}.json --setup
+python -m olive.workflows.run --config whisper_{device}_{precision}.json
 ```
+
+## Test the output generation of the optimized model
+```
+python test_model_generation.py --config whisper_{device}_{precision}.json [--auto_path AUDIO_PATH]
+```
+
+`--audio_path` is optional. If not provide, will use test auto path from the config.

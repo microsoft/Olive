@@ -4,10 +4,14 @@
         "type": "PyTorchModel",
         "config": {
             "name": "supres",
-            "model_path": null,
-            "is_file": false,
             "model_loader": "load_pytorch_model",
-            "model_script": "loader.py"
+            "model_script": "loader.py",
+            "io_config": {
+                "input_names": ["input"],
+                "input_shapes": [[1, 1, 224, 224]],
+                "input_types": ["float32"],
+                "output_names": ["output"]
+            }
         }
     },
     "systems": {
@@ -18,15 +22,11 @@
         "exporter": {
             "type": "OnnxConversion",
             "config": {
-                "input_names": ["input"],
-                "input_shapes": [[1, 1, 224, 224]],
-                "input_types": ["float32"],
-                "output_names": ["output"],
                 "target_opset": 15
             }
         },
         "prepost": {
-            "type": "PrePostProcessing",
+            "type": "AppendPrePostProcessingOps",
             "config": {
                 "tool_command": "superresolution",
                 "tool_command_args": {
