@@ -19,7 +19,7 @@ rem test samples
 call echo "Testing examples"
 call python -m pip install -r %ROOT_DIR%\\examples\\%EXAMPLE%\\requirements.txt || goto :error
 
-rem need to be remove later
+rem need to remove later
 call python -m pip install --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime-extensions
 call python -m pip uninstall -y onnxruntime
 call python -m pip install --index-url https://olivemodels.azureedge.net/olive2/wheels onnxruntime
