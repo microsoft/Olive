@@ -54,7 +54,8 @@
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
                         "batch_size": 1
-                    }
+                    },
+                    "data_container": "my_container"
                 },
                 {
                     "name": "latency",

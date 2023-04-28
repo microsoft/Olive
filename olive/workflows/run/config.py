@@ -7,7 +7,7 @@ from typing import Dict, Union
 
 from pydantic import validator
 
-from olive.common.config_utils import ConfigBase
+from olive.common.config_utils import ConfigBase, validate_config
 from olive.data_container.config import DataContainerConfig
 from olive.data_container.constants import DefaultDataContainer
 from olive.data_container.container.huggingface_container import HuggingfaceContainer
@@ -41,31 +41,31 @@ class RunConfig(ConfigBase):
     verbose: bool = False
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
-    evaluators: Dict[str, OliveEvaluatorConfig] = None
-    engine: RunEngineConfig
-    passes: Dict[str, RunPassConfig]
     data_container: Dict[str, DataContainerConfig] = {
         DefaultDataContainer.DATA_CONTAINER.value: DataContainerConfig(),
     }
+    evaluators: Dict[str, OliveEvaluatorConfig] = None
+    engine: RunEngineConfig
+    passes: Dict[str, RunPassConfig]
 
     def __init__(self, **data):
         super().__init__(**data)
-        self._resolve_data_container()
 
-    def _resolve_data_container(self):
-        if not self.data_container:
-            return {DefaultDataContainer.DATA_CONTAINER.value: DataContainerConfig()}
-        hf_config = self.input_model.dict()["config"]["hf_config"]
-        for _, dc_config in self.data_container.items():
-            if dc_config.type == HuggingfaceContainer.__name__:
-                if hf_config:
-                    dc_config.params_config["model_name"] = hf_config["model_name"]
-                    dc_config.params_config["task_type"] = hf_config["task"]
-            dc_config.fill_in_params()
+    @validator("data_container", pre=True, each_item=True)
+    def validate_data_container(cls, v, values):
+        hf_config = values["input_model"].dict()["config"]["hf_config"]
+        if v["type"] == HuggingfaceContainer.__name__:
+            if hf_config:
+                v["params_config"]["model_name"] = hf_config["model_name"]
+                v["params_config"]["task_type"] = hf_config["task"]
+        return validate_config(v, DataContainerConfig)
 
     @validator("evaluators", pre=True, each_item=True)
     def validate_evaluators(cls, v, values):
-        return _resolve_system(v, values, "target")
+        v = _resolve_system(v, values, "target")
+        for idx, metric in enumerate(v.get("metrics", [])):
+            v["metrics"][idx] = _resolve_data_container(metric, values, "data_container")
+        return v
 
     @validator("engine", pre=True)
     def validate_engine(cls, v, values):
@@ -96,25 +96,34 @@ class RunConfig(ConfigBase):
             disable_search = v.get("disable_search", False)
 
         v["disable_search"] = disable_search
+        v = _resolve_data_container(v, values, "data_container")
         return v
 
 
-def _resolve_system(v, values, system_alias):
+def _resolve_config_str(v, values, alias, component_name="systems"):
     if not isinstance(v, dict):
         return v
 
-    system = v.get(system_alias)
-    if not isinstance(system, str):
+    sub_component = v.get(alias)
+    if not isinstance(sub_component, str):
         return v
 
     # resolve system name to systems member config
-    if "systems" not in values:
+    if component_name not in values:
         raise ValueError("Invalid systems")
-    systems = values["systems"] or {}
-    if system not in systems:
-        raise ValueError(f"{system_alias} {system} not found in systems")
-    v[system_alias] = systems[system]
+    components = values[component_name] or {}
+    if sub_component not in components:
+        raise ValueError(f"{alias} {sub_component} not found in systems")
+    v[alias] = components[sub_component]
     return v
+
+
+def _resolve_system(v, values, system_alias, component_name="systems"):
+    return _resolve_config_str(v, values, system_alias, component_name=component_name)
+
+
+def _resolve_data_container(v, values, system_alias, component_name="data_container"):
+    return _resolve_config_str(v, values, system_alias, component_name=component_name)
 
 
 def _resolve_evaluator(v, values):
@@ -124,6 +133,8 @@ def _resolve_evaluator(v, values):
     evaluator = v.get("evaluator")
     if isinstance(evaluator, dict):
         v["evaluator"] = _resolve_system(evaluator, values, "target")
+        for metrics in v["evaluator"].get("metrics", []):
+            metrics = _resolve_data_container(metrics, values, "data_container")
         return v
     elif not isinstance(evaluator, str):
         return v

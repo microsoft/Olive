@@ -6,6 +6,7 @@
 from pathlib import Path
 
 import pytest
+
 from olive.workflows.run.config import RunConfig
 
 
