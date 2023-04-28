@@ -62,7 +62,12 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
 ```json
 {
     "type": "AppendPrePostProcessingOps",
-    "config": {"tool_command": "superresolution"}
+    "config": {
+        "tool_command": "superresolution",
+        "tool_command_args": {
+            "output_format": "png"
+        }
+    }
 }
 ```
 
