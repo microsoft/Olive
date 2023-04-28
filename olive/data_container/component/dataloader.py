@@ -15,6 +15,7 @@ def default_dataloader(_dataset, batch_size=1, **kwargs):
 
 @Registry.register_dataloader()
 def default_calibration_dataloader(_dataloader, **kwargs):
+    # TODO: consider other quantization tools.
     from onnxruntime.quantization import CalibrationDataReader
 
     dataloader = _dataloader
