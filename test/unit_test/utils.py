@@ -182,7 +182,7 @@ def get_glue_huggingface_data_container_config():
     return DataContainerConfig(
         type="HuggingfaceContainer",
         params_config={
-            "task_type": "",
+            "task_type": "text-classification",
             "model_name": "bert-base-uncased",
             "data_name": "glue",
             "subset": "mrpc",

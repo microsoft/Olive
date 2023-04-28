@@ -92,6 +92,7 @@
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
+                "user_script": "user_script.py",
                 "input_names": ["input_ids", "attention_mask", "token_type_ids"],
                 "input_shapes": [[1, 128], [1, 128], [1, 128]],
                 "input_types": ["int64", "int64", "int64"]
@@ -109,7 +110,7 @@
         },
         "evaluator": "common_evaluator",
         "host": "local_system",
-        "clean_cache": false,
+        "clean_cache": true,
         "cache_dir": "cache"
     },
     "data_container": {

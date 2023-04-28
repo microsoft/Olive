@@ -39,6 +39,8 @@ class TestDataContainerConfig:
 
     def test_huggingface_dc_runner(self):
         dc_config = get_glue_huggingface_data_container_config()
+        # override the default components from task_type
+        assert dc_config.components["post_process"].type == "text_classification_post_process"
         dc = dc_config.to_data_container()
         dc.create_dataloader()
 

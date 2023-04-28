@@ -10,6 +10,11 @@ from olive.data_container.registry import Registry
 
 @Registry.register_default_post_process()
 def post_process(_output_data, **kwargs):
+    return _output_data
+
+
+@Registry.register_post_process()
+def text_classification_post_process(_output_data, **kwargs):
     """Post-process data.
 
     Args:

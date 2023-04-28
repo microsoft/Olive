@@ -17,3 +17,10 @@ class HuggingfaceContainer(BaseContainer):
         DataComponentType.PRE_PROCESS.value: "huggingface_pre_process",
     }
     # Extra arguments auto generation for data components
+
+    task_type_components_map: ClassVar[dict] = {
+        # TODO user enumerate update task type
+        "text-classification": {
+            DataComponentType.POST_PROCESS.value: "text_classification_post_process",
+        },
+    }

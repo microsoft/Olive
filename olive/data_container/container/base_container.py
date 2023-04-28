@@ -70,3 +70,6 @@ class BaseContainer(BaseModel):
         dataset = self.dataset()
         pre_process_dataset = self.pre_process(dataset)
         return self.dataloader(pre_process_dataset)
+
+    def update_component(self):
+        return None

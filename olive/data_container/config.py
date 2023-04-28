@@ -67,6 +67,10 @@ class DataContainerConfig(ConfigBase):
         """
         dc_cls = Registry.get_container(self.type)
         self.default_components_type = dc_cls.default_components_type or {}
+        # 1. update default_components_type with task_type for huggingface case
+        self._update_default_component_type_with_task_type(dc_cls)
+        # 2. update default_components_type with DefaultDataComponentCombos
+        # for those components not defined in the container config
         for k, v in DefaultDataComponentCombos.items():
             if k not in self.default_components_type:
                 self.default_components_type[k] = v
@@ -179,3 +183,10 @@ class DataContainerConfig(ConfigBase):
         """
         dc_cls = Registry.get_container(self.type)
         return dc_cls(config=self)
+
+    def _update_default_component_type_with_task_type(self, dc_cls):
+        if not self.params_config:
+            return
+        task_type = self.params_config.get("task_type", None)
+        if task_type:
+            self.default_components_type.update(dc_cls.task_type_components_map.get(task_type, {}))
