@@ -5,6 +5,8 @@
 import argparse
 import json
 from copy import deepcopy
+from pathlib import Path
+from urllib import request
 
 from onnxruntime.transformers.models.t5.past_helper import PastKeyValuesHelper
 from onnxruntime.transformers.models.whisper.whisper_encoder_decoder_init import WhisperEncoderDecoderInitInputs
@@ -12,11 +14,11 @@ from onnxruntime.transformers.models.whisper.whisper_encoder_decoder_init import
 from olive.hf_utils import get_ort_whisper_for_conditional_generation
 
 SUPPORTED_WORKFLOWS = {
-    ("cpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search"],
-    ("cpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search"],
-    ("gpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search"],
-    ("gpu", "fp16"): ["conversion", "transformers_optimization", "mixed_precision", "insert_beam_search"],
-    ("gpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search"],
+    ("cpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
+    ("cpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search", "prepost"],
+    ("gpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
+    ("gpu", "fp16"): ["conversion", "transformers_optimization", "mixed_precision", "insert_beam_search", "prepost"],
+    ("gpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search", "prepost"],
 }
 
 
@@ -51,6 +53,13 @@ def main(raw_args=None):
     ] = whisper_model.config.encoder_attention_heads
     template_json["passes"]["transformers_optimization"]["config"]["hidden_size"] = whisper_model.config.d_model
 
+    # set model name in prepost
+    template_json["passes"]["prepost"]["config"]["tool_command_args"]["model_name"] = args.model_name
+
+    # download audio test data
+    test_audio_path = download_audio_test_data()
+    template_json["passes"]["prepost"]["config"]["tool_command_args"]["testdata_filepath"] = str(test_audio_path)
+
     for device, precision in SUPPORTED_WORKFLOWS:
         workflow = SUPPORTED_WORKFLOWS[(device, precision)]
         config = deepcopy(template_json)
@@ -71,6 +80,21 @@ def main(raw_args=None):
 
         # dump config
         json.dump(config, open(f"whisper_{device}_{precision}.json", "w"), indent=4)
+
+
+def download_audio_test_data():
+    cur_dir = Path(__file__).parent
+    data_dir = cur_dir / "data"
+    data_dir.mkdir(exist_ok=True, parents=True)
+
+    test_audio_name = "1272-141231-0002.mp3"
+    test_audio_url = (
+        "https://raw.githubusercontent.com/microsoft/onnxruntime-extensions/main/test/data/" + test_audio_name
+    )
+    test_audio_path = data_dir / test_audio_name
+    request.urlretrieve(test_audio_url, test_audio_path)
+
+    return test_audio_path.relative_to(cur_dir)
 
 
 def get_encdec_io_config(model):

@@ -4,6 +4,7 @@ azure-storage-blob
 coverage
 docker
 onnxconverter_common
+onnxruntime-extensions
 openvino
 openvino-dev
 psutil

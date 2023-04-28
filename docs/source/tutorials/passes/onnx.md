@@ -55,6 +55,21 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
     "config": {"model_type": "bert"}
 }
 ```
+## Append Pre/Post Processing Ops
+'AppendPrePostProcessingOps' inserts pre and post processing ops into the ONNX graph.
+
+### Example Configuration
+```json
+{
+    "type": "AppendPrePostProcessingOps",
+    "config": {
+        "tool_command": "superresolution",
+        "tool_command_args": {
+            "output_format": "png"
+        }
+    }
+}
+```
 
 ## Insert Beam Serch Op
 
