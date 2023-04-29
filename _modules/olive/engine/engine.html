@@ -331,7 +331,7 @@
 
         <span class="c1"># get objective_dict</span>
         <span class="n">evaluator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_for_pass</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_order</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span> <span class="ow">and</span> <span class="n">evaluator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># provide dummy objective</span>
             <span class="n">objective_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;dummy&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}}</span>
         <span class="k">elif</span> <span class="n">evaluator</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
