@@ -84,4 +84,4 @@ class AppendPrePostProcessingOps(Pass):
             # TODO: Handle args pre and post here!
             pass
 
-        return ONNXModel(output_model_path, name=model.name)
+        return ONNXModel(output_model_path, name=model.name, use_ort_extensions=True)
