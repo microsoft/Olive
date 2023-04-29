@@ -217,7 +217,7 @@ class Engine:
 
         # get objective_dict
         evaluator = self.evaluator_for_pass(self.pass_order[-1])
-        if self.no_search:
+        if self.no_search and evaluator is None:
             # provide dummy objective
             objective_dict = {"dummy": {"higher_is_better": True, "goal": 0}}
         elif evaluator is None:

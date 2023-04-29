@@ -4,6 +4,7 @@ INSTALL_DEV_MODE           ?= False
 EXAMPLE                    ?=
 INSTALL_EXTRAS             ?=
 VERSION                    ?=
+INSTALL_INDEX              ?=
 ifeq ($(WINDOWS), True)
 	CURRENT_DIR             = "$(subst /,\\,${CURDIR})"
 	MKDIR_LOG_CMD           = mkdir logs | exit 0
@@ -42,7 +43,7 @@ test:
 .PHONY: test-examples
 test-examples: logs/
 test-examples:
-	$(TEST_EXAMPLES_CMD) $(PIPELINE) $(CURRENT_DIR) $(EXAMPLE)
+	$(TEST_EXAMPLES_CMD) $(PIPELINE) $(CURRENT_DIR) $(EXAMPLE) $(INSTALL_INDEX)
 
 .PHONY: clean
 clean:
