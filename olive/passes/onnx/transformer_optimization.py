@@ -125,6 +125,8 @@ class OrtTransformersOptimization(Pass):
         dml_future = pass_config["target_provider"] == "directml_future"
 
         if pass_config["target_provider"] == "directml" or dml_future:
+            # Some of these fusions are disabled because they provide no performance advantage,
+            # and it's preferable to limit ops outside the ONNX domain.
             fusion_options.enable_gelu = is_ort_1_15_0_or_newer
             fusion_options.enable_layer_norm = is_ort_1_15_0_or_newer
             fusion_options.enable_attention = is_ort_1_15_1_or_newer or dml_future
@@ -139,10 +141,10 @@ class OrtTransformersOptimization(Pass):
             fusion_options.enable_gemm_fast_gelu = False
             fusion_options.enable_nhwc_conv = False
             fusion_options.enable_group_norm = is_ort_1_15_1_or_newer or dml_future
-            fusion_options.enable_bias_splitgelu = is_ort_1_15_0_or_newer
+            fusion_options.enable_bias_splitgelu = False
             fusion_options.enable_packed_qkv = pass_config["float16"] and is_ort_1_15_0_or_newer
             fusion_options.enable_packed_kv = pass_config["float16"] and is_ort_1_15_0_or_newer
-            fusion_options.enable_bias_add = is_ort_1_15_0_or_newer
+            fusion_options.enable_bias_add = False
         else:
             if input_model_type == "unet":
                 fusion_options.enable_packed_kv = pass_config["float16"]
