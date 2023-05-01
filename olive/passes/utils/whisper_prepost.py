@@ -15,15 +15,6 @@ from onnxruntime_extensions.cvt import HFTokenizerConverter
 
 # the flags for pre-processing
 USE_ONNX_STFT = True
-USE_AUDIO_DECODER = True
-
-
-if not USE_AUDIO_DECODER:
-    try:
-        import librosa
-    except ImportError:
-        raise ImportError("Please pip3 install librosa without ort-extensions audio codec support.")
-
 
 # hard-coded audio hyperparameters
 # copied from https://github.com/openai/whisper/blob/main/whisper/audio.py#L12
@@ -195,18 +186,22 @@ def _to_onnx_stft(onnx_model: onnx.ModelProto) -> onnx.ModelProto:
     return onnx_model
 
 
-def _load_test_data(filepath: str) -> npt.NDArray[np.uint8]:
-    if USE_AUDIO_DECODER:
+def _load_test_data(filepath: str, use_audio_decoder: bool) -> npt.NDArray[np.uint8]:
+    if use_audio_decoder:
         with open(filepath, "rb") as strm:
             audio_blob = np.asarray(list(strm.read()), dtype=np.uint8)
     else:
+        try:
+            import librosa
+        except ImportError:
+            raise ImportError("Please pip3 install librosa without ort-extensions audio codec support.")
         audio_blob, _ = librosa.load(filepath)
     audio_blob = np.expand_dims(audio_blob, axis=0)  # add a batch_size
     return audio_blob
 
 
-def _preprocessing(audio_data: npt.NDArray[np.uint8]) -> onnx.ModelProto:
-    if USE_AUDIO_DECODER:
+def _preprocessing(audio_data: npt.NDArray[np.uint8], use_audio_decoder) -> onnx.ModelProto:
+    if use_audio_decoder:
         decoder = PyOrtFunction.from_customop("AudioDecoder")
 
         # This is required in newer versions of ORT as per the error.
@@ -242,7 +237,7 @@ def _preprocessing(audio_data: npt.NDArray[np.uint8]) -> onnx.ModelProto:
     if USE_ONNX_STFT:
         model = _to_onnx_stft(model)
 
-    if USE_AUDIO_DECODER:
+    if use_audio_decoder:
         model = onnx.compose.merge_models(decoder.onnx_model, model, io_map=[("floatPCM", "audio_pcm")])
 
     return model
@@ -274,10 +269,15 @@ def _merge_models(
 
 
 def add_pre_post_processing_to_model(
-    model: onnx.ModelProto, output_filepath: str, model_name: str, testdata_filepath: str
+    model: onnx.ModelProto,
+    output_filepath: str,
+    model_name: str,
+    testdata_filepath: str,
+    use_audio_decoder: bool = True,
 ) -> onnx.ModelProto:
-    audio_blob = _load_test_data(testdata_filepath)
-    pre_model = _preprocessing(audio_blob)
+
+    audio_blob = _load_test_data(testdata_filepath, use_audio_decoder)
+    pre_model = _preprocessing(audio_blob, use_audio_decoder)
     post_model = _postprocessing(model_name)
     final_model = _merge_models(pre_model, model, post_model)
     onnx.checker.check_model(final_model)
