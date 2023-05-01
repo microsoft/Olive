@@ -88,7 +88,8 @@
                 "tool_command": "whisper",
                 "tool_command_args": {
                     "model_name": "<place_holder>",
-                    "testdata_filepath": "<place_holder>"
+                    "testdata_filepath": "<place_holder>",
+                    "use_audio_decoder" : true
                 }
             }
         }
