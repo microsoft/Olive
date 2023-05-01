@@ -431,6 +431,14 @@
             <span class="n">output</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">output_model_json</span><span class="p">}</span>
             <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">output</span><span class="p">[</span><span class="s2">&quot;metrics&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">signal</span>
+
+            <span class="c1"># Package output model as artifacts if no search</span>
+            <span class="k">if</span> <span class="n">packaging_config</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Package output model as artifacts&quot;</span><span class="p">)</span>
+                <span class="n">generate_output_artifacts</span><span class="p">(</span>
+                    <span class="n">packaging_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="o">.</span><span class="n">get_last_node</span><span class="p">(),</span> <span class="n">output_dir</span>
+                <span class="p">)</span>
+
             <span class="k">return</span> <span class="n">output</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">footprints.json&quot;</span><span class="p">)</span>
