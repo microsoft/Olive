@@ -36,7 +36,7 @@ def test_openvino_conversion_pass_no_example_input():
     local_system = LocalSystem()
     input_model = get_pytorch_model()
     openvino_conversion_config = {
-        "input_shape": [1, 10],
+        "input_shape": [1, 1],
     }
 
     p = create_pass_from_dict(OpenVINOConversion, openvino_conversion_config, disable_search=True)

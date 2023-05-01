@@ -22,7 +22,7 @@ ONNX_MODEL_PATH = Path(__file__).absolute().parent / "dummy_model.onnx"
 class DummyModel(nn.Module):
     def __init__(self):
         super(DummyModel, self).__init__()
-        self.fc1 = nn.Linear(10, 10)
+        self.fc1 = nn.Linear(1, 10)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -34,7 +34,7 @@ class DummyDataset(Dataset):
         self.size = size
 
     def __getitem__(self, idx):
-        return torch.randn(10), 1
+        return torch.randn(1), torch.rand(10)
 
     def __len__(self):
         return self.size
@@ -44,10 +44,10 @@ class FixedDummyDataset(Dataset):
     def __init__(self, size):
         self.size = size
         self.rng = np.random.default_rng(0)
-        self.data = torch.tensor(self.rng.random((size, 10)))
+        self.data = torch.tensor(self.rng.random((size, 1)))
 
     def __getitem__(self, idx):
-        return self.data[idx], 1
+        return self.data[idx], torch.rand(10)
 
     def __len__(self):
         return self.size
@@ -61,12 +61,12 @@ def get_pytorch_model():
     return PyTorchModel(
         model_loader=pytorch_model_loader,
         model_path=None,
-        io_config={"input_names": ["input"], "output_names": ["output"]},
+        io_config={"input_names": ["input"], "output_names": ["output"], "input_shapes": [(1, 1)]},
     )
 
 
 def get_pytorch_model_dummy_input():
-    return torch.randn(1, 10)
+    return torch.randn(1, 1)
 
 
 def create_onnx_model_file():
@@ -87,12 +87,12 @@ def delete_onnx_model_files():
 
 
 def create_dataloader(datadir, batchsize):
-    dataloader = DataLoader(DummyDataset(10))
+    dataloader = DataLoader(DummyDataset(1))
     return dataloader
 
 
 def create_fixed_dataloader(datadir, batchsize):
-    dataloader = DataLoader(FixedDummyDataset(10))
+    dataloader = DataLoader(FixedDummyDataset(1))
     return dataloader
 
 
