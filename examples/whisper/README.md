@@ -1,7 +1,4 @@
 # Whisper optimization using ORT toolchain
-
-    ⚠️ THIS SAMPLE IS A WORK IN PROGRESS AND REQUIRES LATEST ONNXRUNTIME CODE (NOT YET RELEASED) ⚠️
-
 This folder contains a sample use case of Olive to optimize a [Whisper](https://huggingface.co/openai/whisper-base) model using ONNXRuntime tools.
 
 Performs optimization pipeline:
@@ -13,9 +10,31 @@ Performs optimization pipeline:
 
 Outputs the best metrics, model, and corresponding Olive config.
 
-**Note**: The template is not complete yet. There is no evaluator or search. Mixed precision, beam search, pre/post ops and tuning are not present.
-
 ## Prerequisites
+### Pip requirements
+First ensure that Olive is installed in your environment.
+
+This example requires the latest code from onnxruntime and onnxruntime-extensions which are not available in the stable releases yet. So, we
+will install the nightly versions.
+
+On Linux:
+```bash
+python -m pip install -r requirements.txt
+python -m pip uninstall -y onnxruntime onnxruntime-extensions
+python -m pip install ort-nightly==1.15.0.dev20230429003 \
+    --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+export OCOS_NO_OPENCV=1
+python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git
+```
+
+On Windows:
+```bash
+python -m pip install -r requirements.txt
+python -m pip uninstall -y onnxruntime onnxruntime-extensions
+python -m pip install ort-nightly==1.15.0.dev20230429003 onnxruntime-extensions==0.8.0.303816 ^
+    --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+```
+
 ### Prepare workflow config json
 ```
 python prepare_configs.py [--model_name MODEL_NAME]
@@ -41,3 +60,4 @@ python test_transcription.py --config whisper_{device}_{precision}.json [--auto_
 ```
 
 `--audio_path` is optional. If not provide, will use test auto path from the config.
+cda

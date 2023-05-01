@@ -7,7 +7,6 @@ REM --------------------------------------------------------------------------
 set PIPELINE=%1
 set ROOT_DIR=%2
 set EXAMPLE=%3
-set INSTALL_INDEX=%4
 
 if "%PIPELINE%"=="True" (
     call olive-venv\\Scripts\\activate.bat || goto :error
@@ -36,7 +35,5 @@ exit /b %errorlevel%
 
 :whisper-setup
 call echo "Installing custom packages for whisper"
-call python -m pip uninstall -y onnxruntime-extensions || goto :error
-call python -m pip install --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ onnxruntime-extensions || goto :error
-call python -m pip uninstall -y onnxruntime || goto :error
-call python -m pip install --index-url %INSTALL_INDEX% onnxruntime || goto :error
+call python -m pip uninstall -y onnxruntime onnxruntime-extensions || goto :error
+call python -m pip install ort-nightly==1.15.0.dev20230429003 onnxruntime-extensions==0.8.0.303816 --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/  || goto :error
