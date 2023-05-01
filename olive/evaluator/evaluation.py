@@ -344,7 +344,10 @@ def format_onnx_input(input_data, io_config):
     if not isinstance(input_data, dict):
         input_data = dict(zip(input_names, [input_data]))
     input_dict = {
-        k: np.ascontiguousarray(input_data[k].cpu().numpy(), dtype=name_to_type[k])
+        k: np.ascontiguousarray(
+            input_data[k].cpu().numpy() if isinstance(input_data[k], torch.Tensor) else input_data[k],
+            dtype=name_to_type[k],
+        )
         for k in input_data.keys()
         if k in input_names
     }

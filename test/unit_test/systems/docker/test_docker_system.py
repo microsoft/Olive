@@ -2,9 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import tempfile
 from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_pytorch_model
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from olive.evaluator.metric import AccuracySubType
 from olive.systems.common import LocalDockerConfig
@@ -12,6 +15,10 @@ from olive.systems.docker.docker_system import DockerSystem
 
 
 class TestDockerSystem:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+
     @patch("olive.systems.docker.docker_system.docker.from_env")
     def test__init_image_exist(self, mock_from_env):
         # setup
@@ -24,7 +31,7 @@ class TestDockerSystem:
         )
 
         # execute
-        docker_system = DockerSystem(docker_config)
+        docker_system = DockerSystem(docker_config, is_dev=True)
 
         # assert
         assert docker_system.image == mock_image
@@ -44,7 +51,7 @@ class TestDockerSystem:
         mock_docker_client.images.build = MagicMock()
 
         # execute
-        DockerSystem(docker_config)
+        DockerSystem(docker_config, is_dev=True)
 
         # assert
         mock_docker_client.images.build.called_once_with(
@@ -61,7 +68,7 @@ class TestDockerSystem:
         # setup
         import docker
 
-        tempdir = "tempdir"
+        tempdir = self.tmp_dir.name
         mock_tempdir.return_value.__enter__.return_value = tempdir
         mock_docker_client = MagicMock()
         mock_from_env.return_value = mock_docker_client
@@ -73,7 +80,7 @@ class TestDockerSystem:
         mock_docker_client.images.build = MagicMock()
 
         # execute
-        docker_system = DockerSystem(docker_config)
+        docker_system = DockerSystem(docker_config, is_dev=True)
 
         # assert
         mock_docker_client.images.build.called_once_with(
@@ -106,14 +113,14 @@ class TestDockerSystem:
         # setup
         mock_docker_client = MagicMock()
         mock_from_env.return_value = mock_docker_client
-        tempdir = "tempdir"
+        tempdir = self.tmp_dir.name
         mock_tempdir.return_value.__enter__.return_value = tempdir
         olive_model = get_pytorch_model()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         docker_config = LocalDockerConfig(
             image_name="image_name", build_context_path="build_context_path", dockerfile="dockerfile"
         )
-        docker_system = DockerSystem(docker_config)
+        docker_system = DockerSystem(docker_config, is_dev=True)
         container_root_path = Path("/olive/")
         eval_output_path = "eval_output"
         eval_output_name = "eval_res.json"

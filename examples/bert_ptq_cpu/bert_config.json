@@ -36,7 +36,8 @@
                     "image_name": "olive-image",
                     "build_context_path": "docker",
                     "dockerfile": "Dockerfile"
-                }
+                },
+                "is_dev": true
             }
         }
     },

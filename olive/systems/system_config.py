@@ -23,6 +23,7 @@ class LocalTargetUserConfig(TargetUserConfig):
 
 class DockerTargetUserConfig(TargetUserConfig):
     local_docker_config: LocalDockerConfig
+    is_dev: bool = False
 
 
 class AzureMLTargetUserConfig(TargetUserConfig):

@@ -2,13 +2,21 @@ from pathlib import Path
 from typing import Dict, Union
 
 
-def get_ort_inference_session(model_path: Union[Path, str], inference_settings: Dict[str, any]):
+def get_ort_inference_session(
+    model_path: Union[Path, str], inference_settings: Dict[str, any], use_ort_extensions: bool = False
+):
     """
     Get an ONNXRuntime inference session.
     """
     import onnxruntime as ort
 
     sess_options = ort.SessionOptions()
+    if use_ort_extensions:
+        # register custom ops for onnxruntime-extensions
+        from onnxruntime_extensions import get_library_path
+
+        sess_options.register_custom_ops_library(get_library_path())
+
     # execution provider
     execution_provider = inference_settings.get("execution_provider")
 

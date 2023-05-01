@@ -144,6 +144,13 @@ class Footprint:
             self.nodes[k].is_pareto_frontier = cmp_flag
         self.is_marked_pareto_frontier = True
 
+    def get_last_node(self):
+        return Footprint(
+            nodes=OrderedDict({list(self.nodes.keys())[-1]: list(self.nodes.values())[-1]}),
+            objective_dict=self.objective_dict,
+            is_marked_pareto_frontier=True,
+        )
+
     def get_pareto_frontier(self):
         self.mark_pareto_frontier()
         rls = {k: v for k, v in self.nodes.items() if v.is_pareto_frontier}

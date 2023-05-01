@@ -137,6 +137,10 @@ def save_model(
 
     model_json = serialize_to_json(json.load(open(model_jsons[0], "r")))
 
+    if model_json["type"].lower() == "compositeonnxmodel":
+        logger.warning("Saving composite ONNX models is not supported yet.")
+        return
+
     # save model file/folder
     model_path = model_json["config"]["model_path"]
     if model_path is not None and Path(model_path).exists():
@@ -145,7 +149,7 @@ def save_model(
             and model_json["config"]["model_storage_kind"] == ModelStorageKind.LocalFolder
         ):
             # onnx model has external data
-            output_path = ONNXModel.resolve_path(output_name)
+            output_path = ONNXModel.resolve_path(output_dir / output_name)
             # copy the .onnx file along with external data files
             shutil.copytree(Path(model_path).parent, Path(output_path).parent, dirs_exist_ok=True)
             # rename the .onnx file to the output_path

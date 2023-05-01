@@ -27,7 +27,7 @@ User should specify input model type and configuration using `input model` dicti
 - `type: [str]` Type of the input model. The supported types are `PyTorchModel`, `ONNXModel`, `OpenVINOModel`, and `SNPEModel`. It is
 case insensitive.
 
-- `config: [Dict]` The input model config dictionary specifies following items.
+- `config: [Dict]` The input model config dictionary specifies following items:
 
     - `model_path: [str]` The model path.
 
@@ -39,6 +39,19 @@ case insensitive.
     input and return the loaded model.
 
     - `model_script: [str]` The name of the script provided by the user to assist with model loading.
+
+    - `hf_config: [Dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
+    model. This dictionary specifies the following items:
+
+        - `model_name: [str]`: This the model name of the huggingface model such as `distilbert-base-uncased`.
+
+        - `task: [str]`: This is the task type for the model such as `text-classification`. The complete list of supported task can be found
+        at [huggingface-tasks](https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task).
+
+        - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
+
+        - `model_config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
+        [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
 
 Please find the detailed config options from following table for each model type:
 
