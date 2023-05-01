@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import copy
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, Union
@@ -66,7 +65,6 @@ class OnnxConversion(Pass):
 
         # convert the model
         pytorch_model = model.load_model()
-        pytorch_model = copy.deepcopy(pytorch_model)
         pytorch_model.eval()
 
         # TODO: add e2e test for model on cpu but data on gpu; model on gpu but data on cpu
