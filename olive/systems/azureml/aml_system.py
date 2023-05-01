@@ -20,7 +20,7 @@ from olive.common.config_utils import validate_config
 from olive.common.utils import retry_func
 from olive.constants import Framework
 from olive.evaluator.metric import Metric
-from olive.model import ModelConfig, OliveModel, ONNXModel
+from olive.model import ModelConfig, ModelStorageKind, OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import AzureMLDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
@@ -124,19 +124,19 @@ class AzureMLSystem(OliveSystem):
 
             return self._load_model(model, output_model_path, pipeline_output_path)
 
-    def _create_model_inputs(self, is_aml_model: bool):
+    def _create_model_inputs(self, model_storage_kind: ModelStorageKind):
         return {
             "model_config": Input(type=AssetTypes.URI_FILE),
             # aml supports uploading file/folder even though model_path is typed as URI_FOLDER
             "model_path": Input(type=AssetTypes.CUSTOM_MODEL)
-            if is_aml_model
+            if model_storage_kind == ModelStorageKind.AzureMLModel
             else Input(type=AssetTypes.URI_FOLDER, optional=True),
             "model_script": Input(type=AssetTypes.URI_FILE, optional=True),
             "model_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
 
     def _create_model_args(self, model_json: dict, tmp_dir: Path):
-        # TODO: consider symlinkinking model_script and model_script_dir also when we decide
+        # TODO: consider symlinking model_script and model_script_dir also when we decide
         # the relationship between the two
         model_script = None
         if model_json["config"].get("model_script"):
@@ -149,17 +149,20 @@ class AzureMLSystem(OliveSystem):
             model_json["config"]["script_dir"] = None
 
         model_path = None
-        if model_json["config"]["is_aml_model"] is True:
+        if model_json["config"]["model_storage_kind"] == ModelStorageKind.AzureMLModel:
             model_path = Input(
                 type=AssetTypes.CUSTOM_MODEL,
                 path=model_json["config"]["model_path"],
             )
-            model_json["config"]["is_aml_model"] = False
+            model_json["config"]["model_storage_kind"] = str(ModelStorageKind.LocalFile)
             model_json["config"]["version"] = None
         else:
             if model_json["config"].get("model_path"):
                 original_model_path = Path(model_json["config"]["model_path"]).resolve()
-                if model_json["type"].lower() == "onnxmodel" and not model_json["config"]["is_file"]:
+                if (
+                    model_json["type"].lower() == "onnxmodel"
+                    and model_json["config"]["model_storage_kind"] == ModelStorageKind.LocalFolder
+                ):
                     # onnx model with external data
                     # need to upload the parent directory of .onnx file
                     original_model_path = original_model_path.parent
@@ -177,7 +180,9 @@ class AzureMLSystem(OliveSystem):
                     # symlink model file
                     tmp_model_path.symlink_to(original_model_path)
                 model_path = Input(
-                    type=AssetTypes.URI_FILE if model_json["config"].get("is_file") else AssetTypes.URI_FOLDER,
+                    type=AssetTypes.URI_FILE
+                    if model_json["config"].get("model_storage_kind") == ModelStorageKind.LocalFile
+                    else AssetTypes.URI_FOLDER,
                     path=tmp_model_path,
                 )
         model_json["config"]["model_path"] = None
@@ -270,7 +275,7 @@ class AzureMLSystem(OliveSystem):
             shutil.copytree(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
         # prepare inputs
-        inputs = {**self._create_model_inputs(model.is_aml_model), **self._create_pass_inputs(pass_path_params)}
+        inputs = {**self._create_model_inputs(model.model_storage_kind), **self._create_pass_inputs(pass_path_params)}
 
         # pass type
         pass_type = pass_config["type"]
@@ -319,14 +324,18 @@ class AzureMLSystem(OliveSystem):
         if same_model_path_as_input:
             model_path = input_model.model_path
             model_json["config"].update(
-                {"name": input_model.name, "version": input_model.version, "is_aml_model": input_model.is_aml_model}
+                {
+                    "name": input_model.name,
+                    "version": input_model.version,
+                    "model_storage_kind": input_model.model_storage_kind,
+                }
             )
         elif model_json["config"]["model_path"] is not None:
             downloaded_model_path = pipeline_output_path / model_json["config"]["model_path"]
             if model_json["type"].lower() == "onnxmodel":
                 # onnx model can have external data
                 output_model_path = ONNXModel.resolve_path(output_model_path)
-                if not model_json["config"]["is_file"]:
+                if model_json["config"]["model_storage_kind"] == ModelStorageKind.LocalFolder:
                     # has external data
                     # copy the .onnx file along with external data files
                     shutil.copytree(downloaded_model_path.parent, Path(output_model_path).parent, dirs_exist_ok=True)
@@ -347,7 +356,6 @@ class AzureMLSystem(OliveSystem):
                     # model is a directory
                     shutil.copytree(downloaded_model_path, output_model_path, dirs_exist_ok=True)
             model_path = output_model_path
-            model_json["config"]["is_aml_model"] = False
         model_json["config"]["model_path"] = model_path
         return ModelConfig(**model_json).create_model()
 
@@ -444,7 +452,9 @@ class AzureMLSystem(OliveSystem):
             outputs = {}
             for metric in metrics:
                 metric_tmp_dir = tmp_dir / metric.name
-                metric_component = self._create_metric_component(metric_tmp_dir, metric, model_args, model.is_aml_model)
+                metric_component = self._create_metric_component(
+                    metric_tmp_dir, metric, model_args, model.model_storage_kind
+                )
                 outputs[metric.name] = metric_component.outputs.pipeline_output
             return outputs
 
@@ -453,7 +463,9 @@ class AzureMLSystem(OliveSystem):
 
         return pipeline_job
 
-    def _create_metric_component(self, tmp_dir: Path, metric: Metric, model_args: Dict[str, Input], is_aml_model: bool):
+    def _create_metric_component(
+        self, tmp_dir: Path, metric: Metric, model_args: Dict[str, Input], model_storage_kind: ModelStorageKind
+    ):
         metric_json = metric.to_json(check_objects=True)
 
         # prepare code
@@ -472,7 +484,7 @@ class AzureMLSystem(OliveSystem):
             shutil.copytree(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
         # prepare inputs
-        inputs = {**self._create_model_inputs(is_aml_model), **self._create_metric_inputs()}
+        inputs = {**self._create_model_inputs(model_storage_kind), **self._create_metric_inputs()}
 
         # metric type
         metric_type = metric_json["type"]

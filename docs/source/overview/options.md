@@ -27,18 +27,31 @@ User should specify input model type and configuration using `input model` dicti
 - `type: [str]` Type of the input model. The supported types are `PyTorchModel`, `ONNXModel`, `OpenVINOModel`, and `SNPEModel`. It is
 case insensitive.
 
-- `config: [Dict]` The input model config dictionary specifies following items.
+- `config: [Dict]` The input model config dictionary specifies following items:
 
     - `model_path: [str]` The model path.
 
     - `name: [str]` The name of the model.
 
-    - `is_file: [Boolean]` True if the model path points to a file.
+    - `model_storage_kind: [str]` Identify the model storage kind. It could be 'file', 'folder', 'azureml'.
 
     - `model_loader: [str]` The name of the function provided by the user to load the model. The function should take the model path as
     input and return the loaded model.
 
     - `model_script: [str]` The name of the script provided by the user to assist with model loading.
+
+    - `hf_config: [Dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
+    model. This dictionary specifies the following items:
+
+        - `model_name: [str]`: This the model name of the huggingface model such as `distilbert-base-uncased`.
+
+        - `task: [str]`: This is the task type for the model such as `text-classification`. The complete list of supported task can be found
+        at [huggingface-tasks](https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task).
+
+        - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
+
+        - `model_config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
+        [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
 
 Please find the detailed config options from following table for each model type:
 
@@ -56,9 +69,18 @@ Please find the detailed config options from following table for each model type
     "type": "PyTorchModel",
     "config": {
         "model_path": null,
-        "is_file": false,
+        "model_storage_kind": "folder",
         "model_loader": "load_pytorch_origin_model",
-        "model_script": "user_script.py"
+        "model_script": "user_script.py",
+        "io_config": {
+            "input_names": ["input"],
+            "input_shapes": [[1, 3, 32, 32]],
+            "output_names": ["output"],
+            "dynamic_axes": {
+                "input": {"0": "batch_size"},
+                "output": {"0": "batch_size"}
+            }
+        }
     }
 }
 ```
@@ -156,7 +178,7 @@ in `systems`. If it is a dictionary, it contains the system information. If not 
                 "name": "accuracy",
                 "type": "accuracy",
                 "sub_type": "accuracy_score",
-                "is_first_priority": true,
+                "priority_rank": 1,
                 "user_config":{
                     "post_processing_func": "post_process",
                     "user_script": "user_script.py",
@@ -168,6 +190,7 @@ in `systems`. If it is a dictionary, it contains the system information. If not 
                 "name": "latency",
                 "type": "latency",
                 "sub_type": "avg",
+                "priority_rank": 2,
                 "user_config":{
                     "user_script": "user_script.py",
                     "dataloader_func": "create_dataloader",
@@ -231,13 +254,6 @@ Please also find the detailed options from following table for each pass:
     "onnx_conversion": {
         "type": "OnnxConversion",
         "config": {
-            "input_names": ["input"],
-            "input_shapes": [[1, 3, 32, 32]],
-            "output_names": ["output"],
-            "dynamic_axes": {
-                "input": {"0": "batch_size"},
-                "output": {"0": "batch_size"}
-            },
             "target_opset": 13
         }
     },

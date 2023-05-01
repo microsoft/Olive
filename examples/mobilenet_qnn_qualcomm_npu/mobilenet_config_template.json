@@ -1,0 +1,71 @@
+{
+    "verbose": true,
+    "input_model":{
+        "type": "OnnxModel",
+        "config": {
+            "model_path": "models/mobilenetv2-12.onnx",
+            "model_storage_kind": "file"
+        }
+    },
+    "evaluators": {
+        "common_evaluator":{
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "sub_type": "accuracy_score",
+                    "higher_is_better": true,
+                    "priority_rank": 1,
+                    "user_config":{
+                        "user_script": "user_script.py",
+                        "data_dir": "data/eval",
+                        "batch_size": 1,
+                        "dataloader_func": "evaluation_dataloader",
+                        "post_processing_func": "post_process"
+
+                    }
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_type": "avg",
+                    "priority_rank": 2,
+                    "user_config":{
+                        "user_script": "user_script.py",
+                        "data_dir": "data/eval",
+                        "batch_size": 1,
+                        "dataloader_func": "evaluation_dataloader"
+                    }
+                }
+            ],
+            "target": {
+                "type": "PythonEnvironment",
+                "config": {
+                    "python_environment_path": "<python-environment-path>",
+                    "device": "npu",
+                    "prepend_to_path": ["<qnn-lib-path>"]
+                }
+            }
+        }
+    },
+    "passes": {
+        "quantization": {
+            "type": "OnnxStaticQuantization",
+            "config": {
+                "user_script": "user_script.py",
+                "dataloader_func": "mobilenet_calibration_reader",
+                "data_dir": "data/quant",
+                "quant_format": "QDQ",
+                "per_channel": false
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": true,
+        "cache_dir": "cache",
+        "output_dir": "models",
+        "evaluator": "common_evaluator",
+        "evaluation_only": false,
+        "clean_cache": true
+    }
+}

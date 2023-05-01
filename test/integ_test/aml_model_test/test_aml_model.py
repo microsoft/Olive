@@ -7,13 +7,13 @@ import os
 import tempfile
 from pathlib import Path
 
-from olive.model import PyTorchModel
+from olive.model import ModelStorageKind, PyTorchModel
 from olive.passes import OnnxConversion
+from olive.passes.olive_pass import create_pass_from_dict
 from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
 
 
 def test_aml_model():
-
     # ------------------------------------------------------------------
     # Azure ML System
     aml_compute = "cpu-cluster"
@@ -31,21 +31,27 @@ def test_aml_model():
 
     # ------------------------------------------------------------------
     # Input model
-    pytorch_model = PyTorchModel(name="bert_glue", is_file=True, is_aml_model=True, version=10)
+    pytorch_model = PyTorchModel(
+        name="bert_glue",
+        model_storage_kind=ModelStorageKind.AzureMLModel,
+        version=10,
+        io_config={
+            "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+            "input_shapes": [[1, 128], [1, 128], [1, 128]],
+            "input_types": ["int64", "int64", "int64"],
+            "output_names": ["output"],
+        },
+    )
 
     # ------------------------------------------------------------------
     # Onnx conversion pass
     # config can be a dictionary
     onnx_conversion_config = {
-        "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-        "input_shapes": [[1, 128], [1, 128], [1, 128]],
-        "input_types": ["int64", "int64", "int64"],
-        "output_names": ["output"],
         "target_opset": 13,
     }
     with tempfile.TemporaryDirectory() as tempdir:
         onnx_model_file = str(Path(tempdir) / "model.onnx")
-        onnx_conversion_pass = OnnxConversion(onnx_conversion_config, disable_search=True)
+        onnx_conversion_pass = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
         onnx_model = aml_system.run_pass(onnx_conversion_pass, pytorch_model, onnx_model_file)
         assert Path(onnx_model.model_path).is_file()
 

@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from packaging import version
 
@@ -20,6 +20,8 @@ class OrtTransformersOptimization(Pass):
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
         # TODO: add default search if supported
+        from onnxruntime.transformers.fusion_options import FusionOptions
+
         config = {
             "model_type": PassConfigParam(
                 type_=str,
@@ -34,7 +36,9 @@ class OrtTransformersOptimization(Pass):
             "hidden_size": PassConfigParam(type_=int, default_value=0, description="Number of hidden nodes."),
             # TODO: Figure out what the expected type is
             "optimization_options": PassConfigParam(
-                type_=Any, default_value=None, description="Optimization options that turn on/off some fusions."
+                type_=Union[Dict[str, Any], FusionOptions],
+                default_value=None,
+                description="Optimization options that turn on/off some fusions.",
             ),
             "opt_level": PassConfigParam(
                 type_=Any,
@@ -75,6 +79,14 @@ class OrtTransformersOptimization(Pass):
         }
         config.update(get_external_data_config())
         return config
+
+    @staticmethod
+    def _set_fusion_options(run_config: Dict[str, Any]):
+        from onnxruntime.transformers.fusion_options import FusionOptions
+
+        fusion_options = FusionOptions(run_config["model_type"])
+        fusion_options.__dict__.update(run_config["optimization_options"])
+        run_config["optimization_options"] = fusion_options
 
     @staticmethod
     def sd_model_types():
@@ -209,6 +221,8 @@ class OrtTransformersOptimization(Pass):
 
             if config["optimization_options"] is None:
                 self._set_sd_fusion_options(run_config, config)
+        elif config["optimization_options"]:
+            self._set_fusion_options(run_config)
 
         optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 

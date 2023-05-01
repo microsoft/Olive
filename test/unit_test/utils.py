@@ -5,6 +5,7 @@
 import os
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
@@ -12,6 +13,7 @@ from torch.utils.data import DataLoader, Dataset
 from olive.evaluator.metric import Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
 from olive.model import ONNXModel, PyTorchModel
+from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization
 
 ONNX_MODEL_PATH = Path(__file__).absolute().parent / "dummy_model.onnx"
@@ -20,7 +22,7 @@ ONNX_MODEL_PATH = Path(__file__).absolute().parent / "dummy_model.onnx"
 class DummyModel(nn.Module):
     def __init__(self):
         super(DummyModel, self).__init__()
-        self.fc1 = nn.Linear(10, 10)
+        self.fc1 = nn.Linear(1, 10)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -32,7 +34,20 @@ class DummyDataset(Dataset):
         self.size = size
 
     def __getitem__(self, idx):
-        return torch.randn(10), 1
+        return torch.randn(1), torch.rand(10)
+
+    def __len__(self):
+        return self.size
+
+
+class FixedDummyDataset(Dataset):
+    def __init__(self, size):
+        self.size = size
+        self.rng = np.random.default_rng(0)
+        self.data = torch.tensor(self.rng.random((size, 1)))
+
+    def __getitem__(self, idx):
+        return self.data[idx], torch.rand(10)
 
     def __len__(self):
         return self.size
@@ -43,11 +58,15 @@ def pytorch_model_loader(model_path):
 
 
 def get_pytorch_model():
-    return PyTorchModel(model_loader=pytorch_model_loader, model_path=None)
+    return PyTorchModel(
+        model_loader=pytorch_model_loader,
+        model_path=None,
+        io_config={"input_names": ["input"], "output_names": ["output"], "input_shapes": [(1, 1)]},
+    )
 
 
 def get_pytorch_model_dummy_input():
-    return torch.randn(1, 10)
+    return torch.randn(1, 1)
 
 
 def create_onnx_model_file():
@@ -68,12 +87,17 @@ def delete_onnx_model_files():
 
 
 def create_dataloader(datadir, batchsize):
-    dataloader = DataLoader(DummyDataset(10))
+    dataloader = DataLoader(DummyDataset(1))
     return dataloader
 
 
-def get_accuracy_metric(acc_subtype):
-    accuracy_metric_config = {"dataloader_func": create_dataloader}
+def create_fixed_dataloader(datadir, batchsize):
+    dataloader = DataLoader(FixedDummyDataset(1))
+    return dataloader
+
+
+def get_accuracy_metric(acc_subtype, random_dataloader=True):
+    accuracy_metric_config = {"dataloader_func": create_dataloader if random_dataloader else create_fixed_dataloader}
     accuracy_metric = Metric(
         name="accuracy",
         type=MetricType.ACCURACY,
@@ -105,11 +129,8 @@ def get_latency_metric(lat_subtype):
 
 
 def get_onnxconversion_pass(ignore_pass_config=True):
-    onnx_conversion_config = {
-        "input_names": ["input"],
-        "output_names": ["output"],
-    }
-    p = OnnxConversion(onnx_conversion_config)
+    onnx_conversion_config = {}
+    p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
     if ignore_pass_config:
         return p
     pass_config = p.config_at_search_point({})
@@ -118,5 +139,5 @@ def get_onnxconversion_pass(ignore_pass_config=True):
 
 
 def get_onnx_dynamic_quantization_pass(disable_search=False):
-    p = OnnxDynamicQuantization(disable_search=disable_search)
+    p = create_pass_from_dict(OnnxDynamicQuantization, disable_search=disable_search)
     return p

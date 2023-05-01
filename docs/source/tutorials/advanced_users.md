@@ -21,9 +21,18 @@ Start by creating an instance of an OliveModel to represent the model to be opti
 model can be loaded from file or using a model loader function. For a complete of available models and their initialization options, refer to [OliveModels api reference](models).
 
 ```python
-from olive.models import PytorchModel
+from olive.models import PytorchModel, ModelStorageKind
 
-input_model = PyTorchModel(model_path="resnet.pt", is_file=True)
+input_model = PyTorchModel(
+    model_path="resnet.pt",
+    model_storage_kind=ModelStorageKind.LocalFile,
+    io_config={
+        "input_names": ["input"],
+        "input_shapes": [[1, 3, 32, 32]],
+        "output_names": ["output"],
+        "dynamic_axes": {"input": {0: "batch_size"}, "output": {0: "batch_size"}}
+    }
+)
 ```
 
 ### Host and Target Systems
@@ -96,16 +105,13 @@ Passes available in Olive can be found at ...
 
 ```python
 from olive.passes import OnnxConversion, OnnxQuantization
+from olive.passes.olive_pass import create_pass_from_dict
 
 # Onnx conversion pass
 onnx_conversion_config = {
-    "input_names": ["input"],
-    "input_shapes": [[1, 3, 32, 32]],
-    "output_names": ["output"],
-    "dynamic_axes": {"input": {0: "batch_size"}, "output": {0: "batch_size"}},
     "target_opset": 13,
 }
-onnx_conversion_pass = OnnxConversion(onnx_conversion_config)
+onnx_conversion_pass = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
 # override the default host with pass specific host
 engine.register(onnx_conversion_pass, host=LocalSystem())
 
@@ -117,7 +123,7 @@ quantization_config = {
     "weight_type" : "QUInt8"
 }
 # search over the values for the other config parameters
-quantization_pass = OnnxQuantization(quantization_config)
+quantization_pass = create_pass_from_dict(OnnxQuantization, quantization_config)
 engine.register(quantization_pass)
 ```
 
