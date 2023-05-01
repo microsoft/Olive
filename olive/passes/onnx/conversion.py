@@ -66,7 +66,6 @@ class OnnxConversion(Pass):
 
         # convert the model
         pytorch_model = model.load_model()
-        pytorch_model = copy.deepcopy(pytorch_model)
         pytorch_model.eval()
 
         # TODO: add e2e test for model on cpu but data on gpu; model on gpu but data on cpu
