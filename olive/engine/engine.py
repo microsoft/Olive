@@ -317,6 +317,14 @@ class Engine:
             output = {"model": output_model_json}
             if signal is not None:
                 output["metrics"] = signal
+
+            # Package output model as artifacts if no search
+            if packaging_config:
+                logger.info("Package output model as artifacts")
+                generate_output_artifacts(
+                    packaging_config, self.footprints, self.footprints.get_last_node(), output_dir
+                )
+
             return output
 
         self.footprints.to_file(output_dir / f"{prefix_output_name}footprints.json")
