@@ -24,3 +24,15 @@ Please follow the ONNXRuntime Execution Provider instruction [link](https://onnx
 Please check code_sample.py for the sample how to use output model and inference_config.json for your inference. Find more details about ONNX Runtime Python API in https://onnxruntime.ai/docs/get-started/with-python.html.
 
 The sample code works with ONNX Runtime 1.14.x and prior versions.
+
+
+## ONNXRuntime Extensions
+Onnxruntime extensions package could be included if the ONNX model is using onnxruntime-extensions. 
+* For Windows  
+  Please install it by "`python -m pip install ONNXRuntime/<onnxruntime-extensions.whl>`"
+* For Linux  
+    * Nightly  
+      The packages are not ready yet, so it could be installed from source. Please make sure the compiler toolkit like gcc(later than g++ 8.0) or clang, and the tool cmake are installed before the following command:
+      `python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git`
+    * Stable  
+      Please install it by `python -m pip install ONNXRuntime/<onnxruntime-extensions.whl>`
