@@ -181,6 +181,7 @@ def _download_onnxruntime_package(tempdir, pf_footprint: Footprint):
     except Exception as e:
         logger.error(f"Failed to download onnxruntime package. Please manually download onnxruntime package. {e}")
 
+
 def _download_ort_extensions_package(use_ort_extensions: bool, download_path: str):
     if use_ort_extensions:
         try:
@@ -191,20 +192,25 @@ def _download_ort_extensions_package(use_ort_extensions: bool, download_path: st
             )
             return
         version = onnxruntime_extensions.__version__
-        # Hardcode the nightly version number for now until we have a better way to identify nightly version 
+        # Hardcode the nightly version number for now until we have a better way to identify nightly version
         if version.startswith("0.8.0."):
             system = platform.system()
             if system == "Windows":
-                download_command = "python -m pip download -i " \
-                        "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ " \
-                        f"onnxruntime-extensions=={version} --no-deps -d {download_path}"
+                download_command = (
+                    "python -m pip download -i "
+                    "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ "
+                    f"onnxruntime-extensions=={version} --no-deps -d {download_path}"
+                )
                 run_subprocess(download_command)
             elif system == "Linux":
-                logger.warning("ONNXRuntime-Extensions nightly package is not available for Linux. " \
-                    "Skip packaging ONNXRuntime-Extensions package. Please manually install ONNXRuntime-Extensions package.")
+                logger.warning(
+                    "ONNXRuntime-Extensions nightly package is not available for Linux. "
+                    "Skip packaging ONNXRuntime-Extensions package. Please manually install ONNXRuntime-Extensions."
+                )
         else:
             download_command = f"python -m pip download onnxruntime-extensions=={version} --no-deps -d {download_path}"
             run_subprocess(download_command)
+
 
 def _download_c_packages(is_cpu: bool, is_nightly: bool, ort_version: str, download_path: str):
     NIGHTLY_C_CPU_LINK = Template(

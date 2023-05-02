@@ -9,9 +9,9 @@ from pydantic import validator
 
 from olive.common.config_utils import ConfigBase
 from olive.engine import Engine, EngineConfig
+from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
-from olive.packaging.packaging_config import PackagingConfig
 from olive.passes import FullPassConfig
 from olive.systems.system_config import SystemConfig
 

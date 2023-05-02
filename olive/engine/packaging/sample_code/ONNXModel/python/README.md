@@ -27,7 +27,7 @@ The sample code works with ONNX Runtime 1.14.x and prior versions.
 
 
 ## ONNXRuntime Extensions
-Onnxruntime extensions package could be included if the ONNX model is using onnxruntime-extensions. 
+Onnxruntime extensions package could be included if the ONNX model is using onnxruntime-extensions.
 * For Windows  
   Please install it by "`python -m pip install ONNXRuntime/<onnxruntime-extensions.whl>`"
 * For Linux  
