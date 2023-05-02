@@ -131,12 +131,12 @@ class OrtTransformersOptimization(Pass):
             fusion_options.enable_layer_norm = is_ort_1_15_0_or_newer
             fusion_options.enable_attention = is_ort_1_15_1_or_newer or dml_future
             fusion_options.use_multi_head_attention = is_ort_1_15_1_or_newer or dml_future
-            fusion_options.enable_skip_layer_norm = is_ort_1_15_0_or_newer
+            fusion_options.enable_skip_layer_norm = False
             fusion_options.enable_embed_layer_norm = is_ort_1_15_0_or_newer
-            fusion_options.enable_bias_skip_layer_norm = is_ort_1_15_0_or_newer
+            fusion_options.enable_bias_skip_layer_norm = False
             fusion_options.enable_bias_gelu = is_ort_1_15_0_or_newer
             fusion_options.enable_gelu_approximation = False
-            fusion_options.enable_qordered_matmul = is_ort_1_15_0_or_newer
+            fusion_options.enable_qordered_matmul = False
             fusion_options.enable_shape_inference = is_ort_1_15_0_or_newer
             fusion_options.enable_gemm_fast_gelu = False
             fusion_options.enable_nhwc_conv = False
