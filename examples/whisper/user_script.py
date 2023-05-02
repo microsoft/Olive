@@ -44,7 +44,7 @@ class WhisperDataset:
     N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
     N_FRAMES = N_SAMPLES // HOP_LENGTH
 
-    def __init__(self, data_dir: str):
+    def __init__(self, data_dir: str, use_audio_decoder: bool = True):
         data_dir = Path(data_dir)
         audio_files = list(data_dir.glob("*.mp3"))
         audio_files.sort(key=lambda x: x.name)
@@ -52,11 +52,19 @@ class WhisperDataset:
 
         self.data = []
         for audio_file in audio_files:
-            with open(audio_file, "rb") as _f:
-                audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
+            if use_audio_decoder:
+                with open(audio_file, "rb") as _f:
+                    audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
+                audio_input_name = "audio_stream"
+            else:
+                import librosa
+
+                audio_blob, _ = librosa.load(audio_file)
+                audio_input_name = "audio_pcm"
+
             audio_blob = np.expand_dims(audio_blob, axis=0)  # add a batch_size
             inputs = {
-                "audio_stream": audio_blob,
+                audio_input_name: audio_blob,
                 "max_length": np.asarray([200], dtype=np.int32),
                 "min_length": np.asarray([0], dtype=np.int32),
                 "num_beams": np.asarray([2], dtype=np.int32),
@@ -82,5 +90,9 @@ class WhisperDataset:
             yield self[i]
 
 
-def whisper_dataloader(data_dir, batch_size=None):
-    return WhisperDataset(data_dir=data_dir)
+def whisper_audio_decoder_dataloader(data_dir, batch_size=None):
+    return WhisperDataset(data_dir=data_dir, use_audio_decoder=True)
+
+
+def whisper_no_audio_decoder_dataloader(data_dir, batch_size=None):
+    return WhisperDataset(data_dir=data_dir, use_audio_decoder=False)

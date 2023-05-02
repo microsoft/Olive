@@ -25,6 +25,11 @@ SUPPORTED_WORKFLOWS = {
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Prepare config file for Whisper")
     parser.add_argument("--model_name", type=str, default="openai/whisper-base.en", help="Model name")
+    parser.add_argument(
+        "--no_audio_decoder",
+        action="store_true",
+        help="Don't use audio decoder in the model. Default: False",
+    )
     return parser.parse_args(raw_args)
 
 
@@ -46,6 +51,11 @@ def main(raw_args=None):
     # update decoder io_config
     dec_io_config = get_dec_io_config(whisper_model.decoder)
     template_json["input_model"]["config"]["hf_config"]["components"][1]["io_config"] = dec_io_config
+
+    # set dataloader
+    template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"]["dataloader_func"] = (
+        "whisper_audio_decoder_dataloader" if not args.no_audio_decoder else "whisper_no_audio_decoder_dataloader"
+    )
 
     # update model specific values for transformer optimization pass
     template_json["passes"]["transformers_optimization"]["config"][
@@ -76,6 +86,8 @@ def main(raw_args=None):
             pass_config = deepcopy(template_json["passes"][pass_name])
             if pass_name == "transformers_optimization":
                 pass_config["config"]["use_gpu"] = device == "gpu"
+            if pass_name == "prepost":
+                pass_config["config"]["tool_command_args"]["use_audio_decoder"] = not args.no_audio_decoder
             config["passes"][pass_name] = pass_config
 
         # dump config

@@ -1,3 +1,4 @@
 coloredlogs
 flatbuffers
+librosa
 transformers>=4.23.1

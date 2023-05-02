@@ -37,11 +37,12 @@ python -m pip install ort-nightly==1.15.0.dev20230429003 onnxruntime-extensions=
 
 ### Prepare workflow config json
 ```
-python prepare_configs.py [--model_name MODEL_NAME]
+python prepare_configs.py [--model_name MODEL_NAME] [--no_audio_decoder]
 ```
 
-`model_name` is the name or path of the whisper model. The default value is `openai/whisper-base.en`.
+`--model_name MODEL_NAME` is the name or path of the whisper model. The default value is `openai/whisper-base.en`.
 
+`--no_audio_decoder` is optional. If not provided, will use audio decoder in the preprocessing ops.
 
 ## To optimize Whisper model run the sample config
 First, install required packages according to passes.

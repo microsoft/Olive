@@ -49,8 +49,15 @@ def main(raw_args=None):
     # load audio data
     if not args.audio_path:
         args.audio_path = Path(config["passes"]["prepost"]["config"]["tool_command_args"]["testdata_filepath"])
-    with open(args.audio_path, "rb") as _f:
-        audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
+    use_audio_decoder = config["passes"]["prepost"]["config"]["tool_command_args"]["use_audio_decoder"]
+    if use_audio_decoder:
+        with open(args.audio_path, "rb") as _f:
+            audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
+    else:
+        import librosa
+
+        audio_blob, _ = librosa.load(args.audio_path)
+
     audio_blob = np.expand_dims(audio_blob, axis=0)
 
     output_text = model(
