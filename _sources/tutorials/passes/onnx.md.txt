@@ -70,6 +70,17 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
     }
 }
 ```
+```json
+{
+    "type": "AppendPrePostProcessingOps",
+    "config": {
+        "tool_command": "whisper",
+        "tool_command_args": {
+            "use_audio_decoder": true
+        }
+    }
+}
+```
 
 ## Insert Beam Serch Op
 
