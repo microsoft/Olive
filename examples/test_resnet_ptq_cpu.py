@@ -15,7 +15,7 @@ from olive.common.utils import retry_func, run_subprocess
 def setup():
     """setup any state specific to the execution of the given module."""
     cur_dir = Path(__file__).resolve().parent
-    example_dir = str(Path(__file__).resolve().parent / "resnet_ptq_cpu")
+    example_dir = cur_dir / "resnet_ptq_cpu"
     os.chdir(example_dir)
 
     # prepare model and data

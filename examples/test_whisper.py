@@ -14,8 +14,8 @@ from olive.common.utils import retry_func, run_subprocess
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """setup any state specific to the execution of the given module."""
-    cur_dir = str(Path(__file__).resolve().parent)
-    example_dir = str(Path(__file__).resolve().parent / "whisper")
+    cur_dir = Path(__file__).resolve().parent
+    example_dir = cur_dir / "whisper"
     os.chdir(example_dir)
 
     # prepare configs
