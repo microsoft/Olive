@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from olive.common.utils import run_subprocess
+from olive.common.utils import retry_func, run_subprocess
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -19,11 +19,8 @@ def setup():
     os.chdir(example_dir)
 
     # prepare configs
-    try:
-        run_subprocess("python prepare_configs.py")
-    except Exception:
-        # for some reason the first time fails on windows
-        run_subprocess("python prepare_configs.py")
+    # retry since it fails randomly on windows
+    retry_func(run_subprocess, kwargs={"cmd": "python prepare_configs.py", "check": True})
 
     yield
     os.chdir(cur_dir)
