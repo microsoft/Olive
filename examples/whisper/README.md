@@ -74,7 +74,7 @@ python prepare_configs.py [--model_name MODEL_NAME] [--no_audio_decoder]
 
 `--no_audio_decoder` is optional. If not provided, will use audio decoder in the preprocessing ops.
 
-## To optimize Whisper model run the sample config
+## Run the config to optimize the model
 First, install required packages according to passes.
 ```
 python -m olive.workflows.run --config whisper_{device}_{precision}.json --setup
@@ -90,5 +90,5 @@ python -m olive.workflows.run --config whisper_{device}_{precision}.json
 python test_transcription.py --config whisper_{device}_{precision}.json [--auto_path AUDIO_PATH]
 ```
 
-`--audio_path` is optional. If not provide, will use test auto path from the config.
+`--audio_path` is optional. If not provided, will use test auto path from the config.
 cda
