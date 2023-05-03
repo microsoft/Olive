@@ -1,0 +1,28 @@
+{
+    "verbose": true,
+    "input_model":{
+        "type": "OnnxModel",
+        "config": {
+            "model_path": "examples/switch/model_4n_2l_8e.onnx",
+            "is_file": true
+        }
+    },
+    "systems": {
+        "local_system": {"type": "LocalSystem"}
+    },
+    "evaluators": {},
+    "passes": {
+        "distribute": {
+            "type": "OrtMoEExpertsDistributor",
+            "config": {
+                "world_size": 2
+            }
+        }
+    },
+    "engine": {
+        "host": "local_system",
+        "clean_cache": true,
+        "cache_dir": "examples/switch/cache",
+        "output_dir": "examples/switch"
+    }
+}
