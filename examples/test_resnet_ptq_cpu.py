@@ -8,22 +8,19 @@ from pathlib import Path
 
 import pytest
 
-from olive.common.utils import run_subprocess
+from olive.common.utils import retry_func, run_subprocess
 
 
-@pytest.fixture()
-def example_dir():
-    return str(Path(__file__).resolve().parent / "resnet_ptq_cpu")
-
-
-@pytest.fixture(autouse=True)
-def setup(example_dir):
+@pytest.fixture(scope="module", autouse=True)
+def setup():
     """setup any state specific to the execution of the given module."""
     cur_dir = Path(__file__).resolve().parent
+    example_dir = cur_dir / "resnet_ptq_cpu"
     os.chdir(example_dir)
 
-    # import prepare_model_data
-    run_subprocess("python prepare_model_data.py")
+    # prepare model and data
+    # retry since it fails randomly
+    retry_func(run_subprocess, kwargs={"cmd": "python prepare_model_data.py", "check": True})
 
     yield
     os.chdir(cur_dir)
