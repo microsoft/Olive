@@ -130,7 +130,7 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
-    parser.add_argument("--optimize_provider", type=str, default="directml", help="EP target for inference")
+    parser.add_argument("--optimize_provider", type=str, default="directml_future", help="EP target for inference")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
     parser.add_argument("--model", default="runwayml/stable-diffusion-v1-5", type=str)
