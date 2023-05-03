@@ -50,6 +50,7 @@ python -m pip install ort-nightly==1.15.0.dev20230429003 onnxruntime-extensions=
 ```
 
 **Note:** You can also use a python virtual environment instead of conda.
+
 On Linux:
 ```bash
 # Create a new virtual environment
