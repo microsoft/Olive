@@ -5,12 +5,16 @@ Olive will output multiple candidate models based on metrics priority ranks. It 
 
 
 ### Zipfile
-Zipfile packaging will generate a ZIP file which includes 2 folders: `CandidateModels` and `SampleCode` in the `output_dir` folder (from Engine Configuration):
+Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateModels`, `SampleCode` and `ONNXRuntimePackage` in the `output_dir` folder (from Engine Configuration):
 * `CandidateModels`: top ranked output model set
     * Model file
     * Olive Pass run history configurations for candidate model
     * Inference settings (`onnx` model only)
 * `SampleCode`: code sample for ONNX model
+    * C++
+    * C#
+    * Python
+* `ONNXRuntimePackage`: ONNXRuntime packages file with the same version that was used by Olive Engine in this workflow run.
     * C++
     * C#
     * Python
@@ -21,7 +25,7 @@ Zipfile packaging will generate a ZIP file which includes 2 folders: `CandidateM
 Each `BestCandidateModel` folder will include model file/folder. A json file which includes the Olive Pass run history configurations since input model. And a json file for inference settings for the candidate model if the candidate model is an ONNX model.
 
 #### SampleCode
-Olive will only provide sample codes for ONNX model. Sample code supports 3 different programming languages: `C++`, `C#` and `Python`. Each programming language sample code folder includes an ONNXRuntime package file with the same version that was used by Olive Engine in this run. And a code snippet introducing how to use Olive output artifacts to inference candidate model with recommended inference configurations.
+Olive will only provide sample codes for ONNX model. Sample code supports 3 different programming languages: `C++`, `C#` and `Python`. And a code snippet introducing how to use Olive output artifacts to inference candidate model with recommended inference configurations.
 
 
 ## How to package Olive artifacts

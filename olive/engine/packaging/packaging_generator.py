@@ -37,13 +37,13 @@ def _generate_zipfile_output(
         tempdir = Path(tempdir)
         _package_sample_code(cur_path, tempdir, pf_footprint)
         _package_candidate_models(tempdir, footprint, pf_footprint)
+        _package_onnxruntime_packages(tempdir, pf_footprint)
         shutil.make_archive(packaging_config.name, "zip", tempdir)
         shutil.move(f"{packaging_config.name}.zip", output_dir / f"{packaging_config.name}.zip")
 
 
 def _package_sample_code(cur_path, tempdir, pf_footprint: Footprint):
     shutil.copytree(cur_path / "sample_code", tempdir / "SampleCode")
-    _download_onnxruntime_package(tempdir, pf_footprint)
 
 
 def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footprint) -> None:
@@ -66,6 +66,9 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
 
         # Copy inference config
         inference_config_path = str(model_dir / "inference_config.json")
+        inference_config = pf_footprint.get_model_inference_config(model_id)
+        if inference_config:
+            inference_config["inference_settings"]["use_ort_extensions"] = pf_footprint.get_use_ort_extensions(model_id)
         with open(inference_config_path, "w") as f:
             json.dump(pf_footprint.get_model_inference_config(model_id), f)
 
@@ -81,7 +84,7 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
             json.dump(node.metrics.value, f)
 
 
-def _download_onnxruntime_package(tempdir, pf_footprint: Footprint):
+def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
 
     NIGHTLY_PYTHON_CPU_COMMAND = Template(
         "python -m pip download -i "
@@ -135,7 +138,9 @@ def _download_onnxruntime_package(tempdir, pf_footprint: Footprint):
 
     try:
         # Download Python onnxruntime package
-        python_download_path = str(tempdir / "SampleCode" / "ONNXModel" / "python" / "ONNXRuntime")
+        python_download_path = tempdir / "ONNXRuntimePackage" / "Python"
+        python_download_path.mkdir(parents=True, exist_ok=True)
+        python_download_path = str(python_download_path)
         _download_ort_extensions_package(use_ort_extensions, python_download_path)
 
         if should_package_ort_cpu:
@@ -160,7 +165,7 @@ def _download_onnxruntime_package(tempdir, pf_footprint: Footprint):
             run_subprocess(download_command)
 
         # Download CPP onnxruntime package
-        cpp_ort_download_path = tempdir / "SampleCode" / "ONNXModel" / "cpp" / "ONNXRuntime"
+        cpp_ort_download_path = tempdir / "ONNXRuntimePackage" / "cpp"
         cpp_ort_download_path.mkdir(parents=True, exist_ok=True)
         if should_package_ort_cpu:
             cpp_download_path = str(cpp_ort_download_path / f"microsoft.ml.onnxruntime.{ort_version}.nupkg")
@@ -170,7 +175,7 @@ def _download_onnxruntime_package(tempdir, pf_footprint: Footprint):
             _download_c_packages(False, is_nightly, ort_version, cpp_download_path)
 
         # Download CS onnxruntime package
-        cs_ort_download_path = tempdir / "SampleCode" / "ONNXModel" / "cs" / "ONNXRuntime"
+        cs_ort_download_path = tempdir / "ONNXRuntimePackage" / "cs"
         cs_ort_download_path.mkdir(parents=True, exist_ok=True)
         if should_package_ort_cpu:
             cs_download_path = str(cs_ort_download_path / f"microsoft.ml.onnxruntime.{ort_version}.nupkg")

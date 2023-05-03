@@ -6,6 +6,7 @@ Install onnxruntime package:
 ```
 python -m pip install onnxruntime
 ```
+
 ### Option 2: install by local wheel
 You can find ONNXRuntime wheel file is in `ONNXRuntime` folder. Install the local wheel file by pip:
 ```
@@ -28,6 +29,14 @@ The sample code works with ONNX Runtime 1.14.x and prior versions.
 
 ## ONNXRuntime Extensions
 Onnxruntime extensions package could be included if the ONNX model is using onnxruntime-extensions.
+
+### Option 1: install by pip
+Install onnxruntime-extensions package:
+```
+python -m pip install onnxruntime-extensions
+```
+
+### Option 2: install by local wheel
 * For Windows  
   Please install it by "`python -m pip install ONNXRuntime/<onnxruntime-extensions.whl>`"
 * For Linux  
