@@ -166,9 +166,6 @@ information of the evaluator contains following items:
         - `evaluate_func: [str]` The name of the function provided by the user to evaluate the model. The function should take the
         model, `data_dir` and `batch_size` as input and return the evaluation result. Only valid for `custom` type.
 
-- `target: [str | Dict]` The target of the evaluator. It can be a string or a dictionary. If it is a string, it is the name of a system
-in `systems`. If it is a dictionary, it contains the system information. If not specified, it is the local system.
-
 ### Example
 ```json
 "evaluators": {
@@ -197,8 +194,7 @@ in `systems`. If it is a dictionary, it contains the system information. If not 
                     "batch_size": 1
                 }
             }
-        ],
-        "target": "local_system"
+        ]
     }
 }
 ```

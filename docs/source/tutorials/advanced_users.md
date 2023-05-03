@@ -69,7 +69,7 @@ latency_metric = Metric(
 )
 
 # create evaluator
-evaluator =  OliveEvaluator(metrics=[latency_metric], target=local_system)
+evaluator =  OliveEvaluator(metrics=[latency_metric])
 ```
 
 `latency_metric` requires you to provide a function as value for `dataloader_func` that returns a dataloader object when called on `data_dir` and `batch_size`. You can provide the function object directly but here, let's give it a function name `"create_dataloader"` that can be imported from `user_script`.
