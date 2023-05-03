@@ -297,3 +297,10 @@ class Footprint:
             return None
 
         return model_config.get("type", None)
+
+    def get_use_ort_extensions(self, model_id):
+        model_config = self.nodes[model_id].model_config
+        if model_config is None:
+            return False
+
+        return model_config.get("config", {}).get("use_ort_extensions", False)

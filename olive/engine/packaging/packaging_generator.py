@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import platform
 import shutil
 import tempfile
 import urllib.request
@@ -15,7 +16,7 @@ import pkg_resources
 
 from olive.common.utils import run_subprocess
 from olive.engine.footprint import Footprint
-from olive.packaging.packaging_config import PackagingConfig, PackagingType
+from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +37,13 @@ def _generate_zipfile_output(
         tempdir = Path(tempdir)
         _package_sample_code(cur_path, tempdir, pf_footprint)
         _package_candidate_models(tempdir, footprint, pf_footprint)
+        _package_onnxruntime_packages(tempdir, pf_footprint)
         shutil.make_archive(packaging_config.name, "zip", tempdir)
         shutil.move(f"{packaging_config.name}.zip", output_dir / f"{packaging_config.name}.zip")
 
 
 def _package_sample_code(cur_path, tempdir, pf_footprint: Footprint):
     shutil.copytree(cur_path / "sample_code", tempdir / "SampleCode")
-    _download_onnxruntime_package(tempdir, pf_footprint)
 
 
 def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footprint) -> None:
@@ -65,6 +66,9 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
 
         # Copy inference config
         inference_config_path = str(model_dir / "inference_config.json")
+        inference_config = pf_footprint.get_model_inference_config(model_id)
+        if inference_config:
+            inference_config["inference_settings"]["use_ort_extensions"] = pf_footprint.get_use_ort_extensions(model_id)
         with open(inference_config_path, "w") as f:
             json.dump(pf_footprint.get_model_inference_config(model_id), f)
 
@@ -80,7 +84,7 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
             json.dump(node.metrics.value, f)
 
 
-def _download_onnxruntime_package(tempdir, pf_footprint: Footprint):
+def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
 
     NIGHTLY_PYTHON_CPU_COMMAND = Template(
         "python -m pip download -i "
@@ -114,8 +118,11 @@ def _download_onnxruntime_package(tempdir, pf_footprint: Footprint):
 
     should_package_ort_cpu = False
     should_package_ort_gpu = False
+    use_ort_extensions = False
 
     for model_id, _ in pf_footprint.nodes.items():
+        if pf_footprint.get_use_ort_extensions(model_id):
+            use_ort_extensions = True
         inference_config = pf_footprint.get_model_inference_config(model_id)
         if not inference_config:
             should_package_ort_cpu = True
@@ -131,7 +138,10 @@ def _download_onnxruntime_package(tempdir, pf_footprint: Footprint):
 
     try:
         # Download Python onnxruntime package
-        python_download_path = str(tempdir / "SampleCode" / "ONNXModel" / "python" / "ONNXRuntime")
+        python_download_path = tempdir / "ONNXRuntimePackages" / "Python"
+        python_download_path.mkdir(parents=True, exist_ok=True)
+        python_download_path = str(python_download_path)
+        _download_ort_extensions_package(use_ort_extensions, python_download_path)
 
         if should_package_ort_cpu:
             if is_nightly:
@@ -155,7 +165,7 @@ def _download_onnxruntime_package(tempdir, pf_footprint: Footprint):
             run_subprocess(download_command)
 
         # Download CPP onnxruntime package
-        cpp_ort_download_path = tempdir / "SampleCode" / "ONNXModel" / "cpp" / "ONNXRuntime"
+        cpp_ort_download_path = tempdir / "ONNXRuntimePackages" / "cpp"
         cpp_ort_download_path.mkdir(parents=True, exist_ok=True)
         if should_package_ort_cpu:
             cpp_download_path = str(cpp_ort_download_path / f"microsoft.ml.onnxruntime.{ort_version}.nupkg")
@@ -165,7 +175,7 @@ def _download_onnxruntime_package(tempdir, pf_footprint: Footprint):
             _download_c_packages(False, is_nightly, ort_version, cpp_download_path)
 
         # Download CS onnxruntime package
-        cs_ort_download_path = tempdir / "SampleCode" / "ONNXModel" / "cs" / "ONNXRuntime"
+        cs_ort_download_path = tempdir / "ONNXRuntimePackages" / "cs"
         cs_ort_download_path.mkdir(parents=True, exist_ok=True)
         if should_package_ort_cpu:
             cs_download_path = str(cs_ort_download_path / f"microsoft.ml.onnxruntime.{ort_version}.nupkg")
@@ -175,6 +185,36 @@ def _download_onnxruntime_package(tempdir, pf_footprint: Footprint):
 
     except Exception as e:
         logger.error(f"Failed to download onnxruntime package. Please manually download onnxruntime package. {e}")
+
+
+def _download_ort_extensions_package(use_ort_extensions: bool, download_path: str):
+    if use_ort_extensions:
+        try:
+            import onnxruntime_extensions
+        except ImportError:
+            logger.warning(
+                "ONNXRuntime-Extensions package is not installed. Skip packaging ONNXRuntime-Extensions package."
+            )
+            return
+        version = onnxruntime_extensions.__version__
+        # Hardcode the nightly version number for now until we have a better way to identify nightly version
+        if version.startswith("0.8.0."):
+            system = platform.system()
+            if system == "Windows":
+                download_command = (
+                    "python -m pip download -i "
+                    "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ "
+                    f"onnxruntime-extensions=={version} --no-deps -d {download_path}"
+                )
+                run_subprocess(download_command)
+            elif system == "Linux":
+                logger.warning(
+                    "ONNXRuntime-Extensions nightly package is not available for Linux. "
+                    "Skip packaging ONNXRuntime-Extensions package. Please manually install ONNXRuntime-Extensions."
+                )
+        else:
+            download_command = f"python -m pip download onnxruntime-extensions=={version} --no-deps -d {download_path}"
+            run_subprocess(download_command)
 
 
 def _download_c_packages(is_cpu: bool, is_nightly: bool, ort_version: str, download_path: str):

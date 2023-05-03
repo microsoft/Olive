@@ -8,9 +8,9 @@ from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_onnxconversion_pass, get_pytorch_model
 
 from olive.engine import Engine
+from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
 from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.olive_evaluator import OliveEvaluator
-from olive.packaging.packaging_config import PackagingConfig, PackagingType
 
 
 def test_generate_zipfile_artifacts():
@@ -48,6 +48,7 @@ def test_generate_zipfile_artifacts():
         zip_ref.extractall(output_dir)
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
+    assert (output_dir / "ONNXRuntimePackages").exists()
 
     # cleanup
     shutil.rmtree(output_dir)
@@ -82,6 +83,7 @@ def test_generate_zipfile_artifacts_no_search():
         zip_ref.extractall(output_dir)
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
+    assert (output_dir / "ONNXRuntimePackages").exists()
 
     # cleanup
     shutil.rmtree(output_dir)
