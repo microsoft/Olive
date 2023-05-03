@@ -127,11 +127,11 @@
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">hash_dict</span>
 <span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">FootprintNode</span><span class="p">,</span> <span class="n">FootprintNodeMetric</span>
+<span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_config</span> <span class="kn">import</span> <span class="n">PackagingConfig</span>
+<span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_generator</span> <span class="kn">import</span> <span class="n">generate_output_artifacts</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">OliveEvaluatorConfig</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">ModelStorageKind</span><span class="p">,</span> <span class="n">OliveModel</span>
-<span class="kn">from</span> <span class="nn">olive.packaging.packaging_config</span> <span class="kn">import</span> <span class="n">PackagingConfig</span>
-<span class="kn">from</span> <span class="nn">olive.packaging.packaging_generator</span> <span class="kn">import</span> <span class="n">generate_output_artifacts</span>
 <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
 <span class="kn">from</span> <span class="nn">olive.strategy.search_strategy</span> <span class="kn">import</span> <span class="n">SearchStrategy</span><span class="p">,</span> <span class="n">SearchStrategyConfig</span>
 <span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>

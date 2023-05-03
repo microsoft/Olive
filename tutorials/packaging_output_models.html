@@ -132,7 +132,7 @@
 <p>Olive will output multiple candidate models based on metrics priority ranks. It also can package output artifacts when the user required. Olive packaging can be used in different scenarios. There is only one packaging type: <code class="docutils literal notranslate"><span class="pre">Zipfile</span></code>.</p>
 <section id="zipfile">
 <h3>Zipfile<a class="headerlink" href="#zipfile" title="Permalink to this heading">¶</a></h3>
-<p>Zipfile packaging will generate a ZIP file which includes 2 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code> and <code class="docutils literal notranslate"><span class="pre">SampleCode</span></code> in the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> folder (from Engine Configuration):</p>
+<p>Zipfile packaging will generate a ZIP file which includes 3 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>, <code class="docutils literal notranslate"><span class="pre">SampleCode</span></code> and <code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code> in the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> folder (from Engine Configuration):</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>: top ranked output model set</p>
 <ul>
@@ -148,6 +148,7 @@
 <li><p>Python</p></li>
 </ul>
 </li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>: ONNXRuntime package files with the same version that were used by Olive Engine in this workflow run.</p></li>
 </ul>
 <section id="candidatemodels">
 <h4>CandidateModels<a class="headerlink" href="#candidatemodels" title="Permalink to this heading">¶</a></h4>
@@ -156,7 +157,7 @@
 </section>
 <section id="samplecode">
 <h4>SampleCode<a class="headerlink" href="#samplecode" title="Permalink to this heading">¶</a></h4>
-<p>Olive will only provide sample codes for ONNX model. Sample code supports 3 different programming languages: <code class="docutils literal notranslate"><span class="pre">C++</span></code>, <code class="docutils literal notranslate"><span class="pre">C#</span></code> and <code class="docutils literal notranslate"><span class="pre">Python</span></code>. Each programming language sample code folder includes an ONNXRuntime package file with the same version that was used by Olive Engine in this run. And a code snippet introducing how to use Olive output artifacts to inference candidate model with recommended inference configurations.</p>
+<p>Olive will only provide sample codes for ONNX model. Sample code supports 3 different programming languages: <code class="docutils literal notranslate"><span class="pre">C++</span></code>, <code class="docutils literal notranslate"><span class="pre">C#</span></code> and <code class="docutils literal notranslate"><span class="pre">Python</span></code>. And a code snippet introducing how to use Olive output artifacts to inference candidate model with recommended inference configurations.</p>
 </section>
 </section>
 </section>
