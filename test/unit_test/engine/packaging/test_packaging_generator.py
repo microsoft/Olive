@@ -49,7 +49,7 @@ def test_generate_zipfile_artifacts():
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
     assert (output_dir / "ONNXRuntimePackage").exists()
-    
+
     # cleanup
     shutil.rmtree(output_dir)
 
