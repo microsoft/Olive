@@ -34,7 +34,7 @@ def text_encoder_load(model_name):
     return model
 
 
-def text_encoder_conversion_inputs():
+def text_encoder_conversion_inputs(model):
     return text_encoder_inputs(1, torch.int32)
 
 
@@ -61,7 +61,7 @@ def unet_load(model_name):
     return model
 
 
-def unet_conversion_inputs():
+def unet_conversion_inputs(model):
     return tuple(unet_inputs(1, torch.float32).values())
 
 
@@ -87,7 +87,7 @@ def vae_encoder_load(model_name):
     return model
 
 
-def vae_encoder_conversion_inputs():
+def vae_encoder_conversion_inputs(model):
     return tuple(vae_encoder_inputs(1, torch.float32).values())
 
 
@@ -113,7 +113,7 @@ def vae_decoder_load(model_name):
     return model
 
 
-def vae_decoder_conversion_inputs():
+def vae_decoder_conversion_inputs(model):
     return tuple(vae_decoder_inputs(1, torch.float32).values())
 
 
@@ -139,7 +139,7 @@ def safety_checker_load(model_name):
     return model
 
 
-def safety_checker_conversion_inputs():
+def safety_checker_conversion_inputs(model):
     return tuple(safety_checker_inputs(1, torch.float32).values())
 
 

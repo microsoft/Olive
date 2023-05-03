@@ -30,6 +30,11 @@ OnnxFloatToFloat16
 --------------------
 .. autoconfigclass:: olive.passes.OnnxFloatToFloat16
 
+.. _ort_mixed_precision:
+OrtMixedPrecision
+--------------------
+.. autoconfigclass:: olive.passes.OrtMixedPrecision
+
 .. _onnx_dynamic_quantization:
 OnnxDynamicQuantization
 -----------------------
@@ -59,6 +64,16 @@ IncStaticQuantization
 IncQuantization
 ----------------
 .. autoconfigclass:: olive.passes.IncQuantization
+
+.. _append_pre_post_processing:
+AppendPrePostProcessingOps
+----------------
+.. autoconfigclass:: olive.passes.AppendPrePostProcessingOps
+.. _insert_beam_search
+
+InsertBeamSearch
+--------------------
+.. autoconfigclass:: olive.passes.InsertBeamSearch
 
 .. _quantization_aware_training:
 QuantizationAwareTraining

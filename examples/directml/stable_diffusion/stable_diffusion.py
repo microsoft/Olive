@@ -15,12 +15,25 @@ from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffu
 from olive.workflows import run as olive_run
 
 
-def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_inference_steps):
+def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_inference_steps, static_dims):
     ort.set_default_logger_severity(3)
 
     print("Loading models into ORT session...")
     sess_options = ort.SessionOptions()
     sess_options.enable_mem_pattern = False
+
+    if static_dims:
+        # Not necessary, but helps DML EP further optimize runtime performance.
+        # batch_size is doubled for sample & hidden state because of classifier free guidance:
+        # https://github.com/huggingface/diffusers/blob/46c52f9b9607e6ecb29c782c052aea313e6487b7/src/diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion.py#L672
+        sess_options.add_free_dimension_override_by_name("unet_sample_batch", batch_size * 2)
+        sess_options.add_free_dimension_override_by_name("unet_sample_channels", 4)
+        sess_options.add_free_dimension_override_by_name("unet_sample_height", 64)
+        sess_options.add_free_dimension_override_by_name("unet_sample_width", 64)
+        sess_options.add_free_dimension_override_by_name("unet_time_batch", batch_size)
+        sess_options.add_free_dimension_override_by_name("unet_hidden_batch", batch_size * 2)
+        sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
+
     pipeline = OnnxStableDiffusionPipeline.from_pretrained(
         optimized_model_dir, provider="DmlExecutionProvider", sess_options=sess_options
     )
@@ -43,15 +56,23 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
         print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
 
 
-def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: Path):
+def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: Path, optimize_provider: str):
     ort.set_default_logger_severity(4)
+    script_dir = Path(__file__).resolve().parent
 
     model_info = dict()
 
     for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
         # Optimize the model with Olive
         print(f"\nOptimizing {submodel_name}")
-        olive_run(str(script_dir / f"config_{submodel_name}.json"))
+
+        olive_config = None
+        with open(script_dir / f"config_{submodel_name}.json", "r") as fin:
+            olive_config = json.load(fin)
+        if optimize_provider:
+            olive_config["passes"]["optimize"]["config"]["target_provider"] = optimize_provider
+
+        olive_run(olive_config)
 
         footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_footprints.json"
         with footprints_file_path.open("r") as footprint_file:
@@ -109,6 +130,7 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
+    parser.add_argument("--optimize_provider", type=str, default="directml", help="EP target for inference")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
     parser.add_argument("--model", default="runwayml/stable-diffusion-v1-5", type=str)
@@ -116,6 +138,9 @@ if __name__ == "__main__":
     parser.add_argument("--num_images", default=1, type=int, help="Number of images to generate")
     parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
+    # This should be on by default in ORT 1.15.0 when symbolic shape inference issue is addressed:
+    # https://github.com/microsoft/onnxruntime/issues/15521
+    parser.add_argument("--static_dims", action="store_true", help="Fixes dynamic shapes to static for better perf")
     args = parser.parse_args()
 
     script_dir = Path(__file__).resolve().parent
@@ -134,10 +159,12 @@ if __name__ == "__main__":
         # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            optimize(args.model, unoptimized_model_dir, optimized_model_dir)
+            optimize(args.model, unoptimized_model_dir, optimized_model_dir, args.optimize_provider)
 
     if not args.optimize:
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            run_inference(model_dir, args.prompt, args.num_images, args.batch_size, args.num_inference_steps)
+            run_inference(
+                model_dir, args.prompt, args.num_images, args.batch_size, args.num_inference_steps, args.static_dims
+            )

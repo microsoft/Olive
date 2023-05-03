@@ -165,3 +165,37 @@ for :code:`"docker"` and :code:`"Dockerfile"`.
     The docker container must have :code:`olive-ai` installed!
 
 Please refer to :ref:`docker_system_config` for more details on the config options.
+
+Python Environment System
+--------------------------
+
+.. tabs::
+    .. tab:: Config JSON
+
+        .. code-block:: json
+
+            {
+                "type": "PythonEnvironment",
+                "config": {
+                    "python_environment_path": "/home/user/.virtualenvs/myenv",
+                    "device": "cpu"
+                }
+            }
+
+    .. tab:: Python Class
+
+        .. code-block:: python
+
+            from olive.systems.python_environment import PythonEnvironmentSystem
+            from olive.system.common import Device
+
+            python_environment_system = PythonEnvironmentSystem(
+                python_environment_path = "/home/user/.virtualenvs/myenv",
+                device = Device.CPU
+            )
+
+.. important::
+
+    The python environment system can only be used to evaluate onnx models. It must have :code:`onnxruntime` installed!
+
+Please refer to :ref:`python_environment_system_config` for more details on the config options.

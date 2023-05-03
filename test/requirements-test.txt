@@ -5,8 +5,11 @@ coverage
 docker
 neural-compressor
 onnxconverter_common
+onnxruntime-extensions
 openvino
 openvino-dev
 psutil
 pytorch_lightning
 torchvision
+azureml-evaluate-mlflow
+mlflow

@@ -6,9 +6,14 @@ import json
 import logging
 import shutil
 import tempfile
+import urllib.request
 from collections import OrderedDict
 from pathlib import Path
+from string import Template
 
+import pkg_resources
+
+from olive.common.utils import run_subprocess
 from olive.engine.footprint import Footprint
 from olive.packaging.packaging_config import PackagingConfig, PackagingType
 
@@ -29,14 +34,15 @@ def _generate_zipfile_output(
     cur_path = Path(__file__).parent
     with tempfile.TemporaryDirectory() as tempdir:
         tempdir = Path(tempdir)
-        _package_sample_code(cur_path, tempdir)
+        _package_sample_code(cur_path, tempdir, pf_footprint)
         _package_candidate_models(tempdir, footprint, pf_footprint)
         shutil.make_archive(packaging_config.name, "zip", tempdir)
         shutil.move(f"{packaging_config.name}.zip", output_dir / f"{packaging_config.name}.zip")
 
 
-def _package_sample_code(cur_path, tempdir):
+def _package_sample_code(cur_path, tempdir, pf_footprint: Footprint):
     shutil.copytree(cur_path / "sample_code", tempdir / "SampleCode")
+    _download_onnxruntime_package(tempdir, pf_footprint)
 
 
 def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footprint) -> None:
@@ -50,7 +56,6 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
         # Copy model file
         model_path = pf_footprint.get_model_path(model_id)
         model_type = pf_footprint.get_model_type(model_id)
-
         if model_type == "ONNXModel":
             shutil.copy2(model_path, model_dir / "model.onnx")
         elif model_type == "OpenVINOModel":
@@ -73,3 +78,123 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
         metric_path = str(model_dir / "metrics.json")
         with open(metric_path, "w") as f:
             json.dump(node.metrics.value, f)
+
+
+def _download_onnxruntime_package(tempdir, pf_footprint: Footprint):
+
+    NIGHTLY_PYTHON_CPU_COMMAND = Template(
+        "python -m pip download -i "
+        "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ "
+        "ort-nightly==$ort_version --no-deps -d $python_download_path"
+    )
+    STABLE_PYTHON_CPU_COMMAND = Template(
+        "python -m pip download onnxruntime==$ort_version --no-deps -d $python_download_path"
+    )
+    NIGHTLY_PYTHON_GPU_COMMAND = Template(
+        "python -m pip download -i "
+        "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ "
+        "ort-nightly-gpu==$ort_version --no-deps -d $python_download_path"
+    )
+    STABLE_PYTHON_GPU_COMMAND = Template(
+        "python -m pip download onnxruntime-gpu==$ort_version --no-deps -d $python_download_path"
+    )
+
+    installed_packages = pkg_resources.working_set
+    onnxruntime_pkg = [i for i in installed_packages if i.key == "onnxruntime"]
+    ort_nightly_pkg = [i for i in installed_packages if i.key == "ort-nightly"]
+    is_nightly = True if ort_nightly_pkg else False
+    is_stable = True if onnxruntime_pkg else False
+
+    if not is_nightly and not is_stable:
+        logger.warning("ONNXRuntime package is not installed. Skip packaging ONNXRuntime package.")
+        return
+
+    # If both nightly and stable are installed, use nightly
+    ort_version = ort_nightly_pkg[0].version if is_nightly else onnxruntime_pkg[0].version
+
+    should_package_ort_cpu = False
+    should_package_ort_gpu = False
+
+    for model_id, _ in pf_footprint.nodes.items():
+        inference_config = pf_footprint.get_model_inference_config(model_id)
+        if not inference_config:
+            should_package_ort_cpu = True
+        else:
+            inference_settings = inference_config["inference_settings"]
+            ep_list = inference_settings["execution_provider"]
+            for ep_config in ep_list:
+                ep = ep_config[0]
+                if ep == "CUDAExecutionProvider":
+                    should_package_ort_gpu = True
+                else:
+                    should_package_ort_cpu = True
+
+    try:
+        # Download Python onnxruntime package
+        python_download_path = str(tempdir / "SampleCode" / "ONNXModel" / "python" / "ONNXRuntime")
+
+        if should_package_ort_cpu:
+            if is_nightly:
+                download_command = NIGHTLY_PYTHON_CPU_COMMAND.substitute(
+                    ort_version=ort_version, python_download_path=python_download_path
+                )
+            else:
+                download_command = STABLE_PYTHON_CPU_COMMAND.substitute(
+                    ort_version=ort_version, python_download_path=python_download_path
+                )
+            run_subprocess(download_command)
+        if should_package_ort_gpu:
+            if is_nightly:
+                download_command = NIGHTLY_PYTHON_GPU_COMMAND.substitute(
+                    ort_version=ort_version, python_download_path=python_download_path
+                )
+            else:
+                download_command = STABLE_PYTHON_GPU_COMMAND.substitute(
+                    ort_version=ort_version, python_download_path=python_download_path
+                )
+            run_subprocess(download_command)
+
+        # Download CPP onnxruntime package
+        cpp_ort_download_path = tempdir / "SampleCode" / "ONNXModel" / "cpp" / "ONNXRuntime"
+        cpp_ort_download_path.mkdir(parents=True, exist_ok=True)
+        if should_package_ort_cpu:
+            cpp_download_path = str(cpp_ort_download_path / f"microsoft.ml.onnxruntime.{ort_version}.nupkg")
+            _download_c_packages(True, is_nightly, ort_version, cpp_download_path)
+        if should_package_ort_gpu:
+            cpp_download_path = str(cpp_ort_download_path / f"microsoft.ml.onnxruntime.gpu.{ort_version}.nupkg")
+            _download_c_packages(False, is_nightly, ort_version, cpp_download_path)
+
+        # Download CS onnxruntime package
+        cs_ort_download_path = tempdir / "SampleCode" / "ONNXModel" / "cs" / "ONNXRuntime"
+        cs_ort_download_path.mkdir(parents=True, exist_ok=True)
+        if should_package_ort_cpu:
+            cs_download_path = str(cs_ort_download_path / f"microsoft.ml.onnxruntime.{ort_version}.nupkg")
+            _download_c_packages(True, is_nightly, ort_version, cs_download_path)
+        if should_package_ort_gpu:
+            _download_c_packages(False, is_nightly, ort_version, cs_download_path)
+
+    except Exception as e:
+        logger.error(f"Failed to download onnxruntime package. Please manually download onnxruntime package. {e}")
+
+
+def _download_c_packages(is_cpu: bool, is_nightly: bool, ort_version: str, download_path: str):
+    NIGHTLY_C_CPU_LINK = Template(
+        "https://aiinfra.visualstudio.com/PublicPackages/_artifacts/feed/ORT-Nightly/NuGet/"
+        "Microsoft.ML.OnnxRuntime/overview/$ort_version"
+    )
+    STABLE_C_CPU_LINK = Template("https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/$ort_version")
+    NIGHTLY_C_GPU_LINK = Template(
+        "https://aiinfra.visualstudio.com/PublicPackages/_artifacts/feed/ORT-Nightly/NuGet/"
+        "Microsoft.ML.OnnxRuntime.Gpu/overview/$ort_version"
+    )
+    STABLE_C_GPU_LINK = Template("https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime.Gpu/$ort_version")
+    if is_cpu:
+        if is_nightly:
+            urllib.request.urlretrieve(NIGHTLY_C_CPU_LINK.substitute(ort_version=ort_version), download_path)
+        else:
+            urllib.request.urlretrieve(STABLE_C_CPU_LINK.substitute(ort_version=ort_version), download_path)
+    else:
+        if is_nightly:
+            urllib.request.urlretrieve(NIGHTLY_C_GPU_LINK.substitute(ort_version=ort_version), download_path)
+        else:
+            urllib.request.urlretrieve(STABLE_C_GPU_LINK.substitute(ort_version=ort_version), download_path)

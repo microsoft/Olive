@@ -17,7 +17,7 @@ class PackagingType(str, Enum):
 
 class PackagingConfig(ConfigBase):
     """
-    Olive output artifacts generatio config
+    Olive output artifacts generation config
     """
 
     type: PackagingType = PackagingType.Zipfile

@@ -20,7 +20,7 @@ def test_generate_zipfile_artifacts():
     evaluator = OliveEvaluator(metrics=[metric])
     options = {
         "cache_dir": "./cache",
-        "clean_cache": False,
+        "clean_cache": True,
         "search_strategy": {
             "execution_order": "joint",
             "search_algorithm": "random",
@@ -28,6 +28,40 @@ def test_generate_zipfile_artifacts():
         "clean_evaluation_cache": True,
     }
     engine = Engine(options, evaluator=evaluator)
+    engine.register(p)
+
+    input_model = get_pytorch_model()
+
+    packaging_config = PackagingConfig()
+    packaging_config.type = PackagingType.Zipfile
+    packaging_config.name = "OutputModels"
+
+    output_dir = Path(__file__).parent / "outputs"
+
+    # execute
+    engine.run(input_model=input_model, packaging_config=packaging_config, output_dir=output_dir)
+
+    # assert
+    artifacts_path = output_dir / "OutputModels.zip"
+    assert artifacts_path.exists()
+    with zipfile.ZipFile(artifacts_path, "r") as zip_ref:
+        zip_ref.extractall(output_dir)
+    assert (output_dir / "SampleCode").exists()
+    assert (output_dir / "CandidateModels").exists()
+
+    # cleanup
+    shutil.rmtree(output_dir)
+
+
+def test_generate_zipfile_artifacts_no_search():
+    # setup
+    p = get_onnxconversion_pass()
+    options = {
+        "cache_dir": "./cache",
+        "clean_cache": True,
+        "clean_evaluation_cache": True,
+    }
+    engine = Engine(options)
     engine.register(p)
 
     input_model = get_pytorch_model()

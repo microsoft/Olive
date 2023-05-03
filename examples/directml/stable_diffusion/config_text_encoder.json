@@ -4,9 +4,15 @@
         "type": "PyTorchModel",
         "config": {
             "model_path": "runwayml/stable-diffusion-v1-5",
-            "is_file": false,
+            "model_storage_kind": "folder",
             "model_loader": "text_encoder_load",
-            "model_script": "user_script.py"
+            "model_script": "user_script.py",
+            "io_config": {
+                "input_names": [ "input_ids" ],
+                "output_names": [ "last_hidden_state", "pooler_output" ],
+                "dynamic_axes": { "input_ids": { "0": "batch", "1": "sequence" } }
+            },
+            "dummy_inputs_func": "text_encoder_conversion_inputs"
         }
     },
     "systems": {
@@ -38,11 +44,6 @@
         "convert": {
             "type": "OnnxConversion",
             "config": {
-                "user_script": "user_script.py",
-                "input_names": [ "input_ids" ],
-                "input_tensor_func": "text_encoder_conversion_inputs",
-                "output_names": [ "last_hidden_state", "pooler_output" ],
-                "dynamic_axes": { "input_ids": { "0": "batch", "1": "sequence" } },
                 "target_opset": 14
             }
         },
@@ -52,7 +53,8 @@
                 "model_type": "clip",
                 "float16": true,
                 "use_gpu": true,
-                "keep_io_types": false
+                "keep_io_types": false,
+                "target_provider": "directml"
             }
         }
     },
