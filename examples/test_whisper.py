@@ -20,7 +20,7 @@ def setup():
 
     # prepare configs
     # retry since it fails randomly on windows
-    retry_func(run_subprocess, kwargs={"cmd": "python prepare_configs.py", "check": True})
+    retry_func(run_subprocess, kwargs={"cmd": "python prepare_whisper_configs.py", "check": True})
 
     yield
     os.chdir(cur_dir)
