@@ -10,10 +10,8 @@ from pydantic import validator
 from olive.common.config_utils import ConfigBase
 from olive.evaluator.metric import Metric
 from olive.model import OliveModel
-from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
-from olive.systems.system_config import SystemConfig
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +21,6 @@ class OliveEvaluator:
         metric_names = set([metric.name for metric in metrics])
         assert len(metric_names) == len(metrics), "Metric names must be unique"
         self.metrics = metrics
-        self.target = target or LocalSystem()
 
     def get_metric(self, metric_name: str) -> Metric:
         for metric in self.metrics:
