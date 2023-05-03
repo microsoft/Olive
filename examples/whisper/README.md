@@ -8,7 +8,7 @@ Performs optimization pipeline:
 - GPU, FP16: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Mixed Precision Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
 - GPU, INT8: *PyTorch Model -> Onnx Model -> Dynamic Quantized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
 
-Outputs the best metrics, model, and corresponding Olive config.
+Outputs the final model and latency results.
 
 ## Prerequisites
 ### Pip requirements
