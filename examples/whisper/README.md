@@ -15,8 +15,7 @@ Outputs the final model and latency results.
 This example requires the latest code from onnxruntime and onnxruntime-extensions which are not available in the stable releases yet. So, we
 will install the nightly versions.
 
-We recommending using a fresh conda or virtual environment for this example to avoid any conflicts with
-your existing environment.
+We recommending using a fresh conda or virtual environment for this example to avoid any conflicts with your existing environment.
 
 On Linux:
 ```bash
