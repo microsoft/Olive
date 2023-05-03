@@ -36,8 +36,7 @@
                         "batch_size": 1
                     }
                 }
-            ],
-            "target": "local_system"
+            ]
         }
     },
     "passes": {

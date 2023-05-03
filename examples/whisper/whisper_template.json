@@ -42,8 +42,7 @@
                         "dataloader_func": "<place_holder>"
                     }
                 }
-            ],
-            "target": "local_system"
+            ]
         }
     },
     "passes": {

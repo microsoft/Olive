@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class OliveEvaluator:
-    def __init__(self, metrics: List[Metric], target: OliveSystem = None):
+    def __init__(self, metrics: List[Metric]):
         metric_names = set([metric.name for metric in metrics])
         assert len(metric_names) == len(metrics), "Metric names must be unique"
         self.metrics = metrics
@@ -31,13 +31,12 @@ class OliveEvaluator:
                 return metric
         raise ValueError(f"Metric {metric_name} not found")
 
-    def evaluate(self, model: OliveModel) -> Dict:
-        return self.target.evaluate_model(model, self.metrics)
+    def evaluate(self, model: OliveModel, target: OliveSystem = LocalSystem()) -> Dict:
+        return target.evaluate_model(model, self.metrics)
 
 
 class OliveEvaluatorConfig(ConfigBase):
     metrics: List[Metric]
-    target: SystemConfig = SystemConfig(type=SystemType.Local)
 
     @validator("metrics")
     def validate_metrics(cls, v):
@@ -56,4 +55,4 @@ class OliveEvaluatorConfig(ConfigBase):
         return v
 
     def create_evaluator(self):
-        return OliveEvaluator(self.metrics, self.target.create_system())
+        return OliveEvaluator(self.metrics)

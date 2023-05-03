@@ -37,15 +37,7 @@
                         "dataloader_func": "evaluation_dataloader"
                     }
                 }
-            ],
-            "target": {
-                "type": "PythonEnvironment",
-                "config": {
-                    "python_environment_path": "<python-environment-path>",
-                    "device": "npu",
-                    "prepend_to_path": ["<qnn-lib-path>"]
-                }
-            }
+            ]
         }
     },
     "passes": {
@@ -66,6 +58,14 @@
         "output_dir": "models",
         "evaluator": "common_evaluator",
         "evaluation_only": false,
-        "clean_cache": true
-    }
+        "clean_cache": true,
+        "target": {
+            "type": "PythonEnvironment",
+            "config": {
+                "python_environment_path": "<python-environment-path>",
+                "device": "npu",
+                "prepend_to_path": ["<qnn-lib-path>"]
+            }
+        }
+}
 }
