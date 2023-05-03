@@ -37,10 +37,7 @@ class OnnxConversion(Pass):
         config = {
             "target_opset": PassConfigParam(
                 type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
-            ),
-            "suppress_warnings": PassConfigParam(
-                type_=bool, default_value=True, description="Whether to suppress warnings during conversion."
-            ),
+            )
         }
         config.update(get_external_data_config())
         return config
@@ -86,13 +83,6 @@ class OnnxConversion(Pass):
         tmp_dir_path = Path(tmp_dir.name)
         tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
 
-        if config["suppress_warnings"]:
-            # suppress warnings during conversion
-            import warnings
-
-            original_warning_filters = warnings.filters[:]
-            warnings.filterwarnings("ignore")
-
         torch.onnx.export(
             pytorch_model,
             dummy_inputs,
@@ -103,10 +93,6 @@ class OnnxConversion(Pass):
             output_names=output_names,
             dynamic_axes=dynamic_axes,
         )
-
-        if config["suppress_warnings"]:
-            # restore warnings
-            warnings.filters = original_warning_filters
 
         # load the model
         onnx_model = onnx.load(tmp_model_path)

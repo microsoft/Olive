@@ -74,6 +74,12 @@ python prepare_whisper_configs.py [--model_name MODEL_NAME] [--no_audio_decoder]
 
 `--no_audio_decoder` is optional. If not provided, will use audio decoder in the preprocessing ops.
 
+**Note:** If `--no_audio_decoder` is provided, you need to install `librosa` package before running the optimization steps below.
+
+```bash
+python -m pip install librosa
+```
+
 ## Run the config to optimize the model
 First, install required packages according to passes.
 ```
@@ -81,8 +87,15 @@ python -m olive.workflows.run --config whisper_{device}_{precision}.json --setup
 ```
 
 Then, optimize the model
+
+On Linux:
+```bash
+python -m olive.workflows.run --config whisper_{device}_{precision}.json 2> /dev/null
 ```
-python -m olive.workflows.run --config whisper_{device}_{precision}.json
+
+On Windows:
+```cmd
+python -m olive.workflows.run --config whisper_{device}_{precision}.json 2> NUL
 ```
 
 ## Test the transcription of the optimized model
@@ -91,4 +104,3 @@ python test_transcription.py --config whisper_{device}_{precision}.json [--auto_
 ```
 
 `--audio_path` is optional. If not provided, will use test auto path from the config.
-cda
