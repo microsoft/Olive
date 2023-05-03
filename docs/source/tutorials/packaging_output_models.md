@@ -14,10 +14,7 @@ Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateM
     * C++
     * C#
     * Python
-* `ONNXRuntimePackage`: ONNXRuntime packages file with the same version that was used by Olive Engine in this workflow run.
-    * C++
-    * C#
-    * Python
+* `ONNXRuntimePackages`: ONNXRuntime package files with the same version that were used by Olive Engine in this workflow run.
 
 #### CandidateModels
 `CandidateModels` includes k folders where k is the number of output models, with name `BestCandidateModel_1`, `BestCandidateModel_2`, ... and `BestCandidateModel_k`. The order is ranked by metrics priorities. e.g., if you have 3 metrics `metric_1`, `metric_2` and `metric_3` with priority rank `1`, `2` and `3`. The output models will be sorted firstly by `metric_1`. If the value of `metric_1` of 2 output models are same, they will be sorted by `metric_2`, and followed by next lower priority metric.

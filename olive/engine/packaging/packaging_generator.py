@@ -138,7 +138,7 @@ def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
 
     try:
         # Download Python onnxruntime package
-        python_download_path = tempdir / "ONNXRuntimePackage" / "Python"
+        python_download_path = tempdir / "ONNXRuntimePackages" / "Python"
         python_download_path.mkdir(parents=True, exist_ok=True)
         python_download_path = str(python_download_path)
         _download_ort_extensions_package(use_ort_extensions, python_download_path)
@@ -165,7 +165,7 @@ def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
             run_subprocess(download_command)
 
         # Download CPP onnxruntime package
-        cpp_ort_download_path = tempdir / "ONNXRuntimePackage" / "cpp"
+        cpp_ort_download_path = tempdir / "ONNXRuntimePackages" / "cpp"
         cpp_ort_download_path.mkdir(parents=True, exist_ok=True)
         if should_package_ort_cpu:
             cpp_download_path = str(cpp_ort_download_path / f"microsoft.ml.onnxruntime.{ort_version}.nupkg")
@@ -175,7 +175,7 @@ def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
             _download_c_packages(False, is_nightly, ort_version, cpp_download_path)
 
         # Download CS onnxruntime package
-        cs_ort_download_path = tempdir / "ONNXRuntimePackage" / "cs"
+        cs_ort_download_path = tempdir / "ONNXRuntimePackages" / "cs"
         cs_ort_download_path.mkdir(parents=True, exist_ok=True)
         if should_package_ort_cpu:
             cs_download_path = str(cs_ort_download_path / f"microsoft.ml.onnxruntime.{ort_version}.nupkg")

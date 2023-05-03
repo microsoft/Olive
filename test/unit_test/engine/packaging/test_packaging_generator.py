@@ -48,7 +48,7 @@ def test_generate_zipfile_artifacts():
         zip_ref.extractall(output_dir)
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
-    assert (output_dir / "ONNXRuntimePackage").exists()
+    assert (output_dir / "ONNXRuntimePackages").exists()
 
     # cleanup
     shutil.rmtree(output_dir)
@@ -83,7 +83,7 @@ def test_generate_zipfile_artifacts_no_search():
         zip_ref.extractall(output_dir)
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
-    assert (output_dir / "ONNXRuntimePackage").exists()
+    assert (output_dir / "ONNXRuntimePackages").exists()
 
     # cleanup
     shutil.rmtree(output_dir)
