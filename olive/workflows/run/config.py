@@ -27,10 +27,13 @@ class RunEngineConfig(EngineConfig):
     output_dir: Union[Path, str] = None
     output_name: str = None
     packaging_config: PackagingConfig = None
+    ort_log_severity_level: int = 3
 
     def create_engine(self):
         config = self.dict()
-        del config["evaluation_only"], config["output_dir"], config["output_name"], config["packaging_config"]
+        to_del = ["evaluation_only", "output_dir", "output_name", "packaging_config", "ort_log_severity_level"]
+        for key in to_del:
+            del config[key]
         return Engine(config)
 
 
