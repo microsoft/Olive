@@ -5,7 +5,7 @@ Olive will output multiple candidate models based on metrics priority ranks. It 
 
 
 ### Zipfile
-Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateModels`, `SampleCode` and `ONNXRuntimePackage` in the `output_dir` folder (from Engine Configuration):
+Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateModels`, `SampleCode` and `ONNXRuntimePackages` in the `output_dir` folder (from Engine Configuration):
 * `CandidateModels`: top ranked output model set
     * Model file
     * Olive Pass run history configurations for candidate model
