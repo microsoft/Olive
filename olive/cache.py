@@ -149,7 +149,7 @@ def save_model(
             and model_json["config"]["model_storage_kind"] == ModelStorageKind.LocalFolder
         ):
             # onnx model has external data
-            output_path = ONNXModel.resolve_path(output_name)
+            output_path = ONNXModel.resolve_path(output_dir / output_name)
             # copy the .onnx file along with external data files
             shutil.copytree(Path(model_path).parent, Path(output_path).parent, dirs_exist_ok=True)
             # rename the .onnx file to the output_path

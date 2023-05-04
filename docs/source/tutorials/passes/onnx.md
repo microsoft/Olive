@@ -55,6 +55,44 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
     "config": {"model_type": "bert"}
 }
 ```
+## Append Pre/Post Processing Ops
+'AppendPrePostProcessingOps' inserts pre and post processing ops into the ONNX graph.
+
+### Example Configuration
+```json
+{
+    "type": "AppendPrePostProcessingOps",
+    "config": {
+        "tool_command": "superresolution",
+        "tool_command_args": {
+            "output_format": "png"
+        }
+    }
+}
+```
+```json
+{
+    "type": "AppendPrePostProcessingOps",
+    "config": {
+        "tool_command": "whisper",
+        "tool_command_args": {
+            "use_audio_decoder": true
+        }
+    }
+}
+```
+
+## Insert Beam Serch Op
+
+`InsertBeamSearch` chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.
+
+### Example Configuration
+```json
+{
+    "type": "InsertBeamSearch",
+    "config": {"no_repeat_ngram_size": 4}
+}
+```
 
 ## Post Training Quantization (PTQ)
 [Quantization][1] is a technique to compress deep learning models by reducing the precision of the model weights from 32 bits to 8 bits. This

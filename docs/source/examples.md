@@ -18,3 +18,6 @@
 
 # Stable Diffusion optimization with DirectML
 [directml/stable_diffusion](https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion)
+
+# Whisper optimization using ORT toolchain
+[whisper](https://github.com/microsoft/Olive/tree/main/examples/whisper)

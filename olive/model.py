@@ -23,6 +23,7 @@ from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework, ModelFileFormat
 from olive.hf_utils import (
+    get_hf_model_config,
     huggingface_model_loader,
     load_huggingface_model_from_model_class,
     load_huggingface_model_from_task,
@@ -147,6 +148,11 @@ class IOConfig(ConfigBase):
     output_shapes: List[List[int]] = None
     output_types: List[str] = None
     dynamic_axes: Dict[str, Dict[int, str]] = None
+    # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference
+    # even though we want the dimension to be a constant int.
+    # We use a workaround here: first use dim_param like "1" to represent the dimension, and then
+    # convert it to int in the onnx model.
+    string_to_int_dim_params: List[str] = None
 
     @validator("input_shapes", "input_types")
     def check_input_shapes(cls, v, values):
@@ -179,6 +185,18 @@ class IOConfig(ConfigBase):
         for k, v in dynamic_axes.items():
             dynamic_axes[k] = {int(kk): vv for kk, vv in v.items()}
         return dynamic_axes
+
+    @validator("string_to_int_dim_params")
+    def check_string_to_int_dim_params(cls, v):
+        if not v:
+            return v
+
+        for dim_param in v:
+            try:
+                int(dim_param)
+            except ValueError:
+                raise ValueError(f"Invalid string_to_int_dim_params: {dim_param}. Must be castable to int.")
+        return v
 
 
 class HFComponent(ConfigBase):
@@ -217,6 +235,7 @@ class ONNXModelBase(OliveModel):
         version: Optional[int] = None,
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
+        use_ort_extensions: bool = False,
     ):
         super().__init__(
             framework=Framework.ONNX,
@@ -227,15 +246,22 @@ class ONNXModelBase(OliveModel):
             model_storage_kind=model_storage_kind,
         )
         self.inference_settings = inference_settings
+        self.use_ort_extensions = use_ort_extensions
 
-    @staticmethod
-    def _is_valid_ep(filepath: str, ep: str = None):
+    def _is_valid_ep(self, filepath: str, ep: str = None):
         # TODO: should be remove if future accelerators is implemented
         # It should be a bug for onnxruntime where the execution provider is not be fallback.
         import onnxruntime as ort
 
         try:
-            ort.InferenceSession(filepath, providers=[ep])
+            sess_options = ort.SessionOptions()
+            if self.use_ort_extensions:
+                # register custom ops for onnxruntime-extensions
+                from onnxruntime_extensions import get_library_path
+
+                sess_options.register_custom_ops_library(get_library_path())
+
+            ort.InferenceSession(filepath, sess_options, providers=[ep])
         except Exception as e:
             logger.warning(
                 f"Error: {e}Olive will ignore this {ep}."
@@ -273,14 +299,15 @@ class ONNXModel(ONNXModelBase):
         version: Optional[int] = None,
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
+        use_ort_extensions: bool = False,
     ):
-
         super().__init__(
             model_path=model_path,
             name=name,
             version=version,
             model_storage_kind=model_storage_kind,
             inference_settings=inference_settings,
+            use_ort_extensions=use_ort_extensions,
         )
         self.io_config = None
         self.graph = None
@@ -321,7 +348,7 @@ class ONNXModel(ONNXModelBase):
         if not inference_settings.get("execution_provider"):
             inference_settings["execution_provider"] = self.get_default_execution_providers(device)
 
-        return get_ort_inference_session(self.model_path, inference_settings)
+        return get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions)
 
     def nodes(self):
         for graph in self.get_all_graphs():
@@ -370,14 +397,16 @@ class ONNXModel(ONNXModelBase):
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
-        config["config"].update({"inference_settings": self.inference_settings})
+        config["config"].update(
+            {"inference_settings": self.inference_settings, "use_ort_extensions": self.use_ort_extensions}
+        )
         return serialize_to_json(config, check_object)
 
     def get_default_execution_providers(self, device: Device):
         # return firstly available ep as ort default ep
         available_providers = ONNXModel.get_execution_providers(device)
         for ep in available_providers:
-            if ONNXModelBase._is_valid_ep(self.model_path, ep):
+            if self._is_valid_ep(self.model_path, ep):
                 return [ep]
         return super().get_default_execution_providers(device)
 
@@ -585,6 +614,11 @@ class PyTorchModel(OliveModel):
 
         return dummy_inputs
 
+    def get_model_config(self):
+        if self.hf_config is None:
+            raise Exception("HF model_config is not available")
+        return get_hf_model_config(self.hf_config.model_name)
+
     @property
     def components(self) -> List[str]:
         """
@@ -772,6 +806,7 @@ class DistributedOnnxModel(ONNXModelBase):
         name: Optional[str] = None,
         version: Optional[int] = None,
         inference_settings: Optional[dict] = None,
+        use_ort_extensions: bool = False,
     ):
         super().__init__(
             model_path=None,
@@ -779,6 +814,7 @@ class DistributedOnnxModel(ONNXModelBase):
             version=version,
             model_storage_kind=ModelStorageKind.LocalFolder,
             inference_settings=inference_settings,
+            use_ort_extensions=use_ort_extensions,
         )
         self.model_filepaths = model_filepaths
 
@@ -814,7 +850,7 @@ class DistributedOnnxModel(ONNXModelBase):
         # return firstly available ep as ort default ep
         available_providers = DistributedOnnxModel.get_execution_providers(device)
         for ep in available_providers:
-            if ONNXModelBase._is_valid_ep(filepath, ep):
+            if self._is_valid_ep(filepath, ep):
                 return [ep]
 
         return ["CUDAExecutionProvider", "CPUExecutionProvider"]
@@ -842,6 +878,7 @@ class DistributedOnnxModel(ONNXModelBase):
                 "name": self.name,
                 "version": self.version,
                 "inference_settings": self.inference_settings,
+                "use_ort_extensions": self.use_ort_extensions,
             },
         }
         return serialize_to_json(config, check_object=check_object)
@@ -859,6 +896,7 @@ class CompositeOnnxModel(ONNXModelBase):
         model_components: List[str],
         name: Optional[str] = None,
         version: Optional[int] = None,
+        hf_config: Union[Dict[str, Any], HFConfig] = None,
     ):
         super().__init__(model_path=None, name=name, version=version, model_storage_kind=ModelStorageKind.LocalFolder)
 
@@ -874,6 +912,8 @@ class CompositeOnnxModel(ONNXModelBase):
         for m in self.model_components:
             m.set_composite_parent(self)
 
+        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
+
     def load_model(self, rank: int = None):
         raise NotImplementedError()
 
@@ -886,13 +926,18 @@ class CompositeOnnxModel(ONNXModelBase):
     def get_model_components(self):
         return self.model_components
 
+    def get_model_component(self, idx):
+        return self.model_components[idx]
+
+    def get_model_config(self):
+        if self.hf_config is None:
+            raise Exception("HF model_config is not available")
+        return get_hf_model_config(self.hf_config.model_name)
+
     def to_json(self, check_object: bool = False):
         json_dict = {
             "type": self.__class__.__name__,
-            "config": {
-                "name": self.name,
-                "version": self.version,
-            },
+            "config": {"name": self.name, "version": self.version, "hf_config": self.hf_config},
         }
         json_dict["config"]["model_components"] = []
         for m in self.model_components:

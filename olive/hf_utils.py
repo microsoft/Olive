@@ -88,6 +88,15 @@ def huggingface_model_loader(model_loader):
     return model_loader.from_pretrained
 
 
+def get_hf_model_config(model_name: str):
+    """
+    Get HF Config for the given model name
+    """
+    from transformers import AutoConfig
+
+    return AutoConfig.from_pretrained(model_name)
+
+
 def load_huggingface_model_from_model_class(model_class: str, name: str, use_ort_implementation: bool = False):
     """
     Load huggingface model from model_loader and name

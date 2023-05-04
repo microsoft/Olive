@@ -4,17 +4,32 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+from copy import deepcopy
+from pathlib import Path
+from urllib import request
 
 from onnxruntime.transformers.models.t5.past_helper import PastKeyValuesHelper
 from onnxruntime.transformers.models.whisper.whisper_encoder_decoder_init import WhisperEncoderDecoderInitInputs
 
 from olive.hf_utils import get_ort_whisper_for_conditional_generation
 
+SUPPORTED_WORKFLOWS = {
+    ("cpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
+    ("cpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search", "prepost"],
+    ("gpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
+    ("gpu", "fp16"): ["conversion", "transformers_optimization", "mixed_precision", "insert_beam_search", "prepost"],
+    ("gpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search", "prepost"],
+}
+
 
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Prepare config file for Whisper")
     parser.add_argument("--model_name", type=str, default="openai/whisper-base.en", help="Model name")
-    parser.add_argument("--device", type=str, default="cpu", choices=["cpu", "gpu"], help="Target device")
+    parser.add_argument(
+        "--no_audio_decoder",
+        action="store_true",
+        help="Don't use audio decoder in the model. Default: False",
+    )
     return parser.parse_args(raw_args)
 
 
@@ -24,7 +39,7 @@ def main(raw_args=None):
     whisper_model = get_ort_whisper_for_conditional_generation(args.model_name)
 
     # load template
-    template_json = json.load(open(f"whisper_{args.device}_template.json", "r"))
+    template_json = json.load(open("whisper_template.json", "r"))
 
     # update model name
     template_json["input_model"]["config"]["hf_config"]["model_name"] = args.model_name
@@ -37,13 +52,61 @@ def main(raw_args=None):
     dec_io_config = get_dec_io_config(whisper_model.decoder)
     template_json["input_model"]["config"]["hf_config"]["components"][1]["io_config"] = dec_io_config
 
+    # set dataloader
+    template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"]["dataloader_func"] = (
+        "whisper_audio_decoder_dataloader" if not args.no_audio_decoder else "whisper_no_audio_decoder_dataloader"
+    )
+
     # update model specific values for transformer optimization pass
     template_json["passes"]["transformers_optimization"]["config"][
         "num_heads"
     ] = whisper_model.config.encoder_attention_heads
     template_json["passes"]["transformers_optimization"]["config"]["hidden_size"] = whisper_model.config.d_model
 
-    json.dump(template_json, open(f"whisper_{args.device}_config.json", "w"), indent=4)
+    # set model name in prepost
+    template_json["passes"]["prepost"]["config"]["tool_command_args"]["model_name"] = args.model_name
+
+    # download audio test data
+    test_audio_path = download_audio_test_data()
+    template_json["passes"]["prepost"]["config"]["tool_command_args"]["testdata_filepath"] = str(test_audio_path)
+
+    for device, precision in SUPPORTED_WORKFLOWS:
+        workflow = SUPPORTED_WORKFLOWS[(device, precision)]
+        config = deepcopy(template_json)
+
+        # set output name
+        config["engine"]["output_name"] = f"whisper_{device}_{precision}"
+
+        # set device for system
+        config["systems"]["local_system"]["config"]["device"] = device
+
+        # add passes
+        config["passes"] = {}
+        for pass_name in workflow:
+            pass_config = deepcopy(template_json["passes"][pass_name])
+            if pass_name == "transformers_optimization":
+                pass_config["config"]["use_gpu"] = device == "gpu"
+            if pass_name == "prepost":
+                pass_config["config"]["tool_command_args"]["use_audio_decoder"] = not args.no_audio_decoder
+            config["passes"][pass_name] = pass_config
+
+        # dump config
+        json.dump(config, open(f"whisper_{device}_{precision}.json", "w"), indent=4)
+
+
+def download_audio_test_data():
+    cur_dir = Path(__file__).parent
+    data_dir = cur_dir / "data"
+    data_dir.mkdir(exist_ok=True, parents=True)
+
+    test_audio_name = "1272-141231-0002.mp3"
+    test_audio_url = (
+        "https://raw.githubusercontent.com/microsoft/onnxruntime-extensions/main/test/data/" + test_audio_name
+    )
+    test_audio_path = data_dir / test_audio_name
+    request.urlretrieve(test_audio_url, test_audio_path)
+
+    return test_audio_path.relative_to(cur_dir)
 
 
 def get_encdec_io_config(model):
@@ -114,6 +177,7 @@ def get_encdec_io_config(model):
         "input_names": input_names,
         "dynamic_axes": dynamic_axes,
         "output_names": output_names,
+        "string_to_int_dim_params": [sequence_length, num_heads, hidden_size, head_size],
     }
 
 

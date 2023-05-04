@@ -12,9 +12,9 @@ from olive.data_container.config import DataContainerConfig
 from olive.data_container.constants import DefaultDataContainer
 from olive.data_container.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
+from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
-from olive.packaging.packaging_config import PackagingConfig
 from olive.passes import FullPassConfig
 from olive.systems.system_config import SystemConfig
 
@@ -30,10 +30,13 @@ class RunEngineConfig(EngineConfig):
     output_dir: Union[Path, str] = None
     output_name: str = None
     packaging_config: PackagingConfig = None
+    ort_log_severity_level: int = 3
 
     def create_engine(self):
         config = self.dict()
-        del config["evaluation_only"], config["output_dir"], config["output_name"], config["packaging_config"]
+        to_del = ["evaluation_only", "output_dir", "output_name", "packaging_config", "ort_log_severity_level"]
+        for key in to_del:
+            del config[key]
         return Engine(config)
 
 

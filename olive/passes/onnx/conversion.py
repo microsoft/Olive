@@ -37,7 +37,7 @@ class OnnxConversion(Pass):
         config = {
             "target_opset": PassConfigParam(
                 type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
-            ),
+            )
         }
         config.update(get_external_data_config())
         return config
@@ -52,7 +52,7 @@ class OnnxConversion(Pass):
                 component_model = model.get_component(component_name)
                 component_output_path = Path(output_model_path).with_suffix("") / component_name
                 onnx_models.append(self._run_for_config(component_model, config, str(component_output_path)))
-            return CompositeOnnxModel(onnx_models)
+            return CompositeOnnxModel(onnx_models, hf_config=model.hf_config)
 
         # get dummy inputs
         dummy_inputs = model.get_dummy_inputs()
@@ -98,6 +98,18 @@ class OnnxConversion(Pass):
         onnx_model = onnx.load(tmp_model_path)
         # the model is loaded into memory, so it's safe to delete previously exported file(s)
         tmp_dir.cleanup()
+
+        # Workaround as described under IOConfig.string_to_int_dim_params: change numeric dim_param to dim_value
+        if model.io_config.string_to_int_dim_params:
+            for tensor in onnx_model.graph.output:
+                for dim_proto in tensor.type.tensor_type.shape.dim:
+                    if (
+                        dim_proto.HasField("dim_param")
+                        and dim_proto.dim_param in model.io_config.string_to_int_dim_params
+                    ):
+                        dim_value = int(dim_proto.dim_param)
+                        dim_proto.Clear()
+                        dim_proto.dim_value = dim_value
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config, model.name)
