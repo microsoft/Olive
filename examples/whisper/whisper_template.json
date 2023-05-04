@@ -1,0 +1,106 @@
+{
+    "verbose": true,
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_script": "user_script.py",
+            "hf_config": {
+                "model_class" : "WhisperForConditionalGeneration",
+                "model_name" : "<place_holder>",
+                "use_ort_implementation": true,
+                "components" : [
+                    {
+                        "name": "encoder_decoder_init",
+                        "io_config": "<place_holder>",
+                        "dummy_inputs_func": "encoder_decoder_init_dummy_inputs"
+                    },
+                    {
+                        "name": "decoder",
+                        "io_config": "<place_holder>",
+                        "dummy_inputs_func": "decoder_dummy_inputs"
+                    }
+                ]
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {"device": "<place_holder>"}
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_type": "avg",
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "data_dir": "data",
+                        "dataloader_func": "<place_holder>"
+                    }
+                }
+            ],
+            "target": "local_system"
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 17
+            }
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "bart",
+                "num_heads": "<place_holder>",
+                "hidden_size": "<place_holder>",
+                "optimization_options": {"use_multi_head_attention": true},
+                "use_gpu": "<place_holder>"
+            }
+        },
+        "mixed_precision": {
+            "type": "OrtMixedPrecision"
+        },
+        "onnx_dynamic_quantization": {
+            "type": "OnnxDynamicQuantization",
+            "disable_search": true,
+            "config": {
+                "per_channel": false,
+                "reduce_range": false,
+                "op_types_to_quantize": ["MatMul", "Gemm"],
+                "MatMulConstBOnly": false
+            }
+        },
+        "insert_beam_search" : {
+            "type" : "InsertBeamSearch",
+            "config": {
+                "save_as_external_data": true
+            }
+        },
+        "prepost": {
+            "type": "AppendPrePostProcessingOps",
+            "config": {
+                "tool_command": "whisper",
+                "tool_command_args": {
+                    "model_name": "<place_holder>",
+                    "testdata_filepath": "<place_holder>",
+                    "use_audio_decoder" : "<place_holder>"
+                }
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": false,
+        "host": "local_system",
+        "evaluator": "common_evaluator",
+        "clean_cache": false,
+        "cache_dir": "cache",
+        "output_dir": "models",
+        "output_name": "<place_holder>"
+    }
+}

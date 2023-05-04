@@ -6,6 +6,6 @@ RUN pip install azure-ai-ml \
             datasets \
             transformers \
             onnxconverter_common \
-            git+https://github.com/microsoft/Olive.git@jambayk/model-info
+            git+https://github.com/microsoft/Olive.git
 
 WORKDIR /olive

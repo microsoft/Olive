@@ -55,6 +55,44 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
     "config": {"model_type": "bert"}
 }
 ```
+## Append Pre/Post Processing Ops
+'AppendPrePostProcessingOps' inserts pre and post processing ops into the ONNX graph.
+
+### Example Configuration
+```json
+{
+    "type": "AppendPrePostProcessingOps",
+    "config": {
+        "tool_command": "superresolution",
+        "tool_command_args": {
+            "output_format": "png"
+        }
+    }
+}
+```
+```json
+{
+    "type": "AppendPrePostProcessingOps",
+    "config": {
+        "tool_command": "whisper",
+        "tool_command_args": {
+            "use_audio_decoder": true
+        }
+    }
+}
+```
+
+## Insert Beam Serch Op
+
+`InsertBeamSearch` chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.
+
+### Example Configuration
+```json
+{
+    "type": "InsertBeamSearch",
+    "config": {"no_repeat_ngram_size": 4}
+}
+```
 
 ## Post Training Quantization (PTQ)
 [Quantization][1] is a technique to compress deep learning models by reducing the precision of the model weights from 32 bits to 8 bits. This
@@ -192,3 +230,35 @@ b. More fine-grained control of the conversion conditions is also possible:
 ```
 
 See [Float16 Conversion](https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion) for more detailed description of the available configuration parameters.
+
+## Mixed Precision Conversion
+Converting model to mixed precision.
+
+If float16 conversion is giving poor results, you can convert most of the ops to float16 but leave some in float32. The `OrtMixedPrecision` pass finds a minimal set of ops to skip while retaining a certain level of accuracy.
+
+The default value for `op_block_list` is `["SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization", "Relu", "Add"]`.
+
+### Example Configuration
+
+a. The most basic configuration, which is suitable for many models, leaves all configuration options set to their default values:
+```json
+{
+    "type": "OrtMixedPrecision"
+}
+```
+
+b. More fine-grained control of the conversion conditions is also possible:
+```json
+{
+    "type": "OrtMixedPrecision",
+    "config": {
+        "op_block_list": [
+            "Add",
+            "LayerNormalization",
+            "SkipLayerNormalization",
+            "FastGelu",
+            "EmbedLayerNormalization",
+        ]
+    }
+}
+```

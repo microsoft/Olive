@@ -4,6 +4,7 @@ azure-storage-blob
 coverage
 docker
 onnxconverter_common
+onnxruntime-extensions
 openvino
 openvino-dev
 psutil
@@ -11,3 +12,5 @@ pytorch_lightning
 torchvision
 pandas
 plotly
+azureml-evaluate-mlflow
+mlflow

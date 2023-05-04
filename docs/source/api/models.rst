@@ -8,6 +8,16 @@ ONNX Model
 ----------
 .. autoclass:: olive.model.ONNXModel
 
+.. _composite_onnx_model:
+CompositeOnnxModel Model
+----------
+.. autoclass:: olive.model.CompositeOnnxModel
+
+.. _distributed_onnx_model:
+DistributedOnnxModel Model
+----------
+.. autoclass:: olive.model.DistributedOnnxModel
+
 .. _openvino_model:
 OpenVINO Model
 --------------

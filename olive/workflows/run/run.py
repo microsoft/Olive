@@ -9,6 +9,8 @@ import subprocess
 from pathlib import Path
 from typing import Union
 
+import onnxruntime as ort
+
 from olive.systems.common import Device, SystemType
 from olive.workflows.run.config import RunConfig
 
@@ -109,6 +111,9 @@ def run(config: Union[str, Path, dict], setup: bool = False):
         config = RunConfig.parse_file(config)
     else:
         config = RunConfig.parse_obj(config)
+
+    # set ort log level
+    ort.set_default_logger_severity(config.engine.ort_log_severity_level)
 
     # input model
     input_model = config.input_model.create_model()
