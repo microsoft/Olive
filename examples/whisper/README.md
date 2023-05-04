@@ -69,6 +69,7 @@ python -m pip install ort-nightly==1.15.0.dev20230429003 onnxruntime-extensions=
 
 On Linux:
 ```bash
+# Create a new virtual environment
 python -m venv olive-whisper
 source olive-whisper/bin/activate
 ```
@@ -141,7 +142,7 @@ python -m olive.workflows.run --config whisper_cpu_int8.json 2> $null
 ```
 
 ## Test the transcription of the optimized model
-```
+```bash
 python test_transcription.py --config whisper_{device}_{precision}.json [--auto_path AUDIO_PATH]
 
 # For example, to test CPU, INT8 with default audio path
