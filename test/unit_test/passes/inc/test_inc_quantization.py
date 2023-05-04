@@ -12,6 +12,7 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
 from olive.model import PyTorchModel
+from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.quantization import IncDynamicQuantization, IncQuantization, IncStaticQuantization
 from olive.systems.local import LocalSystem
@@ -30,7 +31,7 @@ def test_inc_quantization():
         output_folder = str(Path(tempdir) / "quantized")
 
         # create IncQuantization pass
-        p = IncQuantization(config, disable_search=True)
+        p = create_pass_from_dict(IncQuantization, config, disable_search=True)
         # execute
         quantized_model = local_system.run_pass(p, ov_model, output_folder)
         # assert
@@ -42,7 +43,7 @@ def test_inc_quantization():
         # clean
         del p
         # create IncDynamicQuantization pass
-        p = IncDynamicQuantization(config, disable_search=True)
+        p = create_pass_from_dict(IncDynamicQuantization, config, disable_search=True)
         # execute
         quantized_model = local_system.run_pass(p, ov_model, output_folder)
         # assert
@@ -54,7 +55,7 @@ def test_inc_quantization():
         # clean
         del p
         # create IncStaticQuantization pass
-        p = IncStaticQuantization(config, disable_search=True)
+        p = create_pass_from_dict(IncStaticQuantization, config, disable_search=True)
         # execute
         quantized_model = local_system.run_pass(p, ov_model, output_folder)
         # assert
@@ -72,14 +73,11 @@ def get_onnx_model(tempdir):
     pytorch_model = PyTorchModel(
         model_loader=lambda torch_hub_model_path: torch.hub.load(torch_hub_model_path, pytorch_hub_model_name),
         model_path=torch_hub_model_path,
+        io_config={"input_names": ["input"], "input_shapes": [[1, 3, 32, 32]], "output_names": ["output"]},
     )
-    onnx_conversion_config = {
-        "input_names": ["input"],
-        "input_shapes": [[1, 3, 32, 32]],
-        "output_names": ["output"],
-    }
+    onnx_conversion_config = {}
 
-    p = OnnxConversion(onnx_conversion_config, disable_search=True)
+    p = create_pass_from_dict(OnnxConversion, onnx_conversion_config, disable_search=True)
     output_folder = str(Path(tempdir) / "onnx")
 
     # execute
