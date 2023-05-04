@@ -2,13 +2,15 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import tempfile
+
 import pytest
 from pydantic import ValidationError
-import tempfile
 
 from olive.passes.onnx import OrtPerfTuning
 
-class TestUserScriptConfig():
+
+class TestUserScriptConfig:
     def test_no_config(self):
         config = {}
         config_class, config = OrtPerfTuning.generate_search_space(config, True)
@@ -22,6 +24,7 @@ class TestUserScriptConfig():
     def test_object_config(self):
         def dataloader_func():
             return
+
         config = {"dataloader_func": dataloader_func}
         config_class, config = OrtPerfTuning.generate_search_space(config, True)
         assert config_class and config
