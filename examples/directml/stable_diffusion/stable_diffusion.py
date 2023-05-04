@@ -7,7 +7,7 @@ import json
 import shutil
 import warnings
 from pathlib import Path
-
+import PySimpleGUI as sg
 import onnxruntime as ort
 import torch
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffusionPipeline
@@ -58,8 +58,6 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
     )
 
     if interactive:
-        import PySimpleGUI as sg
-
         sg.theme("SystemDefault")
 
         layout = [
@@ -74,22 +72,20 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
             event, values = window.read()
             if event == sg.WIN_CLOSED:
                 break
-            if event == "Generate":
+            elif event == "Generate":
 
                 def update_progress_bar(step, timestep, latents):
                     window["sb_progress"].update_bar(step)
 
+                def generate_image():
+                    run_inference_loop(pipeline, values["sd_prompt"], 1, 1, num_inference_steps, update_progress_bar)
+
                 window["Generate"].update(disabled=True)
-                run_inference_loop(
-                    pipeline,
-                    values["sd_prompt"],
-                    num_images=1,
-                    batch_size=1,
-                    num_inference_steps=num_inference_steps,
-                    callback=update_progress_bar,
-                )
+                window.start_thread(generate_image, "image_generation_done")
+            elif event == "image_generation_done":
                 window["sd_output"].update(filename="result_0.png")
                 window["Generate"].update(disabled=False)
+
     else:
         run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps)
 
