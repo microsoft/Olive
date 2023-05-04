@@ -15,11 +15,11 @@ from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffu
 from olive.workflows import run as olive_run
 
 
-def run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps):
+def run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps, callback=None):
     images_saved = 0
     while images_saved < num_images:
         print(f"\nInference Batch Start (batch size = {batch_size}).")
-        result = pipeline([prompt] * batch_size, num_inference_steps=num_inference_steps)
+        result = pipeline([prompt] * batch_size, num_inference_steps=num_inference_steps, callback=callback)
         passed_safety_checker = 0
 
         for image_index in range(batch_size):
@@ -64,21 +64,32 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
 
         layout = [
             [sg.Image(key="sd_output", size=(512, 512), background_color="black")],
-            [sg.InputText(key="sd_prompt", default_text=prompt), sg.Button("Generate")],
+            [sg.ProgressBar(num_inference_steps, key="sb_progress", expand_x=True)],
+            [sg.InputText(key="sd_prompt", default_text=prompt, expand_x=True), sg.Button("Generate")],
         ]
 
         window = sg.Window("Stable Diffusion", layout)
 
         while True:
-            event, _ = window.read()
+            event, values = window.read()
             if event == sg.WIN_CLOSED:
                 break
             if event == "Generate":
-                # text = window["sd_prompt"]
+
+                def update_progress_bar(step, timestep, latents):
+                    window["sb_progress"].update_bar(step)
+
+                window["Generate"].update(disabled=True)
                 run_inference_loop(
-                    pipeline, prompt, num_images=1, batch_size=1, num_inference_steps=num_inference_steps
+                    pipeline,
+                    values["sd_prompt"],
+                    num_images=1,
+                    batch_size=1,
+                    num_inference_steps=num_inference_steps,
+                    callback=update_progress_bar,
                 )
                 window["sd_output"].update(filename="result_0.png")
+                window["Generate"].update(disabled=False)
     else:
         run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps)
 
