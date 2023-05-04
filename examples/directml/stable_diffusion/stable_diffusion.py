@@ -15,7 +15,26 @@ from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffu
 from olive.workflows import run as olive_run
 
 
-def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_inference_steps, static_dims):
+def run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps):
+    images_saved = 0
+    while images_saved < num_images:
+        print(f"\nInference Batch Start (batch size = {batch_size}).")
+        result = pipeline([prompt] * batch_size, num_inference_steps=num_inference_steps)
+        passed_safety_checker = 0
+
+        for image_index in range(batch_size):
+            if not result.nsfw_content_detected[image_index]:
+                passed_safety_checker += 1
+                if images_saved < num_images:
+                    output_path = f"result_{images_saved}.png"
+                    result.images[image_index].save(output_path)
+                    images_saved += 1
+                    print(f"Generated {output_path}")
+
+        print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
+
+
+def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_inference_steps, static_dims, interactive):
     ort.set_default_logger_severity(3)
 
     print("Loading models into ORT session...")
@@ -38,22 +57,30 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
         optimized_model_dir, provider="DmlExecutionProvider", sess_options=sess_options
     )
 
-    images_saved = 0
-    while images_saved < num_images:
-        print(f"\nInference Batch Start (batch size = {batch_size}).")
-        result = pipeline([prompt] * batch_size, num_inference_steps=num_inference_steps)
-        passed_safety_checker = 0
+    if interactive:
+        import PySimpleGUI as sg
 
-        for image_index in range(batch_size):
-            if not result.nsfw_content_detected[image_index]:
-                passed_safety_checker += 1
-                if images_saved < num_images:
-                    output_path = f"result_{images_saved}.png"
-                    result.images[image_index].save(output_path)
-                    images_saved += 1
-                    print(f"Generated {output_path}")
+        sg.theme("SystemDefault")
 
-        print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
+        layout = [
+            [sg.Image(key="sd_output", size=(512, 512), background_color="black")],
+            [sg.InputText(key="sd_prompt", default_text=prompt), sg.Button("Generate")],
+        ]
+
+        window = sg.Window("Stable Diffusion", layout)
+
+        while True:
+            event, _ = window.read()
+            if event == sg.WIN_CLOSED:
+                break
+            if event == "Generate":
+                # text = window["sd_prompt"]
+                run_inference_loop(
+                    pipeline, prompt, num_images=1, batch_size=1, num_inference_steps=num_inference_steps
+                )
+                window["sd_output"].update(filename="result_0.png")
+    else:
+        run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps)
 
 
 def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: Path, optimize_provider: str):
@@ -129,6 +156,7 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--optimize_provider", type=str, default="directml", help="EP target for inference")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
@@ -166,5 +194,11 @@ if __name__ == "__main__":
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             run_inference(
-                model_dir, args.prompt, args.num_images, args.batch_size, args.num_inference_steps, args.static_dims
+                model_dir,
+                args.prompt,
+                args.num_images,
+                args.batch_size,
+                args.num_inference_steps,
+                args.static_dims,
+                args.interactive,
             )
