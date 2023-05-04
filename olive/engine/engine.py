@@ -78,7 +78,7 @@ class Engine:
         else:
             self.host = LocalSystem()
 
-        # engine host
+        # engine target
         if target is not None:
             self.target = target
         elif self._config.target is not None:
