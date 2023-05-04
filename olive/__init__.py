@@ -20,6 +20,8 @@ __version__ = "0.1.0"
 def set_default_logger_severity(level):
     """
     Set log level for olive package.
+
     :param level: 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL
     """
-    _logger.setLevel(level * 10)
+    # logging.DEBUG = 10, logging.INFO = 20, logging.WARNING = 30, logging.ERROR = 40, logging.CRITICAL = 50
+    _logger.setLevel((1 + level) * 10)
