@@ -10,15 +10,11 @@ from pathlib import Path
 import pytest
 
 
-@pytest.fixture()
-def example_dir():
-    return str(Path(__file__).resolve().parent / "bert_ptq_cpu")
-
-
-@pytest.fixture(autouse=True)
-def setup(example_dir):
+@pytest.fixture(scope="module", autouse=True)
+def setup():
     """setup any state specific to the execution of the given module."""
-    cur_dir = str(Path(__file__).resolve().parent)
+    cur_dir = Path(__file__).resolve().parent
+    example_dir = cur_dir / "bert_ptq_cpu"
     os.chdir(example_dir)
     yield
     os.chdir(cur_dir)
@@ -53,6 +49,8 @@ def test_bert(search_algorithm, execution_order, system, olive_json):
 
     # set aml_system as dev
     olive_config["systems"]["aml_system"]["config"]["is_dev"] = True
+    # set docker_system as dev
+    olive_config["systems"]["docker_system"]["config"]["is_dev"] = True
 
     # update host and target
     olive_config["engine"]["host"] = system if system != "docker_system" else "local_system"

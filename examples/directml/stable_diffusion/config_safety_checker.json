@@ -4,9 +4,18 @@
         "type": "PyTorchModel",
         "config": {
             "model_path": "runwayml/stable-diffusion-v1-5",
-            "is_file": false,
+            "model_storage_kind": "folder",
             "model_loader": "safety_checker_load",
-            "model_script": "user_script.py"
+            "model_script": "user_script.py",
+            "io_config": {
+                "input_names": [ "clip_input", "images" ],
+                "output_names": [ "out_images", "has_nsfw_concepts" ],
+                "dynamic_axes": {
+                    "clip_input": { "0": "batch", "1": "channels", "2": "height", "3": "width" },
+                    "images": { "0": "batch", "1": "height", "2": "width", "3": "channels" }
+                }
+            },
+            "dummy_inputs_func": "safety_checker_conversion_inputs"
         }
     },
     "systems": {
@@ -38,14 +47,6 @@
         "convert": {
             "type": "OnnxConversion",
             "config": {
-                "user_script": "user_script.py",
-                "input_names": [ "clip_input", "images" ],
-                "input_tensor_func": "safety_checker_conversion_inputs",
-                "output_names": [ "out_images", "has_nsfw_concepts" ],
-                "dynamic_axes": {
-                    "clip_input": { "0": "batch", "1": "channels", "2": "height", "3": "width" },
-                    "images": { "0": "batch", "1": "height", "2": "width", "3": "channels" }
-                },
                 "target_opset": 14
             }
         },
@@ -55,7 +56,8 @@
                 "model_type": "unet",
                 "float16": true,
                 "use_gpu": true,
-                "keep_io_types": false
+                "keep_io_types": false,
+                "target_provider": "directml"
             }
         }
     },

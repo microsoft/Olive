@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from packaging import version
 
@@ -20,6 +20,8 @@ class OrtTransformersOptimization(Pass):
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
         # TODO: add default search if supported
+        from onnxruntime.transformers.fusion_options import FusionOptions
+
         config = {
             "model_type": PassConfigParam(
                 type_=str,
@@ -34,7 +36,9 @@ class OrtTransformersOptimization(Pass):
             "hidden_size": PassConfigParam(type_=int, default_value=0, description="Number of hidden nodes."),
             # TODO: Figure out what the expected type is
             "optimization_options": PassConfigParam(
-                type_=Any, default_value=None, description="Optimization options that turn on/off some fusions."
+                type_=Union[Dict[str, Any], FusionOptions],
+                default_value=None,
+                description="Optimization options that turn on/off some fusions.",
             ),
             "opt_level": PassConfigParam(
                 type_=Any,
@@ -77,35 +81,75 @@ class OrtTransformersOptimization(Pass):
         return config
 
     @staticmethod
+    def _set_fusion_options(run_config: Dict[str, Any]):
+        from onnxruntime.transformers.fusion_options import FusionOptions
+
+        fusion_options = FusionOptions(run_config["model_type"])
+        fusion_options.__dict__.update(run_config["optimization_options"])
+        run_config["optimization_options"] = fusion_options
+
+    @staticmethod
     def sd_model_types():
         """Returns model types in the stable diffusion pipeline recognized by the ORT transformer optimizer"""
         return ("unet", "vae", "clip")
 
     @staticmethod
-    def _set_sd_fusion_options(run_config: Dict[str, Any], use_float16: bool):
+    def _set_sd_fusion_options(run_config: Dict[str, Any], pass_config: Dict[str, Any]):
         """Configures fusion options for stable diffusion models"""
         import onnxruntime as ort
 
-        input_model_type = run_config["model_type"]
+        ort_version = version.parse(ort.__version__)
+        is_ort_1_13_or_older = ort_version < version.parse("1.14.0")
+        # is_ort_1_14 = ort_version >= version.parse("1.14.0") and ort_version < version.parse("1.15.0")
 
         # default to no specific fusion options in earlier releases of ORT
-        if version.parse(ort.__version__) < version.parse("1.14.0"):
+        if is_ort_1_13_or_older:
             return
 
-        from onnxruntime.transformers.fusion_options import FusionOptions
+        is_ort_1_15_0_or_newer = ort_version >= version.parse("1.15.0")
+        is_ort_1_15_1_or_newer = ort_version >= version.parse("1.15.1")
 
-        is_ort_115_or_newer = version.parse(ort.__version__) >= version.parse("1.15.0")
-        if not is_ort_115_or_newer and input_model_type != "unet":
+        input_model_type = run_config["model_type"]
+        if not is_ort_1_15_0_or_newer and input_model_type != "unet":
             # 'vae' and 'clip' are only recognized in ORT v1.15+. earlier versions of ORT stable diffusion
             # optimization simply use "unet" for these model types.
             run_config["model_type"] = "unet"
 
+        from onnxruntime.transformers.fusion_options import FusionOptions
+
         fusion_options = FusionOptions(run_config["model_type"])
 
-        if input_model_type == "unet":
-            fusion_options.enable_packed_kv = use_float16
-            fusion_options.enable_packed_qkv = use_float16 and is_ort_115_or_newer
-            fusion_options.enable_bias_add = is_ort_115_or_newer
+        # TODO: remove dml_future when ORT 1.15.1 with future version of DML is released
+        # This "provider" value is simply a way to test in-development changes without having
+        # to bump the ORT version.
+        dml_future = pass_config["target_provider"] == "directml_future"
+
+        if pass_config["target_provider"] == "directml" or dml_future:
+            # Some of these fusions are disabled because they provide no performance advantage,
+            # and it's preferable to limit ops outside the ONNX domain.
+            fusion_options.enable_gelu = is_ort_1_15_0_or_newer
+            fusion_options.enable_layer_norm = is_ort_1_15_0_or_newer
+            fusion_options.enable_attention = is_ort_1_15_1_or_newer or dml_future
+            fusion_options.use_multi_head_attention = is_ort_1_15_1_or_newer or dml_future
+            fusion_options.enable_skip_layer_norm = False
+            fusion_options.enable_embed_layer_norm = is_ort_1_15_0_or_newer
+            fusion_options.enable_bias_skip_layer_norm = False
+            fusion_options.enable_bias_gelu = is_ort_1_15_0_or_newer
+            fusion_options.enable_gelu_approximation = False
+            fusion_options.enable_qordered_matmul = False
+            fusion_options.enable_shape_inference = is_ort_1_15_0_or_newer
+            fusion_options.enable_gemm_fast_gelu = False
+            fusion_options.enable_nhwc_conv = False
+            fusion_options.enable_group_norm = is_ort_1_15_1_or_newer or dml_future
+            fusion_options.enable_bias_splitgelu = False
+            fusion_options.enable_packed_qkv = pass_config["float16"] and is_ort_1_15_0_or_newer
+            fusion_options.enable_packed_kv = pass_config["float16"] and is_ort_1_15_0_or_newer
+            fusion_options.enable_bias_add = False
+        else:
+            if input_model_type == "unet":
+                fusion_options.enable_packed_kv = pass_config["float16"]
+                fusion_options.enable_packed_qkv = pass_config["float16"] and is_ort_1_15_0_or_newer
+                fusion_options.enable_bias_add = is_ort_1_15_0_or_newer
 
         run_config["optimization_options"] = fusion_options
 
@@ -178,7 +222,9 @@ class OrtTransformersOptimization(Pass):
                 return self._run_without_optimization(model, config, output_model_path)
 
             if config["optimization_options"] is None:
-                self._set_sd_fusion_options(run_config, config["float16"])
+                self._set_sd_fusion_options(run_config, config)
+        elif config["optimization_options"]:
+            self._set_fusion_options(run_config)
 
         optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 

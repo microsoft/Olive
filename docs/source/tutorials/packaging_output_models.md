@@ -5,7 +5,7 @@ Olive will output multiple candidate models based on metrics priority ranks. It 
 
 
 ### Zipfile
-Zipfile packaging will generate a ZIP file which includes 2 folders: `CandidateModels` and `SampleCode` in the `output_dir` folder (from Engine Configuration):
+Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateModels`, `SampleCode` and `ONNXRuntimePackages` in the `output_dir` folder (from Engine Configuration):
 * `CandidateModels`: top ranked output model set
     * Model file
     * Olive Pass run history configurations for candidate model
@@ -14,6 +14,7 @@ Zipfile packaging will generate a ZIP file which includes 2 folders: `CandidateM
     * C++
     * C#
     * Python
+* `ONNXRuntimePackages`: ONNXRuntime package files with the same version that were used by Olive Engine in this workflow run.
 
 #### CandidateModels
 `CandidateModels` includes k folders where k is the number of output models, with name `BestCandidateModel_1`, `BestCandidateModel_2`, ... and `BestCandidateModel_k`. The order is ranked by metrics priorities. e.g., if you have 3 metrics `metric_1`, `metric_2` and `metric_3` with priority rank `1`, `2` and `3`. The output models will be sorted firstly by `metric_1`. If the value of `metric_1` of 2 output models are same, they will be sorted by `metric_2`, and followed by next lower priority metric.
@@ -21,7 +22,7 @@ Zipfile packaging will generate a ZIP file which includes 2 folders: `CandidateM
 Each `BestCandidateModel` folder will include model file/folder. A json file which includes the Olive Pass run history configurations since input model. And a json file for inference settings for the candidate model if the candidate model is an ONNX model.
 
 #### SampleCode
-Olive will only provide sample codes for ONNX model. Sample code supports 3 different programming languages: `C++`, `C#` and `Python`. Each programming language sample code folder includes a code snippet introducing how to use Olive output artifacts to inference candidate model with recommended inference configurations.
+Olive will only provide sample codes for ONNX model. Sample code supports 3 different programming languages: `C++`, `C#` and `Python`. And a code snippet introducing how to use Olive output artifacts to inference candidate model with recommended inference configurations.
 
 
 ## How to package Olive artifacts

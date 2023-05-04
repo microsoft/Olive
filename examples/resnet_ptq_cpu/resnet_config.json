@@ -4,7 +4,16 @@
         "type": "PyTorchModel",
         "config": {
             "model_path": "models/resnet_trained_for_cifar10.pt",
-            "is_file": true
+            "model_storage_kind": "file",
+            "io_config": {
+                "input_names": ["input"],
+                "input_shapes": [[1, 3, 32, 32]],
+                "output_names": ["output"],
+                "dynamic_axes": {
+                    "input": {"0": "batch_size"},
+                    "output": {"0": "batch_size"}
+                }
+            }
         }
     },
     "systems": {
@@ -17,7 +26,8 @@
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
                     "conda_file_path": "conda.yaml"
-                }
+                },
+                "is_dev": true
             }
         }
     },
@@ -58,13 +68,6 @@
         "onnx_conversion": {
             "type": "OnnxConversion",
             "config": {
-                "input_names": ["input"],
-                "input_shapes": [[1, 3, 32, 32]],
-                "output_names": ["output"],
-                "dynamic_axes": {
-                    "input": {"0": "batch_size"},
-                    "output": {"0": "batch_size"}
-                },
                 "target_opset": 13
             }
         },

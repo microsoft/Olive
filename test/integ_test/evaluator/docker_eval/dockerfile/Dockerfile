@@ -11,6 +11,6 @@ RUN pip install onnxruntime \
             openvino \
             openvino-dev \
             onnxconverter_common \
-            olive-ai==0.1.0
+            git+https://github.com/microsoft/Olive.git
 
 WORKDIR /olive

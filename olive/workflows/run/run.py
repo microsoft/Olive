@@ -9,6 +9,8 @@ import subprocess
 from pathlib import Path
 from typing import Union
 
+import onnxruntime as ort
+
 from olive.systems.common import Device, SystemType
 from olive.workflows.run.config import RunConfig
 
@@ -21,11 +23,10 @@ def automatically_insert_passes(config):
 
     # insert onnx converter
     oc_config = {"type": "OnnxConversion"}
-    oc_config["config"] = config.engine.model_io_config
     new_passes["conversion"] = oc_config
 
     # insert transformer opt
-    to_config = {"type": "OnnxTransformersOptimization"}
+    to_config = {"type": "OrtTransformersOptimization"}
     to_config["config"] = {"model_type": "bert"}
     new_passes["transformers_optimization"] = to_config
 
@@ -77,10 +78,8 @@ def dependency_setup(config):
             remote_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type, []))
         if pass_config.type in ["SNPEConversion", "SNPEQuantization", "SNPEtoONNXConversion"]:
             logger.info(
-                "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html \
-                to install SNPE Prerequisites for pass {}".format(
-                    pass_config.type
-                )
+                "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html                 to"
+                " install SNPE Prerequisites for pass {}".format(pass_config.type)
             )
 
     # add dependencies for engine
@@ -96,7 +95,7 @@ def dependency_setup(config):
     for package in set(local_packages):
         try:
             __import__(package)
-        except (ImportError):
+        except ImportError:
             subprocess.check_call(["pip", "install", "{}".format(package)])
     if remote_packages:
         logger.info(
@@ -112,6 +111,9 @@ def run(config: Union[str, Path, dict], setup: bool = False):
         config = RunConfig.parse_file(config)
     else:
         config = RunConfig.parse_obj(config)
+
+    # set ort log level
+    ort.set_default_logger_severity(config.engine.ort_log_severity_level)
 
     # input model
     input_model = config.input_model.create_model()

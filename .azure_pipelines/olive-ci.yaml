@@ -27,13 +27,13 @@ jobs:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
-    exampleName: ["cifar10_openvino_intel_hw", "bert_ptq_cpu", "resnet_ptq_cpu"]
+    exampleName: ["cifar10_openvino_intel_hw", "bert_ptq_cpu", "resnet_ptq_cpu", "whisper"]
 - template: job_templates/olive-build-template.yaml
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
-    exampleName: ["cifar10_openvino_intel_hw", "bert_ptq_cpu", "resnet_ptq_cpu"]
+    exampleName: ["cifar10_openvino_intel_hw", "bert_ptq_cpu", "resnet_ptq_cpu", "whisper"]
 - template: job_templates/olive-build-doc-template.yaml
   parameters:
     job_name: Test_BuildDocs

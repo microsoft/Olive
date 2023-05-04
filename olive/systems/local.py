@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from olive.evaluator.evaluation import evaluate_accuracy, evaluate_custom_metric, evaluate_latency
 from olive.evaluator.metric import Metric, MetricType
-from olive.model import OliveModel
+from olive.model import CompositeOnnxModel, OliveModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import Device, SystemType
 from olive.systems.olive_system import OliveSystem
@@ -35,6 +35,10 @@ class LocalSystem(OliveSystem):
         """
         Evaluate the model
         """
+
+        if isinstance(model, CompositeOnnxModel):
+            raise NotImplementedError()
+
         metrics_res = {}
         for metric in metrics:
             if metric.type == MetricType.ACCURACY:

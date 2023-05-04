@@ -6,7 +6,7 @@ import copy
 import itertools
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, Union
 
 from olive.evaluator.evaluation import evaluate_latency
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
@@ -29,16 +29,23 @@ def generate_tuning_combos(model, config):
     )
     opt_level_list = config.opt_level_list if config.opt_level_list else [99]
 
-    io_bind_list = None
-    if isinstance(config.io_bind, list):
-        io_bind_list = config.io_bind
-    elif isinstance(config.io_bind, bool):
-        io_bind_list = [config.io_bind]
-    else:
-        io_bind_list = [False]
+    io_bind_list = [True, False] if config.io_bind else [False]
 
     tuning_combos = itertools.product(providers_list, execution_mode_list, opt_level_list, io_bind_list)
     yield from tuning_combos
+
+
+def valid_config(tuning_combos):
+    # the order of combos: "provider", "execution_mode", "ort_opt_level", "io_bind"
+
+    # Parallel execution mode does not support the CUDA Execution Provider.
+    # So ORT will make the execution mode sequential when it uses the CUDA Execution Provider.
+
+    # if the first combo is CPUExecutionProvider, then the io_bind should not be True
+    if tuning_combos[0] == "CPUExecutionProvider" and tuning_combos[3]:
+        logger.info("[Skipped] Because EPs is CPUExecutionProvider, the io_bind should not be True")
+        return False
+    return True
 
 
 def tune_onnx_model(model, config):
@@ -58,7 +65,7 @@ def tune_onnx_model(model, config):
     for tuning_combo in generate_tuning_combos(model, config):
         tuning_item = ["provider", "execution_mode", "ort_opt_level", "io_bind"]
         logger.info("Run tuning for: {}".format(list(zip(tuning_item, tuning_combo))))
-        if tuning_combo[0] == "CPUExecutionProvider" and tuning_combo[3]:
+        if not valid_config(tuning_combo):
             continue
         tuning_results.extend(threads_num_tuning(model, latency_metric, config, tuning_combo))
 
@@ -249,9 +256,9 @@ class OrtPerfTuning(Pass):
                 type_=int, default_value=None, description="CPU cores used for thread tuning."
             ),
             "io_bind": PassConfigParam(
-                type_=Union[bool, List[bool]],
+                type_=bool,
                 default_value=False,
-                description="Whether enable IOBinding for ONNX Runtime inference.",
+                description="Whether enable IOBinding Search for ONNX Runtime inference.",
             ),
             "providers_list": PassConfigParam(
                 type_=list,

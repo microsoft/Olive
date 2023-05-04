@@ -12,11 +12,11 @@ import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
+from olive.engine.packaging.packaging_config import PackagingConfig
+from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorConfig
-from olive.model import ModelConfig, OliveModel
-from olive.packaging.packaging_config import PackagingConfig
-from olive.packaging.packaging_generator import generate_output_artifacts
+from olive.model import ModelConfig, ModelStorageKind, OliveModel
 from olive.passes.olive_pass import Pass
 from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
@@ -34,7 +34,6 @@ class EngineConfig(ConfigBase):
     search_strategy: Union[SearchStrategyConfig, bool] = None
     host: SystemConfig = None
     target: SystemConfig = None
-    model_io_config: Dict[str, List] = None
     evaluator: OliveEvaluatorConfig = None
     packaging_config: PackagingConfig = None
     cache_dir: Union[Path, str] = ".olive-cache"
@@ -213,12 +212,12 @@ class Engine:
             results = self._evaluate_model(input_model, input_model_id, self.evaluator, verbose)
             result_name = f"{prefix_output_name}metrics"
             results_path = output_dir / f"{result_name}.json"
-            json.dump(results, open(results_path, "w"), indent=2)
+            json.dump(results, open(results_path, "w"), indent=4)
             return results
 
         # get objective_dict
         evaluator = self.evaluator_for_pass(self.pass_order[-1])
-        if self.no_search:
+        if self.no_search and evaluator is None:
             # provide dummy objective
             objective_dict = {"dummy": {"higher_is_better": True, "goal": 0}}
         elif evaluator is None:
@@ -263,7 +262,10 @@ class Engine:
                         message += f" with search point {pass_search_point}"
                     logger.info(message)
 
-                if input_model.is_aml_model and not self.host_for_pass(pass_id).system_type == SystemType.AzureML:
+                if (
+                    input_model.model_storage_kind == ModelStorageKind.AzureMLModel
+                    and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
+                ):
                     error_msg = "Azure ML model only supports AzureMLSystem for Olive Pass"
                     logger.error(error_msg)
                     raise Exception(error_msg)
@@ -315,6 +317,14 @@ class Engine:
             output = {"model": output_model_json}
             if signal is not None:
                 output["metrics"] = signal
+
+            # Package output model as artifacts if no search
+            if packaging_config:
+                logger.info("Package output model as artifacts")
+                generate_output_artifacts(
+                    packaging_config, self.footprints, self.footprints.get_last_node(), output_dir
+                )
+
             return output
 
         self.footprints.to_file(output_dir / f"{prefix_output_name}footprints.json")
@@ -442,7 +452,7 @@ class Engine:
             model_json = model.to_json(check_object=check_objects)
         model_json_path = self.get_model_json_path(model_id)
         try:
-            json.dump(model_json, open(model_json_path, "w"))
+            json.dump(model_json, open(model_json_path, "w"), indent=4)
         except Exception as e:
             logger.error(f"Failed to cache model: {e}")
 
@@ -495,7 +505,7 @@ class Engine:
         input_model_number = input_model_id.split("_")[0]
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config)
         try:
-            json.dump(run_json, open(run_json_path, "w"))
+            json.dump(run_json, open(run_json_path, "w"), indent=4)
         except Exception as e:
             logger.error(f"Failed to cache run: {e}")
 
@@ -600,7 +610,7 @@ class Engine:
         }
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         try:
-            json.dump(evaluation_json, open(evaluation_json_path, "w"))
+            json.dump(evaluation_json, open(evaluation_json_path, "w"), indent=4)
         except Exception as e:
             logger.error(f"Failed to cache evaluation: {e}")
 

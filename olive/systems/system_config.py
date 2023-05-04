@@ -3,8 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import importlib
+import shutil
 from pathlib import Path
-from typing import Union
+from typing import Dict, List, Union
 
 from pydantic import validator
 
@@ -22,6 +23,7 @@ class LocalTargetUserConfig(TargetUserConfig):
 
 class DockerTargetUserConfig(TargetUserConfig):
     local_docker_config: LocalDockerConfig
+    is_dev: bool = False
 
 
 class AzureMLTargetUserConfig(TargetUserConfig):
@@ -32,16 +34,43 @@ class AzureMLTargetUserConfig(TargetUserConfig):
     is_dev: bool = False
 
 
+class PythonEnvironmentTargetUserConfig(TargetUserConfig):
+    device: Device = Device.CPU
+    python_environment_path: Union[
+        Path, str
+    ]  # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv
+    environment_variables: Dict[str, str] = None  # os.environ will be updated with these variables
+    prepend_to_path: List[str] = None  # paths to prepend to os.environ["PATH"]
+
+    @validator("python_environment_path", "prepend_to_path", pre=True, each_item=True)
+    def _get_abspath(cls, v):
+        return str(Path(v).resolve()) if v else None
+
+    @validator("python_environment_path")
+    def _validate_python_environment_path(cls, v):
+        # check if the path exists
+        if not Path(v).exists():
+            raise ValueError(f"Python path {v} does not exist")
+
+        # check if python exists in the path
+        python_path = shutil.which("python", path=v)
+        if not python_path:
+            raise ValueError(f"Python executable not found in the path {v}")
+        return v
+
+
 _type_to_config = {
     SystemType.Local: LocalTargetUserConfig,
     SystemType.AzureML: AzureMLTargetUserConfig,
     SystemType.Docker: DockerTargetUserConfig,
+    SystemType.PythonEnvironment: PythonEnvironmentTargetUserConfig,
 }
 
 _type_to_system_path = {
     SystemType.Local: "olive.systems.local.LocalSystem",
     SystemType.AzureML: "olive.systems.azureml.AzureMLSystem",
     SystemType.Docker: "olive.systems.docker.DockerSystem",
+    SystemType.PythonEnvironment: "olive.systems.python_environment.PythonEnvironmentSystem",
 }
 
 
