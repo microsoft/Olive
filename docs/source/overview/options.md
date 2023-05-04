@@ -328,6 +328,9 @@ This is a dictionary that contains the information of the engine. The informatio
 
 - `packaging_config: [PackagingConfig]` Olive artifacts packaging configurations. If not specified, Olive will not package artifacts.
 
+- `log_severity_level: [int]` The log severity level of Olive. The options are `0` for `VERBOSE`, `1` for
+    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`. The default value is `3` for `ERROR`.
+
 - `ort_log_severity_level: [int]` The log severity level of ONNX Runtime. The options are `0` for `VERBOSE`, `1` for
     `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`. The default value is `3` for `ERROR`.
 
