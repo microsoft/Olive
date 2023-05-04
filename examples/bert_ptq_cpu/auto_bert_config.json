@@ -54,8 +54,8 @@
             "search_algorithm": "exhaustive"
         },
         "evaluator": "common_evaluator",
-        "host": {"type": "LocalSystem"},
-        "target": {"type": "LocalSystem"},
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache"
     }
 }

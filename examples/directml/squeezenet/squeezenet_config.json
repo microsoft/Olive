@@ -67,6 +67,7 @@
         },
         "evaluator": "common_evaluator",
         "host": "local_system",
+        "target": "local_system",
         "clean_cache": true,
         "cache_dir": "cache"
     }

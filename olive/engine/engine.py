@@ -52,6 +52,7 @@ class Engine:
         config: Union[Dict[str, Any], EngineConfig] = None,
         search_strategy: Optional[SearchStrategy] = None,
         host: Optional[OliveSystem] = None,
+        target: Optional[OliveSystem] = None,
         evaluator: Optional[OliveEvaluator] = None,
     ):
         self._config = validate_config(config, EngineConfig)
@@ -76,6 +77,14 @@ class Engine:
             self.host = self._config.host.create_system()
         else:
             self.host = LocalSystem()
+
+        # engine target
+        if target is not None:
+            self.target = target
+        elif self._config.target is not None:
+            self.target = self._config.target.create_system()
+        else:
+            self.target = LocalSystem()
 
         # default evaluator
         self.evaluator = None
@@ -652,7 +661,7 @@ class Engine:
             return signal
 
         # evaluate model
-        signal = evaluator.evaluate(model)
+        signal = evaluator.evaluate(model, self.target)
 
         # cache evaluation
         self._cache_evaluation(model_id, signal)
