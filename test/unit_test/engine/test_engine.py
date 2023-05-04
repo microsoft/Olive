@@ -195,7 +195,7 @@ class TestEngine:
         with patch("olive.passes.onnx.conversion.OnnxConversion.run") as mock_run:
             mock_run.side_effect = Exception("test")
             system = LocalSystem()
-            evaluator = OliveEvaluator(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)], target=system)
+            evaluator = OliveEvaluator(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
             options = {
                 "cache_dir": "./cache",
                 "clean_cache": True,
@@ -204,7 +204,7 @@ class TestEngine:
                     "search_algorithm": "random",
                 },
             }
-            engine = Engine(options, evaluator=evaluator, host=system)
+            engine = Engine(options, evaluator=evaluator, host=system, target=system)
             onnx_conversion_pass = get_onnxconversion_pass()
             engine.register(onnx_conversion_pass, clean_run_cache=True)
             model = PyTorchModel(model_loader=pytorch_model_loader, model_path=None)
