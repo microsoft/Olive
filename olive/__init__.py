@@ -24,4 +24,4 @@ def set_default_logger_severity(level):
     :param level: 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL
     """
     # logging.DEBUG = 10, logging.INFO = 20, logging.WARNING = 30, logging.ERROR = 40, logging.CRITICAL = 50
-    _logger.setLevel((1 + level) * 10)
+    _logger.setLevel((level + 1) * 10)
