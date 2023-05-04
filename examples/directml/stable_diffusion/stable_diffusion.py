@@ -7,7 +7,7 @@ import json
 import shutil
 import warnings
 from pathlib import Path
-
+import PySimpleGUI as sg
 import onnxruntime as ort
 import torch
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffusionPipeline
@@ -15,7 +15,26 @@ from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffu
 from olive.workflows import run as olive_run
 
 
-def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_inference_steps, static_dims):
+def run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps, callback=None):
+    images_saved = 0
+    while images_saved < num_images:
+        print(f"\nInference Batch Start (batch size = {batch_size}).")
+        result = pipeline([prompt] * batch_size, num_inference_steps=num_inference_steps, callback=callback)
+        passed_safety_checker = 0
+
+        for image_index in range(batch_size):
+            if not result.nsfw_content_detected[image_index]:
+                passed_safety_checker += 1
+                if images_saved < num_images:
+                    output_path = f"result_{images_saved}.png"
+                    result.images[image_index].save(output_path)
+                    images_saved += 1
+                    print(f"Generated {output_path}")
+
+        print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
+
+
+def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_inference_steps, static_dims, interactive):
     ort.set_default_logger_severity(3)
 
     print("Loading models into ORT session...")
@@ -38,22 +57,37 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
         optimized_model_dir, provider="DmlExecutionProvider", sess_options=sess_options
     )
 
-    images_saved = 0
-    while images_saved < num_images:
-        print(f"\nInference Batch Start (batch size = {batch_size}).")
-        result = pipeline([prompt] * batch_size, num_inference_steps=num_inference_steps)
-        passed_safety_checker = 0
+    if interactive:
+        sg.theme("SystemDefault")
 
-        for image_index in range(batch_size):
-            if not result.nsfw_content_detected[image_index]:
-                passed_safety_checker += 1
-                if images_saved < num_images:
-                    output_path = f"result_{images_saved}.png"
-                    result.images[image_index].save(output_path)
-                    images_saved += 1
-                    print(f"Generated {output_path}")
+        layout = [
+            [sg.Image(key="sd_output", size=(512, 512), background_color="black")],
+            [sg.ProgressBar(num_inference_steps, key="sb_progress", expand_x=True, size=(8, 8))],
+            [sg.InputText(key="sd_prompt", default_text=prompt, expand_x=True), sg.Button("Generate")],
+        ]
 
-        print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
+        window = sg.Window("Stable Diffusion", layout)
+
+        while True:
+            event, values = window.read()
+            if event == sg.WIN_CLOSED:
+                break
+            elif event == "Generate":
+
+                def update_progress_bar(step, timestep, latents):
+                    window["sb_progress"].update_bar(step)
+
+                def generate_image():
+                    run_inference_loop(pipeline, values["sd_prompt"], 1, 1, num_inference_steps, update_progress_bar)
+
+                window["Generate"].update(disabled=True)
+                window.start_thread(generate_image, "image_generation_done")
+            elif event == "image_generation_done":
+                window["sd_output"].update(filename="result_0.png")
+                window["Generate"].update(disabled=False)
+
+    else:
+        run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps)
 
 
 def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: Path, optimize_provider: str):
@@ -129,6 +163,7 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--optimize_provider", type=str, default="directml_future", help="EP target for inference")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
@@ -166,5 +201,11 @@ if __name__ == "__main__":
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             run_inference(
-                model_dir, args.prompt, args.num_images, args.batch_size, args.num_inference_steps, args.static_dims
+                model_dir,
+                args.prompt,
+                args.num_images,
+                args.batch_size,
+                args.num_inference_steps,
+                args.static_dims,
+                args.interactive,
             )
