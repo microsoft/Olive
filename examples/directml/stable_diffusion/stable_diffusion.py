@@ -64,7 +64,7 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
 
         layout = [
             [sg.Image(key="sd_output", size=(512, 512), background_color="black")],
-            [sg.ProgressBar(num_inference_steps, key="sb_progress", expand_x=True)],
+            [sg.ProgressBar(num_inference_steps, key="sb_progress", expand_x=True, size=(8, 8))],
             [sg.InputText(key="sd_prompt", default_text=prompt, expand_x=True), sg.Button("Generate")],
         ]
 
