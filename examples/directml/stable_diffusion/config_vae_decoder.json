@@ -64,6 +64,7 @@
         },
         "evaluator": "common_evaluator",
         "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_name": "vae_decoder",
         "output_dir": "footprints"

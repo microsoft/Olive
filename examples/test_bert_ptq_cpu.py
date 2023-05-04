@@ -54,7 +54,7 @@ def test_bert(search_algorithm, execution_order, system, olive_json):
 
     # update host and target
     olive_config["engine"]["host"] = system if system != "docker_system" else "local_system"
-    olive_config["evaluators"]["common_evaluator"]["target"] = system
+    olive_config["engine"]["target"] = system
 
     if system == "aml_system":
         generate_olive_workspace_config("olive-workspace-config.json")

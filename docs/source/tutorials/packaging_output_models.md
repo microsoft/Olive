@@ -48,6 +48,7 @@ You can add `PackagingConfig` to Engine configurations. e.g.:
     },
     "evaluator": "common_evaluator",
     "host": "local_system",
+    "target": "local_system",
     "packaging_config": {
         "type": "Zipfile",
         "name": "OutputModels"
