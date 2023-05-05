@@ -51,3 +51,11 @@ class TestFootprint:
             else:
                 assert inference_config is not None
                 assert str(model_path).endswith(".onnx")
+
+    def test_plot_pareto_frontier(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            self.fp.plot_pareto_frontier(
+                is_show=False,
+                save_path=Path(tempdir) / "pareto_frontier.html",
+            )
+            assert (Path(tempdir) / "pareto_frontier.html").exists()
