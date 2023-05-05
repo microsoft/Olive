@@ -9,6 +9,7 @@ from pathlib import Path
 from olive.evaluator.metric import Metric
 from olive.evaluator.olive_evaluator import OliveEvaluator
 from olive.model import ModelConfig
+from olive.systems.local import LocalSystem
 from olive.systems.utils import get_model_config, parse_common_args
 
 
@@ -50,8 +51,10 @@ def main(raw_args=None):
     # create_evaluator
     evaluator = OliveEvaluator([metric])
 
+    target = LocalSystem()
+
     # metric result
-    metric_result = evaluator.evaluate(model)
+    metric_result = evaluator.evaluate(model, target)
 
     # save metric result json
     json.dump(metric_result, open(Path(common_args.pipeline_output) / "metric_result.json", "w"))
