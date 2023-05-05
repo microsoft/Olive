@@ -19,8 +19,8 @@ from test.integ_test.evaluator.local_eval.utils import (
 
 import pytest
 
-from olive.evaluator.olive_evaluator import OliveEvaluator
 from olive.model import ONNXModel, OpenVINOModel, PyTorchModel
+from olive.systems.local import LocalSystem
 
 
 class TestLocalEvaluation:
@@ -47,6 +47,5 @@ class TestLocalEvaluation:
     )
     def test_evaluate_model(self, model_cls, model_config, metric, expected_res):
         olive_model = model_cls(**model_config)
-        evaluator = OliveEvaluator(metrics=[metric])
-        actual_res = evaluator.evaluate(olive_model)[metric.name]
+        actual_res = LocalSystem().evaluate_model(olive_model, [metric])[metric.name]
         assert actual_res >= expected_res

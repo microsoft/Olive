@@ -12,14 +12,14 @@ from olive.engine.footprint import Footprint
 from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import AccuracySubType
-from olive.evaluator.olive_evaluator import OliveEvaluator
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.passes.onnx.conversion import OnnxConversion
 
 
 def test_generate_zipfile_artifacts():
     # setup
     metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
-    evaluator = OliveEvaluator(metrics=[metric])
+    evaluator_config = OliveEvaluatorConfig(metrics=[metric])
     options = {
         "cache_dir": "./cache",
         "clean_cache": True,
@@ -29,7 +29,7 @@ def test_generate_zipfile_artifacts():
         },
         "clean_evaluation_cache": True,
     }
-    engine = Engine(options, evaluator=evaluator)
+    engine = Engine(options, evaluator_config=evaluator_config)
     engine.register(OnnxConversion)
 
     input_model = get_pytorch_model()
