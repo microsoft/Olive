@@ -6,12 +6,7 @@
 import logging
 from typing import Union
 
-from olive.data_config.constants import (
-    DataComponentType,
-    DataContainerType,
-    DefaultDataComponent,
-    DefaultDataContainer,
-)
+from olive.data_config.constants import DataComponentType, DataContainerType, DefaultDataComponent, DefaultDataContainer
 
 logger = logging.getLogger(__name__)
 
