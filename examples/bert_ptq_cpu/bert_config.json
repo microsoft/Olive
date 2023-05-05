@@ -5,7 +5,15 @@
         "config": {
             "hf_config": {
                 "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification"
+                "task": "text-classification",
+                "dataset": {
+                    "data_name":"glue",
+                    "subset": "mrpc",
+                    "split": "validation",
+                    "input_cols": ["sentence1", "sentence2"],
+                    "label_cols": ["label"],
+                    "batch_size": 1
+                }
             },
             "io_config" : {
                 "input_names": ["input_ids", "attention_mask", "token_type_ids"],
@@ -54,7 +62,6 @@
                     "type": "accuracy",
                     "sub_type": "accuracy_score",
                     "priority_rank": 1,
-                    "data_container": "my_container",
                     "goal": {"type": "max-degradation", "value": 0.01}
                 },
                 {
@@ -63,7 +70,6 @@
                     "sub_type": "avg",
                     "priority_rank": 2,
                     "goal": {"type": "percent-min-improvement", "value": 20},
-                    "data_container": "my_container"
                 }
             ],
             "target": "local_system"
@@ -86,10 +92,7 @@
             }
         },
         "quantization": {
-            "type": "OnnxQuantization",
-            "config": {
-                "data_container": "my_container"
-            }
+            "type": "OnnxQuantization"
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
@@ -113,19 +116,5 @@
         "host": "local_system",
         "clean_cache": true,
         "cache_dir": "cache"
-    },
-    "data_container": {
-        "my_container": {
-            "name": "glue",
-            "type": "HuggingfaceContainer",
-            "params_config": {
-                "data_name": "glue",
-                "subset": "mrpc",
-                "split": "validation",
-                "input_cols": ["sentence1", "sentence2"],
-                "label_cols": ["label"],
-                "batch_size": 1
-            }
-        }
     }
 }

@@ -5,13 +5,26 @@
         "config": {
             "hf_config": {
                 "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification"
+                "task": "text-classification",
+                "dataset": {
+                    "data_name":"glue",
+                    "subset": "mrpc",
+                    "split": "validation",
+                    "input_cols": ["sentence1", "sentence2"],
+                    "label_cols": ["label"],
+                    "batch_size": 1
+                }
             },
             "io_config" : {
                 "input_names": ["input_ids", "attention_mask", "token_type_ids"],
                 "input_shapes": [[1, 128], [1, 128], [1, 128]],
                 "input_types": ["int64", "int64", "int64"],
-                "output_names": ["output"]
+                "output_names": ["output"],
+                "dynamic_axes": {
+                    "input_ids": {"0": "batch_size", "1": "seq_length"},
+                    "attention_mask": {"0": "batch_size", "1": "seq_length"},
+                    "token_type_ids": {"0": "batch_size", "1": "seq_length"}
+                }
             }
         }
     },
@@ -49,24 +62,14 @@
                     "type": "accuracy",
                     "sub_type": "accuracy_score",
                     "priority_rank": 1,
-                    "user_config":{
-                        "post_processing_func": "post_process",
-                        "user_script": "user_script.py",
-                        "dataloader_func": "create_dataloader",
-                        "batch_size": 1
-                    },
-                    "data_container": "my_container"
+                    "goal": {"type": "max-degradation", "value": 0.01}
                 },
                 {
                     "name": "latency",
                     "type": "latency",
                     "sub_type": "avg",
                     "priority_rank": 2,
-                    "user_config":{
-                        "user_script": "user_script.py",
-                        "dataloader_func": "create_dataloader",
-                        "batch_size": 1
-                    }
+                    "goal": {"type": "percent-min-improvement", "value": 20}
                 }
             ],
             "target": "local_system"
@@ -84,15 +87,11 @@
             "config": {"model_type": "bert"}
         },
         "quantization": {
-            "type": "OnnxQuantization",
-            "config": {
-                "data_container": "my_container"
-            }
+            "type": "OnnxQuantization"
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "user_script": "user_script.py",
                 "input_names": ["input_ids", "attention_mask", "token_type_ids"],
                 "input_shapes": [[1, 128], [1, 128], [1, 128]],
                 "input_types": ["int64", "int64", "int64"]
@@ -110,21 +109,7 @@
         },
         "evaluator": "common_evaluator",
         "host": "local_system",
-        "clean_cache": false,
+        "clean_cache": true,
         "cache_dir": "cache"
-    },
-    "data_container": {
-        "my_container": {
-            "name": "glue",
-            "type": "HuggingfaceContainer",
-            "params_config": {
-                "data_name": "glue",
-                "subset": "mrpc",
-                "split": "validation",
-                "input_cols": ["sentence1", "sentence2"],
-                "label_cols": ["label"],
-                "batch_size": 1
-            }
-        }
     }
 }

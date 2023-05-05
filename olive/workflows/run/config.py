@@ -9,7 +9,7 @@ from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.data_container.config import DataContainerConfig
-from olive.data_container.constants import DefaultDataContainer
+from olive.data_container.constants import DEFAULT_HF_DATA_CONTAINER_NAME, DefaultDataContainer
 from olive.data_container.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
@@ -46,6 +46,10 @@ class RunConfig(ConfigBase):
     systems: Dict[str, SystemConfig] = None
     data_container: Dict[str, DataContainerConfig] = {
         DefaultDataContainer.DATA_CONTAINER.value: DataContainerConfig(),
+        DEFAULT_HF_DATA_CONTAINER_NAME: DataContainerConfig(
+            name=DEFAULT_HF_DATA_CONTAINER_NAME,
+            type=HuggingfaceContainer.__name__,
+        )
     }
     evaluators: Dict[str, OliveEvaluatorConfig] = None
     engine: RunEngineConfig
@@ -54,13 +58,17 @@ class RunConfig(ConfigBase):
     def __init__(self, **data):
         super().__init__(**data)
 
-    @validator("data_container", pre=True, each_item=True)
+    @validator("data_container", pre=True, each_item=True, always=True)
     def validate_data_container(cls, v, values):
-        hf_config = values["input_model"].dict()["config"]["hf_config"]
+        if isinstance(v, DataContainerConfig):
+            v = v.dict()
+
+        hf_config = values["input_model"].dict()["config"].get("hf_config", {})
         if v["type"] == HuggingfaceContainer.__name__:
             if hf_config:
                 v["params_config"]["model_name"] = hf_config["model_name"]
                 v["params_config"]["task_type"] = hf_config["task"]
+                v["params_config"].update(hf_config.get("dataset", {}))
         return validate_config(v, DataContainerConfig)
 
     @validator("evaluators", pre=True, each_item=True)
@@ -99,7 +107,8 @@ class RunConfig(ConfigBase):
             disable_search = v.get("disable_search", False)
 
         v["disable_search"] = disable_search
-        v["config"] = _resolve_data_container(v.get("config", {}), values, "data_container")
+        if v["type"] == "OnnxQuantization" or v["type"] == "OnnxStaticQuantization":
+            v["config"] = _resolve_data_container(v.get("config", {}), values, "data_container")
         return v
 
 
@@ -126,6 +135,11 @@ def _resolve_system(v, values, system_alias, component_name="systems"):
 
 
 def _resolve_data_container(v, values, system_alias, component_name="data_container"):
+    data_container_config = v.get("data_container", None)
+    hf_data_config = values["input_model"].dict()["config"].get("hf_config", {}).get("dataset", None)
+    if not data_container_config and hf_data_config:
+        # if data_container is None, we need to update the config to use HuggingfaceContainer
+        v["data_container"] = DEFAULT_HF_DATA_CONTAINER_NAME
     return _resolve_config_str(v, values, system_alias, component_name=component_name)
 
 
