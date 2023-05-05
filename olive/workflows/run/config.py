@@ -57,12 +57,11 @@ class RunConfig(ConfigBase):
         DEFAULT_HF_DATA_CONTAINER_NAME: DataContainerConfig(
             name=DEFAULT_HF_DATA_CONTAINER_NAME,
             type=HuggingfaceContainer.__name__,
-        )
+        ),
     }
     evaluators: Dict[str, OliveEvaluatorConfig] = None
     engine: RunEngineConfig
     passes: Dict[str, RunPassConfig]
-
 
     @validator("data_container", pre=True, each_item=True, always=True)
     def validate_data_container(cls, v, values):
