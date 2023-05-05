@@ -47,7 +47,7 @@ python -m pip install git+https://github.com/microsoft/Olive
 python -m pip install -r requirements.txt
 :: Install nightly versions of onnxruntime and onnxruntime-extensions
 python -m pip uninstall -y onnxruntime onnxruntime-extensions
-python -m pip install ort-nightly==1.15.0.dev20230429003 onnxruntime-extensions==0.8.0.303816 ^
+python -m pip install ort-nightly==1.15.0.dev20230429003 onnxruntime-extensions==0.8.0.306180 ^
     --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
@@ -62,7 +62,7 @@ python -m pip install git+https://github.com/microsoft/Olive
 python -m pip install -r requirements.txt
 # Install nightly versions of onnxruntime and onnxruntime-extensions
 python -m pip uninstall -y onnxruntime onnxruntime-extensions
-python -m pip install ort-nightly==1.15.0.dev20230429003 onnxruntime-extensions==0.8.0.303816 `
+python -m pip install ort-nightly==1.15.0.dev20230429003 onnxruntime-extensions==0.8.0.306180 `
     --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 **Note:** You can also use a python virtual environment instead of conda.
