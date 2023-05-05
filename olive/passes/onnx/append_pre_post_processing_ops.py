@@ -2,13 +2,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import tempfile
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
+import onnx
 from onnxruntime import __version__ as OrtVersion
 
 from olive.model import ONNXModel
 from olive.passes import Pass
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 
 
@@ -19,7 +22,7 @@ class AppendPrePostProcessingOps(Pass):
 
     @staticmethod
     def _default_config() -> Dict[str, Dict[str, Any]]:
-        return {
+        config = {
             "pre": PassConfigParam(
                 type_=List[str],
                 default_value=None,
@@ -42,9 +45,17 @@ class AppendPrePostProcessingOps(Pass):
                 type_=int, default_value=16, description="The version of the default (ai.onnx) opset to target."
             ),
         }
+        config.update(get_external_data_config())
+        return config
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
         output_model_path = ONNXModel.resolve_path(output_model_path)
+
+        # temporary directory to store the model to
+        # we will save the model to the final destination later with the external data config
+        tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+        tmp_dir_path = Path(tmp_dir.name)
+        tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
 
         tool_command = config.get("tool_command")
         if tool_command:
@@ -52,7 +63,7 @@ class AppendPrePostProcessingOps(Pass):
                 from olive.passes.utils.whisper_prepost import add_pre_post_processing_to_model as add_ppp
 
                 kwargs = config.get("tool_command_args") or {}
-                add_ppp(model.load_model(), output_model_path, **kwargs)
+                add_ppp(model.load_model(), tmp_model_path, **kwargs)
             else:
                 # Use the pre-defined helper to add pre/post processing to model.
                 from onnxruntime_extensions.tools import add_pre_post_processing_to_model as add_ppp
@@ -79,9 +90,16 @@ class AppendPrePostProcessingOps(Pass):
                 kwargs["onnx_opset"] = onnx_opset
 
                 # add the processing commands to the mode.
-                tool_command(Path(model.model_path), Path(output_model_path), **kwargs)
+                tool_command(Path(model.model_path), Path(tmp_model_path), **kwargs)
         else:
             # TODO: Handle args pre and post here!
             pass
 
-        return ONNXModel(output_model_path, name=model.name, use_ort_extensions=True)
+        # load the model
+        onnx_model = onnx.load(tmp_model_path)
+        # the model is loaded into memory, so it's safe to delete previously exported files
+        tmp_dir.cleanup()
+
+        olive_model = model_proto_to_olive_model(onnx_model, output_model_path, config, model.name)
+        olive_model.use_ort_extensions = True
+        return olive_model
