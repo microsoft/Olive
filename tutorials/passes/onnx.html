@@ -85,6 +85,8 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="#post-training-quantization-ptq">Post Training Quantization (PTQ)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#quantize-with-onnxruntime">Quantize with onnxruntime</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#id5">Example Configuration</a></li>
 </ul>
 </li>
@@ -121,6 +123,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../examples.html#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu">ResNet optimization with QAT PyTorch Lightning Module on CPU</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../examples.html#squeezenet-latency-optimization-with-directml">SqueezeNet latency optimization with DirectML</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../examples.html#stable-diffusion-optimization-with-directml">Stable Diffusion optimization with DirectML</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html#bert-optimization-with-intel-neural-compressor-post-training-quantization-on-cpu">BERT optimization with Intel® Neural Compressor Post Training quantization on CPU</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../examples.html#whisper-optimization-using-ort-toolchain">Whisper optimization using ORT toolchain</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
@@ -276,12 +279,26 @@ any requirement for the calibration dataset.</p>
 Static quantization method runs the model using a set of inputs called calibration data. In this way, user must provide a calibration
 dataset to calculate the quantization parameters (scale and zero point) for activations before quantizing the model.</p></li>
 </ol>
+<section id="quantize-with-onnxruntime">
+<h3>Quantize with onnxruntime<a class="headerlink" href="#quantize-with-onnxruntime" title="Permalink to this heading">¶</a></h3>
 <p>Olive consolidates the dynamic and static quantization into a single pass called <code class="docutils literal notranslate"><span class="pre">OnnxQuantization</span></code>, and provide the user with the ability to
 tune both quantization methods and hyperparameter at the same time.
 If the user desires to only tune either of dynamic or static quantization, Olive also supports them through <code class="docutils literal notranslate"><span class="pre">OnnxDynamicQuantization</span></code> and
 <code class="docutils literal notranslate"><span class="pre">OnnxStaticQuantization</span></code> respectively.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#onnx-quantization"><span class="std std-ref">OnnxQuantization</span></a>, <a class="reference internal" href="../../api/passes.html#onnx-dynamic-quantization"><span class="std std-ref">OnnxDynamicQuantization</span></a> and
 <a class="reference internal" href="../../api/passes.html#onnx-static-quantization"><span class="std std-ref">OnnxStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
+</section>
+<section id="quantize-with-intel-neural-compressor">
+<h3>Quantize with Intel® Neural Compressor<a class="headerlink" href="#quantize-with-intel-neural-compressor" title="Permalink to this heading">¶</a></h3>
+<p>In addition to the default onnxruntime quantization tool, Olive also integrates <a class="reference external" href="https://github.com/intel/neural-compressor">Intel® Neural Compressor</a>.</p>
+<p>Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach “quantize once, run everywhere” goal.</p>
+<p>Olive consolidates the Intel® Neural Compressor dynamic and static quantization into a single pass called <code class="docutils literal notranslate"><span class="pre">IncQuantization</span></code>, and provide the user with the ability to
+tune both quantization methods and hyperparameter at the same time.
+If the user desires to only tune either of dynamic or static quantization, Olive also supports them through <code class="docutils literal notranslate"><span class="pre">IncDynamicQuantization</span></code> and
+<code class="docutils literal notranslate"><span class="pre">IncStaticQuantization</span></code> respectively.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#inc-quantization"><span class="std std-ref">IncQuantization</span></a>, <a class="reference internal" href="../../api/passes.html#inc-dynamic-quantization"><span class="std std-ref">IncDynamicQuantization</span></a> and
+<a class="reference internal" href="../../api/passes.html#inc-static-quantization"><span class="std std-ref">IncStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
+</section>
 <section id="id5">
 <h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
 <p>a. Tune the parameters of the OlivePass with pre-defined searchable values</p>
@@ -336,6 +353,7 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 </div>
 <p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert_ptq_cpu/user_script.py">this file</a>
 for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;glue_calibration_reader&quot;</span></code>.</p>
+<p>check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/bert_inc_ptq_cpu">this file</a> for an example for Intel® Neural Compressor quantization.</p>
 </section>
 </section>
 <section id="ort-performance-tuning">

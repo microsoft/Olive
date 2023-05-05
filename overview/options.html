@@ -100,6 +100,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu">ResNet optimization with QAT PyTorch Lightning Module on CPU</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#squeezenet-latency-optimization-with-directml">SqueezeNet latency optimization with DirectML</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#stable-diffusion-optimization-with-directml">Stable Diffusion optimization with DirectML</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html#bert-optimization-with-intel-neural-compressor-post-training-quantization-on-cpu">BERT optimization with Intel® Neural Compressor Post Training quantization on CPU</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#whisper-optimization-using-ort-toolchain">Whisper optimization using ORT toolchain</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
@@ -393,22 +394,31 @@ will be used.</p></li>
 <tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#onnx-quantization"><span class="std std-ref">OnnxQuantization</span></a></p></td>
 <td class="text-left"><p>Quantize ONNX model with onnxruntime where we can search for best parameters for static/dynamic quantization at same time.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="#onnx_quantization_aware_training"><span class="xref myst">QuantizationAwareTraining</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#inc-dynamic-quantization"><span class="std std-ref">IncDynamicQuantization</span></a></p></td>
+<td class="text-left"><p>Intel® Neural Compressor Dynamic Quantization Pass.</p></td>
+</tr>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#inc-static-quantization"><span class="std std-ref">IncStaticQuantization</span></a></p></td>
+<td class="text-left"><p>Intel® Neural Compressor Static Quantization Pass.</p></td>
+</tr>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#inc-quantization"><span class="std std-ref">IncQuantization</span></a></p></td>
+<td class="text-left"><p>Quantize ONNX model with Intel® Neural Compressor where we can search for best parameters for static/dynamic quantization at same time.</p></td>
+</tr>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="#onnx_quantization_aware_training"><span class="xref myst">QuantizationAwareTraining</span></a></p></td>
 <td class="text-left"><p>Run quantization aware training on PyTorch model.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#openvino-conversion"><span class="std std-ref">OpenVINOConversion</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#openvino-conversion"><span class="std std-ref">OpenVINOConversion</span></a></p></td>
 <td class="text-left"><p>Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#openvino-quantization"><span class="std std-ref">OpenVINOQuantization</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#openvino-quantization"><span class="std std-ref">OpenVINOQuantization</span></a></p></td>
 <td class="text-left"><p>Post-training quantization for OpenVINO model.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#snpe-conversion"><span class="std std-ref">SNPEConversion</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#snpe-conversion"><span class="std std-ref">SNPEConversion</span></a></p></td>
 <td class="text-left"><p>Convert ONNX or TensorFlow model to SNPE DLC. Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK.</p></td>
 </tr>
-<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#snpe-quantization"><span class="std std-ref">SNPEQuantization</span></a></p></td>
+<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#snpe-quantization"><span class="std std-ref">SNPEQuantization</span></a></p></td>
 <td class="text-left"><p>Quantize SNPE model. Uses snpe-dlc-quantize tool from the SNPE SDK.</p></td>
 </tr>
-<tr class="row-even"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#snpe-to-onnx-conversion"><span class="std std-ref">SNPEtoONNXConversion</span></a></p></td>
+<tr class="row-odd"><td class="text-left"><p><a class="reference internal" href="../api/passes.html#snpe-to-onnx-conversion"><span class="std std-ref">SNPEtoONNXConversion</span></a></p></td>
 <td class="text-left"><p>Convert a SNPE DLC to ONNX to use with SNPE Execution Provider. Creates a ONNX graph with the SNPE DLC as a node.</p></td>
 </tr>
 </tbody>
