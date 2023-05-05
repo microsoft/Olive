@@ -53,15 +53,15 @@ def compute_accuracy(preds, targets, sub_type, metric_config) -> Dict[str, Any]:
     Compute accuracy metrics
     """
     if sub_type == AccuracySubType.ACCURACY_SCORE:
-        metric_res = AccuracyScore(metric_config).evaluate(preds, targets)
+        metric_res = AccuracyScore(metric_config).measure(preds, targets)
     elif sub_type == AccuracySubType.F1_SCORE:
-        metric_res = F1Score(metric_config).evaluate(preds, targets)
+        metric_res = F1Score(metric_config).measure(preds, targets)
     elif sub_type == AccuracySubType.PRECISION:
-        metric_res = Precision(metric_config).evaluate(preds, targets)
+        metric_res = Precision(metric_config).measure(preds, targets)
     elif sub_type == AccuracySubType.RECALL:
-        metric_res = Recall(metric_config).evaluate(preds, targets)
+        metric_res = Recall(metric_config).measure(preds, targets)
     elif sub_type == AccuracySubType.AUC:
-        metric_res = AUC(metric_config).evaluate(preds, targets)
+        metric_res = AUC(metric_config).measure(preds, targets)
     else:
         raise TypeError(f"{sub_type} is not a accuracy metric supported")
     return metric_res

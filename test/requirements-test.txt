@@ -1,10 +1,9 @@
 azure-ai-ml
 azure-identity
 azure-storage-blob
-azureml-evaluate-mlflow
 coverage
 docker
-mlflow
+neural-compressor
 onnxconverter_common
 onnxruntime-extensions
 openvino
@@ -14,3 +13,5 @@ plotly
 psutil
 pytorch_lightning
 torchvision
+azureml-evaluate-mlflow
+mlflow

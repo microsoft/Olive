@@ -50,6 +50,21 @@ OnnxQuantization
 ----------------
 .. autoconfigclass:: olive.passes.OnnxQuantization
 
+.. _inc_dynamic_quantization:
+IncDynamicQuantization
+-----------------------
+.. autoconfigclass:: olive.passes.IncDynamicQuantization
+
+.. _inc_static_quantization:
+IncStaticQuantization
+----------------------
+.. autoconfigclass:: olive.passes.IncStaticQuantization
+
+.. _inc_quantization:
+IncQuantization
+----------------
+.. autoconfigclass:: olive.passes.IncQuantization
+
 .. _append_pre_post_processing:
 AppendPrePostProcessingOps
 ----------------

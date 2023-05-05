@@ -42,8 +42,7 @@
                         "dataloader_func": "<place_holder>"
                     }
                 }
-            ],
-            "target": "local_system"
+            ]
         }
     },
     "passes": {
@@ -97,6 +96,7 @@
     "engine": {
         "search_strategy": false,
         "host": "local_system",
+        "target": "local_system",
         "evaluator": "common_evaluator",
         "clean_cache": false,
         "cache_dir": "cache",

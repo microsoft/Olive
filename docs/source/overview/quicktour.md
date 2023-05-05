@@ -96,8 +96,7 @@ returns metrics values for each output model.
                     "batch_size": 16
                 }
             }
-        ],
-        "target": "local_system"
+        ]
     }
 }
 ```
@@ -115,7 +114,9 @@ The engine which handles the auto-tuning process. You can select search strategy
 
 ```json
 "engine": {
-    "cache_dir": ".cache"
+    "host": {"type": "LocalSystem"},
+    "target": {"type": "LocalSystem"},
+    "cache_dir": ".cache",
     "search_strategy": {
         "execution_order": "joint",
         "search_algorithm": "exhaustive",
@@ -132,8 +133,7 @@ let us first convert the pytorch model to ONNX and quantize it.
     "type": "OnnxConversion",
     "config": {
         "target_opset": 13
-    },
-    "host": {"type": "LocalSystem"}
+    }
 }
 ```
 
@@ -192,8 +192,7 @@ python -m olive.workflows.run --config config.json
                         "batch_size": 16
                     }
                 }
-            ],
-            "target": "local_system"
+            ]
         }
     },
     "passes": {
@@ -201,8 +200,7 @@ python -m olive.workflows.run --config config.json
             "type": "OnnxConversion",
             "config": {
                 "target_opset": 13
-            },
-            "host": {"type": "LocalSystem"}
+            }
         },
         "onnx_quantization": {
             "type": "OnnxDynamicQuantization",
@@ -221,6 +219,7 @@ python -m olive.workflows.run --config config.json
         },
         "evaluator": "common_evaluator",
         "host": {"type": "LocalSystem"},
+        "target": {"type": "LocalSystem"}
     }
 }
 ```
