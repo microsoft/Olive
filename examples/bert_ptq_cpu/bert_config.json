@@ -69,7 +69,7 @@
                     "type": "latency",
                     "sub_type": "avg",
                     "priority_rank": 2,
-                    "goal": {"type": "percent-min-improvement", "value": 20},
+                    "goal": {"type": "percent-min-improvement", "value": 20}
                 }
             ]
         }
