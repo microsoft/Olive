@@ -74,8 +74,8 @@ class RunConfig(ConfigBase):
 
         if v["type"] == HuggingfaceContainer.__name__:
             if hf_config:
-                v["params_config"]["model_name"] = hf_config["model_name"]
-                v["params_config"]["task_type"] = hf_config["task"]
+                v["params_config"]["model_name"] = hf_config.get("model_name", None)
+                v["params_config"]["task_type"] = hf_config.get("task", None)
                 v["params_config"].update(hf_config.get("dataset", {}))
         return validate_config(v, DataContainerConfig)
 
