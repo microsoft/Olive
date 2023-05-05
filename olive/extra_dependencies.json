@@ -21,5 +21,8 @@
     ],
     "tf": [
         "tensorflow==1.15.0"
+    ],
+    "inc": [
+        "neural-compressor"
     ]
 }

@@ -64,6 +64,9 @@ def dependency_setup(config):
             "QuantizationAwareTraining": ["pytorch-lightning"],
             "OpenVINOConversion": EXTRAS.get("openvino"),
             "OpenVINOQuantization": EXTRAS.get("openvino"),
+            "IncQuantization": EXTRAS.get("inc"),
+            "IncDynamicQuantization": EXTRAS.get("inc"),
+            "IncStaticQuantization": EXTRAS.get("inc"),
         },
     }
 
