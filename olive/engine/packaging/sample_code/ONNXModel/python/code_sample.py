@@ -9,9 +9,8 @@ import onnxruntime
 
 def run():
     # Load inference configuration json file
-    inference_config_json = json.load(open("inference_config.json"))
-    if inference_config_json is not None:
-        inference_settings = inference_config_json["inference_settings"]
+    inference_settings = json.load(open("inference_config.json"))
+    if inference_settings is not None:
         session_options = inference_settings.get("session_options")
         execution_provider = inference_settings.get("execution_provider")
         use_ort_extensions = inference_settings.get("use_ort_extensions")

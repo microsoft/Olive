@@ -71,8 +71,8 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
         # Add use_ort_extensions to inference config if needed
         use_ort_extensions = pf_footprint.get_use_ort_extensions(model_id)
         if use_ort_extensions:
-            inference_config = inference_config or {"inference_settings": {}}
-            inference_config["inference_settings"]["use_ort_extensions"] = True
+            inference_config = inference_config or {}
+            inference_config["use_ort_extensions"] = True
 
         with open(inference_config_path, "w") as f:
             json.dump(inference_config, f)
@@ -90,7 +90,6 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
 
 
 def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
-
     NIGHTLY_PYTHON_CPU_COMMAND = Template(
         "python -m pip download -i "
         "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ "
@@ -128,11 +127,10 @@ def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
     for model_id, _ in pf_footprint.nodes.items():
         if pf_footprint.get_use_ort_extensions(model_id):
             use_ort_extensions = True
-        inference_config = pf_footprint.get_model_inference_config(model_id)
-        if not inference_config:
+        inference_settings = pf_footprint.get_model_inference_config(model_id)
+        if not inference_settings:
             should_package_ort_cpu = True
         else:
-            inference_settings = inference_config["inference_settings"]
             ep_list = inference_settings["execution_provider"]
             for ep_config in ep_list:
                 ep = ep_config[0]
