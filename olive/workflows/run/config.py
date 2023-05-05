@@ -67,9 +67,9 @@ class RunConfig(ConfigBase):
     def validate_data_container(cls, v, values):
         hf_config = values["input_model"].dict()["config"].get("hf_config", {})
 
-        if isinstance(v, DataContainerConfig) and hf_config.get("dataset", None):
+        if isinstance(v, DataContainerConfig):
             # clean up default components before config validation
-            v.components = None
+            v.components = None if hf_config.get("dataset", None) else v.components
             v = v.dict()
 
         if v["type"] == HuggingfaceContainer.__name__:
