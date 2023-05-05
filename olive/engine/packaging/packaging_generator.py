@@ -127,11 +127,10 @@ def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
     for model_id, _ in pf_footprint.nodes.items():
         if pf_footprint.get_use_ort_extensions(model_id):
             use_ort_extensions = True
-        inference_config = pf_footprint.get_model_inference_config(model_id)
-        if not inference_config:
+        inference_settings = pf_footprint.get_model_inference_config(model_id)
+        if not inference_settings:
             should_package_ort_cpu = True
         else:
-            inference_settings = inference_config["inference_settings"]
             ep_list = inference_settings["execution_provider"]
             for ep_config in ep_list:
                 ep = ep_config[0]
