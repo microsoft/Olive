@@ -266,7 +266,7 @@ Then the design for `DataContainer` interface will be like:
 Each build-in DataContainer uniquely corresponds to a template of config like:
     ```json
     {
-        "data_container": {
+        "data_config": {
             "type": "BaseContainer", // Olive BaseContainer interface, can be other available DataContainers like HuggingfaceDataContainer, VideoDataContainer...
             "config": {
                 "task_type": "QuestionAnswering", // Olive TaskType interface, can be other available TaskTypes like ClassificationTaskType, RegressionTaskType, SequenceLabelingTaskType, QuestionAnsweringTaskType ...
@@ -327,7 +327,7 @@ Each build-in DataContainer uniquely corresponds to a template of config like:
     def _post_process(test_value):
         ...
 
-    DataContainerConfig(
+    DataConfig(
         components={
             "dataset": {
                 "name": "test_dataset",
@@ -369,7 +369,7 @@ Each build-in DataContainer uniquely corresponds to a template of config like:
             "metrics":[
                 {
                     ...
-                    "data_container": "my_container" // <-------------------
+                    "data_config": "my_container" // <-------------------
                 },
             ],
             "target": "local_system"
@@ -385,14 +385,14 @@ Each build-in DataContainer uniquely corresponds to a template of config like:
         "quantization": {
             "type": "OnnxQuantization",
             "config": {
-                "data_container": "my_container" // <-------------------
+                "data_config": "my_container" // <-------------------
             }
         },
     },
     "engine": {
         ...
     },
-    "data_container": {
+    "data_config": {
         "my_container": { // <-------------------
             "name": "glue",
             "type": "HuggingfaceContainer",
@@ -421,7 +421,7 @@ DefaultDataComponentCombos = {
 }
 
 
-class DataContainerConfig(ConfigBase):
+class DataConfig(ConfigBase):
     name: str = DefaultDataContainer.DATA_CONTAINER.value
     type: str = DefaultDataContainer.DATA_CONTAINER.value
 

@@ -6,7 +6,7 @@
 import logging
 from typing import Union
 
-from olive.data_container.constants import (
+from olive.data_config.constants import (
     DataComponentType,
     DataContainerType,
     DefaultDataComponent,

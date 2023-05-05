@@ -18,7 +18,7 @@ class TestRunConfig:
 
     def test_transformer_dataset_config_file(self):
         run_config = RunConfig.parse_file(self.transformer_dataset_config_file)
-        for dc in run_config.data_container.values():
+        for dc in run_config.data_config.values():
             dc.to_data_container().create_dataloader()
 
     def test_user_script_config_file(self):

@@ -6,10 +6,10 @@ from typing import ClassVar
 
 from pydantic import BaseModel
 
-from olive.data_container.component.dataloader import default_calibration_dataloader
-from olive.data_container.config import DataContainerConfig, DefaultDataComponentCombos
-from olive.data_container.constants import DataContainerType, DefaultDataContainer
-from olive.data_container.registry import Registry
+from olive.data_config.component.dataloader import default_calibration_dataloader
+from olive.data_config.config import DataConfig, DefaultDataComponentCombos
+from olive.data_config.constants import DataContainerType, DefaultDataContainer
+from olive.data_config.registry import Registry
 
 
 @Registry.register(DataContainerType.DATA_CONTAINER, name=DefaultDataContainer.DATA_CONTAINER.value)
@@ -22,7 +22,7 @@ class BaseContainer(BaseModel):
     default_components_type: ClassVar[dict] = DefaultDataComponentCombos
     # avoid to directly create the instance of DataComponentConfig,
     # suggest to use config.to_data_container()
-    config: DataContainerConfig = None
+    config: DataConfig = None
 
     # not be used, for read only. when you update the components function,
     # please update the _params_list. It should be key name of params_config
@@ -34,7 +34,7 @@ class BaseContainer(BaseModel):
 
     # def __init__(self, **kwargs):
     #     super().__init__(**kwargs)
-    #     self.config = DataContainerConfig(
+    #     self.config = DataConfig(
     #         type=self.__class__.__name__,
     #         default_components_type=self.default_components_type,
     #     )

@@ -5,7 +5,7 @@
 import torch
 import transformers
 
-from olive.data_container.registry import Registry
+from olive.data_config.registry import Registry
 
 
 @Registry.register_default_post_process()

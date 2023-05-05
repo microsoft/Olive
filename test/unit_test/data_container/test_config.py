@@ -3,21 +3,21 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from test.unit_test.utils import get_data_container_config
+from test.unit_test.utils import get_data_config
 
 import pytest
 
-from olive.data_container.config import DataContainerConfig
-from olive.data_container.registry import Registry
+from olive.data_config.config import DataConfig
+from olive.data_config.registry import Registry
 
 
-class TestDataContainerConfig:
+class TestDataConfig:
     @pytest.fixture(autouse=True)
     def setup(self):
-        self.dc_config = get_data_container_config()
+        self.dc_config = get_data_config()
 
     def test_default_property(self):
-        dc_config = DataContainerConfig()
+        dc_config = DataConfig()
         for k, _ in dc_config.default_components.items():
             assert k in dc_config.components
         assert dc_config.dataloader

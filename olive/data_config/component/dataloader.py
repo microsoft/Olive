@@ -5,7 +5,7 @@
 
 from torch.utils.data import DataLoader
 
-from olive.data_container.registry import Registry
+from olive.data_config.registry import Registry
 
 
 @Registry.register_default_dataloader()

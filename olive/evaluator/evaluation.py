@@ -22,7 +22,7 @@ def evaluate_accuracy(model: OliveModel, metric: Metric, device: Device = Device
     Evaluate model accuracy according to config, return accuracy metrics
     """
     dataloader, post_func, _ = get_user_config(metric.user_config)
-    dc = metric.data_container.to_data_container()
+    dc = metric.data_config.to_data_container()
 
     # TODO remove user_scripts dataloader: we should respect user scripts
     # dataloder to meet back compatibility for time being.
@@ -78,7 +78,7 @@ def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.
     Evaluate model latency according to config, return latency metrics
     """
     dataloader, _, _ = get_user_config(metric.user_config)
-    dc = metric.data_container.to_data_container()
+    dc = metric.data_config.to_data_container()
     # TODO remove user_scripts dataloader: we should respect user scripts
     # dataloder to meet back compatibility for time being.
     dataloader = dataloader or dc.create_dataloader()

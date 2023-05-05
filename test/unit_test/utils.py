@@ -10,8 +10,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
-from olive.data_container.config import DataComponentConfig, DataContainerConfig
-from olive.data_container.registry import Registry
+from olive.data_config.config import DataComponentConfig, DataConfig
+from olive.data_config.registry import Registry
 from olive.evaluator.metric import Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
 from olive.model import ONNXModel, PyTorchModel
@@ -145,7 +145,7 @@ def get_onnx_dynamic_quantization_pass(disable_search=False):
     return p
 
 
-def get_data_container_config():
+def get_data_config():
     @Registry.register_dataset("test_dataset")
     def _test_dataset(test_value):
         ...
@@ -162,7 +162,7 @@ def get_data_container_config():
     def _post_process(test_value):
         ...
 
-    return DataContainerConfig(
+    return DataConfig(
         components={
             "dataset": {
                 "name": "test_dataset",
@@ -178,8 +178,8 @@ def get_data_container_config():
     )
 
 
-def get_glue_huggingface_data_container_config():
-    return DataContainerConfig(
+def get_glue_huggingface_data_config():
+    return DataConfig(
         type="HuggingfaceContainer",
         params_config={
             "task_type": "text-classification",
@@ -195,7 +195,7 @@ def get_glue_huggingface_data_container_config():
 
 
 def get_dc_params_config():
-    return DataContainerConfig(
+    return DataConfig(
         params_config={
             "data_dir": "./params_config",
             "batch_size": 1,

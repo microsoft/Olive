@@ -2,4 +2,4 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from olive.data_container.component import dataloader, dataset, post_process, pre_process
+from olive.data_config.container import base_container, huggingface_container

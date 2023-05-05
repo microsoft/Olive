@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, Union
 import onnx
 
 from olive.common.utils import hash_string
-from olive.data_container.config import DataContainerConfig
+from olive.data_config.config import DataConfig
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -165,12 +165,12 @@ _static_dataloader_config = {
             required if quant_mode is 'static'
         """,
     ),
-    "data_container": PassConfigParam(
-        type_=Union[DataContainerConfig, str],
+    "data_config": PassConfigParam(
+        type_=Union[DataConfig, str],
         required=False,
         description="""
             Data container for calibration, required if quant_mode is 'static'.
-            If not provided, a default DataContainerConfig will be used.
+            If not provided, a default DataConfig will be used.
         """,
     ),
 }
@@ -392,8 +392,8 @@ class OnnxQuantization(Pass):
                     self._fixed_params["data_dir"],
                     self._fixed_params["batch_size"],
                 )
-            elif self._fixed_params["data_container"]:
-                dc_cls = DataContainerConfig(**self._fixed_params["data_container"])
+            elif self._fixed_params["data_config"]:
+                dc_cls = DataConfig(**self._fixed_params["data_config"])
                 dataloader = dc_cls.to_data_container().create_calibration_dataloader()
             quantize_static(
                 model_input=model.model_path,
@@ -647,7 +647,7 @@ class IncQuantization(Pass):
             output_model_path += ".onnx"
 
         # keys not needed for quantization
-        to_delete = ["script_dir", "user_script", "data_dir", "batch_size", "dataloader_func", "data_container"]
+        to_delete = ["script_dir", "user_script", "data_dir", "batch_size", "dataloader_func", "data_config"]
         for key in to_delete:
             if key in run_config:
                 del run_config[key]

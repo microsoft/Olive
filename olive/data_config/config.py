@@ -6,8 +6,8 @@ import logging
 from typing import Dict
 
 from olive.common.config_utils import ConfigBase
-from olive.data_container.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
-from olive.data_container.registry import Registry
+from olive.data_config.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
+from olive.data_config.registry import Registry
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ DefaultDataComponentCombos = {
 }
 
 
-class DataContainerConfig(ConfigBase):
+class DataConfig(ConfigBase):
     name: str = DefaultDataContainer.DATA_CONTAINER.value
     type: str = DefaultDataContainer.DATA_CONTAINER.value
 
