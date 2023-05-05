@@ -63,13 +63,13 @@ class TestEvaluation:
     def test_evaluate_accuracy(self, olive_model, metric, acc_subtype, expected_res):
         # setup
         with patch(acc_subtype) as mock_acc:
-            mock_acc.return_value.evaluate.return_value = expected_res
+            mock_acc.return_value.measure.return_value = expected_res
 
             # execute
             actual_res = evaluate_accuracy(olive_model, metric)
 
             # assert
-            mock_acc.return_value.evaluate.assert_called_once()
+            mock_acc.return_value.measure.assert_called_once()
             assert expected_res == actual_res
 
     LATENCY_TEST_CASE = [

@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import json
 import os
-import platform
 from pathlib import Path
 
 import pytest
@@ -26,14 +25,15 @@ def check_output(footprint):
         assert all([value > 0 for value in v.metrics.value.values()])
 
 
+# Skip docker_system test until bug is fixed: https://github.com/docker/docker-py/issues/3113
 @pytest.mark.parametrize("search_algorithm", ["tpe"])
 @pytest.mark.parametrize("execution_order", ["joint"])
-@pytest.mark.parametrize("system", ["local_system", "aml_system", "docker_system"])
+@pytest.mark.parametrize("system", ["local_system", "aml_system"])
 @pytest.mark.parametrize("olive_json", ["bert_config.json"])
 def test_bert(search_algorithm, execution_order, system, olive_json):
     # TODO: add gpu e2e test
-    if system == "docker_system" and platform.system() == "Windows":
-        pytest.skip("Skip Linux containers on Windows host test case.")
+    # if system == "docker_system" and platform.system() == "Windows":
+    #     pytest.skip("Skip Linux containers on Windows host test case.")
 
     from olive.workflows import run as olive_run
 
@@ -50,11 +50,11 @@ def test_bert(search_algorithm, execution_order, system, olive_json):
     # set aml_system as dev
     olive_config["systems"]["aml_system"]["config"]["is_dev"] = True
     # set docker_system as dev
-    olive_config["systems"]["docker_system"]["config"]["is_dev"] = True
+    # olive_config["systems"]["docker_system"]["config"]["is_dev"] = True
 
     # update host and target
     olive_config["engine"]["host"] = system if system != "docker_system" else "local_system"
-    olive_config["evaluators"]["common_evaluator"]["target"] = system
+    olive_config["engine"]["target"] = system
 
     if system == "aml_system":
         generate_olive_workspace_config("olive-workspace-config.json")

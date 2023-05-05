@@ -71,8 +71,7 @@
                     "priority_rank": 2,
                     "goal": {"type": "percent-min-improvement", "value": 20},
                 }
-            ],
-            "target": "local_system"
+            ]
         }
     },
     "passes": {
@@ -114,6 +113,7 @@
         },
         "evaluator": "common_evaluator",
         "host": "local_system",
+        "target": "local_system",
         "clean_cache": true,
         "cache_dir": "cache"
     }

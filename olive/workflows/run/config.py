@@ -30,11 +30,19 @@ class RunEngineConfig(EngineConfig):
     output_dir: Union[Path, str] = None
     output_name: str = None
     packaging_config: PackagingConfig = None
+    log_severity_level: int = 1
     ort_log_severity_level: int = 3
 
     def create_engine(self):
         config = self.dict()
-        to_del = ["evaluation_only", "output_dir", "output_name", "packaging_config", "ort_log_severity_level"]
+        to_del = [
+            "evaluation_only",
+            "output_dir",
+            "output_name",
+            "packaging_config",
+            "log_severity_level",
+            "ort_log_severity_level",
+        ]
         for key in to_del:
             del config[key]
         return Engine(config)
@@ -55,8 +63,6 @@ class RunConfig(ConfigBase):
     engine: RunEngineConfig
     passes: Dict[str, RunPassConfig]
 
-    def __init__(self, **data):
-        super().__init__(**data)
 
     @validator("data_container", pre=True, each_item=True, always=True)
     def validate_data_container(cls, v, values):
@@ -81,6 +87,7 @@ class RunConfig(ConfigBase):
     @validator("engine", pre=True)
     def validate_engine(cls, v, values):
         v = _resolve_system(v, values, "host")
+        v = _resolve_system(v, values, "target")
         return _resolve_evaluator(v, values)
 
     @validator("engine")

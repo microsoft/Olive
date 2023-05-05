@@ -85,6 +85,9 @@ The pass then combines those with the fixed parameters to form a complete config
 - OnnxDynamicQuantization
 - OnnxStaticQuantization
 - OnnxQuantization
+- IncStaticQuantization
+- IncDynamicQuantization
+- IncQuantization
 
 ## Engine
 The engine is responsible for

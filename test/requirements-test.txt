@@ -3,6 +3,7 @@ azure-identity
 azure-storage-blob
 coverage
 docker
+neural-compressor
 onnxconverter_common
 onnxruntime-extensions
 openvino
