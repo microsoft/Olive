@@ -23,5 +23,12 @@ def set_default_logger_severity(level):
 
     :param level: 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL
     """
-    # logging.DEBUG = 10, logging.INFO = 20, logging.WARNING = 30, logging.ERROR = 40, logging.CRITICAL = 50
-    _logger.setLevel((level + 1) * 10)
+    # mapping from level to logging level
+    level_map = {0: logging.DEBUG, 1: logging.INFO, 2: logging.WARNING, 3: logging.ERROR, 4: logging.CRITICAL}
+
+    # check if level is valid
+    if level not in level_map:
+        raise ValueError(f"Invalid level {level}, should be one of {list(level_map.keys())}")
+
+    # set logger level
+    _logger.setLevel(level_map[level])
