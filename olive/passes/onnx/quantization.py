@@ -647,7 +647,7 @@ class IncQuantization(Pass):
             output_model_path += ".onnx"
 
         # keys not needed for quantization
-        to_delete = ["script_dir", "user_script", "data_dir", "batch_size", "dataloader_func"]
+        to_delete = ["script_dir", "user_script", "data_dir", "batch_size", "dataloader_func", "data_container"]
         for key in to_delete:
             if key in run_config:
                 del run_config[key]

@@ -63,7 +63,7 @@ def simple_dataset(input_data, label_cols=None, **kwargs):
     """
     This function is used to create a simple dataset from input data which can be:
     1. a text
-    2. a tensors
+    2. a tensor
     """
     pass
 
