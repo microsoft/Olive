@@ -187,7 +187,7 @@ returns metrics values for each output model.</p>
 <span class="p">)</span>
 
 <span class="c1"># create evaluator</span>
-<span class="n">evaluator</span> <span class="o">=</span>  <span class="n">OliveEvaluator</span><span class="p">(</span><span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="n">latency_metric</span><span class="p">],</span> <span class="n">target</span><span class="o">=</span><span class="n">local_system</span><span class="p">)</span>
+<span class="n">evaluator</span> <span class="o">=</span>  <span class="n">OliveEvaluator</span><span class="p">(</span><span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="n">latency_metric</span><span class="p">])</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">latency_metric</span></code> requires you to provide a function as value for <code class="docutils literal notranslate"><span class="pre">dataloader_func</span></code> that returns a dataloader object when called on <code class="docutils literal notranslate"><span class="pre">data_dir</span></code> and <code class="docutils literal notranslate"><span class="pre">batch_size</span></code>. You can provide the function object directly but here, let’s give it a function name <code class="docutils literal notranslate"><span class="pre">&quot;create_dataloader&quot;</span></code> that can be imported from <code class="docutils literal notranslate"><span class="pre">user_script</span></code>.</p>

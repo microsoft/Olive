@@ -166,9 +166,6 @@ information of the evaluator contains following items:
         - `evaluate_func: [str]` The name of the function provided by the user to evaluate the model. The function should take the
         model, `data_dir` and `batch_size` as input and return the evaluation result. Only valid for `custom` type.
 
-- `target: [str | Dict]` The target of the evaluator. It can be a string or a dictionary. If it is a string, it is the name of a system
-in `systems`. If it is a dictionary, it contains the system information. If not specified, it is the local system.
-
 ### Example
 ```json
 "evaluators": {
@@ -197,8 +194,7 @@ in `systems`. If it is a dictionary, it contains the system information. If not 
                     "batch_size": 1
                 }
             }
-        ],
-        "target": "local_system"
+        ]
     }
 }
 ```
@@ -310,6 +306,9 @@ This is a dictionary that contains the information of the engine. The informatio
 - `host: [str | Dict]` The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.
     If it is a dictionary, it contains the system information. If not specified, it is the local system.
 
+- `target: [str | Dict]` The target to run model evaluations on. It can be a string or a dictionary. If it is a string, it is the name of
+    a system in `systems`. If it is a dictionary, it contains the system information. If not specified, it is the local system.
+
 - `evaluator: [str | Dict]` The evaluator of the engine. It can be a string or a dictionary. If it is a string, it is the name of an evaluator
     in `evaluators`. If it is a dictionary, it contains the evaluator information. This evaluator will be used to evaluate the input model if
     needed. It is also used to evaluate the output models of passes that don't have their own evaluators.
@@ -358,6 +357,7 @@ Please find the detailed config options from following table for each search alg
     },
     "evaluator": "common_evaluator",
     "host": "local_system",
+    "target": "local_system",
     "clean_cache": true,
     "cache_dir": "cache"
 }
