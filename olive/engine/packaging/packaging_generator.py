@@ -90,6 +90,7 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
 
 
 def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
+
     NIGHTLY_PYTHON_CPU_COMMAND = Template(
         "python -m pip download -i "
         "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ "
