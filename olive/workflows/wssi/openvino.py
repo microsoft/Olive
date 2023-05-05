@@ -13,8 +13,8 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
 from olive.passes.openvino.quantization import OpenVINOQuantization
 from olive.snpe.utils.input_list import get_dir_members
-from olive.workflows.convertquantize.config import ConvertQuantizeConfig
-from olive.workflows.convertquantize.utils import get_model, resolve_model_dir
+from olive.workflows.wssi.config import ConvertQuantizeConfig
+from olive.workflows.wssi.utils import get_model, resolve_model_dir
 
 logger = logging.getLogger(__name__)
 
