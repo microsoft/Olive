@@ -67,10 +67,15 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
         # Copy inference config
         inference_config_path = str(model_dir / "inference_config.json")
         inference_config = pf_footprint.get_model_inference_config(model_id)
-        if inference_config:
-            inference_config["inference_settings"]["use_ort_extensions"] = pf_footprint.get_use_ort_extensions(model_id)
+
+        # Add use_ort_extensions to inference config if needed
+        use_ort_extensions = pf_footprint.get_use_ort_extensions(model_id)
+        if use_ort_extensions:
+            inference_config = inference_config or {}
+            inference_config["use_ort_extensions"] = pf_footprint.get_use_ort_extensions(model_id)
+
         with open(inference_config_path, "w") as f:
-            json.dump(pf_footprint.get_model_inference_config(model_id), f)
+            json.dump(inference_config, f)
 
         # Copy Passes configurations
         configuration_path = str(model_dir / "configurations.json")
@@ -85,7 +90,6 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
 
 
 def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
-
     NIGHTLY_PYTHON_CPU_COMMAND = Template(
         "python -m pip download -i "
         "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ "

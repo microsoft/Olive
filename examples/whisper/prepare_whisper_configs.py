@@ -76,6 +76,7 @@ def main(raw_args=None):
 
         # set output name
         config["engine"]["output_name"] = f"whisper_{device}_{precision}"
+        config["engine"]["packaging_config"]["name"] = f"whisper_{device}_{precision}"
 
         # set device for system
         config["systems"]["local_system"]["config"]["device"] = device
