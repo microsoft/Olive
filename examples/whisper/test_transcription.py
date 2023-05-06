@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import onnxruntime as ort
 from onnxruntime_extensions import PyOrtFunction
 
 # hard-coded audio hyperparameters
@@ -33,6 +34,10 @@ def get_args(raw_args):
 
 
 def main(raw_args=None):
+    # set ort logging level to 3 (ERROR)
+    ort.set_default_logger_severity(3)
+
+    # parse args
     args = get_args(raw_args)
 
     # load config

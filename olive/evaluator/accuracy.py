@@ -37,14 +37,14 @@ class AccuracyBase(AutoConfigClass):
         }
 
     @abstractmethod
-    def evaluate(self, preds, target):
+    def measure(self, preds, target):
         raise NotImplementedError()
 
 
 class AccuracyScore(AccuracyBase):
     name: str = "accuracy_score"
 
-    def evaluate(self, preds, target):
+    def measure(self, preds, target):
         preds_tensor = torch.tensor(preds, dtype=torch.int)
         target_tensor = torch.tensor(target, dtype=torch.int)
         accuracy = torchmetrics.Accuracy(**self.config.dict())
@@ -55,7 +55,7 @@ class AccuracyScore(AccuracyBase):
 class F1Score(AccuracyBase):
     name: str = "f1_score"
 
-    def evaluate(self, preds, target):
+    def measure(self, preds, target):
         preds_tensor = torch.tensor(preds, dtype=torch.int)
         target_tensor = torch.tensor(target, dtype=torch.int)
         f1 = torchmetrics.F1Score(**self.config.dict())
@@ -66,7 +66,7 @@ class F1Score(AccuracyBase):
 class Precision(AccuracyBase):
     name: str = "precision"
 
-    def evaluate(self, preds, target):
+    def measure(self, preds, target):
         preds_tensor = torch.tensor(preds, dtype=torch.int)
         target_tensor = torch.tensor(target, dtype=torch.int)
         precision = torchmetrics.Precision(**self.config.dict())
@@ -77,7 +77,7 @@ class Precision(AccuracyBase):
 class Recall(AccuracyBase):
     name: str = "recall"
 
-    def evaluate(self, preds, target):
+    def measure(self, preds, target):
         preds_tensor = torch.tensor(preds, dtype=torch.int)
         target_tensor = torch.tensor(target, dtype=torch.int)
         recall = torchmetrics.Recall(**self.config.dict())
@@ -92,7 +92,7 @@ class AUC(AccuracyBase):
     def _default_config():
         return {"reorder": ConfigParam(type_=bool, default_value=False)}
 
-    def evaluate(self, preds, target):
+    def measure(self, preds, target):
         preds = np.array(preds).flatten()
         target = np.array(target).flatten()
         preds_tensor = torch.tensor(preds, dtype=torch.int)

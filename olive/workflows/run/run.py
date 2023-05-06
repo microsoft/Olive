@@ -11,6 +11,7 @@ from typing import Union
 
 import onnxruntime as ort
 
+from olive import set_default_logger_severity
 from olive.systems.common import Device, SystemType
 from olive.workflows.run.config import RunConfig
 
@@ -63,6 +64,9 @@ def dependency_setup(config):
             "QuantizationAwareTraining": ["pytorch-lightning"],
             "OpenVINOConversion": EXTRAS.get("openvino"),
             "OpenVINOQuantization": EXTRAS.get("openvino"),
+            "IncQuantization": EXTRAS.get("inc"),
+            "IncDynamicQuantization": EXTRAS.get("inc"),
+            "IncStaticQuantization": EXTRAS.get("inc"),
         },
     }
 
@@ -113,6 +117,7 @@ def run(config: Union[str, Path, dict], setup: bool = False):
         config = RunConfig.parse_obj(config)
 
     # set ort log level
+    set_default_logger_severity(config.engine.log_severity_level)
     ort.set_default_logger_severity(config.engine.ort_log_severity_level)
 
     # input model

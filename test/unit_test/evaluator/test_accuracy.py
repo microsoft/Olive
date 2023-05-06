@@ -20,7 +20,7 @@ def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch):
     mock_torchmetrics.Accuracy().return_value = mock_res
 
     # execute
-    actual_res = acc.evaluate(preds, targets)
+    actual_res = acc.measure(preds, targets)
 
     # assert
     mock_torch.tensor.called_once_with(preds)
@@ -41,7 +41,7 @@ def test_evaluate_f1score(mock_torchmetrics, mock_torch):
     mock_torchmetrics.F1Score().return_value = mock_res
 
     # execute
-    actual_res = acc.evaluate(preds, targets)
+    actual_res = acc.measure(preds, targets)
 
     # assert
     mock_torch.tensor.called_once_with(preds)
@@ -62,7 +62,7 @@ def test_evaluate_precision(mock_torchmetrics, mock_torch):
     mock_torchmetrics.Precision().return_value = mock_res
 
     # execute
-    actual_res = acc.evaluate(preds, targets)
+    actual_res = acc.measure(preds, targets)
 
     # assert
     mock_torch.tensor.called_once_with(preds)
@@ -83,7 +83,7 @@ def test_evaluate_recall(mock_torchmetrics, mock_torch):
     mock_torchmetrics.Recall().return_value = mock_res
 
     # execute
-    actual_res = acc.evaluate(preds, targets)
+    actual_res = acc.measure(preds, targets)
 
     # assert
     mock_torch.tensor.called_once_with(preds)
@@ -104,7 +104,7 @@ def test_evaluate_auc(mock_torchmetrics, mock_torch):
     mock_torchmetrics.functional.auc.return_value = mock_res
 
     # execute
-    actual_res = acc.evaluate(preds, targets)
+    actual_res = acc.measure(preds, targets)
 
     # assert
     mock_torch.tensor.called_once_with(preds)

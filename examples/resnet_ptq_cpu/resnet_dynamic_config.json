@@ -59,8 +59,7 @@
                         "batch_size": 16
                     }
                 }
-            ],
-            "target": "local_system"
+            ]
         }
     },
     "passes": {
@@ -90,7 +89,8 @@
         },
         "clean_cache": false,
         "evaluator": "common_evaluator",
-        "host": {"type": "LocalSystem"},
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache"
     }
 }

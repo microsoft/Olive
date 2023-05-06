@@ -1,5 +1,5 @@
 coloredlogs
 flatbuffers
-onnx>=1.13.1
+onnx==1.13.1
 torch>=1.13.1
 transformers>=4.23.1
