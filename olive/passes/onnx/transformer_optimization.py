@@ -3,9 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
+from distutils.version import LooseVersion
 from typing import Any, Dict, List, Union
-
-from packaging import version
 
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -98,16 +97,16 @@ class OrtTransformersOptimization(Pass):
         """Configures fusion options for stable diffusion models"""
         import onnxruntime as ort
 
-        ort_version = version.parse(ort.__version__)
-        is_ort_1_13_or_older = ort_version < version.parse("1.14.0")
-        # is_ort_1_14 = ort_version >= version.parse("1.14.0") and ort_version < version.parse("1.15.0")
+        ort_version = LooseVersion(ort.__version__)
+        is_ort_1_13_or_older = ort_version < LooseVersion("1.14.0")
+        # is_ort_1_14 = ort_version >= LooseVersion("1.14.0") and ort_version < LooseVersion("1.15.0")
 
         # default to no specific fusion options in earlier releases of ORT
         if is_ort_1_13_or_older:
             return
 
-        is_ort_1_15_0_or_newer = ort_version >= version.parse("1.15.0")
-        is_ort_1_15_1_or_newer = ort_version >= version.parse("1.15.1")
+        is_ort_1_15_0_or_newer = ort_version >= LooseVersion("1.15.0")
+        is_ort_1_15_1_or_newer = ort_version >= LooseVersion("1.15.1")
 
         input_model_type = run_config["model_type"]
         if not is_ort_1_15_0_or_newer and input_model_type != "unet":
@@ -161,7 +160,7 @@ class OrtTransformersOptimization(Pass):
 
         if config["float16"]:
             if config["model_type"] in OrtTransformersOptimization.sd_model_types():
-                if version.parse(ort.__version__) < version.parse("1.15.0"):
+                if LooseVersion(ort.__version__) < LooseVersion("1.15.0"):
                     op_block_list += ["RandomNormalLike", "Resize", "GroupNorm"]
                 else:
                     op_block_list += ["RandomNormalLike"]
@@ -218,7 +217,7 @@ class OrtTransformersOptimization(Pass):
 
         if config["model_type"] in OrtTransformersOptimization.sd_model_types():
             # stable diffusion optimization only applies to the CUDA EP in ORT 1.14 and earlier.
-            if config["target_provider"] != "cuda" and version.parse(ort.__version__) < version.parse("1.15.0"):
+            if config["target_provider"] != "cuda" and LooseVersion(ort.__version__) < LooseVersion("1.15.0"):
                 return self._run_without_optimization(model, config, output_model_path)
 
             if config["optimization_options"] is None:

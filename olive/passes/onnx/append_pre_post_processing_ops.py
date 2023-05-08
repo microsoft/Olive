@@ -60,9 +60,9 @@ class AppendPrePostProcessingOps(Pass):
                 # ORT 1.14 and later support ONNX opset 18, which added antialiasing to the Resize operator.
                 # Results are much better when that can be used. Minimum opset is 16.
                 onnx_opset = config.get("target_opset")
-                from packaging import version
+                from distutils.version import LooseVersion
 
-                if version.parse(OrtVersion) >= version.parse("1.14.0"):
+                if LooseVersion(OrtVersion) >= LooseVersion("1.14.0"):
                     onnx_opset = 18
 
                 if isinstance(tool_command, str):

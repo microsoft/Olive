@@ -17,10 +17,11 @@ class QuantizationAwareTraining(Pass):
 
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
-        import pytorch_lightning
-        from packaging import version
+        from distutils.version import LooseVersion
 
-        if version.parse(pytorch_lightning.__version__) >= version.parse("1.9.0"):
+        import pytorch_lightning
+
+        if LooseVersion(pytorch_lightning.__version__) >= LooseVersion("1.9.0"):
             from pytorch_lightning.loggers import Logger
         else:
             from pytorch_lightning.loggers import LightningLoggerBase as Logger
