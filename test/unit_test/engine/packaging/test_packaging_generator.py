@@ -8,7 +8,9 @@ from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_onnxconversion_pass, get_pytorch_model
 
 from olive.engine import Engine
+from olive.engine.footprint import Footprint
 from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
+from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.olive_evaluator import OliveEvaluator
 
@@ -87,3 +89,41 @@ def test_generate_zipfile_artifacts_no_search():
 
     # cleanup
     shutil.rmtree(output_dir)
+
+
+def test_generate_zipfile_artifacts_none_nodes():
+    # setup
+    packaging_config = PackagingConfig()
+    packaging_config.type = PackagingType.Zipfile
+    packaging_config.name = "OutputModels"
+
+    foot_print = Footprint()
+    pf_footprint = Footprint()
+    pf_footprint.nodes = None
+    output_dir = Path(__file__).parent / "outputs"
+
+    # execute
+    generate_output_artifacts(packaging_config, foot_print, pf_footprint, output_dir)
+
+    # assert
+    artifacts_path = output_dir / "OutputModels.zip"
+    assert not artifacts_path.exists()
+
+
+def test_generate_zipfile_artifacts_zero_len_nodes():
+    # setup
+    packaging_config = PackagingConfig()
+    packaging_config.type = PackagingType.Zipfile
+    packaging_config.name = "OutputModels"
+
+    foot_print = Footprint()
+    pf_footprint = Footprint()
+    pf_footprint.nodes = {}
+    output_dir = Path(__file__).parent / "outputs"
+
+    # execute
+    generate_output_artifacts(packaging_config, foot_print, pf_footprint, output_dir)
+
+    # assert
+    artifacts_path = output_dir / "OutputModels.zip"
+    assert not artifacts_path.exists()

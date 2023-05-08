@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 def generate_output_artifacts(
     packaging_config: PackagingConfig, foot_print: Footprint, pf_footprint: Footprint, output_dir: Path
 ):
+    if pf_footprint.nodes is None or len(pf_footprint.nodes) == 0:
+        logger.warning("No model is selected. Skip packaging output artifacts.")
+        return
     if packaging_config.type == PackagingType.Zipfile:
         _generate_zipfile_output(packaging_config, foot_print, pf_footprint, output_dir)
 
