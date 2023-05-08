@@ -28,7 +28,7 @@ def test_generate_zipfile_artifacts():
         "clean_evaluation_cache": True,
     }
     engine = Engine(options, evaluator=evaluator)
-    engine.register(OnnxConversion, {}, False)
+    engine.register(OnnxConversion)
 
     input_model = get_pytorch_model()
 
@@ -62,7 +62,7 @@ def test_generate_zipfile_artifacts_no_search():
         "clean_evaluation_cache": True,
     }
     engine = Engine(options)
-    engine.register(OnnxConversion, {}, False)
+    engine.register(OnnxConversion)
 
     input_model = get_pytorch_model()
 

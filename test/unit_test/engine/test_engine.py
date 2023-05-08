@@ -48,7 +48,7 @@ class TestEngine:
         engine = Engine(options)
 
         # execute
-        engine.register(OnnxConversion, {}, False, host=system, evaluator=evaluator)
+        engine.register(OnnxConversion, host=system, evaluator=evaluator)
 
         # assert
         assert name in engine.pass_config
@@ -68,7 +68,7 @@ class TestEngine:
         engine = Engine(options)
 
         # execute
-        engine.register(OnnxDynamicQuantization, {}, True)
+        engine.register(OnnxDynamicQuantization, disable_search=True)
 
         # assert
         assert name in engine.pass_config
@@ -84,7 +84,7 @@ class TestEngine:
         engine = Engine(options)
 
         # execute
-        engine.register(OnnxDynamicQuantization, {}, False)
+        engine.register(OnnxDynamicQuantization)
         with pytest.raises(ValueError) as exc_info:
             engine.run(pytorch_model)
 
@@ -108,7 +108,7 @@ class TestEngine:
             "clean_evaluation_cache": True,
         }
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator=evaluator)
-        engine.register(OnnxConversion, {}, False, clean_run_cache=True)
+        engine.register(OnnxConversion, clean_run_cache=True)
         onnx_model = get_onnx_model()
         mock_local_system.run_pass.return_value = onnx_model
         mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
@@ -158,7 +158,7 @@ class TestEngine:
             "clean_evaluation_cache": True,
         }
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator=evaluator)
-        engine.register(OnnxConversion, {}, True, clean_run_cache=True)
+        engine.register(OnnxConversion, disable_search=True, clean_run_cache=True)
         onnx_model = get_onnx_model()
         mock_local_system.run_pass.return_value = onnx_model
         mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
@@ -204,7 +204,7 @@ class TestEngine:
                 },
             }
             engine = Engine(options, evaluator=evaluator, host=system, target=system)
-            engine.register(OnnxConversion, {}, False, clean_run_cache=True)
+            engine.register(OnnxConversion, clean_run_cache=True)
             model = PyTorchModel(model_loader=pytorch_model_loader, model_path=None)
 
             # execute
@@ -226,7 +226,7 @@ class TestEngine:
             "clean_evaluation_cache": True,
         }
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator=evaluator)
-        engine.register(OnnxConversion, {}, False, clean_run_cache=True)
+        engine.register(OnnxConversion, clean_run_cache=True)
         onnx_model = get_onnx_model()
         mock_local_system.run_pass.return_value = onnx_model
         mock_local_system.evaluate_model.return_value = {metric.name: 0.998}

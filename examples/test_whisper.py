@@ -26,9 +26,9 @@ def setup():
     os.chdir(cur_dir)
 
 
-def check_output(output):
-    output = output[0]
-    assert output["metrics"]["latency"] > 0
+def check_output(outputs):
+    for output in outputs:
+        assert output["metrics"]["latency"] > 0
 
 
 @pytest.mark.parametrize("device_precision", [("cpu", "fp32"), ("cpu", "int8")])

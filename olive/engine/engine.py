@@ -161,7 +161,7 @@ class Engine:
 
         self.pass_config[name] = {
             "type": pass_type,
-            "config": config,
+            "config": config or {},
             "disable_search": disable_search,
             "host": host,
             "evaluator": evaluator,
@@ -174,7 +174,6 @@ class Engine:
         name: str = None,
         host: OliveSystem = None,
         evaluator: OliveEvaluator = None,
-        clean_run_cache: bool = False,
     ):
         """
         Register a pass
@@ -198,7 +197,6 @@ class Engine:
             "pass": p,
             "host": host,
             "evaluator": evaluator,
-            "clean_run_cache": clean_run_cache,
         }
 
     def run(
