@@ -24,7 +24,7 @@ SUPPORTED_WORKFLOWS = {
 
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Prepare config file for Whisper")
-    parser.add_argument("--model_name", type=str, default="openai/whisper-base.en", help="Model name")
+    parser.add_argument("--model_name", type=str, default="openai/whisper-tiny.en", help="Model name")
     parser.add_argument(
         "--no_audio_decoder",
         action="store_true",
