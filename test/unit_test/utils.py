@@ -10,8 +10,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
-from olive.data_config.config import DataComponentConfig, DataConfig
-from olive.data_config.registry import Registry
+from olive.data.config import DataComponentConfig, DataConfig
+from olive.data.registry import Registry
 from olive.evaluator.metric import Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
 from olive.model import ONNXModel, PyTorchModel

@@ -151,7 +151,7 @@ Each search algorithm provides the methods:
 The following search algorithms have been implemented:
 - `ExhaustiveSearchAlgorithm`: Exhaustively iterates over the search space.
 - `RandomSearchAlgorithm`: Randomly samples points from the search space without replacement.
-- `OptunaSearchAlgorithm`: Abstract base class for algorithms built using `optuna` samplers. This class cannot be used directy
+- `OptunaSearchAlgorithm`: Abstract base class for algorithms built using `optuna` samplers. This class cannot be used directly
     - `TPESearchAlgorithm`: Uses optuna `TPESampler`.
 
 ### SearchResults
@@ -263,50 +263,6 @@ Then the design for `DataContainer` interface will be like:
 ![figure](./source/images/datacontainer_example.png)
 
 1. There will be build-in DataContainers for different datasets, models and tasks, which implement the Olive `DataContainer` interface, like `HuggingfaceDataContainer`, `VideoDataContainer`, `VoiceDataContainer` and more.
-Each build-in DataContainer uniquely corresponds to a template of config like:
-    ```json
-    {
-        "data_config": {
-            "type": "BaseContainer", // Olive BaseContainer interface, can be other available DataContainers like HuggingfaceDataContainer, VideoDataContainer...
-            "config": {
-                "task_type": "QuestionAnswering", // Olive TaskType interface, can be other available TaskTypes like ClassificationTaskType, RegressionTaskType, SequenceLabelingTaskType, QuestionAnsweringTaskType ...
-                "load_dataset": {
-                    "type": "default_load_dataset", // Olive Dataset interface, can be other available Datasets like HuggingfaceDataset, LocalDataset, SamplerDataset ...
-                    "config": {
-                        "dataset_name": "glue",
-                        "param1": "value1",
-                        "param2": "value2",
-                        ...
-                    }
-                }, // optional
-                "pre_precess": {
-                    "type": "pre_precess", // Olive pre_precess interface, can be other available PreProcess like HuggingfacePreProcess, ToTorchTensorPreProcess, TokenizerPreProcess ...
-                    "config": {
-                        "param1": "value1",
-                        "param2": "value2",
-                        ...
-                    }
-                }, // optional
-                "post_process": {
-                    "type": "post_process", // Olive post_process interface, can be other available PostProcess like HuggingfacePostProcess, ToTorchTensorPostProcess, TokenizerPostProcess ...
-                    "config": {
-                        "param1": "value1",
-                        "param2": "value2",
-                        ...
-                    }
-                }, // optional
-                "dataloader": {
-                    "type": "default_dataloader", // Olive DataLoader interface, can be other available DataLoaders like HuggingfaceDataLoader, LocalDataLoader, SamplerDataLoader ...
-                    "config": {
-                        "batch_size": 10,
-                        "sample_ratio": 0.1,
-                        ...
-                    }
-                } // optional
-            }
-        }
-    }
-    ```
 2. User can implement their own `dataset`, `pre_process`, `post_process` and `dataloader` to use the Olive `DataContainer` interface. If one of the components is not implemented, the Olive will use the build-in default component to replace it.
 3. User can use pre-defined register(`Decorator`) to register their own `dataset`, `pre_process`, `post_process` and `dataloader` in `user_scripts`, then replace the build-in default component with their own one. The register usage will be like:
     ```python
@@ -342,76 +298,10 @@ Each build-in DataContainer uniquely corresponds to a template of config like:
         }
     )
     ```
-4. `DataContainer` will be used in `Pass` and `Evaluation` to load the dataset and get the dataloader. They will be used like the way of `System` in Olive config which can be defined once and used in different `Pass` and `Evaluation`, for example:
-```json
-{
-    "verbose": true,
-    "input_model":{
-        "type": "PyTorchModel",
-        "config": {
-            "hf_config": {
-                "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification"
-            },
-            "io_config" : {
-                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                "input_types": ["int64", "int64", "int64"],
-                "output_names": ["output"]
-            }
-        }
-    },
-    "systems": {
-        ...
-    },
-    "evaluators": {
-        "common_evaluator": {
-            "metrics":[
-                {
-                    ...
-                    "data_config": "my_container" // <-------------------
-                },
-            ],
-            "target": "local_system"
-        }
-    },
-    "passes": {
-        "conversion": {
-           ...
-        },
-        "transformers_optimization": {
-            ...
-        },
-        "quantization": {
-            "type": "OnnxQuantization",
-            "config": {
-                "data_config": "my_container" // <-------------------
-            }
-        },
-    },
-    "engine": {
-        ...
-    },
-    "data_config": {
-        "my_container": { // <-------------------
-            "name": "glue",
-            "type": "HuggingfaceContainer",
-            "params_config": {
-                "data_name": "glue",
-                "subset": "mrpc",
-                "split": "validation",
-                "input_cols": ["sentence1", "sentence2"],
-                "label_cols": ["label"],
-                "batch_size": 1
-            }
-        }
-    }
-}
-```
 
 ### Relationship between `DataContainer` and `DataComponent`
 
-`DataContainer` is the endpoint used to call the components under `DataComponent`, which include `dataset`, `pre_process`, `post_process` and `dataloader`. The relationship between `DataContainer` and `DataComponent` is as folows:
+`DataContainer` is the endpoint used to call the components under `DataComponent`, which will use `DataConfig` to describe the structure which include `dataset`, `pre_process`, `post_process` and `dataloader`. The relationship between `DataContainer` and `DataComponent` is as follows:
 ```python
 DefaultDataComponentCombos = {
     DataComponentType.DATASET.value: DefaultDataComponent.DATASET.value,
@@ -420,22 +310,17 @@ DefaultDataComponentCombos = {
     DataComponentType.DATALOADER.value: DefaultDataComponent.DATALOADER.value,
 }
 
+class BaseContainer(pydantic.BaseModel):
+    """
+    Base class for data container.
+    """
+    # override the default components from config with base class or subclass
+    default_components_type: ClassVar[dict] = DefaultDataComponentCombos
+    # avoid to directly create the instance of DataComponentConfig,
+    # suggest to use config.to_data_container()
+    config: DataConfig = None
 
-class DataConfig(ConfigBase):
-    name: str = DefaultDataContainer.DATA_CONTAINER.value
-    type: str = DefaultDataContainer.DATA_CONTAINER.value
-
-    # used to store the params for each component
-    params_config: Dict = None
-
-    components: dict[str, DataComponentConfig] = None
-    default_components: dict[str, DataComponentConfig] = None
-    default_components_type: dict[str, str] = None
 ```
-
-
-### Implement Dataset examples
-When dataset interface is unified, we can tried to conduct more build-in data containers and data components.
 
 
 ## olive.workflows.run

@@ -5,9 +5,9 @@
 
 from typing import ClassVar
 
-from olive.data_config.constants import DataComponentType, DataContainerType
-from olive.data_config.container.base_container import BaseContainer
-from olive.data_config.registry import Registry
+from olive.data.constants import DataComponentType, DataContainerType
+from olive.data.container.base_container import BaseContainer
+from olive.data.registry import Registry
 
 
 @Registry.register(DataContainerType.DATA_CONTAINER)

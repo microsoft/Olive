@@ -5,7 +5,7 @@
 
 from torch.utils.data import Dataset
 
-from olive.data_config.registry import Registry
+from olive.data.registry import Registry
 
 
 class BaseDataset(Dataset):

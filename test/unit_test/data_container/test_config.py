@@ -7,8 +7,8 @@ from test.unit_test.utils import get_data_config
 
 import pytest
 
-from olive.data_config.config import DataConfig
-from olive.data_config.registry import Registry
+from olive.data.config import DataConfig
+from olive.data.registry import Registry
 
 
 class TestDataConfig:

@@ -6,8 +6,8 @@ import logging
 from typing import Dict
 
 from olive.common.config_utils import ConfigBase
-from olive.data_config.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
-from olive.data_config.registry import Registry
+from olive.data.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
+from olive.data.registry import Registry
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class DataConfig(ConfigBase):
 
     def update_components(self):
         """
-        Update the components in the data container with default_components if user do not provide.
+        Update the components in the data config with default_components if user do not provide.
         """
         self.components = self.components or {}
         self.default_components = self.default_components or {}
@@ -114,14 +114,14 @@ class DataConfig(ConfigBase):
 
     def get_components_params(self):
         """
-        Get the parameters of the data container.
+        Get the parameters from data config.
         """
         return {k: v.params for k, v in self.components.items()}
 
     @property
     def dataset(self):
         """
-        Get the dataset of the data container.
+        Get the dataset from data config.
         """
         name = self.components["dataset"].type or DefaultDataComponent.DATASET.value
         return Registry.get_dataset_component(name)
@@ -129,7 +129,7 @@ class DataConfig(ConfigBase):
     @property
     def pre_process(self):
         """
-        Get the pre-process of the data container.
+        Get the pre-process from data config.
         """
         name = self.components["pre_process"].type or DefaultDataComponent.PRE_PROCESS.value
         return Registry.get_pre_process_component(name)
@@ -137,7 +137,7 @@ class DataConfig(ConfigBase):
     @property
     def post_process(self):
         """
-        Get the post-process of the data container.
+        Get the post-process from data config.
         """
         name = self.components["post_process"].type or DefaultDataComponent.POST_PROCESS.value
         return Registry.get_post_process_component(name)
@@ -145,7 +145,7 @@ class DataConfig(ConfigBase):
     @property
     def dataloader(self):
         """
-        Get the dataloader of the data container.
+        Get the dataloader from data config.
         """
         name = self.components["dataloader"].type or DefaultDataComponent.DATALOADER.value
         return Registry.get_dataloader_component(name)
@@ -153,34 +153,34 @@ class DataConfig(ConfigBase):
     @property
     def dataset_params(self):
         """
-        Get the parameters of the dataset.
+        Get the parameters from dataset.
         """
         return self.components["dataset"].params
 
     @property
     def pre_process_params(self):
         """
-        Get the parameters of the pre-process.
+        Get the parameters from pre-process.
         """
         return self.components["pre_process"].params
 
     @property
     def post_process_params(self):
         """
-        Get the parameters of the post-process.
+        Get the parameters from post-process.
         """
         return self.components["post_process"].params
 
     @property
     def dataloader_params(self):
         """
-        Get the parameters of the dataloader.
+        Get the parameters from dataloader.
         """
         return self.components["dataloader"].params
 
     def to_data_container(self):
         """
-        Convert the data container config to the data container.
+        Convert the data config to the data container.
         """
         dc_cls = Registry.get_container(self.type)
         return dc_cls(config=self)

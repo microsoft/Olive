@@ -6,16 +6,16 @@ from typing import ClassVar
 
 from pydantic import BaseModel
 
-from olive.data_config.component.dataloader import default_calibration_dataloader
-from olive.data_config.config import DataConfig, DefaultDataComponentCombos
-from olive.data_config.constants import DataContainerType, DefaultDataContainer
-from olive.data_config.registry import Registry
+from olive.data.component.dataloader import default_calibration_dataloader
+from olive.data.config import DataConfig, DefaultDataComponentCombos
+from olive.data.constants import DataContainerType, DefaultDataContainer
+from olive.data.registry import Registry
 
 
 @Registry.register(DataContainerType.DATA_CONTAINER, name=DefaultDataContainer.DATA_CONTAINER.value)
 class BaseContainer(BaseModel):
     """
-    Base class for data containers.
+    Base class for data container.
     """
 
     # override the default components from config with baseclass or subclass

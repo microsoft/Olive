@@ -8,7 +8,7 @@ from typing import List, Union
 from pydantic import BaseModel, validator
 
 from olive.common.config_utils import ConfigBase, validate_config
-from olive.data_config.config import DataConfig
+from olive.data.config import DataConfig
 from olive.evaluator.accuracy import AccuracyBase
 from olive.evaluator.metric_config import LatencyMetricConfig, MetricGoal, get_user_config_class
 

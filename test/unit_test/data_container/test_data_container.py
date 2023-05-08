@@ -7,8 +7,8 @@ from test.unit_test.utils import get_data_config, get_dc_params_config, get_glue
 
 import pytest
 
-from olive.data_config.config import DataConfig
-from olive.data_config.container.base_container import BaseContainer
+from olive.data.config import DataConfig
+from olive.data.container.base_container import BaseContainer
 
 
 class TestDataConfig:
@@ -46,4 +46,4 @@ class TestDataConfig:
             dataset = self.dc.dataset()
             self.dc.pre_process(dataset)
         except Exception as e:
-            pytest.fail(f"Failed to run data container: {e}")
+            pytest.fail(f"Failed to run get pre_process from data config: {e}")

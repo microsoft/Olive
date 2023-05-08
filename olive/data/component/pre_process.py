@@ -4,8 +4,8 @@
 # --------------------------------------------------------------------------
 
 
-from olive.data_config.component.dataset import BaseDataset
-from olive.data_config.registry import Registry
+from olive.data.component.dataset import BaseDataset
+from olive.data.registry import Registry
 
 
 @Registry.register_default_pre_process()

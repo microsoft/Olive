@@ -8,9 +8,9 @@ from typing import Dict, Union
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, validate_config
-from olive.data_config.config import DataConfig
-from olive.data_config.constants import DEFAULT_HF_DATA_CONTAINER_NAME, DefaultDataContainer
-from olive.data_config.container.huggingface_container import HuggingfaceContainer
+from olive.data.config import DataConfig
+from olive.data.constants import DEFAULT_HF_DATA_CONTAINER_NAME, DefaultDataContainer
+from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig

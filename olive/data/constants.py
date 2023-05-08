@@ -28,7 +28,7 @@ class DataContainerType(Enum):
     enumerate for the different types of data containers
     """
 
-    DATA_CONTAINER = "data_config"
+    DATA_CONTAINER = "data_container"
 
 
 class DefaultDataComponent(Enum):

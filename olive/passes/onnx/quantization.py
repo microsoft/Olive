@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, Union
 import onnx
 
 from olive.common.utils import hash_string
-from olive.data_config.config import DataConfig
+from olive.data.config import DataConfig
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -155,7 +155,7 @@ _static_dataloader_config = {
             Batch size for calibration, required if quant_mode is 'static'.
         """,
     ),
-    # TODO: remove this option once we have a data container ready
+    # TODO: remove this option once we have a data config ready
     "dataloader_func": PassConfigParam(
         type_=Union[Callable, str],
         required=False,
@@ -169,7 +169,7 @@ _static_dataloader_config = {
         type_=Union[DataConfig, str],
         required=False,
         description="""
-            Data container for calibration, required if quant_mode is 'static'.
+            Data config for calibration, required if quant_mode is 'static'.
             If not provided, a default DataConfig will be used.
         """,
     ),
@@ -385,7 +385,7 @@ class OnnxQuantization(Pass):
 
         if is_static:
             # get the dataloader
-            # TODO: only use data container
+            # TODO: only use data config
             if self._user_module_loader.user_module:
                 dataloader = self._user_module_loader.call_object(
                     self._fixed_params["dataloader_func"],
