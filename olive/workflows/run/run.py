@@ -12,6 +12,7 @@ from typing import Union
 import onnxruntime as ort
 
 from olive import set_default_logger_severity
+from olive.passes import Pass
 from olive.systems.common import Device, SystemType
 from olive.workflows.run.config import RunConfig
 
@@ -135,10 +136,17 @@ def run(config: Union[str, Path, dict], setup: bool = False):
     else:
         # passes
         for pass_name, pass_config in config.passes.items():
-            p = pass_config.create_pass()
             host = pass_config.host.create_system() if pass_config.host is not None else None
             evaluator = pass_config.evaluator.create_evaluator() if pass_config.evaluator is not None else None
-            engine.register(p, pass_name, host, evaluator, pass_config.clean_run_cache)
+            engine.register(
+                Pass.registry[pass_config.type.lower()],
+                pass_config.config,
+                False,
+                pass_name,
+                host,
+                evaluator,
+                pass_config.clean_run_cache,
+            )
 
         # run
         best_execution = engine.run(
