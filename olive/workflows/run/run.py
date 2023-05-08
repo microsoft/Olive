@@ -141,7 +141,7 @@ def run(config: Union[str, Path, dict], setup: bool = False):
             engine.register(
                 Pass.registry[pass_config.type.lower()],
                 pass_config.config,
-                False,
+                pass_config.disable_search,
                 pass_name,
                 host,
                 evaluator,
