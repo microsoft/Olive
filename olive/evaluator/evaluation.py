@@ -13,8 +13,9 @@ from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework
 from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Precision, Recall
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric
-from olive.model import OliveModel
+from olive.model import OliveModel, DistributedOnnxModel
 from olive.systems.common import Device
+from olive.evaluator.distributed_evaluator import eval_onnx_distributed_latency
 
 
 def evaluate_accuracy(model: OliveModel, metric: Metric, device: Device = Device.CPU) -> Dict[str, Any]:
@@ -82,20 +83,23 @@ def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.
     # will be used in model.prepare_session(..)
     inference_settings = metric.user_config.inference_settings
     model_inference_settings = inference_settings.get(model.framework.lower()) if inference_settings else None
-    sess = model.prepare_session(inference_settings=model_inference_settings, device=device)
+    # sess = model.prepare_session(inference_settings=model_inference_settings, device=device)
 
     if model.framework == Framework.ONNX:
-        io_config = model.get_io_config()
-        latencies = evaluate_latency_onnx(
-            sess=sess,
-            dataloader=dataloader,
-            user_config=metric.user_config,
-            device=device,
-            warmup_num=warmup_num,
-            repeat_test_num=repeat_test_num,
-            sleep_num=sleep_num,
-            io_config=io_config,
-        )
+        if isinstance(model, DistributedOnnxModel):
+            latencies = eval_onnx_distributed_latency(model)
+        else:
+            io_config = model.get_io_config()
+            latencies = evaluate_latency_onnx(
+                sess=sess,
+                dataloader=dataloader,
+                user_config=metric.user_config,
+                device=device,
+                warmup_num=warmup_num,
+                repeat_test_num=repeat_test_num,
+                sleep_num=sleep_num,
+                io_config=io_config,
+            )
     elif model.framework == Framework.PYTORCH:
         latencies = evaluate_latency_pytorch(
             sess=sess, dataloader=dataloader, device=device, warmup_num=warmup_num, repeat_test_num=repeat_test_num

@@ -836,7 +836,8 @@ class DistributedOnnxModel(ONNXModelBase):
         # if user doesn't not provide ep list, use default value([ep]). Otherwise, use the user's ep list
         execution_providers = inference_settings.get("execution_provider")
         if not execution_providers:
-            execution_providers = self.get_default_execution_providers(device)
+            # it is a weird api...
+            execution_providers = self.get_default_execution_providers(self.model_filepaths[0], device)
             inference_settings["execution_provider"] = execution_providers
 
         if not inference_settings.get("provider_options"):
@@ -848,10 +849,10 @@ class DistributedOnnxModel(ONNXModelBase):
 
     def get_default_execution_providers(self, filepath: str, device: Device):
         # return firstly available ep as ort default ep
-        available_providers = DistributedOnnxModel.get_execution_providers(device)
-        for ep in available_providers:
-            if self._is_valid_ep(filepath, ep):
-                return [ep]
+        # available_providers = DistributedOnnxModel.get_execution_providers(device)
+        # for ep in available_providers:
+        #     if self._is_valid_ep(filepath, ep):
+        #         return [ep]
 
         return ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
@@ -881,7 +882,7 @@ class DistributedOnnxModel(ONNXModelBase):
                 "use_ort_extensions": self.use_ort_extensions,
             },
         }
-        return serialize_to_json(config, check_object=check_object)
+        return serialize_to_json(config, check_objects=check_object)
 
 
 class CompositeOnnxModel(ONNXModelBase):

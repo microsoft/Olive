@@ -35,6 +35,11 @@ def run(input_model_path: str,
 
     sharding_metadata = shard_onnx_model(
         model, hardware, None, False, sharding_spec)
+
+    import os
+    if not os.path.exists(output_dirpath):
+        os.mkdir(output_dirpath)
+
     generate_sharded_model(model, sharding_metadata,
                            hardware, output_dirpath, False)
     return [os.path.join(output_dirpath, f'shard_{i}.onnx') for i in range(hardware.device_count)]
