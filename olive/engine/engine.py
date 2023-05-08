@@ -18,6 +18,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
+from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig, ModelStorageKind, OliveModel
 from olive.passes.olive_pass import Pass
 from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
@@ -36,6 +37,7 @@ class EngineConfig(ConfigBase):
     search_strategy: Union[SearchStrategyConfig, bool] = None
     host: SystemConfig = None
     target: SystemConfig = None
+    execution_providers: List[str] = None
     evaluator: OliveEvaluatorConfig = None
     azureml_client_config: Optional[AzureMLClientConfig] = None
     packaging_config: PackagingConfig = None
@@ -58,6 +60,7 @@ class Engine:
         host: Optional[OliveSystem] = None,
         target: Optional[OliveSystem] = None,
         evaluator_config: Optional[OliveEvaluatorConfig] = None,
+        execution_providers: Optional[List[str]] = None,
     ):
         self._config = validate_config(config, EngineConfig)
 
@@ -89,6 +92,29 @@ class Engine:
             self.target = self._config.target.create_system()
         else:
             self.target = LocalSystem()
+
+        # verfiy the AzureML system have specified the execution providers
+        # Please note we could not use isinstance(target, AzureMLSystem) since it would import AzureML packages.
+        if self.target.system_type == SystemType.AzureML and execution_providers is None:
+            raise ValueError("AzureMLSystem requires execution providers to be specified.")
+
+        if execution_providers is None and self.target.system_type == SystemType.Local:
+            execution_providers = self.target.get_supported_execution_providers()
+
+        self.execution_providers = execution_providers
+
+        # Flatten the accelerators to list of AcceleratorSpec
+        accelerators: List[str] = self.target.accelerators
+        if accelerators is None:
+            logger.warning("No accelerators specified for target system. Using CPU.")
+            accelerators = ["CPU"]
+
+        accelerator_specs = []
+        for accelerator in accelerators:
+            device = Device(accelerator.lower())
+            for ep in AcceleratorLookup.get_execution_providers_for_device(device):
+                accelerator_specs.append(AcceleratorSpec()(device, ep))
+        self.accelerator_specs = accelerator_specs
 
         # default evaluator
         self.evaluator_config = None

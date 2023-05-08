@@ -16,9 +16,10 @@ import torch
 from olive.common.utils import run_subprocess
 from olive.evaluator.metric import Metric, MetricType
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
+from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
-from olive.systems.common import Device, SystemType
+from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
 
@@ -35,7 +36,7 @@ class PythonEnvironmentSystem(OliveSystem):
         environment_variables: Dict[str, str] = None,
         prepend_to_path: List[str] = None,
     ):
-        super().__init__()
+        super().__init__(accelerators=None)
         self.config = PythonEnvironmentTargetUserConfig(
             python_environment_path=python_environment_path,
             device=device,
@@ -68,7 +69,7 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         raise ValueError("PythonEnvironmentSystem does not support running passes.")
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> Dict[str, Any]:
+    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> Dict[str, Any]:
         """
         Evaluate the model
         """
@@ -228,13 +229,9 @@ class PythonEnvironmentSystem(OliveSystem):
         Get the execution providers for the device.
         """
         available_eps = self.get_available_eps()
-        eps_per_device = ONNXModel.EXECUTION_PROVIDERS.get(self.config.device)
-        eps = []
-        if eps_per_device:
-            for ep in available_eps:
-                if ep in eps_per_device:
-                    eps.append(ep)
-        return eps or available_eps
+        return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
+            self.config.device, available_eps
+        )
 
     def get_default_execution_provider(self, model: ONNXModel) -> List[str]:
         """

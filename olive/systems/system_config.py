@@ -11,11 +11,12 @@ from pydantic import validator
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
-from olive.systems.common import AzureMLDockerConfig, Device, LocalDockerConfig, SystemType
+from olive.hardware import Device
+from olive.systems.common import AzureMLDockerConfig, LocalDockerConfig, SystemType
 
 
 class TargetUserConfig(ConfigBase):
-    pass
+    accelerators: List[str] = None
 
 
 class LocalTargetUserConfig(TargetUserConfig):

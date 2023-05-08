@@ -7,8 +7,8 @@ import argparse
 from inception_utils import get_directories, print_metrics
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
+from olive.hardware import Device
 from olive.model import SNPEModel
-from olive.systems.common import Device
 from olive.systems.local import LocalSystem
 
 

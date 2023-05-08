@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, Union
 
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import get_properties_from_metric_type
+from olive.hardware.accelerator import AcceleratorLookup
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
@@ -20,7 +21,11 @@ logger = logging.getLogger(__name__)
 def generate_tuning_combos(model, config):
     import onnxruntime as ort
 
-    providers_list = config.providers_list if config.providers_list else model.get_execution_providers(config.device)
+    providers_list = (
+        config.providers_list
+        if config.providers_list
+        else AcceleratorLookup.get_execution_providers_for_device(config.device)
+    )
     execution_mode_list = (
         config.execution_mode_list
         if config.execution_mode_list

@@ -20,6 +20,7 @@ from olive.common.config_utils import validate_config
 from olive.common.utils import retry_func
 from olive.constants import Framework
 from olive.evaluator.metric import Metric
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ModelConfig, ModelStorageKind, OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import AzureMLDockerConfig, SystemType
@@ -38,8 +39,9 @@ class AzureMLSystem(OliveSystem):
         aml_docker_config: Union[Dict[str, Any], AzureMLDockerConfig],
         instance_count: int = 1,
         is_dev: bool = False,
+        accelerators: List[str] = None,
     ):
-        super().__init__()
+        super().__init__(accelerators)
         self._assert_not_none(aml_docker_config)
         aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
         azureml_client_config = validate_config(azureml_client_config, AzureMLClientConfig)
@@ -387,7 +389,7 @@ class AzureMLSystem(OliveSystem):
             "metric_data_dir": metric_data_dir,
         }
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> Dict[str, Any]:
+    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> Dict[str, Any]:
         if model.framework == Framework.SNPE:
             raise NotImplementedError("SNPE model does not support azureml evaluation")
         if model.framework == Framework.OPENVINO:
@@ -395,7 +397,7 @@ class AzureMLSystem(OliveSystem):
 
         with tempfile.TemporaryDirectory() as tempdir:
             ml_client = self.azureml_client_config.create_client()
-            pipeline_job = self._create_pipeline_for_evaluation(tempdir, model, metrics)
+            pipeline_job = self._create_pipeline_for_evaluation(tempdir, model, metrics, accelerator)
 
             # submit job
             logger.debug("Submitting pipeline")
@@ -431,7 +433,9 @@ class AzureMLSystem(OliveSystem):
 
             return metric_results
 
-    def _create_pipeline_for_evaluation(self, tmp_dir: str, model: OliveModel, metrics: List[Metric]):
+    def _create_pipeline_for_evaluation(
+        self, tmp_dir: str, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec
+    ):
         tmp_dir = Path(tmp_dir)
 
         # model json
@@ -440,13 +444,17 @@ class AzureMLSystem(OliveSystem):
         # model args
         model_args = self._create_model_args(model_json, tmp_dir)
 
+        accelerator_args = json.dumps(accelerator)
+        accelerator_config_path: Path = tmp_dir / "accelerator.json"
+        json.dump(accelerator_args, accelerator_config_path.open("w"), sort_keys=True)
+
         @pipeline
         def evaluate_pipeline():
             outputs = {}
             for metric in metrics:
                 metric_tmp_dir = tmp_dir / metric.name
                 metric_component = self._create_metric_component(
-                    metric_tmp_dir, metric, model_args, model.model_storage_kind
+                    metric_tmp_dir, metric, model_args, model.model_storage_kind, accelerator_config_path
                 )
                 outputs[metric.name] = metric_component.outputs.pipeline_output
             return outputs
@@ -457,7 +465,12 @@ class AzureMLSystem(OliveSystem):
         return pipeline_job
 
     def _create_metric_component(
-        self, tmp_dir: Path, metric: Metric, model_args: Dict[str, Input], model_storage_kind: ModelStorageKind
+        self,
+        tmp_dir: Path,
+        metric: Metric,
+        model_args: Dict[str, Input],
+        model_storage_kind: ModelStorageKind,
+        accelerator_config_path: str,
     ):
         metric_json = metric.to_json(check_objects=True)
 
@@ -477,7 +490,11 @@ class AzureMLSystem(OliveSystem):
             shutil.copytree(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
         # prepare inputs
-        inputs = {**self._create_model_inputs(model_storage_kind), **self._create_metric_inputs()}
+        inputs = {
+            **self._create_model_inputs(model_storage_kind),
+            **self._create_metric_inputs(),
+            **{"accelerator_config": Input(type=AssetTypes.URI_FILE)},
+        }
 
         # metric type
         metric_type = metric_json["type"]
@@ -498,7 +515,11 @@ class AzureMLSystem(OliveSystem):
         )
 
         # input argument values
-        args = {**model_args, **self._create_metric_args(metric_json, tmp_dir)}
+        args = {
+            **model_args,
+            **self._create_metric_args(metric_json, tmp_dir),
+            **{"accelerator_config": Input(type=AssetTypes.URI_FILE, path=accelerator_config_path)},
+        }
 
         # metric component
         metric_component = cmd(**args)
