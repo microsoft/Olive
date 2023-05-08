@@ -25,7 +25,6 @@ This document describes the Olive components, and some implementation details. T
     - [General workflow for dataset load and processing](#general-workflow-for-dataset-load-and-processing)
     - [Olive DataContainer interface](#olive-datacontainer-interface)
     - [Relationship between DataContainer and DataComponent](#relationship-between-datacontainer-and-datacomponent)
-    - [Implement Dataset examples](#implement-dataset-examples)
 - [olive.workflows.run](#oliveolive)
     - [User Interface](#user-interface-1)
 
@@ -301,7 +300,7 @@ Then the design for `DataContainer` interface will be like:
 
 ### Relationship between `DataContainer` and `DataComponent`
 
-`DataContainer` is the endpoint used to call the components under `DataComponent`, which will use `DataConfig` to describe the structure which include `dataset`, `pre_process`, `post_process` and `dataloader`. The relationship between `DataContainer` and `DataComponent` is as follows:
+`DataContainer` is the endpoint used to call the components under `DataComponent`, which will use `DataConfig` to describe the structure which includes `dataset`, `pre_process`, `post_process` and `dataloader`. The relationship between `DataContainer` and `DataComponent` is as follows:
 ```python
 DefaultDataComponentCombos = {
     DataComponentType.DATASET.value: DefaultDataComponent.DATASET.value,
