@@ -5,8 +5,9 @@
 import json
 import logging
 import time
+from collections import OrderedDict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
@@ -94,10 +95,10 @@ class Engine:
             self.evaluator = self._config.evaluator.create_evaluator()
 
         # dictionary of passes
+        self.pass_config = OrderedDict()
+
         # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator, "clean_run_cache": clean_run_cache}}
-        self.passes = {}
-        # list of pass names in the order they were registered
-        self.pass_order = []
+        self.passes = OrderedDict()
 
         self.footprints = Footprint()
 
@@ -128,22 +129,46 @@ class Engine:
 
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
-        for pass_name in self.pass_order:
-            clean_run_cache = self.passes[pass_name]["clean_run_cache"]
-            p = self.passes[pass_name]["pass"]
+        for pass_name, pass_config in self.pass_config.items():
+            clean_run_cache = pass_config["clean_run_cache"]
             if clean_run_cache:
-                cache_utils.clean_pass_run_cache(p.__class__.__name__, cache_dir)
-
-        # list of passes starting from the first pass with non-empty search space
-        # These passes will be added to the search space
-        self.pass_search_spaces = []
-        for pass_name in self.pass_order:
-            p = self.passes[pass_name]["pass"]
-            self.pass_search_spaces.append((pass_name, p.search_space()))
+                cache_utils.clean_pass_run_cache(pass_name, cache_dir)
 
         self._initialized = True
 
     def register(
+        self,
+        pass_type: Type[Pass],
+        config: Dict[str, Any] = None,
+        disable_search=False,
+        name: str = None,
+        host: OliveSystem = None,
+        evaluator: OliveEvaluator = None,
+        clean_run_cache: bool = False,
+    ):
+        """Register a pass configuration so that it could be instantiated and executed later."""
+        if name is not None:
+            assert name not in self.passes, f"Pass with name {name} already registered"
+        else:
+            id = 0
+            while True:
+                name = pass_type.__name__
+                if id > 0:
+                    name = f"{name}_{id}"
+                id += 1
+                if name not in self.pass_config:
+                    break
+
+        self.pass_config[name] = {
+            "type": pass_type,
+            "config": config,
+            "disable_search": disable_search,
+            "host": host,
+            "evaluator": evaluator,
+            "clean_run_cache": clean_run_cache,
+        }
+
+    def register_pass(
         self,
         p: Pass,
         name: str = None,
@@ -175,7 +200,6 @@ class Engine:
             "evaluator": evaluator,
             "clean_run_cache": clean_run_cache,
         }
-        self.pass_order.append(name)
 
     def run(
         self,
@@ -207,11 +231,6 @@ class Engine:
 
         prefix_output_name = f"{output_name}_" if output_name is not None else ""
 
-        if self.no_search:
-            for pass_id in self.pass_order:
-                if len(self.passes[pass_id]["pass"].search_space()) > 0:
-                    raise ValueError(f"Pass {pass_id} has search space but search strategy is None")
-
         # hash the input model
         input_model_id = self._init_input_model(input_model)
         self.footprints.record(model_id=input_model_id)
@@ -224,8 +243,68 @@ class Engine:
             json.dump(results, open(results_path, "w"), indent=4)
             return results
 
+        # TODO by myguo: replace the following for loop using the accelerator and excution provider list when adding
+        # accelerator support
+        footprints = []
+        for i in range(1):
+            # generate search space and intialize the passes
+            self.setup_passes()
+            footprint = self.run_one_accelerator(
+                input_model, input_model_id, packaging_config, verbose, output_dir, output_name
+            )
+            footprints.append(footprint)
+
+        return footprints
+
+    def setup_passes(self):
+        # TODO: add the hardware spec later
+        # clean the passes
+        self.passes.clear()
+        for config in self.pass_config.values():
+            pass_cls: Type[Pass] = config["type"]
+            pass_cfg = config["config"]
+            config_class, pass_cfg = pass_cls.generate_search_space(pass_cfg, config["disable_search"])
+            p = pass_cls(config_class, pass_cfg)
+            self.register_pass(p, host=config["host"], evaluator=config["evaluator"])
+
+        # list of passes starting from the first pass with non-empty search space
+        # These passes will be added to the search space
+        self.pass_search_spaces = []
+        for pass_name in self.passes.keys():
+            p = self.passes[pass_name]["pass"]
+            self.pass_search_spaces.append((pass_name, p.search_space()))
+
+    def run_one_accelerator(
+        self,
+        input_model: OliveModel,
+        input_model_id: str,
+        packaging_config: Optional[PackagingConfig] = None,
+        verbose: bool = False,
+        output_dir: str = None,
+        output_name: str = None,
+    ):
+        """
+        Run all the registered Olive passes on the input model and produce one or more candidate models.
+
+        if search strategy is None, all passes are run in the order they were registered.
+        Save the final model to {output_dir}/{output_name}_model and json file to {output_dir}/{output_name}_model.json
+        Save evaluation results of the final model, if any, to {output_dir}/{output_name}_metrics.json
+        Return {"model": final_model_json, "metrics": evaluation_results}
+
+        if search strategy is not None, run the search strategy to find candidate models.
+        TODO: save the results using updated RunResult
+        """
+
+        prefix_output_name = f"{output_name}_" if output_name is not None else ""
+
+        if self.no_search:
+            for pass_item in self.passes.values():
+                if len(pass_item["pass"].search_space()) > 0:
+                    pass_name = pass_item["name"]
+                    raise ValueError(f"Pass {pass_name} has search space but search strategy is None")
+
         # get objective_dict
-        evaluator = self.evaluator_for_pass(self.pass_order[-1])
+        evaluator = self.evaluator_for_pass(list(self.passes.keys())[-1])
         if self.no_search and evaluator is None:
             # provide dummy objective
             objective_dict = {"dummy": {"higher_is_better": True, "goal": 0}}
