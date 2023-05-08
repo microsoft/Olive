@@ -14,7 +14,7 @@ from torchvision.datasets import CIFAR10
 from olive.model import PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
-from olive.passes.onnx.quantization import IncDynamicQuantization, IncQuantization, IncStaticQuantization
+from olive.passes.onnx.inc_quantization import IncDynamicQuantization, IncQuantization, IncStaticQuantization
 from olive.systems.local import LocalSystem
 
 
