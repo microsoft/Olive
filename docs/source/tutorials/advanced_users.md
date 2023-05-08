@@ -123,8 +123,6 @@ quantization_config = {
 # search over the values for the other config parameters
 engine.register(OnnxQuantization, quantization_pass, False)
 ```
-```
-```
 
 ### Run the engine
 Finally, run the engine on your input model. The output will be the best set of parameters for the passes and the output
