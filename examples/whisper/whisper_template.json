@@ -71,15 +71,12 @@
             "config": {
                 "per_channel": false,
                 "reduce_range": false,
-                "op_types_to_quantize": ["MatMul", "Gemm"],
+                "op_types_to_quantize": ["MatMul", "Gemm", "Gather"],
                 "MatMulConstBOnly": false
             }
         },
         "insert_beam_search" : {
-            "type" : "InsertBeamSearch",
-            "config": {
-                "save_as_external_data": true
-            }
+            "type" : "InsertBeamSearch"
         },
         "prepost": {
             "type": "AppendPrePostProcessingOps",
