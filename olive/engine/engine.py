@@ -431,18 +431,9 @@ class Engine:
 
         prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
 
-        if self.no_search:
-            for pass_item in self.passes.values():
-                if len(pass_item["pass"].search_space()) > 0:
-                    pass_name = pass_item["name"]
-                    raise ValueError(f"Pass {pass_name} has search space but search strategy is None")
-
         # get objective_dict
         evaluator = self.evaluator_for_pass(list(self.passes.keys())[-1])
-        if self.no_search and evaluator is None:
-            # provide dummy objective
-            objective_dict = {"dummy": {"higher_is_better": True, "goal": 0}}
-        elif evaluator is None:
+        if evaluator is None:
             raise ValueError("No evaluator provided for the last pass")
         else:
             objective_dict = self.resolve_objectives(
@@ -490,7 +481,7 @@ class Engine:
         self.footprints[accelerator_spec].to_file(output_dir / f"{prefix_output_name}footprints.json")
 
         pf_footprints = self.footprints[accelerator_spec].get_pareto_frontier()
-        if output_model_num is None or len(pf_footprints.nodes) <= output_model_num or self.no_search:
+        if output_model_num is None or len(pf_footprints.nodes) <= output_model_num:
             logger.info(f"Output all {len(pf_footprints.nodes)} models")
         else:
             top_ranked_nodes = self._get_top_ranked_nodes(evaluator.metrics, pf_footprints, output_model_num)
