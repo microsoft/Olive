@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricType
+from olive.evaluator.metric_config import MetricResult
 from olive.systems.local import LocalSystem
 
 
@@ -50,13 +51,17 @@ class TestLocalSystem:
         "metric",
         METRIC_TEST_CASE,
     )
-    @patch("olive.systems.local.evaluate_accuracy")
-    @patch("olive.systems.local.evaluate_latency")
-    @patch("olive.systems.local.evaluate_custom_metric")
+    @patch("olive.evaluator.evaluation.evaluate_accuracy")
+    @patch("olive.evaluator.evaluation.evaluate_latency")
+    @patch("olive.evaluator.evaluation.evaluate_custom_metric")
     def test_evaluate_model(self, mock_evaluate_custom_metric, mock_evaluate_latency, mock_evaluate_accuracy, metric):
         # setup
         olive_model = MagicMock()
-        expected_res = "0.382715310"
+        expected_res = MetricResult(
+            key_for_rank=metric.sub_type_for_rank,
+            value_for_rank=0.382715310,
+            metrics={metric.sub_type_for_rank: 0.382715310},
+        )
         mock_evaluate_custom_metric.return_value = expected_res
         mock_evaluate_latency.return_value = expected_res
         mock_evaluate_accuracy.return_value = expected_res
@@ -71,4 +76,4 @@ class TestLocalSystem:
             mock_evaluate_latency.called_once_with(olive_model, metric, self.local_system.device)
         if metric.type == MetricType.CUSTOM:
             mock_evaluate_custom_metric.called_once_with(olive_model, metric, self.local_system.device)
-        assert actual_res[metric.name] == expected_res
+        assert actual_res.signal[metric.name].value_for_rank == expected_res.value_for_rank

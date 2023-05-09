@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Callable, List, Union
+from typing import Callable, Dict, List, Union
 
 from pydantic import validator
 
@@ -90,3 +90,13 @@ class MetricGoal(ConfigBase):
         if values["type"] in ["min-improvement", "max-degradation"] and v < 0:
             raise ValueError(f"Value must be positive for type {values['type']}")
         return v
+
+
+class MetricResult(ConfigBase):
+    key_for_rank: str
+    value_for_rank: float
+    metrics: Dict[str, Union[float, int]] = None
+
+
+class SignalResult(ConfigBase):
+    signal: Dict[str, MetricResult] = None

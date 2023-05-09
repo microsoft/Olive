@@ -2,14 +2,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from enum import Enum
-from typing import List, Union
+from typing import Dict, List, Union
 
 from pydantic import BaseModel, validator
 
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.evaluator.accuracy import AccuracyBase
 from olive.evaluator.metric_config import LatencyMetricConfig, MetricGoal, get_user_config_class
+
+logger = logging.getLogger(__name__)
 
 
 class MetricType(str, Enum):
@@ -47,11 +50,12 @@ class LatencySubType(str, Enum):
 class Metric(ConfigBase):
     name: str
     type: MetricType
-    sub_type: Union[AccuracySubType, LatencySubType] = None
+    sub_type: Union[List[Union[str, AccuracySubType, LatencySubType]], AccuracySubType, LatencySubType] = None
+    sub_type_for_rank: str = None
     higher_is_better: bool = True
     priority_rank: int = 1
     goal: MetricGoal = None
-    metric_config: ConfigBase = None
+    metric_config: Union[Dict[str, ConfigBase], ConfigBase] = None
     user_config: ConfigBase
 
     @validator("sub_type", always=True, pre=True)
@@ -60,14 +64,30 @@ class Metric(ConfigBase):
             raise ValueError("Invalid type")
 
         if values["type"] == MetricType.CUSTOM:
-            return None
+            return v
         sub_type_enum = AccuracySubType if values["type"] == MetricType.ACCURACY else LatencySubType
         try:
-            v = sub_type_enum(v)
+            v = [v] if isinstance(v, str) else v
+            v = [sub_type_enum(vi) for vi in v]
         except ValueError:
             raise ValueError(
                 f"sub_type must be one of {list(sub_type_enum.__members__.keys())} for {values['type']} metric"
             )
+        return v
+
+    @validator("sub_type_for_rank", always=True, pre=True)
+    def validate_sub_type_for_rank(cls, v, values):
+        """
+        Always return the first sub_type if sub_type_for_rank is not specified.
+        """
+        if values["type"] == MetricType.CUSTOM:
+            if not v:
+                logger.warn("sub_type_for_rank should not be None for custom metric, will use name as default")
+                v = values["name"]
+            return v
+        if not v and values["sub_type"]:
+            logger.debug(f"sub_type_for_rank is not specified for {values['type']} metric. Using the first sub_type.")
+            return values["sub_type"][0]
         return v
 
     @validator("higher_is_better", always=True, pre=True)
@@ -95,12 +115,20 @@ class Metric(ConfigBase):
 
         # metric config class
         if values["type"] == MetricType.LATENCY:
-            metric_config_class = LatencyMetricConfig
+            metric_config_class = {MetricType.LATENCY.value: LatencyMetricConfig}
         elif values["type"] == MetricType.ACCURACY:
-            metric_config_class = AccuracyBase.registry[values["sub_type"]].get_config_class()
+            metric_config_class = {}
+            for item in values["sub_type"]:
+                metric_config_class[item] = AccuracyBase.registry[item].get_config_class()
 
-        # validate metric config
-        return validate_config(v, ConfigBase, metric_config_class)
+        metric_configs: Dict[str, ConfigBase] = {}
+        for k_cls, v_cls in metric_config_class.items():
+            if isinstance(v, dict):
+                v_config_item = v.get(k_cls, {})
+            else:
+                v_config_item = v
+            metric_configs[k_cls] = validate_config(v_config_item, ConfigBase, v_cls)
+        return metric_configs
 
     @validator("user_config", pre=True)
     def validate_user_config(cls, v, values):

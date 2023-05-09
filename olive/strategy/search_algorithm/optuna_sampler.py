@@ -106,5 +106,5 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
         if should_prune:
             self._study.tell(trial_id, state=optuna.trial.TrialState.PRUNED)
         else:
-            objectives = [result[objective] for objective in self._objectives]
+            objectives = [result.signal[objective].value_for_rank for objective in self._objectives]
             self._study.tell(trial_id, objectives)

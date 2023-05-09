@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 from olive.evaluator.metric import Metric
+from olive.evaluator.metric_config import SignalResult
 from olive.model import OliveModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
@@ -34,7 +35,7 @@ class OliveSystem(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> Dict[str, Any]:
+    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> SignalResult:
         """
         Evaluate the model
         """

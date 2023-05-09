@@ -70,7 +70,7 @@ class TestEvaluation:
 
             # assert
             mock_acc.return_value.measure.assert_called_once()
-            assert expected_res == actual_res
+            assert expected_res == actual_res.value_for_rank
 
     LATENCY_TEST_CASE = [
         (get_pytorch_model(), get_latency_metric(LatencySubType.AVG), 1),
@@ -102,4 +102,4 @@ class TestEvaluation:
         actual_res = evaluate_latency(olive_model, metric)
 
         # assert
-        assert expected_res > actual_res
+        assert expected_res > actual_res.value_for_rank

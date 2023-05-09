@@ -20,6 +20,7 @@ from olive.common.config_utils import validate_config
 from olive.common.utils import retry_func
 from olive.constants import Framework
 from olive.evaluator.metric import Metric
+from olive.evaluator.metric_config import SignalResult
 from olive.model import ModelConfig, ModelStorageKind, OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import AzureMLDockerConfig, SystemType
@@ -397,7 +398,7 @@ class AzureMLSystem(OliveSystem):
             "metric_data_dir": metric_data_dir,
         }
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> Dict[str, Any]:
+    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> SignalResult:
         if model.framework == Framework.SNPE:
             raise NotImplementedError("SNPE model does not support azureml evaluation")
         if model.framework == Framework.OPENVINO:
@@ -435,9 +436,9 @@ class AzureMLSystem(OliveSystem):
             for metric in metrics:
                 metric_json = output_dir / "named-outputs" / metric.name / "metric_result.json"
                 if metric_json.is_file():
-                    metric_results[metric.name] = json.load(open(metric_json))["result"]
+                    metric_results[metric.name] = json.load(open(metric_json))["signal"]["result"]
 
-            return metric_results
+            return SignalResult(signal=metric_results)
 
     def _create_pipeline_for_evaluation(self, tmp_dir: str, model: OliveModel, metrics: List[Metric]):
         tmp_dir = Path(tmp_dir)

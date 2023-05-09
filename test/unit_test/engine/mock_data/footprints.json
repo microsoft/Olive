@@ -14,8 +14,18 @@
         },
         "metrics": {
             "value": {
-                "accuracy": 0.92,
-                "latency": 112
+                "signal": {
+                    "accuracy": {
+                        "key_for_rank": "accuracy_score",
+                        "value_for_rank": 0.92,
+                        "metrics": {"accuracy_score": 0.92, "f1_score": 0.80}
+                    },
+                    "latency": {
+                        "key_for_rank": "avg",
+                        "value_for_rank": 112,
+                        "metrics": {"avg": 112, "max": 120}
+                    }
+                }
             },
             "cmp_direction": {
                 "accuracy": 1,
@@ -39,8 +49,18 @@
         },
         "metrics": {
             "value": {
-                "accuracy": 0.91,
-                "latency": 111
+                "signal": {
+                    "accuracy": {
+                        "key_for_rank": "accuracy_score",
+                        "value_for_rank": 0.91,
+                        "metrics": {"accuracy_score": 0.91, "f1_score": 0.81}
+                    },
+                    "latency": {
+                        "key_for_rank": "avg",
+                        "value_for_rank": 111,
+                        "metrics": {"avg": 111, "max": 123}
+                    }
+                }
             },
             "cmp_direction": {
                 "accuracy": 1,
@@ -59,8 +79,18 @@
         },
         "metrics": {
             "value": {
-                "accuracy": 0.90,
-                "latency": 120
+                "signal": {
+                    "accuracy": {
+                        "key_for_rank": "accuracy_score",
+                        "value_for_rank": 0.90,
+                        "metrics": {"accuracy_score": 0.90, "f1_score": 0.81}
+                    },
+                    "latency": {
+                        "key_for_rank": "avg",
+                        "value_for_rank": 120,
+                        "metrics": {"avg": 120, "max": 123}
+                    }
+                }
             },
             "cmp_direction": {
                 "accuracy": 1,

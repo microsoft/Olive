@@ -43,5 +43,5 @@ class TestLocalEvaluation:
     def test_evaluate_model(self, model_cls, model_path, metric, expected_res):
         olive_model = model_cls(model_path=model_path)
         evaluator = OliveEvaluator(metrics=[metric])
-        actual_res = evaluator.evaluate(olive_model)[metric.name]
-        assert actual_res >= expected_res
+        actual_res = evaluator.evaluate(olive_model)
+        assert actual_res.signal[metric.name].value_for_rank >= expected_res

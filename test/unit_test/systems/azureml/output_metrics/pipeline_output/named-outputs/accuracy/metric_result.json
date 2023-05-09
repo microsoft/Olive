@@ -1,1 +1,1 @@
-{"result": 0.99618}
+{"signal": {"result": {"key_for_rank": "accuracy_score", "value_for_rank": 0.99618, "metrics": {"avg": 0.99618}}}}

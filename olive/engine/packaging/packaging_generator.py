@@ -89,7 +89,7 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
         # TODO: Add target info to metrics file
         metric_path = str(model_dir / "metrics.json")
         with open(metric_path, "w") as f:
-            json.dump(node.metrics.value, f)
+            f.write(node.json())
 
 
 def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):

@@ -8,8 +8,9 @@ import logging
 import os
 import sys
 
-from olive.evaluator.evaluation import evaluate_accuracy, evaluate_custom_metric, evaluate_latency
-from olive.evaluator.metric import MetricList, MetricType
+from olive.evaluator.evaluation import evaluator_adaptor
+from olive.evaluator.metric import MetricList
+from olive.evaluator.metric_config import SignalResult
 from olive.model import ModelConfig
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(module)s - %(levelname)s - %(message)s")
@@ -28,16 +29,13 @@ def evaluate_entry(config, model_path, output_path, output_name):
 
     metrics_res = {}
     for metric in metric_list:
-        if metric.name == MetricType.ACCURACY:
-            metrics_res[MetricType.ACCURACY] = evaluate_accuracy(model, metric)
-        elif metric.name == MetricType.LATENCY:
-            metrics_res[MetricType.LATENCY] = evaluate_latency(model, metric)
-        else:
-            metrics_res[metric.name] = evaluate_custom_metric(model, metric)
+        evaluator = evaluator_adaptor(metric)
+        metrics_res[metric.name] = evaluator(model, metric)
+    signal = SignalResult(signal=metrics_res)
 
     with open(os.path.join(output_path, f"{output_name}"), "w") as f:
-        json.dump(metrics_res, f)
-    logger.info(f"Metric result: {metrics_res}")
+        json.dump(signal.dict(), f)
+    logger.info(f"Metric result: {signal.json()}")
 
 
 if __name__ == "__main__":

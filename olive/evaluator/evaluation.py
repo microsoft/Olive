@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import time
-from typing import Any, Dict
+from numbers import Number
 
 import numpy as np
 import torch
@@ -12,12 +12,13 @@ from torch.utils.data import Dataset
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework
 from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Precision, Recall
-from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric
+from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
+from olive.evaluator.metric_config import MetricResult
 from olive.model import OliveModel
 from olive.systems.common import Device
 
 
-def evaluate_accuracy(model: OliveModel, metric: Metric, device: Device = Device.CPU) -> Dict[str, Any]:
+def evaluate_accuracy(model: OliveModel, metric: Metric, device: Device = Device.CPU) -> MetricResult:
     """
     Evaluate model accuracy according to config, return accuracy metrics
     """
@@ -45,36 +46,46 @@ def evaluate_accuracy(model: OliveModel, metric: Metric, device: Device = Device
             f"Current model framework {model.framework} doesn't support metric {metric.type}.{metric.sub_type}."
         )
 
-    return compute_accuracy(preds, targets, metric.sub_type, metric.metric_config)
+    return compute_accuracy(preds, targets, metric)
 
 
-def compute_accuracy(preds, targets, sub_type, metric_config) -> Dict[str, Any]:
+def compute_accuracy(preds, targets, metric) -> MetricResult:
     """
     Compute accuracy metrics
     """
-    if sub_type == AccuracySubType.ACCURACY_SCORE:
-        metric_res = AccuracyScore(metric_config).measure(preds, targets)
-    elif sub_type == AccuracySubType.F1_SCORE:
-        metric_res = F1Score(metric_config).measure(preds, targets)
-    elif sub_type == AccuracySubType.PRECISION:
-        metric_res = Precision(metric_config).measure(preds, targets)
-    elif sub_type == AccuracySubType.RECALL:
-        metric_res = Recall(metric_config).measure(preds, targets)
-    elif sub_type == AccuracySubType.AUC:
-        metric_res = AUC(metric_config).measure(preds, targets)
-    else:
-        raise TypeError(f"{sub_type} is not a accuracy metric supported")
+    raw_res = {}
+    sub_type = metric.sub_type
+    for st in sub_type:
+        metric_config = metric.metric_config[st]
+        if st == AccuracySubType.ACCURACY_SCORE:
+            raw_res[st] = AccuracyScore(metric_config).measure(preds, targets)
+        elif st == AccuracySubType.F1_SCORE:
+            raw_res[st] = F1Score(metric_config).measure(preds, targets)
+        elif st == AccuracySubType.PRECISION:
+            raw_res[st] = Precision(metric_config).measure(preds, targets)
+        elif st == AccuracySubType.RECALL:
+            raw_res[st] = Recall(metric_config).measure(preds, targets)
+        elif st == AccuracySubType.AUC:
+            raw_res[st] = AUC(metric_config).measure(preds, targets)
+        else:
+            raise TypeError(f"{sub_type} is not a accuracy metric supported")
+    metric_res = MetricResult(
+        key_for_rank=metric.sub_type_for_rank,
+        value_for_rank=raw_res[metric.sub_type_for_rank],
+        metrics=raw_res,
+    )
     return metric_res
 
 
-def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.CPU) -> Dict[str, Any]:
+def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.CPU) -> MetricResult:
     """
     Evaluate model latency according to config, return latency metrics
     """
     dataloader, _, _ = get_user_config(metric.user_config)
-    warmup_num = metric.metric_config.warmup_num
-    repeat_test_num = metric.metric_config.repeat_test_num
-    sleep_num = metric.metric_config.sleep_num
+    metric_config = metric.metric_config[MetricType.LATENCY]
+    warmup_num = metric_config.warmup_num
+    repeat_test_num = metric_config.repeat_test_num
+    sleep_num = metric_config.sleep_num
 
     latencies = []
     # user.config.inference_settings > model.inference_settings > default inference_settings
@@ -116,10 +127,10 @@ def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.
             f"Current model framework {model.framework} doesn't support metric {metric.type}.{metric.subtype}."
         )
 
-    return compute_latency(latencies, metric.sub_type)
+    return compute_latency(latencies, metric)
 
 
-def compute_latency(latencies, sub_type) -> float:
+def compute_latency(latencies, metric) -> MetricResult:
     """
     Compute latency metrics
     """
@@ -134,7 +145,12 @@ def compute_latency(latencies, sub_type) -> float:
         LatencySubType.P99: round(np.percentile(latencies, 99) * 1000, 5),
         LatencySubType.P999: round(np.percentile(latencies, 99.9) * 1000, 5),
     }
-    return latency_metrics[sub_type]
+    metric_res = MetricResult(
+        key_for_rank=metric.sub_type_for_rank,
+        value_for_rank=latency_metrics[metric.sub_type_for_rank],
+        metrics=latency_metrics,
+    )
+    return metric_res
 
 
 def evaluate_custom_metric(model: OliveModel, metric: Metric, device: Device = Device.CPU):
@@ -142,7 +158,14 @@ def evaluate_custom_metric(model: OliveModel, metric: Metric, device: Device = D
 
     if not eval_func:
         raise Exception("Please specify 'evaluate_func' for custom metrics")
-    return eval_func(model, metric.user_config.data_dir, metric.user_config.batch_size, device)
+    raw_res = eval_func(model, metric.user_config.data_dir, metric.user_config.batch_size, device)
+
+    if isinstance(raw_res, Number):
+        raw_res = {metric.sub_type_for_rank: raw_res}
+    metric_res = MetricResult(
+        key_for_rank=metric.sub_type_for_rank, value_for_rank=raw_res[metric.sub_type_for_rank], metrics=raw_res
+    )
+    return metric_res
 
 
 def evaluate_accuracy_onnx(sess, dataloader, post_func, io_config):
@@ -380,3 +403,17 @@ class DummyDataloader(Dataset):
                 dummy_inputs.update({input_name: torch.ones(input_shape, dtype=input_type)})
         label = 0
         return dummy_inputs, label
+
+
+def evaluator_adaptor(metric: Metric):
+    """
+    Return the evaluator for the system based on given metrics.
+    """
+    evaluator = None
+    if metric.type == MetricType.ACCURACY:
+        evaluator = evaluate_accuracy
+    elif metric.type == MetricType.LATENCY:
+        evaluator = evaluate_latency
+    else:
+        evaluator = evaluate_custom_metric
+    return evaluator

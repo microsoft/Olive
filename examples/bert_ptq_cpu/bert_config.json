@@ -47,7 +47,12 @@
                 {
                     "name": "accuracy",
                     "type": "accuracy",
-                    "sub_type": "accuracy_score",
+                    "sub_type": ["accuracy_score", "f1_score", "precision", "recall", "auc"],
+                    "metric_config": {
+                        "auc": {
+                            "reorder": true
+                        }
+                    },
                     "priority_rank": 1,
                     "user_config":{
                         "post_processing_func": "post_process",

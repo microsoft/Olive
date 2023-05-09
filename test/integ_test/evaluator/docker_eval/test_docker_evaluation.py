@@ -49,5 +49,5 @@ class TestDockerEvaluation:
         docker_target = get_docker_target()
         olive_model = model_cls(model_path=model_path)
         evaluator = OliveEvaluator(metrics=[metric])
-        actual_res = evaluator.evaluate(olive_model, docker_target)[metric.name]
-        assert actual_res >= expected_res
+        actual_res = evaluator.evaluate(olive_model, docker_target)
+        assert actual_res.signal[metric.name].value_for_rank >= expected_res

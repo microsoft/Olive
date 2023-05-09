@@ -3,11 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
 from olive.common.utils import hash_dict
+from olive.evaluator.metric_config import SignalResult
 
 
 class SearchResults:
@@ -42,9 +43,7 @@ class SearchResults:
         self.results = {}
         self.model_ids = {}
 
-    def record(
-        self, search_point: Dict[str, Dict[str, Any]], result: Dict[str, Union[float, int]], model_ids: List[str]
-    ):
+    def record(self, search_point: Dict[str, Dict[str, Any]], result: SignalResult, model_ids: List[str]):
         """
         Report the result of a configuration.
         """
@@ -53,7 +52,7 @@ class SearchResults:
         self.results[search_point_hash] = deepcopy(result)
         self.model_ids[search_point_hash] = model_ids
 
-    def check_goals(self, result: Dict[str, Union[float, int]]) -> bool:
+    def check_goals(self, result: SignalResult) -> bool:
         """
         Check if the result satisfies the constraints.
         """
@@ -62,7 +61,7 @@ class SearchResults:
             return True
 
         for obj, goal in self.goals.items():
-            if self.obj_mul[obj] * result[obj] < self.obj_mul[obj] * goal:
+            if self.obj_mul[obj] * result.signal[obj].value_for_rank < self.obj_mul[obj] * goal:
                 return False
         return True
 
@@ -112,12 +111,12 @@ class SearchResults:
         results = []
         for search_point_hash in self.results:
             result = self.results[search_point_hash]
-            if result == {}:
+            if result is None or result.signal is None:
                 continue
             if apply_goals and not self.check_goals(result):
                 continue
             search_point_hashes.append(search_point_hash)
-            results.append([self.obj_mul[obj] * result[obj] for obj in objectives])
+            results.append([self.obj_mul[obj] * result.signal[obj].value_for_rank for obj in objectives])
 
         return results, search_point_hashes
 

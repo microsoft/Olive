@@ -57,7 +57,7 @@ def main(raw_args=None):
     metric_result = evaluator.evaluate(model, target)
 
     # save metric result json
-    json.dump(metric_result, open(Path(common_args.pipeline_output) / "metric_result.json", "w"))
+    json.dump(metric_result.dict(), open(Path(common_args.pipeline_output) / "metric_result.json", "w"))
 
 
 if __name__ == "__main__":

@@ -171,4 +171,4 @@ class TestDockerSystem:
         volumes_list.append(output_mount_str)
         mock_docker_client.containers.run.call_once_with(docker_system.image, eval_command, volumes_list, **run_command)
 
-        assert actual_res[metric.name] == 0.99618
+        assert actual_res.signal[metric.name].value_for_rank == 0.99618

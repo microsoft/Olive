@@ -3,12 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Dict, List
+from typing import List
 
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase
 from olive.evaluator.metric import Metric
+from olive.evaluator.metric_config import SignalResult
 from olive.model import OliveModel
 from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
@@ -28,7 +29,7 @@ class OliveEvaluator:
                 return metric
         raise ValueError(f"Metric {metric_name} not found")
 
-    def evaluate(self, model: OliveModel, target: OliveSystem = LocalSystem()) -> Dict:
+    def evaluate(self, model: OliveModel, target: OliveSystem = LocalSystem()) -> SignalResult:
         return target.evaluate_model(model, self.metrics)
 
 

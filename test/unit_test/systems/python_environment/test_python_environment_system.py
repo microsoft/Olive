@@ -10,7 +10,8 @@ from unittest.mock import patch
 import pytest
 
 from olive.evaluator.evaluation import evaluate_accuracy
-from olive.evaluator.metric import AccuracySubType, LatencySubType
+from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricType
+from olive.evaluator.metric_config import MetricResult
 from olive.systems.python_environment import PythonEnvironmentSystem
 
 
@@ -32,14 +33,23 @@ class TestPythonEnvironmentSystem:
         # setup
         model = get_onnx_model()
         metrics = [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE), get_latency_metric(LatencySubType.AVG)]
-        mock_evaluate_accuracy.return_value = 0.9
-        mock_evaluate_latency.return_value = 10
+        mock_evaluate_accuracy.return_value = MetricResult(
+            key_for_rank=AccuracySubType.ACCURACY_SCORE,
+            value_for_rank=0.9,
+            metrics={AccuracySubType.ACCURACY_SCORE: 0.9},
+        )
+        mock_evaluate_latency.return_value = MetricResult(
+            key_for_rank=LatencySubType.AVG,
+            value_for_rank=10,
+            metrics={LatencySubType.AVG: 10, LatencySubType.MAX: 20},
+        )
 
         # execute
         res = self.system.evaluate_model(model, metrics)
 
         # assert
-        assert res == {"accuracy": 0.9, "latency": 10}
+        assert res.signal["accuracy"].value_for_rank == 0.9
+        assert res.signal["latency"].value_for_rank == 10
         assert mock_evaluate_accuracy.call_once_with(model, metrics[0])
         assert mock_evaluate_latency.call_once_with(model, metrics[1])
 
@@ -49,8 +59,13 @@ class TestPythonEnvironmentSystem:
         # setup
         model = get_onnx_model()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, False)
-        mock_compute_accuracy.return_value = 0.9
-        mock_compute_accuracy2.return_value = 0.9
+        mock_value = MetricResult(
+            key_for_rank=metric.name,
+            value_for_rank=0.9,
+            metrics={metric.name: 0.9},
+        )
+        mock_compute_accuracy.return_value = mock_value
+        mock_compute_accuracy2.return_value = mock_value
 
         # expected result
         expected_res = evaluate_accuracy(model, metric)
@@ -59,7 +74,7 @@ class TestPythonEnvironmentSystem:
         actual_res = self.system.evaluate_accuracy(model, metric)
 
         # assert
-        assert actual_res == expected_res
+        assert actual_res.value_for_rank == expected_res.value_for_rank
         assert mock_compute_accuracy.call_args.args[0] == mock_compute_accuracy2.call_args.args[0]
 
     @patch("olive.systems.python_environment.python_environment_system.compute_latency")
@@ -67,9 +82,13 @@ class TestPythonEnvironmentSystem:
         # setup
         model = get_onnx_model()
         metric = get_latency_metric(LatencySubType.AVG)
-        metric.metric_config.repeat_test_num = 5
-        mock_compute_latency.return_value = 10
-
+        metric_config = metric.metric_config[MetricType.LATENCY]
+        metric_config.repeat_test_num = 5
+        mock_compute_latency.return_value = MetricResult(
+            key_for_rank="avg",
+            value_for_rank=10,
+            metrics={"avg": 10},
+        )
         # expected result
         expected_res = 10
 
@@ -77,6 +96,6 @@ class TestPythonEnvironmentSystem:
         actual_res = self.system.evaluate_latency(model, metric)
 
         # assert
-        assert actual_res == expected_res
-        assert len(mock_compute_latency.call_args.args[0]) == metric.metric_config.repeat_test_num
+        assert actual_res.value_for_rank == expected_res
+        assert len(mock_compute_latency.call_args.args[0]) == metric_config.repeat_test_num
         assert all([latency > 0 for latency in mock_compute_latency.call_args.args[0]])

@@ -69,9 +69,9 @@ class TestAzureMLSystem:
         self.aml_system.ml_client.jobs.stream.assert_called_once()
         assert mock_retry_func.call_count == 2
         if metric.name == "accuracy":
-            assert res[metric.name] == 0.99618
+            assert res.signal[metric.name].value_for_rank == 0.99618
         if metric.name == "latency":
-            assert res[metric.name] == 0.031415
+            assert res.signal[metric.name].value_for_rank == 0.031415
 
     @patch("olive.systems.azureml.aml_system.shutil.copy")
     @patch("olive.systems.azureml.aml_system.retry_func")

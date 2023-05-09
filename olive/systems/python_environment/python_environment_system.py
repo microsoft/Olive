@@ -16,6 +16,7 @@ import torch
 from olive.common.utils import run_subprocess
 from olive.evaluator.evaluation import compute_accuracy, compute_latency, format_onnx_input, get_user_config
 from olive.evaluator.metric import Metric, MetricType
+from olive.evaluator.metric_config import SignalResult
 from olive.model import OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import Device, SystemType
@@ -68,7 +69,7 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         raise ValueError("PythonEnvironmentSystem does not support running passes.")
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> Dict[str, Any]:
+    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> SignalResult:
         """
         Evaluate the model
         """
@@ -85,7 +86,7 @@ class PythonEnvironmentSystem(OliveSystem):
                 metrics_res[metric.name] = self.evaluate_accuracy(model, metric)
             elif metric.type == MetricType.LATENCY:
                 metrics_res[metric.name] = self.evaluate_latency(model, metric)
-        return metrics_res
+        return SignalResult(signal=metrics_res)
 
     def evaluate_accuracy(self, model: ONNXModel, metric: Metric) -> float:
         """
@@ -137,16 +138,17 @@ class PythonEnvironmentSystem(OliveSystem):
                     output = post_func(output)
                 preds.extend(output.tolist())
 
-        return compute_accuracy(preds, targets, metric.sub_type, metric.metric_config)
+        return compute_accuracy(preds, targets, metric)
 
     def evaluate_latency(self, model: ONNXModel, metric: Metric) -> float:
         """
         Evaluate the latency of the model.
         """
         dataloader, _, _ = get_user_config(metric.user_config)
-        warmup_num = metric.metric_config.warmup_num
-        repeat_test_num = metric.metric_config.repeat_test_num
-        sleep_num = metric.metric_config.sleep_num
+        metric_config = metric.metric_config[MetricType.LATENCY]
+        warmup_num = metric_config.warmup_num
+        repeat_test_num = metric_config.repeat_test_num
+        sleep_num = metric_config.sleep_num
 
         latencies = []
         inference_settings = self.get_inference_settings(model, metric)
@@ -182,7 +184,7 @@ class PythonEnvironmentSystem(OliveSystem):
             # load output
             latencies = np.load(output_dir / "output.npy")
 
-        return compute_latency(latencies, metric.sub_type)
+        return compute_latency(latencies, metric)
 
     def get_inference_settings(self, model: ONNXModel, metric: Metric) -> Dict[str, Any]:
         """

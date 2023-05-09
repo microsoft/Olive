@@ -44,5 +44,5 @@ class TestAMLEvaluation:
         aml_target = get_aml_target()
         olive_model = model_cls(model_path=model_path, model_storage_kind=ModelStorageKind.LocalFile)
         evaluator = OliveEvaluator(metrics=[metric])
-        actual_res = evaluator.evaluate(olive_model, aml_target)[metric.name]
-        assert actual_res >= expected_res
+        actual_res = evaluator.evaluate(olive_model, aml_target)
+        assert actual_res.signal[metric.name].value_for_rank >= expected_res

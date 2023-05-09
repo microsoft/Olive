@@ -7,8 +7,10 @@ import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from pathlib import Path
+from typing import Dict
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
+from olive.evaluator.metric_config import SignalResult
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +23,8 @@ class FootprintNodeMetric(ConfigBase):
     is_goals_met: if the goals set by users is met
     """
 
-    value: dict = None
-    cmp_direction: dict = None
+    value: SignalResult = None
+    cmp_direction: Dict = None
     is_goals_met: bool = False
 
 
@@ -68,19 +70,17 @@ class Footprint:
         self.objective_dict = objective_dict
 
     def _is_empty_metric(self, metric: FootprintNodeMetric):
-        return not metric or not metric.value
+        return not metric or not metric.value or not metric.value.signal
 
     def resolve_metrics(self):
         for k, v in self.nodes.items():
-            if v.metrics is None:
+            if self._is_empty_metric(v.metrics):
                 continue
             if self.nodes[k].metrics.cmp_direction is None:
                 self.nodes[k].metrics.cmp_direction = {}
-            if self.nodes[k].metrics.value is None:
-                self.nodes[k].metrics.value = {}
 
             is_goals_met = []
-            for metric_name in v.metrics.value:
+            for metric_name in v.metrics.value.signal:
                 if metric_name in self.objective_dict:
                     cmp_direction = 1 if self.objective_dict[metric_name]["higher_is_better"] else -1
                     self.nodes[k].metrics.cmp_direction[metric_name] = cmp_direction
@@ -88,7 +88,7 @@ class Footprint:
                     if _goal is None:
                         is_goals_met.append(True)
                     else:
-                        is_goals_met.append(v.metrics.value[metric_name] * cmp_direction >= _goal)
+                        is_goals_met.append(v.metrics.value.signal[metric_name].value_for_rank * cmp_direction >= _goal)
                 else:
                     logger.warning(f"Metric {metric_name} is not in the objective dict")
             self.nodes[k].metrics.is_goals_met = all(is_goals_met)
@@ -133,9 +133,13 @@ class Footprint:
                 # Note: equal points don't dominate one another
                 equal = True  # two points are equal
                 dominated = True  # current point is dominated by other point
-                for metric_name in v.metrics.value:
-                    other_point_metrics = _v.metrics.value[metric_name] * _v.metrics.cmp_direction[metric_name]
-                    current_point_metrics = v.metrics.value[metric_name] * v.metrics.cmp_direction[metric_name]
+                for metric_name in v.metrics.value.signal:
+                    other_point_metrics = (
+                        _v.metrics.value.signal[metric_name].value_for_rank * _v.metrics.cmp_direction[metric_name]
+                    )
+                    current_point_metrics = (
+                        v.metrics.value.signal[metric_name].value_for_rank * v.metrics.cmp_direction[metric_name]
+                    )
                     dominated &= current_point_metrics <= other_point_metrics
                     equal &= current_point_metrics == other_point_metrics
                 # point is not on pareto frontier if dominated and not equal
@@ -155,7 +159,7 @@ class Footprint:
         self.mark_pareto_frontier()
         rls = {k: v for k, v in self.nodes.items() if v.is_pareto_frontier}
         for _, v in rls.items():
-            logger.info(f"pareto frontier points: {v.model_id} {v.metrics.value}")
+            logger.info(f"pareto frontier points: {v.model_id} {v.metrics.value.signal}")
 
         # restructure the pareto frontier points to instance of Footprints node for further analysis
         return Footprint(nodes=rls, objective_dict=self.objective_dict, is_marked_pareto_frontier=True)
@@ -172,13 +176,13 @@ class Footprint:
             if not self._is_empty_metric(v.metrics):
                 for index in indices:
                     if isinstance(index, str):
-                        if index in v.metrics.value:
+                        if index in v.metrics.value.signal:
                             rls.append(index)
                         else:
                             logger.error(f"the metric {index} is not in the metrics")
                     if isinstance(index, int):
-                        if index < len(v.metrics.value):
-                            rls.append(list(v.metrics.value.keys())[index])
+                        if index < len(v.metrics.value.signal):
+                            rls.append(list(v.metrics.value.signal.keys())[index])
                         else:
                             logger.error(f"the index {index} is out of range")
                 return rls
@@ -231,8 +235,8 @@ class Footprint:
             dict_data["marker_size"].append(12 if v.is_pareto_frontier else 8)
             show_list = [k]
             for metric_name in metric_column:
-                dict_data[metric_name].append(v.metrics.value[metric_name])
-                show_list.append(f"{metric_name}: {v.metrics.value[metric_name]}")
+                dict_data[metric_name].append(v.metrics.value.signal[metric_name].value_for_rank)
+                show_list.append(f"{metric_name}: {v.metrics.value.signal[metric_name].metrics}")
             dict_data["show_text"].append("<br>".join(show_list))
         data = pd.DataFrame(dict_data)
 

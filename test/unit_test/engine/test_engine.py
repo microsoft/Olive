@@ -21,6 +21,7 @@ import pytest
 from olive.common.utils import hash_dict
 from olive.engine import Engine
 from olive.evaluator.metric import AccuracySubType
+from olive.evaluator.metric_config import MetricResult, SignalResult
 from olive.evaluator.olive_evaluator import OliveEvaluator
 from olive.model import PyTorchModel
 from olive.systems.local import LocalSystem
@@ -37,6 +38,8 @@ class TestEngine:
         evaluator = OliveEvaluator(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
 
         options = {
+            "output_dir": "./cache",
+            "output_name": "test",
             "cache_dir": "./cache",
             "clean_cache": True,
             "search_strategy": {
@@ -99,6 +102,8 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator = OliveEvaluator(metrics=[metric])
         options = {
+            "output_dir": "./cache",
+            "output_name": "test",
             "cache_dir": "./cache",
             "clean_cache": True,
             "search_strategy": {
@@ -111,14 +116,28 @@ class TestEngine:
         engine.register(p, clean_run_cache=True)
         onnx_model = get_onnx_model()
         mock_local_system.run_pass.return_value = onnx_model
-        mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
+        mock_local_system.evaluate_model.return_value = SignalResult(
+            signal={
+                metric.name: MetricResult(
+                    value_for_rank=0.998,
+                    key_for_rank=metric.sub_type_for_rank,
+                    metrics={metric.sub_type_for_rank: 0.998},
+                )
+            }
+        )
+
         model_id = f"0_{p.__class__.__name__}-{input_model_id}-{hash_dict(pass_config)}"
         expected_res = {
             model_id: {
                 "model_id": model_id,
                 "parent_model_id": input_model_id,
                 "metrics": {
-                    "value": {metric.name: 0.998},
+                    "value": {
+                        metric.name: {
+                            "value_for_rank": 0.998,
+                            "key_for_rank": metric.sub_type_for_rank,
+                        },
+                    },
                     "cmp_direction": {metric.name: 1},
                     "is_goals_met": True,
                 },
@@ -140,7 +159,8 @@ class TestEngine:
         for k, v in expected_res[model_id].items():
             if k == "metrics":
                 assert getattr(actual_res.nodes[model_id].metrics, "is_goals_met")
-            assert getattr(actual_res.nodes[model_id], k) == v
+            else:
+                assert getattr(actual_res.nodes[model_id], k) == v
         assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
         mock_local_system.run_pass.assert_called_once()
         mock_local_system.evaluate_model.assert_called_once_with(onnx_model, [metric])
@@ -153,6 +173,8 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator = OliveEvaluator(metrics=[metric])
         options = {
+            "output_dir": "./cache",
+            "output_name": "test",
             "cache_dir": "./cache",
             "clean_cache": True,
             "search_strategy": None,
@@ -162,13 +184,32 @@ class TestEngine:
         engine.register(p, clean_run_cache=True)
         onnx_model = get_onnx_model()
         mock_local_system.run_pass.return_value = onnx_model
-        mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
+        mock_local_system.evaluate_model.return_value = SignalResult(
+            signal={
+                metric.name: MetricResult(
+                    value_for_rank=0.998,
+                    key_for_rank=metric.sub_type_for_rank,
+                    metrics={metric.sub_type_for_rank: 0.998},
+                )
+            }
+        )
 
         # output model to output_dir
         output_dir = Path("cache") / "output"
         shutil.rmtree(output_dir, ignore_errors=True)
 
-        expected_res = {"model": onnx_model.to_json(), "metrics": {metric.name: 0.998}}
+        expected_res = {
+            "model": onnx_model.to_json(),
+            "metrics": SignalResult(
+                signal={
+                    metric.name: MetricResult(
+                        value_for_rank=0.998,
+                        key_for_rank=metric.sub_type_for_rank,
+                        metrics={metric.sub_type_for_rank: 0.998},
+                    )
+                }
+            ),
+        }
         expected_res["model"]["config"]["model_path"] = str(Path(output_dir / "model.onnx").resolve())
 
         # execute
@@ -232,13 +273,29 @@ class TestEngine:
         engine.register(p, clean_run_cache=True)
         onnx_model = get_onnx_model()
         mock_local_system.run_pass.return_value = onnx_model
-        mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
+        mock_local_system.evaluate_model.return_value = SignalResult(
+            signal={
+                metric.name: MetricResult(
+                    value_for_rank=0.998,
+                    key_for_rank=metric.sub_type_for_rank,
+                    metrics={metric.sub_type_for_rank: 0.998},
+                )
+            }
+        )
 
         # output model to output_dir
         output_dir = Path("cache") / "output"
         shutil.rmtree(output_dir, ignore_errors=True)
 
-        expected_res = {metric.name: 0.998}
+        expected_res = SignalResult(
+            signal={
+                metric.name: MetricResult(
+                    value_for_rank=0.998,
+                    key_for_rank=metric.sub_type_for_rank,
+                    metrics={metric.sub_type_for_rank: 0.998},
+                )
+            }
+        )
 
         # execute
         actual_res = engine.run(pytorch_model, output_dir=output_dir, evaluation_only=True)

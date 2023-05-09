@@ -11,34 +11,21 @@ from typing import Any, Dict, List, Optional, Union
 import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
+from olive.engine.config import PRUNED_CONFIG, EngineConfig
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric
-from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorConfig
+from olive.evaluator.metric_config import SignalResult
+from olive.evaluator.olive_evaluator import OliveEvaluator
 from olive.model import ModelConfig, ModelStorageKind, OliveModel
 from olive.passes.olive_pass import Pass
-from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
+from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
-from olive.systems.system_config import SystemConfig
 
 logger = logging.getLogger(__name__)
-
-# pass search-point/config was pruned due invalid config or failed run
-PRUNED_CONFIG = "pruned-config"
-
-
-class EngineConfig(ConfigBase):
-    search_strategy: Union[SearchStrategyConfig, bool] = None
-    host: SystemConfig = None
-    target: SystemConfig = None
-    evaluator: OliveEvaluatorConfig = None
-    packaging_config: PackagingConfig = None
-    cache_dir: Union[Path, str] = ".olive-cache"
-    clean_cache: bool = False
-    clean_evaluation_cache: bool = False
 
 
 class Engine:
@@ -221,7 +208,7 @@ class Engine:
             results = self._evaluate_model(input_model, input_model_id, self.evaluator, verbose)
             result_name = f"{prefix_output_name}metrics"
             results_path = output_dir / f"{result_name}.json"
-            json.dump(results, open(results_path, "w"), indent=4)
+            json.dump(results.dict(), open(results_path, "w"), indent=4)
             return results
 
         # get objective_dict
@@ -286,14 +273,14 @@ class Engine:
                     break
                 model_ids.append(model_id)
 
-            signal = {}
+            signal = SignalResult()
             if not should_prune:
                 # evaluate the model
                 try:
                     evaluator = self.evaluator_for_pass(pass_id)
                     if self.no_search and evaluator is None:
                         # skip evaluation if no search and no evaluator
-                        signal = None
+                        signal = SignalResult()
                     else:
                         signal = self._evaluate_model(model, model_id, evaluator, verbose)
                 except Exception as e:
@@ -321,7 +308,7 @@ class Engine:
             result_name = f"{prefix_output_name}metrics"
             results_path = output_dir / f"{result_name}.json"
             if signal is not None:
-                json.dump(signal, open(results_path, "w"), indent=4)
+                json.dump(signal.dict(), open(results_path, "w"), indent=4)
 
             output = {"model": output_model_json}
             if signal is not None:
@@ -612,13 +599,13 @@ class Engine:
         evaluation_json_path = self._evaluation_cache_path / f"{model_id}.json"
         return evaluation_json_path
 
-    def _cache_evaluation(self, model_id: str, signal: dict):
+    def _cache_evaluation(self, model_id: str, signal: SignalResult):
         """
         Cache the evaluation in the cache directory.
         """
         evaluation_json = {
             "model_id": model_id,
-            "signal": signal,
+            "signal": signal.dict(),
         }
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         try:
@@ -635,6 +622,7 @@ class Engine:
             try:
                 evaluation_json = json.load(open(evaluation_json_path, "r"))
                 signal = evaluation_json["signal"]
+                signal = SignalResult(**signal)
             except Exception as e:
                 logger.error(f"Failed to load evaluation: {e}")
                 signal = None
