@@ -551,7 +551,7 @@ class Engine:
         """
         Get the path to the model json file.
         """
-        return self._model_cache_path / f"{model_id}_{accelerator_spec}.json"
+        return self._model_cache_path / f"{model_id}-{accelerator_spec}.json"
 
     def _cache_model(self, model: Union[OliveModel, str], model_id: str, accelerator_spec, check_objects: bool = True):
         """
