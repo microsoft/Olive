@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+import logging
 import shutil
 import warnings
 from pathlib import Path
@@ -12,6 +13,7 @@ import onnxruntime as ort
 import PySimpleGUI as sg
 import torch
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffusionPipeline
+from packaging import version
 
 from olive.workflows import run as olive_run
 
@@ -19,7 +21,7 @@ from olive.workflows import run as olive_run
 def run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps, callback=None):
     images_saved = 0
     while images_saved < num_images:
-        print(f"\nInference Batch Start (batch size = {batch_size}).")
+        logging.info(f"\nInference Batch Start (batch size = {batch_size}).")
         result = pipeline([prompt] * batch_size, num_inference_steps=num_inference_steps, callback=callback)
         passed_safety_checker = 0
 
@@ -30,15 +32,15 @@ def run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_s
                     output_path = f"result_{images_saved}.png"
                     result.images[image_index].save(output_path)
                     images_saved += 1
-                    print(f"Generated {output_path}")
+                    logging.info(f"Generated {output_path}")
 
-        print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
+        logging.info(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
 
 
 def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_inference_steps, static_dims, interactive):
     ort.set_default_logger_severity(3)
 
-    print("Loading models into ORT session...")
+    logging.info("Loading models into ORT session...")
     sess_options = ort.SessionOptions()
     sess_options.enable_mem_pattern = False
 
@@ -95,17 +97,22 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
 
+    # Clean up previously optimized models, if any.
+    shutil.rmtree(script_dir / "footprints", ignore_errors=True)
+    shutil.rmtree(unoptimized_model_dir, ignore_errors=True)
+    shutil.rmtree(optimized_model_dir, ignore_errors=True)
+
     # Load the entire PyTorch pipeline to ensure all models and their configurations are downloaded and cached.
     # This avoids an issue where the non-ONNX components (tokenizer, scheduler, and feature extractor) are not
     # automatically cached correctly if individual models are fetched one at a time.
-    print("Download stable diffusion PyTorch pipeline...")
+    logging.info("Download stable diffusion PyTorch pipeline...")
     pipeline = StableDiffusionPipeline.from_pretrained(model_name, torch_dtype=torch.float32)
 
     model_info = dict()
 
     for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
         # Optimize the model with Olive
-        print(f"\nOptimizing {submodel_name}")
+        logging.info(f"\nOptimizing {submodel_name}")
 
         olive_config = None
         with open(script_dir / f"config_{submodel_name}.json", "r") as fin:
@@ -141,12 +148,12 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
                 },
             }
 
-            print(f"Unoptimized Model : {model_info[submodel_name]['unoptimized']['path']}")
-            print(f"Optimized Model   : {model_info[submodel_name]['optimized']['path']}")
+            logging.info(f"Unoptimized Model : {model_info[submodel_name]['unoptimized']['path']}")
+            logging.info(f"Optimized Model   : {model_info[submodel_name]['optimized']['path']}")
 
     # Save the unoptimized models in a directory structure that the diffusers library can load and run.
     # This is optional, and the optimized models can be used directly in a custom pipeline if desired.
-    print("Creating ONNX pipeline...")
+    logging.info("\nCreating ONNX pipeline...")
     onnx_pipeline = OnnxStableDiffusionPipeline(
         vae_encoder=OnnxRuntimeModel.from_pretrained(model_info["vae_encoder"]["unoptimized"]["path"].parent),
         vae_decoder=OnnxRuntimeModel.from_pretrained(model_info["vae_decoder"]["unoptimized"]["path"].parent),
@@ -159,11 +166,11 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
         requires_safety_checker=True,
     )
 
-    print("Saving unoptimized models...")
+    logging.info("Saving unoptimized models...")
     onnx_pipeline.save_pretrained(unoptimized_model_dir)
 
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
-    print("Copying optimized models...")
+    logging.info("Copying optimized models...")
     shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))
     for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
         src_path = model_info[submodel_name]["optimized"]["path"]
@@ -172,6 +179,8 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
@@ -179,7 +188,7 @@ if __name__ == "__main__":
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
     parser.add_argument("--model", default="runwayml/stable-diffusion-v1-5", type=str)
-    parser.add_argument("--prompt", default="a photo of an astronaut riding a horse on mars.", type=str)
+    parser.add_argument("--prompt", default="cyberpunk dog, bokeh, close up, city", type=str)
     parser.add_argument("--num_images", default=1, type=int, help="Number of images to generate")
     parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
@@ -188,17 +197,16 @@ if __name__ == "__main__":
     parser.add_argument("--static_dims", action="store_true", help="Fixes dynamic shapes to static for better perf")
     args = parser.parse_args()
 
+    if version.parse(ort.__version__) < version.parse("1.15.0"):
+        logging.warning("This script requires onnxruntime-directml 1.15.0 or newer")
+        exit(1)
+
     script_dir = Path(__file__).resolve().parent
     unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model
     optimized_model_dir = script_dir / "models" / "optimized" / args.model
 
     if args.clean_cache:
         shutil.rmtree(script_dir / "cache", ignore_errors=True)
-
-    if args.optimize:
-        shutil.rmtree(script_dir / "footprints", ignore_errors=True)
-        shutil.rmtree(unoptimized_model_dir, ignore_errors=True)
-        shutil.rmtree(optimized_model_dir, ignore_errors=True)
 
     if args.optimize or not optimized_model_dir.exists():
         # TODO: clean up warning filter (mostly during conversion from torch to ONNX)

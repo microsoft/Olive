@@ -19,15 +19,17 @@ pip install -r requirements.txt
 
 ## Conversion to ONNX and Latency Optimization
 
+**NOTE**: the stable diffusion models are large, and the optimization process is resource intensive. We recommend running optimization on a system with a minimum of 16GB of memory (preferably 32GB).
+
 The easiest way to optimize everything is with the `stable_diffusion.py` helper script:
 
 ```
 python stable_diffusion.py --optimize
 ```
 
-The optimized models will be stored under `models/optimized/runwayml/stable-diffusion-v1-5`.
-
-The unoptimized models (Torch-to-ONNX converted, but not run through transformer optimization pass) will be stored under `models/unoptimized/runwayml/stable-diffusion-v1-5`.
+- The optimized models will be stored under `models/optimized/runwayml/stable-diffusion-v1-5`.
+- The unoptimized models (converted to ONNX, but not run through transformer optimization pass) will be stored under `models/unoptimized/runwayml/stable-diffusion-v1-5`.
+- **Alternatively**, you can optimize specific models with Olive directly. For example, `python -m olive.workflows.run --config .\config_unet.json`.
 
 ## Test Inference
 
