@@ -3,11 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import io
+from pathlib import Path
 
 import numpy as np
 import numpy.typing as npt
 import onnx
-import onnxruntime
 import torch
 from onnx import numpy_helper
 from onnxruntime_extensions import PyOrtFunction, util
@@ -202,14 +202,8 @@ def _load_test_data(filepath: str, use_audio_decoder: bool) -> npt.NDArray[np.ui
 
 def _preprocessing(audio_data: npt.NDArray[np.uint8], use_audio_decoder) -> onnx.ModelProto:
     if use_audio_decoder:
-        decoder = PyOrtFunction.from_customop("AudioDecoder")
-
-        # This is required in newer versions of ORT as per the error.
-        # Extensions probably need to be updated.
-        decoder.ort_session = onnxruntime.InferenceSession(
-            decoder.onnx_model.SerializeToString(),
-            decoder.get_ort_session_options(),
-            providers=["CPUExecutionProvider"],
+        decoder = PyOrtFunction.from_customop(
+            "AudioDecoder", cpu_only=True, downsampling_rate=SAMPLE_RATE, stereo_to_mono=1
         )
         audio_pcm = torch.from_numpy(decoder(audio_data))
     else:
@@ -248,7 +242,7 @@ def _postprocessing(name: str) -> onnx.ModelProto:
 
     processor = WhisperProcessor.from_pretrained(name)
     fn_decoder = PyOrtFunction.from_customop(
-        "BpeDecoder", cvt=HFTokenizerConverter(processor.tokenizer).bpe_decoder, skip_special_tokens=True
+        "BpeDecoder", cvt=HFTokenizerConverter(processor.tokenizer).bpe_decoder, skip_special_tokens=True, cpu_only=True
     )
 
     return fn_decoder.onnx_model
@@ -275,20 +269,22 @@ def add_pre_post_processing_to_model(
     testdata_filepath: str,
     use_audio_decoder: bool = True,
 ) -> onnx.ModelProto:
-
     audio_blob = _load_test_data(testdata_filepath, use_audio_decoder)
     pre_model = _preprocessing(audio_blob, use_audio_decoder)
     post_model = _postprocessing(model_name)
     final_model = _merge_models(pre_model, model, post_model)
     onnx.checker.check_model(final_model)
 
-    # For some reason, the model with external data doesn't work!!
-    onnx.save_model(
-        final_model,
-        output_filepath,
-        # save_as_external_data=True,
-        # all_tensors_to_one_file=True,
-        convert_attribute=True,
-    )
+    try:
+        onnx.save_model(final_model, output_filepath)
+    except ValueError:
+        onnx.save_model(
+            final_model,
+            output_filepath,
+            save_as_external_data=True,
+            all_tensors_to_one_file=True,
+            location=f"{Path(output_filepath).name}.data",
+            convert_attribute=True,
+        )
 
     return final_model

@@ -8,6 +8,8 @@ onnxconverter_common
 onnxruntime-extensions
 openvino
 openvino-dev
+pandas
+plotly
 psutil
 pytorch_lightning
 torchvision
