@@ -218,10 +218,12 @@
             <span class="n">volumes_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dev_mount_str</span><span class="p">)</span>
 
         <span class="n">model_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-        <span class="n">model_mount_path</span><span class="p">,</span> <span class="n">model_mount_str_list</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_model_mount</span><span class="p">(</span>
-            <span class="n">model</span><span class="o">=</span><span class="n">model_copy</span><span class="p">,</span> <span class="n">container_root_path</span><span class="o">=</span><span class="n">container_root_path</span>
-        <span class="p">)</span>
-        <span class="n">volumes_list</span> <span class="o">+=</span> <span class="n">model_mount_str_list</span>
+        <span class="n">model_mount_path</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">model_copy</span><span class="o">.</span><span class="n">model_path</span><span class="p">:</span>
+            <span class="n">model_mount_path</span><span class="p">,</span> <span class="n">model_mount_str_list</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_model_mount</span><span class="p">(</span>
+                <span class="n">model</span><span class="o">=</span><span class="n">model_copy</span><span class="p">,</span> <span class="n">container_root_path</span><span class="o">=</span><span class="n">container_root_path</span>
+            <span class="p">)</span>
+            <span class="n">volumes_list</span> <span class="o">+=</span> <span class="n">model_mount_str_list</span>
 
         <span class="n">metrics_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">metrics</span><span class="p">)</span>
         <span class="n">volumes_list</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_metric_volumes_list</span><span class="p">(</span>
