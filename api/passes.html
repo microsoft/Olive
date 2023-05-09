@@ -1566,6 +1566,33 @@
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-72">
+<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-72" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-73">
+<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-73" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-74">
+<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-74" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
 </section>
 <section id="incstaticquantization">
 <span id="inc-static-quantization"></span><h2>IncStaticQuantization<a class="headerlink" href="#incstaticquantization" title="Permalink to this heading">¶</a></h2>
@@ -1573,8 +1600,8 @@
 <p><strong>Input:</strong> ONNXModel</p>
 <p><strong>Output:</strong> ONNXModel</p>
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-72">
-<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-72" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-75">
+<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-75" title="Permalink to this definition">¶</a></dt>
 <dd><p>Directory containing user script dependencies.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
@@ -1582,8 +1609,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-73">
-<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-73" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-76">
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-76" title="Permalink to this definition">¶</a></dt>
 <dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
@@ -1591,8 +1618,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-74">
-<span class="sig-name descname"><span class="pre">approach</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-74" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-77">
+<span class="sig-name descname"><span class="pre">approach</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-77" title="Permalink to this definition">¶</a></dt>
 <dd><p>static quantization mode</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> static</p>
@@ -1600,8 +1627,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-75">
-<span class="sig-name descname"><span class="pre">device</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-75" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-78">
+<span class="sig-name descname"><span class="pre">device</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-78" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Intel® Neural Compressor quantization device. Support ‘cpu’ and ‘gpu’.</p>
 <p><strong>type:</strong> str</p>
@@ -1610,8 +1637,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-76">
-<span class="sig-name descname"><span class="pre">backend</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-76" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-79">
+<span class="sig-name descname"><span class="pre">backend</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-79" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Backend for model execution. Support ‘default’, ‘onnxrt_trt_ep’, ‘onnxrt_cuda_ep’</p>
 <p><strong>type:</strong> str</p>
@@ -1620,8 +1647,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-77">
-<span class="sig-name descname"><span class="pre">domain</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-77" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-80">
+<span class="sig-name descname"><span class="pre">domain</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-80" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Model domain. Support ‘auto’, ‘cv’, ‘object_detection’, ‘nlp’ and ‘recommendation_system’.
             Intel® Neural Compressor Adaptor will use specific quantization settings for different domains
@@ -1633,8 +1660,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-78">
-<span class="sig-name descname"><span class="pre">recipes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-78" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-81">
+<span class="sig-name descname"><span class="pre">recipes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-81" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Recipes for Intel® Neural Compressor quantiztaion, support list is as below.
                 ‘smooth_quant’: whether do smooth quant
@@ -1656,8 +1683,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-79">
-<span class="sig-name descname"><span class="pre">reduce_range</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-79" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-82">
+<span class="sig-name descname"><span class="pre">reduce_range</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-82" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Whether use 7 bit to quantization.</p>
 <p><strong>type:</strong> bool</p>
@@ -1666,8 +1693,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-80">
-<span class="sig-name descname"><span class="pre">quant_level</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-80" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-83">
+<span class="sig-name descname"><span class="pre">quant_level</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-83" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Intel® Neural Compressor allows users to choose different tuning processes by specifying
             the quantization level (quant_level). Currently 3 quant_levels are supported.
@@ -1683,8 +1710,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-81">
-<span class="sig-name descname"><span class="pre">excluded_precisions</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-81" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-84">
+<span class="sig-name descname"><span class="pre">excluded_precisions</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-84" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Precisions to be excluded, Default value is empty list.
             Intel® Neural Compressor enable the mixed precision with
@@ -1696,8 +1723,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-82">
-<span class="sig-name descname"><span class="pre">use_distributed_tuning</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-82" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-85">
+<span class="sig-name descname"><span class="pre">use_distributed_tuning</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-85" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Intel® Neural Compressor provides distributed tuning to speed up the tuning
             process by leveraging the multi-node cluster. Prerequisites: A working MPI
@@ -1708,39 +1735,39 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-83">
-<span class="sig-name descname"><span class="pre">data_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-83" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-86">
+<span class="sig-name descname"><span class="pre">data_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-86" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Path to the directory containing the dataset.
-            For local data, it is required if quant_mode is ‘static’.</p>
+            For local data, it is required if approach is ‘static’.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-84">
-<span class="sig-name descname"><span class="pre">batch_size</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-84" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-87">
+<span class="sig-name descname"><span class="pre">batch_size</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-87" title="Permalink to this definition">¶</a></dt>
 <dd><p>
-            Batch size for calibration, required if quant_mode is ‘static’.</p>
+            Batch size for calibration, required if approach is ‘static’.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-85">
-<span class="sig-name descname"><span class="pre">dataloader_func</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-85" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-88">
+<span class="sig-name descname"><span class="pre">dataloader_func</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-88" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Function/function name to generate dataloader for calibration,
-            required if quant_mode is ‘static’</p>
+            required if approach is ‘static’</p>
 <p><strong>type:</strong> Callable | str</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-86">
-<span class="sig-name descname"><span class="pre">quant_format</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-86" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-89">
+<span class="sig-name descname"><span class="pre">quant_format</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-89" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Quantization format. Support ‘QDQ’ and ‘QOperator’.</p>
 <p><strong>type:</strong> str</p>
@@ -1758,6 +1785,33 @@
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-90">
+<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-90" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-91">
+<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-91" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-92">
+<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-92" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
 </section>
 <section id="incquantization">
 <span id="inc-quantization"></span><h2>IncQuantization<a class="headerlink" href="#incquantization" title="Permalink to this heading">¶</a></h2>
@@ -1766,8 +1820,8 @@
 <p><strong>Input:</strong> ONNXModel</p>
 <p><strong>Output:</strong> ONNXModel</p>
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-87">
-<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-87" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-93">
+<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-93" title="Permalink to this definition">¶</a></dt>
 <dd><p>Directory containing user script dependencies.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
@@ -1775,8 +1829,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-88">
-<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-88" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-94">
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-94" title="Permalink to this definition">¶</a></dt>
 <dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
@@ -1784,8 +1838,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-89">
-<span class="sig-name descname"><span class="pre">approach</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-89" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-95">
+<span class="sig-name descname"><span class="pre">approach</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-95" title="Permalink to this definition">¶</a></dt>
 <dd><p>
                 Intel® Neural Compressor Quantization mode. ‘dynamic’ for dynamic quantization,
                 ‘static’ for static quantization.</p>
@@ -1795,8 +1849,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-90">
-<span class="sig-name descname"><span class="pre">device</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-90" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-96">
+<span class="sig-name descname"><span class="pre">device</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-96" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Intel® Neural Compressor quantization device. Support ‘cpu’ and ‘gpu’.</p>
 <p><strong>type:</strong> str</p>
@@ -1805,8 +1859,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-91">
-<span class="sig-name descname"><span class="pre">backend</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-91" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-97">
+<span class="sig-name descname"><span class="pre">backend</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-97" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Backend for model execution. Support ‘default’, ‘onnxrt_trt_ep’, ‘onnxrt_cuda_ep’</p>
 <p><strong>type:</strong> str</p>
@@ -1815,8 +1869,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-92">
-<span class="sig-name descname"><span class="pre">domain</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-92" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-98">
+<span class="sig-name descname"><span class="pre">domain</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-98" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Model domain. Support ‘auto’, ‘cv’, ‘object_detection’, ‘nlp’ and ‘recommendation_system’.
             Intel® Neural Compressor Adaptor will use specific quantization settings for different domains
@@ -1828,8 +1882,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-93">
-<span class="sig-name descname"><span class="pre">recipes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-93" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-99">
+<span class="sig-name descname"><span class="pre">recipes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-99" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Recipes for Intel® Neural Compressor quantiztaion, support list is as below.
                 ‘smooth_quant’: whether do smooth quant
@@ -1851,8 +1905,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-94">
-<span class="sig-name descname"><span class="pre">reduce_range</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-94" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-100">
+<span class="sig-name descname"><span class="pre">reduce_range</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-100" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Whether use 7 bit to quantization.</p>
 <p><strong>type:</strong> bool</p>
@@ -1861,8 +1915,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-95">
-<span class="sig-name descname"><span class="pre">quant_level</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-95" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-101">
+<span class="sig-name descname"><span class="pre">quant_level</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-101" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Intel® Neural Compressor allows users to choose different tuning processes by specifying
             the quantization level (quant_level). Currently 3 quant_levels are supported.
@@ -1878,8 +1932,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-96">
-<span class="sig-name descname"><span class="pre">excluded_precisions</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-96" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-102">
+<span class="sig-name descname"><span class="pre">excluded_precisions</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-102" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Precisions to be excluded, Default value is empty list.
             Intel® Neural Compressor enable the mixed precision with
@@ -1891,8 +1945,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-97">
-<span class="sig-name descname"><span class="pre">use_distributed_tuning</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-97" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-103">
+<span class="sig-name descname"><span class="pre">use_distributed_tuning</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-103" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Intel® Neural Compressor provides distributed tuning to speed up the tuning
             process by leveraging the multi-node cluster. Prerequisites: A working MPI
@@ -1903,39 +1957,39 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-98">
-<span class="sig-name descname"><span class="pre">data_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-98" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-104">
+<span class="sig-name descname"><span class="pre">data_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-104" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Path to the directory containing the dataset.
-            For local data, it is required if quant_mode is ‘static’.</p>
+            For local data, it is required if approach is ‘static’.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-99">
-<span class="sig-name descname"><span class="pre">batch_size</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-99" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-105">
+<span class="sig-name descname"><span class="pre">batch_size</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-105" title="Permalink to this definition">¶</a></dt>
 <dd><p>
-            Batch size for calibration, required if quant_mode is ‘static’.</p>
+            Batch size for calibration, required if approach is ‘static’.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-100">
-<span class="sig-name descname"><span class="pre">dataloader_func</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-100" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-106">
+<span class="sig-name descname"><span class="pre">dataloader_func</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-106" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Function/function name to generate dataloader for calibration,
-            required if quant_mode is ‘static’</p>
+            required if approach is ‘static’</p>
 <p><strong>type:</strong> Callable | str</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-101">
-<span class="sig-name descname"><span class="pre">quant_format</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-101" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-107">
+<span class="sig-name descname"><span class="pre">quant_format</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-107" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Quantization format. Support ‘QDQ’ and ‘QOperator’.</p>
 <p><strong>type:</strong> str</p>
@@ -1944,12 +1998,39 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-102">
-<span class="sig-name descname"><span class="pre">calibration_sampling_size</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-102" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-108">
+<span class="sig-name descname"><span class="pre">calibration_sampling_size</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-108" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Number of calibration sample.</p>
 <p><strong>type:</strong> list | int</p>
 <p><strong>default_value:</strong> [100]</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-109">
+<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-109" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-110">
+<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-110" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-111">
+<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-111" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
@@ -1997,8 +2078,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-103">
-<span class="sig-name descname"><span class="pre">target_opset</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-103" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-112">
+<span class="sig-name descname"><span class="pre">target_opset</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-112" title="Permalink to this definition">¶</a></dt>
 <dd><p>The version of the default (ai.onnx) opset to target.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 16</p>
@@ -2006,8 +2087,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-104">
-<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-104" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-113">
+<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-113" title="Permalink to this definition">¶</a></dt>
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
@@ -2015,8 +2096,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-105">
-<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-105" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-114">
+<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-114" title="Permalink to this definition">¶</a></dt>
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
@@ -2024,8 +2105,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-106">
-<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-106" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-115">
+<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-115" title="Permalink to this definition">¶</a></dt>
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
@@ -2050,8 +2131,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-107">
-<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-107" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-116">
+<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-116" title="Permalink to this definition">¶</a></dt>
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
@@ -2059,8 +2140,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-108">
-<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-108" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-117">
+<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-117" title="Permalink to this definition">¶</a></dt>
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
@@ -2068,8 +2149,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-109">
-<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-109" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-118">
+<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-118" title="Permalink to this definition">¶</a></dt>
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
@@ -2083,8 +2164,8 @@
 <p><strong>Input:</strong> PyTorchModel</p>
 <p><strong>Output:</strong> PyTorchModel</p>
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-110">
-<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-110" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-119">
+<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-119" title="Permalink to this definition">¶</a></dt>
 <dd><p>Directory containing user script dependencies.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
@@ -2092,8 +2173,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-111">
-<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-111" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-120">
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-120" title="Permalink to this definition">¶</a></dt>
 <dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
@@ -2278,8 +2359,8 @@
 <p><strong>Input:</strong> OpenVINOModel</p>
 <p><strong>Output:</strong> OpenVINOModel</p>
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-112">
-<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-112" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-121">
+<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-121" title="Permalink to this definition">¶</a></dt>
 <dd><p>Directory containing user script dependencies.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
@@ -2287,8 +2368,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-113">
-<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-113" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-122">
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-122" title="Permalink to this definition">¶</a></dt>
 <dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
@@ -2304,8 +2385,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-114">
-<span class="sig-name descname"><span class="pre">dataloader_func</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-114" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-123">
+<span class="sig-name descname"><span class="pre">dataloader_func</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-123" title="Permalink to this definition">¶</a></dt>
 <dd><p>A callable function or a str of the function name from ‘user_script’ for the instance of the dataloader.</p>
 <p><strong>type:</strong> Callable | str</p>
 <p><strong>default_value:</strong> None</p>
@@ -2313,8 +2394,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-115">
-<span class="sig-name descname"><span class="pre">data_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-115" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-124">
+<span class="sig-name descname"><span class="pre">data_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-124" title="Permalink to this definition">¶</a></dt>
 <dd><p>Dataset path. ‘data_dir’ can be by a str or Pathlib.Path.</p>
 <p><strong>type:</strong> pathlib.Path | str</p>
 <p><strong>default_value:</strong> None</p>
@@ -2322,8 +2403,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-116">
-<span class="sig-name descname"><span class="pre">batch_size</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-116" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-125">
+<span class="sig-name descname"><span class="pre">batch_size</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-125" title="Permalink to this definition">¶</a></dt>
 <dd><p>Batch size for the dataloader.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 1</p>
@@ -2356,16 +2437,16 @@
 <p><strong>Input:</strong> ONNXModel | TensorFlowModel</p>
 <p><strong>Output:</strong> SNPEModel</p>
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-117">
-<span class="sig-name descname"><span class="pre">input_names</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-117" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-126">
+<span class="sig-name descname"><span class="pre">input_names</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-126" title="Permalink to this definition">¶</a></dt>
 <dd><p>List of input names.</p>
 <p><strong>type:</strong> List[str]</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-118">
-<span class="sig-name descname"><span class="pre">input_shapes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-118" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-127">
+<span class="sig-name descname"><span class="pre">input_shapes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-127" title="Permalink to this definition">¶</a></dt>
 <dd><p>List of input shapes. Must be the same length as input_names.</p>
 <p><strong>type:</strong> List[List[int]]</p>
 <p><strong>required:</strong> True</p>
@@ -2388,8 +2469,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-119">
-<span class="sig-name descname"><span class="pre">input_types</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-119" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-128">
+<span class="sig-name descname"><span class="pre">input_types</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-128" title="Permalink to this definition">¶</a></dt>
 <dd><p>List of input types. If not None, it must be a list of the same length as input_names. List members can be None to use default value. Refer to olive.snpe.constants.InputType for valid values.</p>
 <p><strong>type:</strong> List[str | None]</p>
 <p><strong>default_value:</strong> None</p>
@@ -2423,8 +2504,8 @@
 <p><strong>Input:</strong> SNPEModel</p>
 <p><strong>Output:</strong> SNPEModel</p>
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-120">
-<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-120" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-129">
+<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-129" title="Permalink to this definition">¶</a></dt>
 <dd><p>Directory containing user script dependencies.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
@@ -2432,8 +2513,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-121">
-<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-121" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-130">
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-130" title="Permalink to this definition">¶</a></dt>
 <dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
@@ -2441,16 +2522,16 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-122">
-<span class="sig-name descname"><span class="pre">data_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-122" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-131">
+<span class="sig-name descname"><span class="pre">data_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-131" title="Permalink to this definition">¶</a></dt>
 <dd><p>Path to the data directory.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-123">
-<span class="sig-name descname"><span class="pre">dataloader_func</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-123" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-132">
+<span class="sig-name descname"><span class="pre">dataloader_func</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-132" title="Permalink to this definition">¶</a></dt>
 <dd><p>Function or function name to create dataloader for quantization. Function should take data directory as an argument and return a olive.snpe.SNPEDataLoader object.</p>
 <p><strong>type:</strong> Callable[[str], olive.snpe.data_loader.SNPEDataLoader] | str</p>
 <p><strong>required:</strong> True</p>
@@ -2484,8 +2565,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-124">
-<span class="sig-name descname"><span class="pre">extra_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-124" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-133">
+<span class="sig-name descname"><span class="pre">extra_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-133" title="Permalink to this definition">¶</a></dt>
 <dd><p>Extra arguments to pass to snpe conversion tool. Refer to <a class="reference external" href="https://developer.qualcomm.com/sites/default/files/docs/snpe/tools.html#tools_snpe-dlc-quantize">https://developer.qualcomm.com/sites/default/files/docs/snpe/tools.html#tools_snpe-dlc-quantize</a> for more additional arguments. Must be a dictionary of the form: {‘arg_name’: ‘arg_value’}.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
@@ -2510,8 +2591,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-125">
-<span class="sig-name descname"><span class="pre">target_opset</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-125" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-134">
+<span class="sig-name descname"><span class="pre">target_opset</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-134" title="Permalink to this definition">¶</a></dt>
 <dd><p>Target ONNX opset version.</p>
 <p><strong>type:</strong> int</p>
 <p><strong>default_value:</strong> 12</p>
@@ -2519,8 +2600,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-126">
-<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-126" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-135">
+<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-135" title="Permalink to this definition">¶</a></dt>
 <dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
@@ -2528,8 +2609,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-127">
-<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-127" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-136">
+<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-136" title="Permalink to this definition">¶</a></dt>
 <dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> True</p>
@@ -2537,8 +2618,8 @@
 </dd></dl>
 
 <dl class="std option">
-<dt class="sig sig-object std" id="cmdoption-arg-128">
-<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-128" title="Permalink to this definition">¶</a></dt>
+<dt class="sig sig-object std" id="cmdoption-arg-137">
+<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-137" title="Permalink to this definition">¶</a></dt>
 <dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
