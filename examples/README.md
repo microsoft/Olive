@@ -8,7 +8,7 @@ Each example is a self-contained folder with a `README.md` file that explains ho
 
 To ensure that the latest versions of the examples can be run without issues, you have to install Olive from source. We also recommend using a new [conda](#conda-env) or [virtual environment](#virtual-env).
 
-To install Olive from source, run the following command in the conda or virtual environment:
+To install Olive from source, run the following command in a new conda or virtual environment:
 
 ```bash
 git clone https://github.com/microsoft/Olive.git
