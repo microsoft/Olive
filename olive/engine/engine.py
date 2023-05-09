@@ -129,10 +129,10 @@ class Engine:
 
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
-        for pass_name, pass_config in self.pass_config.items():
+        for pass_config in self.pass_config.values():
             clean_run_cache = pass_config["clean_run_cache"]
             if clean_run_cache:
-                cache_utils.clean_pass_run_cache(pass_name, cache_dir)
+                cache_utils.clean_pass_run_cache(pass_config["type"].__name__, cache_dir)
 
         self._initialized = True
 

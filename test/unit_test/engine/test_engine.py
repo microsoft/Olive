@@ -8,7 +8,6 @@ import shutil
 from pathlib import Path
 from test.unit_test.utils import (
     get_accuracy_metric,
-    get_onnx_dynamic_quantization_pass,
     get_onnx_model,
     get_onnxconversion_pass,
     get_pytorch_model,
@@ -59,9 +58,6 @@ class TestEngine:
 
     def test_register_no_search(self):
         # setup
-        p = get_onnx_dynamic_quantization_pass(disable_search=True)
-        name = p.__class__.__name__
-
         options = {
             "search_strategy": None,
         }
@@ -71,7 +67,7 @@ class TestEngine:
         engine.register(OnnxDynamicQuantization, disable_search=True)
 
         # assert
-        assert name in engine.pass_config
+        assert "OnnxDynamicQuantization" in engine.pass_config
 
     def test_register_no_search_fail(self):
         name = "OnnxDynamicQuantization"
