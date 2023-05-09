@@ -227,8 +227,6 @@ class Engine:
         output_dir: Path = Path(output_dir) if output_dir else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        prefix_output_name = f"{output_name}_" if output_name is not None else ""
-
         # TODO by myguo: replace the following for loop using the accelerator and excution provider list when adding
         # accelerator support
         outputs = {}
@@ -241,6 +239,7 @@ class Engine:
             self.footprints[i].record(model_id=input_model_id)
 
             if evaluation_only:
+                prefix_output_name = f"{output_name}_{i}_" if output_name is not None else f"{i}_"
                 assert self.evaluator is not None, "Evaluation only is True but no evaluator provided"
                 results = self._evaluate_model(input_model, input_model_id, self.evaluator, i, verbose)
                 result_name = f"{prefix_output_name}metrics"
@@ -253,7 +252,7 @@ class Engine:
                 )
                 outputs[i] = output
             else:
-                footprint = self.run_one_accelerator(
+                footprint = self.run_search(
                     input_model, input_model_id, i, packaging_config, verbose, output_dir, output_name
                 )
                 outputs[i] = footprint
@@ -381,7 +380,7 @@ class Engine:
         ) = self.run_passes(next_step["passes"], model, model_id, accelerator_spec, verbose)
         model_id = model_ids[-1]
 
-        prefix_output_name = f"{output_name}_" if output_name is not None else ""
+        prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
         # save the model to output_dir
         output_model_name = f"{prefix_output_name}model"
         output_model_json = cache_utils.save_model(model_id, output_dir, output_model_name, self._config.cache_dir)
@@ -408,7 +407,7 @@ class Engine:
 
         return output
 
-    def run_one_accelerator(
+    def run_search(
         self,
         input_model: OliveModel,
         input_model_id: str,
@@ -430,7 +429,7 @@ class Engine:
         TODO: save the results using updated RunResult
         """
 
-        prefix_output_name = f"{output_name}_" if output_name is not None else ""
+        prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
 
         if self.no_search:
             for pass_item in self.passes.values():
