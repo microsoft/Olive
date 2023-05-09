@@ -7,7 +7,7 @@ import logging
 import time
 from collections import OrderedDict, defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
@@ -279,14 +279,15 @@ class Engine:
 
     def run_passes(
         self,
-        passes: List[Pass],
+        passes: List[Tuple[str, Dict[str, Any]]],
         model: OliveModel,
         model_id: str,
-        accelerator_spec,
+        accelerator_spec: Any,
         verbose: bool = False,
     ):
         """
         Run all the passes in the order they were registered.
+        the passes is the list of (pass_name, pass_search_point) tuples
         """
         should_prune = False
         # run all the passes in the step
@@ -333,7 +334,7 @@ class Engine:
         self,
         input_model: OliveModel,
         input_model_id: str,
-        accelerator_spec,
+        accelerator_spec: Any,
         packaging_config: Optional[PackagingConfig] = None,
         verbose: bool = False,
         output_dir: str = None,
@@ -411,7 +412,7 @@ class Engine:
         self,
         input_model: OliveModel,
         input_model_id: str,
-        accelerator_spec,
+        accelerator_spec: Any,
         packaging_config: Optional[PackagingConfig] = None,
         verbose: bool = False,
         output_dir: str = None,
@@ -506,7 +507,7 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         metrics: List[Metric],
-        accelerator_spec,
+        accelerator_spec: Any,
         verbose: bool = False,
     ) -> Dict[str, Dict[str, Any]]:
         """
@@ -527,7 +528,7 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         metrics: List[Metric],
-        accelerator_spec,
+        accelerator_spec: Any,
         verbose: bool = False,
     ) -> Dict[str, float]:
         """
@@ -694,18 +695,18 @@ class Engine:
 
     def _run_pass(
         self,
-        pass_id: int,
-        pass_search_point: dict,
+        pass_id: str,
+        pass_search_point: Dict[str, Any],
         input_model: OliveModel,
         input_model_id: str,
-        accelerator_spec,
+        accelerator_spec: Any,
         verbose: bool,
     ):
         """
         Run a pass on the input model.
         """
         # pass
-        p = self.passes[pass_id]["pass"]
+        p: Pass = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)
@@ -803,7 +804,7 @@ class Engine:
             return None
 
     def _evaluate_model(
-        self, model: OliveModel, model_id: str, evaluator: OliveEvaluator, accelerator_spec, verbose: bool
+        self, model: OliveModel, model_id: str, evaluator: OliveEvaluator, accelerator_spec: Any, verbose: bool
     ):
         """
         Evaluate a model.
