@@ -7,19 +7,11 @@ This sample shows how to optimize [Stable Diffusion v1-5](https://huggingface.co
 Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*. This Olive sample will convert each PyTorch model to ONNX, and then run the converted ONNX models through the `OrtTransformersOptimization` pass. The transformer optimization pass performs several time-consuming graph transformations that make the models more efficient for inference at runtime.
 
 ![](readme/pipeline.png)
-*Based on figure from [Hugging Face Blog](https://huggingface.co/blog/stable_diffusion) that covers Stable Diffusion with Diffusers library*
+*Based on figure from [Hugging Face Blog](https://huggingface.co/blog/stable_diffusion) that covers Stable Diffusion with Diffusers library. Blue boxes are the converted & optimized ONNX models. Gray boxes remain implemented by diffusers library.*
 
 ## Setup
 
-This sample uses pre-trained models hosted by [Hugging Face](https://huggingface.co/), for which you need an account. Once you've set up an account, generate an [access token](https://huggingface.co/docs/hub/security-tokens) and log in with a terminal:
-
-```
-huggingface-cli.exe login
-```
-
-The above command will ask for your access token, which you can find on your account profile `Settings -> Access Tokens`, just copy it from here and carefully paste it on this prompt. Note that you won't see anything appear on the prompt when you paste it, that's fine. It's there already, just hit Enter. You'll start downloading the model from Hugging Face.
-
-Next, make sure that your Python environment has `onnxruntime-directml` along with other dependencies in this sample's [requirements.txt](requirements.txt):
+Make sure that your Python environment has `onnxruntime-directml` along with other dependencies in this sample's [requirements.txt](requirements.txt):
 
 ```
 pip install -r requirements.txt
@@ -122,3 +114,12 @@ This sample is incomplete.
 - Support ORT 1.14 (need to set appropriate fusion defaults); currently only works with main branch / nightly builds.
 - Consider Torch 2.0.0 support (see https://github.com/pytorch/pytorch/issues/97262).
 - Investigate bland output images with batch_size > 1
+
+
+# Issues
+
+If you run into the following error while optimizing models, it is likely that your local HuggingFace cache has an incomplete copy of the stable diffusion model pipeline. Deleting `C:\users\<username>\.cache\huggingface` should resolve the issue by ensuring a fresh copy is downloaded.
+
+```
+OSError: Can't load tokenizer for 'C:\Users\<username>\.cache\huggingface\hub\models--runwayml--stable-diffusion-v1-5\snapshots\<sha>'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'C:\Users\<username>\.cache\huggingface\hub\models--runwayml--stable-diffusion-v1-5\snapshots\aa9ba505e1973ae5cd05f5aedd345178f52f8e6a' is the correct path to a directory containing all relevant files for a CLIPTokenizer tokenizer.
+```

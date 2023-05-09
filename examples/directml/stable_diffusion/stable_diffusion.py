@@ -7,8 +7,9 @@ import json
 import shutil
 import warnings
 from pathlib import Path
-import PySimpleGUI as sg
+
 import onnxruntime as ort
+import PySimpleGUI as sg
 import torch
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffusionPipeline
 
@@ -94,6 +95,12 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
 
+    # Load the entire PyTorch pipeline to ensure all models and their configurations are downloaded and cached.
+    # This avoids an issue where the non-ONNX components (tokenizer, scheduler, and feature extractor) are not
+    # automatically cached correctly if individual models are fetched one at a time.
+    print("Download stable diffusion PyTorch pipeline...")
+    pipeline = StableDiffusionPipeline.from_pretrained(model_name, torch_dtype=torch.float32)
+
     model_info = dict()
 
     for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
@@ -139,7 +146,7 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
 
     # Save the unoptimized models in a directory structure that the diffusers library can load and run.
     # This is optional, and the optimized models can be used directly in a custom pipeline if desired.
-    pipeline = StableDiffusionPipeline.from_pretrained(model_name, torch_dtype=torch.float32)
+    print("Creating ONNX pipeline...")
     onnx_pipeline = OnnxStableDiffusionPipeline(
         vae_encoder=OnnxRuntimeModel.from_pretrained(model_info["vae_encoder"]["unoptimized"]["path"].parent),
         vae_decoder=OnnxRuntimeModel.from_pretrained(model_info["vae_decoder"]["unoptimized"]["path"].parent),
@@ -151,9 +158,12 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
         feature_extractor=pipeline.feature_extractor,
         requires_safety_checker=True,
     )
+
+    print("Saving unoptimized models...")
     onnx_pipeline.save_pretrained(unoptimized_model_dir)
 
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
+    print("Copying optimized models...")
     shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))
     for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
         src_path = model_info[submodel_name]["optimized"]["path"]
