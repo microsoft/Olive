@@ -53,7 +53,9 @@ olive-env\Scripts\activate.bat
 On Windows (PowerShell):
 ```powershell
 python -m venv olive-env
-.\olive-env\Scripts\Activate.ps1
+olive-env\Scripts\Activate.ps1
 ```
+
+You can replace `olive-env` with any path you want. A new folder will be created at the specified path to contain the virtual environment.
 
 Please refer to the [python documentation](https://docs.python.org/3/library/venv.html) for more information on how to create and manage virtual environments.
