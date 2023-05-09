@@ -123,10 +123,11 @@ class TestEngine:
 
         # execute
         actual_res = engine.run(pytorch_model)
-        actual_res = list(actual_res.values())[0]
+        accelerator_spec = 0
+        actual_res = actual_res[accelerator_spec]
 
         # make sure the input model always be in engine.footprints
-        footprint = list(engine.footprints.values())[0]
+        footprint = engine.footprints[accelerator_spec]
         assert input_model_id in footprint.nodes
         # make sure the input model always not in engine's pareto frontier
         assert input_model_id not in actual_res.nodes
@@ -139,7 +140,7 @@ class TestEngine:
             if k == "metrics":
                 assert getattr(actual_res.nodes[model_id].metrics, "is_goals_met")
             assert getattr(actual_res.nodes[model_id], k) == v
-        assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
+        assert engine.get_model_json_path(actual_res.nodes[model_id].model_id, accelerator_spec).exists()
         mock_local_system.run_pass.assert_called_once()
         mock_local_system.evaluate_model.assert_called_once_with(onnx_model, [metric])
 

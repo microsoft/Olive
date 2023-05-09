@@ -231,11 +231,11 @@ class Engine:
         # accelerator support
         outputs = {}
         for i in range(1):
-            # generate search space and intialize the passes
+            # generate search space and intialize the passes for each hardware accelerator
             self.setup_passes()
 
             # hash the input model
-            input_model_id = self._init_input_model(input_model)
+            input_model_id = self._init_input_model(input_model, i)
             self.footprints[i].record(model_id=input_model_id)
 
             if evaluation_only:
@@ -277,59 +277,6 @@ class Engine:
             p: Pass = self.passes[pass_name]["pass"]
             self.pass_search_spaces.append((pass_name, p.search_space()))
 
-    def run_passes(
-        self,
-        passes: List[Tuple[str, Dict[str, Any]]],
-        model: OliveModel,
-        model_id: str,
-        accelerator_spec: Any,
-        verbose: bool = False,
-    ):
-        """
-        Run all the passes in the order they were registered.
-        the passes is the list of (pass_name, pass_search_point) tuples
-        """
-        should_prune = False
-        # run all the passes in the step
-        model_ids = []
-        for pass_id, pass_search_point in passes:
-            if verbose:
-                message = f"Running pass {pass_id}"
-                logger.info(message)
-
-            if (
-                model.model_storage_kind == ModelStorageKind.AzureMLModel
-                and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
-            ):
-                error_msg = "Azure ML model only supports AzureMLSystem for Olive Pass"
-                logger.error(error_msg)
-                raise Exception(error_msg)
-
-            model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec, verbose)
-            if model == PRUNED_CONFIG:
-                should_prune = True
-                logger.info("Pruned")
-                break
-            model_ids.append(model_id)
-
-        signal = {}
-        if not should_prune:
-            # evaluate the model
-            try:
-                evaluator = self.evaluator_for_pass(pass_id)
-                if self.no_search and evaluator is None:
-                    # skip evaluation if no search and no evaluator
-                    signal = None
-                else:
-                    signal = self._evaluate_model(model, model_id, evaluator, accelerator_spec, verbose)
-            except Exception as e:
-                logger.error(f"Evaluation failed: {e}")
-                raise e
-            if verbose:
-                logger.info(f"Signal: {signal}")
-
-        return should_prune, signal, model_ids
-
     def run_no_search(
         self,
         input_model: OliveModel,
@@ -357,8 +304,6 @@ class Engine:
         # initialize the search strategy
         self.search_strategy.initialize(self.pass_search_spaces, input_model_id, objective_dict)
 
-        iter_num = 1
-
         # get the next step
         next_step = self.search_strategy.next_step()
         assert next_step is not None, "Search strategy returned None for the first step"
@@ -368,17 +313,17 @@ class Engine:
         if model_id == input_model_id:
             model = input_model
         else:
-            model = self._load_model(model_id)
+            model = self._load_model(model_id, accelerator_spec)
 
         if verbose:
-            logger.info(f"Step {iter_num} with search point {next_step['search_point']} ...")
+            logger.info(f"Step no search with search point {next_step['search_point']} ...")
 
         # run all the passes in the step
         (
             _,
             signal,
             model_ids,
-        ) = self.run_passes(next_step["passes"], model, model_id, accelerator_spec, verbose)
+        ) = self._run_passes(next_step["passes"], model, model_id, accelerator_spec, verbose)
         model_id = model_ids[-1]
 
         prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
@@ -463,13 +408,13 @@ class Engine:
             if model_id == input_model_id:
                 model = input_model
             else:
-                model = self._load_model(model_id)
+                model = self._load_model(model_id, accelerator_spec)
 
             if verbose:
                 logger.info(f"Step {iter_num} with search point {next_step['search_point']} ...")
 
             # run all the passes in the step
-            should_prune, signal, model_ids = self.run_passes(
+            should_prune, signal, model_ids = self._run_passes(
                 next_step["passes"], model, model_id, accelerator_spec, verbose
             )
 
@@ -602,13 +547,13 @@ class Engine:
                 break
         return new_model_number
 
-    def get_model_json_path(self, model_id: str) -> Path:
+    def get_model_json_path(self, model_id: str, accelerator_spec) -> Path:
         """
         Get the path to the model json file.
         """
-        return self._model_cache_path / f"{model_id}.json"
+        return self._model_cache_path / f"{model_id}_{accelerator_spec}.json"
 
-    def _cache_model(self, model: Union[OliveModel, str], model_id: str, check_objects: bool = True):
+    def _cache_model(self, model: Union[OliveModel, str], model_id: str, accelerator_spec, check_objects: bool = True):
         """
         Cache the model in the cache directory.
         """
@@ -617,17 +562,17 @@ class Engine:
             model_json = {}
         else:
             model_json = model.to_json(check_object=check_objects)
-        model_json_path = self.get_model_json_path(model_id)
+        model_json_path = self.get_model_json_path(model_id, accelerator_spec)
         try:
             json.dump(model_json, open(model_json_path, "w"), indent=4)
         except Exception as e:
             logger.error(f"Failed to cache model: {e}")
 
-    def _load_model(self, model_id: str) -> Union[OliveModel, str]:
+    def _load_model(self, model_id: str, accelerator_spec) -> Union[OliveModel, str]:
         """
         Load the model from the cache directory.
         """
-        model_json_path = self._model_cache_path / f"{model_id}.json"
+        model_json_path = self.get_model_json_path(model_id, accelerator_spec)
         try:
             model_json = json.load(open(model_json_path, "r"))
         except Exception as e:
@@ -640,26 +585,30 @@ class Engine:
         model = ModelConfig.from_json(model_json).create_model()
         return model
 
-    def _init_input_model(self, input_model: OliveModel):
+    def _init_input_model(self, input_model: OliveModel, accelerator_spec):
         """
         Initialize the input model.
         """
         model_hash = hash_dict(input_model.to_json())
 
         # cache the model
-        self._cache_model(input_model, model_hash, check_objects=False)
+        self._cache_model(input_model, model_hash, accelerator_spec, check_objects=False)
 
         return model_hash
 
-    def get_run_json_path(self, pass_name: int, input_model_number: str, pass_config: dict):
+    def get_run_json_path(self, pass_name: int, input_model_number: str, accelerator_spec, pass_config: dict):
         """
         Get the path to the run json.
         """
         pass_config_hash = hash_dict(pass_config)
-        run_json_path = self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}.json"
+        run_json_path = (
+            self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}-{accelerator_spec}.json"
+        )
         return run_json_path
 
-    def _cache_run(self, pass_name: int, pass_config: dict, input_model_id: str, output_model_id: str):
+    def _cache_run(
+        self, pass_name: int, pass_config: dict, input_model_id: str, accelerator_spec, output_model_id: str
+    ):
         """
         Cache the run in the cache directory.
         """
@@ -670,19 +619,19 @@ class Engine:
             "output_model_id": output_model_id,
         }
         input_model_number = input_model_id.split("_")[0]
-        run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config)
+        run_json_path = self.get_run_json_path(pass_name, input_model_number, accelerator_spec, pass_config)
         try:
             json.dump(run_json, open(run_json_path, "w"), indent=4)
         except Exception as e:
             logger.error(f"Failed to cache run: {e}")
 
-    def _load_run(self, input_model_id: str, pass_name: int, pass_config: dict):
+    def _load_run(self, input_model_id: str, pass_name: int, accelerator_spec, pass_config: dict):
         """
         Load the run from the cache directory.
         """
         input_model_number = input_model_id.split("_")[0]
-        run_json_path = self._run_cache_path / f"{pass_name}-{input_model_number}-{hash_dict(pass_config)}.json"
-        if Path(run_json_path).exists():
+        run_json_path = self.get_run_json_path(pass_name, input_model_number, accelerator_spec, pass_config)
+        if run_json_path.exists():
             try:
                 run_json = json.load(open(run_json_path, "r"))
                 output_model_id = run_json["output_model_id"]
@@ -692,6 +641,59 @@ class Engine:
             return output_model_id
         else:
             return None
+
+    def _run_passes(
+        self,
+        passes: List[Tuple[str, Dict[str, Any]]],
+        model: OliveModel,
+        model_id: str,
+        accelerator_spec: Any,
+        verbose: bool = False,
+    ):
+        """
+        Run all the passes in the order they were registered.
+        the passes is the list of (pass_name, pass_search_point) tuples
+        """
+        should_prune = False
+        # run all the passes in the step
+        model_ids = []
+        for pass_id, pass_search_point in passes:
+            if verbose:
+                message = f"Running pass {pass_id}"
+                logger.info(message)
+
+            if (
+                model.model_storage_kind == ModelStorageKind.AzureMLModel
+                and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
+            ):
+                error_msg = "Azure ML model only supports AzureMLSystem for Olive Pass"
+                logger.error(error_msg)
+                raise Exception(error_msg)
+
+            model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec, verbose)
+            if model == PRUNED_CONFIG:
+                should_prune = True
+                logger.info("Pruned")
+                break
+            model_ids.append(model_id)
+
+        signal = {}
+        if not should_prune:
+            # evaluate the model
+            try:
+                evaluator = self.evaluator_for_pass(pass_id)
+                if self.no_search and evaluator is None:
+                    # skip evaluation if no search and no evaluator
+                    signal = None
+                else:
+                    signal = self._evaluate_model(model, model_id, evaluator, accelerator_spec, verbose)
+            except Exception as e:
+                logger.error(f"Evaluation failed: {e}")
+                raise e
+            if verbose:
+                logger.info(f"Signal: {signal}")
+
+        return should_prune, signal, model_ids
 
     def _run_pass(
         self,
@@ -712,11 +714,11 @@ class Engine:
         pass_config = p.serialize_config(pass_config)
 
         # load run from cache if it exists
-        output_model_id = self._load_run(input_model_id, pass_name, pass_config)
+        output_model_id = self._load_run(input_model_id, pass_name, accelerator_spec, pass_config)
         if output_model_id is not None:
             if verbose:
                 logger.info("Loading model from cache ...")
-            output_model = self._load_model(output_model_id)
+            output_model = self._load_model(output_model_id, accelerator_spec)
             if output_model is not None:
                 # footprint model and run
                 self.footprints[accelerator_spec].record(
@@ -751,10 +753,10 @@ class Engine:
                     raise  # rethrow the exception if no search is performed
 
         # cache model
-        self._cache_model(output_model, output_model_id)
+        self._cache_model(output_model, output_model_id, accelerator_spec)
 
         # cache run
-        self._cache_run(pass_name, pass_config, input_model_id, output_model_id)
+        self._cache_run(pass_name, pass_config, input_model_id, accelerator_spec, output_model_id)
 
         # footprint model and run
         self.footprints[accelerator_spec].record(
@@ -766,14 +768,7 @@ class Engine:
         )
         return output_model, output_model_id
 
-    def get_evaluation_json_path(self, model_id: str):
-        """
-        Get the path to the evaluation json.
-        """
-        evaluation_json_path = self._evaluation_cache_path / f"{model_id}.json"
-        return evaluation_json_path
-
-    def _cache_evaluation(self, model_id: str, signal: dict):
+    def _cache_evaluation(self, model_id: str, accelerator_spec, signal: dict):
         """
         Cache the evaluation in the cache directory.
         """
@@ -781,18 +776,18 @@ class Engine:
             "model_id": model_id,
             "signal": signal,
         }
-        evaluation_json_path = self.get_evaluation_json_path(model_id)
+        evaluation_json_path = self._evaluation_cache_path / f"{model_id}_{accelerator_spec}.json"
         try:
             json.dump(evaluation_json, open(evaluation_json_path, "w"), indent=4)
         except Exception as e:
             logger.error(f"Failed to cache evaluation: {e}")
 
-    def _load_evaluation(self, model_id: str):
+    def _load_evaluation(self, model_id: str, accelerator_spec):
         """
         Load the evaluation from the cache directory.
         """
-        evaluation_json_path = self._evaluation_cache_path / f"{model_id}.json"
-        if Path(evaluation_json_path).exists():
+        evaluation_json_path = self._evaluation_cache_path / f"{model_id}_{accelerator_spec}.json"
+        if evaluation_json_path.exists():
             try:
                 evaluation_json = json.load(open(evaluation_json_path, "r"))
                 signal = evaluation_json["signal"]
@@ -812,7 +807,7 @@ class Engine:
         if verbose:
             logger.info("Evaluating model ...")
         # load evaluation from cache if it exists
-        signal = self._load_evaluation(model_id)
+        signal = self._load_evaluation(model_id, accelerator_spec)
         if signal is not None:
             if verbose:
                 logger.info("Loading evaluation from cache ...")
@@ -826,11 +821,12 @@ class Engine:
             )
             return signal
 
+        # TODO: add the accelerator spec to the evaluate
         # evaluate model
         signal = evaluator.evaluate(model, self.target)
 
         # cache evaluation
-        self._cache_evaluation(model_id, signal)
+        self._cache_evaluation(model_id, accelerator_spec, signal)
 
         # footprint evaluation
         self.footprints[accelerator_spec].record(
