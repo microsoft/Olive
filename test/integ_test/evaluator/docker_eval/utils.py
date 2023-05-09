@@ -31,12 +31,12 @@ current_dir, models_dir, data_dir = get_directories()
 user_script = str(current_dir / "user_script.py")
 
 
-def get_accuracy_metric(post_process):
+def get_accuracy_metric(post_process, dataloader_func="create_dataloader"):
     accuracy_metric_config = {
         "user_script": user_script,
         "post_processing_func": post_process,
         "data_dir": data_dir,
-        "dataloader_func": "create_dataloader",
+        "dataloader_func": dataloader_func,
     }
     accuracy_metric = Metric(
         name="accuracy",
@@ -47,11 +47,11 @@ def get_accuracy_metric(post_process):
     return accuracy_metric
 
 
-def get_latency_metric():
+def get_latency_metric(dataloader_func="create_dataloader"):
     latency_metric_config = {
         "user_script": user_script,
         "data_dir": data_dir,
-        "dataloader_func": "create_dataloader",
+        "dataloader_func": dataloader_func,
     }
     latency_metric = Metric(
         name="latency",
@@ -93,16 +93,20 @@ def download_data():
     datasets.MNIST(data_dir, download=True, transform=ToTensor())
 
 
+def get_huggingface_model():
+    return {"hf_config": {"model_class": "AutoModelForSequenceClassification", "model_name": "prajjwal1/bert-tiny"}}
+
+
 def get_pytorch_model():
-    return str(models_dir / "model.pt")
+    return {"model_path": str(models_dir / "model.pt")}
 
 
 def get_onnx_model():
-    return str(models_dir / "model.onnx")
+    return {"model_path": str(models_dir / "model.onnx")}
 
 
 def get_openvino_model():
-    return str(models_dir / "openvino")
+    return {"model_path": str(models_dir / "openvino")}
 
 
 def download_azure_blob(container, blob, download_path):
