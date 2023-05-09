@@ -20,7 +20,7 @@
 [directml/stable_diffusion](https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion)
 
 # BERT optimization with Intel® Neural Compressor Post Training quantization on CPU
-[bert_qat_customized_train_loop_cpu](https://github.com/microsoft/Olive/tree/main/examples/bert_inc_ptq_cpu)
+[bert_inc_ptq_cpu](https://github.com/microsoft/Olive/tree/main/examples/bert_inc_ptq_cpu)
 
 # Whisper optimization using ORT toolchain
 [whisper](https://github.com/microsoft/Olive/tree/main/examples/whisper)
