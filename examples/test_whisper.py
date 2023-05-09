@@ -27,7 +27,7 @@ def setup():
 
 
 def check_output(outputs):
-    for output in outputs:
+    for output in outputs.values():
         assert output["metrics"]["latency"] > 0
 
 

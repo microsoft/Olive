@@ -122,10 +122,12 @@ class TestEngine:
         }
 
         # execute
-        actual_res = engine.run(pytorch_model)[0]
+        actual_res = engine.run(pytorch_model)
+        actual_res = list(actual_res.values())[0]
 
         # make sure the input model always be in engine.footprints
-        assert input_model_id in engine.footprints.nodes
+        footprint = list(engine.footprints.values())[0]
+        assert input_model_id in footprint.nodes
         # make sure the input model always not in engine's pareto frontier
         assert input_model_id not in actual_res.nodes
 
@@ -167,7 +169,8 @@ class TestEngine:
         expected_res["model"]["config"]["model_path"] = str(Path(output_dir / "model.onnx").resolve())
 
         # execute
-        actual_res = engine.run(pytorch_model, output_dir=output_dir)[0]
+        actual_res = engine.run(pytorch_model, output_dir=output_dir)
+        actual_res = list(actual_res.values())[0]
 
         assert expected_res == actual_res
         assert Path(actual_res["model"]["config"]["model_path"]).is_file()
@@ -235,6 +238,7 @@ class TestEngine:
 
         # execute
         actual_res = engine.run(pytorch_model, output_dir=output_dir, evaluation_only=True)
+        actual_res = list(actual_res.values())[0]
 
         assert expected_res == actual_res
         result_json_path = Path(output_dir / "metrics.json")

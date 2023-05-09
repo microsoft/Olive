@@ -18,8 +18,7 @@ def setup():
 
 
 def check_output(footprints):
-    # TODO: change the index after the accelerator is added.
-    for footprint in footprints:
+    for footprint in footprints.values():
         assert footprint.nodes is not None
         for v in footprint.nodes.values():
             assert all([value > 0 for value in v.metrics.value.values()])
