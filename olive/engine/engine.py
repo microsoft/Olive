@@ -98,8 +98,12 @@ class Engine:
         if self.target.system_type == SystemType.AzureML and execution_providers is None:
             raise ValueError("AzureMLSystem requires execution providers to be specified.")
 
-        if execution_providers is None and self.target.system_type == SystemType.Local:
-            execution_providers = self.target.get_supported_execution_providers()
+        if execution_providers is None:
+            if self.target.system_type == SystemType.Local:
+                execution_providers = self.target.get_supported_execution_providers()
+            else:
+                # for docker system and python system, we default use CPUExecutionProvider
+                execution_providers = ["CPUExecutionProvider"]
 
         self.execution_providers = execution_providers
 
@@ -109,12 +113,15 @@ class Engine:
             logger.warning("No accelerators specified for target system. Using CPU.")
             accelerators = ["CPU"]
 
-        accelerator_specs = []
+        self.accelerator_specs: List[AcceleratorSpec] = []
         for accelerator in accelerators:
             device = Device(accelerator.lower())
-            for ep in AcceleratorLookup.get_execution_providers_for_device(device):
-                accelerator_specs.append(AcceleratorSpec()(device, ep))
-        self.accelerator_specs = accelerator_specs
+            supported_eps = AcceleratorLookup.get_execution_providers_for_device(device)
+            device_eps = list(set(supported_eps).intersection(self.execution_providers))
+            for ep in device_eps:
+                self.accelerator_specs.append(AcceleratorSpec(device, ep))
+
+        assert self.accelerator_specs, "No valid accelerator specified for target system."
 
         # default evaluator
         self.evaluator_config = None
@@ -262,48 +269,48 @@ class Engine:
         output_dir: Path = Path(output_dir) if output_dir else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # TODO by myguo: replace the following for loop using the accelerator and excution provider list when adding
-        # accelerator support
         outputs = {}
-        for i in range(1):
+        for accelerator_spec in self.accelerator_specs:
             # generate search space and intialize the passes for each hardware accelerator
-            self.setup_passes()
+            self.setup_passes(accelerator_spec)
 
             # hash the input model
             input_model_id = self._init_input_model(input_model)
-            self.footprints[i].record(model_id=input_model_id)
+            self.footprints[accelerator_spec].record(model_id=input_model_id)
 
             if evaluation_only:
-                prefix_output_name = f"{output_name}_{i}_" if output_name is not None else f"{i}_"
-                assert self.evaluator_config is not None, "'evaluation_only' is True but no evaluator provided"
-                results = self._evaluate_model(input_model, input_model_id, self.evaluator_config, i, verbose)
+                prefix_output_name = (
+                    f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
+                )
+                assert self.evaluator is not None, "Evaluation only is True but no evaluator provided"
+                results = self._evaluate_model(input_model, input_model_id, self.evaluator, accelerator_spec, verbose)
                 result_name = f"{prefix_output_name}metrics"
                 results_path = output_dir / f"{result_name}.json"
                 with open(results_path, "w") as f:
                     json.dump(results, f, indent=4)
-                outputs[i] = results
+                outputs[accelerator_spec] = results
             elif self.no_search:
                 output = self.run_no_search(
-                    input_model, input_model_id, i, packaging_config, verbose, output_dir, output_name
+                    input_model, input_model_id, accelerator_spec, packaging_config, verbose, output_dir, output_name
                 )
-                outputs[i] = output
+                outputs[accelerator_spec] = output
             else:
                 footprint = self.run_search(
-                    input_model, input_model_id, i, packaging_config, verbose, output_dir, output_name
+                    input_model, input_model_id, accelerator_spec, packaging_config, verbose, output_dir, output_name
                 )
-                outputs[i] = footprint
+                outputs[accelerator_spec] = footprint
 
         return outputs
 
-    def setup_passes(self):
+    def setup_passes(self, accelerator_spec: AcceleratorSpec):
         # TODO: add the hardware spec later
         # clean the passes
         self.passes.clear()
         for config in self.pass_config.values():
             pass_cls: Type[Pass] = config["type"]
             pass_cfg = config["config"]
-            config_class, pass_cfg = pass_cls.generate_search_space(pass_cfg, config["disable_search"])
-            p = pass_cls(config_class, pass_cfg)
+            pass_cfg = pass_cls.generate_search_space(accelerator_spec, pass_cfg, config["disable_search"])
+            p = pass_cls(accelerator_spec, pass_cfg, config["disable_search"])
             self.register_pass(p, host=config["host"], evaluator_config=config["evaluator"])
 
         # list of passes starting from the first pass with non-empty search space
@@ -317,7 +324,7 @@ class Engine:
         self,
         input_model: OliveModel,
         input_model_id: str,
-        accelerator_spec: Any,
+        accelerator_spec: AcceleratorSpec,
         packaging_config: Optional[PackagingConfig] = None,
         verbose: bool = False,
         output_dir: str = None,
@@ -394,7 +401,7 @@ class Engine:
         self,
         input_model: OliveModel,
         input_model_id: str,
-        accelerator_spec: Any,
+        accelerator_spec: AcceleratorSpec,
         packaging_config: Optional[PackagingConfig] = None,
         verbose: bool = False,
         output_dir: str = None,
@@ -493,7 +500,7 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         metrics: List[Metric],
-        accelerator_spec: Any,
+        accelerator_spec: AcceleratorSpec,
         verbose: bool = False,
     ) -> Dict[str, Dict[str, Any]]:
         """
@@ -514,7 +521,7 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         metrics: List[Metric],
-        accelerator_spec: Any,
+        accelerator_spec: AcceleratorSpec,
         verbose: bool = False,
     ) -> Dict[str, float]:
         """
@@ -688,7 +695,7 @@ class Engine:
         passes: List[Tuple[str, Dict[str, Any]]],
         model: OliveModel,
         model_id: str,
-        accelerator_spec: Any,
+        accelerator_spec: AcceleratorSpec,
         verbose: bool = False,
     ):
         """
@@ -752,7 +759,7 @@ class Engine:
         pass_search_point: Dict[str, Any],
         input_model: OliveModel,
         input_model_id: str,
-        accelerator_spec: Any,
+        accelerator_spec: AcceleratorSpec,
         verbose: bool,
     ):
         """
@@ -783,7 +790,14 @@ class Engine:
 
         # new model id
         input_model_number = input_model_id.split("_")[0]
-        output_model_id = f"{self._get_new_model_number()}_{pass_name}-{input_model_number}-{hash_dict(pass_config)}"
+        # Note: the output model id need contains the accelerator information.
+        output_model_id_parts = [
+            f"{self._get_new_model_number()}_{pass_name}",
+            input_model_number,
+            hash_dict(pass_config),
+            accelerator_spec,
+        ]
+        output_model_id = "-".join(map(str, output_model_id_parts))
         output_model_path = str(self._model_cache_path / f"{output_model_id}")
 
         # prune if invalid search_point
@@ -863,7 +877,7 @@ class Engine:
         model: OliveModel,
         model_id: str,
         evaluator_config: OliveEvaluatorConfig,
-        accelerator_spec: Any,
+        accelerator_spec: AcceleratorSpec,
         verbose: bool,
     ):
         """
@@ -886,10 +900,9 @@ class Engine:
             )
             return signal
 
-        # TODO: add the accelerator spec to the evaluate
         # evaluate model
         metrics = evaluator_config.metrics if evaluator_config else []
-        signal = self.target.evaluate_model(model, metrics)
+        signal = self.target.evaluate_model(model, metrics, accelerator_spec)
 
         # cache evaluation
         self._cache_evaluation(model_id, signal)

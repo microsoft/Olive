@@ -14,6 +14,7 @@ from azure.ai.ml.constants import AssetTypes
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelStorageKind, ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
@@ -65,10 +66,10 @@ class TestAzureMLSystem:
         self.system.azureml_client_config.create_client.return_value = ml_client
 
         # execute
-        res = self.system.evaluate_model(olive_model, [metric])[metric.name]
+        res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)[metric.name]
 
         # assert
-        mock_create_pipeline.assert_called_once_with(output_folder, olive_model, [metric])
+        mock_create_pipeline.assert_called_once_with(output_folder, olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
         ml_client.jobs.stream.assert_called_once()
         assert mock_retry_func.call_count == 2
         if metric.name == "accuracy":
@@ -215,12 +216,19 @@ class TestAzureMLSystem:
             "metric_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
             "metric_data_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
-        inputs = {**model_inputs, **metric_inputs}
+        accelerator_config_path = tem_dir / "accelerator_config.json"
+        inputs = {
+            **model_inputs,
+            **metric_inputs,
+            "accelerator_config": Input(type=AssetTypes.URI_FILE),
+        }
         expected_res = MagicMock()
         mock_command.return_value.return_value = expected_res
 
         # execute
-        actual_res = self.system._create_metric_component(tem_dir, metric, model_args, model_storage_kind)
+        actual_res = self.system._create_metric_component(
+            tem_dir, metric, model_args, model_storage_kind, accelerator_config_path
+        )
 
         # assert
         assert actual_res == expected_res

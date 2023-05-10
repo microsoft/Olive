@@ -137,7 +137,4 @@ def create_config_class(
         else:
             config[param] = (type_, param_config.default_value)
 
-    class PassConfigBaseDefaultConfig(PassConfigBase):
-        _default_config = default_config  # store default config as a class attribute, not included in json
-
-    return create_model(f"{pass_type}Config", **config, __base__=PassConfigBaseDefaultConfig, __validators__=validators)
+    return create_model(f"{pass_type}Config", **config, __base__=PassConfigBase, __validators__=validators)

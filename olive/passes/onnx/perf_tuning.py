@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, Union
 
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import get_properties_from_metric_type
-from olive.hardware.accelerator import AcceleratorLookup
+from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
@@ -237,7 +237,7 @@ class OrtPerfTuning(Pass):
     _requires_data_config = True
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
                 type_=Union[Path, str], is_path=True, description="Directory of sample inference data."
@@ -296,6 +296,10 @@ class OrtPerfTuning(Pass):
         }
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+        if "provider_list" not in config:
+            # add the provider to the config if user doesn't provide the execution providers
+            config["provider_list"] = [self._accelerator_spec.execution_provider]
+
         config = self._config_class(**config)
         # TODO: decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model

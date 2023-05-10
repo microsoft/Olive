@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 from dataclasses import dataclass
 from enum import Enum
+from typing import Union
 
 
 class Device(str, Enum):
@@ -12,15 +13,30 @@ class Device(str, Enum):
     NPU = "npu"
     INTEL_MYRIAD = "intel_myriad"
 
+    def __str__(self) -> str:
+        return self.value
 
-@dataclass
+
+@dataclass(frozen=True, eq=True)
 class AcceleratorSpec:
-    accelerator_type: Device
+    accelerator_type: Union[str, Device]
     execution_provider: str
     vender: str = None
     version: str = None
     memory: int = None
     num_cores: int = None
+
+    def __str__(self) -> str:
+        return f"{str(self.accelerator_type).lower()}-{self.execution_provider.lower()}"
+
+    def to_json(self):
+        return {
+            "accelerator_type": str(self.accelerator_type),
+            "execution_provider": self.execution_provider,
+        }
+
+
+DEFAULT_CPU_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="CPUExecutionProvider")
 
 
 class AcceleratorLookup:

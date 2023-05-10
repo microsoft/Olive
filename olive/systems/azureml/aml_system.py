@@ -444,9 +444,8 @@ class AzureMLSystem(OliveSystem):
         # model args
         model_args = self._create_model_args(model_json, tmp_dir)
 
-        accelerator_args = json.dumps(accelerator)
         accelerator_config_path: Path = tmp_dir / "accelerator.json"
-        json.dump(accelerator_args, accelerator_config_path.open("w"), sort_keys=True)
+        json.dump(accelerator.to_json(), accelerator_config_path.open("w"), sort_keys=True)
 
         @pipeline
         def evaluate_pipeline():
