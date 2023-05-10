@@ -17,9 +17,9 @@ class Registry:
     """
 
     _REGISTRY = {
-        DataComponentType.DATASET.value: {},
-        DataComponentType.PRE_PROCESS.value: {},
-        DataComponentType.POST_PROCESS.value: {},
+        DataComponentType.LOAD_DATASET.value: {},
+        DataComponentType.PRE_PROCESS_DATA.value: {},
+        DataComponentType.POST_PROCESS_DATA.value: {},
         DataComponentType.DATALOADER.value: {},
         DataContainerType.DATA_CONTAINER.value: {},
     }
@@ -57,7 +57,7 @@ class Registry:
         Returns:
             Callable: the decorator function
         """
-        return cls.register(DataComponentType.DATASET, name)
+        return cls.register(DataComponentType.LOAD_DATASET, name)
 
     @classmethod
     def register_pre_process(cls, name: str = None):
@@ -70,7 +70,7 @@ class Registry:
         Returns:
             Callable: the decorator function
         """
-        return cls.register(DataComponentType.PRE_PROCESS, name)
+        return cls.register(DataComponentType.PRE_PROCESS_DATA, name)
 
     @classmethod
     def register_post_process(cls, name: str = None):
@@ -83,7 +83,7 @@ class Registry:
         Returns:
             Callable: the decorator function
         """
-        return cls.register(DataComponentType.POST_PROCESS, name)
+        return cls.register(DataComponentType.POST_PROCESS_DATA, name)
 
     @classmethod
     def register_dataloader(cls, name: str = None):
@@ -106,7 +106,7 @@ class Registry:
         Returns:
             Callable: the decorator function
         """
-        return cls.register_dataset(DefaultDataComponent.DATASET.value)
+        return cls.register_dataset(DefaultDataComponent.LOAD_DATASET.value)
 
     @classmethod
     def register_default_pre_process(cls):
@@ -116,7 +116,7 @@ class Registry:
         Returns:
             Callable: the decorator function
         """
-        return cls.register_pre_process(DefaultDataComponent.PRE_PROCESS.value)
+        return cls.register_pre_process(DefaultDataComponent.PRE_PROCESS_DATA.value)
 
     @classmethod
     def register_default_post_process(cls):
@@ -126,7 +126,7 @@ class Registry:
         Returns:
             Callable: the decorator function
         """
-        return cls.register_post_process(DefaultDataComponent.POST_PROCESS.value)
+        return cls.register_post_process(DefaultDataComponent.POST_PROCESS_DATA.value)
 
     @classmethod
     def register_default_dataloader(cls):
@@ -158,7 +158,7 @@ class Registry:
         return cls._REGISTRY[component][name]
 
     @classmethod
-    def get_dataset_component(cls, name: str):
+    def get_load_dataset_component(cls, name: str):
         """
         Get a dataset component class from the registry
 
@@ -168,7 +168,7 @@ class Registry:
         Returns:
             Type: the dataset component class
         """
-        return cls.get_component(DataComponentType.DATASET.value, name)
+        return cls.get_component(DataComponentType.LOAD_DATASET.value, name)
 
     @classmethod
     def get_pre_process_component(cls, name: str):
@@ -181,7 +181,7 @@ class Registry:
         Returns:
             Type: the pre-process component class
         """
-        return cls.get_component(DataComponentType.PRE_PROCESS.value, name)
+        return cls.get_component(DataComponentType.PRE_PROCESS_DATA.value, name)
 
     @classmethod
     def get_post_process_component(cls, name: str):
@@ -194,7 +194,7 @@ class Registry:
         Returns:
             Type: the post-process component class
         """
-        return cls.get_component(DataComponentType.POST_PROCESS.value, name)
+        return cls.get_component(DataComponentType.POST_PROCESS_DATA.value, name)
 
     @classmethod
     def get_dataloader_component(cls, name: str):
@@ -221,14 +221,14 @@ class Registry:
         return cls._REGISTRY[DataContainerType.DATA_CONTAINER.value][name]
 
     @classmethod
-    def get_default_dataset_component(cls):
+    def get_default_load_dataset_component(cls):
         """
         Get the default dataset component class from the registry
 
         Returns:
             Type: the default dataset component class
         """
-        return cls.get_dataset_component(DefaultDataComponent.DATASET.value)
+        return cls.get_load_dataset_component(DefaultDataComponent.LOAD_DATASET.value)
 
     @classmethod
     def get_default_pre_process_component(cls):
@@ -238,7 +238,7 @@ class Registry:
         Returns:
             Type: the default pre-process component class
         """
-        return cls.get_pre_process_component(DefaultDataComponent.PRE_PROCESS.value)
+        return cls.get_pre_process_component(DefaultDataComponent.PRE_PROCESS_DATA.value)
 
     @classmethod
     def get_default_post_process_component(cls):
@@ -248,7 +248,7 @@ class Registry:
         Returns:
             Type: the default post-process component class
         """
-        return cls.get_post_process_component(DefaultDataComponent.POST_PROCESS.value)
+        return cls.get_post_process_component(DefaultDataComponent.POST_PROCESS_DATA.value)
 
     @classmethod
     def get_default_dataloader_component(cls):

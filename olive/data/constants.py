@@ -14,11 +14,11 @@ class DataComponentType(Enum):
     """
 
     # dataset component type: to load data into memory
-    DATASET = "dataset"
+    LOAD_DATASET = "load_dataset"
     # pre_process component type: to pre-process data for model inputs
-    PRE_PROCESS = "pre_process"
+    PRE_PROCESS_DATA = "pre_process_data"
     # post_process component type: to post-process model outputs for evaluation
-    POST_PROCESS = "post_process"
+    POST_PROCESS_DATA = "post_process_data"
     # dataloader component type: to batch/sampler data for model training/inference/optimization
     DATALOADER = "dataloader"
 
@@ -36,9 +36,9 @@ class DefaultDataComponent(Enum):
     enumerate for the default data components
     """
 
-    DATASET = "default_dataset"
-    PRE_PROCESS = "default_pre_process"
-    POST_PROCESS = "default_post_process"
+    LOAD_DATASET = "default_load_dataset"
+    PRE_PROCESS_DATA = "default_pre_process_data"
+    POST_PROCESS_DATA = "default_post_process_data"
     DATALOADER = "default_dataloader"
 
 
@@ -47,6 +47,4 @@ class DefaultDataContainer(Enum):
     enumerate for the default data containers
     """
 
-    DATA_CONTAINER = "BaseDataContainer"
-    # TODO
-    DUMMY_DATA_CONTAINER = "DummyDataContainer"
+    DATA_CONTAINER = "DataContainer"

@@ -11,6 +11,8 @@ from olive.workflows.run.config import RunConfig
 
 
 class TestRunConfig:
+    # TODO: add more tests for different config files to test olive features
+    # like: Systems/Evaluation/Model and etc.
     @pytest.fixture(autouse=True)
     def setup(self):
         self.transformer_dataset_config_file = Path(__file__).parent / "mock_data" / "transformer_dataset.json"

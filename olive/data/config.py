@@ -19,9 +19,9 @@ class DataComponentConfig(ConfigBase):
 
 
 DefaultDataComponentCombos = {
-    DataComponentType.DATASET.value: DefaultDataComponent.DATASET.value,
-    DataComponentType.PRE_PROCESS.value: DefaultDataComponent.PRE_PROCESS.value,
-    DataComponentType.POST_PROCESS.value: DefaultDataComponent.POST_PROCESS.value,
+    DataComponentType.LOAD_DATASET.value: DefaultDataComponent.LOAD_DATASET.value,
+    DataComponentType.PRE_PROCESS_DATA.value: DefaultDataComponent.PRE_PROCESS_DATA.value,
+    DataComponentType.POST_PROCESS_DATA.value: DefaultDataComponent.POST_PROCESS_DATA.value,
     DataComponentType.DATALOADER.value: DefaultDataComponent.DATALOADER.value,
 }
 
@@ -34,7 +34,7 @@ class DataConfig(ConfigBase):
     params_config: Dict = None
 
     # use to update default components
-    # 1. update default_components_type from BaseContainer or DefaultDataComponentCombos
+    # 1. update default_components_type from DataContainer or DefaultDataComponentCombos
     # 2. update default_components from default_components_type
     # 3. update components from default_components
     components: Dict[str, DataComponentConfig] = None
@@ -119,19 +119,21 @@ class DataConfig(ConfigBase):
         return {k: v.params for k, v in self.components.items()}
 
     @property
-    def dataset(self):
+    def load_dataset(self):
         """
         Get the dataset from data config.
         """
-        name = self.components["dataset"].type or DefaultDataComponent.DATASET.value
-        return Registry.get_dataset_component(name)
+        name = self.components[DataComponentType.LOAD_DATASET.value].type or \
+            DefaultDataComponent.LOAD_DATASET.value
+        return Registry.get_load_dataset_component(name)
 
     @property
     def pre_process(self):
         """
         Get the pre-process from data config.
         """
-        name = self.components["pre_process"].type or DefaultDataComponent.PRE_PROCESS.value
+        name = self.components[DataComponentType.PRE_PROCESS_DATA.value].type or \
+            DefaultDataComponent.PRE_PROCESS_DATA.value
         return Registry.get_pre_process_component(name)
 
     @property
@@ -139,7 +141,8 @@ class DataConfig(ConfigBase):
         """
         Get the post-process from data config.
         """
-        name = self.components["post_process"].type or DefaultDataComponent.POST_PROCESS.value
+        name = self.components[DataComponentType.POST_PROCESS_DATA.value].type or \
+            DefaultDataComponent.POST_PROCESS_DATA.value
         return Registry.get_post_process_component(name)
 
     @property
@@ -147,36 +150,37 @@ class DataConfig(ConfigBase):
         """
         Get the dataloader from data config.
         """
-        name = self.components["dataloader"].type or DefaultDataComponent.DATALOADER.value
+        name = self.components[DataComponentType.DATALOADER.value].type or \
+            DefaultDataComponent.DATALOADER.value
         return Registry.get_dataloader_component(name)
 
     @property
-    def dataset_params(self):
+    def load_dataset_params(self):
         """
         Get the parameters from dataset.
         """
-        return self.components["dataset"].params
+        return self.components[DataComponentType.LOAD_DATASET.value].params
 
     @property
     def pre_process_params(self):
         """
         Get the parameters from pre-process.
         """
-        return self.components["pre_process"].params
+        return self.components[DataComponentType.PRE_PROCESS_DATA.value].params
 
     @property
     def post_process_params(self):
         """
         Get the parameters from post-process.
         """
-        return self.components["post_process"].params
+        return self.components[DataComponentType.POST_PROCESS_DATA.value].params
 
     @property
     def dataloader_params(self):
         """
         Get the parameters from dataloader.
         """
-        return self.components["dataloader"].params
+        return self.components[DataComponentType.DATALOADER.value].params
 
     def to_data_container(self):
         """

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 
-from olive.data.component.dataset import BaseDataset
+from olive.data.component.load_dataset import BaseDataset
 from olive.data.registry import Registry
 
 

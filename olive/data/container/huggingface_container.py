@@ -6,21 +6,21 @@
 from typing import ClassVar
 
 from olive.data.constants import DataComponentType, DataContainerType
-from olive.data.container.base_container import BaseContainer
+from olive.data.container.data_container import DataContainer
 from olive.data.registry import Registry
 
 
 @Registry.register(DataContainerType.DATA_CONTAINER)
-class HuggingfaceContainer(BaseContainer):
+class HuggingfaceContainer(DataContainer):
     default_components_type: ClassVar[dict] = {
-        DataComponentType.DATASET.value: "huggingface_dataset",
-        DataComponentType.PRE_PROCESS.value: "huggingface_pre_process",
+        DataComponentType.LOAD_DATASET.value: "huggingface_dataset",
+        DataComponentType.PRE_PROCESS_DATA.value: "huggingface_pre_process",
     }
     # Extra arguments auto generation for data components
 
     task_type_components_map: ClassVar[dict] = {
         # TODO user enumerate update task type
         "text-classification": {
-            DataComponentType.POST_PROCESS.value: "text_classification_post_process",
+            DataComponentType.POST_PROCESS_DATA.value: "text_classification_post_process",
         },
     }

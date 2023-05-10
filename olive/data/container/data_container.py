@@ -13,7 +13,7 @@ from olive.data.registry import Registry
 
 
 @Registry.register(DataContainerType.DATA_CONTAINER, name=DefaultDataContainer.DATA_CONTAINER.value)
-class BaseContainer(BaseModel):
+class DataContainer(BaseModel):
     """
     Base class for data container.
     """
@@ -39,11 +39,11 @@ class BaseContainer(BaseModel):
     #         default_components_type=self.default_components_type,
     #     )
 
-    def dataset(self):
+    def load_dataset(self):
         """
-        Run dataset
+        Run load dataset
         """
-        return self.config.dataset(**self.config.dataset_params)
+        return self.config.load_dataset(**self.config.load_dataset_params)
 
     def pre_process(self, dataset):
         """
@@ -68,7 +68,7 @@ class BaseContainer(BaseModel):
         Create dataloader
         dataset -> preprocess -> dataloader
         """
-        dataset = self.dataset()
+        dataset = self.load_dataset()
         pre_process_dataset = self.pre_process(dataset)
         return self.dataloader(pre_process_dataset)
 

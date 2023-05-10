@@ -164,7 +164,7 @@ def get_data_config():
 
     return DataConfig(
         components={
-            "dataset": {
+            "load_dataset": {
                 "name": "test_dataset",
                 "type": "test_dataset",
                 "params": {"test_value": "test_value"},
@@ -202,7 +202,7 @@ def get_dc_params_config():
             "label_cols": ["label_from_params_config"],
         },
         components={
-            "dataset": DataComponentConfig(
+            "load_dataset": DataComponentConfig(
                 params={
                     "data_dir": "./params",
                     "batch_size": 10,
