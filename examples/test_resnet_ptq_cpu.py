@@ -29,7 +29,7 @@ def setup():
 def check_output(footprint):
     assert footprint.nodes is not None
     for v in footprint.nodes.values():
-        assert all([value > 0 for value in v.metrics.value.values()])
+        assert all([value.value_for_rank > 0 for value in v.metrics.value.signal.values()])
 
 
 @pytest.mark.parametrize("search_algorithm", ["random"])
