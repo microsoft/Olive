@@ -27,6 +27,7 @@ from olive.hf_utils import (
     huggingface_model_loader,
     load_huggingface_model_from_model_class,
     load_huggingface_model_from_task,
+    load_huggingface_peft_model
 )
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
@@ -540,6 +541,8 @@ class PyTorchModel(OliveModel):
                 model = load_huggingface_model_from_model_class(
                     self.hf_config.model_class, self.hf_config.model_name, self.hf_config.use_ort_implementation
                 )
+            if self.model_file_format == ModelFileFormat.PYTORCH_LORA_MODEL:
+                model = load_huggingface_peft_model(model, self.model_path)
         else:
             if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
                 model = torch.load(self.model_path)

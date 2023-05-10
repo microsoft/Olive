@@ -110,3 +110,7 @@ def load_huggingface_model_from_model_class(model_class: str, name: str, use_ort
     if model_class not in MODEL_CLASS_TO_ORT_IMPLEMENTATION:
         raise ValueError(f"There is no ORT implementation for {model_class}")
     return MODEL_CLASS_TO_ORT_IMPLEMENTATION[model_class](name)
+
+def load_huggingface_peft_model(model, adapater:str):
+    from peft import PeftModel
+    return PeftModel.from_pretrained(model, adapater)
