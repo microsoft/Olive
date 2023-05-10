@@ -5,7 +5,7 @@
 import shutil
 import zipfile
 from pathlib import Path
-from test.unit_test.utils import get_accuracy_metric, get_onnxconversion_pass, get_pytorch_model
+from test.unit_test.utils import get_accuracy_metric, get_pytorch_model
 
 from olive.engine import Engine
 from olive.engine.footprint import Footprint
@@ -13,11 +13,11 @@ from olive.engine.packaging.packaging_config import PackagingConfig, PackagingTy
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.olive_evaluator import OliveEvaluator
+from olive.passes.onnx.conversion import OnnxConversion
 
 
 def test_generate_zipfile_artifacts():
     # setup
-    p = get_onnxconversion_pass()
     metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
     evaluator = OliveEvaluator(metrics=[metric])
     options = {
@@ -30,7 +30,7 @@ def test_generate_zipfile_artifacts():
         "clean_evaluation_cache": True,
     }
     engine = Engine(options, evaluator=evaluator)
-    engine.register(p)
+    engine.register(OnnxConversion)
 
     input_model = get_pytorch_model()
 
@@ -58,14 +58,13 @@ def test_generate_zipfile_artifacts():
 
 def test_generate_zipfile_artifacts_no_search():
     # setup
-    p = get_onnxconversion_pass()
     options = {
         "cache_dir": "./cache",
         "clean_cache": True,
         "clean_evaluation_cache": True,
     }
     engine = Engine(options)
-    engine.register(p)
+    engine.register(OnnxConversion)
 
     input_model = get_pytorch_model()
 

@@ -53,11 +53,11 @@ class Footprint:
 
     def __init__(
         self,
-        nodes: OrderedDict = None,
+        nodes: dict = None,
         objective_dict: dict = None,
         is_marked_pareto_frontier: bool = False,
     ):
-        self.nodes = nodes or {}
+        self.nodes = nodes or OrderedDict()
         self.objective_dict = objective_dict or {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
 
