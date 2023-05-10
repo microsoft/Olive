@@ -13,19 +13,16 @@ Outputs the final model and latency results.
 **Important:** To run the example on Windows, please use cmd or PowerShell as administrator.
 
 ## Prerequisites
-### Pip requirements
-This example requires the latest code from onnxruntime and onnxruntime-extensions which are not available in the stable releases yet. So, we
-will install the nightly versions.
+### Clone the repository and install Olive
 
-We recommending using a fresh conda or virtual environment for this example to avoid any conflicts with your existing environment.
+Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive.
+
+### Pip requirements
+This example requires the latest code from onnxruntime and onnxruntime-extensions which are not available in the stable releases yet.
+So, we will install the nightly versions.
 
 On Linux:
 ```bash
-# Create a new conda environment
-conda create -n olive-whisper python=3.8
-conda activate olive-whisper
-# Install Olive from source
-python -m pip install git+https://github.com/microsoft/Olive
 # Install requirements
 python -m pip install -r requirements.txt
 # Install nightly versions of onnxruntime and onnxruntime-extensions
@@ -38,11 +35,6 @@ python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.gi
 
 On Windows (cmd):
 ```cmd
-:: Create a new conda environment
-conda create -n olive-whisper python=3.8
-conda activate olive-whisper
-:: Install Olive from source
-python -m pip install git+https://github.com/microsoft/Olive
 :: Install requirements
 python -m pip install -r requirements.txt
 :: Install nightly versions of onnxruntime and onnxruntime-extensions
@@ -53,39 +45,12 @@ python -m pip install ort-nightly==1.15.0.dev20230429003 onnxruntime-extensions=
 
 On Windows (PowerShell):
 ```powershell
-# Create a new conda environment
-conda create -n olive-whisper python=3.8
-conda activate olive-whisper
-# Install Olive from source
-python -m pip install git+https://github.com/microsoft/Olive
 # Install requirements
 python -m pip install -r requirements.txt
 # Install nightly versions of onnxruntime and onnxruntime-extensions
 python -m pip uninstall -y onnxruntime onnxruntime-extensions
 python -m pip install ort-nightly==1.15.0.dev20230429003 onnxruntime-extensions==0.8.0.306180 `
     --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-```
-**Note:** You can also use a python virtual environment instead of conda.
-
-On Linux:
-```bash
-# Create a new virtual environment
-python -m venv olive-whisper
-source olive-whisper/bin/activate
-```
-
-On Windows (cmd):
-```cmd
-:: Create a new virtual environment
-python -m venv olive-whisper
-olive-whisper\Scripts\activate.bat
-```
-
-On Windows (PowerShell):
-```powershell
-# Create a new virtual environment
-python -m venv olive-whisper
-.\olive-whisper\Scripts\Activate.ps1
 ```
 
 ### Prepare workflow config json

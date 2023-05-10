@@ -8,13 +8,12 @@ import shutil
 from pathlib import Path
 from test.unit_test.utils import (
     get_accuracy_metric,
-    get_onnx_dynamic_quantization_pass,
     get_onnx_model,
     get_onnxconversion_pass,
     get_pytorch_model,
     pytorch_model_loader,
 )
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -23,6 +22,7 @@ from olive.engine import Engine
 from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.olive_evaluator import OliveEvaluator
 from olive.model import PyTorchModel
+from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization
 from olive.systems.local import LocalSystem
 
 
@@ -47,37 +47,32 @@ class TestEngine:
         engine = Engine(options)
 
         # execute
-        engine.register(p, host=system, evaluator=evaluator)
+        engine.register(OnnxConversion, host=system, evaluator=evaluator)
 
         # assert
-        assert name in engine.passes
-        assert name in engine.pass_order
-        assert engine.passes[name]["pass"] == p
-        assert engine.passes[name]["host"] == system
-        assert engine.passes[name]["evaluator"] == evaluator
-        assert engine.passes[name]["clean_run_cache"] is False
+        assert name in engine.pass_config
+        assert engine.pass_config[name]["type"] == OnnxConversion
+        assert engine.pass_config[name]["host"] == system
+        assert engine.pass_config[name]["evaluator"] == evaluator
+        assert engine.pass_config[name]["clean_run_cache"] is False
 
     def test_register_no_search(self):
         # setup
-        p = get_onnx_dynamic_quantization_pass(disable_search=True)
-        name = p.__class__.__name__
-
         options = {
             "search_strategy": None,
         }
         engine = Engine(options)
 
         # execute
-        engine.register(p)
+        engine.register(OnnxDynamicQuantization, disable_search=True)
 
         # assert
-        assert name in engine.passes
-        assert name in engine.pass_order
+        assert "OnnxDynamicQuantization" in engine.pass_config
 
     def test_register_no_search_fail(self):
+        name = "OnnxDynamicQuantization"
         # setup
-        p = get_onnx_dynamic_quantization_pass(disable_search=False)
-        name = p.__class__.__name__
+        pytorch_model = get_pytorch_model()
 
         options = {
             "search_strategy": None,
@@ -85,8 +80,9 @@ class TestEngine:
         engine = Engine(options)
 
         # execute
+        engine.register(OnnxDynamicQuantization)
         with pytest.raises(ValueError) as exc_info:
-            engine.register(p)
+            engine.run(pytorch_model)
 
         assert str(exc_info.value) == f"Search strategy is None but pass {name} has search space"
 
@@ -108,7 +104,7 @@ class TestEngine:
             "clean_evaluation_cache": True,
         }
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator=evaluator)
-        engine.register(p, clean_run_cache=True)
+        engine.register(OnnxConversion, clean_run_cache=True)
         onnx_model = get_onnx_model()
         mock_local_system.run_pass.return_value = onnx_model
         mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
@@ -127,9 +123,12 @@ class TestEngine:
 
         # execute
         actual_res = engine.run(pytorch_model)
+        accelerator_spec = 0
+        actual_res = actual_res[accelerator_spec]
 
         # make sure the input model always be in engine.footprints
-        assert input_model_id in engine.footprints.nodes
+        footprint = engine.footprints[accelerator_spec]
+        assert input_model_id in footprint.nodes
         # make sure the input model always not in engine's pareto frontier
         assert input_model_id not in actual_res.nodes
 
@@ -149,7 +148,6 @@ class TestEngine:
     def test_run_no_search(self, mock_local_system):
         # setup
         pytorch_model = get_pytorch_model()
-        p = get_onnxconversion_pass()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator = OliveEvaluator(metrics=[metric])
         options = {
@@ -159,7 +157,7 @@ class TestEngine:
             "clean_evaluation_cache": True,
         }
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator=evaluator)
-        engine.register(p, clean_run_cache=True)
+        engine.register(OnnxConversion, disable_search=True, clean_run_cache=True)
         onnx_model = get_onnx_model()
         mock_local_system.run_pass.return_value = onnx_model
         mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
@@ -168,18 +166,23 @@ class TestEngine:
         output_dir = Path("cache") / "output"
         shutil.rmtree(output_dir, ignore_errors=True)
 
+        # TODO: replace with the real accelerator spec
+        accelerator_spec = 0
         expected_res = {"model": onnx_model.to_json(), "metrics": {metric.name: 0.998}}
-        expected_res["model"]["config"]["model_path"] = str(Path(output_dir / "model.onnx").resolve())
+        expected_res["model"]["config"]["model_path"] = str(
+            Path(output_dir / f"{accelerator_spec}_model.onnx").resolve()
+        )
 
         # execute
         actual_res = engine.run(pytorch_model, output_dir=output_dir)
+        actual_res = list(actual_res.values())[0]
 
         assert expected_res == actual_res
         assert Path(actual_res["model"]["config"]["model_path"]).is_file()
-        model_json_path = Path(output_dir / "model.json")
+        model_json_path = Path(output_dir / f"{accelerator_spec}_model.json")
         assert model_json_path.is_file()
         assert json.load(open(model_json_path, "r")) == actual_res["model"]
-        result_json_path = Path(output_dir / "metrics.json")
+        result_json_path = Path(output_dir / f"{accelerator_spec}_metrics.json")
         assert result_json_path.is_file()
         assert json.load(open(result_json_path, "r")) == actual_res["metrics"]
 
@@ -205,8 +208,7 @@ class TestEngine:
                 },
             }
             engine = Engine(options, evaluator=evaluator, host=system, target=system)
-            onnx_conversion_pass = get_onnxconversion_pass()
-            engine.register(onnx_conversion_pass, clean_run_cache=True)
+            engine.register(OnnxConversion, clean_run_cache=True)
             model = PyTorchModel(model_loader=pytorch_model_loader, model_path=None)
 
             # execute
@@ -219,7 +221,6 @@ class TestEngine:
     def test_run_evaluation_only(self, mock_local_system):
         # setup
         pytorch_model = get_pytorch_model()
-        p = get_onnxconversion_pass()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator = OliveEvaluator(metrics=[metric])
         options = {
@@ -229,7 +230,7 @@ class TestEngine:
             "clean_evaluation_cache": True,
         }
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator=evaluator)
-        engine.register(p, clean_run_cache=True)
+        engine.register(OnnxConversion, clean_run_cache=True)
         onnx_model = get_onnx_model()
         mock_local_system.run_pass.return_value = onnx_model
         mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
@@ -242,11 +243,61 @@ class TestEngine:
 
         # execute
         actual_res = engine.run(pytorch_model, output_dir=output_dir, evaluation_only=True)
+        actual_res = list(actual_res.values())[0]
 
+        # TODO: replace with the real accelerator spec
+        accelerator_spec = 0
         assert expected_res == actual_res
-        result_json_path = Path(output_dir / "metrics.json")
+        result_json_path = Path(output_dir / f"{accelerator_spec}_metrics.json")
         assert result_json_path.is_file()
         assert json.load(open(result_json_path, "r")) == actual_res
 
         # clean up
+        shutil.rmtree(output_dir, ignore_errors=True)
+
+    @patch.object(Path, "glob", return_value=[Path("cache") / "output" / "100_model.json"])
+    @patch.object(Path, "unlink")
+    def test_model_path_suffix(self, mock_glob, mock_unlink: Mock):
+        # setup
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        evaluator = OliveEvaluator(metrics=[metric])
+        options = {
+            "cache_dir": "./cache",
+            "clean_cache": True,
+            "search_strategy": None,
+            "clean_evaluation_cache": True,
+        }
+        engine = Engine(options, host=LocalSystem(), target=LocalSystem(), evaluator=evaluator)
+        engine.register(OnnxConversion, clean_run_cache=True)
+
+        engine.initialize()
+
+        assert engine._new_model_number == 101
+        assert mock_unlink.called
+
+        # output model to output_dir
+        output_dir = Path("cache") / "output"
+        shutil.rmtree(output_dir, ignore_errors=True)
+
+    def test_model_path_suffix_with_exception(self):
+        # setup
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        evaluator = OliveEvaluator(metrics=[metric])
+        options = {
+            "cache_dir": "./cache",
+            "clean_cache": True,
+            "search_strategy": None,
+            "clean_evaluation_cache": True,
+        }
+        engine = Engine(options, host=LocalSystem(), target=LocalSystem(), evaluator=evaluator)
+        engine.register(OnnxConversion, clean_run_cache=True)
+        with patch.object(Path, "glob"):
+            Path.glob.return_value = [Path("cache") / "output" / "435d_0.json"]
+
+            with pytest.raises(ValueError) as exc_info:
+                engine.initialize()
+                assert str(exc_info.value) == "ValueError: invalid literal for int() with base 10: '435d'"
+
+        # output model to output_dir
+        output_dir = Path("cache") / "output"
         shutil.rmtree(output_dir, ignore_errors=True)
