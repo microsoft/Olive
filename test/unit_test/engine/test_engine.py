@@ -13,7 +13,7 @@ from test.unit_test.utils import (
     get_pytorch_model,
     pytorch_model_loader,
 )
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -140,7 +140,7 @@ class TestEngine:
             if k == "metrics":
                 assert getattr(actual_res.nodes[model_id].metrics, "is_goals_met")
             assert getattr(actual_res.nodes[model_id], k) == v
-        assert engine.get_model_json_path(actual_res.nodes[model_id].model_id, accelerator_spec).exists()
+        assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
         mock_local_system.run_pass.assert_called_once()
         mock_local_system.evaluate_model.assert_called_once_with(onnx_model, [metric])
 
@@ -253,4 +253,51 @@ class TestEngine:
         assert json.load(open(result_json_path, "r")) == actual_res
 
         # clean up
+        shutil.rmtree(output_dir, ignore_errors=True)
+
+    @patch.object(Path, "glob", return_value=[Path("cache") / "output" / "100_model.json"])
+    @patch.object(Path, "unlink")
+    def test_model_path_suffix(self, mock_glob, mock_unlink: Mock):
+        # setup
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        evaluator = OliveEvaluator(metrics=[metric])
+        options = {
+            "cache_dir": "./cache",
+            "clean_cache": True,
+            "search_strategy": None,
+            "clean_evaluation_cache": True,
+        }
+        engine = Engine(options, host=LocalSystem(), target=LocalSystem(), evaluator=evaluator)
+        engine.register(OnnxConversion, clean_run_cache=True)
+
+        engine.initialize()
+
+        assert engine._new_model_number == 101
+        assert mock_unlink.called
+
+        # output model to output_dir
+        output_dir = Path("cache") / "output"
+        shutil.rmtree(output_dir, ignore_errors=True)
+
+    def test_model_path_suffix_with_exception(self):
+        # setup
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        evaluator = OliveEvaluator(metrics=[metric])
+        options = {
+            "cache_dir": "./cache",
+            "clean_cache": True,
+            "search_strategy": None,
+            "clean_evaluation_cache": True,
+        }
+        engine = Engine(options, host=LocalSystem(), target=LocalSystem(), evaluator=evaluator)
+        engine.register(OnnxConversion, clean_run_cache=True)
+        with patch.object(Path, "glob"):
+            Path.glob.return_value = [Path("cache") / "output" / "435d_0.json"]
+
+            with pytest.raises(ValueError) as exc_info:
+                engine.initialize()
+                assert str(exc_info.value) == "ValueError: invalid literal for int() with base 10: '435d'"
+
+        # output model to output_dir
+        output_dir = Path("cache") / "output"
         shutil.rmtree(output_dir, ignore_errors=True)

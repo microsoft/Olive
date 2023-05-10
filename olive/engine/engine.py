@@ -235,7 +235,7 @@ class Engine:
             self.setup_passes()
 
             # hash the input model
-            input_model_id = self._init_input_model(input_model, i)
+            input_model_id = self._init_input_model(input_model)
             self.footprints[i].record(model_id=input_model_id)
 
             if evaluation_only:
@@ -313,7 +313,7 @@ class Engine:
         if model_id == input_model_id:
             model = input_model
         else:
-            model = self._load_model(model_id, accelerator_spec)
+            model = self._load_model(model_id)
 
         if verbose:
             logger.info(f"Step no search with search point {next_step['search_point']} ...")
@@ -408,7 +408,7 @@ class Engine:
             if model_id == input_model_id:
                 model = input_model
             else:
-                model = self._load_model(model_id, accelerator_spec)
+                model = self._load_model(model_id)
 
             if verbose:
                 logger.info(f"Step {iter_num} with search point {next_step['search_point']} ...")
@@ -547,13 +547,13 @@ class Engine:
                 break
         return new_model_number
 
-    def get_model_json_path(self, model_id: str, accelerator_spec) -> Path:
+    def get_model_json_path(self, model_id: str) -> Path:
         """
         Get the path to the model json file.
         """
-        return self._model_cache_path / f"{model_id}-{accelerator_spec}.json"
+        return self._model_cache_path / f"{model_id}.json"
 
-    def _cache_model(self, model: Union[OliveModel, str], model_id: str, accelerator_spec, check_objects: bool = True):
+    def _cache_model(self, model: Union[OliveModel, str], model_id: str, check_objects: bool = True):
         """
         Cache the model in the cache directory.
         """
@@ -562,17 +562,17 @@ class Engine:
             model_json = {}
         else:
             model_json = model.to_json(check_object=check_objects)
-        model_json_path = self.get_model_json_path(model_id, accelerator_spec)
+        model_json_path = self.get_model_json_path(model_id)
         try:
             json.dump(model_json, open(model_json_path, "w"), indent=4)
         except Exception as e:
             logger.error(f"Failed to cache model: {e}")
 
-    def _load_model(self, model_id: str, accelerator_spec) -> Union[OliveModel, str]:
+    def _load_model(self, model_id: str) -> Union[OliveModel, str]:
         """
         Load the model from the cache directory.
         """
-        model_json_path = self.get_model_json_path(model_id, accelerator_spec)
+        model_json_path = self.get_model_json_path(model_id)
         try:
             model_json = json.load(open(model_json_path, "r"))
         except Exception as e:
@@ -585,30 +585,26 @@ class Engine:
         model = ModelConfig.from_json(model_json).create_model()
         return model
 
-    def _init_input_model(self, input_model: OliveModel, accelerator_spec):
+    def _init_input_model(self, input_model: OliveModel):
         """
         Initialize the input model.
         """
         model_hash = hash_dict(input_model.to_json())
 
         # cache the model
-        self._cache_model(input_model, model_hash, accelerator_spec, check_objects=False)
+        self._cache_model(input_model, model_hash, check_objects=False)
 
         return model_hash
 
-    def get_run_json_path(self, pass_name: int, input_model_number: str, accelerator_spec, pass_config: dict):
+    def get_run_json_path(self, pass_name: int, input_model_number: str, pass_config: dict):
         """
         Get the path to the run json.
         """
         pass_config_hash = hash_dict(pass_config)
-        run_json_path = (
-            self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}-{accelerator_spec}.json"
-        )
+        run_json_path = self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}.json"
         return run_json_path
 
-    def _cache_run(
-        self, pass_name: int, pass_config: dict, input_model_id: str, accelerator_spec, output_model_id: str
-    ):
+    def _cache_run(self, pass_name: int, pass_config: dict, input_model_id: str, output_model_id: str):
         """
         Cache the run in the cache directory.
         """
@@ -619,18 +615,18 @@ class Engine:
             "output_model_id": output_model_id,
         }
         input_model_number = input_model_id.split("_")[0]
-        run_json_path = self.get_run_json_path(pass_name, input_model_number, accelerator_spec, pass_config)
+        run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config)
         try:
             json.dump(run_json, open(run_json_path, "w"), indent=4)
         except Exception as e:
             logger.error(f"Failed to cache run: {e}")
 
-    def _load_run(self, input_model_id: str, pass_name: int, accelerator_spec, pass_config: dict):
+    def _load_run(self, input_model_id: str, pass_name: int, pass_config: dict):
         """
         Load the run from the cache directory.
         """
         input_model_number = input_model_id.split("_")[0]
-        run_json_path = self.get_run_json_path(pass_name, input_model_number, accelerator_spec, pass_config)
+        run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config)
         if run_json_path.exists():
             try:
                 run_json = json.load(open(run_json_path, "r"))
@@ -714,11 +710,11 @@ class Engine:
         pass_config = p.serialize_config(pass_config)
 
         # load run from cache if it exists
-        output_model_id = self._load_run(input_model_id, pass_name, accelerator_spec, pass_config)
+        output_model_id = self._load_run(input_model_id, pass_name, pass_config)
         if output_model_id is not None:
             if verbose:
                 logger.info("Loading model from cache ...")
-            output_model = self._load_model(output_model_id, accelerator_spec)
+            output_model = self._load_model(output_model_id)
             if output_model is not None:
                 # footprint model and run
                 self.footprints[accelerator_spec].record(
@@ -753,10 +749,10 @@ class Engine:
                     raise  # rethrow the exception if no search is performed
 
         # cache model
-        self._cache_model(output_model, output_model_id, accelerator_spec)
+        self._cache_model(output_model, output_model_id)
 
         # cache run
-        self._cache_run(pass_name, pass_config, input_model_id, accelerator_spec, output_model_id)
+        self._cache_run(pass_name, pass_config, input_model_id, output_model_id)
 
         # footprint model and run
         self.footprints[accelerator_spec].record(
@@ -768,7 +764,14 @@ class Engine:
         )
         return output_model, output_model_id
 
-    def _cache_evaluation(self, model_id: str, accelerator_spec, signal: dict):
+    def get_evaluation_json_path(self, model_id: str):
+        """
+        Get the path to the evaluation json.
+        """
+        evaluation_json_path = self._evaluation_cache_path / f"{model_id}.json"
+        return evaluation_json_path
+
+    def _cache_evaluation(self, model_id: str, signal: dict):
         """
         Cache the evaluation in the cache directory.
         """
@@ -776,17 +779,17 @@ class Engine:
             "model_id": model_id,
             "signal": signal,
         }
-        evaluation_json_path = self._evaluation_cache_path / f"{model_id}_{accelerator_spec}.json"
+        evaluation_json_path = self.get_evaluation_json_path(model_id)
         try:
             json.dump(evaluation_json, open(evaluation_json_path, "w"), indent=4)
         except Exception as e:
             logger.error(f"Failed to cache evaluation: {e}")
 
-    def _load_evaluation(self, model_id: str, accelerator_spec):
+    def _load_evaluation(self, model_id: str):
         """
         Load the evaluation from the cache directory.
         """
-        evaluation_json_path = self._evaluation_cache_path / f"{model_id}_{accelerator_spec}.json"
+        evaluation_json_path = self.get_evaluation_json_path(model_id)
         if evaluation_json_path.exists():
             try:
                 evaluation_json = json.load(open(evaluation_json_path, "r"))
@@ -807,7 +810,7 @@ class Engine:
         if verbose:
             logger.info("Evaluating model ...")
         # load evaluation from cache if it exists
-        signal = self._load_evaluation(model_id, accelerator_spec)
+        signal = self._load_evaluation(model_id)
         if signal is not None:
             if verbose:
                 logger.info("Loading evaluation from cache ...")
@@ -826,7 +829,7 @@ class Engine:
         signal = evaluator.evaluate(model, self.target)
 
         # cache evaluation
-        self._cache_evaluation(model_id, accelerator_spec, signal)
+        self._cache_evaluation(model_id, signal)
 
         # footprint evaluation
         self.footprints[accelerator_spec].record(

@@ -121,7 +121,7 @@ quantization_config = {
     "weight_type" : "QUInt8"
 }
 # search over the values for the other config parameters
-engine.register(OnnxQuantization, quantization_pass, False)
+engine.register(OnnxQuantization, quantization_config, False)
 ```
 
 ### Run the engine
