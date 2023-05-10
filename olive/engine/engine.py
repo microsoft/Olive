@@ -374,19 +374,20 @@ class Engine:
             if metric.goal is not None:
                 goals[metric.name] = metric.goal
                 multipliers[metric.name] = 1 if metric.higher_is_better else -1
-        if verbose and len(goals) > 0:
+        if verbose and goals:
             logger.info(f"Resolving goals: {goals}")
 
         # compute baseline for input model if needed
-        baseline = {}
+        signal_result = SignalResult()
         for _, goal in goals.items():
             if goal.type != "threshold":
                 assert self.evaluator is not None, "Default evaluator must be provided to resolve goals"
                 if verbose:
                     logger.info("Computing baseline for metrics ...")
-                baseline = self._evaluate_model(input_model, input_model_id, self.evaluator, verbose=False)
+                signal_result = self._evaluate_model(input_model, input_model_id, self.evaluator, verbose=False)
                 break
-        if verbose and len(baseline) > 0:
+        baseline = signal_result.signal
+        if verbose and baseline:
             logger.info(f"Baseline: {baseline}")
 
         # resolve goals to thresholds
@@ -396,13 +397,13 @@ class Engine:
             if goal.type == "threshold":
                 resolved_goals[name] = goal.value
             elif goal.type == "max-degradation":
-                resolved_goals[name] = baseline[name] - multipliers[name] * goal.value
+                resolved_goals[name] = baseline[name].value_for_rank - multipliers[name] * goal.value
             elif goal.type == "min-improvement":
-                resolved_goals[name] = baseline[name] + multipliers[name] * goal.value
+                resolved_goals[name] = baseline[name].value_for_rank + multipliers[name] * goal.value
             elif goal.type == "percent-max-degradation":
-                resolved_goals[name] = baseline[name] * (1 - multipliers[name] * goal.value / 100)
+                resolved_goals[name] = baseline[name].value_for_rank * (1 - multipliers[name] * goal.value / 100)
             elif goal.type == "percent-min-improvement":
-                resolved_goals[name] = baseline[name] * (1 + multipliers[name] * goal.value / 100)
+                resolved_goals[name] = baseline[name].value_for_rank * (1 + multipliers[name] * goal.value / 100)
         if verbose and len(resolved_goals) > 0:
             logger.info(f"Resolved goals: {resolved_goals}")
 

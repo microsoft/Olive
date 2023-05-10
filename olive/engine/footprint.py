@@ -37,7 +37,7 @@ class FootprintNode(ConfigBase):
     pass_run_config: dict = None
     is_pareto_frontier: bool = False
     # TODO add EP/accelerators for same_model_id metrics
-    metrics: FootprintNodeMetric = FootprintNodeMetric()
+    metrics: FootprintNodeMetric = None
 
     date_time: float = datetime.now().timestamp()
 
