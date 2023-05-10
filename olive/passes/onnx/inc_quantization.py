@@ -234,12 +234,10 @@ class IncQuantization(Pass):
         inc_calib_dataloader = None
         if is_static:
             if self._user_module_loader:
-                inc_calib_dataloader = (
-                    self._user_module_loader.call_object(
-                        self._fixed_params["dataloader_func"],
-                        self._fixed_params["data_dir"],
-                        self._fixed_params["batch_size"],
-                    )
+                inc_calib_dataloader = self._user_module_loader.call_object(
+                    self._fixed_params["dataloader_func"],
+                    self._fixed_params["data_dir"],
+                    self._fixed_params["batch_size"],
                 )
             elif self._data_config:
                 inc_calib_dataloader = self._data_config.to_data_container().create_calibration_dataloader()
