@@ -123,8 +123,7 @@ class DataConfig(ConfigBase):
         """
         Get the dataset from data config.
         """
-        name = self.components[DataComponentType.LOAD_DATASET.value].type or \
-            DefaultDataComponent.LOAD_DATASET.value
+        name = self.components[DataComponentType.LOAD_DATASET.value].type or DefaultDataComponent.LOAD_DATASET.value
         return Registry.get_load_dataset_component(name)
 
     @property
@@ -132,8 +131,10 @@ class DataConfig(ConfigBase):
         """
         Get the pre-process from data config.
         """
-        name = self.components[DataComponentType.PRE_PROCESS_DATA.value].type or \
-            DefaultDataComponent.PRE_PROCESS_DATA.value
+        name = (
+            self.components[DataComponentType.PRE_PROCESS_DATA.value].type
+            or DefaultDataComponent.PRE_PROCESS_DATA.value
+        )
         return Registry.get_pre_process_component(name)
 
     @property
@@ -141,8 +142,10 @@ class DataConfig(ConfigBase):
         """
         Get the post-process from data config.
         """
-        name = self.components[DataComponentType.POST_PROCESS_DATA.value].type or \
-            DefaultDataComponent.POST_PROCESS_DATA.value
+        name = (
+            self.components[DataComponentType.POST_PROCESS_DATA.value].type
+            or DefaultDataComponent.POST_PROCESS_DATA.value
+        )
         return Registry.get_post_process_component(name)
 
     @property
@@ -150,8 +153,7 @@ class DataConfig(ConfigBase):
         """
         Get the dataloader from data config.
         """
-        name = self.components[DataComponentType.DATALOADER.value].type or \
-            DefaultDataComponent.DATALOADER.value
+        name = self.components[DataComponentType.DATALOADER.value].type or DefaultDataComponent.DATALOADER.value
         return Registry.get_dataloader_component(name)
 
     @property

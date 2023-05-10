@@ -15,7 +15,7 @@ from olive.engine import Engine, EngineConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
-from olive.passes import FullPassConfig
+from olive.passes import FullPassConfig, Pass
 from olive.systems.system_config import SystemConfig
 
 
@@ -116,7 +116,8 @@ class RunConfig(ConfigBase):
             disable_search = v.get("disable_search", False)
 
         v["disable_search"] = disable_search
-        if v["type"] == "OnnxQuantization" or v["type"] == "OnnxStaticQuantization":
+        pass_cls = Pass.registry.get(v["type"].lower(), None)
+        if pass_cls and pass_cls.requires_data_config():
             v["config"] = _resolve_data_config(v.get("config", {}), values, "data_config")
         return v
 

@@ -12,12 +12,14 @@ from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.user_module_loader import UserModuleLoader
+from olive.data.config import DataConfig
 from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel
 from olive.passes.pass_config import (
     PassConfigBase,
     PassConfigParam,
     PassParamDefault,
     create_config_class,
+    get_data_config,
     get_user_script_config,
 )
 from olive.strategy.search_parameter import (
@@ -42,6 +44,8 @@ class Pass(ABC):
     registry: Dict[str, "Pass"] = {}
     # True if pass configuration requires user script for non-local host support
     _requires_user_script: bool = False
+    # True if pass configuration requires data configuration which will leverage data container for pass execution
+    _requires_data_config: bool = False
     # True if the pass processes a composite model at once. Otherwise, the components of the
     # composite model will be processed individually.
     _accepts_composite_model: bool = False
@@ -65,6 +69,8 @@ class Pass(ABC):
         self._config = config
         if self._requires_user_script:
             self._user_module_loader = UserModuleLoader(self._config["user_script"], self._config["script_dir"])
+        if self._requires_data_config:
+            self._data_config = DataConfig(**self._config["data_config"])
 
         self._fixed_params = {}
         self._search_space = {}
@@ -81,6 +87,10 @@ class Pass(ABC):
                 self.path_params.append((param, param_config.required))
 
         self._initialized = False
+
+    @classmethod
+    def requires_data_config(cls):
+        return cls._requires_data_config
 
     @classmethod
     def generate_search_space(
@@ -114,6 +124,8 @@ class Pass(ABC):
         config = {}
         if cls._requires_user_script:
             config.update(get_user_script_config())
+        if cls.requires_data_config():
+            config.update(get_data_config())
         return {**config, **cls._default_config()}
 
     @staticmethod

@@ -12,7 +12,6 @@ from typing import Any, Callable, Dict, Union
 import onnx
 
 from olive.common.utils import hash_string
-from olive.data.config import DataConfig
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -165,14 +164,6 @@ _static_dataloader_config = {
             required if quant_mode is 'static'
         """,
     ),
-    "data_config": PassConfigParam(
-        type_=Union[DataConfig, str],
-        required=False,
-        description="""
-            Data config for calibration, required if quant_mode is 'static'.
-            If not provided, a default DataConfig will be used.
-        """,
-    ),
 }
 
 _static_optional_config = {
@@ -225,6 +216,7 @@ class OnnxQuantization(Pass):
     """
 
     _requires_user_script = True
+    _requires_data_config = True
 
     def _initialize(self):
         super()._initialize()
@@ -345,7 +337,7 @@ class OnnxQuantization(Pass):
                 model = ONNXModel(preprocessed_temp_model_path, model.name)
 
         # keys not needed for quantization
-        to_delete = ["quant_mode", "script_dir", "user_script", "quant_preprocess"]
+        to_delete = ["quant_mode", "script_dir", "user_script", "quant_preprocess", "data_config"]
         to_delete += list(get_external_data_config().keys())
 
         # update string values to enum values
@@ -392,9 +384,8 @@ class OnnxQuantization(Pass):
                     self._fixed_params["data_dir"],
                     self._fixed_params["batch_size"],
                 )
-            elif self._fixed_params["data_config"]:
-                dc_cls = DataConfig(**self._fixed_params["data_config"])
-                dataloader = dc_cls.to_data_container().create_calibration_dataloader()
+            elif self._data_config:
+                dataloader = self._data_config.to_data_container().create_calibration_dataloader()
             quantize_static(
                 model_input=model.model_path,
                 model_output=tmp_model_path,
