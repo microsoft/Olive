@@ -93,6 +93,9 @@ class Engine:
         else:
             self.target = LocalSystem()
 
+        if execution_providers is None:
+            execution_providers = self._config.execution_providers
+
         # verfiy the AzureML system have specified the execution providers
         # Please note we could not use isinstance(target, AzureMLSystem) since it would import AzureML packages.
         if self.target.system_type == SystemType.AzureML and execution_providers is None:
@@ -278,27 +281,44 @@ class Engine:
             input_model_id = self._init_input_model(input_model)
             self.footprints[accelerator_spec].record(model_id=input_model_id)
 
-            if evaluation_only:
-                prefix_output_name = (
-                    f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
-                )
-                assert self.evaluator is not None, "Evaluation only is True but no evaluator provided"
-                results = self._evaluate_model(input_model, input_model_id, self.evaluator, accelerator_spec, verbose)
-                result_name = f"{prefix_output_name}metrics"
-                results_path = output_dir / f"{result_name}.json"
-                with open(results_path, "w") as f:
-                    json.dump(results, f, indent=4)
-                outputs[accelerator_spec] = results
-            elif self.no_search:
-                output = self.run_no_search(
-                    input_model, input_model_id, accelerator_spec, packaging_config, verbose, output_dir, output_name
-                )
-                outputs[accelerator_spec] = output
-            else:
-                footprint = self.run_search(
-                    input_model, input_model_id, accelerator_spec, packaging_config, verbose, output_dir, output_name
-                )
-                outputs[accelerator_spec] = footprint
+            try:
+                if evaluation_only:
+                    prefix_output_name = (
+                        f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
+                    )
+                    assert self.evaluator is not None, "Evaluation only is True but no evaluator provided"
+                    results = self._evaluate_model(
+                        input_model, input_model_id, self.evaluator, accelerator_spec, verbose
+                    )
+                    result_name = f"{prefix_output_name}metrics"
+                    results_path = output_dir / f"{result_name}.json"
+                    with open(results_path, "w") as f:
+                        json.dump(results, f, indent=4)
+                    outputs[accelerator_spec] = results
+                elif self.no_search:
+                    output = self.run_no_search(
+                        input_model,
+                        input_model_id,
+                        accelerator_spec,
+                        packaging_config,
+                        verbose,
+                        output_dir,
+                        output_name,
+                    )
+                    outputs[accelerator_spec] = output
+                else:
+                    footprint = self.run_search(
+                        input_model,
+                        input_model_id,
+                        accelerator_spec,
+                        packaging_config,
+                        verbose,
+                        output_dir,
+                        output_name,
+                    )
+                    outputs[accelerator_spec] = footprint
+            except Exception as e:
+                logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}")
 
         return outputs
 

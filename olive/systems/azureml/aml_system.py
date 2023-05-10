@@ -218,7 +218,7 @@ class AzureMLSystem(OliveSystem):
     ):
         parameters = []
         for param, input in inputs.items():
-            if input.optional:
+            if isinstance(input, Input) and input.optional:
                 parameters.append(f"$[[--{param} ${{{{inputs.{param}}}}}]]")
             else:
                 parameters.append(f"--{param} ${{{{inputs.{param}}}}}")
@@ -265,8 +265,16 @@ class AzureMLSystem(OliveSystem):
             project_folder = cur_dir.parent.parent
             shutil.copytree(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
+        accelerator_info = {
+            "accelerator_type": pass_config["accelerator"]["accelerator_type"],
+            "execution_provider": pass_config["accelerator"]["execution_provider"],
+        }
         # prepare inputs
-        inputs = {**self._create_model_inputs(model.model_storage_kind), **self._create_pass_inputs(pass_path_params)}
+        inputs = {
+            **self._create_model_inputs(model.model_storage_kind),
+            **self._create_pass_inputs(pass_path_params),
+            **accelerator_info,
+        }
 
         # pass type
         pass_type = pass_config["type"]
@@ -291,6 +299,7 @@ class AzureMLSystem(OliveSystem):
         args = {
             **self._create_model_args(model_json, tmp_dir),
             **self._create_pass_args(pass_config, pass_path_params, tmp_dir),
+            **accelerator_info,
         }
 
         @pipeline()
