@@ -19,24 +19,28 @@ pip install -r requirements.txt
 
 ## Conversion to ONNX and Latency Optimization
 
-**NOTE**: the stable diffusion models are large, and the optimization process is resource intensive. We recommend running optimization on a system with a minimum of 16GB of memory (preferably 32GB).
-
-The easiest way to optimize everything is with the `stable_diffusion.py` helper script:
+The easiest way to optimize the pipeline is with the `stable_diffusion.py` helper script:
 
 ```
 python stable_diffusion.py --optimize
 ```
 
-- The optimized models will be stored under `models/optimized/runwayml/stable-diffusion-v1-5`.
-- The unoptimized models (converted to ONNX, but not run through transformer optimization pass) will be stored under `models/unoptimized/runwayml/stable-diffusion-v1-5`.
-- **Alternatively**, you can optimize specific models with Olive directly. For example, `python -m olive.workflows.run --config .\config_unet.json`.
+The stable diffusion models are large, and the optimization process is resource intensive. It is recommended to run optimization on a system with a minimum of 16GB of memory (preferably 32GB). Expect optimization to take several minutes (especially the U-Net model).
+
+Once the script successfully completes:
+- The optimized ONNX pipeline will be stored under `models/optimized/runwayml/stable-diffusion-v1-5`.
+- The unoptimized ONNX pipeline (models converted to ONNX, but not run through transformer optimization pass) will be stored under `models/unoptimized/runwayml/stable-diffusion-v1-5`.
+
+Re-running the script with `--optimize` will delete the output models, but it will *not* delete the Olive cache. Subsequent runs will complete much faster since it will simply be copying previously optimized models; you may use the `--clean_cache` option to start from scratch (not typically used unless you are modifying the scripts, for example).
 
 ## Test Inference
 
-The `stable_diffusion.py` helper script provides a simple wrapper around the `diffusers` library to load and execute the optimized stable diffusion models. Without any arguments, it will generate a single image with the default prompt ("a photo of an astronaut riding a horse on mars.").
+This sample code is primarily intended to illustrate model optimization with Olive, but it also provides a simple interface for testing inference with the ONNX models. Inference is done by creating an `OnnxStableDiffusionPipeline` from the saved models, which leans on ONNX runtime for runtime inference of the core models (text encoder, u-net, decoder, and safety checker).
+
+Invoke the script with `--interactive` to show the GUI and generate images one at a time.
 
 ```
-python stable_diffusion.py
+python stable_diffusion.py --interactive --static_dims
 Loading models into ORT session...
 
 Inference Batch Start (batch size = 1).
@@ -45,12 +49,14 @@ Generated result_0.png
 Inference Batch End (1/1 images passed the safety checker).
 ```
 
-The output image will be saved to `result_0.png` in your working directory. Inference will loop until the generated image passes the safety checker (otherwise you would see black images).
+Inference will loop until the generated image passes the safety checker (otherwise you would see black images). The result will be saved as `result_0.png` on disk, which is then loaded and displayed in the UI. Example below:
 
-You can also generate multiple images with a single session, which is more efficient than running the script repeatedly. The example below shows how to request 4 valid outputs (all using the same prompt), which will be saved as `result_0.png`, `result_1.png`, and so on. The script ran inference 6 times, because 2 of the outputs failed the safety checker.
+![](readme/example.png)
+
+You can also generate multiple images in a non-interactive session (omit the `--interactive` argument). The example below shows how to request 4 valid outputs (all using the same prompt), which will be saved as `result_0.png`, `result_1.png`, and so on. The script ran inference 6 times, because 2 of the outputs failed the safety checker.
 
 ```
-python .\stable_diffusion.py --num_images 4
+python .\stable_diffusion.py --static_dims --num_images 4 --prompt "solar eclipse, stars, realistic, space"
 Loading models into ORT session...
 
 Inference Batch Start (batch size = 1).
@@ -82,41 +88,38 @@ Generated result_3.png
 Inference Batch End (1/1 images passed the safety checker).
 ```
 
-Below is an example output image:
-
-![](readme/example.png)
-
-You can also try other prompts and adjust the number of steps in the diffusion process (default is 50 steps; fewer steps will run faster with less quality; more steps *may* have higher quality):
+If your graphics card has sufficient memory, you can try increasing the batch size to generate multiple images at the same time. This can be faster than generating single images at a time.
 
 ```
-python .\stable_diffusion.py --prompt "solar eclipse, stars, realistic, space" --num_inference_steps 100
-
+python .\stable_diffusion.py --num_images 16 --prompt "solar eclipse, stars, realistic, space" --batch_size 8
 Loading models into ORT session...
 
-Inference Batch Start (batch size = 1).
-100%|█████████████████████████████| 101/101 [00:11<00:00,  9.13it/s]
+Inference Batch Start (batch size = 8).
+100%|█████████████████████████████| 51/51 [00:09<00:00,  5.54it/s]
 Generated result_0.png
-Inference Batch End (1/1 images passed the safety checker).
+Generated result_1.png
+Generated result_2.png
+Generated result_3.png
+Generated result_4.png
+Generated result_5.png
+Generated result_6.png
+Generated result_7.png
+Inference Batch End (8/8 images passed the safety checker).
+
+Inference Batch Start (batch size = 8).
+100%|█████████████████████████████| 51/51 [00:08<00:00,  6.22it/s]
+Generated result_8.png
+Generated result_9.png
+Generated result_10.png
+Generated result_11.png
+Generated result_12.png
+Generated result_13.png
+Generated result_14.png
+Generated result_15.png
+Inference Batch End (8/8 images passed the safety checker).
 ```
 
-![](readme/example2.png)
-
-# Implementation Details
-
-The `stable_diffusion.py` helper script invokes Olive for each model independently. If you would like to convert and optimize each model by yourself, you can invoke Olive directly. For example:
-
-```
-python -m olive.workflows.run --config .\config_unet.json
-```
-
-# TODO
-This sample is incomplete.
-
-- Perform ORT runtime graph optimizations to save on session creation time. Perhaps augment `OrtPerfTuning` pass to serialize the model in ["offline mode"](https://onnxruntime.ai/docs/performance/model-optimizations/graph-optimizations.html#onlineoffline-mode)? Disable graph optimizations in inference test if this is done.
-- Support ORT 1.14 (need to set appropriate fusion defaults); currently only works with main branch / nightly builds.
-- Consider Torch 2.0.0 support (see https://github.com/pytorch/pytorch/issues/97262).
-- Investigate bland output images with batch_size > 1
-
+Finally, you may adjust the number of steps in the U-net loop by setting `--num_inference_steps <steps>`. The default value is 50, but a lower value may produce sufficiently high quality images while taking less time overall.
 
 # Issues
 
