@@ -47,7 +47,7 @@ class LoRA(Pass):
         if self.config.training_loop_func:
             trained_lora_model = self.config.training_loop_func(model)
 
-        model.save_pretrained(output_model_path)
+        trained_lora_model.save_pretrained(output_model_path)
         return PyTorchModel(
             model_path=output_model_path,
             model_file_format=ModelFileFormat.PYTORCH_LORA_MODEL,

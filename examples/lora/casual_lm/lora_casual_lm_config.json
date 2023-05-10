@@ -1,0 +1,47 @@
+{
+    "verbose": true,
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_script": "lora_casual_lm_user_script.py",
+            "hf_config": {
+                "model_class" : "AutoModelForCausalLM",
+                "model_name" : "bigscience/bloomz-560m"
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "sub_type": "accuracy_score",
+                    "priority_rank": 1,
+                    "user_config":{
+                        "user_script": "lora_casual_lm_user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 1
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "lora":{
+            "type": "LoRA",
+            "config":{
+                "user_script": "lora_casual_lm_user_script.py",
+                "training_loop_func": "train_model"
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "pass-by-pass",
+            "search_algorithm": "exhaustive"
+        },
+        "evaluator": "common_evaluator",
+        "cache_dir": "cache"
+    }
+}
