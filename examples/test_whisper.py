@@ -27,7 +27,7 @@ def setup():
 
 
 def check_output(outputs):
-    for output in outputs.values():
+    for output in outputs:
         for item in output.signal:
             assert item.value_for_rank > 0
 

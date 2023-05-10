@@ -111,7 +111,7 @@ class SearchResults:
         results = []
         for search_point_hash in self.results:
             result = self.results[search_point_hash]
-            if result is None or result.signal is None:
+            if not result or not result.signal:
                 continue
             if apply_goals and not self.check_goals(result):
                 continue

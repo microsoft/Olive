@@ -231,7 +231,7 @@ class Engine:
                 results = self._evaluate_model(input_model, input_model_id, self.evaluator, i, verbose)
                 result_name = f"{prefix_output_name}metrics"
                 results_path = output_dir / f"{result_name}.json"
-                json.dump(results, open(results_path, "w"), indent=4)
+                json.dump(results.dict(), open(results_path, "w"), indent=4)
                 outputs[i] = results
             elif self.no_search:
                 output = self.run_no_search(
@@ -322,7 +322,7 @@ class Engine:
         result_name = f"{prefix_output_name}metrics"
         results_path = output_dir / f"{result_name}.json"
         if signal is not None:
-            json.dump(signal, open(results_path, "w"), indent=4)
+            json.dump(signal.dict(), open(results_path, "w"), indent=4)
 
         output = {"model": output_model_json}
         if signal is not None:
