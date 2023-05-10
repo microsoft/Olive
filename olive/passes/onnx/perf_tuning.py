@@ -300,6 +300,9 @@ class OrtPerfTuning(Pass):
             # add the provider to the config if user doesn't provide the execution providers
             config["provider_list"] = [self._accelerator_spec.execution_provider]
 
+        if "device" not in config:
+            config["device"] = self._accelerator_spec.accelerator_type
+
         config = self._config_class(**config)
         # TODO: decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model

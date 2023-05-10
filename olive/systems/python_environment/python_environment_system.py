@@ -32,16 +32,16 @@ class PythonEnvironmentSystem(OliveSystem):
     def __init__(
         self,
         python_environment_path: Union[Path, str],
-        device: Device = Device.CPU,
         environment_variables: Dict[str, str] = None,
         prepend_to_path: List[str] = None,
+        accelerators: List[str] = None,
     ):
-        super().__init__(accelerators=None)
+        super().__init__(accelerators=accelerators)
         self.config = PythonEnvironmentTargetUserConfig(
             python_environment_path=python_environment_path,
-            device=device,
             environment_variables=environment_variables,
             prepend_to_path=prepend_to_path,
+            accelerators=accelerators,
         )
         self.environ = deepcopy(os.environ)
         if self.config.environment_variables:
@@ -56,6 +56,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
         # path to inference script
         self.inference_path = Path(__file__).parent.resolve() / "inference_runner.py"
+        self.device = self.accelerators[0] if self.accelerators else Device.CPU
 
     def run_pass(
         self,
@@ -178,7 +179,7 @@ class PythonEnvironmentSystem(OliveSystem):
                 f" {model.model_path} --inference_settings_path {inference_settings_path} --input_dir"
                 f" {input_dir} --output_dir  {output_dir} --warmup_num {warmup_num} --repeat_test_num"
                 f" {repeat_test_num} --sleep_num {sleep_num} --io_bind {metric.user_config.io_bind} --device"
-                f" {self.config.device}"
+                f" {self.device}"
             )
             run_subprocess(command, env=self.environ, check=True)
 
@@ -229,9 +230,7 @@ class PythonEnvironmentSystem(OliveSystem):
         Get the execution providers for the device.
         """
         available_eps = self.get_available_eps()
-        return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
-            self.config.device, available_eps
-        )
+        return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(self.device, available_eps)
 
     def get_default_execution_provider(self, model: ONNXModel) -> List[str]:
         """
