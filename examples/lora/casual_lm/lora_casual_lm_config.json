@@ -29,18 +29,19 @@
     },
     "passes": {
         "lora":{
-            "type": "LoRA",
+            "type": "HFLoRA",
             "config":{
                 "user_script": "lora_casual_lm_user_script.py",
-                "training_loop_func": "train_model"
+                "training_loop_func": "train_model",
+                "task_type": "TaskType.CAUSAL_LM",
+                "r": 16,
+                "lora_dropout": 0.1,
+                "bias" : "all",
+                "lora_alpha": 16
             }
         }
     },
     "engine": {
-        "search_strategy": {
-            "execution_order": "pass-by-pass",
-            "search_algorithm": "exhaustive"
-        },
         "evaluator": "common_evaluator",
         "cache_dir": "cache"
     }

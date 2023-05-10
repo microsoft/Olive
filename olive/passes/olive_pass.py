@@ -269,6 +269,7 @@ class Pass(ABC):
         """
         Resolve config to PassConfigBase.
         """
+        print(f"...... {input_config}")
         config = validate_config(input_config, PassConfigBase, config_class)
         config = config.dict()
         config = cls._resolve_defaults(config, default_config)
