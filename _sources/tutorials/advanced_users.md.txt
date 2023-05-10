@@ -105,15 +105,13 @@ Passes available in Olive can be found at ...
 
 ```python
 from olive.passes import OnnxConversion, OnnxQuantization
-from olive.passes.olive_pass import create_pass_from_dict
 
 # Onnx conversion pass
 onnx_conversion_config = {
     "target_opset": 13,
 }
-onnx_conversion_pass = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
 # override the default host with pass specific host
-engine.register(onnx_conversion_pass, host=LocalSystem())
+engine.register(OnnxConversion, onnx_conversion_config, False, host=LocalSystem())
 
 # onnx quantization pass
 quantization_config = {
@@ -123,8 +121,7 @@ quantization_config = {
     "weight_type" : "QUInt8"
 }
 # search over the values for the other config parameters
-quantization_pass = create_pass_from_dict(OnnxQuantization, quantization_config)
-engine.register(quantization_pass)
+engine.register(OnnxQuantization, quantization_config, False)
 ```
 
 ### Run the engine
