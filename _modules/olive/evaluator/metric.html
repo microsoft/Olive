@@ -124,6 +124,7 @@
 <span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">validator</span>
 
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.accuracy</span> <span class="kn">import</span> <span class="n">AccuracyBase</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric_config</span> <span class="kn">import</span> <span class="n">LatencyMetricConfig</span><span class="p">,</span> <span class="n">MetricGoal</span><span class="p">,</span> <span class="n">get_user_config_class</span>
 
@@ -168,7 +169,8 @@
     <span class="n">priority_rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="n">goal</span><span class="p">:</span> <span class="n">MetricGoal</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">metric_config</span><span class="p">:</span> <span class="n">ConfigBase</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">user_config</span><span class="p">:</span> <span class="n">ConfigBase</span>
+    <span class="n">user_config</span><span class="p">:</span> <span class="n">ConfigBase</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">data_config</span><span class="p">:</span> <span class="n">DataConfig</span> <span class="o">=</span> <span class="n">DataConfig</span><span class="p">()</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;sub_type&quot;</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">validate_sub_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>

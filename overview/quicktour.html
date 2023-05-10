@@ -351,9 +351,9 @@ let us first convert the pytorch model to ONNX and quantize it.</p>
     <span class="c1"># None for no parent which means current model is the input model</span>
     <span class="n">parent_model_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">model_config</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">model_config</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">from_pass</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">pass_run_config</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">pass_run_config</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">is_pareto_frontier</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">metrics</span><span class="p">:</span> <span class="n">FootprintNodeMetric</span> <span class="o">=</span> <span class="n">FootprintNodeMetric</span><span class="p">()</span>
     <span class="n">date_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
@@ -365,8 +365,8 @@ let us first convert the pytorch model to ONNX and quantize it.</p>
 <span class="sd">        1: higher is better, -1: lower is better</span>
 <span class="sd">    is_goals_met: if the goals set by users is met</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">value</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">cmp_direction</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">value</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">cmp_direction</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">is_goals_met</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 </pre></div>
 </div>
