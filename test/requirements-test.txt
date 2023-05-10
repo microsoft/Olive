@@ -13,5 +13,6 @@ plotly
 psutil
 pytorch_lightning
 torchvision
+datasets
 azureml-evaluate-mlflow
 mlflow

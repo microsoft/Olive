@@ -1,7 +1,6 @@
 launch.json
 settings.json
 models/
-data/
 logs/
 cache/
 olive_tmp_*/

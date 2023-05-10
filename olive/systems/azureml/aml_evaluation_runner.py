@@ -17,7 +17,7 @@ def parse_metric_args(raw_args):
     parser = argparse.ArgumentParser("Metric config")
 
     parser.add_argument("--metric_config", type=str, help="pass config", required=True)
-    parser.add_argument("--metric_user_script", type=str, help="metric user script", required=True)
+    parser.add_argument("--metric_user_script", type=str, help="metric user script")
     parser.add_argument("--metric_script_dir", type=str, help="metric script dir")
     parser.add_argument("--metric_data_dir", type=str, help="metric data dir")
 

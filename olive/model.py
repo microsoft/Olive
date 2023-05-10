@@ -141,6 +141,7 @@ class ModelConfig(ConfigBase):
 
 
 class IOConfig(ConfigBase):
+    # TODO remove input names, shapes and types, turn to use olive dataset conifg.
     input_names: List[str]
     input_shapes: List[List[int]] = None
     input_types: List[str] = None
@@ -212,6 +213,7 @@ class HFConfig(ConfigBase):
     model_class: str = None
     use_ort_implementation: bool = False
     components: List[HFComponent] = None
+    dataset: Dict[str, Any] = None
 
     @validator("model_class", always=True)
     def task_or_model_class_required(cls, v, values):

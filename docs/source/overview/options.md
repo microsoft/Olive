@@ -53,6 +53,18 @@ case insensitive.
         - `model_config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
         [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
 
+        - `dataset: [dict]`: For huggingface transformer models, if you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading_datasets.html). Olive exposes the following configs(which will be extend in the future):
+            ```json
+            "dataset": {
+                "data_name":"glue",  # the name of the dataset
+                "subset": "mrpc",  # the subset of the dataset, could be "mrpc", "mnli" and etc. You can find the available subsets in the dataset page.
+                "split": "validation",  # the split of the dataset, could be "train", "validation", "test" and etc. You can find the available splits in the dataset page.
+                "input_cols": ["sentence1", "sentence2"],  # the input columns of the dataset
+                "label_cols": ["label"],  # the label columns of the dataset
+                "batch_size": 1  # the batch size of the dataloader
+            }
+            ```
+
 Please find the detailed config options from following table for each model type:
 
 | Model Type | Description |
