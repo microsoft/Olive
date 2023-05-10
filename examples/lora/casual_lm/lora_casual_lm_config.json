@@ -39,6 +39,12 @@
                 "bias" : "all",
                 "lora_alpha": 16
             }
+        },
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 17
+            }
         }
     },
     "engine": {
