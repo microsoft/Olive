@@ -231,18 +231,18 @@ class IncQuantization(Pass):
                 del run_config[key]
 
         ptq_config = PostTrainingQuantConfig(**run_config)
-        if self._user_module_loader:
-            inc_calib_dataloader = (
-                self._user_module_loader.call_object(
-                    self._fixed_params["dataloader_func"],
-                    self._fixed_params["data_dir"],
-                    self._fixed_params["batch_size"],
+        inc_calib_dataloader = None
+        if is_static:
+            if self._user_module_loader:
+                inc_calib_dataloader = (
+                    self._user_module_loader.call_object(
+                        self._fixed_params["dataloader_func"],
+                        self._fixed_params["data_dir"],
+                        self._fixed_params["batch_size"],
+                    )
                 )
-                if is_static
-                else None
-            )
-        elif self._data_config:
-            inc_calib_dataloader = self._data_config.to_data_container().create_calibration_dataloader()
+            elif self._data_config:
+                inc_calib_dataloader = self._data_config.to_data_container().create_calibration_dataloader()
         inc_model = model.load_model()
         q_model = quantization.fit(inc_model, ptq_config, calib_dataloader=inc_calib_dataloader)
 
