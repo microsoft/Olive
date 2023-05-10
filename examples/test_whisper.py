@@ -26,9 +26,10 @@ def setup():
     os.chdir(cur_dir)
 
 
-def check_output(output):
-    for item in output.signal:
-        assert item.value_for_rank > 0
+def check_output(outputs):
+    for output in outputs.values():
+        for item in output.signal:
+            assert item.value_for_rank > 0
 
 
 @pytest.mark.parametrize("device_precision", [("cpu", "fp32"), ("cpu", "int8")])

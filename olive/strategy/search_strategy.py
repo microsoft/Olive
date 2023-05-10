@@ -93,9 +93,9 @@ class SearchStrategy(ABC):
         self._active_spaces_group = None
 
         # state
-        self._searchers = {}
-        self._search_results = {}
-        self._init_model_ids = {}
+        self._searchers: Dict[Any, SearchAlgorithm] = {}
+        self._search_results: Dict[Any, SearchResults] = {}
+        self._init_model_ids: Dict[Any, str] = {}
         self._best_search_points = {}
 
         # initialize the first search space

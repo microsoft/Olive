@@ -103,10 +103,12 @@ class DockerSystem(OliveSystem):
             volumes_list.append(dev_mount_str)
 
         model_copy = copy.deepcopy(model)
-        model_mount_path, model_mount_str_list = docker_utils.create_model_mount(
-            model=model_copy, container_root_path=container_root_path
-        )
-        volumes_list += model_mount_str_list
+        model_mount_path = None
+        if model_copy.model_path:
+            model_mount_path, model_mount_str_list = docker_utils.create_model_mount(
+                model=model_copy, container_root_path=container_root_path
+            )
+            volumes_list += model_mount_str_list
 
         metrics_copy = copy.deepcopy(metrics)
         volumes_list = docker_utils.create_metric_volumes_list(
