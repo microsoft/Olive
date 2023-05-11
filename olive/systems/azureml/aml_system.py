@@ -266,8 +266,8 @@ class AzureMLSystem(OliveSystem):
             shutil.copytree(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
 
         accelerator_info = {
-            "accelerator_type": pass_config["accelerator"]["accelerator_type"],
-            "execution_provider": pass_config["accelerator"]["execution_provider"],
+            "pass_accelerator_type": pass_config["accelerator"]["accelerator_type"],
+            "pass_execution_provider": pass_config["accelerator"]["execution_provider"],
         }
         # prepare inputs
         inputs = {

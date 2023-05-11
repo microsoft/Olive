@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -18,6 +19,7 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelStorageKind, ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
+from olive.systems.azureml.aml_evaluation_runner import main as aml_evaluation_runner_main
 from olive.systems.azureml.aml_system import AzureMLSystem
 from olive.systems.common import AzureMLDockerConfig
 
@@ -260,3 +262,168 @@ class TestAzureMLSystem:
         parameters.append("--pipeline_output ${{outputs.pipeline_output}}")
 
         return f"python {script_name} {' '.join(parameters)}"
+
+    @patch("olive.evaluator.olive_evaluator.OliveEvaluator.evaluate")
+    def test_aml_evaluation_runner(self, mock_evalute, tmp_path):
+        mock_evalute.return_value = {"accuracy": 0.5}
+
+        # create model_config.json
+        model_config = {
+            "config": {
+                "dummy_inputs_func": None,
+                "hf_config": {
+                    "components": None,
+                    "dataset": {
+                        "batch_size": 1,
+                        "data_name": "glue",
+                        "input_cols": ["sentence1", "sentence2"],
+                        "label_cols": ["label"],
+                        "split": "validation",
+                        "subset": "mrpc",
+                    },
+                    "model_class": None,
+                    "model_name": "Intel/bert-base-uncased-mrpc",
+                    "task": "text-classification",
+                    "use_ort_implementation": False,
+                },
+                "io_config": {
+                    "dynamic_axes": {
+                        "attention_mask": {"0": "batch_size", "1": "seq_length"},
+                        "input_ids": {"0": "batch_size", "1": "seq_length"},
+                        "token_type_ids": {"0": "batch_size", "1": "seq_length"},
+                    },
+                    "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                    "input_shapes": [[1, 128], [1, 128], [1, 128]],
+                    "input_types": ["int64", "int64", "int64"],
+                    "output_names": ["output"],
+                    "output_shapes": None,
+                    "output_types": None,
+                    "string_to_int_dim_params": None,
+                },
+                "model_loader": None,
+                "model_path": None,
+                "model_script": None,
+                "model_storage_kind": "folder",
+                "name": None,
+                "script_dir": None,
+                "version": None,
+            },
+            "type": "PyTorchModel",
+        }
+
+        with open(tmp_path / "model_config.json", "w") as f:
+            json.dump(model_config, f)
+
+        # create model.pt
+        # create metrics_config.json
+        metrics_config = {
+            "data_config": {
+                "components": {
+                    "dataloader": {
+                        "name": "default_dataloader",
+                        "params": {"batch_size": 1},
+                        "type": "default_dataloader",
+                    },
+                    "load_dataset": {
+                        "name": "huggingface_dataset",
+                        "params": {"data_name": "glue", "split": "validation", "subset": "mrpc"},
+                        "type": "huggingface_dataset",
+                    },
+                    "post_process_data": {
+                        "name": "text_classification_post_process",
+                        "params": {},
+                        "type": "text_classification_post_process",
+                    },
+                    "pre_process_data": {
+                        "name": "huggingface_pre_process",
+                        "params": {
+                            "input_cols": ["sentence1", "sentence2"],
+                            "label_cols": ["label"],
+                            "model_name": "Intel/bert-base-uncased-mrpc",
+                        },
+                        "type": "huggingface_pre_process",
+                    },
+                },
+                "default_components": {
+                    "dataloader": {"name": "default_dataloader", "params": {}, "type": "default_dataloader"},
+                    "load_dataset": {"name": "huggingface_dataset", "params": {}, "type": "huggingface_dataset"},
+                    "post_process_data": {
+                        "name": "text_classification_post_process",
+                        "params": {},
+                        "type": "text_classification_post_process",
+                    },
+                    "pre_process_data": {
+                        "name": "huggingface_pre_process",
+                        "params": {},
+                        "type": "huggingface_pre_process",
+                    },
+                },
+                "default_components_type": {
+                    "dataloader": "default_dataloader",
+                    "load_dataset": "huggingface_dataset",
+                    "post_process_data": "text_classification_post_process",
+                    "pre_process_data": "huggingface_pre_process",
+                },
+                "name": "_default_huggingface_dc",
+                "params_config": {
+                    "batch_size": 1,
+                    "data_name": "glue",
+                    "input_cols": ["sentence1", "sentence2"],
+                    "label_cols": ["label"],
+                    "model_name": "Intel/bert-base-uncased-mrpc",
+                    "split": "validation",
+                    "subset": "mrpc",
+                    "task_type": "text-classification",
+                },
+                "type": "HuggingfaceContainer",
+            },
+            "higher_is_better": True,
+            "metric_config": {
+                "average": "micro",
+                "ignore_index": None,
+                "mdmc_average": "global",
+                "num_classes": None,
+                "threshold": 0.5,
+                "top_k": None,
+            },
+            "name": "result",
+            "priority_rank": 1,
+            "sub_type": "accuracy_score",
+            "type": "accuracy",
+            "user_config": {
+                "batch_size": 1,
+                "data_dir": None,
+                "dataloader_func": None,
+                "inference_settings": None,
+                "input_names": None,
+                "input_shapes": None,
+                "input_types": None,
+                "post_processing_func": None,
+                "script_dir": None,
+                "user_script": None,
+            },
+        }
+
+        with open(tmp_path / "metrics_config.json", "w") as f:
+            json.dump(metrics_config, f)
+
+        # create accelerator_config.json
+        accelerator_config = {"accelerator_type": "cpu", "execution_provider": "CPUExecutionProvider"}
+        with open(tmp_path / "accelerator_config.json", "w") as f:
+            json.dump(accelerator_config, f)
+
+        ouptut_dir = tmp_path / "pipeline_output"
+        ouptut_dir.mkdir()
+
+        args = [
+            "--model_config",
+            str(tmp_path / "model_config.json"),
+            "--metric_config",
+            str(tmp_path / "metrics_config.json"),
+            "--accelerator_config",
+            str(tmp_path / "accelerator_config.json"),
+            "--pipeline_output",
+            str(ouptut_dir),
+        ]
+        aml_evaluation_runner_main(args)
+        mock_evalute.assert_called_once()
