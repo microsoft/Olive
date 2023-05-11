@@ -70,10 +70,12 @@ class TestEvaluation:
 
             # assert
             mock_acc.return_value.measure.assert_called_once()
-            assert expected_res == actual_res.value_for_rank
+
+            for sub_type in metric.sub_types:
+                assert expected_res == actual_res[sub_type.name].value
 
     LATENCY_TEST_CASE = [
-        (get_pytorch_model(), get_latency_metric(LatencySubType.AVG), 1),
+        (get_pytorch_model(), get_latency_metric(LatencySubType.AVG, LatencySubType.MAX), 1),
         (get_pytorch_model(), get_latency_metric(LatencySubType.MAX), 1),
         (get_pytorch_model(), get_latency_metric(LatencySubType.MIN), 1),
         (get_pytorch_model(), get_latency_metric(LatencySubType.P50), 1),
@@ -101,5 +103,5 @@ class TestEvaluation:
         # execute
         actual_res = evaluate_latency(olive_model, metric)
 
-        # assert
-        assert expected_res > actual_res.value_for_rank
+        for sub_type in metric.sub_types:
+            assert expected_res > actual_res[sub_type.name].value

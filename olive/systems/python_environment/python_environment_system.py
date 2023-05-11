@@ -86,7 +86,7 @@ class PythonEnvironmentSystem(OliveSystem):
                 metrics_res[metric.name] = self.evaluate_accuracy(model, metric)
             elif metric.type == MetricType.LATENCY:
                 metrics_res[metric.name] = self.evaluate_latency(model, metric)
-        return SignalResult(signal=metrics_res)
+        return SignalResult.parse_obj(metrics_res)
 
     def evaluate_accuracy(self, model: ONNXModel, metric: Metric) -> float:
         """
@@ -145,10 +145,13 @@ class PythonEnvironmentSystem(OliveSystem):
         Evaluate the latency of the model.
         """
         dataloader, _, _ = get_user_config(metric.user_config)
-        metric_config = metric.metric_config[MetricType.LATENCY]
-        warmup_num = metric_config.warmup_num
-        repeat_test_num = metric_config.repeat_test_num
-        sleep_num = metric_config.sleep_num
+        warmup_num, repeat_test_num, sleep_num = None, None, None
+        for sub_type in metric.sub_types:
+            if sub_type.metric_config:
+                warmup_num = sub_type.metric_config.warmup_num
+                repeat_test_num = sub_type.metric_config.repeat_test_num
+                sleep_num = sub_type.metric_config.sleep_num
+                break
 
         latencies = []
         inference_settings = self.get_inference_settings(model, metric)

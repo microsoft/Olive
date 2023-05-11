@@ -43,4 +43,4 @@ class LocalSystem(OliveSystem):
         for metric in metrics:
             evaluator = evaluator_adaptor(metric)
             metrics_res[metric.name] = evaluator(model, metric, self.device)
-        return SignalResult(signal=metrics_res)
+        return SignalResult.parse_obj(metrics_res)

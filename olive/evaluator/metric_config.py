@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Union
 
 from pydantic import validator
 
-from olive.common.config_utils import ConfigBase, ConfigParam, create_config_class
+from olive.common.config_utils import ConfigBase, ConfigDictBase, ConfigParam, create_config_class
 
 WARMUP_NUM = 10
 REPEAT_TEST_NUM = 20
@@ -92,11 +92,24 @@ class MetricGoal(ConfigBase):
         return v
 
 
-class MetricResult(ConfigBase):
-    key_for_rank: str
-    value_for_rank: float
-    metrics: Dict[str, Union[float, int]] = None
+class SubTypeMetricResult(ConfigBase):
+    value: Union[float, int]
+    priority_rank: int
+    higher_is_better: bool
 
 
-class SignalResult(ConfigBase):
-    signal: Dict[str, MetricResult] = None
+class MetricResult(ConfigDictBase):
+    __root__: Dict[str, SubTypeMetricResult] = None
+
+
+class SignalResult(ConfigDictBase):
+    __root__: Dict[str, MetricResult] = None
+
+    def get_value(self, metric_name, sub_metric_name):
+        return self.__root__[metric_name][sub_metric_name].value
+
+    def get_priority_rank(self, metric_name, sub_metric_name):
+        return self.__root__[metric_name][sub_metric_name].priority_rank
+
+    def get_higher_is_better(self, metric_name, sub_metric_name):
+        return self.__root__[metric_name][sub_metric_name].higher_is_better

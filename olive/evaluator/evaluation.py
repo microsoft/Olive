@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import time
 from numbers import Number
+from typing import Dict
 
 import numpy as np
 import torch
@@ -13,7 +14,7 @@ from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework
 from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Precision, Recall
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
-from olive.evaluator.metric_config import MetricResult
+from olive.evaluator.metric_config import MetricResult, SubTypeMetricResult
 from olive.model import OliveModel
 from olive.systems.common import Device
 
@@ -59,28 +60,29 @@ def compute_accuracy(preds, targets, metric) -> MetricResult:
     """
     Compute accuracy metrics
     """
-    raw_res = {}
-    sub_type = metric.sub_type
-    for st in sub_type:
-        metric_config = metric.metric_config[st]
-        if st == AccuracySubType.ACCURACY_SCORE:
-            raw_res[st] = AccuracyScore(metric_config).measure(preds, targets)
-        elif st == AccuracySubType.F1_SCORE:
-            raw_res[st] = F1Score(metric_config).measure(preds, targets)
-        elif st == AccuracySubType.PRECISION:
-            raw_res[st] = Precision(metric_config).measure(preds, targets)
-        elif st == AccuracySubType.RECALL:
-            raw_res[st] = Recall(metric_config).measure(preds, targets)
-        elif st == AccuracySubType.AUC:
-            raw_res[st] = AUC(metric_config).measure(preds, targets)
+    metric_res = {}
+    sub_type_metric_value = None
+    sub_types = metric.sub_types
+    for sub_type in sub_types:
+        metric_config = sub_type.metric_config
+        if sub_type.name == AccuracySubType.ACCURACY_SCORE:
+            sub_type_metric_value = AccuracyScore(metric_config).measure(preds, targets)
+        elif sub_type.name == AccuracySubType.F1_SCORE:
+            sub_type_metric_value = F1Score(metric_config).measure(preds, targets)
+        elif sub_type.name == AccuracySubType.PRECISION:
+            sub_type_metric_value = Precision(metric_config).measure(preds, targets)
+        elif sub_type.name == AccuracySubType.RECALL:
+            sub_type_metric_value = Recall(metric_config).measure(preds, targets)
+        elif sub_type.name == AccuracySubType.AUC:
+            sub_type_metric_value = AUC(metric_config).measure(preds, targets)
         else:
             raise TypeError(f"{sub_type} is not a accuracy metric supported")
-    metric_res = MetricResult(
-        key_for_rank=metric.sub_type_for_rank,
-        value_for_rank=raw_res[metric.sub_type_for_rank],
-        metrics=raw_res,
-    )
-    return metric_res
+        metric_res[sub_type.name] = SubTypeMetricResult(
+            value=sub_type_metric_value,
+            priority_rank=sub_type.priority_rank,
+            higher_is_better=sub_type.higher_is_better,
+        )
+    return MetricResult.parse_obj(metric_res)
 
 
 def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.CPU) -> MetricResult:
@@ -93,10 +95,13 @@ def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.
     # dataloder to meet back compatibility for time being.
     dataloader = dataloader or dc.create_dataloader()
 
-    metric_config = metric.metric_config[MetricType.LATENCY]
-    warmup_num = metric_config.warmup_num
-    repeat_test_num = metric_config.repeat_test_num
-    sleep_num = metric_config.sleep_num
+    warmup_num, repeat_test_num, sleep_num = None, None, None
+    for sub_type in metric.sub_types:
+        if sub_type.metric_config:
+            warmup_num = sub_type.metric_config.warmup_num
+            repeat_test_num = sub_type.metric_config.repeat_test_num
+            sleep_num = sub_type.metric_config.sleep_num
+            break
 
     latencies = []
     # user.config.inference_settings > model.inference_settings > default inference_settings
@@ -156,12 +161,14 @@ def compute_latency(latencies, metric) -> MetricResult:
         LatencySubType.P99: round(np.percentile(latencies, 99) * 1000, 5),
         LatencySubType.P999: round(np.percentile(latencies, 99.9) * 1000, 5),
     }
-    metric_res = MetricResult(
-        key_for_rank=metric.sub_type_for_rank,
-        value_for_rank=latency_metrics[metric.sub_type_for_rank],
-        metrics=latency_metrics,
-    )
-    return metric_res
+    metric_res = {}
+    for sub_type in metric.sub_types:
+        metric_res[sub_type.name] = SubTypeMetricResult(
+            value=latency_metrics[sub_type.name],
+            priority_rank=sub_type.priority_rank,
+            higher_is_better=sub_type.higher_is_better,
+        )
+    return MetricResult.parse_obj(metric_res)
 
 
 def evaluate_custom_metric(model: OliveModel, metric: Metric, device: Device = Device.CPU):
@@ -171,12 +178,21 @@ def evaluate_custom_metric(model: OliveModel, metric: Metric, device: Device = D
         raise Exception("Please specify 'evaluate_func' for custom metrics")
     raw_res = eval_func(model, metric.user_config.data_dir, metric.user_config.batch_size, device)
 
-    if isinstance(raw_res, Number):
-        raw_res = {metric.sub_type_for_rank: raw_res}
-    metric_res = MetricResult(
-        key_for_rank=metric.sub_type_for_rank, value_for_rank=raw_res[metric.sub_type_for_rank], metrics=raw_res
-    )
-    return metric_res
+    metric_res = {}
+    for sub_type in metric.sub_types:
+        if isinstance(raw_res, Number):
+            assert len(metric.sub_types) == 1, "Only one sub type is allowed for single value custom metric"
+            metric_res[sub_type.name] = SubTypeMetricResult(
+                value=raw_res, priority_rank=sub_type.priority_rank, higher_is_better=sub_type.higher_is_better
+            )
+        elif isinstance(raw_res, Dict):
+            assert sub_type.name in raw_res, f"Custom metric {sub_type.name} is not in the result"
+            metric_res[sub_type.name] = SubTypeMetricResult(
+                value=raw_res[sub_type.name],
+                priority_rank=sub_type.priority_rank,
+                higher_is_better=sub_type.higher_is_better,
+            )
+    return MetricResult.parse_obj(metric_res)
 
 
 def evaluate_accuracy_onnx(sess, dataloader, post_func, io_config):

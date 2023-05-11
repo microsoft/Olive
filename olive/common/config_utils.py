@@ -115,6 +115,28 @@ class ConfigBase(BaseModel):
         return cls.parse_raw(json.dumps(json_dict))
 
 
+class ConfigDictBase(ConfigBase):
+    __root__: Dict[str, Any] = None
+
+    def __iter__(self):
+        return iter(self.__root__)
+
+    def keys(self):
+        return self.__root__.keys()
+
+    def values(self):
+        return self.__root__.values()
+
+    def items(self):
+        return self.__root__.items()
+
+    def __getitem__(self, item):
+        return self.__root__[item]
+
+    def __len__(self):
+        return len(self.__root__)
+
+
 class ConfigParam(ConfigBase):
     """
     Dataclass for pass configuration parameters.

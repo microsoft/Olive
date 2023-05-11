@@ -209,7 +209,9 @@ def get_benchmark(model, latency_metric, config, test_params=None):
 
         # add the io_bind back to test_params
         test_params["_io_bind"] = io_bind
-    test_result["latency_ms"] = evaluate_latency(model, latency_metric, config.device).value_for_rank
+    for sub_type in latency_metric.sub_types:
+        if sub_type.priority_rank > 0:
+            test_result["latency_ms"] = evaluate_latency(model, latency_metric, config.device)[sub_type.name]
     return test_result
 
 

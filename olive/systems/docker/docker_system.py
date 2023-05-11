@@ -88,7 +88,7 @@ class DockerSystem(OliveSystem):
             if metric_json.is_file():
                 with metric_json.open() as f:
                     metrics_res = json.load(f)
-            return SignalResult(**metrics_res)
+            return SignalResult.parse_obj(metrics_res)
 
     def _run_container(self, tempdir, model: OliveModel, metrics: List[Metric], container_root_path: Path):
         eval_output_path = "eval_output"

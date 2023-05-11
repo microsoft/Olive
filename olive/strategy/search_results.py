@@ -60,9 +60,13 @@ class SearchResults:
         if self.goals == {}:
             return True
 
-        for obj, goal in self.goals.items():
-            if self.obj_mul[obj] * result.signal[obj].value_for_rank < self.obj_mul[obj] * goal:
-                return False
+        for metric_name, sub_type_goals in self.goals.items():
+            for sub_type_name, goal in sub_type_goals.items():
+                if (
+                    self.obj_mul[metric_name][sub_type_name] * result.get_value(metric_name, sub_type_name)
+                    < self.obj_mul[metric_name][sub_type_name] * goal
+                ):
+                    return False
         return True
 
     def sort_search_points(self, objectives: List[str] = None, apply_goals: bool = False) -> List[str]:

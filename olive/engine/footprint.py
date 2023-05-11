@@ -7,7 +7,7 @@ import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
+from typing import Dict, DefaultDict
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric_config import SignalResult
@@ -24,7 +24,7 @@ class FootprintNodeMetric(ConfigBase):
     """
 
     value: SignalResult = None
-    cmp_direction: Dict = None
+    cmp_direction: DefaultDict[str, Dict] = None
     is_goals_met: bool = False
 
 
@@ -70,7 +70,7 @@ class Footprint:
         self.objective_dict = objective_dict
 
     def _is_empty_metric(self, metric: FootprintNodeMetric):
-        return not metric or not metric.value or not metric.value.signal
+        return not metric
 
     def resolve_metrics(self):
         for k, v in self.nodes.items():
@@ -80,17 +80,18 @@ class Footprint:
                 self.nodes[k].metrics.cmp_direction = {}
 
             is_goals_met = []
-            for metric_name in v.metrics.value.signal:
-                if metric_name in self.objective_dict:
-                    cmp_direction = 1 if self.objective_dict[metric_name]["higher_is_better"] else -1
-                    self.nodes[k].metrics.cmp_direction[metric_name] = cmp_direction
-                    _goal = self.objective_dict[metric_name]["goal"]
+            self.objective_dict = defaultdict(Dict)
+            for metric_name in v.metrics.value:
+                for sub_type in metric_name:
+                    higher_is_better = self.objective_dict[metric_name][sub_type]["higher_is_better"]
+                    cmp_direction = 1 if higher_is_better else -1
+                    self.nodes[k].metrics.cmp_direction[metric_name][sub_type] = cmp_direction
+
+                    _goal = self.objective_dict[metric_name][sub_type]["goal"]
                     if _goal is None:
                         is_goals_met.append(True)
                     else:
-                        is_goals_met.append(v.metrics.value.signal[metric_name].value_for_rank * cmp_direction >= _goal)
-                else:
-                    logger.warning(f"Metric {metric_name} is not in the objective dict")
+                        is_goals_met.append(v.metrics.value[metric_name][sub_type].value * cmp_direction >= _goal)
             self.nodes[k].metrics.is_goals_met = all(is_goals_met)
 
     def record(self, foot_print_node: FootprintNode = None, **kwargs):

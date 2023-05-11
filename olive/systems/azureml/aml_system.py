@@ -436,9 +436,9 @@ class AzureMLSystem(OliveSystem):
             for metric in metrics:
                 metric_json = output_dir / "named-outputs" / metric.name / "metric_result.json"
                 if metric_json.is_file():
-                    metric_results[metric.name] = json.load(open(metric_json))["signal"]["result"]
+                    metric_results[metric.name] = json.load(open(metric_json))["result"]
 
-            return SignalResult(signal=metric_results)
+            return SignalResult.parse_obj(metric_results)
 
     def _create_pipeline_for_evaluation(self, tmp_dir: str, model: OliveModel, metrics: List[Metric]):
         tmp_dir = Path(tmp_dir)

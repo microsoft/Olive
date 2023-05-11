@@ -448,10 +448,13 @@ class Engine:
         {objective_name: {"higher_is_better": bool, "goal": float}}
         """
         goals = self.resolve_goals(input_model, input_model_id, metrics, accelerator_spec, verbose)
-        objective_dict = {
-            metric.name: {"higher_is_better": metric.higher_is_better, "goal": goals.get(metric.name)}
-            for metric in metrics
-        }
+        objective_dict = defaultdict(Dict)
+        for metric in metrics:
+            for sub_type in metric.sub_types:
+                objective_dict[metric.name][sub_type] = {
+                    "higher_is_better": metric.higher_is_better,
+                    "goal": goals[metric.name].get(sub_type, None),
+                }
         self.footprints[accelerator_spec].record_objective_dict(objective_dict)
         return objective_dict
 
@@ -469,41 +472,42 @@ class Engine:
         goals = {}
         multipliers = {}
         for metric in metrics:
-            if metric.goal is not None:
-                goals[metric.name] = metric.goal
-                multipliers[metric.name] = 1 if metric.higher_is_better else -1
+            # only resolve sub metrics whose priority_rank > 0
+            goals[metric.name] = metric.get_sub_type_info("goal")
+            multipliers[metric.name] = metric.get_sub_type_info(
+                info_name="higher_is_better",
+                callback=lambda x: 1 if x else -1,
+            )
         if verbose and goals:
             logger.info(f"Resolving goals: {goals}")
 
         # compute baseline for input model if needed
-        signal_result = SignalResult()
-        for _, goal in goals.items():
-            if goal.type != "threshold":
-                assert self.evaluator is not None, "Default evaluator must be provided to resolve goals"
-                if verbose:
-                    logger.info("Computing baseline for metrics ...")
-                signal_result = self._evaluate_model(
-                    input_model, input_model_id, self.evaluator, accelerator_spec, verbose=False
-                )
-                break
-        baseline = signal_result.signal
+        if verbose:
+            logger.info("Computing baseline for metrics ...")
+        baseline = self._evaluate_model(input_model, input_model_id, self.evaluator, accelerator_spec, verbose=False)
         if verbose and baseline:
             logger.info(f"Baseline: {baseline}")
 
         # resolve goals to thresholds
-        resolved_goals = {}
-        for name, goal in goals.items():
-            # TODO: make the logic cleaner
-            if goal.type == "threshold":
-                resolved_goals[name] = goal.value
-            elif goal.type == "max-degradation":
-                resolved_goals[name] = baseline[name].value_for_rank - multipliers[name] * goal.value
-            elif goal.type == "min-improvement":
-                resolved_goals[name] = baseline[name].value_for_rank + multipliers[name] * goal.value
-            elif goal.type == "percent-max-degradation":
-                resolved_goals[name] = baseline[name].value_for_rank * (1 - multipliers[name] * goal.value / 100)
-            elif goal.type == "percent-min-improvement":
-                resolved_goals[name] = baseline[name].value_for_rank * (1 + multipliers[name] * goal.value / 100)
+        resolved_goals = defaultdict(Dict)
+        for metric_name, sub_type_goals in goals.items():
+            for sub_type_name, goal in sub_type_goals.items():
+                # TODO: make the logic cleaner
+                resolved_goal_value = None
+                baseline_sub_type = baseline[metric_name][sub_type_name]
+                multiplier = multipliers[metric_name][sub_type_name]
+                if goal.type == "threshold":
+                    resolved_goal_value = goal.value
+                elif goal.type == "max-degradation":
+                    resolved_goal_value = baseline_sub_type.value - multiplier * goal.value
+                elif goal.type == "min-improvement":
+                    resolved_goal_value = baseline_sub_type.value + multiplier * goal.value
+                elif goal.type == "percent-max-degradation":
+                    resolved_goal_value = baseline_sub_type.value * (1 - multiplier * goal.value / 100)
+                elif goal.type == "percent-min-improvement":
+                    resolved_goal_value = baseline_sub_type.value * (1 + multiplier * goal.value / 100)
+
+                resolved_goals[metric_name][sub_type_name] = resolved_goal_value
         if verbose and len(resolved_goals) > 0:
             logger.info(f"Resolved goals: {resolved_goals}")
 

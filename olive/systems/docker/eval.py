@@ -30,7 +30,7 @@ def evaluate_entry(config, model_path, output_path, output_name):
     for metric in metric_list:
         evaluator = evaluator_adaptor(metric)
         metrics_res[metric.name] = evaluator(model, metric)
-    signal = SignalResult(signal=metrics_res)
+    signal = SignalResult.parse_obj(metrics_res)
 
     with open(os.path.join(output_path, f"{output_name}"), "w") as f:
         json.dump(signal.dict(), f)
