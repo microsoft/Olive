@@ -154,9 +154,10 @@ _static_dataloader_config = {
             Batch size for calibration, required if quant_mode is 'static'.
         """,
     ),
+    # TODO: remove this option once we have a data config ready
     "dataloader_func": PassConfigParam(
         type_=Union[Callable, str],
-        required=True,
+        required=False,
         is_object=True,
         description="""
             Function/function name to generate dataloader for calibration,
@@ -215,6 +216,7 @@ class OnnxQuantization(Pass):
     """
 
     _requires_user_script = True
+    _requires_data_config = True
 
     def _initialize(self):
         super()._initialize()
@@ -335,7 +337,7 @@ class OnnxQuantization(Pass):
                 model = ONNXModel(preprocessed_temp_model_path, model.name)
 
         # keys not needed for quantization
-        to_delete = ["quant_mode", "script_dir", "user_script", "quant_preprocess"]
+        to_delete = ["quant_mode", "script_dir", "user_script", "quant_preprocess", "data_config"]
         to_delete += list(get_external_data_config().keys())
 
         # update string values to enum values
@@ -375,9 +377,15 @@ class OnnxQuantization(Pass):
 
         if is_static:
             # get the dataloader
-            dataloader = self._user_module_loader.call_object(
-                self._fixed_params["dataloader_func"], self._fixed_params["data_dir"], self._fixed_params["batch_size"]
-            )
+            # TODO: only use data config
+            if self._user_module_loader.user_module:
+                dataloader = self._user_module_loader.call_object(
+                    self._fixed_params["dataloader_func"],
+                    self._fixed_params["data_dir"],
+                    self._fixed_params["batch_size"],
+                )
+            elif self._data_config:
+                dataloader = self._data_config.to_data_container().create_calibration_dataloader()
             quantize_static(
                 model_input=model.model_path,
                 model_output=tmp_model_path,

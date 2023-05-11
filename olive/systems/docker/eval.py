@@ -13,8 +13,7 @@ from olive.evaluator.metric import MetricList
 from olive.evaluator.metric_config import SignalResult
 from olive.model import ModelConfig
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(module)s - %(levelname)s - %(message)s")
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def evaluate_entry(config, model_path, output_path, output_name):

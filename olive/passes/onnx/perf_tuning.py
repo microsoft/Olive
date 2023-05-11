@@ -227,6 +227,7 @@ class OrtPerfTuning(Pass):
     """Optimize ONNX Runtime inference settings."""
 
     _requires_user_script = True
+    _requires_data_config = True
 
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:

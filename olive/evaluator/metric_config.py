@@ -33,7 +33,7 @@ _type_to_user_config = {
         "io_bind": ConfigParam(type_=bool, default_value=False),
     },
     "accuracy": {
-        "dataloader_func": ConfigParam(type_=Union[Callable, str], required=True, is_object=True),
+        "dataloader_func": ConfigParam(type_=Union[Callable, str], is_object=True),
         "post_processing_func": ConfigParam(type_=Union[Callable, str], is_object=True),
         "inference_settings": ConfigParam(type_=dict),
     },

@@ -155,6 +155,7 @@ class IncQuantization(Pass):
     """
 
     _requires_user_script = True
+    _requires_data_config = True
 
     def _initialize(self):
         super()._initialize()
@@ -223,20 +224,23 @@ class IncQuantization(Pass):
             output_model_path += ".onnx"
 
         # keys not needed for quantization
-        to_delete = ["script_dir", "user_script", "data_dir", "batch_size", "dataloader_func"]
+        to_delete = ["script_dir", "user_script", "data_dir", "batch_size", "dataloader_func", "data_config"]
         to_delete += list(get_external_data_config().keys())
         for key in to_delete:
             if key in run_config:
                 del run_config[key]
 
         ptq_config = PostTrainingQuantConfig(**run_config)
-        inc_calib_dataloader = (
-            self._user_module_loader.call_object(
-                self._fixed_params["dataloader_func"], self._fixed_params["data_dir"], self._fixed_params["batch_size"]
-            )
-            if is_static
-            else None
-        )
+        inc_calib_dataloader = None
+        if is_static:
+            if self._user_module_loader:
+                inc_calib_dataloader = self._user_module_loader.call_object(
+                    self._fixed_params["dataloader_func"],
+                    self._fixed_params["data_dir"],
+                    self._fixed_params["batch_size"],
+                )
+            elif self._data_config:
+                inc_calib_dataloader = self._data_config.to_data_container().create_calibration_dataloader()
         inc_model = model.load_model()
         q_model = quantization.fit(inc_model, ptq_config, calib_dataloader=inc_calib_dataloader)
 

@@ -364,7 +364,7 @@ class AzureMLSystem(OliveSystem):
     def _create_metric_inputs(self):
         return {
             "metric_config": Input(type=AssetTypes.URI_FILE),
-            "metric_user_script": Input(type=AssetTypes.URI_FILE),
+            "metric_user_script": Input(type=AssetTypes.URI_FILE, optional=True),
             "metric_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
             "metric_data_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
