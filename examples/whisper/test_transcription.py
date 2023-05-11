@@ -45,7 +45,7 @@ def main(raw_args=None):
 
     # load output model json
     output_model_json_path = (
-        Path(config["engine"]["output_dir"]) / f"{config['engine']['output_name']}_cpu-cpuexecutionprovider_model.json"
+        Path(config["engine"]["output_dir"]) / f"{config['engine']['output_name']}_cpu-cpu_model.json"
     )
     output_model_json = json.load(open(output_model_json_path, "r"))
 

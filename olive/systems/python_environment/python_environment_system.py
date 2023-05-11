@@ -220,7 +220,7 @@ class PythonEnvironmentSystem(OliveSystem):
                 env=self.environ,
                 check=True,
             )
-            with open(output_path, "rb") as f:
+            with output_path.open("rb") as f:
                 available_eps = pickle.load(f)
             self.available_eps = available_eps
             return available_eps
@@ -266,7 +266,7 @@ class PythonEnvironmentSystem(OliveSystem):
                 env=self.environ,
                 check=True,
             )
-            with open(output_path, "rb") as f:
+            with output_path.open("rb") as f:
                 result = pickle.load(f)
             if result["valid"]:
                 return True

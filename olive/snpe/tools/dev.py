@@ -56,7 +56,8 @@ def get_dlc_io_config(dlc_path: str, input_names: List[str], output_names: List[
 
     input_dims = {}
     output_dims = {}
-    out = csv.reader(open(tmp_csv.name, "r"))
+    with open(tmp_csv.name, "r") as f:
+        out = csv.reader(f)
     for row in out:
         if len(row) == 8:
             _, name, _, input, output, shape, _, _ = tuple(row)

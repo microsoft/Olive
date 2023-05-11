@@ -179,7 +179,7 @@ def optimize(
         olive_run(olive_config)
 
         footprints_file_path = (
-            Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_cpu-cpuexecutionprovider_footprints.json"
+            Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_cpu-cpu_footprints.json"
         )
         with footprints_file_path.open("r") as footprint_file:
             footprints = json.load(footprint_file)
