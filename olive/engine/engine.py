@@ -100,8 +100,7 @@ class Engine:
         # Please note we could not use isinstance(target, AzureMLSystem) since it would import AzureML packages.
         if self.target.system_type == SystemType.AzureML and execution_providers is None:
             raise ValueError("AzureMLSystem requires execution providers to be specified.")
-
-        if execution_providers is None:
+        elif execution_providers is None:
             if self.target.system_type == SystemType.Local:
                 execution_providers = self.target.get_supported_execution_providers()
             else:

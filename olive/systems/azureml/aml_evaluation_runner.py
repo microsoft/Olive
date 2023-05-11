@@ -58,7 +58,7 @@ def main(raw_args=None):
     model_config = get_model_config(common_args)
     model = ModelConfig.from_json(model_config).create_model()
 
-    accelerator_config = json.load(accelerator_args.accelerator_config)
+    accelerator_config = json.load(open(accelerator_args.accelerator_config))
     accelerator_spec = AcceleratorSpec(**accelerator_config)
 
     # create_evaluator
