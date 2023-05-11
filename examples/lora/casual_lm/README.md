@@ -1,4 +1,7 @@
 # Fine tuning LM model using LoRA
+
+THIS IS A WORK IN PROGRESS, INCOMPLETE EXAMPLE
+
 This folder contains a sample use case of Olive to finetune and optimize a PyTorch model using LoRA.
 
 Performs optimization pipeline:
