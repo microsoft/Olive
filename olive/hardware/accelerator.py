@@ -19,6 +19,9 @@ class Device(str, Enum):
 
 @dataclass(frozen=True, eq=True)
 class AcceleratorSpec:
+    """Accelerator specification is the concept of a hardware device that can
+    be used to optimize or evaluate a model."""
+
     accelerator_type: Union[str, Device]
     execution_provider: str
     vender: str = None

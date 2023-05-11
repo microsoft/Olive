@@ -22,8 +22,14 @@ class NewOptimizationTrick(Pass):
 
 ## 2. Define configuration
 
-Next, define the options used to configure this new technique by defining static method `_default_config`. The method should
-return `Dict[str, PassConfigParam]`.
+Next, define the options used to configure this new technique by defining static method `_default_config`. This method
+take an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
+
+`AcceleratorSpec` is a dataclass that holds the information about the accelerator. The dataclass has the following fields:
+
+- `accelerator_type`: type of the accelerator. For example, `CPU`, `GPU` etc.
+
+- `execution_provider`: execution provider for the accelerator. For example, `CPUExecutionProvider`, `CUDAExecutionProvider` etc.
 
 `PassConfigParam` is a dataclass that holds the information about the configuration option. The dataclass has the following fields:
 

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from olive.evaluator.metric import AccuracySubType
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
 
@@ -154,7 +155,7 @@ class TestDockerSystem:
         mock_create_run_command.return_value = run_command
 
         # execute
-        actual_res = docker_system.evaluate_model(olive_model, [metric])[metric.name]
+        actual_res = docker_system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)[metric.name]
 
         # assert
         mock_create_eval_script_mount.called_once_with(container_root_path)

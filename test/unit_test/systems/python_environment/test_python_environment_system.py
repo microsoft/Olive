@@ -11,6 +11,7 @@ import pytest
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.python_environment import PythonEnvironmentSystem
 
 
@@ -36,7 +37,7 @@ class TestPythonEnvironmentSystem:
         mock_evaluate_latency.return_value = 10
 
         # execute
-        res = self.system.evaluate_model(model, metrics)
+        res = self.system.evaluate_model(model, metrics, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         assert res == {"accuracy": 0.9, "latency": 10}

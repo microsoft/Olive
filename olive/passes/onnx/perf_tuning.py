@@ -216,7 +216,7 @@ def get_benchmark(model, latency_metric, config, test_params=None):
         # add the io_bind back to test_params
         test_params["_io_bind"] = io_bind
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
-    test_result["latency_ms"] = evaluator.evaluate(model, [latency_metric], config.device)[latency_metric.name]
+    test_result["latency_ms"] = evaluator.evaluate(model, [latency_metric], config.device, config.provider_list)[latency_metric.name]
     return test_result
 
 
@@ -296,9 +296,9 @@ class OrtPerfTuning(Pass):
         }
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
-        if "provider_list" not in config:
+        if "providers_list" not in config:
             # add the provider to the config if user doesn't provide the execution providers
-            config["provider_list"] = [self._accelerator_spec.execution_provider]
+            config["providers_list"] = [self._accelerator_spec.execution_provider]
 
         if "device" not in config:
             config["device"] = self._accelerator_spec.accelerator_type
