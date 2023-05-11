@@ -7,6 +7,12 @@
             "hf_config": {
                 "model_class" : "AutoModelForCausalLM",
                 "model_name" : "bigscience/bloomz-560m"
+            },
+            "io_config": {
+                "input_names": ["input_ids", "attention_mask", "labels"],
+                "input_shapes": [[1, 64], [1, 64], [1, 64]],
+                "input_types": ["int64", "int64", "int64"],
+                "output_names": ["output"]
             }
         }
     },
