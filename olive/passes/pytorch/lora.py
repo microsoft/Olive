@@ -58,6 +58,6 @@ class HFLoRA(Pass):
             model_script= input_model.model_script,
             script_dir= input_model.script_dir,
             io_config= input_model.io_config,
-            dummy_inputs_func= input_model.dummy_inputs,
+            dummy_inputs_func= input_model.dummy_inputs_func,
             hf_config=input_model.hf_config,
         )
