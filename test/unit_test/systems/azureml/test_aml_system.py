@@ -4,9 +4,10 @@
 # --------------------------------------------------------------------------
 import json
 import os
+import shutil
 import tempfile
 from pathlib import Path
-from test.unit_test.utils import get_accuracy_metric, get_latency_metric, get_pytorch_model
+from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_latency_metric, get_pytorch_model
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -20,6 +21,7 @@ from olive.model import ModelStorageKind, ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.systems.azureml.aml_evaluation_runner import main as aml_evaluation_runner_main
+from olive.systems.azureml.aml_pass_runner import main as aml_pass_runner_main
 from olive.systems.azureml.aml_system import AzureMLSystem
 from olive.systems.common import AzureMLDockerConfig
 
@@ -427,3 +429,88 @@ class TestAzureMLSystem:
         ]
         aml_evaluation_runner_main(args)
         mock_evalute.assert_called_once()
+
+    @patch("olive.passes.onnx.conversion.OnnxConversion.run")
+    def test_pass_runner(self, mock_conversion_run, tmp_path):
+        model_config = {
+            "config": {
+                "dummy_inputs_func": None,
+                "hf_config": {
+                    "components": None,
+                    "dataset": {
+                        "batch_size": 1,
+                        "data_name": "glue",
+                        "input_cols": ["sentence1", "sentence2"],
+                        "label_cols": ["label"],
+                        "split": "validation",
+                        "subset": "mrpc",
+                    },
+                    "model_class": None,
+                    "model_name": "Intel/bert-base-uncased-mrpc",
+                    "task": "text-classification",
+                    "use_ort_implementation": False,
+                },
+                "io_config": {
+                    "dynamic_axes": {
+                        "attention_mask": {"0": "batch_size", "1": "seq_length"},
+                        "input_ids": {"0": "batch_size", "1": "seq_length"},
+                        "token_type_ids": {"0": "batch_size", "1": "seq_length"},
+                    },
+                    "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                    "input_shapes": [[1, 128], [1, 128], [1, 128]],
+                    "input_types": ["int64", "int64", "int64"],
+                    "output_names": ["output"],
+                    "output_shapes": None,
+                    "output_types": None,
+                    "string_to_int_dim_params": None,
+                },
+                "model_loader": None,
+                "model_path": None,
+                "model_script": None,
+                "model_storage_kind": "folder",
+                "name": None,
+                "script_dir": None,
+                "version": None,
+            },
+            "type": "PyTorchModel",
+        }
+        pass_config = {
+            "accelerator": {"accelerator_type": "cpu", "execution_provider": "CPUExecutionProvider"},
+            "config": {
+                "all_tensors_to_one_file": True,
+                "external_data_name": None,
+                "save_as_external_data": False,
+                "script_dir": None,
+                "target_opset": 13,
+                "user_script": None,
+            },
+            "disable_search": True,
+            "type": "OnnxConversion",
+        }
+
+        with open(tmp_path / "model_config.json", "w") as f:
+            json.dump(model_config, f)
+
+        with open(tmp_path / "pass_config.json", "w") as f:
+            json.dump(pass_config, f)
+
+        ouptut_dir = tmp_path / "pipeline_output"
+        ouptut_dir.mkdir()
+        shutil.copy(ONNX_MODEL_PATH, ouptut_dir)
+        mock_conversion_run.return_value = ONNXModel(ouptut_dir / ONNX_MODEL_PATH.name)
+
+        args = [
+            "--model_config",
+            str(tmp_path / "model_config.json"),
+            "--pass_config",
+            str(tmp_path / "pass_config.json"),
+            "--pipeline_output",
+            str(ouptut_dir),
+            "--pass_accelerator_type",
+            "cpu",
+            "--pass_execution_provider",
+            "CPUExecutionProvider",
+        ]
+
+        aml_pass_runner_main(args)
+        mock_conversion_run.assert_called_once()

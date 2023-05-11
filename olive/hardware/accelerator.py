@@ -30,7 +30,9 @@ class AcceleratorSpec:
     num_cores: int = None
 
     def __str__(self) -> str:
-        return f"{str(self.accelerator_type).lower()}-{self.execution_provider.lower()}"
+        # remove the suffix "ExecutionProvider", len("ExecutionProvider") = 17
+        ep = self.execution_provider[:-17] or self.execution_provider
+        return f"{str(self.accelerator_type).lower()}-{ep.lower()}"
 
     def to_json(self):
         return {
