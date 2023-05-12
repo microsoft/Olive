@@ -80,7 +80,9 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
                     window["sb_progress"].update_bar(step)
 
                 def generate_image():
-                    run_inference_loop(pipeline, values["sd_prompt"], 1, 1, num_inference_steps, update_progress_bar)
+                    run_inference_loop(
+                        pipeline, values["sd_prompt"], num_images, batch_size, num_inference_steps, update_progress_bar
+                    )
 
                 window["Generate"].update(disabled=True)
                 window.start_thread(generate_image, "image_generation_done")
@@ -190,10 +192,19 @@ if __name__ == "__main__":
     parser.add_argument("--num_images", default=1, type=int, help="Number of images to generate")
     parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
-    # This should be on by default in ORT 1.15.0 when symbolic shape inference issue is addressed:
-    # https://github.com/microsoft/onnxruntime/issues/15521
-    parser.add_argument("--static_dims", action="store_true", help="Fixes dynamic shapes to static for better perf")
+    parser.add_argument(
+        "--static_dims",
+        action="store_true",
+        help="DEPRECATED (now enabled by default). Use --dynamic_dims to disable static_dims.",
+    )
+    parser.add_argument("--dynamic_dims", action="store_true", help="Disable static shape optimization")
     args = parser.parse_args()
+
+    if args.static_dims:
+        print(
+            "WARNING: the --static_dims option is deprecated, and static shape optimization is enabled by default. "
+            "Use --dynamic_dims to disable static shape optimization."
+        )
 
     if version.parse(ort.__version__) < version.parse("1.15.0"):
         print("This script requires onnxruntime-directml 1.15.0 or newer")
@@ -214,6 +225,10 @@ if __name__ == "__main__":
 
     if not args.optimize:
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
+
+        # TODO: investigate issue with static shapes and batch_size > 1
+        use_static_dims = not args.dynamic_dims and args.batch_size == 1
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             run_inference(
@@ -222,6 +237,6 @@ if __name__ == "__main__":
                 args.num_images,
                 args.batch_size,
                 args.num_inference_steps,
-                args.static_dims,
+                use_static_dims,
                 args.interactive,
             )
