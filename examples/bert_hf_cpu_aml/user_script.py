@@ -11,6 +11,7 @@ from transformers import AutoTokenizer
 
 disable_progress_bar()
 
+
 class BertDataset:
     def __init__(self, model_name_or_path):
         self.model_name_or_path = model_name_or_path
