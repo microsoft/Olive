@@ -415,8 +415,8 @@ class OnnxQuantization(Pass):
             quant_pre_process(input_model_path=model.model_path, output_model_path=output_model_path, auto_merge=True)
             has_external_data = False
         except Exception as e:
-            # TODO: try with `skip_optimization = False`
-            # the quantization preprocessing may fail if the model is too large
+            # TODO: try with `skip_optimization = True`
+            # quantization preprocessing will fail if the model is too large and `skip_optimization = False`
             # there are some problems with the path to where the external data is saved
             # need to find out why before enabling this
 
