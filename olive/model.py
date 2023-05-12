@@ -207,11 +207,11 @@ class HFComponent(ConfigBase):
 
 
 class HFConfig(ConfigBase):
-    load_model_from_hub: bool = True
-    model_name: str = None
+    model_name: str
     task: str = None
     # TODO: remove model_class and only use task
     model_class: str = None
+    load_model_from_hub: bool = True
     use_ort_implementation: bool = False
     components: List[HFComponent] = None
     dataset: Dict[str, Any] = None
@@ -223,12 +223,6 @@ class HFConfig(ConfigBase):
 
         if not v and not values["task"]:
             raise ValueError("Either task or model_class must be specified")
-        return v
-
-    @validator("model_name", always=True)
-    def validate_model_name(cls, v, values):
-        if values["load_model_from_hub"] and not v:
-            raise ValueError("Model_name needs to be specified when load_model_from_hub is True")
         return v
 
 

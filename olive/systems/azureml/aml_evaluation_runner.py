@@ -46,15 +46,6 @@ def main(raw_args=None):
     metric_config = json.load(open(metric_args.metric_config))
     metric = create_metric(metric_config, metric_args)
 
-    # HF model tokenizer will be loaded from HF model hub
-    if model_config["config"].get("hf_config"):
-        if not model_config["config"]["hf_config"].get("model_name"):
-            print("model_name is not specified in hf_config. Skip updating model_name in pre_process_data component.")
-        else:
-            metric.data_config.components["pre_process_data"].params["model_name"] = model_config["config"][
-                "hf_config"
-            ]["model_name"]
-
     model = ModelConfig.from_json(model_config).create_model()
 
     # create_evaluator
