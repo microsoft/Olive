@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from olive.cache import clean_pass_run_cache, save_model
+from olive.cache import clean_pass_run_cache, create_cache, get_cache_sub_dirs, save_model
 
 
 class TestCache:
@@ -23,17 +23,17 @@ class TestCache:
         pass_type = "onnxconversion"
         cache_dir = Path("cache_dir")
         cache_dir.mkdir(parents=True, exist_ok=True)
+        create_cache(cache_dir)
+        model_cache_dir, run_cache_dir, evaluation_cache_dir = get_cache_sub_dirs(cache_dir)
 
         if model_path == "0_model_folder":
-            model_folder = cache_dir / model_path
+            model_folder = model_cache_dir / model_path
             model_folder.mkdir(parents=True, exist_ok=True)
             model_p = str(model_folder)
         else:
-            model_p = str(cache_dir / model_path)
+            model_p = str(model_cache_dir / model_path)
             open(str(cache_dir / model_path), "w")
 
-        run_cache_dir = cache_dir / "runs"
-        run_cache_dir.mkdir(parents=True, exist_ok=True)
         run_cache_file_path = str((run_cache_dir / f"{pass_type}-p(･◡･)p.json").resolve())
         with open(run_cache_file_path, "w") as run_cache_file:
             run_data = (
@@ -41,8 +41,6 @@ class TestCache:
             )
             run_cache_file.write(run_data)
 
-        model_cache_dir = cache_dir / "models"
-        model_cache_dir.mkdir(parents=True, exist_ok=True)
         model_cache_file_path = str((model_cache_dir / "0_p(･◡･)p.json").resolve())
         with open(model_cache_file_path, "w") as model_cache_file:
             model_data = f'{{"model_path": "{model_p}"}}'
@@ -50,8 +48,6 @@ class TestCache:
                 model_data = model_data.replace("\\", "//")
             model_cache_file.write(model_data)
 
-        evaluation_cache_dir = cache_dir / "evaluations"
-        evaluation_cache_dir.mkdir(parents=True, exist_ok=True)
         evaluation_cache_file_path = str((evaluation_cache_dir / "0_p(･◡･)p.json").resolve())
         open(evaluation_cache_file_path, "w")
 
