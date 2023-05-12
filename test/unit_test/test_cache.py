@@ -32,7 +32,7 @@ class TestCache:
             model_p = str(model_folder)
         else:
             model_p = str(model_cache_dir / model_path)
-            open(str(cache_dir / model_path), "w")
+            open(model_p, "w")
 
         run_cache_file_path = str((run_cache_dir / f"{pass_type}-p(･◡･)p.json").resolve())
         with open(run_cache_file_path, "w") as run_cache_file:
@@ -71,14 +71,16 @@ class TestCache:
         # setup
         cache_dir = Path("cache_dir")
         cache_dir.mkdir(parents=True, exist_ok=True)
+        create_cache(cache_dir)
+        model_cache_dir, _, _ = get_cache_sub_dirs(cache_dir)
 
         if model_path == "0_model_folder":
-            model_folder = cache_dir / model_path
+            model_folder = model_cache_dir / model_path
             model_folder.mkdir(parents=True, exist_ok=True)
             model_p = str(model_folder)
         else:
-            model_p = str(cache_dir / model_path)
-            open(str(cache_dir / model_path), "w")
+            model_p = str(model_cache_dir / model_path)
+            open(model_p, "w")
 
         # cache model to cache_dir
         model_id = "0"
