@@ -76,7 +76,7 @@ def main(raw_args=None):
     # load input_model
     input_model_config = get_model_config(common_args)
 
-    # Replace hf config model_name with input model path to load model from input model path
+    # Replace HF config model_name with input model path to load model from input model path
     hf_config = None
     if input_model_config["config"].get("hf_config"):
         hf_config = input_model_config["config"]["hf_config"].copy()
@@ -97,7 +97,7 @@ def main(raw_args=None):
     # save model json
     model_json = output_model.to_json()
 
-    # Replace output model hf config with input model hf config
+    # Replace output model HF config with input model HF config
     if hf_config:
         model_json["config"]["hf_config"] = hf_config
 
