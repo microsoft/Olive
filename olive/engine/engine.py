@@ -485,6 +485,7 @@ class Engine:
 
         baseline = MetricResult()
         for goal in goals.values():
+            _evaluated = False
             for sub_goal in goal.values():
                 if sub_goal.type != "threshold":
                     assert self.evaluator is not None, "Default evaluator must be provided to resolve goals"
@@ -493,7 +494,10 @@ class Engine:
                     baseline = self._evaluate_model(
                         input_model, input_model_id, self.evaluator, accelerator_spec, verbose=False
                     )
+                    _evaluated = True
                     break
+            if _evaluated:
+                break
         if not baseline:
             logger.info("No baseline got as no goal is provided the the goal is threshold")
             return {}
