@@ -17,11 +17,22 @@ from packaging import version
 from olive.workflows import run as olive_run
 
 
-def run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps, callback=None):
+def run_inference_loop(
+    pipeline, prompt, num_images, batch_size, num_inference_steps, image_callback=None, step_callback=None
+):
     images_saved = 0
+
+    def update_steps(step, timestep, latents):
+        if step_callback:
+            step_callback((images_saved // batch_size) * num_inference_steps + step)
+
     while images_saved < num_images:
         print(f"\nInference Batch Start (batch size = {batch_size}).")
-        result = pipeline([prompt] * batch_size, num_inference_steps=num_inference_steps, callback=callback)
+        result = pipeline(
+            [prompt] * batch_size,
+            num_inference_steps=num_inference_steps,
+            callback=update_steps if step_callback else None,
+        )
         passed_safety_checker = 0
 
         for image_index in range(batch_size):
@@ -30,6 +41,8 @@ def run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_s
                 if images_saved < num_images:
                     output_path = f"result_{images_saved}.png"
                     result.images[image_index].save(output_path)
+                    if image_callback:
+                        image_callback(images_saved, output_path)
                     images_saved += 1
                     print(f"Generated {output_path}")
 
@@ -62,11 +75,26 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
     if interactive:
         sg.theme("SystemDefault")
 
-        layout = [
-            [sg.Image(key="sd_output", size=(512, 512), background_color="black")],
-            [sg.ProgressBar(num_inference_steps, key="sb_progress", expand_x=True, size=(8, 8))],
-            [sg.InputText(key="sd_prompt", default_text=prompt, expand_x=True), sg.Button("Generate")],
-        ]
+        if num_images > 9:
+            print("WARNING: interactive UI only supports displaying up to 9 images")
+            num_images = 9
+
+        image_size = (512, 512)
+        image_rows = 1 + (num_images - 1) // 3
+        image_cols = 2 if num_images == 4 else min(num_images, 3)
+        image_index = 0
+        min_batches_required = 1 + (num_images - 1) // batch_size
+
+        layout = []
+        for _ in range(image_rows):
+            ui_row = []
+            for _ in range(image_cols):
+                ui_row.append(sg.Image(key=f"sd_output{image_index}", size=image_size, background_color="black"))
+                image_index += 1
+            layout.append(ui_row)
+
+        layout.append([sg.ProgressBar(num_inference_steps * min_batches_required, key="sb_progress", expand_x=True, size=(8, 8))])
+        layout.append([sg.InputText(key="sd_prompt", default_text=prompt, expand_x=True), sg.Button("Generate")])
 
         window = sg.Window("Stable Diffusion", layout)
 
@@ -76,18 +104,26 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
                 break
             elif event == "Generate":
 
-                def update_progress_bar(step, timestep, latents):
-                    window["sb_progress"].update_bar(step)
+                def update_progress_bar(total_steps_completed):
+                    window["sb_progress"].update_bar(total_steps_completed)
+
+                def image_completed(index, path):
+                    window[f"sd_output{index}"].update(filename=path)
 
                 def generate_image():
                     run_inference_loop(
-                        pipeline, values["sd_prompt"], num_images, batch_size, num_inference_steps, update_progress_bar
+                        pipeline,
+                        values["sd_prompt"],
+                        num_images,
+                        batch_size,
+                        num_inference_steps,
+                        image_completed,
+                        update_progress_bar,
                     )
 
                 window["Generate"].update(disabled=True)
                 window.start_thread(generate_image, "image_generation_done")
             elif event == "image_generation_done":
-                window["sd_output"].update(filename="result_0.png")
                 window["Generate"].update(disabled=False)
 
     else:
