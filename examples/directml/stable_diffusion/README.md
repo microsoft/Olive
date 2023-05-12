@@ -40,7 +40,7 @@ This sample code is primarily intended to illustrate model optimization with Oli
 Invoke the script with `--interactive` to show the GUI and generate images one at a time.
 
 ```
-python stable_diffusion.py --interactive --static_dims
+python stable_diffusion.py --interactive
 Loading models into ORT session...
 
 Inference Batch Start (batch size = 1).
@@ -53,10 +53,10 @@ Inference will loop until the generated image passes the safety checker (otherwi
 
 ![](readme/example.png)
 
-You can also generate multiple images in a non-interactive session (omit the `--interactive` argument). The example below shows how to request 4 valid outputs (all using the same prompt), which will be saved as `result_0.png`, `result_1.png`, and so on. The script ran inference 6 times, because 2 of the outputs failed the safety checker.
+You can also generate multiple images at once. The example below shows how to request 4 valid outputs (all using the same prompt), which will be saved as `result_0.png`, `result_1.png`, and so on. The script ran inference 6 times, because 2 of the outputs failed the safety checker.
 
 ```
-python .\stable_diffusion.py --static_dims --num_images 4 --prompt "solar eclipse, stars, realistic, space"
+python .\stable_diffusion.py --num_images 4 --prompt "solar eclipse, stars, realistic, space"
 Loading models into ORT session...
 
 Inference Batch Start (batch size = 1).
