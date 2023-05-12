@@ -1,7 +1,6 @@
 launch.json
 settings.json
 models/
-data/
 logs/
 cache/
 olive_tmp_*/
@@ -9,6 +8,7 @@ olive_tmp_*/
 augmented_model.onnx
 examples/**/data
 examples/**/model
+nc_workspace/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

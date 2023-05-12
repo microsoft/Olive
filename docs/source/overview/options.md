@@ -53,6 +53,18 @@ case insensitive.
         - `model_config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
         [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
 
+        - `dataset: [dict]`: For huggingface transformer models, if you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading_datasets.html). Olive exposes the following configs(which will be extend in the future):
+            ```json
+            "dataset": {
+                "data_name":"glue",  # the name of the dataset
+                "subset": "mrpc",  # the subset of the dataset, could be "mrpc", "mnli" and etc. You can find the available subsets in the dataset page.
+                "split": "validation",  # the split of the dataset, could be "train", "validation", "test" and etc. You can find the available splits in the dataset page.
+                "input_cols": ["sentence1", "sentence2"],  # the input columns of the dataset
+                "label_cols": ["label"],  # the label columns of the dataset
+                "batch_size": 1  # the batch size of the dataloader
+            }
+            ```
+
 Please find the detailed config options from following table for each model type:
 
 | Model Type | Description |
@@ -166,9 +178,6 @@ information of the evaluator contains following items:
         - `evaluate_func: [str]` The name of the function provided by the user to evaluate the model. The function should take the
         model, `data_dir` and `batch_size` as input and return the evaluation result. Only valid for `custom` type.
 
-- `target: [str | Dict]` The target of the evaluator. It can be a string or a dictionary. If it is a string, it is the name of a system
-in `systems`. If it is a dictionary, it contains the system information. If not specified, it is the local system.
-
 ### Example
 ```json
 "evaluators": {
@@ -197,8 +206,7 @@ in `systems`. If it is a dictionary, it contains the system information. If not 
                     "batch_size": 1
                 }
             }
-        ],
-        "target": "local_system"
+        ]
     }
 }
 ```
@@ -241,6 +249,9 @@ Please also find the detailed options from following table for each pass:
 | [OnnxDynamicQuantization](onnx_dynamic_quantization) | ONNX Dynamic Quantization Pass. |
 | [OnnxStaticQuantization](onnx_static_quantization) | ONNX Static Quantization Pass. |
 | [OnnxQuantization](onnx_quantization) | Quantize ONNX model with onnxruntime where we can search for best parameters for static/dynamic quantization at same time. |
+| [IncDynamicQuantization](inc_dynamic_quantization) |  Intel® Neural Compressor Dynamic Quantization Pass. |
+| [IncStaticQuantization](inc_static_quantization) |  Intel® Neural Compressor Static Quantization Pass. |
+| [IncQuantization](inc_quantization) | Quantize ONNX model with Intel® Neural Compressor where we can search for best parameters for static/dynamic quantization at same time. |
 | [QuantizationAwareTraining](onnx_quantization_aware_training) | Run quantization aware training on PyTorch model. |
 | [OpenVINOConversion](openvino_conversion) | Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model. |
 | [OpenVINOQuantization](openvino_quantization) | Post-training quantization for OpenVINO model. |
@@ -307,6 +318,9 @@ This is a dictionary that contains the information of the engine. The informatio
 - `host: [str | Dict]` The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.
     If it is a dictionary, it contains the system information. If not specified, it is the local system.
 
+- `target: [str | Dict]` The target to run model evaluations on. It can be a string or a dictionary. If it is a string, it is the name of
+    a system in `systems`. If it is a dictionary, it contains the system information. If not specified, it is the local system.
+
 - `evaluator: [str | Dict]` The evaluator of the engine. It can be a string or a dictionary. If it is a string, it is the name of an evaluator
     in `evaluators`. If it is a dictionary, it contains the evaluator information. This evaluator will be used to evaluate the input model if
     needed. It is also used to evaluate the output models of passes that don't have their own evaluators.
@@ -327,6 +341,12 @@ This is a dictionary that contains the information of the engine. The informatio
     prefix.
 
 - `packaging_config: [PackagingConfig]` Olive artifacts packaging configurations. If not specified, Olive will not package artifacts.
+
+- `log_severity_level: [int]` The log severity level of Olive. The options are `0` for `VERBOSE`, `1` for
+    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`. The default value is `1` for `INFO`.
+
+- `ort_log_severity_level: [int]` The log severity level of ONNX Runtime. The options are `0` for `VERBOSE`, `1` for
+    `INFO`, `2` for `WARNING`, `3` for `ERROR`, `4` for `FATAL`. The default value is `3` for `ERROR`.
 
 Please find the detailed config options from following table for each search algorithm:
 
@@ -349,6 +369,7 @@ Please find the detailed config options from following table for each search alg
     },
     "evaluator": "common_evaluator",
     "host": "local_system",
+    "target": "local_system",
     "clean_cache": true,
     "cache_dir": "cache"
 }

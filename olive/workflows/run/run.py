@@ -9,6 +9,10 @@ import subprocess
 from pathlib import Path
 from typing import Union
 
+import onnxruntime as ort
+
+from olive import set_default_logger_severity
+from olive.passes import Pass
 from olive.systems.common import Device, SystemType
 from olive.workflows.run.config import RunConfig
 
@@ -61,6 +65,9 @@ def dependency_setup(config):
             "QuantizationAwareTraining": ["pytorch-lightning"],
             "OpenVINOConversion": EXTRAS.get("openvino"),
             "OpenVINOQuantization": EXTRAS.get("openvino"),
+            "IncQuantization": EXTRAS.get("inc"),
+            "IncDynamicQuantization": EXTRAS.get("inc"),
+            "IncStaticQuantization": EXTRAS.get("inc"),
         },
     }
 
@@ -110,6 +117,10 @@ def run(config: Union[str, Path, dict], setup: bool = False):
     else:
         config = RunConfig.parse_obj(config)
 
+    # set ort log level
+    set_default_logger_severity(config.engine.log_severity_level)
+    ort.set_default_logger_severity(config.engine.ort_log_severity_level)
+
     # input model
     input_model = config.input_model.create_model()
 
@@ -125,10 +136,17 @@ def run(config: Union[str, Path, dict], setup: bool = False):
     else:
         # passes
         for pass_name, pass_config in config.passes.items():
-            p = pass_config.create_pass()
             host = pass_config.host.create_system() if pass_config.host is not None else None
             evaluator = pass_config.evaluator.create_evaluator() if pass_config.evaluator is not None else None
-            engine.register(p, pass_name, host, evaluator, pass_config.clean_run_cache)
+            engine.register(
+                Pass.registry[pass_config.type.lower()],
+                pass_config.config,
+                pass_config.disable_search,
+                pass_name,
+                host,
+                evaluator,
+                pass_config.clean_run_cache,
+            )
 
         # run
         best_execution = engine.run(

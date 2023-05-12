@@ -9,14 +9,19 @@ import onnxruntime
 
 def run():
     # Load inference configuration json file
-    inference_config_json = json.load(open("inference_config.json"))
-    if inference_config_json is not None:
-        inference_settings = inference_config_json["inference_settings"]
+    inference_settings = json.load(open("inference_config.json"))
+    if inference_settings is not None:
         session_options = inference_settings.get("session_options")
         execution_provider = inference_settings.get("execution_provider")
+        use_ort_extensions = inference_settings.get("use_ort_extensions")
 
         # Onnxruntime inference session options
         sess_options = onnxruntime.SessionOptions()
+        if use_ort_extensions:
+            from onnxruntime_extensions import get_library_path
+
+            sess_options.register_custom_ops_library(get_library_path())
+
         _update_sess_options(sess_options, session_options)
         session = onnxruntime.InferenceSession("model.onnx", sess_options, providers=execution_provider)
     else:

@@ -22,6 +22,12 @@ def evaluate_accuracy(model: OliveModel, metric: Metric, device: Device = Device
     Evaluate model accuracy according to config, return accuracy metrics
     """
     dataloader, post_func, _ = get_user_config(metric.user_config)
+    dc = metric.data_config.to_data_container()
+
+    # TODO remove user_scripts dataloader: we should respect user scripts
+    # dataloder to meet back compatibility for time being.
+    dataloader = dataloader or dc.create_dataloader()
+    post_func = post_func or dc.config.post_process
 
     preds = []
     targets = []
@@ -53,15 +59,15 @@ def compute_accuracy(preds, targets, sub_type, metric_config) -> Dict[str, Any]:
     Compute accuracy metrics
     """
     if sub_type == AccuracySubType.ACCURACY_SCORE:
-        metric_res = AccuracyScore(metric_config).evaluate(preds, targets)
+        metric_res = AccuracyScore(metric_config).measure(preds, targets)
     elif sub_type == AccuracySubType.F1_SCORE:
-        metric_res = F1Score(metric_config).evaluate(preds, targets)
+        metric_res = F1Score(metric_config).measure(preds, targets)
     elif sub_type == AccuracySubType.PRECISION:
-        metric_res = Precision(metric_config).evaluate(preds, targets)
+        metric_res = Precision(metric_config).measure(preds, targets)
     elif sub_type == AccuracySubType.RECALL:
-        metric_res = Recall(metric_config).evaluate(preds, targets)
+        metric_res = Recall(metric_config).measure(preds, targets)
     elif sub_type == AccuracySubType.AUC:
-        metric_res = AUC(metric_config).evaluate(preds, targets)
+        metric_res = AUC(metric_config).measure(preds, targets)
     else:
         raise TypeError(f"{sub_type} is not a accuracy metric supported")
     return metric_res
@@ -72,6 +78,11 @@ def evaluate_latency(model: OliveModel, metric: Metric, device: Device = Device.
     Evaluate model latency according to config, return latency metrics
     """
     dataloader, _, _ = get_user_config(metric.user_config)
+    dc = metric.data_config.to_data_container()
+    # TODO remove user_scripts dataloader: we should respect user scripts
+    # dataloder to meet back compatibility for time being.
+    dataloader = dataloader or dc.create_dataloader()
+
     warmup_num = metric.metric_config.warmup_num
     repeat_test_num = metric.metric_config.repeat_test_num
     sleep_num = metric.metric_config.sleep_num
@@ -307,7 +318,7 @@ def get_user_config(config: dict):
     eval_func = getattr(config, "evaluate_func", None)
     eval_func = user_module.load_object(eval_func)
 
-    if not dataloader and not eval_func:
+    if config.input_names and config.input_shapes and not dataloader and not eval_func:
         dataloader = DummyDataloader(config.input_names, config.input_shapes, config.input_types)
 
     return dataloader, post_func, eval_func

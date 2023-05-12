@@ -40,8 +40,7 @@
                         "batch_size": 2
                     }
                 }
-            ],
-            "target": "local_system"
+            ]
         }
     },
     "passes": {
@@ -72,6 +71,7 @@
         },
         "evaluator": "common_evaluator",
         "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_name": "unet",
         "output_dir": "footprints"

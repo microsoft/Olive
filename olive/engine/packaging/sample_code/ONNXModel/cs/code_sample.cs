@@ -95,10 +95,10 @@ class Program
         else
         {
             // Get execution_provider section
-            JArray executionProvider = (JArray)j["inference_settings"]["execution_provider"];
+            JArray executionProvider = (JArray)j["execution_provider"];
 
             // Get session_options section
-            JObject sessOpts = (JObject)j["inference_settings"]["session_options"];
+            JObject sessOpts = (JObject)j["session_options"];
 
             // Create inference configuration
             using InferenceSessionConfiguration options = new InferenceSessionConfiguration();

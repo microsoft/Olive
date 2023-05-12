@@ -5,6 +5,7 @@ trigger:
   paths:
     exclude:
     - docs/*
+    - examples/README.md
     - examples/**/README.md
     - README.md
     - CONTRIBUTING.md
@@ -16,6 +17,7 @@ pr:
   paths:
     exclude:
     - docs/*
+    - examples/README.md
     - examples/**/README.md
     - README.md
     - CONTRIBUTING.md

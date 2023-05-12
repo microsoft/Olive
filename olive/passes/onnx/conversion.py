@@ -37,7 +37,7 @@ class OnnxConversion(Pass):
         config = {
             "target_opset": PassConfigParam(
                 type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
-            ),
+            )
         }
         config.update(get_external_data_config())
         return config

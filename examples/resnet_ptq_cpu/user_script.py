@@ -112,4 +112,4 @@ def eval_accuracy(model: OliveModel, data_dir, batch_size, device):
             preds.extend(outputs.tolist())
             target.extend(labels.data.tolist())
 
-    return AccuracyScore().evaluate(preds, target)
+    return AccuracyScore().measure(preds, target)

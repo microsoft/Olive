@@ -20,14 +20,15 @@ def setup():
 
     # prepare configs
     # retry since it fails randomly on windows
-    retry_func(run_subprocess, kwargs={"cmd": "python prepare_configs.py", "check": True})
+    retry_func(run_subprocess, kwargs={"cmd": "python prepare_whisper_configs.py", "check": True})
 
     yield
     os.chdir(cur_dir)
 
 
-def check_output(output):
-    assert output["metrics"]["latency"] > 0
+def check_output(outputs):
+    for output in outputs.values():
+        assert output["metrics"]["latency"] > 0
 
 
 @pytest.mark.parametrize("device_precision", [("cpu", "fp32"), ("cpu", "int8")])

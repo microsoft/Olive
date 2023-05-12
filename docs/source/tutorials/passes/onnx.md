@@ -111,6 +111,7 @@ There are two ways to quantize a model in onnxruntime:
     Static quantization method runs the model using a set of inputs called calibration data. In this way, user must provide a calibration
     dataset to calculate the quantization parameters (scale and zero point) for activations before quantizing the model.
 
+### Quantize with onnxruntime
 Olive consolidates the dynamic and static quantization into a single pass called `OnnxQuantization`, and provide the user with the ability to
 tune both quantization methods and hyperparameter at the same time.
 If the user desires to only tune either of dynamic or static quantization, Olive also supports them through `OnnxDynamicQuantization` and
@@ -118,6 +119,19 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 
 Please refer to [OnnxQuantization](onnx_quantization), [OnnxDynamicQuantization](onnx_dynamic_quantization) and
 [OnnxStaticQuantization](onnx_static_quantization) for more details about the passes and their config parameters.
+
+### Quantize with Intel® Neural Compressor
+In addition to the default onnxruntime quantization tool, Olive also integrates [Intel® Neural Compressor](https://github.com/intel/neural-compressor).
+
+Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach “quantize once, run everywhere” goal.
+
+Olive consolidates the Intel® Neural Compressor dynamic and static quantization into a single pass called `IncQuantization`, and provide the user with the ability to
+tune both quantization methods and hyperparameter at the same time.
+If the user desires to only tune either of dynamic or static quantization, Olive also supports them through `IncDynamicQuantization` and
+`IncStaticQuantization` respectively.
+
+Please refer to [IncQuantization](inc_quantization), [IncDynamicQuantization](inc_dynamic_quantization) and
+[IncStaticQuantization](inc_static_quantization) for more details about the passes and their config parameters.
 
 ### Example Configuration
 a. Tune the parameters of the OlivePass with pre-defined searchable values
@@ -176,6 +190,8 @@ d. Specify parameters with user defined values
 
 Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert_ptq_cpu/user_script.py)
 for an example implementation of `"user_script.py"` and `"glue_calibration_reader"`.
+
+check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert_inc_ptq_cpu) for an example for Intel® Neural Compressor quantization.
 
 ## ORT Performance Tuning
 ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution

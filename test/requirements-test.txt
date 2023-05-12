@@ -3,12 +3,16 @@ azure-identity
 azure-storage-blob
 coverage
 docker
+neural-compressor
 onnxconverter_common
 onnxruntime-extensions
 openvino
 openvino-dev
+pandas
+plotly
 psutil
 pytorch_lightning
 torchvision
+datasets
 azureml-evaluate-mlflow
 mlflow

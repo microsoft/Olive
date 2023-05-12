@@ -121,7 +121,8 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
 
         olive_run(olive_config)
 
-        footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_footprints.json"
+        # TODO: rename the 0 prefix in the path when the hardware accelerator feature is implemented.
+        footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_0_footprints.json"
         with footprints_file_path.open("r") as footprint_file:
             footprints = json.load(footprint_file)
 

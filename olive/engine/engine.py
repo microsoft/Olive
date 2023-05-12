@@ -5,18 +5,19 @@
 import json
 import logging
 import time
+from collections import OrderedDict, defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
+from olive.engine.packaging.packaging_config import PackagingConfig
+from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorConfig
 from olive.model import ModelConfig, ModelStorageKind, OliveModel
-from olive.packaging.packaging_config import PackagingConfig
-from olive.packaging.packaging_generator import generate_output_artifacts
 from olive.passes.olive_pass import Pass
 from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
 from olive.systems.common import SystemType
@@ -52,6 +53,7 @@ class Engine:
         config: Union[Dict[str, Any], EngineConfig] = None,
         search_strategy: Optional[SearchStrategy] = None,
         host: Optional[OliveSystem] = None,
+        target: Optional[OliveSystem] = None,
         evaluator: Optional[OliveEvaluator] = None,
     ):
         self._config = validate_config(config, EngineConfig)
@@ -77,6 +79,14 @@ class Engine:
         else:
             self.host = LocalSystem()
 
+        # engine target
+        if target is not None:
+            self.target = target
+        elif self._config.target is not None:
+            self.target = self._config.target.create_system()
+        else:
+            self.target = LocalSystem()
+
         # default evaluator
         self.evaluator = None
         if evaluator is not None:
@@ -85,12 +95,12 @@ class Engine:
             self.evaluator = self._config.evaluator.create_evaluator()
 
         # dictionary of passes
-        # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator, "clean_run_cache": clean_run_cache}}
-        self.passes = {}
-        # list of pass names in the order they were registered
-        self.pass_order = []
+        self.pass_config = OrderedDict()
 
-        self.footprints = Footprint()
+        # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator, "clean_run_cache": clean_run_cache}}
+        self.passes = OrderedDict()
+
+        self.footprints = defaultdict(Footprint)
 
         self._initialized = False
 
@@ -113,34 +123,61 @@ class Engine:
         # we do this before cleaning pass run caches to ensure we don't reuse model numbers even if the model was
         # deleted from the cache
         self._new_model_number = 0
-        model_jsons = list(self._model_cache_path.glob("*_*.json"))
-        if len(model_jsons) > 0:
-            self._new_model_number = max([int(json_file.stem.split("_")[0]) for json_file in model_jsons]) + 1
+        # model jsons have the format <model_number>_<pass_type>-<source_model>-<pass_config_hash>.json
+        # model contents are stored in <model_number>_<pass_type>-<source_model>-<pass_config_hash> folder
+        # sometimes the folder is created with contents but the json is not created when the pass fails to run
+        # so we check for both when determining the new model number
+        model_files = list(self._model_cache_path.glob("*_*"))
+        if len(model_files) > 0:
+            self._new_model_number = max([int(model_file.stem.split("_")[0]) for model_file in model_files]) + 1
 
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
-        for pass_name in self.pass_order:
-            clean_run_cache = self.passes[pass_name]["clean_run_cache"]
-            p = self.passes[pass_name]["pass"]
+        for pass_config in self.pass_config.values():
+            clean_run_cache = pass_config["clean_run_cache"]
             if clean_run_cache:
-                cache_utils.clean_pass_run_cache(p.__class__.__name__, cache_dir)
-
-        # list of passes starting from the first pass with non-empty search space
-        # These passes will be added to the search space
-        self.pass_search_spaces = []
-        for pass_name in self.pass_order:
-            p = self.passes[pass_name]["pass"]
-            self.pass_search_spaces.append((pass_name, p.search_space()))
+                cache_utils.clean_pass_run_cache(pass_config["type"].__name__, cache_dir)
 
         self._initialized = True
 
     def register(
         self,
-        p: Pass,
+        pass_type: Type[Pass],
+        config: Dict[str, Any] = None,
+        disable_search=False,
         name: str = None,
         host: OliveSystem = None,
         evaluator: OliveEvaluator = None,
         clean_run_cache: bool = False,
+    ):
+        """Register a pass configuration so that it could be instantiated and executed later."""
+        if name is not None:
+            assert name not in self.passes, f"Pass with name {name} already registered"
+        else:
+            id = 0
+            while True:
+                name = pass_type.__name__
+                if id > 0:
+                    name = f"{name}_{id}"
+                id += 1
+                if name not in self.pass_config:
+                    break
+
+        self.pass_config[name] = {
+            "type": pass_type,
+            "config": config or {},
+            "disable_search": disable_search,
+            "host": host,
+            "evaluator": evaluator,
+            "clean_run_cache": clean_run_cache,
+        }
+
+    def register_pass(
+        self,
+        p: Pass,
+        name: str = None,
+        host: OliveSystem = None,
+        evaluator: OliveEvaluator = None,
     ):
         """
         Register a pass
@@ -164,9 +201,7 @@ class Engine:
             "pass": p,
             "host": host,
             "evaluator": evaluator,
-            "clean_run_cache": clean_run_cache,
         }
-        self.pass_order.append(name)
 
     def run(
         self,
@@ -193,37 +228,167 @@ class Engine:
         if not self._initialized:
             self.initialize()
 
-        output_dir = Path(output_dir) if output_dir else Path.cwd()
+        output_dir: Path = Path(output_dir) if output_dir else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        prefix_output_name = f"{output_name}_" if output_name is not None else ""
+        # TODO by myguo: replace the following for loop using the accelerator and excution provider list when adding
+        # accelerator support
+        outputs = {}
+        for i in range(1):
+            # generate search space and intialize the passes for each hardware accelerator
+            self.setup_passes()
 
-        if self.no_search:
-            for pass_id in self.pass_order:
-                if len(self.passes[pass_id]["pass"].search_space()) > 0:
-                    raise ValueError(f"Pass {pass_id} has search space but search strategy is None")
+            # hash the input model
+            input_model_id = self._init_input_model(input_model)
+            self.footprints[i].record(model_id=input_model_id)
 
-        # hash the input model
-        input_model_id = self._init_input_model(input_model)
-        self.footprints.record(model_id=input_model_id)
+            if evaluation_only:
+                prefix_output_name = f"{output_name}_{i}_" if output_name is not None else f"{i}_"
+                assert self.evaluator is not None, "Evaluation only is True but no evaluator provided"
+                results = self._evaluate_model(input_model, input_model_id, self.evaluator, i, verbose)
+                result_name = f"{prefix_output_name}metrics"
+                results_path = output_dir / f"{result_name}.json"
+                json.dump(results, open(results_path, "w"), indent=4)
+                outputs[i] = results
+            elif self.no_search:
+                output = self.run_no_search(
+                    input_model, input_model_id, i, packaging_config, verbose, output_dir, output_name
+                )
+                outputs[i] = output
+            else:
+                footprint = self.run_search(
+                    input_model, input_model_id, i, packaging_config, verbose, output_dir, output_name
+                )
+                outputs[i] = footprint
 
-        if evaluation_only:
-            assert self.evaluator is not None, "Evaluation only is True but no evaluator provided"
-            results = self._evaluate_model(input_model, input_model_id, self.evaluator, verbose)
-            result_name = f"{prefix_output_name}metrics"
-            results_path = output_dir / f"{result_name}.json"
-            json.dump(results, open(results_path, "w"), indent=4)
-            return results
+        return outputs
 
-        # get objective_dict
-        evaluator = self.evaluator_for_pass(self.pass_order[-1])
-        if self.no_search and evaluator is None:
+    def setup_passes(self):
+        # TODO: add the hardware spec later
+        # clean the passes
+        self.passes.clear()
+        for config in self.pass_config.values():
+            pass_cls: Type[Pass] = config["type"]
+            pass_cfg = config["config"]
+            config_class, pass_cfg = pass_cls.generate_search_space(pass_cfg, config["disable_search"])
+            p = pass_cls(config_class, pass_cfg)
+            self.register_pass(p, host=config["host"], evaluator=config["evaluator"])
+
+        # list of passes starting from the first pass with non-empty search space
+        # These passes will be added to the search space
+        self.pass_search_spaces = []
+        for pass_name in self.passes.keys():
+            p: Pass = self.passes[pass_name]["pass"]
+            self.pass_search_spaces.append((pass_name, p.search_space()))
+
+    def run_no_search(
+        self,
+        input_model: OliveModel,
+        input_model_id: str,
+        accelerator_spec: Any,
+        packaging_config: Optional[PackagingConfig] = None,
+        verbose: bool = False,
+        output_dir: str = None,
+        output_name: str = None,
+    ):
+        for pass_item in self.passes.values():
+            if len(pass_item["pass"].search_space()) > 0:
+                pass_name = pass_item["name"]
+                raise ValueError(f"Pass {pass_name} has search space but search strategy is None")
+
+        evaluator = self.evaluator_for_pass(list(self.passes.keys())[-1])
+        if evaluator is None:
             # provide dummy objective
             objective_dict = {"dummy": {"higher_is_better": True, "goal": 0}}
-        elif evaluator is None:
+        else:
+            objective_dict = self.resolve_objectives(
+                input_model, input_model_id, evaluator.metrics, accelerator_spec, verbose
+            )
+
+        # initialize the search strategy
+        self.search_strategy.initialize(self.pass_search_spaces, input_model_id, objective_dict)
+
+        # get the next step
+        next_step = self.search_strategy.next_step()
+        assert next_step is not None, "Search strategy returned None for the first step"
+
+        # get the model id of the first input model
+        model_id = next_step["model_id"]
+        if model_id == input_model_id:
+            model = input_model
+        else:
+            model = self._load_model(model_id)
+
+        if verbose:
+            logger.info(f"Step no search with search point {next_step['search_point']} ...")
+
+        # run all the passes in the step
+        (
+            _,
+            signal,
+            model_ids,
+        ) = self._run_passes(next_step["passes"], model, model_id, accelerator_spec, verbose)
+        model_id = model_ids[-1]
+
+        prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
+        # save the model to output_dir
+        output_model_name = f"{prefix_output_name}model"
+        output_model_json = cache_utils.save_model(model_id, output_dir, output_model_name, self._config.cache_dir)
+
+        # save the evaluation results to output_dir
+        result_name = f"{prefix_output_name}metrics"
+        results_path = output_dir / f"{result_name}.json"
+        if signal is not None:
+            json.dump(signal, open(results_path, "w"), indent=4)
+
+        output = {"model": output_model_json}
+        if signal is not None:
+            output["metrics"] = signal
+
+        # Package output model as artifacts if no search
+        if packaging_config:
+            logger.info("Package output model as artifacts")
+            generate_output_artifacts(
+                packaging_config,
+                self.footprints[accelerator_spec],
+                self.footprints[accelerator_spec].get_last_node(),
+                output_dir,
+            )
+
+        return output
+
+    def run_search(
+        self,
+        input_model: OliveModel,
+        input_model_id: str,
+        accelerator_spec: Any,
+        packaging_config: Optional[PackagingConfig] = None,
+        verbose: bool = False,
+        output_dir: str = None,
+        output_name: str = None,
+    ):
+        """
+        Run all the registered Olive passes on the input model and produce one or more candidate models.
+
+        if search strategy is None, all passes are run in the order they were registered.
+        Save the final model to {output_dir}/{output_name}_model and json file to {output_dir}/{output_name}_model.json
+        Save evaluation results of the final model, if any, to {output_dir}/{output_name}_metrics.json
+        Return {"model": final_model_json, "metrics": evaluation_results}
+
+        if search strategy is not None, run the search strategy to find candidate models.
+        TODO: save the results using updated RunResult
+        """
+
+        prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
+
+        # get objective_dict
+        evaluator = self.evaluator_for_pass(list(self.passes.keys())[-1])
+        if evaluator is None:
             raise ValueError("No evaluator provided for the last pass")
         else:
-            objective_dict = self.resolve_objectives(input_model, input_model_id, evaluator.metrics, verbose)
+            objective_dict = self.resolve_objectives(
+                input_model, input_model_id, evaluator.metrics, accelerator_spec, verbose
+            )
 
         # initialize the search strategy
         self.search_strategy.initialize(self.pass_search_spaces, input_model_id, objective_dict)
@@ -236,7 +401,6 @@ class Engine:
             iter_num += 1
 
             # get the next step
-            should_prune = False
             next_step = self.search_strategy.next_step()
 
             # if no more steps, break
@@ -254,48 +418,9 @@ class Engine:
                 logger.info(f"Step {iter_num} with search point {next_step['search_point']} ...")
 
             # run all the passes in the step
-            model_ids = []
-            for pass_id, pass_search_point in next_step["passes"]:
-                if verbose:
-                    message = f"Running pass {pass_id}"
-                    if not self.no_search:
-                        message += f" with search point {pass_search_point}"
-                    logger.info(message)
-
-                if (
-                    input_model.model_storage_kind == ModelStorageKind.AzureMLModel
-                    and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
-                ):
-                    error_msg = "Azure ML model only supports AzureMLSystem for Olive Pass"
-                    logger.error(error_msg)
-                    raise Exception(error_msg)
-
-                model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, verbose)
-                if model == PRUNED_CONFIG:
-                    should_prune = True
-                    logger.info("Pruned")
-                    break
-                model_ids.append(model_id)
-
-            signal = {}
-            if not should_prune:
-                # evaluate the model
-                try:
-                    evaluator = self.evaluator_for_pass(pass_id)
-                    if self.no_search and evaluator is None:
-                        # skip evaluation if no search and no evaluator
-                        signal = None
-                    else:
-                        signal = self._evaluate_model(model, model_id, evaluator, verbose)
-                except Exception as e:
-                    logger.error(f"Evaluation failed: {e}")
-                    raise e
-                if verbose:
-                    logger.info(f"Signal: {signal}")
-
-            # there is only one step if no search
-            if self.no_search:
-                break
+            should_prune, signal, model_ids = self._run_passes(
+                next_step["passes"], model, model_id, accelerator_spec, verbose
+            )
 
             # record feedback signal
             self.search_strategy.record_feedback_signal(next_step["search_point"], signal, model_ids, should_prune)
@@ -303,34 +428,10 @@ class Engine:
             time_diff = time.time() - start_time
             self.search_strategy.check_exit_criteria(iter_num, time_diff, signal)
 
-        if self.no_search:
-            # save the model to output_dir
-            output_model_name = f"{prefix_output_name}model"
-            output_model_json = cache_utils.save_model(model_id, output_dir, output_model_name, self._config.cache_dir)
+        self.footprints[accelerator_spec].to_file(output_dir / f"{prefix_output_name}footprints.json")
 
-            # save the evaluation results to output_dir
-            result_name = f"{prefix_output_name}metrics"
-            results_path = output_dir / f"{result_name}.json"
-            if signal is not None:
-                json.dump(signal, open(results_path, "w"), indent=4)
-
-            output = {"model": output_model_json}
-            if signal is not None:
-                output["metrics"] = signal
-
-            # Package output model as artifacts if no search
-            if packaging_config:
-                logger.info("Package output model as artifacts")
-                generate_output_artifacts(
-                    packaging_config, self.footprints, self.footprints.get_last_node(), output_dir
-                )
-
-            return output
-
-        self.footprints.to_file(output_dir / f"{prefix_output_name}footprints.json")
-
-        pf_footprints = self.footprints.get_pareto_frontier()
-        if output_model_num is None or len(pf_footprints.nodes) <= output_model_num or self.no_search:
+        pf_footprints = self.footprints[accelerator_spec].get_pareto_frontier()
+        if output_model_num is None or len(pf_footprints.nodes) <= output_model_num:
             logger.info(f"Output all {len(pf_footprints.nodes)} models")
         else:
             top_ranked_nodes = self._get_top_ranked_nodes(evaluator.metrics, pf_footprints, output_model_num)
@@ -338,33 +439,46 @@ class Engine:
             pf_footprints.update_nodes(top_ranked_nodes)
 
         pf_footprints.to_file(output_dir / f"{prefix_output_name}pareto_frontier_footprints.json")
+        pf_footprints.plot_pareto_frontier_to_html(
+            save_path=output_dir / f"{prefix_output_name}pareto_frontier_footprints_chart.html"
+        )
 
         if packaging_config:
             logger.info(f"Package top ranked {len(pf_footprints.nodes)} models as artifacts")
-            generate_output_artifacts(packaging_config, self.footprints, pf_footprints, output_dir)
+            generate_output_artifacts(packaging_config, self.footprints[accelerator_spec], pf_footprints, output_dir)
         else:
             logger.info("No packaging config provided, skip packaging artifacts")
 
         return pf_footprints
 
     def resolve_objectives(
-        self, input_model: OliveModel, input_model_id: str, metrics: List[Metric], verbose: bool = False
+        self,
+        input_model: OliveModel,
+        input_model_id: str,
+        metrics: List[Metric],
+        accelerator_spec: Any,
+        verbose: bool = False,
     ) -> Dict[str, Dict[str, Any]]:
         """
         Return a dictionary of objectives and their higher_is_better and goal values.
 
         {objective_name: {"higher_is_better": bool, "goal": float}}
         """
-        goals = self.resolve_goals(input_model, input_model_id, metrics, verbose)
+        goals = self.resolve_goals(input_model, input_model_id, metrics, accelerator_spec, verbose)
         objective_dict = {
             metric.name: {"higher_is_better": metric.higher_is_better, "goal": goals.get(metric.name)}
             for metric in metrics
         }
-        self.footprints.record_objective_dict(objective_dict)
+        self.footprints[accelerator_spec].record_objective_dict(objective_dict)
         return objective_dict
 
     def resolve_goals(
-        self, input_model: OliveModel, input_model_id: str, metrics: List[Metric], verbose: bool = False
+        self,
+        input_model: OliveModel,
+        input_model_id: str,
+        metrics: List[Metric],
+        accelerator_spec: Any,
+        verbose: bool = False,
     ) -> Dict[str, float]:
         """
         Resolve the goals of the given metrics into thresholds for the given model.
@@ -385,7 +499,9 @@ class Engine:
                 assert self.evaluator is not None, "Default evaluator must be provided to resolve goals"
                 if verbose:
                     logger.info("Computing baseline for metrics ...")
-                baseline = self._evaluate_model(input_model, input_model_id, self.evaluator, verbose=False)
+                baseline = self._evaluate_model(
+                    input_model, input_model_id, self.evaluator, accelerator_spec, verbose=False
+                )
                 break
         if verbose and len(baseline) > 0:
             logger.info(f"Baseline: {baseline}")
@@ -460,7 +576,7 @@ class Engine:
         """
         Load the model from the cache directory.
         """
-        model_json_path = self._model_cache_path / f"{model_id}.json"
+        model_json_path = self.get_model_json_path(model_id)
         try:
             model_json = json.load(open(model_json_path, "r"))
         except Exception as e:
@@ -514,8 +630,8 @@ class Engine:
         Load the run from the cache directory.
         """
         input_model_number = input_model_id.split("_")[0]
-        run_json_path = self._run_cache_path / f"{pass_name}-{input_model_number}-{hash_dict(pass_config)}.json"
-        if Path(run_json_path).exists():
+        run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config)
+        if run_json_path.exists():
             try:
                 run_json = json.load(open(run_json_path, "r"))
                 output_model_id = run_json["output_model_id"]
@@ -526,14 +642,73 @@ class Engine:
         else:
             return None
 
+    def _run_passes(
+        self,
+        passes: List[Tuple[str, Dict[str, Any]]],
+        model: OliveModel,
+        model_id: str,
+        accelerator_spec: Any,
+        verbose: bool = False,
+    ):
+        """
+        Run all the passes in the order they were registered.
+        the passes is the list of (pass_name, pass_search_point) tuples
+        """
+        should_prune = False
+        # run all the passes in the step
+        model_ids = []
+        for pass_id, pass_search_point in passes:
+            if verbose:
+                message = f"Running pass {pass_id}"
+                logger.info(message)
+
+            if (
+                model.model_storage_kind == ModelStorageKind.AzureMLModel
+                and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
+            ):
+                error_msg = "Azure ML model only supports AzureMLSystem for Olive Pass"
+                logger.error(error_msg)
+                raise Exception(error_msg)
+
+            model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec, verbose)
+            if model == PRUNED_CONFIG:
+                should_prune = True
+                logger.info("Pruned")
+                break
+            model_ids.append(model_id)
+
+        signal = {}
+        if not should_prune:
+            # evaluate the model
+            try:
+                evaluator = self.evaluator_for_pass(pass_id)
+                if self.no_search and evaluator is None:
+                    # skip evaluation if no search and no evaluator
+                    signal = None
+                else:
+                    signal = self._evaluate_model(model, model_id, evaluator, accelerator_spec, verbose)
+            except Exception as e:
+                logger.error(f"Evaluation failed: {e}")
+                raise e
+            if verbose:
+                logger.info(f"Signal: {signal}")
+
+        return should_prune, signal, model_ids
+
     def _run_pass(
-        self, pass_id: int, pass_search_point: dict, input_model: OliveModel, input_model_id: str, verbose: bool
+        self,
+        pass_id: str,
+        pass_search_point: Dict[str, Any],
+        input_model: OliveModel,
+        input_model_id: str,
+        accelerator_spec: Any,
+        verbose: bool,
     ):
         """
         Run a pass on the input model.
         """
         # pass
-        p = self.passes[pass_id]["pass"]
+        p: Pass = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)
@@ -546,7 +721,7 @@ class Engine:
             output_model = self._load_model(output_model_id)
             if output_model is not None:
                 # footprint model and run
-                self.footprints.record(
+                self.footprints[accelerator_spec].record(
                     model_id=output_model_id,
                     model_config=output_model.to_json() if output_model != PRUNED_CONFIG else {"is_pruned": True},
                     parent_model_id=input_model_id,
@@ -584,7 +759,7 @@ class Engine:
         self._cache_run(pass_name, pass_config, input_model_id, output_model_id)
 
         # footprint model and run
-        self.footprints.record(
+        self.footprints[accelerator_spec].record(
             model_id=output_model_id,
             model_config=output_model.to_json() if output_model != PRUNED_CONFIG else {"is_pruned": True},
             parent_model_id=input_model_id,
@@ -618,8 +793,8 @@ class Engine:
         """
         Load the evaluation from the cache directory.
         """
-        evaluation_json_path = self._evaluation_cache_path / f"{model_id}.json"
-        if Path(evaluation_json_path).exists():
+        evaluation_json_path = self.get_evaluation_json_path(model_id)
+        if evaluation_json_path.exists():
             try:
                 evaluation_json = json.load(open(evaluation_json_path, "r"))
                 signal = evaluation_json["signal"]
@@ -630,7 +805,9 @@ class Engine:
         else:
             return None
 
-    def _evaluate_model(self, model: OliveModel, model_id: str, evaluator: OliveEvaluator, verbose: bool):
+    def _evaluate_model(
+        self, model: OliveModel, model_id: str, evaluator: OliveEvaluator, accelerator_spec: Any, verbose: bool
+    ):
         """
         Evaluate a model.
         """
@@ -642,7 +819,7 @@ class Engine:
             if verbose:
                 logger.info("Loading evaluation from cache ...")
             # footprint evaluation
-            self.footprints.record(
+            self.footprints[accelerator_spec].record(
                 model_id=model_id,
                 metrics=FootprintNodeMetric(
                     value=signal,
@@ -651,14 +828,15 @@ class Engine:
             )
             return signal
 
+        # TODO: add the accelerator spec to the evaluate
         # evaluate model
-        signal = evaluator.evaluate(model)
+        signal = evaluator.evaluate(model, self.target)
 
         # cache evaluation
         self._cache_evaluation(model_id, signal)
 
         # footprint evaluation
-        self.footprints.record(
+        self.footprints[accelerator_spec].record(
             model_id=model_id,
             metrics=FootprintNodeMetric(
                 value=signal,

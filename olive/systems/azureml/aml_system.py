@@ -37,12 +37,13 @@ class AzureMLSystem(OliveSystem):
         aml_compute: str,
         aml_docker_config: Union[Dict[str, Any], AzureMLDockerConfig],
         instance_count: int = 1,
+        read_timeout: int = 60,
         is_dev: bool = False,
     ):
         super().__init__()
         self._assert_not_none(aml_docker_config)
         aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
-        self.ml_client = MLClient.from_config(self._get_credentials(), path=aml_config_path)
+        self.ml_client = MLClient.from_config(self._get_credentials(), path=aml_config_path, read_timeout=read_timeout)
         self.compute = aml_compute
         self.environment = self._create_environment(aml_docker_config)
         self.instance_count = instance_count
@@ -362,7 +363,7 @@ class AzureMLSystem(OliveSystem):
     def _create_metric_inputs(self):
         return {
             "metric_config": Input(type=AssetTypes.URI_FILE),
-            "metric_user_script": Input(type=AssetTypes.URI_FILE),
+            "metric_user_script": Input(type=AssetTypes.URI_FILE, optional=True),
             "metric_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
             "metric_data_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }

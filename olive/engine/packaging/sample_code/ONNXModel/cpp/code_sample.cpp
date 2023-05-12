@@ -25,10 +25,10 @@ int main() {
         session = std::make_unique<Ort::Session>(env, L"model.onnx");
     } else {
         // Get executionProvider section
-        const nlohmann::json& executionProvider = j["inference_settings"]["executionProvider"];
+        const nlohmann::json& executionProvider = j["executionProvider"];
 
         // Get session_options section
-        const nlohmann::json& sessOpts = j["inference_settings"]["session_options"];
+        const nlohmann::json& sessOpts = j["session_options"];
 
         // Create inference configuration
         Ort::SessionOptions options;

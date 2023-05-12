@@ -17,10 +17,11 @@ def setup():
     sys.path.remove(CIFAR10_DIR)
 
 
-def check_output(footprint):
-    assert footprint.nodes is not None
-    for v in footprint.nodes.values():
-        assert all([value > 0 for value in v.metrics.value.values()])
+def check_output(footprints):
+    for footprint in footprints.values():
+        assert footprint.nodes is not None
+        for v in footprint.nodes.values():
+            assert all([value > 0 for value in v.metrics.value.values()])
 
 
 def test_cifar10():
