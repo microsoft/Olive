@@ -20,7 +20,7 @@ from olive.common.config_utils import validate_config
 from olive.common.utils import retry_func
 from olive.constants import Framework
 from olive.evaluator.metric import Metric
-from olive.evaluator.metric_config import flatten_metric_result, MetricResult
+from olive.evaluator.metric_config import MetricResult, flatten_metric_result
 from olive.model import ModelConfig, ModelStorageKind, OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import AzureMLDockerConfig, SystemType

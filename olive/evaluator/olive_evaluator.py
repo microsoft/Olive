@@ -56,8 +56,10 @@ class OliveEvaluatorConfig(ConfigBase):
                     rank_set.add(sub_type.priority_rank)
 
         if not rank_set and len(sub_type_names) == 1:
-            logger.debug("""No priority rank is specified, but only one sub type
-                metric is specified. Use rank 1 for single for this metric.""")
+            logger.debug(
+                """No priority rank is specified, but only one sub type
+                metric is specified. Use rank 1 for single for this metric."""
+            )
             v[0].sub_types[0].priority_rank = 1
         elif not rank_set and len(sub_type_names) > 1:
             raise ValueError("Priority rank must be specified for multiple sub type metrics")

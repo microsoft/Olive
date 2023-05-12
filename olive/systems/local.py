@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from olive.evaluator.evaluation import evaluator_adaptor
 from olive.evaluator.metric import Metric
-from olive.evaluator.metric_config import flatten_metric_result, MetricResult
+from olive.evaluator.metric_config import MetricResult, flatten_metric_result
 from olive.model import CompositeOnnxModel, OliveModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import Device, SystemType

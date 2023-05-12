@@ -8,7 +8,7 @@ import logging
 from functools import partial
 from pathlib import Path
 from types import FunctionType, MethodType
-from typing import Any, Callable, Dict, Optional, Union, List
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from pydantic import BaseModel, create_model, validator
 

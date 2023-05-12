@@ -99,9 +99,7 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
             invalid_trial = invalid_trial or (search_point[space_name][param_name] == SpecialParamValue.INVALID)
         return trial, search_point, invalid_trial
 
-    def report(
-        self, search_point: Dict[str, Dict[str, Any]], result: MetricResult, should_prune: bool = False
-    ):
+    def report(self, search_point: Dict[str, Dict[str, Any]], result: MetricResult, should_prune: bool = False):
         search_point_hash = hash_dict(search_point)
         trial_id = self._trial_ids[search_point_hash]
         if should_prune:

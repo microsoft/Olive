@@ -487,6 +487,8 @@ class Engine:
         for goal in goals.values():
             _evaluated = False
             for sub_goal in goal.values():
+                if not sub_goal:
+                    break
                 if sub_goal.type != "threshold":
                     assert self.evaluator is not None, "Default evaluator must be provided to resolve goals"
                     if verbose:

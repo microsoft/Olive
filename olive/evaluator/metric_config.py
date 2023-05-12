@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import json
 from pathlib import Path
 from typing import Callable, ClassVar, Dict, List, Union
 

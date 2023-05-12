@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
 from olive.evaluator.evaluation import evaluate_latency
-from olive.evaluator.metric import LatencySubType, Metric, MetricType, MetricSubType
+from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import get_properties_from_metric_type
 from olive.model import ONNXModel
 from olive.passes import Pass

@@ -5,9 +5,9 @@
 import shutil
 import unittest
 
-import pytest
 import mlflow
 import pandas as pd
+import pytest
 import transformers
 from azureml.evaluate import mlflow as aml_mlflow
 

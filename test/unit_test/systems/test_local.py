@@ -57,14 +57,16 @@ class TestLocalSystem:
     def test_evaluate_model(self, mock_evaluate_custom_metric, mock_evaluate_latency, mock_evaluate_accuracy, metric):
         # setup
         olive_model = MagicMock()
-        expected_res = MetricResult.parse_obj({
-            sub_metric.name: {
-                "value": 0.382715310,
-                "priority_rank": sub_metric.priority_rank,
-                "higher_is_better": sub_metric.higher_is_better,
+        expected_res = MetricResult.parse_obj(
+            {
+                sub_metric.name: {
+                    "value": 0.382715310,
+                    "priority_rank": sub_metric.priority_rank,
+                    "higher_is_better": sub_metric.higher_is_better,
+                }
+                for sub_metric in metric.sub_types
             }
-            for sub_metric in metric.sub_types
-        })
+        )
 
         mock_evaluate_custom_metric.return_value = expected_res
         mock_evaluate_latency.return_value = expected_res

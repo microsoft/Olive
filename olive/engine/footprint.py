@@ -7,7 +7,7 @@ import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, DefaultDict
+from typing import DefaultDict, Dict
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric_config import MetricResult
@@ -80,7 +80,6 @@ class Footprint:
                 self.nodes[k].metrics.cmp_direction = {}
 
             is_goals_met = []
-            self.objective_dict = defaultdict(Dict)
             for metric_name in v.metrics.value:
                 if metric_name not in self.objective_dict:
                     logger.debug("There is no goal set for metric: {metric_name}.")
@@ -137,12 +136,8 @@ class Footprint:
                 equal = True  # two points are equal
                 dominated = True  # current point is dominated by other point
                 for metric_name in v.metrics.value:
-                    other_point_metrics = (
-                        _v.metrics.value[metric_name].value * _v.metrics.cmp_direction[metric_name]
-                    )
-                    current_point_metrics = (
-                        v.metrics.value[metric_name].value * v.metrics.cmp_direction[metric_name]
-                    )
+                    other_point_metrics = _v.metrics.value[metric_name].value * _v.metrics.cmp_direction[metric_name]
+                    current_point_metrics = v.metrics.value[metric_name].value * v.metrics.cmp_direction[metric_name]
                     dominated &= current_point_metrics <= other_point_metrics
                     equal &= current_point_metrics == other_point_metrics
                 # point is not on pareto frontier if dominated and not equal

@@ -16,7 +16,7 @@ import torch
 from olive.common.utils import run_subprocess
 from olive.evaluator.evaluation import compute_accuracy, compute_latency, format_onnx_input, get_user_config
 from olive.evaluator.metric import Metric, MetricType
-from olive.evaluator.metric_config import flatten_metric_result, MetricResult
+from olive.evaluator.metric_config import MetricResult, flatten_metric_result
 from olive.model import OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import Device, SystemType
