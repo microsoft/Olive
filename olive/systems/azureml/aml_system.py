@@ -436,7 +436,7 @@ class AzureMLSystem(OliveSystem):
             for metric in metrics:
                 metric_json = output_dir / "named-outputs" / metric.name / "metric_result.json"
                 if metric_json.is_file():
-                    metric_results[metric.name] = json.load(open(metric_json))["result"]
+                    metric_results[metric.name] = json.load(open(metric_json))["__root__"]
 
             return flatten_metric_result(metric_results)
 

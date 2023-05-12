@@ -1,5 +1,5 @@
 {
-    "result": {
+    "__root__": {
         "avg": {"value": 0.031415, "priority_rank": 1, "higher_is_better": false},
         "max": {"value": 0.031415, "priority_rank": 1, "higher_is_better": false},
         "min": {"value": 0.031415, "priority_rank": 1, "higher_is_better": false},

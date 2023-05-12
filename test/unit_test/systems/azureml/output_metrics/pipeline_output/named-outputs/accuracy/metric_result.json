@@ -1,5 +1,5 @@
 {
-    "result": {
+    "__root__": {
         "accuracy_score": {"value": 0.99618, "priority_rank": 1, "higher_is_better": true},
         "f1_score": {"value": 0.99618, "priority_rank": 1, "higher_is_better": true},
         "precision": {"value": 0.99618, "priority_rank": 1, "higher_is_better": true},
