@@ -5,7 +5,7 @@
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -18,7 +18,7 @@ from olive.common.utils import tensor_data_to_device
 from olive.constants import Framework
 from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Precision, Recall
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
-from olive.model import OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
+from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
 from olive.systems.common import Device
 
 logger = logging.getLogger(__name__)
@@ -215,7 +215,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         }
         return input_dict
 
-    def _evaluate_accuracy(
+    def _evaluate_onnx_accuracy(
         self, model: ONNXModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
     ) -> Dict[str, Any]:
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
@@ -234,7 +234,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         return OliveEvaluator.compute_accuracy(metric, preds, targets)
 
-    def _evaluate_latency(
+    def _evaluate_onnx_latency(
         self, model: OliveModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
     ) -> Dict[str, Any]:
         warmup_num = metric.metric_config.warmup_num
@@ -274,6 +274,172 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             time.sleep(sleep_num)
 
         return OliveEvaluator.compute_latency(metric, latencies)
+
+    @staticmethod
+    def _evaluate_distributed_accuracy_worker(config) -> Tuple[List[Any], List[Any]]:
+        model_path = config["model_path"]
+        local_rank = config["local_rank"]
+        world_size = config["world_size"]
+        inference_settings = config.get("inference_settings", {}) or {}
+        metric = Metric.from_json(config["metric"])
+        dataloader, _, post_func = OnnxEvaluator.get_user_config(metric)
+
+        import os
+
+        os.environ["OMPI_COMM_WORLD_RANK"] = str(local_rank)
+        os.environ["OMPI_COMM_WORLD_SIZE"] = str(world_size)
+
+        from mpi4py import MPI
+
+        local_rank = MPI.COMM_WORLD.Get_rank()
+
+        inference_settings["execution_provider"] = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
+
+        model = ONNXModel(model_path, inference_settings=inference_settings)
+        session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
+        io_config = model.get_io_config()
+
+        preds = []
+        targets = []
+        output_names = io_config["output_names"]
+        for _, (input_data, labels) in enumerate(dataloader):
+            input_dict = OnnxEvaluator.format_input(input_data, io_config)
+            MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
+            output = session.run(input_feed=input_dict, output_names=None)
+            output = torch.Tensor(output[0]) if len(output_names) == 1 else torch.Tensor(output)
+            output = post_func(output) if post_func else output
+            preds.extend(output.tolist())
+            targets.extend(labels.data.tolist())
+
+        return preds, targets
+
+    def _evaluate_distributed_accuracy(self, model: DistributedOnnxModel, metric: Metric) -> Dict[str, Any]:
+        from copy import deepcopy
+
+        from mpi4py.futures import MPIPoolExecutor
+
+        config = {
+            "model_path": None,
+            "local_rank": None,
+            "world_size": model.ranks,
+            "inference_settings": self.get_inference_settings(metric),
+            "metric": metric.to_json(),
+        }
+
+        args = []
+        for rank in range(model.ranks):
+            cfg = deepcopy(config)
+            cfg["local_rank"] = rank
+            cfg["model_path"] = model.ranked_model_path(rank)
+            args.append(cfg)
+
+        with MPIPoolExecutor(max_workers=model.ranks) as executor:
+            results = executor.map(OnnxEvaluator._evaluate_distributed_accuracy_worker, args)
+            executor.shutdown()
+
+        preds = [x for p, _ in results for x in p]
+        targets = [x for _, t in results for x in t]
+        return OliveEvaluator.compute_accuracy(metric, preds, targets)
+
+    @staticmethod
+    def _evaluate_distributed_latency_worker(config) -> List[float]:
+        model_path = config["model_path"]
+        local_rank = config["local_rank"]
+        world_size = config["world_size"]
+        inference_settings = config.get("inference_settings", {}) or {}
+        metric = Metric.from_json(config["metric"])
+        dataloader, _, _ = OnnxEvaluator.get_user_config(metric)
+
+        import os
+
+        os.environ["OMPI_COMM_WORLD_RANK"] = str(local_rank)
+        os.environ["OMPI_COMM_WORLD_SIZE"] = str(world_size)
+
+        from mpi4py import MPI
+
+        local_rank = MPI.COMM_WORLD.Get_rank()
+
+        warmup_num = metric.metric_config.warmup_num
+        repeat_test_num = metric.metric_config.repeat_test_num
+        sleep_num = metric.metric_config.sleep_num
+        inference_settings["execution_provider"] = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
+
+        model = ONNXModel(model_path, inference_settings=inference_settings)
+        session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
+        io_config = model.get_io_config()
+
+        input_feed, _ = next(iter(dataloader))
+        input_feed = OnnxEvaluator.format_input(input_feed, io_config)
+
+        if metric.user_config.io_bind:
+            io_bind_op = session.io_binding()
+            for k, v in input_feed.items():
+                io_bind_op.bind_cpu_input(k, v)
+            for item in session.get_outputs():
+                io_bind_op.bind_output(item.name, "cuda")
+
+        latencies = []
+        for i in range(warmup_num + repeat_test_num):
+            MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
+            start_time = time.perf_counter()
+            if metric.user_config.io_bind:
+                session.run_with_iobinding(io_bind_op)
+            else:
+                session.run(input_feed=input_feed, output_names=None)
+            if i > warmup_num:
+                latencies.append(time.perf_counter() - start_time)
+            time.sleep(sleep_num)
+
+        return latencies
+
+    def _evaluate_distributed_latency(self, model: DistributedOnnxModel, metric: Metric) -> Dict[str, Any]:
+        from copy import deepcopy
+
+        from mpi4py.futures import MPIPoolExecutor
+
+        config = {
+            "model_path": None,
+            "local_rank": None,
+            "world_size": model.ranks,
+            "inference_settings": self.get_inference_settings(metric),
+            "metric": metric.to_json(),
+        }
+
+        args = []
+        for rank in range(model.ranks):
+            cfg = deepcopy(config)
+            cfg["local_rank"] = rank
+            cfg["model_path"] = model.ranked_model_path(rank)
+            args.append(cfg)
+
+        with MPIPoolExecutor(max_workers=model.ranks) as executor:
+            results = executor.map(OnnxEvaluator._evaluate_distributed_latency_worker, args)
+            executor.shutdown()
+
+        latencies = [x for r in results for x in r]
+        return OliveEvaluator.compute_latency(metric, latencies)
+
+    def _evaluate_accuracy(
+        self, model: ONNXModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
+    ) -> Dict[str, Any]:
+        if isinstance(model, ONNXModel):
+            return self._evaluate_onnx_accuracy(model, metric, dataloader, device, post_func)
+        elif isinstance(model, DistributedOnnxModel):
+            return self._evaluate_distributed_accuracy(model, metric)
+        else:
+            raise TypeError(f"Cannot evaluate accuracy for model of type: {type(model)}")
+
+    def _evaluate_latency(
+        self, model: OliveModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
+    ) -> Dict[str, Any]:
+        if isinstance(model, ONNXModel):
+            return self._evaluate_onnx_latency(model, metric, dataloader, device, post_func)
+        elif isinstance(model, DistributedOnnxModel):
+            return self._evaluate_distributed_latency(model, metric)
+        else:
+            raise TypeError(f"Cannot evaluate latency for model of type: {type(model)}")
 
 
 class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
