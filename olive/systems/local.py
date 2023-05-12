@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from olive.evaluator.evaluation import evaluator_adaptor
 from olive.evaluator.metric import Metric
-from olive.evaluator.metric_config import SignalResult
+from olive.evaluator.metric_config import flatten_metric_result, MetricResult
 from olive.model import CompositeOnnxModel, OliveModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import Device, SystemType
@@ -32,7 +32,7 @@ class LocalSystem(OliveSystem):
         """
         return the_pass.run(model, output_model_path, point)
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> SignalResult:
+    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> MetricResult:
         """
         Evaluate the model
         """
@@ -43,4 +43,4 @@ class LocalSystem(OliveSystem):
         for metric in metrics:
             evaluator = evaluator_adaptor(metric)
             metrics_res[metric.name] = evaluator(model, metric, self.device)
-        return SignalResult.parse_obj(metrics_res)
+        return flatten_metric_result(metrics_res)

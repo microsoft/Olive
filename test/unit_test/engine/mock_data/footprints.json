@@ -14,22 +14,26 @@
         },
         "metrics": {
             "value": {
-                "signal": {
-                    "accuracy": {
-                        "key_for_rank": "accuracy_score",
-                        "value_for_rank": 0.92,
-                        "metrics": {"accuracy_score": 0.92, "f1_score": 0.80}
-                    },
-                    "latency": {
-                        "key_for_rank": "avg",
-                        "value_for_rank": 112,
-                        "metrics": {"avg": 112, "max": 120}
-                    }
+                "accuracy-accuracy_score": {
+                    "value": 0.92,
+                    "priority_rank": 1,
+                    "higher_is_better": true
+                },
+                "accuracy-f1_score": {
+                    "value": 0.90,
+                    "priority_rank": -1,
+                    "higher_is_better": true
+                },
+                "latency-avg": {
+                    "value": 112,
+                    "priority_rank": 2,
+                    "higher_is_better": false
                 }
             },
             "cmp_direction": {
-                "accuracy": 1,
-                "latency": -1
+                "accuracy-accuracy_score": 1,
+                "accuracy-f1_score": 1,
+                "latency-avg": -1
             },
             "is_goals_met": true
         }
@@ -49,22 +53,26 @@
         },
         "metrics": {
             "value": {
-                "signal": {
-                    "accuracy": {
-                        "key_for_rank": "accuracy_score",
-                        "value_for_rank": 0.91,
-                        "metrics": {"accuracy_score": 0.91, "f1_score": 0.81}
-                    },
-                    "latency": {
-                        "key_for_rank": "avg",
-                        "value_for_rank": 111,
-                        "metrics": {"avg": 111, "max": 123}
-                    }
+                "accuracy-accuracy_score": {
+                    "value": 0.91,
+                    "priority_rank": 1,
+                    "higher_is_better": true
+                },
+                "accuracy-f1_score": {
+                    "value": 0.81,
+                    "priority_rank": -1,
+                    "higher_is_better": true
+                },
+                "latency-avg": {
+                    "value": 111,
+                    "priority_rank": 2,
+                    "higher_is_better": false
                 }
             },
             "cmp_direction": {
-                "accuracy": 1,
-                "latency": -1
+                "accuracy-accuracy_score": 1,
+                "accuracy-f1_score": 1,
+                "latency-avg": -1
             },
             "is_goals_met": true
         }
@@ -79,22 +87,26 @@
         },
         "metrics": {
             "value": {
-                "signal": {
-                    "accuracy": {
-                        "key_for_rank": "accuracy_score",
-                        "value_for_rank": 0.90,
-                        "metrics": {"accuracy_score": 0.90, "f1_score": 0.81}
-                    },
-                    "latency": {
-                        "key_for_rank": "avg",
-                        "value_for_rank": 120,
-                        "metrics": {"avg": 120, "max": 123}
-                    }
+                "accuracy-accuracy_score": {
+                    "value": 0.90,
+                    "priority_rank": 1,
+                    "higher_is_better": true
+                },
+                "accuracy-f1_score": {
+                    "value": 0.81,
+                    "priority_rank": -1,
+                    "higher_is_better": true
+                },
+                "latency-avg": {
+                    "value": 120,
+                    "priority_rank": 2,
+                    "higher_is_better": false
                 }
             },
             "cmp_direction": {
-                "accuracy": 1,
-                "latency": -1
+                "accuracy-accuracy_score": 1,
+                "accuracy-f1_score": 1,
+                "latency-avg": -1
             }
         }
     }

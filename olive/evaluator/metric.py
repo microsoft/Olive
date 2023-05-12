@@ -6,9 +6,9 @@ import logging
 from enum import Enum
 from typing import List, Union
 
-from pydantic import BaseModel, validator
+from pydantic import validator
 
-from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.config_utils import ConfigBase, ConfigListBase, validate_config
 from olive.data.config import DataConfig
 from olive.evaluator.accuracy import AccuracyBase
 from olive.evaluator.metric_config import LatencyMetricConfig, MetricGoal, get_user_config_class
@@ -79,18 +79,16 @@ class MetricSubType(ConfigBase):
 class Metric(ConfigBase):
     name: str
     type: MetricType
-    sub_types: List[MetricSubType] = None
+    sub_types: List[MetricSubType]
     user_config: ConfigBase = None
     data_config: DataConfig = DataConfig()
 
     def get_sub_type_info(self, info_name, no_priority_rank_filter=True, callback=lambda x: x):
         sub_type_info = {}
-        if self.sub_types is None:
-            return None
         for sub_type in self.sub_types:
             if no_priority_rank_filter and sub_type.priority_rank <= 0:
                 continue
-            sub_type_info[sub_type.name] = callback(getattr(self, info_name))
+            sub_type_info[sub_type.name] = callback(getattr(sub_type, info_name))
         return sub_type_info
 
     @validator("sub_types", always=True, pre=True, each_item=True)
@@ -132,11 +130,5 @@ class Metric(ConfigBase):
         return validate_config(v, ConfigBase, user_config_class)
 
 
-class MetricList(BaseModel):
+class MetricList(ConfigListBase):
     __root__: List[Metric]
-
-    def __iter__(self):
-        return iter(self.__root__)
-
-    def __getitem__(self, item):
-        return self.__root__[item]

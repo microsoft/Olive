@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from olive.evaluator.metric import AccuracySubType
+from olive.evaluator.metric_config import joint_metric_key
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
 
@@ -171,4 +172,6 @@ class TestDockerSystem:
         volumes_list.append(output_mount_str)
         mock_docker_client.containers.run.call_once_with(docker_system.image, eval_command, volumes_list, **run_command)
 
-        assert actual_res.signal[metric.name].value_for_rank == 0.99618
+        for sub_type in metric.sub_types:
+            joint_key = joint_metric_key(metric.name, sub_type.name)
+            assert actual_res[joint_key].value == 0.99618

@@ -11,7 +11,7 @@ import pytest
 
 from olive.evaluator.evaluation import evaluate_accuracy
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricType
-from olive.evaluator.metric_config import MetricResult
+from olive.evaluator.metric_config import MetricResult, joint_metric_key, flatten_metric_result
 from olive.systems.python_environment import PythonEnvironmentSystem
 
 
@@ -33,23 +33,33 @@ class TestPythonEnvironmentSystem:
         # setup
         model = get_onnx_model()
         metrics = [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE), get_latency_metric(LatencySubType.AVG)]
-        mock_evaluate_accuracy.return_value = MetricResult(
-            key_for_rank=AccuracySubType.ACCURACY_SCORE,
-            value_for_rank=0.9,
-            metrics={AccuracySubType.ACCURACY_SCORE: 0.9},
-        )
-        mock_evaluate_latency.return_value = MetricResult(
-            key_for_rank=LatencySubType.AVG,
-            value_for_rank=10,
-            metrics={LatencySubType.AVG: 10, LatencySubType.MAX: 20},
-        )
+
+        metrics_key = [joint_metric_key(metric.name, sub_metric.name)
+                       for metric in metrics for sub_metric in metric.sub_types]
+
+        mock_return_value = {
+            sub_metric.name: {
+                "value": 0.9 if metric.type == MetricType.ACCURACY else 10,
+                "priority_rank": sub_metric.priority_rank,
+                "higher_is_better": sub_metric.higher_is_better,
+            }
+            for metric in metrics
+            for sub_metric in metric.sub_types
+        }
+
+        mock_evaluate_accuracy.return_value = MetricResult.parse_obj({
+            AccuracySubType.ACCURACY_SCORE: mock_return_value[AccuracySubType.ACCURACY_SCORE]
+        })
+        mock_evaluate_latency.return_value = MetricResult.parse_obj({
+            LatencySubType.AVG: mock_return_value[LatencySubType.AVG]
+        })
 
         # execute
         res = self.system.evaluate_model(model, metrics)
 
         # assert
-        assert res.signal["accuracy"].value_for_rank == 0.9
-        assert res.signal["latency"].value_for_rank == 10
+        assert res[metrics_key[0]].value == 0.9
+        assert res[metrics_key[1]].value == 10
         assert mock_evaluate_accuracy.call_once_with(model, metrics[0])
         assert mock_evaluate_latency.call_once_with(model, metrics[1])
 
@@ -58,12 +68,15 @@ class TestPythonEnvironmentSystem:
     def test_evaluate_accuracy(self, mock_compute_accuracy, mock_compute_accuracy2):
         # setup
         model = get_onnx_model()
-        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, False)
-        mock_value = MetricResult(
-            key_for_rank=metric.name,
-            value_for_rank=0.9,
-            metrics={metric.name: 0.9},
-        )
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, random_dataloader=False)
+        mock_value = MetricResult.parse_obj({
+            AccuracySubType.ACCURACY_SCORE: {
+                "value": 0.9,
+                "priority_rank": 1,
+                "higher_is_better": True,
+            }
+        })
+
         mock_compute_accuracy.return_value = mock_value
         mock_compute_accuracy2.return_value = mock_value
 
@@ -74,7 +87,7 @@ class TestPythonEnvironmentSystem:
         actual_res = self.system.evaluate_accuracy(model, metric)
 
         # assert
-        assert actual_res.value_for_rank == expected_res.value_for_rank
+        assert actual_res[AccuracySubType.ACCURACY_SCORE].value == expected_res[AccuracySubType.ACCURACY_SCORE].value
         assert mock_compute_accuracy.call_args.args[0] == mock_compute_accuracy2.call_args.args[0]
 
     @patch("olive.systems.python_environment.python_environment_system.compute_latency")
@@ -82,13 +95,18 @@ class TestPythonEnvironmentSystem:
         # setup
         model = get_onnx_model()
         metric = get_latency_metric(LatencySubType.AVG)
-        metric_config = metric.metric_config[MetricType.LATENCY]
+        metric_config = metric.sub_types[0].metric_config
         metric_config.repeat_test_num = 5
-        mock_compute_latency.return_value = MetricResult(
-            key_for_rank="avg",
-            value_for_rank=10,
-            metrics={"avg": 10},
-        )
+
+        mock_value = MetricResult.parse_obj({
+            LatencySubType.AVG: {
+                "value": 10,
+                "priority_rank": 1,
+                "higher_is_better": True,
+            }
+        })
+
+        mock_compute_latency.return_value = mock_value
         # expected result
         expected_res = 10
 
@@ -96,6 +114,6 @@ class TestPythonEnvironmentSystem:
         actual_res = self.system.evaluate_latency(model, metric)
 
         # assert
-        assert actual_res.value_for_rank == expected_res
+        assert actual_res[LatencySubType.AVG].value == expected_res
         assert len(mock_compute_latency.call_args.args[0]) == metric_config.repeat_test_num
         assert all([latency > 0 for latency in mock_compute_latency.call_args.args[0]])

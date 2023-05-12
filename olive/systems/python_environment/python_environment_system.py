@@ -16,7 +16,7 @@ import torch
 from olive.common.utils import run_subprocess
 from olive.evaluator.evaluation import compute_accuracy, compute_latency, format_onnx_input, get_user_config
 from olive.evaluator.metric import Metric, MetricType
-from olive.evaluator.metric_config import SignalResult
+from olive.evaluator.metric_config import flatten_metric_result, MetricResult
 from olive.model import OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import Device, SystemType
@@ -69,7 +69,7 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         raise ValueError("PythonEnvironmentSystem does not support running passes.")
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> SignalResult:
+    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> MetricResult:
         """
         Evaluate the model
         """
@@ -86,7 +86,7 @@ class PythonEnvironmentSystem(OliveSystem):
                 metrics_res[metric.name] = self.evaluate_accuracy(model, metric)
             elif metric.type == MetricType.LATENCY:
                 metrics_res[metric.name] = self.evaluate_latency(model, metric)
-        return SignalResult.parse_obj(metrics_res)
+        return flatten_metric_result(metrics_res)
 
     def evaluate_accuracy(self, model: ONNXModel, metric: Metric) -> float:
         """

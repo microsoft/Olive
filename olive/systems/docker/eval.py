@@ -10,7 +10,7 @@ import sys
 
 from olive.evaluator.evaluation import evaluator_adaptor
 from olive.evaluator.metric import MetricList
-from olive.evaluator.metric_config import SignalResult
+from olive.evaluator.metric_config import flatten_metric_result
 from olive.model import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ def evaluate_entry(config, model_path, output_path, output_name):
     for metric in metric_list:
         evaluator = evaluator_adaptor(metric)
         metrics_res[metric.name] = evaluator(model, metric)
-    signal = SignalResult.parse_obj(metrics_res)
+    signal = flatten_metric_result(metrics_res)
 
     with open(os.path.join(output_path, f"{output_name}"), "w") as f:
         json.dump(signal.dict(), f)

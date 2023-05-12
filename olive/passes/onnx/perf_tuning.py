@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
 from olive.evaluator.evaluation import evaluate_latency
-from olive.evaluator.metric import LatencySubType, Metric, MetricType
+from olive.evaluator.metric import LatencySubType, Metric, MetricType, MetricSubType
 from olive.evaluator.metric_config import get_properties_from_metric_type
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -55,8 +55,9 @@ def tune_onnx_model(model, config):
     for eval_config in get_properties_from_metric_type(MetricType.LATENCY):
         if eval_config in config_dict:
             latency_user_config[eval_config] = config_dict.get(eval_config)
+    latency_sub_types = [{"name": LatencySubType.AVG}]
     latency_metric = Metric(
-        name="latency", type=MetricType.LATENCY, sub_type=LatencySubType.AVG, user_config=latency_user_config
+        name="latency", type=MetricType.LATENCY, sub_types=latency_sub_types, user_config=latency_user_config
     )
 
     pretuning_inference_result = get_benchmark(model, latency_metric, config)
@@ -210,8 +211,7 @@ def get_benchmark(model, latency_metric, config, test_params=None):
         # add the io_bind back to test_params
         test_params["_io_bind"] = io_bind
     for sub_type in latency_metric.sub_types:
-        if sub_type.priority_rank > 0:
-            test_result["latency_ms"] = evaluate_latency(model, latency_metric, config.device)[sub_type.name]
+        test_result["latency_ms"] = evaluate_latency(model, latency_metric, config.device)[sub_type.name].value
     return test_result
 
 

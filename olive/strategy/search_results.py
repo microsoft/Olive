@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 
 from olive.common.utils import hash_dict
-from olive.evaluator.metric_config import SignalResult
+from olive.evaluator.metric_config import MetricResult
 
 
 class SearchResults:
@@ -43,7 +43,7 @@ class SearchResults:
         self.results = {}
         self.model_ids = {}
 
-    def record(self, search_point: Dict[str, Dict[str, Any]], result: SignalResult, model_ids: List[str]):
+    def record(self, search_point: Dict[str, Dict[str, Any]], result: MetricResult, model_ids: List[str]):
         """
         Report the result of a configuration.
         """
@@ -52,7 +52,7 @@ class SearchResults:
         self.results[search_point_hash] = deepcopy(result)
         self.model_ids[search_point_hash] = model_ids
 
-    def check_goals(self, result: SignalResult) -> bool:
+    def check_goals(self, result: MetricResult) -> bool:
         """
         Check if the result satisfies the constraints.
         """
@@ -60,13 +60,9 @@ class SearchResults:
         if self.goals == {}:
             return True
 
-        for metric_name, sub_type_goals in self.goals.items():
-            for sub_type_name, goal in sub_type_goals.items():
-                if (
-                    self.obj_mul[metric_name][sub_type_name] * result.get_value(metric_name, sub_type_name)
-                    < self.obj_mul[metric_name][sub_type_name] * goal
-                ):
-                    return False
+        for obj, goal in self.goals.items():
+            if self.obj_mul[obj] * result[obj].value < self.obj_mul[obj] * goal:
+                return False
         return True
 
     def sort_search_points(self, objectives: List[str] = None, apply_goals: bool = False) -> List[str]:
@@ -115,12 +111,12 @@ class SearchResults:
         results = []
         for search_point_hash in self.results:
             result = self.results[search_point_hash]
-            if not result or not result.signal:
+            if not result:
                 continue
             if apply_goals and not self.check_goals(result):
                 continue
             search_point_hashes.append(search_point_hash)
-            results.append([self.obj_mul[obj] * result.signal[obj].value_for_rank for obj in objectives])
+            results.append([self.obj_mul[obj] * result[obj].value for obj in objectives])
 
         return results, search_point_hashes
 

@@ -20,7 +20,7 @@ import pytest
 from olive.common.utils import hash_dict
 from olive.engine import Engine
 from olive.evaluator.metric import AccuracySubType
-from olive.evaluator.metric_config import MetricResult, SignalResult
+from olive.evaluator.metric_config import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluator
 from olive.model import PyTorchModel
 from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization
@@ -111,30 +111,24 @@ class TestEngine:
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator=evaluator)
         engine.register(OnnxConversion, clean_run_cache=True)
         onnx_model = get_onnx_model()
-        mock_local_system.run_pass.return_value = onnx_model
-        mock_local_system.evaluate_model.return_value = SignalResult(
-            signal={
-                metric.name: MetricResult(
-                    value_for_rank=0.998,
-                    key_for_rank=metric.sub_type_for_rank,
-                    metrics={metric.sub_type_for_rank: 0.998},
-                )
+        metric_result_dict = {
+            joint_metric_key(metric.name, sub_metric.name): {
+                "value": 0.998,
+                "priority_rank": sub_metric.priority_rank,
+                "higher_is_better": sub_metric.higher_is_better,
             }
-        )
-
+            for sub_metric in metric.sub_types
+        }
+        mock_local_system.run_pass.return_value = onnx_model
+        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         model_id = f"0_{p.__class__.__name__}-{input_model_id}-{hash_dict(pass_config)}"
         expected_res = {
             model_id: {
                 "model_id": model_id,
                 "parent_model_id": input_model_id,
                 "metrics": {
-                    "value": {
-                        metric.name: {
-                            "value_for_rank": 0.998,
-                            "key_for_rank": metric.sub_type_for_rank,
-                        },
-                    },
-                    "cmp_direction": {metric.name: 1},
+                    "value": metric_result_dict,
+                    "cmp_direction": {},
                     "is_goals_met": True,
                 },
             }
@@ -181,16 +175,16 @@ class TestEngine:
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator=evaluator)
         engine.register(OnnxConversion, disable_search=True, clean_run_cache=True)
         onnx_model = get_onnx_model()
-        mock_local_system.run_pass.return_value = onnx_model
-        mock_local_system.evaluate_model.return_value = SignalResult(
-            signal={
-                metric.name: MetricResult(
-                    value_for_rank=0.998,
-                    key_for_rank=metric.sub_type_for_rank,
-                    metrics={metric.sub_type_for_rank: 0.998},
-                )
+        metric_result_dict = {
+            joint_metric_key(metric.name, sub_metric.name): {
+                "value": 0.998,
+                "priority_rank": sub_metric.priority_rank,
+                "higher_is_better": sub_metric.higher_is_better,
             }
-        )
+            for sub_metric in metric.sub_types
+        }
+        mock_local_system.run_pass.return_value = onnx_model
+        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
 
         # output model to output_dir
         output_dir = Path("cache") / "output"
@@ -200,15 +194,7 @@ class TestEngine:
         accelerator_spec = 0
         expected_res = {
             "model": onnx_model.to_json(),
-            "metrics": SignalResult(
-                signal={
-                    metric.name: MetricResult(
-                        value_for_rank=0.998,
-                        key_for_rank=metric.sub_type_for_rank,
-                        metrics={metric.sub_type_for_rank: 0.998},
-                    )
-                }
-            ),
+            "metrics": MetricResult.parse_obj(metric_result_dict),
         }
         expected_res["model"]["config"]["model_path"] = str(
             Path(output_dir / f"{accelerator_spec}_model.onnx").resolve()
@@ -273,30 +259,22 @@ class TestEngine:
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator=evaluator)
         engine.register(OnnxConversion, clean_run_cache=True)
         onnx_model = get_onnx_model()
-        mock_local_system.run_pass.return_value = onnx_model
-        mock_local_system.evaluate_model.return_value = SignalResult(
-            signal={
-                metric.name: MetricResult(
-                    value_for_rank=0.998,
-                    key_for_rank=metric.sub_type_for_rank,
-                    metrics={metric.sub_type_for_rank: 0.998},
-                )
+        metric_result_dict = {
+            joint_metric_key(metric.name, sub_metric.name): {
+                "value": 0.998,
+                "priority_rank": sub_metric.priority_rank,
+                "higher_is_better": sub_metric.higher_is_better,
             }
-        )
+            for sub_metric in metric.sub_types
+        }
+        mock_local_system.run_pass.return_value = onnx_model
+        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
 
         # output model to output_dir
         output_dir = Path("cache") / "output"
         shutil.rmtree(output_dir, ignore_errors=True)
 
-        expected_res = SignalResult(
-            signal={
-                metric.name: MetricResult(
-                    value_for_rank=0.998,
-                    key_for_rank=metric.sub_type_for_rank,
-                    metrics={metric.sub_type_for_rank: 0.998},
-                )
-            }
-        )
+        expected_res = MetricResult.parse_obj(metric_result_dict)
 
         # execute
         actual_res = engine.run(pytorch_model, output_dir=output_dir, evaluation_only=True)

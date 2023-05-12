@@ -17,7 +17,7 @@ from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric
-from olive.evaluator.metric_config import SignalResult
+from olive.evaluator.metric_config import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluator
 from olive.model import ModelConfig, ModelStorageKind, OliveModel
 from olive.passes.olive_pass import Pass
@@ -448,12 +448,13 @@ class Engine:
         {objective_name: {"higher_is_better": bool, "goal": float}}
         """
         goals = self.resolve_goals(input_model, input_model_id, metrics, accelerator_spec, verbose)
-        objective_dict = defaultdict(Dict)
+        objective_dict = {}
         for metric in metrics:
             for sub_type in metric.sub_types:
-                objective_dict[metric.name][sub_type] = {
-                    "higher_is_better": metric.higher_is_better,
-                    "goal": goals[metric.name].get(sub_type, None),
+                metric_key = joint_metric_key(metric.name, sub_type.name)
+                objective_dict[metric_key] = {
+                    "higher_is_better": sub_type.higher_is_better,
+                    "goal": goals.get(metric_key),
                 }
         self.footprints[accelerator_spec].record_objective_dict(objective_dict)
         return objective_dict
@@ -478,36 +479,48 @@ class Engine:
                 info_name="higher_is_better",
                 callback=lambda x: 1 if x else -1,
             )
+
         if verbose and goals:
             logger.info(f"Resolving goals: {goals}")
 
-        # compute baseline for input model if needed
-        if verbose:
-            logger.info("Computing baseline for metrics ...")
-        baseline = self._evaluate_model(input_model, input_model_id, self.evaluator, accelerator_spec, verbose=False)
+        baseline = MetricResult()
+        for goal in goals.values():
+            for sub_goal in goal.values():
+                if sub_goal.type != "threshold":
+                    assert self.evaluator is not None, "Default evaluator must be provided to resolve goals"
+                    if verbose:
+                        logger.info("Computing baseline for metrics ...")
+                    baseline = self._evaluate_model(
+                        input_model, input_model_id, self.evaluator, accelerator_spec, verbose=False
+                    )
+                    break
+        if not baseline:
+            logger.info("No baseline got as no goal is provided the the goal is threshold")
+            return {}
+
         if verbose and baseline:
             logger.info(f"Baseline: {baseline}")
 
         # resolve goals to thresholds
-        resolved_goals = defaultdict(Dict)
+        resolved_goals = {}
         for metric_name, sub_type_goals in goals.items():
             for sub_type_name, goal in sub_type_goals.items():
                 # TODO: make the logic cleaner
                 resolved_goal_value = None
-                baseline_sub_type = baseline[metric_name][sub_type_name]
+                baseline_sub_type = baseline.get_value(metric_name, sub_type_name)
                 multiplier = multipliers[metric_name][sub_type_name]
                 if goal.type == "threshold":
                     resolved_goal_value = goal.value
                 elif goal.type == "max-degradation":
-                    resolved_goal_value = baseline_sub_type.value - multiplier * goal.value
+                    resolved_goal_value = baseline_sub_type - multiplier * goal.value
                 elif goal.type == "min-improvement":
-                    resolved_goal_value = baseline_sub_type.value + multiplier * goal.value
+                    resolved_goal_value = baseline_sub_type + multiplier * goal.value
                 elif goal.type == "percent-max-degradation":
-                    resolved_goal_value = baseline_sub_type.value * (1 - multiplier * goal.value / 100)
+                    resolved_goal_value = baseline_sub_type * (1 - multiplier * goal.value / 100)
                 elif goal.type == "percent-min-improvement":
-                    resolved_goal_value = baseline_sub_type.value * (1 + multiplier * goal.value / 100)
+                    resolved_goal_value = baseline_sub_type * (1 + multiplier * goal.value / 100)
 
-                resolved_goals[metric_name][sub_type_name] = resolved_goal_value
+                resolved_goals[joint_metric_key(metric_name, sub_type_name)] = resolved_goal_value
         if verbose and len(resolved_goals) > 0:
             logger.info(f"Resolved goals: {resolved_goals}")
 
@@ -763,7 +776,7 @@ class Engine:
         evaluation_json_path = self._evaluation_cache_path / f"{model_id}.json"
         return evaluation_json_path
 
-    def _cache_evaluation(self, model_id: str, signal: SignalResult):
+    def _cache_evaluation(self, model_id: str, signal: MetricResult):
         """
         Cache the evaluation in the cache directory.
         """
@@ -786,7 +799,7 @@ class Engine:
             try:
                 evaluation_json = json.load(open(evaluation_json_path, "r"))
                 signal = evaluation_json["signal"]
-                signal = SignalResult(**signal)
+                signal = MetricResult(**signal)
             except Exception as e:
                 logger.error(f"Failed to load evaluation: {e}")
                 signal = None

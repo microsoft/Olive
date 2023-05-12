@@ -9,7 +9,7 @@ from pydantic import validator
 
 from olive.common.config_utils import ConfigBase
 from olive.evaluator.metric import Metric, MetricList
-from olive.evaluator.metric_config import SignalResult
+from olive.evaluator.metric_config import MetricResult, joint_metric_key
 from olive.model import OliveModel
 from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
@@ -29,7 +29,7 @@ class OliveEvaluator:
                 return metric
         raise ValueError(f"Metric {metric_name} not found")
 
-    def evaluate(self, model: OliveModel, target: OliveSystem = LocalSystem()) -> SignalResult:
+    def evaluate(self, model: OliveModel, target: OliveSystem = LocalSystem()) -> MetricResult:
         return target.evaluate_model(model, self.metrics)
 
 
@@ -45,15 +45,24 @@ class OliveEvaluatorConfig(ConfigBase):
         metric_names = set([metric.name for metric in v])
         assert len(metric_names) == metric_len, "Metric names must be unique"
 
+        sub_type_names = set()
         sub_type_with_rank = set()
         rank_set = set()
         for metric in v:
             for sub_type in metric.sub_types:
+                sub_type_names.add(joint_metric_key(metric.name, sub_type.name))
                 if sub_type.priority_rank != -1:
                     sub_type_with_rank.add(sub_type.name)
                     rank_set.add(sub_type.priority_rank)
 
-        expected_rank_set = set(range(1, sub_type_with_rank + 1))
+        if not rank_set and len(sub_type_names) == 1:
+            logger.debug("""No priority rank is specified, but only one sub type
+                metric is specified. Use rank 1 for single for this metric.""")
+            v[0].sub_types[0].priority_rank = 1
+        elif not rank_set and len(sub_type_names) > 1:
+            raise ValueError("Priority rank must be specified for multiple sub type metrics")
+
+        expected_rank_set = set(range(1, len(sub_type_with_rank) + 1))
         # Check if all ranks are present
         if rank_set != expected_rank_set:
             raise ValueError(f"Priority ranks must be unique and in the range 1 to {metric_len}")

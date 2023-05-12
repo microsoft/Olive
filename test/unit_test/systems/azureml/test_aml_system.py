@@ -12,6 +12,7 @@ import pytest
 from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 
+from olive.evaluator.metric_config import joint_metric_key
 from olive.evaluator.metric import AccuracySubType, LatencySubType
 from olive.model import ModelStorageKind, ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
@@ -69,9 +70,13 @@ class TestAzureMLSystem:
         self.aml_system.ml_client.jobs.stream.assert_called_once()
         assert mock_retry_func.call_count == 2
         if metric.name == "accuracy":
-            assert res.signal[metric.name].value_for_rank == 0.99618
+            for sub_type in metric.sub_types:
+                key_name = joint_metric_key(metric.name, sub_type.name)
+                assert res[key_name].value == 0.99618
         if metric.name == "latency":
-            assert res.signal[metric.name].value_for_rank == 0.031415
+            for sub_type in metric.sub_types:
+                key_name = joint_metric_key(metric.name, sub_type.name)
+                assert res[key_name].value == 0.031415
 
     @patch("olive.systems.azureml.aml_system.shutil.copy")
     @patch("olive.systems.azureml.aml_system.retry_func")
@@ -195,7 +200,8 @@ class TestAzureMLSystem:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         metric.user_config = {}
         model_args = {"input": Input(type=AssetTypes.URI_FILE, path="path")}
-        metric_type = f"{metric.type}-{metric.sub_type}"
+        sub_type_name = ",".join([st.name for st in metric.sub_types])
+        metric_type = f"{metric.type}-{sub_type_name}"
         model_inputs = {
             "model_config": Input(type=AssetTypes.URI_FILE),
             "model_path": Input(type=AssetTypes.CUSTOM_MODEL)

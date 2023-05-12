@@ -20,7 +20,7 @@ from olive.common.config_utils import validate_config
 from olive.common.utils import retry_func
 from olive.constants import Framework
 from olive.evaluator.metric import Metric
-from olive.evaluator.metric_config import SignalResult
+from olive.evaluator.metric_config import flatten_metric_result, MetricResult
 from olive.model import ModelConfig, ModelStorageKind, OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import AzureMLDockerConfig, SystemType
@@ -398,7 +398,7 @@ class AzureMLSystem(OliveSystem):
             "metric_data_dir": metric_data_dir,
         }
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> SignalResult:
+    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> MetricResult:
         if model.framework == Framework.SNPE:
             raise NotImplementedError("SNPE model does not support azureml evaluation")
         if model.framework == Framework.OPENVINO:
@@ -438,7 +438,7 @@ class AzureMLSystem(OliveSystem):
                 if metric_json.is_file():
                     metric_results[metric.name] = json.load(open(metric_json))["result"]
 
-            return SignalResult.parse_obj(metric_results)
+            return flatten_metric_result(metric_results)
 
     def _create_pipeline_for_evaluation(self, tmp_dir: str, model: OliveModel, metrics: List[Metric]):
         tmp_dir = Path(tmp_dir)
@@ -490,8 +490,9 @@ class AzureMLSystem(OliveSystem):
 
         # metric type
         metric_type = metric_json["type"]
-        if metric_json["sub_type"] is not None:
-            metric_type = f"{metric_type}-{metric_json['sub_type']}"
+        if metric_json["sub_types"] is not None:
+            sub_type_name = ",".join([st["name"] for st in metric_json["sub_types"]])
+            metric_type = f"{metric_type}-{sub_type_name}"
 
         # aml command object
         cmd = self._create_step(

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricType
-from olive.evaluator.metric_config import MetricResult
+from olive.evaluator.metric_config import MetricResult, joint_metric_key
 from olive.systems.local import LocalSystem
 
 
@@ -57,11 +57,15 @@ class TestLocalSystem:
     def test_evaluate_model(self, mock_evaluate_custom_metric, mock_evaluate_latency, mock_evaluate_accuracy, metric):
         # setup
         olive_model = MagicMock()
-        expected_res = MetricResult(
-            key_for_rank=metric.sub_type_for_rank,
-            value_for_rank=0.382715310,
-            metrics={metric.sub_type_for_rank: 0.382715310},
-        )
+        expected_res = MetricResult.parse_obj({
+            sub_metric.name: {
+                "value": 0.382715310,
+                "priority_rank": sub_metric.priority_rank,
+                "higher_is_better": sub_metric.higher_is_better,
+            }
+            for sub_metric in metric.sub_types
+        })
+
         mock_evaluate_custom_metric.return_value = expected_res
         mock_evaluate_latency.return_value = expected_res
         mock_evaluate_accuracy.return_value = expected_res
@@ -76,4 +80,7 @@ class TestLocalSystem:
             mock_evaluate_latency.called_once_with(olive_model, metric, self.local_system.device)
         if metric.type == MetricType.CUSTOM:
             mock_evaluate_custom_metric.called_once_with(olive_model, metric, self.local_system.device)
-        assert actual_res.signal[metric.name].value_for_rank == expected_res.value_for_rank
+
+        joint_keys = [joint_metric_key(metric.name, sub_metric.name) for sub_metric in metric.sub_types]
+        for joint_key in joint_keys:
+            assert actual_res[joint_key].value == 0.38271531

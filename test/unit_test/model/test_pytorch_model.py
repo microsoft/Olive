@@ -2,8 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import shutil
 import unittest
 
+import pytest
 import mlflow
 import pandas as pd
 import transformers
@@ -13,6 +15,7 @@ from olive.model import PyTorchModel
 
 
 class TestPyTorchMLflowModel(unittest.TestCase):
+    @pytest.fixture(autouse=True)
     def setup(self):
         self.model_path = "mlflow_test"
         self.task = "text-classification"
@@ -30,9 +33,10 @@ class TestPyTorchMLflowModel(unittest.TestCase):
             config=self.original_model.config,
             hf_conf=self.hf_conf,
         )
+        yield
+        shutil.rmtree(self.model_path)
 
     def test_load_model(self):
-        self.setup()
 
         olive_model = PyTorchModel(model_path=self.model_path, model_file_format="PyTorch.MLflow").load_model()
         mlflow_model = mlflow.pyfunc.load_model(self.model_path)
