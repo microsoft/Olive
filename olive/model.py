@@ -207,7 +207,7 @@ class HFComponent(ConfigBase):
 
 
 class HFConfig(ConfigBase):
-    model_name: str
+    model_name: str = None
     task: str = None
     # TODO: remove model_class and only use task
     model_class: str = None
