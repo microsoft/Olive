@@ -6,15 +6,14 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from shutil import copyfile
 from typing import Any, Callable, Dict, Union
 
 import onnx
 
 from olive.common.utils import hash_string
-from olive.model import ONNXModel
+from olive.model import ModelStorageKind, ONNXModel
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
 
@@ -220,7 +219,7 @@ class OnnxQuantization(Pass):
 
     def _initialize(self):
         super()._initialize()
-        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
 
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
@@ -325,8 +324,9 @@ class OnnxQuantization(Pass):
         # we hash the entire path of the input model to ensure we are not accidentally using a preprocessed model
         # from a different model
         preprocessed_temp_model_path = (
-            Path(self.tmp_dir.name) / f"{hash_string(str(Path(model.model_path).resolve()))}_preprocessed.onnx"
+            Path(self.tmp_dir.name) / f"{hash_string(str(Path(model.model_path).resolve()))}" / "preprocessed.onnx"
         )
+        preprocessed_temp_model_path.parent.mkdir(exist_ok=True, parents=True)
         if run_config["quant_preprocess"]:
             if not preprocessed_temp_model_path.exists():
                 # overwrite the model path with the preprocessed model path
@@ -334,7 +334,9 @@ class OnnxQuantization(Pass):
                 model = self._quant_preprocess(model, preprocessed_temp_model_path)
             else:
                 logger.info("Already processed model for quantization, skipping preprocessing")
-                model = ONNXModel(preprocessed_temp_model_path, model.name)
+                model = ONNXModel(
+                    preprocessed_temp_model_path, model.name, model_storage_kind=ModelStorageKind.LocalFolder
+                )
 
         # keys not needed for quantization
         to_delete = ["quant_mode", "script_dir", "user_script", "quant_preprocess", "data_config"]
@@ -409,13 +411,26 @@ class OnnxQuantization(Pass):
     def _quant_preprocess(self, model: ONNXModel, output_model_path: str) -> ONNXModel:
         from onnxruntime.quantization.preprocess import quant_pre_process
 
+        # always save as external data to avoid failures due to large models
         try:
-            quant_pre_process(input_model_path=model.model_path, output_model_path=output_model_path, auto_merge=True)
+            quant_pre_process(
+                input_model_path=model.model_path,
+                output_model_path=output_model_path,
+                auto_merge=True,
+                save_as_external_data=True,
+                all_tensors_to_one_file=True,
+            )
         except Exception as e:
-            logger.warning(f"failed to run quantization preprocessing with error of {e}")
-            copyfile(model.model_path, output_model_path)
+            logger.warning(f"Failed to run quantization preprocessing with error of {e}. Using original model.")
+            # save original model to output path
+            onnx_model = onnx.load(model.model_path)
+            model_proto_to_file(
+                onnx_model,
+                output_model_path,
+                save_as_external_data=True,
+            )
 
-        return ONNXModel(output_model_path, model.name)
+        return ONNXModel(output_model_path, model.name, model_storage_kind=ModelStorageKind.LocalFolder)
 
 
 class OnnxDynamicQuantization(OnnxQuantization):
