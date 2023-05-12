@@ -207,12 +207,12 @@ class HFComponent(ConfigBase):
 
 
 class HFConfig(ConfigBase):
+    load_model_from_hub: bool = True
     model_name: str = None
     task: str = None
     # TODO: remove model_class and only use task
     model_class: str = None
     use_ort_implementation: bool = False
-    load_model_from_hub: bool = True
     components: List[HFComponent] = None
     dataset: Dict[str, Any] = None
 
@@ -223,6 +223,12 @@ class HFConfig(ConfigBase):
 
         if not v and not values["task"]:
             raise ValueError("Either task or model_class must be specified")
+        return v
+
+    @validator("model_name", always=True)
+    def validate_model_name(cls, v, values):
+        if values["load_model_from_hub"] and not v:
+            raise ValueError("Model_name needs to be specified when load_model_from_hub is True")
         return v
 
 
@@ -544,11 +550,12 @@ class PyTorchModel(OliveModel):
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
         elif self.hf_config is not None:
+            input_model = self.hf_config.model_name if self.hf_config.load_model_from_hf_hub else self.model_path
             if self.hf_config.task:
-                model = load_huggingface_model_from_task(self.hf_config.task, self.hf_config.model_name)
+                model = load_huggingface_model_from_task(self.hf_config.task, input_model)
             else:
                 model = load_huggingface_model_from_model_class(
-                    self.hf_config.model_class, self.hf_config.model_name, self.hf_config.use_ort_implementation
+                    self.hf_config.model_class, input_model, self.hf_config.use_ort_implementation
                 )
         else:
             if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
