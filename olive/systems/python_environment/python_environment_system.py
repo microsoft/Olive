@@ -50,7 +50,7 @@ class PythonEnvironmentSystem(OliveSystem):
             self.environ["PATH"] = os.pathsep.join(self.config.prepend_to_path) + os.pathsep + self.environ["PATH"]
         self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
 
-        # available eps. This will be populated the first time self.get_available_eps() is called.
+        # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
         # used for caching the available eps
         self.available_eps = None
 
@@ -205,7 +205,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
         return inference_settings
 
-    def get_available_eps(self) -> List[str]:
+    def get_supported_execution_providers(self) -> List[str]:
         """
         Get the available execution providers.
         """
@@ -229,7 +229,7 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         Get the execution providers for the device.
         """
-        available_eps = self.get_available_eps()
+        available_eps = self.get_supported_execution_providers()
         return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(self.device, available_eps)
 
     def get_default_execution_provider(self, model: ONNXModel) -> List[str]:

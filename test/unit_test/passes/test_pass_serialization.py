@@ -1,3 +1,7 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.olive_pass import FullPassConfig
 from olive.passes.onnx.conversion import OnnxConversion
