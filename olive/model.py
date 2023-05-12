@@ -302,6 +302,7 @@ class ONNXModel(ONNXModelBase):
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
+        hf_config: Union[Dict[str, Any], HFConfig] = None,
     ):
         super().__init__(
             model_path=model_path,
@@ -314,6 +315,8 @@ class ONNXModel(ONNXModelBase):
         self.io_config = None
         self.graph = None
         self.all_graphs: Optional[List[GraphProto]] = None
+        # huggingface config
+        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
 
     @staticmethod
     def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
@@ -400,7 +403,11 @@ class ONNXModel(ONNXModelBase):
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
         config["config"].update(
-            {"inference_settings": self.inference_settings, "use_ort_extensions": self.use_ort_extensions}
+            {
+                "inference_settings": self.inference_settings,
+                "use_ort_extensions": self.use_ort_extensions,
+                "hf_config": self.hf_config,
+            }
         )
         return serialize_to_json(config, check_object)
 
