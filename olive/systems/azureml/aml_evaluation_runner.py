@@ -42,11 +42,11 @@ def main(raw_args=None):
 
     # load model
     model_config = get_model_config(common_args)
-    model = ModelConfig.from_json(model_config).create_model()
-
     # load metric
     metric_config = json.load(open(metric_args.metric_config))
     metric = create_metric(metric_config, metric_args)
+
+    model = ModelConfig.from_json(model_config).create_model()
 
     # create_evaluator
     evaluator = OliveEvaluator([metric])

@@ -89,6 +89,11 @@ def main(raw_args=None):
 
     # save model json
     model_json = output_model.to_json()
+
+    # Replace output model HF config with input model HF config
+    if input_model_config["config"].get("hf_config"):
+        model_json["config"]["hf_config"] = input_model_config["config"]["hf_config"]
+
     # this is to handle passes like OrtPerfTuning that use the same model file as input
     model_json["same_model_path_as_input"] = False
     if model_json["config"]["model_path"] is not None:

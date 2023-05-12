@@ -211,6 +211,7 @@ class HFConfig(ConfigBase):
     task: str = None
     # TODO: remove model_class and only use task
     model_class: str = None
+    load_model_from_hub: bool = True
     use_ort_implementation: bool = False
     components: List[HFComponent] = None
     dataset: Dict[str, Any] = None
@@ -302,6 +303,7 @@ class ONNXModel(ONNXModelBase):
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
+        hf_config: Union[Dict[str, Any], HFConfig] = None,
     ):
         super().__init__(
             model_path=model_path,
@@ -314,6 +316,8 @@ class ONNXModel(ONNXModelBase):
         self.io_config = None
         self.graph = None
         self.all_graphs: Optional[List[GraphProto]] = None
+        # huggingface config
+        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
 
     @staticmethod
     def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
@@ -400,7 +404,11 @@ class ONNXModel(ONNXModelBase):
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
         config["config"].update(
-            {"inference_settings": self.inference_settings, "use_ort_extensions": self.use_ort_extensions}
+            {
+                "inference_settings": self.inference_settings,
+                "use_ort_extensions": self.use_ort_extensions,
+                "hf_config": self.hf_config,
+            }
         )
         return serialize_to_json(config, check_object)
 
@@ -536,11 +544,12 @@ class PyTorchModel(OliveModel):
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
         elif self.hf_config is not None:
+            input_model = self.hf_config.model_name if self.hf_config.load_model_from_hub else self.model_path
             if self.hf_config.task:
-                model = load_huggingface_model_from_task(self.hf_config.task, self.hf_config.model_name)
+                model = load_huggingface_model_from_task(self.hf_config.task, input_model)
             else:
                 model = load_huggingface_model_from_model_class(
-                    self.hf_config.model_class, self.hf_config.model_name, self.hf_config.use_ort_implementation
+                    self.hf_config.model_class, input_model, self.hf_config.use_ort_implementation
                 )
         else:
             if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
