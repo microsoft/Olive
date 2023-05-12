@@ -42,14 +42,13 @@ def main(raw_args=None):
 
     # load model
     model_config = get_model_config(common_args)
-
     # load metric
     metric_config = json.load(open(metric_args.metric_config))
     metric = create_metric(metric_config, metric_args)
 
     # Replace hf config model_name with input model path to load model from input model path
     hf_model_name = None
-    if model_config["config"].get("hf_config"):
+    if model_config["config"].get("hf_config") and not model_config["config"]["hf_config"]["load_model_from_hub"]:
         hf_model_name = model_config["config"]["hf_config"]["model_name"]
         model_config["config"]["hf_config"]["model_name"] = common_args.model_path
 

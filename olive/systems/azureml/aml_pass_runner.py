@@ -75,10 +75,9 @@ def main(raw_args=None):
 
     # load input_model
     input_model_config = get_model_config(common_args)
-
     # Replace HF config model_name with input model path to load model from input model path
     hf_config = None
-    if input_model_config["config"].get("hf_config"):
+    if input_model_config["config"].get("hf_config") and not input_model_config["config"]["hf_config"]["load_model_from_hub"]:
         hf_config = input_model_config["config"]["hf_config"].copy()
         input_model_config["config"]["hf_config"]["model_name"] = common_args.model_path
 

@@ -212,6 +212,7 @@ class HFConfig(ConfigBase):
     # TODO: remove model_class and only use task
     model_class: str = None
     use_ort_implementation: bool = False
+    load_model_from_hub: bool = True
     components: List[HFComponent] = None
     dataset: Dict[str, Any] = None
 
