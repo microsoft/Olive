@@ -123,9 +123,13 @@ class Engine:
         # we do this before cleaning pass run caches to ensure we don't reuse model numbers even if the model was
         # deleted from the cache
         self._new_model_number = 0
-        model_jsons = list(self._model_cache_path.glob("*_*.json"))
-        if len(model_jsons) > 0:
-            self._new_model_number = max([int(json_file.stem.split("_")[0]) for json_file in model_jsons]) + 1
+        # model jsons have the format <model_number>_<pass_type>-<source_model>-<pass_config_hash>.json
+        # model contents are stored in <model_number>_<pass_type>-<source_model>-<pass_config_hash> folder
+        # sometimes the folder is created with contents but the json is not created when the pass fails to run
+        # so we check for both when determining the new model number
+        model_files = list(self._model_cache_path.glob("*_*"))
+        if len(model_files) > 0:
+            self._new_model_number = max([int(model_file.stem.split("_")[0]) for model_file in model_files]) + 1
 
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements

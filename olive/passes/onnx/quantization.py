@@ -411,26 +411,30 @@ class OnnxQuantization(Pass):
     def _quant_preprocess(self, model: ONNXModel, output_model_path: str) -> ONNXModel:
         from onnxruntime.quantization.preprocess import quant_pre_process
 
-        # always save as external data to avoid failures due to large models
         try:
-            quant_pre_process(
-                input_model_path=model.model_path,
-                output_model_path=output_model_path,
-                auto_merge=True,
-                save_as_external_data=True,
-                all_tensors_to_one_file=True,
-            )
+            quant_pre_process(input_model_path=model.model_path, output_model_path=output_model_path, auto_merge=True)
+            has_external_data = False
         except Exception as e:
+            # TODO: try with `skip_optimization = False`
+            # the quantization preprocessing may fail if the model is too large
+            # there are some problems with the path to where the external data is saved
+            # need to find out why before enabling this
+
             logger.warning(f"Failed to run quantization preprocessing with error of {e}. Using original model.")
             # save original model to output path
             onnx_model = onnx.load(model.model_path)
             model_proto_to_file(
                 onnx_model,
                 output_model_path,
-                save_as_external_data=True,
+                save_as_external_data=True,  # always save as external data to avoid failures due to large models
             )
+            has_external_data = True
 
-        return ONNXModel(output_model_path, model.name, model_storage_kind=ModelStorageKind.LocalFolder)
+        return ONNXModel(
+            output_model_path,
+            model.name,
+            model_storage_kind=ModelStorageKind.LocalFolder if has_external_data else ModelStorageKind.LocalFile,
+        )
 
 
 class OnnxDynamicQuantization(OnnxQuantization):
