@@ -58,5 +58,5 @@ def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, **kwar
         remove_columns=dataset.column_names,
     )
     tokenized_datasets.set_format("torch", output_all_columns=True)
-    # label_cols is ["label"] since we added label_cols[0] as label to tokened_inputs
+    # label_cols is ["label"] since we added label_cols[0] as "label" to tokened_inputs
     return BaseDataset(tokenized_datasets, label_cols=["label"])
