@@ -2,7 +2,7 @@
 This folder contains a sample use case of Olive to optimize a [dolly](https://huggingface.co/databricks/dolly-v2-12b) model using onnx conversion.
 
 Performs optimization pipeline:
-- *PyTorch Model -> Onnx Model
+- *PyTorch Model -> Onnx Model*
 
 ## Prerequisites
 ### Pip requirements
