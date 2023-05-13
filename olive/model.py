@@ -599,14 +599,14 @@ class PyTorchModel(OliveModel):
         if self.dummy_inputs is not None:
             return self.dummy_inputs
 
-        assert self.dummy_inputs_func or (
-            self.io_config and self.io_config.input_shapes
-        ), "dummy_inputs_func or io_config.input_shapes must be provided to get dummy input"
+        assert (
+            self.dummy_inputs_func or (self.io_config and self.io_config.input_shapes) or self.hf_config.dataset
+        ), "dummy_inputs_func or io_config.input_shapes or hf_config.dataset must be provided to get dummy input"
 
         if self.dummy_inputs_func is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
-        else:
+        elif self.io_config and self.io_config.input_shapes:
             str_to_type = {
                 "float32": torch.float32,
                 "float16": torch.float16,
@@ -620,6 +620,22 @@ class PyTorchModel(OliveModel):
             for shape, dtype in zip(self.io_config.input_shapes, input_types):
                 dummy_inputs.append(torch.zeros(shape, dtype=str_to_type[dtype]))
             dummy_inputs = tuple(dummy_inputs) if len(dummy_inputs) > 1 else dummy_inputs[0]
+        else:
+            from olive.data.config import DataConfig
+            from olive.data.constants import DEFAULT_HF_DATA_CONTAINER_NAME
+            from olive.data.container.huggingface_container import HuggingfaceContainer
+
+            data_config = DataConfig(
+                name=DEFAULT_HF_DATA_CONTAINER_NAME,
+                type=HuggingfaceContainer.__name__,
+                params_config={
+                    "model_name": self.hf_config.model_name,
+                    "task": self.hf_config.task,
+                    **self.hf_config.dataset,
+                },
+            )
+            dataloader = data_config.to_data_container().create_dataloader()
+            dummy_inputs, _ = next(iter(dataloader))
 
         self.dummy_inputs = dummy_inputs
 
