@@ -154,7 +154,7 @@ class TestDockerSystem:
         mock_create_run_command.return_value = run_command
 
         # execute
-        actual_res = docker_system.evaluate_model(olive_model, [metric])
+        actual_res = docker_system.evaluate_model(olive_model, [metric])[metric.name]
 
         # assert
         mock_create_eval_script_mount.called_once_with(container_root_path)
@@ -171,4 +171,4 @@ class TestDockerSystem:
         volumes_list.append(output_mount_str)
         mock_docker_client.containers.run.call_once_with(docker_system.image, eval_command, volumes_list, **run_command)
 
-        assert actual_res[metric.name] == 0.99618
+        assert actual_res == 0.99618

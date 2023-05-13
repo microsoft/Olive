@@ -20,7 +20,7 @@ import pytest
 from olive.common.utils import hash_dict
 from olive.engine import Engine
 from olive.evaluator.metric import AccuracySubType
-from olive.evaluator.olive_evaluator import OliveEvaluator
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import PyTorchModel
 from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization
 from olive.systems.local import LocalSystem
@@ -34,7 +34,7 @@ class TestEngine:
         p = get_onnxconversion_pass()
         name = p.__class__.__name__
         system = LocalSystem()
-        evaluator = OliveEvaluator(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
+        evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
 
         options = {
             "cache_dir": "./cache",
@@ -47,13 +47,13 @@ class TestEngine:
         engine = Engine(options)
 
         # execute
-        engine.register(OnnxConversion, host=system, evaluator=evaluator)
+        engine.register(OnnxConversion, host=system, evaluator_config=evaluator_config)
 
         # assert
         assert name in engine.pass_config
         assert engine.pass_config[name]["type"] == OnnxConversion
         assert engine.pass_config[name]["host"] == system
-        assert engine.pass_config[name]["evaluator"] == evaluator
+        assert engine.pass_config[name]["evaluator"] == evaluator_config
         assert engine.pass_config[name]["clean_run_cache"] is False
 
     def test_register_no_search(self):
@@ -93,7 +93,7 @@ class TestEngine:
         input_model_id = hash_dict(pytorch_model.to_json())
         p, pass_config = get_onnxconversion_pass(ignore_pass_config=False)
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
-        evaluator = OliveEvaluator(metrics=[metric])
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
             "cache_dir": "./cache",
             "clean_cache": True,
@@ -103,7 +103,7 @@ class TestEngine:
             },
             "clean_evaluation_cache": True,
         }
-        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator=evaluator)
+        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, clean_run_cache=True)
         onnx_model = get_onnx_model()
         mock_local_system.run_pass.return_value = onnx_model
@@ -149,14 +149,14 @@ class TestEngine:
         # setup
         pytorch_model = get_pytorch_model()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
-        evaluator = OliveEvaluator(metrics=[metric])
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
             "cache_dir": "./cache",
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
         }
-        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator=evaluator)
+        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, disable_search=True, clean_run_cache=True)
         onnx_model = get_onnx_model()
         mock_local_system.run_pass.return_value = onnx_model
@@ -198,7 +198,7 @@ class TestEngine:
         with patch("olive.passes.onnx.conversion.OnnxConversion.run") as mock_run:
             mock_run.side_effect = Exception("test")
             system = LocalSystem()
-            evaluator = OliveEvaluator(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
+            evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
             options = {
                 "cache_dir": "./cache",
                 "clean_cache": True,
@@ -207,7 +207,7 @@ class TestEngine:
                     "search_algorithm": "random",
                 },
             }
-            engine = Engine(options, evaluator=evaluator, host=system, target=system)
+            engine = Engine(options, evaluator_config=evaluator_config, host=system, target=system)
             engine.register(OnnxConversion, clean_run_cache=True)
             model = PyTorchModel(model_loader=pytorch_model_loader, model_path=None)
 
@@ -222,14 +222,14 @@ class TestEngine:
         # setup
         pytorch_model = get_pytorch_model()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
-        evaluator = OliveEvaluator(metrics=[metric])
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
             "cache_dir": "./cache",
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
         }
-        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator=evaluator)
+        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, clean_run_cache=True)
         onnx_model = get_onnx_model()
         mock_local_system.run_pass.return_value = onnx_model
@@ -260,14 +260,14 @@ class TestEngine:
     def test_model_path_suffix(self, mock_glob, mock_unlink: Mock):
         # setup
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
-        evaluator = OliveEvaluator(metrics=[metric])
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
             "cache_dir": "./cache",
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
         }
-        engine = Engine(options, host=LocalSystem(), target=LocalSystem(), evaluator=evaluator)
+        engine = Engine(options, host=LocalSystem(), target=LocalSystem(), evaluator_config=evaluator_config)
         engine.register(OnnxConversion, clean_run_cache=True)
 
         engine.initialize()
@@ -282,14 +282,14 @@ class TestEngine:
     def test_model_path_suffix_with_exception(self):
         # setup
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
-        evaluator = OliveEvaluator(metrics=[metric])
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
             "cache_dir": "./cache",
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
         }
-        engine = Engine(options, host=LocalSystem(), target=LocalSystem(), evaluator=evaluator)
+        engine = Engine(options, host=LocalSystem(), target=LocalSystem(), evaluator_config=evaluator_config)
         engine.register(OnnxConversion, clean_run_cache=True)
         with patch.object(Path, "glob"):
             Path.glob.return_value = [Path("cache") / "output" / "435d_0.json"]

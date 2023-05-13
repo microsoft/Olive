@@ -16,7 +16,6 @@ from test.integ_test.evaluator.azureml_eval.utils import (
 
 import pytest
 
-from olive.evaluator.olive_evaluator import OliveEvaluator
 from olive.model import ModelStorageKind, ONNXModel, PyTorchModel
 
 
@@ -43,6 +42,5 @@ class TestAMLEvaluation:
     def test_evaluate_model(self, model_cls, model_path, metric, expected_res):
         aml_target = get_aml_target()
         olive_model = model_cls(model_path=model_path, model_storage_kind=ModelStorageKind.LocalFile)
-        evaluator = OliveEvaluator(metrics=[metric])
-        actual_res = evaluator.evaluate(olive_model, aml_target)[metric.name]
+        actual_res = aml_target.evaluate_model(olive_model, [metric])[metric.name]
         assert actual_res >= expected_res
