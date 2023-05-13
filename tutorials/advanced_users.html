@@ -171,7 +171,7 @@ on desired <strong>target</strong> systems. More details for the available syste
 <p>In order to chose the set of Pass configuration parameters that lead to the “best” model, Olive requires an evaluator that
 returns metrics values for each output model.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">LatencySubType</span><span class="p">,</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricType</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluator</span>
+<span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
 
 <span class="c1"># create latency metric instance</span>
 <span class="n">latency_metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span>
@@ -186,8 +186,8 @@ returns metrics values for each output model.</p>
     <span class="p">}</span>
 <span class="p">)</span>
 
-<span class="c1"># create evaluator</span>
-<span class="n">evaluator</span> <span class="o">=</span>  <span class="n">OliveEvaluator</span><span class="p">(</span><span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="n">latency_metric</span><span class="p">])</span>
+<span class="c1"># create evaluator configuration</span>
+<span class="n">evaluator_config</span> <span class="o">=</span>  <span class="n">OliveEvaluatorConfig</span><span class="p">(</span><span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="n">latency_metric</span><span class="p">])</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">latency_metric</span></code> requires you to provide a function as value for <code class="docutils literal notranslate"><span class="pre">dataloader_func</span></code> that returns a dataloader object when called on <code class="docutils literal notranslate"><span class="pre">data_dir</span></code> and <code class="docutils literal notranslate"><span class="pre">batch_size</span></code>. You can provide the function object directly but here, let’s give it a function name <code class="docutils literal notranslate"><span class="pre">&quot;create_dataloader&quot;</span></code> that can be imported from <code class="docutils literal notranslate"><span class="pre">user_script</span></code>.</p>
@@ -210,7 +210,7 @@ has an example of how to write user scripts.</p>
     <span class="p">}</span>
 <span class="p">}</span>
 
-<span class="n">engine</span> <span class="o">=</span> <span class="n">Engine</span><span class="p">(</span><span class="n">engine_config</span><span class="p">,</span> <span class="n">evaluator</span><span class="o">=</span><span class="n">evaluator</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="n">local_system</span><span class="p">)</span>
+<span class="n">engine</span> <span class="o">=</span> <span class="n">Engine</span><span class="p">(</span><span class="n">engine_config</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="o">=</span><span class="n">evaluator_config</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="n">local_system</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
