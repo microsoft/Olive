@@ -8,3 +8,4 @@ pyyaml
 torch
 torchmetrics>=0.7.0, <0.10.1
 transformers
+optimum

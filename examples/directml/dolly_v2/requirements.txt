@@ -1,0 +1,5 @@
+transformers
+onnx
+accelerate
+torch
+optimum

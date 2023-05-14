@@ -94,6 +94,43 @@ class OrtTransformersOptimization(Pass):
         return ("unet", "vae", "clip")
 
     @staticmethod
+    def _get_common_dml_fusion_options(run_config: Dict[str, Any], pass_config: Dict[str, Any]):
+        from onnxruntime.transformers.fusion_options import FusionOptions
+        fusion_options = FusionOptions(run_config["model_type"])
+
+        import onnxruntime as ort
+        ort_version = version.parse(ort.__version__)
+        is_ort_1_15_0_or_newer = ort_version >= version.parse("1.15.0")
+        is_ort_1_15_1_or_newer = ort_version >= version.parse("1.15.1")
+
+        # TODO: remove dml_future when ORT 1.15.1 with future version of DML is released
+        # This "provider" value is simply a way to test in-development changes without having
+        # to bump the ORT version.
+        dml_future = pass_config["target_provider"] == "directml_future"
+
+        # Some of these fusions are disabled because they provide no performance advantage,
+        # and it's preferable to limit ops outside the ONNX domain.
+        fusion_options.enable_gelu = is_ort_1_15_0_or_newer
+        fusion_options.enable_layer_norm = is_ort_1_15_0_or_newer
+        fusion_options.enable_attention = is_ort_1_15_1_or_newer or dml_future
+        fusion_options.use_multi_head_attention = is_ort_1_15_1_or_newer or dml_future
+        fusion_options.enable_skip_layer_norm = False
+        fusion_options.enable_embed_layer_norm = is_ort_1_15_0_or_newer
+        fusion_options.enable_bias_skip_layer_norm = False
+        fusion_options.enable_bias_gelu = is_ort_1_15_0_or_newer
+        fusion_options.enable_gelu_approximation = False
+        fusion_options.enable_qordered_matmul = False
+        fusion_options.enable_shape_inference = is_ort_1_15_0_or_newer
+        fusion_options.enable_gemm_fast_gelu = False
+        fusion_options.enable_nhwc_conv = False
+        fusion_options.enable_group_norm = is_ort_1_15_1_or_newer or dml_future
+        fusion_options.enable_bias_splitgelu = False
+        fusion_options.enable_packed_qkv = pass_config["float16"] and is_ort_1_15_0_or_newer
+        fusion_options.enable_packed_kv = pass_config["float16"] and is_ort_1_15_0_or_newer
+        fusion_options.enable_bias_add = False
+        return fusion_options
+
+    @staticmethod
     def _set_sd_fusion_options(run_config: Dict[str, Any], pass_config: Dict[str, Any]):
         """Configures fusion options for stable diffusion models"""
         import onnxruntime as ort
@@ -107,7 +144,6 @@ class OrtTransformersOptimization(Pass):
             return
 
         is_ort_1_15_0_or_newer = ort_version >= version.parse("1.15.0")
-        is_ort_1_15_1_or_newer = ort_version >= version.parse("1.15.1")
 
         input_model_type = run_config["model_type"]
         if not is_ort_1_15_0_or_newer and input_model_type != "unet":
@@ -115,9 +151,6 @@ class OrtTransformersOptimization(Pass):
             # optimization simply use "unet" for these model types.
             run_config["model_type"] = "unet"
 
-        from onnxruntime.transformers.fusion_options import FusionOptions
-
-        fusion_options = FusionOptions(run_config["model_type"])
 
         # TODO: remove dml_future when ORT 1.15.1 with future version of DML is released
         # This "provider" value is simply a way to test in-development changes without having
@@ -125,31 +158,43 @@ class OrtTransformersOptimization(Pass):
         dml_future = pass_config["target_provider"] == "directml_future"
 
         if pass_config["target_provider"] == "directml" or dml_future:
-            # Some of these fusions are disabled because they provide no performance advantage,
-            # and it's preferable to limit ops outside the ONNX domain.
-            fusion_options.enable_gelu = is_ort_1_15_0_or_newer
-            fusion_options.enable_layer_norm = is_ort_1_15_0_or_newer
-            fusion_options.enable_attention = is_ort_1_15_1_or_newer or dml_future
-            fusion_options.use_multi_head_attention = is_ort_1_15_1_or_newer or dml_future
-            fusion_options.enable_skip_layer_norm = False
-            fusion_options.enable_embed_layer_norm = is_ort_1_15_0_or_newer
-            fusion_options.enable_bias_skip_layer_norm = False
-            fusion_options.enable_bias_gelu = is_ort_1_15_0_or_newer
-            fusion_options.enable_gelu_approximation = False
-            fusion_options.enable_qordered_matmul = False
-            fusion_options.enable_shape_inference = is_ort_1_15_0_or_newer
-            fusion_options.enable_gemm_fast_gelu = False
-            fusion_options.enable_nhwc_conv = False
-            fusion_options.enable_group_norm = is_ort_1_15_1_or_newer or dml_future
-            fusion_options.enable_bias_splitgelu = False
-            fusion_options.enable_packed_qkv = pass_config["float16"] and is_ort_1_15_0_or_newer
-            fusion_options.enable_packed_kv = pass_config["float16"] and is_ort_1_15_0_or_newer
-            fusion_options.enable_bias_add = False
+            fusion_options = OrtTransformersOptimization._get_common_dml_fusion_options(run_config, pass_config)
         else:
+            from onnxruntime.transformers.fusion_options import FusionOptions
+            fusion_options = FusionOptions(run_config["model_type"])
+
             if input_model_type == "unet":
                 fusion_options.enable_packed_kv = pass_config["float16"]
                 fusion_options.enable_packed_qkv = pass_config["float16"] and is_ort_1_15_0_or_newer
                 fusion_options.enable_bias_add = is_ort_1_15_0_or_newer
+
+        run_config["optimization_options"] = fusion_options
+
+    @staticmethod
+    def _set_gpt_neox_fusion_options(run_config: Dict[str, Any], pass_config: Dict[str, Any]):
+        """Configures fusion options for stable diffusion models"""
+        import onnxruntime as ort
+
+        ort_version = version.parse(ort.__version__)
+        is_ort_1_13_or_older = ort_version < version.parse("1.14.0")
+
+        # default to no specific fusion options in earlier releases of ORT
+        if is_ort_1_13_or_older:
+            return
+
+        # TODO: remove dml_future when ORT 1.15.1 with future version of DML is released
+        # This "provider" value is simply a way to test in-development changes without having
+        # to bump the ORT version.
+        dml_future = pass_config["target_provider"] == "directml_future"
+
+        if pass_config["target_provider"] == "directml" or dml_future:
+            fusion_options = OrtTransformersOptimization._get_common_dml_fusion_options(run_config, pass_config)
+        else:
+            from onnxruntime.transformers.fusion_options import FusionOptions
+            fusion_options = FusionOptions(run_config["model_type"])
+
+        assert "num_heads" in run_config
+        assert "hidden_size" in run_config
 
         run_config["optimization_options"] = fusion_options
 
@@ -223,6 +268,15 @@ class OrtTransformersOptimization(Pass):
 
             if config["optimization_options"] is None:
                 self._set_sd_fusion_options(run_config, config)
+        elif config["model_type"] == "gpt_neox":
+            # TODO: Remove when the transformer optimizer supports gpt_neox
+            run_config["model_type"] = "gpt2"
+
+            if config["target_provider"] != "cuda" and version.parse(ort.__version__) < version.parse("1.15.0"):
+                return self._run_without_optimization(model, config, output_model_path)
+
+            if config["optimization_options"] is None:
+                self._set_gpt_neox_fusion_options(run_config, config)
         elif config["optimization_options"]:
             self._set_fusion_options(run_config)
 

@@ -1,0 +1,124 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+import argparse
+import json
+import shutil
+import warnings
+from pathlib import Path
+
+import onnxruntime as ort
+import torch
+from transformers import AutoTokenizer
+from optimum.onnxruntime import ORTModelForCausalLM
+from instruct_pipeline import InstructionTextGenerationPipeline
+from transformers import AutoModelForCausalLM
+
+from olive.workflows import run as olive_run
+
+
+def run_inference(optimized_model_dir, prompt, max_new_tokens):
+    ort.set_default_logger_severity(3)
+
+    print("Loading models into ORT session...")
+    tokenizer = AutoTokenizer.from_pretrained(optimized_model_dir, padding_side="left")
+    model = ORTModelForCausalLM.from_pretrained(optimized_model_dir, provider="DmlExecutionProvider", use_cache=True, use_merged=True, use_io_binding=False)
+
+    generate_text = InstructionTextGenerationPipeline(model=model, tokenizer=tokenizer, max_new_tokens=max_new_tokens)
+    result = generate_text(prompt)
+    print(result)
+
+
+def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: Path, optimize_provider: str):
+    ort.set_default_logger_severity(4)
+    script_dir = Path(__file__).resolve().parent
+
+    model_info = dict()
+
+    # Optimize the model with Olive
+    print(f"\nOptimizing {model_name}")
+
+    olive_config = None
+    with open(script_dir / f"config_dolly_v2.json", "r") as fin:
+        olive_config = json.load(fin)
+    if optimize_provider:
+        olive_config["passes"]["optimize"]["config"]["target_provider"] = optimize_provider
+
+    olive_run(olive_config)
+
+    # TODO: rename the 0 prefix in the path when the hardware accelerator feature is implemented.
+    footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"dolly_v2_0_footprints.json"
+    with footprints_file_path.open("r") as footprint_file:
+        footprints = json.load(footprint_file)
+        conversion_footprint = None
+        optimizer_footprint = None
+        for _, footprint in footprints.items():
+            if footprint["from_pass"] == "OnnxConversion":
+                conversion_footprint = footprint
+            elif footprint["from_pass"] == "OrtTransformersOptimization":
+                optimizer_footprint = footprint
+
+        assert conversion_footprint and optimizer_footprint
+
+        unoptimized_config = conversion_footprint["model_config"]["config"]
+        optimized_config = optimizer_footprint["model_config"]["config"]
+
+        model_info = {
+            "unoptimized": {
+                "path": Path(unoptimized_config["model_path"]),
+            },
+            "optimized": {
+                "path": Path(optimized_config["model_path"]),
+            },
+        }
+
+        print(f"Unoptimized Model : {model_info['unoptimized']['path']}")
+        print(f"Optimized Model   : {model_info['optimized']['path']}")
+
+    # Save the unoptimized models in a directory structure that the transformers library can load and run.
+    # This is optional, and the optimized models can be used directly in a custom pipeline if desired.
+    model = AutoModelForCausalLM.from_pretrained("databricks/dolly-v2-7b", torch_dtype=torch.float32)
+    model.save_pretrained(unoptimized_model_dir)
+
+    # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
+    shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("*.data"))
+    src_path = model_info["optimized"]["path"]
+    dst_path = optimized_model_dir / "decoder_model_merged.onnx"
+    shutil.copyfile(src_path, dst_path)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
+    parser.add_argument("--optimize_provider", type=str, default="directml", help="EP target for inference")
+    parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
+    parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
+    parser.add_argument("--model", default="databricks/dolly-v2-7b", type=str)
+    parser.add_argument("--prompt", default="Explain to me the difference between nuclear fission and fusion.", type=str)
+    parser.add_argument("--max_new_tokens", default=64, type=int, help="Maximum number of tokens that the model will generate")
+    args = parser.parse_args()
+
+    script_dir = Path(__file__).resolve().parent
+    unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model
+    optimized_model_dir = script_dir / "models" / "optimized" / args.model
+
+    if args.clean_cache:
+        shutil.rmtree(script_dir / "cache", ignore_errors=True)
+
+    if args.optimize:
+        shutil.rmtree(script_dir / "footprints", ignore_errors=True)
+        shutil.rmtree(unoptimized_model_dir, ignore_errors=True)
+        shutil.rmtree(optimized_model_dir, ignore_errors=True)
+
+    if args.optimize or not optimized_model_dir.exists():
+        # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            optimize(args.model, unoptimized_model_dir, optimized_model_dir, args.optimize_provider)
+
+    if not args.optimize:
+        model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            run_inference(model_dir, args.prompt, args.max_new_tokens)
