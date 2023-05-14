@@ -430,11 +430,11 @@ class AzureMLSystem(OliveSystem):
                 exceptions=ServiceResponseError,
             )
 
-            metric_results = []
+            metric_results = {}
             for metric in metrics:
                 metric_json = output_dir / "named-outputs" / metric.name / "metric_result.json"
                 if metric_json.is_file():
-                    metric_results.append(json.load(open(metric_json))["__root__"])
+                    metric_results.update(json.load(open(metric_json))["__root__"])
 
             return MetricResult.parse_obj(metric_results)
 
