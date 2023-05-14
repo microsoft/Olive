@@ -15,7 +15,7 @@ import docker
 import olive.systems.docker.utils as docker_utils
 from olive.common.config_utils import validate_config
 from olive.evaluator.metric import Metric
-from olive.evaluator.metric_config import flatten_metric_result
+from olive.evaluator.metric_config import MetricResult
 from olive.model import OliveModel
 from olive.passes import Pass
 from olive.systems.common import LocalDockerConfig, SystemType
@@ -83,12 +83,12 @@ class DockerSystem(OliveSystem):
     def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> Dict[str, Any]:
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
-            metrics_res = {}
+            metrics_res = None
             metric_json = self._run_container(tempdir, model, metrics, container_root_path)
             if metric_json.is_file():
                 with metric_json.open() as f:
-                    metrics_res = json.load(f)
-            return flatten_metric_result(metrics_res)
+                    metrics_res = json.load(f)["__root__"]
+            return MetricResult.parse_obj(metrics_res)
 
     def _run_container(self, tempdir, model: OliveModel, metrics: List[Metric], container_root_path: Path):
         eval_output_path = "eval_output"

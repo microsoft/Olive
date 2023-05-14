@@ -20,7 +20,7 @@ from olive.common.config_utils import validate_config
 from olive.common.utils import retry_func
 from olive.constants import Framework
 from olive.evaluator.metric import Metric
-from olive.evaluator.metric_config import MetricResult, flatten_metric_result
+from olive.evaluator.metric_config import MetricResult
 from olive.model import ModelConfig, ModelStorageKind, OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import AzureMLDockerConfig, SystemType
@@ -370,8 +370,6 @@ class AzureMLSystem(OliveSystem):
         }
 
     def _create_metric_args(self, metric_config: dict, tmp_dir: Path) -> Tuple[List[str], dict]:
-        metric_config["name"] = "result"
-        metric_config.pop("goal", None)
         metric_user_script = metric_config["user_config"]["user_script"]
         if metric_user_script:
             metric_user_script = Input(type=AssetTypes.URI_FILE, path=metric_user_script)
@@ -432,13 +430,13 @@ class AzureMLSystem(OliveSystem):
                 exceptions=ServiceResponseError,
             )
 
-            metric_results = {}
+            metric_results = []
             for metric in metrics:
                 metric_json = output_dir / "named-outputs" / metric.name / "metric_result.json"
                 if metric_json.is_file():
-                    metric_results[metric.name] = json.load(open(metric_json))["__root__"]
+                    metric_results.append(json.load(open(metric_json))["__root__"])
 
-            return flatten_metric_result(metric_results)
+            return MetricResult.parse_obj(metric_results)
 
     def _create_pipeline_for_evaluation(self, tmp_dir: str, model: OliveModel, metrics: List[Metric]):
         tmp_dir = Path(tmp_dir)
