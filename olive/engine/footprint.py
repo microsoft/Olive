@@ -136,6 +136,9 @@ class Footprint:
                 equal = True  # two points are equal
                 dominated = True  # current point is dominated by other point
                 for metric_name in v.metrics.value:
+                    if metric_name not in _v.metrics.cmp_direction:
+                        logger.debug(f"Metric {metric_name} is not in cmp_direction, will not be compared.")
+                        break
                     other_point_metrics = _v.metrics.value[metric_name].value * _v.metrics.cmp_direction[metric_name]
                     current_point_metrics = v.metrics.value[metric_name].value * v.metrics.cmp_direction[metric_name]
                     dominated &= current_point_metrics <= other_point_metrics
@@ -174,13 +177,13 @@ class Footprint:
             if not self._is_empty_metric(v.metrics):
                 for index in indices:
                     if isinstance(index, str):
-                        if index in v.metrics.value:
+                        if index in self.objective_dict:
                             rls.append(index)
                         else:
                             logger.error(f"the metric {index} is not in the metrics")
                     if isinstance(index, int):
-                        if index < len(v.metrics.value):
-                            rls.append(list(v.metrics.value.keys())[index])
+                        if index < len(self.objective_dict):
+                            rls.append(list(self.objective_dict.keys())[index])
                         else:
                             logger.error(f"the index {index} is out of range")
                 return rls
@@ -192,17 +195,18 @@ class Footprint:
     def plot_pareto_frontier_to_image(self, index=None, save_path=None, is_show=False):
         self.plot_pareto_frontier(index, save_path, is_show, "image")
 
-    def plot_pareto_frontier(self, index=None, save_path=None, is_show=True, save_format="html"):
+    def plot_pareto_frontier(self, ranks=None, save_path=None, is_show=True, save_format="html"):
         """
         plot pareto frontier with plotly
-        :param index: the index of the metrics to be shown in the pareto frontier chart
+        :param ranks: the rank list of the metrics to be shown in the pareto frontier chart
         :param save_path: the path to save the pareto frontier chart
         :param is_show: whether to show the pareto frontier chart
         :param save_format: the format of the pareto frontier chart, can be "html" or "image"
         """
         assert save_path is not None or is_show, "you must specify the save path or set is_show to True"
 
-        index = index or [0, 1]
+        ranks = ranks or [1, 2]
+        index = [i - 1 for i in ranks]
         self.mark_pareto_frontier()
         nodes_to_be_plotted = self.get_candidates()
 
@@ -234,8 +238,7 @@ class Footprint:
             show_list = [k]
             for metric_name in metric_column:
                 dict_data[metric_name].append(v.metrics.value[metric_name].value)
-                all_sub_type_metrics = v.metrics.value.get_all_sub_type_metric_value(metric_name)
-                show_list.append(f"{metric_name}: {all_sub_type_metrics}")
+                show_list.append(f"{metric_name}: {v.metrics.value}")
             dict_data["show_text"].append("<br>".join(show_list))
         data = pd.DataFrame(dict_data)
 

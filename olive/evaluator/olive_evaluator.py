@@ -5,8 +5,8 @@
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
 from numbers import Number
+from typing import Any, Dict, List
 
 import numpy as np
 import torch
@@ -19,7 +19,7 @@ from olive.common.utils import tensor_data_to_device
 from olive.constants import Framework
 from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Precision, Recall
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
-from olive.evaluator.metric_config import joint_metric_key, MetricResult, SubTypeMetricResult, flatten_metric_result
+from olive.evaluator.metric_config import MetricResult, SubTypeMetricResult, flatten_metric_result, joint_metric_key
 from olive.model import OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
 from olive.systems.common import Device
 

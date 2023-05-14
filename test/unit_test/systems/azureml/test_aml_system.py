@@ -13,7 +13,6 @@ from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType
-from olive.evaluator.metric_config import joint_metric_key
 from olive.model import ModelStorageKind, ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion

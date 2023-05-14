@@ -457,13 +457,17 @@ class Engine:
         objective_dict = {}
         for metric in metrics:
             for sub_type in metric.sub_types:
+                if sub_type.priority_rank <= 0:
+                    continue
                 metric_key = joint_metric_key(metric.name, sub_type.name)
                 objective_dict[metric_key] = {
                     "higher_is_better": sub_type.higher_is_better,
                     "goal": goals.get(metric_key),
+                    "rank": sub_type.priority_rank,
                 }
         self.footprints[accelerator_spec].record_objective_dict(objective_dict)
-        return objective_dict
+        ranked_objective_dict = dict(sorted(objective_dict.items(), key=lambda x: x[1]["rank"]))
+        return ranked_objective_dict
 
     def resolve_goals(
         self,

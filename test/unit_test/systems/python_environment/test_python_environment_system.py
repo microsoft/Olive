@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
-from olive.evaluator.metric_config import MetricResult, joint_metric_key
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricType
+from olive.evaluator.metric_config import MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 from olive.systems.python_environment import PythonEnvironmentSystem
 
