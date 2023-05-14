@@ -18,7 +18,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric
 from olive.evaluator.metric_config import MetricResult, joint_metric_key
-from olive.evaluator.olive_evaluator import OliveEvaluator
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig, ModelStorageKind, OliveModel
 from olive.passes.olive_pass import Pass
 from olive.strategy.search_strategy import SearchStrategy
@@ -41,7 +41,7 @@ class Engine:
         search_strategy: Optional[SearchStrategy] = None,
         host: Optional[OliveSystem] = None,
         target: Optional[OliveSystem] = None,
-        evaluator: Optional[OliveEvaluator] = None,
+        evaluator_config: Optional[OliveEvaluatorConfig] = None,
     ):
         self._config = validate_config(config, EngineConfig)
 
@@ -75,11 +75,11 @@ class Engine:
             self.target = LocalSystem()
 
         # default evaluator
-        self.evaluator = None
-        if evaluator is not None:
-            self.evaluator = evaluator
+        self.evaluator_config = None
+        if evaluator_config is not None:
+            self.evaluator_config = evaluator_config
         elif self._config.evaluator is not None:
-            self.evaluator = self._config.evaluator.create_evaluator()
+            self.evaluator_config = self._config.evaluator
 
         # dictionary of passes
         self.pass_config = OrderedDict()
@@ -110,9 +110,13 @@ class Engine:
         # we do this before cleaning pass run caches to ensure we don't reuse model numbers even if the model was
         # deleted from the cache
         self._new_model_number = 0
-        model_jsons = list(self._model_cache_path.glob("*_*.json"))
-        if len(model_jsons) > 0:
-            self._new_model_number = max([int(json_file.stem.split("_")[0]) for json_file in model_jsons]) + 1
+        # model jsons have the format <model_number>_<pass_type>-<source_model>-<pass_config_hash>.json
+        # model contents are stored in <model_number>_<pass_type>-<source_model>-<pass_config_hash> folder
+        # sometimes the folder is created with contents but the json is not created when the pass fails to run
+        # so we check for both when determining the new model number
+        model_files = list(self._model_cache_path.glob("*_*"))
+        if len(model_files) > 0:
+            self._new_model_number = max([int(model_file.stem.split("_")[0]) for model_file in model_files]) + 1
 
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
@@ -130,7 +134,7 @@ class Engine:
         disable_search=False,
         name: str = None,
         host: OliveSystem = None,
-        evaluator: OliveEvaluator = None,
+        evaluator_config: OliveEvaluatorConfig = None,
         clean_run_cache: bool = False,
     ):
         """Register a pass configuration so that it could be instantiated and executed later."""
@@ -151,7 +155,7 @@ class Engine:
             "config": config or {},
             "disable_search": disable_search,
             "host": host,
-            "evaluator": evaluator,
+            "evaluator": evaluator_config,
             "clean_run_cache": clean_run_cache,
         }
 
@@ -160,7 +164,7 @@ class Engine:
         p: Pass,
         name: str = None,
         host: OliveSystem = None,
-        evaluator: OliveEvaluator = None,
+        evaluator_config: OliveEvaluatorConfig = None,
     ):
         """
         Register a pass
@@ -183,7 +187,7 @@ class Engine:
         self.passes[name] = {
             "pass": p,
             "host": host,
-            "evaluator": evaluator,
+            "evaluator": evaluator_config,
         }
 
     def run(
@@ -227,8 +231,8 @@ class Engine:
 
             if evaluation_only:
                 prefix_output_name = f"{output_name}_{i}_" if output_name is not None else f"{i}_"
-                assert self.evaluator is not None, "Evaluation only is True but no evaluator provided"
-                results = self._evaluate_model(input_model, input_model_id, self.evaluator, i, verbose)
+                assert self.evaluator_config is not None, "'evaluation_only' is True but no evaluator provided"
+                results = self._evaluate_model(input_model, input_model_id, self.evaluator_config, i, verbose)
                 result_name = f"{prefix_output_name}metrics"
                 results_path = output_dir / f"{result_name}.json"
                 json.dump(results.dict(), open(results_path, "w"), indent=4)
@@ -255,7 +259,7 @@ class Engine:
             pass_cfg = config["config"]
             config_class, pass_cfg = pass_cls.generate_search_space(pass_cfg, config["disable_search"])
             p = pass_cls(config_class, pass_cfg)
-            self.register_pass(p, host=config["host"], evaluator=config["evaluator"])
+            self.register_pass(p, host=config["host"], evaluator_config=config["evaluator"])
 
         # list of passes starting from the first pass with non-empty search space
         # These passes will be added to the search space
@@ -279,13 +283,13 @@ class Engine:
                 pass_name = pass_item["name"]
                 raise ValueError(f"Pass {pass_name} has search space but search strategy is None")
 
-        evaluator = self.evaluator_for_pass(list(self.passes.keys())[-1])
-        if evaluator is None:
+        evaluator_config = self.evaluator_for_pass(list(self.passes.keys())[-1])
+        if evaluator_config is None:
             # provide dummy objective
             objective_dict = {"dummy": {"higher_is_better": True, "goal": 0}}
         else:
             objective_dict = self.resolve_objectives(
-                input_model, input_model_id, evaluator.metrics, accelerator_spec, verbose
+                input_model, input_model_id, evaluator_config.metrics, accelerator_spec, verbose
             )
 
         # initialize the search strategy
@@ -365,12 +369,13 @@ class Engine:
         prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
 
         # get objective_dict
-        evaluator = self.evaluator_for_pass(list(self.passes.keys())[-1])
-        if evaluator is None:
+        evaluator_config = self.evaluator_for_pass(list(self.passes.keys())[-1])
+
+        if evaluator_config is None:
             raise ValueError("No evaluator provided for the last pass")
         else:
             objective_dict = self.resolve_objectives(
-                input_model, input_model_id, evaluator.metrics, accelerator_spec, verbose
+                input_model, input_model_id, evaluator_config.metrics, accelerator_spec, verbose
             )
 
         # initialize the search strategy
@@ -417,7 +422,8 @@ class Engine:
         if output_model_num is None or len(pf_footprints.nodes) <= output_model_num:
             logger.info(f"Output all {len(pf_footprints.nodes)} models")
         else:
-            top_ranked_nodes = self._get_top_ranked_nodes(evaluator.metrics, pf_footprints, output_model_num)
+            metrics = evaluator_config.metrics if evaluator_config else []
+            top_ranked_nodes = self._get_top_ranked_nodes(metrics, pf_footprints, output_model_num)
             logger.info(f"Output top ranked {len(top_ranked_nodes)} models based on metric priorities")
             pf_footprints.update_nodes(top_ranked_nodes)
 
@@ -544,7 +550,7 @@ class Engine:
         """
         e = self.passes[pass_id]["evaluator"]
         if e is None:
-            return self.evaluator
+            return self.evaluator_config
         return e
 
     def _get_new_model_number(self):
@@ -688,12 +694,12 @@ class Engine:
         if not should_prune:
             # evaluate the model
             try:
-                evaluator = self.evaluator_for_pass(pass_id)
-                if self.no_search and evaluator is None:
+                evaluator_config = self.evaluator_for_pass(pass_id)
+                if self.no_search and evaluator_config is None:
                     # skip evaluation if no search and no evaluator
                     signal = None
                 else:
-                    signal = self._evaluate_model(model, model_id, evaluator, accelerator_spec, verbose)
+                    signal = self._evaluate_model(model, model_id, evaluator_config, accelerator_spec, verbose)
             except Exception as e:
                 logger.error(f"Evaluation failed: {e}")
                 raise e
@@ -814,7 +820,12 @@ class Engine:
             return None
 
     def _evaluate_model(
-        self, model: OliveModel, model_id: str, evaluator: OliveEvaluator, accelerator_spec: Any, verbose: bool
+        self,
+        model: OliveModel,
+        model_id: str,
+        evaluator_config: OliveEvaluatorConfig,
+        accelerator_spec: Any,
+        verbose: bool,
     ):
         """
         Evaluate a model.
@@ -838,7 +849,8 @@ class Engine:
 
         # TODO: add the accelerator spec to the evaluate
         # evaluate model
-        signal = evaluator.evaluate(model, self.target)
+        metrics = evaluator_config.metrics if evaluator_config else []
+        signal = self.target.evaluate_model(model, metrics)
 
         # cache evaluation
         self._cache_evaluation(model_id, signal)

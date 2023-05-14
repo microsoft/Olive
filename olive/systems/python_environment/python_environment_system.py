@@ -14,9 +14,9 @@ import numpy as np
 import torch
 
 from olive.common.utils import run_subprocess
-from olive.evaluator.evaluation import compute_accuracy, compute_latency, format_onnx_input, get_user_config
 from olive.evaluator.metric import Metric, MetricType
 from olive.evaluator.metric_config import MetricResult, flatten_metric_result
+from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.model import OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import Device, SystemType
@@ -92,7 +92,7 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         Evaluate the accuracy of the model.
         """
-        dataloader, post_func, _ = get_user_config(metric.user_config)
+        dataloader, post_func, _ = OliveEvaluator.get_user_config(metric)
 
         preds = []
         targets = []
@@ -113,7 +113,7 @@ class PythonEnvironmentSystem(OliveSystem):
             num_batches = 0
             for idx, (input_data, labels) in enumerate(dataloader):
                 # save input data to npz
-                input_dict = format_onnx_input(input_data, io_config)
+                input_dict = OnnxEvaluator.format_input(input_data, io_config)
                 input_path = input_dir / f"input_{idx}.npz"
                 np.savez(input_path, **input_dict)
                 # save labels
@@ -138,13 +138,13 @@ class PythonEnvironmentSystem(OliveSystem):
                     output = post_func(output)
                 preds.extend(output.tolist())
 
-        return compute_accuracy(preds, targets, metric)
+        return OliveEvaluator.compute_accuracy(metric, preds, targets)
 
     def evaluate_latency(self, model: ONNXModel, metric: Metric) -> float:
         """
         Evaluate the latency of the model.
         """
-        dataloader, _, _ = get_user_config(metric.user_config)
+        dataloader, _, _ = OliveEvaluator.get_user_config(metric)
         warmup_num, repeat_test_num, sleep_num = None, None, None
         for sub_type in metric.sub_types:
             if sub_type.metric_config:
@@ -171,7 +171,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
             # save input data to npz
             input_data, _ = next(iter(dataloader))
-            input_dict = format_onnx_input(input_data, io_config)
+            input_dict = OnnxEvaluator.format_input(input_data, io_config)
             np.savez(input_dir / "input.npz", **input_dict)
 
             # run inference
@@ -187,7 +187,7 @@ class PythonEnvironmentSystem(OliveSystem):
             # load output
             latencies = np.load(output_dir / "output.npy")
 
-        return compute_latency(latencies, metric)
+        return OliveEvaluator.compute_latency(metric, latencies)
 
     def get_inference_settings(self, model: ONNXModel, metric: Metric) -> Dict[str, Any]:
         """
@@ -257,7 +257,18 @@ class PythonEnvironmentSystem(OliveSystem):
             is_valid_ep_path = Path(__file__).parent.resolve() / "is_valid_ep.py"
             output_path = Path(temp_dir).resolve() / "result.pb"
             run_subprocess(
-                f"python {is_valid_ep_path} --model_path {model.model_path} --ep {ep} --output_path {output_path}",
+                " ".join(
+                    [
+                        "python",
+                        str(is_valid_ep_path),
+                        "--model_path",
+                        str(model.model_path),
+                        "--ep",
+                        ep,
+                        "--output_path",
+                        str(output_path),
+                    ]
+                ),
                 env=self.environ,
                 check=True,
             )

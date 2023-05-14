@@ -4,9 +4,9 @@
 # --------------------------------------------------------------------------
 from typing import Any, Dict, List, Optional
 
-from olive.evaluator.evaluation import evaluator_adaptor
-from olive.evaluator.metric import Metric
 from olive.evaluator.metric_config import MetricResult, flatten_metric_result
+from olive.evaluator.metric import Metric
+from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory
 from olive.model import CompositeOnnxModel, OliveModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import Device, SystemType
@@ -39,8 +39,5 @@ class LocalSystem(OliveSystem):
         if isinstance(model, CompositeOnnxModel):
             raise NotImplementedError()
 
-        metrics_res = {}
-        for metric in metrics:
-            evaluator = evaluator_adaptor(metric)
-            metrics_res[metric.name] = evaluator(model, metric, self.device)
-        return flatten_metric_result(metrics_res)
+        evaluator: OliveEvaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
+        return evaluator.evaluate(model, metrics, device=self.device)

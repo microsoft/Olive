@@ -137,15 +137,14 @@ def run(config: Union[str, Path, dict], setup: bool = False):
         # passes
         for pass_name, pass_config in config.passes.items():
             host = pass_config.host.create_system() if pass_config.host is not None else None
-            evaluator = pass_config.evaluator.create_evaluator() if pass_config.evaluator is not None else None
             engine.register(
                 Pass.registry[pass_config.type.lower()],
-                pass_config.config,
-                pass_config.disable_search,
-                pass_name,
-                host,
-                evaluator,
-                pass_config.clean_run_cache,
+                config=pass_config.config,
+                disable_search=pass_config.disable_search,
+                name=pass_name,
+                host=host,
+                evaluator_config=pass_config.evaluator,
+                clean_run_cache=pass_config.clean_run_cache,
             )
 
         # run

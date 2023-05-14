@@ -7,9 +7,9 @@ import argparse
 from inception_utils import get_directories, print_metrics
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
-from olive.evaluator.olive_evaluator import OliveEvaluator
 from olive.model import SNPEModel
 from olive.systems.common import Device
+from olive.systems.local import LocalSystem
 
 
 def get_args():
@@ -90,7 +90,8 @@ def main():
         },
         metric_config={"warmup_num": 0, "repeat_test_num": 5, "sleep_num": 2},
     )
-    evaluator = OliveEvaluator(metrics=[accuracy_metrics, latency_metrics])
+
+    system = LocalSystem()
 
     # Evaluate models
     devices_dict = {
@@ -100,9 +101,8 @@ def main():
     metrics_dict = {}
     for model_name in models_dict:
         device = devices_dict[model_name]
-        evaluator.target.device = device
         print(f"   {model_name} on {device}...")
-        metrics = evaluator.evaluate(models_dict[model_name])
+        metrics = system.evaluate(models_dict[model_name], [accuracy_metrics, latency_metrics], device)
         metrics_dict[model_name] = metrics
 
     # Print metrics

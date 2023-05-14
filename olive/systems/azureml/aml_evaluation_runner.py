@@ -7,9 +7,9 @@ import json
 from pathlib import Path
 
 from olive.evaluator.metric import Metric
-from olive.evaluator.olive_evaluator import OliveEvaluator
 from olive.model import ModelConfig
 from olive.systems.local import LocalSystem
+from olive.systems.olive_system import OliveSystem
 from olive.systems.utils import get_model_config, parse_common_args
 
 
@@ -40,21 +40,18 @@ def main(raw_args=None):
     common_args, extra_args = parse_common_args(raw_args)
     metric_args = parse_metric_args(extra_args)
 
-    # load model
-    model_config = get_model_config(common_args)
-    model = ModelConfig.from_json(model_config).create_model()
-
     # load metric
     metric_config = json.load(open(metric_args.metric_config))
     metric = create_metric(metric_config, metric_args)
 
-    # create_evaluator
-    evaluator = OliveEvaluator([metric])
+    # load model
+    model_config = get_model_config(common_args)
+    model = ModelConfig.from_json(model_config).create_model()
 
-    target = LocalSystem()
+    target: OliveSystem = LocalSystem()
 
     # metric result
-    metric_result = evaluator.evaluate(model, target)
+    metric_result = target.evaluate_model(model, [metric])
 
     # save metric result json
     json.dump(metric_result.dict(), open(Path(common_args.pipeline_output) / "metric_result.json", "w"))

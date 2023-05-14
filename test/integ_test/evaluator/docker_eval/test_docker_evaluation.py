@@ -20,7 +20,6 @@ from test.integ_test.evaluator.docker_eval.utils import (
 import pytest
 
 from olive.evaluator.metric_config import joint_metric_key
-from olive.evaluator.olive_evaluator import OliveEvaluator
 from olive.model import ONNXModel, OpenVINOModel, PyTorchModel
 
 
@@ -52,8 +51,7 @@ class TestDockerEvaluation:
     def test_evaluate_model(self, model_cls, model_config, metric, expected_res):
         docker_target = get_docker_target()
         olive_model = model_cls(**model_config)
-        evaluator = OliveEvaluator(metrics=[metric])
-        actual_res = evaluator.evaluate(olive_model, docker_target)
+        actual_res = docker_target.evaluate_model(olive_model, [metric])
         for sub_type in metric.sub_types:
             joint_key = joint_metric_key(metric.name, sub_type.name)
             assert actual_res[joint_key].value >= expected_res

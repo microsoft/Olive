@@ -53,7 +53,7 @@ returns metrics values for each output model.
 
 ```python
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
-from olive.evaluator.olive_evaluator import OliveEvaluator
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 
 # create latency metric instance
 latency_metric = Metric(
@@ -68,8 +68,8 @@ latency_metric = Metric(
     }
 )
 
-# create evaluator
-evaluator =  OliveEvaluator(metrics=[latency_metric])
+# create evaluator configuration
+evaluator_config =  OliveEvaluatorConfig(metrics=[latency_metric])
 ```
 
 `latency_metric` requires you to provide a function as value for `dataloader_func` that returns a dataloader object when called on `data_dir` and `batch_size`. You can provide the function object directly but here, let's give it a function name `"create_dataloader"` that can be imported from `user_script`.
@@ -95,7 +95,7 @@ engine_config = {
     }
 }
 
-engine = Engine(engine_config, evaluator=evaluator, host=local_system)
+engine = Engine(engine_config, evaluator_config=evaluator_config, host=local_system)
 ```
 
 ### Register Passes

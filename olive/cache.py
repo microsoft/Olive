@@ -58,22 +58,13 @@ def _delete_model(model_number: str, cache_dir: Union[str, Path] = ".olive-cache
     Deletes the model and all associated runs and evaluations.
     """
     model_cache_dir, run_cache_dir, evaluation_cache_dir = get_cache_sub_dirs(cache_dir)
-    model_jsons = list(model_cache_dir.glob(f"{model_number}_*.json"))
-    for model_json in model_jsons:
-        try:
-            model_data = json.load(open(model_json, "r"))
-            if model_data != {}:
-                model_file = Path(json.load(open(model_json, "r"))["model_path"])
-                model_file_number = model_file.stem.split("_")[0]
-                if model_file_number == model_number:
-                    if model_file.is_dir():
-                        shutil.rmtree(model_file, ignore_errors=True)
-                    elif model_file.is_file():
-                        model_file.unlink()
-        except Exception as e:
-            logger.exception(e)
-        finally:
-            model_json = model_json.unlink()
+    # delete all model files that start with model_number
+    model_files = list(model_cache_dir.glob(f"{model_number}_*"))
+    for model_file in model_files:
+        if model_file.is_dir():
+            shutil.rmtree(model_file, ignore_errors=True)
+        elif model_file.is_file():
+            model_file.unlink()
 
     evaluation_jsons = list(evaluation_cache_dir.glob(f"{model_number}_*.json"))
     for evaluation_json in evaluation_jsons:

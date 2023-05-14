@@ -30,7 +30,7 @@ class TestAzureMLSystem:
             base_image="base_image",
             conda_file_path="conda_file_path",
         )
-        self.aml_system = AzureMLSystem("dummy", "dummy", docker_config)
+        self.system = AzureMLSystem("dummy", "dummy", docker_config)
 
     METRIC_TEST_CASE = [
         (get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)),
@@ -63,11 +63,11 @@ class TestAzureMLSystem:
         mock_tempdir.return_value.__enter__.return_value = output_folder
 
         # execute
-        res = self.aml_system.evaluate_model(olive_model, [metric])
+        res = self.system.evaluate_model(olive_model, [metric])[metric.name]
 
         # assert
         mock_create_pipeline.assert_called_once_with(output_folder, olive_model, [metric])
-        self.aml_system.ml_client.jobs.stream.assert_called_once()
+        self.system.ml_client.jobs.stream.assert_called_once()
         assert mock_retry_func.call_count == 2
         if metric.name == "accuracy":
             for sub_type in metric.sub_types:
@@ -93,12 +93,12 @@ class TestAzureMLSystem:
         expected_model = ONNXModel(model_path=ONNXModel.resolve_path(output_model_path), name="test_model")
 
         # execute
-        actual_res = self.aml_system.run_pass(p, olive_model, output_model_path)
+        actual_res = self.system.run_pass(p, olive_model, output_model_path)
 
         # assert
         mock_create_pipeline.assert_called_once_with(output_folder, olive_model, p.to_json(), p.path_params)
         assert mock_retry_func.call_count == 2
-        self.aml_system.ml_client.jobs.stream.assert_called_once()
+        self.system.ml_client.jobs.stream.assert_called_once()
         assert expected_model.to_json() == actual_res.to_json()
 
     @pytest.mark.parametrize(
@@ -135,7 +135,7 @@ class TestAzureMLSystem:
         }
 
         # execute
-        actual_res = self.aml_system._create_model_args(model_json, tem_dir)
+        actual_res = self.system._create_model_args(model_json, tem_dir)
 
         # assert
         assert actual_res == expected_res
@@ -174,7 +174,7 @@ class TestAzureMLSystem:
         }
 
         # execute
-        actual_res = self.aml_system._create_metric_args(metric_config, tem_dir)
+        actual_res = self.system._create_metric_args(metric_config, tem_dir)
 
         # assert
         assert actual_res == expected_res
@@ -221,7 +221,7 @@ class TestAzureMLSystem:
         mock_command.return_value.return_value = expected_res
 
         # execute
-        actual_res = self.aml_system._create_metric_component(tem_dir, metric, model_args, model_storage_kind)
+        actual_res = self.system._create_metric_component(tem_dir, metric, model_args, model_storage_kind)
 
         # assert
         assert actual_res == expected_res
@@ -230,12 +230,12 @@ class TestAzureMLSystem:
             display_name=metric_type,
             description=f"Run olive {metric_type} evaluation",
             command=self.create_command(inputs),
-            environment=self.aml_system.environment,
+            environment=self.system.environment,
             code=code_path,
             inputs=inputs,
             outputs=dict(pipeline_output=Output(type=AssetTypes.URI_FOLDER)),
             instance_count=1,
-            compute=self.aml_system.compute,
+            compute=self.system.compute,
         )
 
         # cleanup
