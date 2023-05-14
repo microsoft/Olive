@@ -19,7 +19,7 @@ from olive.common.utils import tensor_data_to_device
 from olive.constants import Framework
 from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Precision, Recall
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
-from olive.evaluator.metric_config import joint_metric_key, MetricResult, SubTypeMetricResult
+from olive.evaluator.metric_config import joint_metric_key, MetricResult, SubTypeMetricResult, flatten_metric_result
 from olive.model import OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
 from olive.systems.common import Device
 
@@ -132,7 +132,7 @@ class OliveEvaluator(ABC):
                 )
             else:
                 raise TypeError(f"{metric.type} is not a supported metric type")
-        return metrics_res
+        return flatten_metric_result(metrics_res)
 
     @staticmethod
     def get_user_config(metric: Metric):
