@@ -141,19 +141,23 @@ information of the evaluator contains following items:
 
     - `type: [str]` The type of the metric. The supported types are `accuracy`, `latency` and `custom`.
 
-    - `subtype: [str]` The subtype of the metric. Please refer to [AccuracySubtype](accuracy_sub_type) and
-    [LatencySubtype](latency_sub_type) for the supported sub-types. It is `null` for `custom` type.
+    - `subtyps: [List[Dict]]` The subtypes of the metric. Cannot be null or empty. Each subtype is a dictionary that contains following items:
 
-    - `higher_is_better: [Boolean]` True if the metric is better when it is higher. It is `true` for `accuracy` type and `false` for `latency` type.
+        - `name: str` The name of the subtype. Please refer to [AccuracySubtype](accuracy_sub_type) and [LatencySubtype](latency_sub_type) 
+        for the supported sub-types. It is `null` for `custom` type.
 
-    - `goal: [Dict]` The goal of the metric. It is a dictionary that contains following items:
+        - `priority_rank: [int]` The priority rank of the subtype. The subtype with the highest priority rank will be used to evaluate the. Note that it should be unique among all subtypes in the metric.
 
-        - `type: [str]` The type of the goal. The supoorted types are `threshold`, `min-improvement`, `percent-min-improvement`,
-        `max-degradation`, and `percent-max-degradation`.
+        - `higher_is_better: [Boolean]` True if the metric is better when it is higher. It is `true` for `accuracy` type and `false` for `latency` type.
 
-        - `value: [float]` The value of the goal. It is the threshold value for `threshold` type. It is the minimum improvement value
-        for `min-improvement` type. It is the minimum improvement percentage for `percent-min-improvement` type. It is the maximum
-        degradation value for `max-degradation` type. It is the maximum degradation percentage for `percent-max-degradation` type.
+        - `goal: [Dict]` The goal of the metric. It is a dictionary that contains following items:
+
+            - `type: [str]` The type of the goal. The supported types are `threshold`, `min-improvement`, `percent-min-improvement`,
+            `max-degradation`, and `percent-max-degradation`.
+
+            - `value: [float]` The value of the goal. It is the threshold value for `threshold` type. It is the minimum improvement value
+            for `min-improvement` type. It is the minimum improvement percentage for `percent-min-improvement` type. It is the maximum
+            degradation value for `max-degradation` type. It is the maximum degradation percentage for `percent-max-degradation` type.
 
     - `user_config: [Dict]` The user config dictionary that contains the user specific information for the metric. The
        dictionary contains following items:
@@ -186,7 +190,11 @@ information of the evaluator contains following items:
             {
                 "name": "accuracy",
                 "type": "accuracy",
-                "sub_type": "accuracy_score",
+                "sub_types": [
+                    {"name": "accuracy_score", "priority_rank": 1, "goal": {"type": "max-degradation", "value": 0.01}},
+                    {"name": "f1_score"},
+                    {"name": "auc", "metric_config": {"reorder": true}}
+                ],
                 "priority_rank": 1,
                 "user_config":{
                     "post_processing_func": "post_process",
@@ -198,8 +206,11 @@ information of the evaluator contains following items:
             {
                 "name": "latency",
                 "type": "latency",
-                "sub_type": "avg",
-                "priority_rank": 2,
+                "sub_types": [
+                    {"name": "avg","priority_rank": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
+                    {"name": "max"},
+                    {"name": "min"}
+                ],
                 "user_config":{
                     "user_script": "user_script.py",
                     "dataloader_func": "create_dataloader",

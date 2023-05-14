@@ -41,14 +41,20 @@ def post_process(output):
     ...
 ```
 
-Use `my_script.py` with Olive workflow configuration json file:
+Use `my_script.py` with Olive workflow configuration json file(sub_types name should be the returned dict key of your custom function):
+
+```
 
 ```
 "metrics":[
     {
         "name": "accuracy",
         "type": "accuracy",
-        "sub_type": "accuracy_score",
+        "sub_types": [
+            {"name": "accuracy_score", "priority_rank": 1, "goal": {"type": "max-degradation", "value": 0.01}},
+            {"name": "f1_score"},
+            {"name": "auc", "metric_config": {"reorder": true}}
+        ],
         "user_config":{
             "post_processing_func": "post_process",
             "user_script": "user_script.py",
@@ -96,7 +102,11 @@ Use `script_dir` and `my_script.py` with Olive workflow configuration json file:
     {
         "name": "accuracy",
         "type": "accuracy",
-        "sub_type": "accuracy_score",
+        "sub_types": [
+            {"name": "accuracy_score", "priority_rank": 1, "goal": {"type": "max-degradation", "value": 0.01}},
+            {"name": "f1_score"},
+            {"name": "auc", "metric_config": {"reorder": true}}
+        ]
         "user_config":{
             "post_processing_func": "post_process",
             "user_script": "user_script.py",
