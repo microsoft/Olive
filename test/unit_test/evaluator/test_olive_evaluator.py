@@ -69,13 +69,12 @@ class TestOliveEvaluator:
             mock_acc.return_value = expected_res
 
             # execute
-            actual_res = self.system.evaluate_model(olive_model, [metric])[metric.name]
+            actual_res = self.system.evaluate_model(olive_model, [metric])
 
             # assert
             mock_acc.assert_called_once()
-
             for sub_type in metric.sub_types:
-                assert expected_res == actual_res[sub_type.name].value
+                assert expected_res == actual_res.get_value(metric.name, sub_type.name)
 
     LATENCY_TEST_CASE = [
         (get_pytorch_model(), get_latency_metric(LatencySubType.AVG, LatencySubType.MAX), 1),
@@ -104,7 +103,7 @@ class TestOliveEvaluator:
     )
     def test_evaluate_latency(self, olive_model, metric, expected_res):
         # execute
-        actual_res = self.system.evaluate_model(olive_model, [metric])[metric.name]
+        actual_res = self.system.evaluate_model(olive_model, [metric])
 
         for sub_type in metric.sub_types:
-            assert expected_res > actual_res[sub_type.name].value
+            assert expected_res > actual_res.get_value(metric.name, sub_type.name)

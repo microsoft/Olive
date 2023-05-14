@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from olive.evaluator.metric_config import MetricResult, joint_metric_key
-from olive.evaluator.metric import AccuracySubType, LatencySubType
+from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricType
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 from olive.systems.python_environment import PythonEnvironmentSystem
 
@@ -81,7 +81,7 @@ class TestPythonEnvironmentSystem:
             }
         )
 
-        mock_compute_accuracy.return_value = mock_value
+        mock_compute_accuracy1.return_value = mock_value
         mock_compute_accuracy2.return_value = mock_value
 
         # expected result
@@ -122,5 +122,5 @@ class TestPythonEnvironmentSystem:
 
         # assert
         assert actual_res[LatencySubType.AVG].value == expected_res
-        assert len(mock_compute_latency.call_args.args[1]) == metric.metric_config.repeat_test_num
+        assert len(mock_compute_latency.call_args.args[1]) == metric_config.repeat_test_num
         assert all([latency > 0 for latency in mock_compute_latency.call_args.args[1]])

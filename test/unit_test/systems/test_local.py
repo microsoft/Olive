@@ -78,7 +78,7 @@ class TestLocalSystem:
         mock_get_user_config.return_value = (None, None, None)
 
         # execute
-        actual_res = self.system.evaluate_model(olive_model, [metric])[metric.name]
+        actual_res = self.system.evaluate_model(olive_model, [metric])
 
         # assert
         if metric.type == MetricType.ACCURACY:

@@ -63,7 +63,7 @@ class TestAzureMLSystem:
         mock_tempdir.return_value.__enter__.return_value = output_folder
 
         # execute
-        res = self.system.evaluate_model(olive_model, [metric])[metric.name]
+        res = self.system.evaluate_model(olive_model, [metric])
 
         # assert
         mock_create_pipeline.assert_called_once_with(output_folder, olive_model, [metric])
@@ -71,12 +71,10 @@ class TestAzureMLSystem:
         assert mock_retry_func.call_count == 2
         if metric.name == "accuracy":
             for sub_type in metric.sub_types:
-                key_name = joint_metric_key(metric.name, sub_type.name)
-                assert res[key_name].value == 0.99618
+                assert res.get_value(metric.name, sub_type.name) == 0.99618
         if metric.name == "latency":
             for sub_type in metric.sub_types:
-                key_name = joint_metric_key(metric.name, sub_type.name)
-                assert res[key_name].value == 0.031415
+                assert res.get_value(metric.name, sub_type.name) == 0.031415
 
     @patch("olive.systems.azureml.aml_system.shutil.copy")
     @patch("olive.systems.azureml.aml_system.retry_func")

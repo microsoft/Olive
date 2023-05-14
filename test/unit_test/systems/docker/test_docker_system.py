@@ -155,7 +155,7 @@ class TestDockerSystem:
         mock_create_run_command.return_value = run_command
 
         # execute
-        actual_res = docker_system.evaluate_model(olive_model, [metric])[metric.name]
+        actual_res = docker_system.evaluate_model(olive_model, [metric])
 
         # assert
         mock_create_eval_script_mount.called_once_with(container_root_path)
