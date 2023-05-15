@@ -30,8 +30,6 @@ class OptimumMerging(Pass):
     ) -> Union[ONNXModel, CompositeOnnxModel]:
         assert len(model.model_components) == 2
 
-        input(output_model_path)
-
         # TODO: Remove this when the bug in Optimum is fixed. Optimum calls ByteSize() to see whether
         # it should be using the merged model directly or use the path instead in the model checker,
         # but unfortunately ByteSize() doesn't seem to be working correctly with external weights.
