@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
+from olive.azureml.azureml_client import AzureMLClient
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
@@ -207,6 +208,7 @@ class Engine:
         self,
         input_model: OliveModel,
         packaging_config: Optional[PackagingConfig] = None,
+        aml_client: Optional[AzureMLClient] = None,
         verbose: bool = False,
         output_dir: str = None,
         output_name: str = None,
@@ -230,6 +232,18 @@ class Engine:
 
         output_dir: Path = Path(output_dir) if output_dir else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Download the AML model if the system is LocalSystem
+        if self.host.system_type == SystemType.Local or self.target.system_type == SystemType.Local:
+            model_download_path = self._model_cache_path / "azureml_input_model"
+            model_path = input_model.download_from_azureml(aml_client, model_download_path)
+            input_model.model_path = model_path
+            if model_path.is_dir():
+                input_model.model_storage_kind = ModelStorageKind.LocalFolder
+            elif model_path.is_file():
+                input_model.model_storage_kind = ModelStorageKind.LocalFile
+            else:
+                raise ValueError(f"Invalid model path {model_path}")
 
         # TODO by myguo: replace the following for loop using the accelerator and excution provider list when adding
         # accelerator support
@@ -664,6 +678,9 @@ class Engine:
                 message = f"Running pass {pass_id}"
                 logger.info(message)
 
+            # For multiple passes run, if the first pass is running on AML, the AML model will not be downloaded
+            # to the local cache. So we need to check if the model is AML model and the system type is not AML
+            # for the following passes.
             if (
                 model.model_storage_kind == ModelStorageKind.AzureMLModel
                 and not self.host_for_pass(pass_id).system_type == SystemType.AzureML

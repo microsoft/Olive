@@ -7,6 +7,7 @@ from typing import Dict, Union
 
 from pydantic import validator
 
+from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.data.config import DataConfig
 from olive.data.constants import DEFAULT_HF_DATA_CONTAINER_NAME, DefaultDataContainer
@@ -50,6 +51,7 @@ class RunEngineConfig(EngineConfig):
 
 class RunConfig(ConfigBase):
     verbose: bool = False
+    azureml_client: AzureMLClientConfig = None
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
     data_config: Dict[str, DataConfig] = {
@@ -136,6 +138,11 @@ def _resolve_config_str(v, values, alias, component_name="systems"):
     components = values[component_name] or {}
     if sub_component not in components:
         raise ValueError(f"{alias} {sub_component} not found in systems")
+    if component_name == "systems":
+        if components[sub_component].type == "AzureML":
+            if not values["azureml_client"]:
+                raise ValueError("AzureML client config is required for AzureML system")
+            components[sub_component].config["azureml_client_config"] = values["azureml_client"]
     v[alias] = components[sub_component]
     return v
 
