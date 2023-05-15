@@ -286,9 +286,9 @@ class Engine:
                     prefix_output_name = (
                         f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
                     )
-                    assert self.evaluator is not None, "Evaluation only is True but no evaluator provided"
+                    assert self.evaluator_config is not None, "Evaluation only is True but no evaluator provided"
                     results = self._evaluate_model(
-                        input_model, input_model_id, self.evaluator, accelerator_spec, verbose
+                        input_model, input_model_id, self.evaluator_config, accelerator_spec, verbose
                     )
                     result_name = f"{prefix_output_name}metrics"
                     results_path = output_dir / f"{result_name}.json"

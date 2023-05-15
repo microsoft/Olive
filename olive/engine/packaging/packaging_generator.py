@@ -11,51 +11,65 @@ import urllib.request
 from collections import OrderedDict
 from pathlib import Path
 from string import Template
+from typing import Dict
 
 import pkg_resources
 
 from olive.common.utils import run_subprocess
 from olive.engine.footprint import Footprint
 from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
+from olive.hardware import AcceleratorSpec
 
 logger = logging.getLogger(__name__)
 
 
 def generate_output_artifacts(
-    packaging_config: PackagingConfig, foot_print: Footprint, pf_footprint: Footprint, output_dir: Path
+    packaging_config: PackagingConfig,
+    footprints: Dict[AcceleratorSpec, Footprint],
+    pf_footprints: Dict[AcceleratorSpec, Footprint],
+    output_dir: Path,
 ):
-    if pf_footprint.nodes is None or len(pf_footprint.nodes) == 0:
+    if (
+        sum([len(f.nodes) for f in footprints.values()]) == 0
+        or sum([len(f.nodes) for f in pf_footprints.values()]) == 0
+    ):
         logger.warning("No model is selected. Skip packaging output artifacts.")
         return
     if packaging_config.type == PackagingType.Zipfile:
-        _generate_zipfile_output(packaging_config, foot_print, pf_footprint, output_dir)
+        _generate_zipfile_output(packaging_config, footprints, pf_footprints, output_dir)
 
 
 def _generate_zipfile_output(
-    packaging_config: PackagingConfig, footprint: Footprint, pf_footprint: Footprint, output_dir: Path
+    packaging_config: PackagingConfig,
+    footprints: Dict[AcceleratorSpec, Footprint],
+    pf_footprints: Dict[AcceleratorSpec, Footprint],
+    output_dir: Path,
 ) -> None:
     logger.info("Packaging Zipfile output artifacts")
     cur_path = Path(__file__).parent
     with tempfile.TemporaryDirectory() as tempdir:
         tempdir = Path(tempdir)
-        _package_sample_code(cur_path, tempdir, pf_footprint)
-        _package_candidate_models(tempdir, footprint, pf_footprint)
-        _package_onnxruntime_packages(tempdir, pf_footprint)
+        _package_sample_code(cur_path, tempdir)
+        for accelerator_spec, pf_footprint in pf_footprints.items():
+            if pf_footprint.nodes and footprints[accelerator_spec].nodes:
+                _package_candidate_models(tempdir, footprints[accelerator_spec], pf_footprint, accelerator_spec)
+        _package_onnxruntime_packages(tempdir, next(iter(pf_footprints.values())))
         shutil.make_archive(packaging_config.name, "zip", tempdir)
         shutil.move(f"{packaging_config.name}.zip", output_dir / f"{packaging_config.name}.zip")
 
 
-def _package_sample_code(cur_path, tempdir, pf_footprint: Footprint):
+def _package_sample_code(cur_path, tempdir):
     shutil.copytree(cur_path / "sample_code", tempdir / "SampleCode")
 
 
-def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footprint) -> None:
+def _package_candidate_models(
+    tempdir, footprint: Footprint, pf_footprint: Footprint, accelerator_spec: AcceleratorSpec
+) -> None:
     candidate_models_dir = tempdir / "CandidateModels"
-    candidate_models_dir.mkdir()
     model_rank = 1
     for model_id, node in pf_footprint.nodes.items():
-        model_dir = candidate_models_dir / f"BestCandidateModel_{model_rank}"
-        model_dir.mkdir()
+        model_dir = candidate_models_dir / f"{accelerator_spec}" / f"BestCandidateModel_{model_rank}"
+        model_dir.mkdir(parents=True, exist_ok=True)
         model_rank += 1
         # Copy model file
         model_path = pf_footprint.get_model_path(model_id)

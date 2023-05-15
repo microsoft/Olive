@@ -73,9 +73,9 @@ class TestLocalSystem:
 
         # assert
         if metric.type == MetricType.ACCURACY:
-            mock_evaluate_accuracy.called_once_with(olive_model, metric, "cpu", None, "CPUExecutionProvider")
+            mock_evaluate_accuracy.called_once_with(olive_model, metric, None, "cpu", "CPUExecutionProvider")
         if metric.type == MetricType.LATENCY:
-            mock_evaluate_latency.called_once_with(olive_model, metric, "cpu", None, "CPUExecutionProvider")
+            mock_evaluate_latency.called_once_with(olive_model, metric, None, "cpu", "CPUExecutionProvider")
         if metric.type == MetricType.CUSTOM:
-            mock_evaluate_custom.called_once_with(olive_model, metric, None, "cpu", None, "CPUExecutionProvider")
+            mock_evaluate_custom.called_once_with(olive_model, metric, None, None, "cpu", "CPUExecutionProvider")
         assert actual_res == expected_res
