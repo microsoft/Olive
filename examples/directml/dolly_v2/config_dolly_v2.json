@@ -52,6 +52,9 @@
                 "num_heads": 32,
                 "hidden_size": 4096
             }
+        },
+        "merge": {
+            "type": "OptimumMerging"
         }
     },
     "engine": {

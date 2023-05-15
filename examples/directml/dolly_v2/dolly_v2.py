@@ -5,15 +5,13 @@
 import argparse
 import json
 import shutil
-import warnings
 from pathlib import Path
 
+import os
 import onnxruntime as ort
-import torch
 from transformers import AutoTokenizer
 from optimum.onnxruntime import ORTModelForCausalLM
 from instruct_pipeline import InstructionTextGenerationPipeline
-from transformers import AutoModelForCausalLM
 
 from olive.workflows import run as olive_run
 
@@ -30,7 +28,7 @@ def run_inference(optimized_model_dir, prompt, max_new_tokens):
     print(result)
 
 
-def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: Path, optimize_provider: str):
+def optimize(model_name: str, optimized_model_dir: Path, optimize_provider: str):
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
 
@@ -40,7 +38,7 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
     print(f"\nOptimizing {model_name}")
 
     olive_config = None
-    with open(script_dir / f"config_dolly_v2.json", "r") as fin:
+    with open(script_dir / "config_dolly_v2.json", "r", encoding="utf8") as fin:
         olive_config = json.load(fin)
     if optimize_provider:
         olive_config["passes"]["optimize"]["config"]["target_provider"] = optimize_provider
@@ -48,25 +46,25 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
     olive_run(olive_config)
 
     # TODO: rename the 0 prefix in the path when the hardware accelerator feature is implemented.
-    footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"dolly_v2_0_footprints.json"
+    footprints_file_path = Path(__file__).resolve().parent / "footprints/dolly_v2_0_footprints.json"
     with footprints_file_path.open("r") as footprint_file:
         footprints = json.load(footprint_file)
         conversion_footprint = None
-        optimizer_footprint = None
+        merger_footprint = None
         for _, footprint in footprints.items():
-            if footprint["from_pass"] == "OnnxConversion":
+            if footprint["from_pass"] == "OptimumConversion":
                 conversion_footprint = footprint
-            elif footprint["from_pass"] == "OrtTransformersOptimization":
-                optimizer_footprint = footprint
+            elif footprint["from_pass"] == "OptimumMerging":
+                merger_footprint = footprint
 
-        assert conversion_footprint and optimizer_footprint
+        assert conversion_footprint and merger_footprint
 
         unoptimized_config = conversion_footprint["model_config"]["config"]
-        optimized_config = optimizer_footprint["model_config"]["config"]
+        optimized_config = merger_footprint["model_config"]["config"]
 
         model_info = {
             "unoptimized": {
-                "path": Path(unoptimized_config["model_path"]),
+                "path": os.path.dirname(unoptimized_config["model_components"][0]["config"]["model_path"]),
             },
             "optimized": {
                 "path": Path(optimized_config["model_path"]),
@@ -76,16 +74,18 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
         print(f"Unoptimized Model : {model_info['unoptimized']['path']}")
         print(f"Optimized Model   : {model_info['optimized']['path']}")
 
-    # Save the unoptimized models in a directory structure that the transformers library can load and run.
-    # This is optional, and the optimized models can be used directly in a custom pipeline if desired.
-    model = AutoModelForCausalLM.from_pretrained("databricks/dolly-v2-7b", torch_dtype=torch.float32)
-    model.save_pretrained(unoptimized_model_dir)
-
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
-    shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("*.data"))
-    src_path = model_info["optimized"]["path"]
-    dst_path = optimized_model_dir / "decoder_model_merged.onnx"
-    shutil.copyfile(src_path, dst_path)
+    shutil.copytree(model_info['unoptimized']['path'], optimized_model_dir, ignore=shutil.ignore_patterns("*.onnx", "*.onnx_data"))
+
+    merged_model_path = str(model_info["optimized"]["path"])
+    merged_weights_path = merged_model_path + ".data"
+
+    merged_model_name = os.path.basename(merged_model_path)
+    merged_weights_name = merged_model_name + ".data"
+
+    print(f"Copying the optimized model to {optimized_model_dir}")
+    shutil.copyfile(merged_model_path, optimized_model_dir / merged_model_name)
+    shutil.copyfile(merged_weights_path, optimized_model_dir / merged_weights_name)
 
 
 if __name__ == "__main__":
@@ -100,7 +100,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     script_dir = Path(__file__).resolve().parent
-    unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model
     optimized_model_dir = script_dir / "models" / "optimized" / args.model
 
     if args.clean_cache:
@@ -108,17 +107,10 @@ if __name__ == "__main__":
 
     if args.optimize:
         shutil.rmtree(script_dir / "footprints", ignore_errors=True)
-        shutil.rmtree(unoptimized_model_dir, ignore_errors=True)
         shutil.rmtree(optimized_model_dir, ignore_errors=True)
 
     if args.optimize or not optimized_model_dir.exists():
-        # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            optimize(args.model, unoptimized_model_dir, optimized_model_dir, args.optimize_provider)
+        optimize(args.model, optimized_model_dir, args.optimize_provider)
 
     if not args.optimize:
-        model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            run_inference(model_dir, args.prompt, args.max_new_tokens)
+        run_inference(optimized_model_dir, args.prompt, args.max_new_tokens)

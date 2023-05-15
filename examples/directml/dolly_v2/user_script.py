@@ -8,20 +8,21 @@ from transformers import AutoModelForCausalLM
 
 # Helper latency-only dataloader that creates random tensors with no label
 class RandomDataLoader:
-    def __init__(self, create_inputs_func, batch_size, sequence_length, attention_mask_sequence_length, past_sequence_length, torch_dtype):
+    def __init__(self, create_inputs_func, batch_size, torch_dtype):
         self.create_input_func = create_inputs_func
         self.batch_size = batch_size
-        self.sequence_length = sequence_length
-        self.attention_mask_sequence_length = attention_mask_sequence_length
-        self.past_sequence_length = past_sequence_length
         self.torch_dtype = torch_dtype
 
     def __getitem__(self, idx):
         label = None
-        return self.create_input_func(self.batch_size, self.sequence_length, self.attention_mask_sequence_length, self.past_sequence_length, self.torch_dtype), label
+        return self.create_input_func(self.batch_size, self.torch_dtype), label
 
 
-def dolly_v2_inputs(batch_size, sequence_length, attention_mask_sequence_length, past_sequence_length, torch_dtype):
+def dolly_v2_inputs(batch_size, torch_dtype):
+    past_sequence_length = 1
+    attention_mask_sequence_length = 1
+    sequence_length = 2
+
     inputs = {
         "input_ids": torch.randint(10, (batch_size, sequence_length), dtype=torch.int64),
         "attention_mask": torch.randint(10, (batch_size, attention_mask_sequence_length), dtype=torch.int64),
@@ -36,14 +37,5 @@ def dolly_v2_inputs(batch_size, sequence_length, attention_mask_sequence_length,
     return inputs
 
 
-def dolly_v2_load(model_name):
-    model = AutoModelForCausalLM.from_pretrained("databricks/dolly-v2-7b", torch_dtype=torch.float16)
-    return model
-
-
-def dolly_v2_conversion_inputs(model):
-    return tuple(dolly_v2_inputs(1, 2, 64, 1, torch.float32).values())
-
-
-def dolly_v2_data_loader(data_dir, batch_size, sequence_length, attention_mask_sequence_length, past_sequence_length):
-    return RandomDataLoader(dolly_v2_inputs, batch_size, sequence_length, attention_mask_sequence_length, past_sequence_length, torch.float16)
+def dolly_v2_data_loader(data_dir, batch_size):
+    return RandomDataLoader(dolly_v2_inputs, batch_size, torch.float16)

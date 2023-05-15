@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 from typing import Any, Dict, Union
 
-from olive.common.utils import tensor_data_to_device
 from olive.model import CompositeOnnxModel, ONNXModel, OptimumModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
@@ -34,14 +33,12 @@ class OptimumConversion(Pass):
     ) -> Union[ONNXModel, CompositeOnnxModel]:
         assert len(model.model_components) > 0
 
-        input("LALALALA")
-
-#        export_optimum_model(
-#            model.model_path,
-#            output_model_path,
-#            opset=config["target_opset"],
-#            no_post_process=True,
-#        )
+        export_optimum_model(
+            model.model_path,
+            output_model_path,
+            opset=config["target_opset"],
+            no_post_process=True,
+        )
 
         onnx_model_components = [
             ONNXModel(str(Path(output_model_path) / model_component), model.name)

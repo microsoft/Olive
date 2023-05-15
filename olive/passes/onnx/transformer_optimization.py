@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import os
 from copy import deepcopy
 from typing import Any, Dict, List, Union
 
@@ -259,7 +260,7 @@ class OrtTransformersOptimization(Pass):
         for key in get_external_data_config():
             del run_config[key]
 
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
 
         if config["model_type"] in OrtTransformersOptimization.sd_model_types():
             # stable diffusion optimization only applies to the CUDA EP in ORT 1.14 and earlier.
