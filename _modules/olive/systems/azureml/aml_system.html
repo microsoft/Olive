@@ -305,7 +305,8 @@
         <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="n">model_config_path</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;model_config.json&quot;</span>
-        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">model_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">),</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">model_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">model_config</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">model_config_path</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="p">{</span>
@@ -335,7 +336,8 @@
             <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="n">pass_config_path</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;pass_config.json&quot;</span>
-        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">pass_config</span><span class="p">,</span> <span class="n">pass_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">),</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">pass_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">pass_config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;pass_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">pass_config_path</span><span class="p">),</span> <span class="o">**</span><span class="n">pass_args</span><span class="p">}</span>
 
@@ -432,7 +434,8 @@
 
     <span class="k">def</span> <span class="nf">_load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_model</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pipeline_output_path</span><span class="p">):</span>
         <span class="n">model_json_path</span> <span class="o">=</span> <span class="n">pipeline_output_path</span> <span class="o">/</span> <span class="s2">&quot;output_model_config.json&quot;</span>
-        <span class="n">model_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">model_json_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">))</span>
+        <span class="k">with</span> <span class="n">model_json_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">model_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 
         <span class="c1"># resolve model path</span>
         <span class="c1"># this is to handle passes like OrtPerfTuning that use the same model file as input</span>
@@ -503,7 +506,8 @@
             <span class="n">metric_config</span><span class="p">[</span><span class="s2">&quot;user_config&quot;</span><span class="p">][</span><span class="s2">&quot;data_dir&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="n">metric_config_path</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;metric_config.json&quot;</span>
-        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">metric_config</span><span class="p">,</span> <span class="nb">open</span><span class="p">(</span><span class="n">metric_config_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">),</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">metric_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">metric_config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">metric_config</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">metric_config_path</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="p">{</span>
@@ -551,7 +555,8 @@
             <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
                 <span class="n">metric_json</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;named-outputs&quot;</span> <span class="o">/</span> <span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="o">/</span> <span class="s2">&quot;metric_result.json&quot;</span>
                 <span class="k">if</span> <span class="n">metric_json</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-                    <span class="n">metric_results</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">metric_json</span><span class="p">))[</span><span class="s2">&quot;result&quot;</span><span class="p">]</span>
+                    <span class="k">with</span> <span class="n">metric_json</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                        <span class="n">metric_results</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)[</span><span class="s2">&quot;result&quot;</span><span class="p">]</span>
 
             <span class="k">return</span> <span class="n">metric_results</span>
 
