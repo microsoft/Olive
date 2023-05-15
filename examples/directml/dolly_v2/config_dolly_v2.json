@@ -47,7 +47,7 @@
                 "model_type": "gpt_neox",
                 "float16": true,
                 "use_gpu": false,
-                "keep_io_types": false,
+                "keep_io_types": true,
                 "target_provider": "directml",
                 "num_heads": 32,
                 "hidden_size": 4096
