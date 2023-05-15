@@ -1,15 +1,24 @@
-# Stable Diffusion Optimization with DirectML
+# Stable Diffusion Optimization with DirectML <!-- omit in toc -->
 
     ⚠️ THIS SAMPLE IS A WORK IN PROGRESS AND REQUIRES ONNXRUNTIME-DIRECTML 1.15+ (NOT YET RELEASED) ⚠️
 
 This sample shows how to optimize [Stable Diffusion v1-5](https://huggingface.co/runwayml/stable-diffusion-v1-5) to run with ONNX Runtime and DirectML.
+
+- [Stable Diffusion Pipeline](#stable-diffusion-pipeline)
+- [Setup](#setup)
+- [Conversion to ONNX and Latency Optimization](#conversion-to-onnx-and-latency-optimization)
+- [Test Inference](#test-inference)
+- [LoRA Models (Experimental)](#lora-models-experimental)
+- [Issues](#issues)
+
+# Stable Diffusion Pipeline
 
 Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*. This Olive sample will convert each PyTorch model to ONNX, and then run the converted ONNX models through the `OrtTransformersOptimization` pass. The transformer optimization pass performs several time-consuming graph transformations that make the models more efficient for inference at runtime.
 
 ![](readme/pipeline.png)
 *Based on figure from [Hugging Face Blog](https://huggingface.co/blog/stable_diffusion) that covers Stable Diffusion with Diffusers library. Blue boxes are the converted & optimized ONNX models. Gray boxes remain implemented by diffusers library.*
 
-## Setup
+# Setup
 
 Make sure that your Python environment has `onnxruntime-directml` along with other dependencies in this sample's [requirements.txt](requirements.txt):
 
@@ -17,7 +26,7 @@ Make sure that your Python environment has `onnxruntime-directml` along with oth
 pip install -r requirements.txt
 ```
 
-## Conversion to ONNX and Latency Optimization
+# Conversion to ONNX and Latency Optimization
 
 The easiest way to optimize the pipeline is with the `stable_diffusion.py` helper script:
 
@@ -33,7 +42,7 @@ Once the script successfully completes:
 
 Re-running the script with `--optimize` will delete the output models, but it will *not* delete the Olive cache. Subsequent runs will complete much faster since it will simply be copying previously optimized models; you may use the `--clean_cache` option to start from scratch (not typically used unless you are modifying the scripts, for example).
 
-## Test Inference
+# Test Inference
 
 This sample code is primarily intended to illustrate model optimization with Olive, but it also provides a simple interface for testing inference with the ONNX models. Inference is done by creating an `OnnxStableDiffusionPipeline` from the saved models, which leans on ONNX runtime for runtime inference of the core models (text encoder, u-net, decoder, and safety checker).
 
@@ -120,6 +129,18 @@ Inference Batch End (8/8 images passed the safety checker).
 ```
 
 Finally, you may adjust the number of steps in the U-net loop by setting `--num_inference_steps <steps>`. The default value is 50, but a lower value may produce sufficiently high quality images while taking less time overall.
+
+# LoRA Models (Experimental)
+
+```
+python stable_diffusion.py --optimize --model_id runwayml/ --lora
+```
+
+TODO
+- LoRA weights are fused into the original weights for better inference performance, which means you must re-optimize each (you can't overlay LoRA weights on pre-optimized base model).
+- Use LoRA model id instead of base model id
+  - ONLY for unet (and maybe text encoder)
+  - https://huggingface.co/docs/diffusers/training/lora
 
 # Issues
 

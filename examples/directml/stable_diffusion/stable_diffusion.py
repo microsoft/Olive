@@ -15,6 +15,7 @@ from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffu
 from packaging import version
 
 from olive.workflows import run as olive_run
+from user_script import is_lora_model, get_base_model_name
 
 
 def run_inference_loop(
@@ -93,7 +94,9 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
                 image_index += 1
             layout.append(ui_row)
 
-        layout.append([sg.ProgressBar(num_inference_steps * min_batches_required, key="sb_progress", expand_x=True, size=(8, 8))])
+        layout.append(
+            [sg.ProgressBar(num_inference_steps * min_batches_required, key="sb_progress", expand_x=True, size=(8, 8))]
+        )
         layout.append([sg.InputText(key="sd_prompt", default_text=prompt, expand_x=True), sg.Button("Generate")])
 
         window = sg.Window("Stable Diffusion", layout)
@@ -130,7 +133,12 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
         run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps)
 
 
-def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: Path, optimize_provider: str):
+def optimize(
+    model_name: str,
+    unoptimized_model_dir: Path,
+    optimized_model_dir: Path,
+    optimize_provider: str,
+):
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
 
@@ -139,11 +147,13 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
     shutil.rmtree(unoptimized_model_dir, ignore_errors=True)
     shutil.rmtree(optimized_model_dir, ignore_errors=True)
 
+    base_model_id = get_base_model_name(model_name)
+
     # Load the entire PyTorch pipeline to ensure all models and their configurations are downloaded and cached.
     # This avoids an issue where the non-ONNX components (tokenizer, scheduler, and feature extractor) are not
     # automatically cached correctly if individual models are fetched one at a time.
     print("Download stable diffusion PyTorch pipeline...")
-    pipeline = StableDiffusionPipeline.from_pretrained(model_name, torch_dtype=torch.float32)
+    pipeline = StableDiffusionPipeline.from_pretrained(base_model_id, torch_dtype=torch.float32)
 
     model_info = dict()
 
@@ -156,6 +166,8 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
             olive_config = json.load(fin)
         if optimize_provider:
             olive_config["passes"]["optimize"]["config"]["target_provider"] = optimize_provider
+
+        olive_config["input_model"]["config"]["model_path"] = model_name
 
         olive_run(olive_config)
 
@@ -218,12 +230,13 @@ def optimize(model_name: str, unoptimized_model_dir: Path, optimized_model_dir: 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--model", default="runwayml/stable-diffusion-v1-5", type=str)
+    parser.add_argument("--lora", action="store_true", help="Indicates the model has LoRA weights")
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--optimize_provider", type=str, default="directml_future", help="EP target for inference")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
-    parser.add_argument("--model", default="runwayml/stable-diffusion-v1-5", type=str)
     parser.add_argument("--prompt", default="cyberpunk dog, glasses, neon, bokeh, close up", type=str)
     parser.add_argument("--num_images", default=1, type=int, help="Number of images to generate")
     parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
