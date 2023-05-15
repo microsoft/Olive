@@ -125,7 +125,8 @@ def run(config: Union[str, Path, dict], setup: bool = False):
     input_model = config.input_model.create_model()
 
     # Azure ML Client
-    aml_client = config.azureml_client.create_client()
+    if config.azureml_client:
+        aml_client = config.azureml_client.create_client()
 
     # engine
     engine = config.engine.create_engine()
