@@ -142,7 +142,7 @@ def _resolve_config_str(v, values, alias, component_name="systems"):
         if components[sub_component].type == "AzureML":
             if not values["azureml_client"]:
                 raise ValueError("AzureML client config is required for AzureML system")
-            components[sub_component].config["azureml_client_config"] = values["azureml_client"]
+            components[sub_component].config.azureml_client_config = values["azureml_client"]
     v[alias] = components[sub_component]
     return v
 
