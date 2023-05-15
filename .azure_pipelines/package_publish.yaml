@@ -42,4 +42,4 @@ steps:
 - script: |
     python -m twine upload --repository-url https://upload.pypi.org/legacy/ -u $(PYPI_USERNAME) -p $(PYPI_PASSWORD) dist/*.whl
   displayName: 'Upload to PyPI'
-  condition: eq(variables['is_publish_build'], true)
+  condition: eq(parameters.is_publish_build, true)
