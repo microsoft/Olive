@@ -19,10 +19,7 @@ from test.integ_test.evaluator.docker_eval.utils import (
 
 import pytest
 
-=======
-from olive.evaluator.olive_evaluator import OliveEvaluator
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
->>>>>>> 67bbcf4 (fix evaluate model integration test failure)
 from olive.model import ONNXModel, OpenVINOModel, PyTorchModel
 
 

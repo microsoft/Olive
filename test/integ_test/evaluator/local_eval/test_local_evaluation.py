@@ -48,5 +48,7 @@ class TestLocalEvaluation:
     )
     def test_evaluate_model(self, model_cls, model_config, metric, expected_res):
         olive_model = model_cls(**model_config)
-        actual_res = LocalSystem().evaluate_model(olive_model, [metric], accelerator=DEFAULT_CPU_ACCELERATOR)[metric.name]
+        actual_res = LocalSystem().evaluate_model(olive_model, [metric], accelerator=DEFAULT_CPU_ACCELERATOR)[
+            metric.name
+        ]
         assert actual_res >= expected_res

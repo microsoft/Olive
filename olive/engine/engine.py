@@ -101,7 +101,7 @@ class Engine:
         if self.target.system_type == SystemType.AzureML and execution_providers is None:
             raise ValueError("AzureMLSystem requires execution providers to be specified.")
         elif execution_providers is None:
-            if self.target.system_type == SystemType.Local:
+            if self.target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
                 execution_providers = self.target.get_supported_execution_providers()
             else:
                 # for docker system and python system, we default use CPUExecutionProvider
@@ -272,6 +272,7 @@ class Engine:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         outputs = {}
+        footprints = {}
         for accelerator_spec in self.accelerator_specs:
             # generate search space and intialize the passes for each hardware accelerator
             self.setup_passes(accelerator_spec)
@@ -299,25 +300,37 @@ class Engine:
                         input_model,
                         input_model_id,
                         accelerator_spec,
-                        packaging_config,
                         verbose,
                         output_dir,
                         output_name,
                     )
                     outputs[accelerator_spec] = output
+                    footprints[accelerator_spec] = self.footprints[accelerator_spec].get_last_node()
                 else:
                     footprint = self.run_search(
                         input_model,
                         input_model_id,
                         accelerator_spec,
-                        packaging_config,
                         verbose,
                         output_dir,
                         output_name,
                     )
                     outputs[accelerator_spec] = footprint
+                    footprints[accelerator_spec] = footprint
+
             except Exception as e:
                 logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}")
+
+        if packaging_config:
+            logger.info(f"Package top ranked {sum([len(f.nodes) for f in footprints.values()])} models as artifacts")
+            generate_output_artifacts(
+                packaging_config,
+                self.footprints,
+                footprints,
+                output_dir,
+            )
+        else:
+            logger.info("No packaging config provided, skip packaging artifacts")
 
         return outputs
 
@@ -344,7 +357,6 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         accelerator_spec: AcceleratorSpec,
-        packaging_config: Optional[PackagingConfig] = None,
         verbose: bool = False,
         output_dir: str = None,
         output_name: str = None,
@@ -404,16 +416,6 @@ class Engine:
         if signal is not None:
             output["metrics"] = signal
 
-        # Package output model as artifacts if no search
-        if packaging_config:
-            logger.info("Package output model as artifacts")
-            generate_output_artifacts(
-                packaging_config,
-                self.footprints[accelerator_spec],
-                self.footprints[accelerator_spec].get_last_node(),
-                output_dir,
-            )
-
         return output
 
     def run_search(
@@ -421,7 +423,6 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         accelerator_spec: AcceleratorSpec,
-        packaging_config: Optional[PackagingConfig] = None,
         verbose: bool = False,
         output_dir: str = None,
         output_name: str = None,
@@ -505,12 +506,6 @@ class Engine:
             pf_footprints.plot_pareto_frontier_to_html(
                 save_path=output_dir / f"{prefix_output_name}pareto_frontier_footprints_chart.html"
             )
-
-        if packaging_config:
-            logger.info(f"Package top ranked {len(pf_footprints.nodes)} models as artifacts")
-            generate_output_artifacts(packaging_config, self.footprints[accelerator_spec], pf_footprints, output_dir)
-        else:
-            logger.info("No packaging config provided, skip packaging artifacts")
 
         return pf_footprints
 

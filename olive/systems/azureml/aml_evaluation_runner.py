@@ -62,9 +62,6 @@ def main(raw_args=None):
         accelerator_config = json.load(f)
     accelerator_spec = AcceleratorSpec(**accelerator_config)
 
-    # create_evaluator
-    evaluator = OliveEvaluator([metric])
-
     target: OliveSystem = LocalSystem()
 
     # metric result

@@ -216,7 +216,9 @@ def get_benchmark(model, latency_metric, config, test_params=None):
         # add the io_bind back to test_params
         test_params["_io_bind"] = io_bind
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
-    test_result["latency_ms"] = evaluator.evaluate(model, [latency_metric], config.device, config.provider_list)[latency_metric.name]
+    test_result["latency_ms"] = evaluator.evaluate(model, [latency_metric], config.device, config.providers_list)[
+        latency_metric.name
+    ]
     return test_result
 
 
