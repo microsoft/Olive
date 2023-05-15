@@ -208,10 +208,12 @@ class TestEngine:
         assert Path(actual_res["model"]["config"]["model_path"]).is_file()
         model_json_path = Path(output_dir / f"{accelerator_spec}_model.json")
         assert model_json_path.is_file()
-        assert json.load(open(model_json_path, "r")) == actual_res["model"]
+        with open(model_json_path, "r") as f:
+            assert json.load(f) == actual_res["model"]
         result_json_path = Path(output_dir / f"{accelerator_spec}_metrics.json")
         assert result_json_path.is_file()
-        assert json.load(open(result_json_path, "r")) == actual_res["metrics"]
+        with open(result_json_path, "r") as f:
+            assert json.load(f) == actual_res["metrics"].__root__
 
         # clean up
         shutil.rmtree(output_dir, ignore_errors=True)
@@ -285,7 +287,8 @@ class TestEngine:
         assert expected_res == actual_res
         result_json_path = Path(output_dir / f"{accelerator_spec}_metrics.json")
         assert result_json_path.is_file()
-        assert json.load(open(result_json_path, "r")) == actual_res
+        with open(result_json_path, "r") as f:
+            assert json.load(f) == actual_res.__root__
 
         # clean up
         shutil.rmtree(output_dir, ignore_errors=True)
