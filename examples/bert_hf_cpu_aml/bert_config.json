@@ -9,7 +9,6 @@
             "hf_config": {
                 "model_name": "Intel/bert-base-uncased-mrpc",
                 "task": "text-classification",
-                "load_model_from_hub": false,
                 "dataset": {
                     "data_name":"glue",
                     "subset": "mrpc",

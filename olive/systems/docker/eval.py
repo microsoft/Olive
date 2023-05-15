@@ -19,10 +19,10 @@ def evaluate_entry(config, model_path, output_path, output_name):
     with open(config, "r") as f:
         config_json = json.load(f)
     metric_list = MetricList(__root__=json.loads(config_json["metrics"])).__root__
-    logger.info(f"Evaluation metric list: {metric_list}")
-
     model_json = config_json["model"]
-    model_json["config"]["model_path"] = model_path
+
+    if model_path != "None":
+        model_json["config"]["model_path"] = model_path
     model = ModelConfig.from_json(model_json).create_model()
 
     evaluator: OliveEvaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
