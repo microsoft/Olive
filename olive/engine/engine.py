@@ -234,7 +234,9 @@ class Engine:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         # Download the AML model if the system is LocalSystem
-        if self.host.system_type == SystemType.Local or self.target.system_type == SystemType.Local:
+        if input_model.model_storage_kind == ModelStorageKind.AzureMLModel and (
+            self.host.system_type == SystemType.Local or self.target.system_type == SystemType.Local
+        ):
             model_download_path = self._model_cache_path / "azureml_input_model"
             model_path = input_model.download_from_azureml(aml_client, model_download_path)
             input_model.model_path = model_path
