@@ -1,3 +1,9 @@
+parameters:
+- name: is_publish_build
+  displayName: 'Whether publish package to pypi.'
+  type: boolean
+  default: false
+  
 trigger: none
 
 pool:
@@ -21,6 +27,19 @@ steps:
     debugMode: false
   continueOnError: true
 
+- task: CopyFiles@2
+  displayName: 'Copy Python Wheel to: $(Build.ArtifactStagingDirectory)'
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)/dist'
+    Contents: '*.whl'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish artifacts'
+  inputs:
+    ArtifactName: olive
+
 - script: |
     python -m twine upload --repository-url https://upload.pypi.org/legacy/ -u $(PYPI_USERNAME) -p $(PYPI_PASSWORD) dist/*.whl
   displayName: 'Upload to PyPI'
+  condition: eq(variables['is_publish_build'], true)
