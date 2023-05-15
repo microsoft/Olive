@@ -1,0 +1,72 @@
+{
+    "verbose": false,
+    "input_model":{
+        "type": "OptimumModel",
+        "config": {
+            "model_path": "stabilityai/stablelm-base-alpha-7b",
+            "name": "stablelm",
+            "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"]
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "device": "gpu"
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_type": "avg",
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "stablelm_data_loader",
+                        "batch_size": 1
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "convert": {
+            "type": "OptimumConversion",
+            "config": {
+                "target_opset": 14,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
+        },
+        "optimize": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "gpt_neox",
+                "float16": true,
+                "use_gpu": false,
+                "keep_io_types": true,
+                "target_provider": "directml",
+                "num_heads": 48,
+                "hidden_size": 6144
+            }
+        },
+        "merge": {
+            "type": "OptimumMerging"
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "exhaustive"
+        },
+        "evaluator": "common_evaluator",
+        "host": "local_system",
+        "target": "local_system",
+        "cache_dir": "cache",
+        "output_name": "stablelm",
+        "output_dir": "footprints"
+    }
+}

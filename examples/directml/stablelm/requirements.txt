@@ -1,0 +1,6 @@
+torch
+--extra-index-url https://download.pytorch.org/whl/cu117
+transformers
+onnx
+accelerate
+optimum @ git+https://github.com/PatriceVignola/optimum@c2f93a4
