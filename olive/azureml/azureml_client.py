@@ -14,6 +14,9 @@ class AzureMLClientConfig(ConfigBase):
     resource_group: str = None
     workspace_name: str = None
     aml_config_path: str = None
+    # read timeout in seconds for HTTP requests, user can increase if they find the default value too small.
+    # The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to
+    # sometimes hang for a long time between retries of job stream and download steps.
     read_timeout: int = 60
 
     def create_client(self):
