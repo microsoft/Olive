@@ -52,7 +52,8 @@ def main(raw_args=None):
     pass_config_arg, extra_args = parse_pass_config_arg(extra_args)
 
     # pass config
-    pass_config = json.load(open(pass_config_arg.pass_config))
+    with open(pass_config_arg.pass_config) as f:
+        pass_config = json.load(f)
     pass_type = pass_config["type"].lower()
 
     # TODO: contact ort team for a workaround
@@ -103,7 +104,8 @@ def main(raw_args=None):
             model_json["same_model_path_as_input"] = True
         else:
             model_json["config"]["model_path"] = str(Path(model_path).relative_to(Path(common_args.pipeline_output)))
-    json.dump(model_json, open(Path(common_args.pipeline_output) / "output_model_config.json", "w"), indent=4)
+    with open(Path(common_args.pipeline_output) / "output_model_config.json", "w") as f:
+        json.dump(model_json, f, indent=4)
 
 
 if __name__ == "__main__":

@@ -235,7 +235,8 @@ class Engine:
                 results = self._evaluate_model(input_model, input_model_id, self.evaluator_config, i, verbose)
                 result_name = f"{prefix_output_name}metrics"
                 results_path = output_dir / f"{result_name}.json"
-                json.dump(results.dict(), open(results_path, "w"), indent=4)
+                with open(results_path, "w") as f:
+                    f.write(results.json())
                 outputs[i] = results
             elif self.no_search:
                 output = self.run_no_search(
@@ -326,7 +327,8 @@ class Engine:
         result_name = f"{prefix_output_name}metrics"
         results_path = output_dir / f"{result_name}.json"
         if signal is not None:
-            json.dump(signal.dict(), open(results_path, "w"), indent=4)
+            with open(results_path, "w") as f:
+                f.write(signal.json())
 
         output = {"model": output_model_json}
         if signal is not None:
@@ -585,7 +587,8 @@ class Engine:
             model_json = model.to_json(check_object=check_objects)
         model_json_path = self.get_model_json_path(model_id)
         try:
-            json.dump(model_json, open(model_json_path, "w"), indent=4)
+            with open(model_json_path, "w") as f:
+                json.dump(model_json, f, indent=4)
         except Exception as e:
             logger.error(f"Failed to cache model: {e}")
 
@@ -595,7 +598,8 @@ class Engine:
         """
         model_json_path = self.get_model_json_path(model_id)
         try:
-            model_json = json.load(open(model_json_path, "r"))
+            with open(model_json_path, "r") as f:
+                model_json = json.load(f)
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
             return None
@@ -638,7 +642,8 @@ class Engine:
         input_model_number = input_model_id.split("_")[0]
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config)
         try:
-            json.dump(run_json, open(run_json_path, "w"), indent=4)
+            with open(run_json_path, "w") as f:
+                json.dump(run_json, f, indent=4)
         except Exception as e:
             logger.error(f"Failed to cache run: {e}")
 
@@ -650,7 +655,8 @@ class Engine:
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config)
         if run_json_path.exists():
             try:
-                run_json = json.load(open(run_json_path, "r"))
+                with open(run_json_path, "r") as f:
+                    run_json = json.load(f)
                 output_model_id = run_json["output_model_id"]
             except Exception as e:
                 logger.error(f"Failed to load run: {e}")
@@ -802,7 +808,8 @@ class Engine:
         }
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         try:
-            json.dump(evaluation_json, open(evaluation_json_path, "w"), indent=4)
+            with open(evaluation_json_path, "w") as f:
+                json.dump(evaluation_json, f, indent=4)
         except Exception as e:
             logger.error(f"Failed to cache evaluation: {e}")
 
@@ -813,7 +820,8 @@ class Engine:
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         if evaluation_json_path.exists():
             try:
-                evaluation_json = json.load(open(evaluation_json_path, "r"))
+                with open(evaluation_json_path, "r") as f:
+                    evaluation_json = json.load(f)
                 signal = evaluation_json["signal"]
                 signal = MetricResult(**signal)
             except Exception as e:

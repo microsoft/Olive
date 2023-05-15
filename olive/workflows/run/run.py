@@ -52,7 +52,8 @@ def automatically_insert_passes(config):
 
 def dependency_setup(config):
     here = os.path.abspath(os.path.dirname(__file__))
-    EXTRAS = json.load(open(os.path.join(here, "../../extra_dependencies.json"), "r"))
+    with open(os.path.join(here, "../../extra_dependencies.json"), "r") as f:
+        EXTRAS = json.load(f)
     DEPENDENCY_MAPPING = {
         "device": {
             SystemType.AzureML: EXTRAS.get("azureml"),

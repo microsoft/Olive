@@ -108,7 +108,8 @@ class PythonEnvironmentSystem(OliveSystem):
 
             # save inference settings
             inference_settings_path = tmp_dir_path / "inference_settings.pb"
-            pickle.dump(inference_settings, open(inference_settings_path, "wb"))
+            with open(inference_settings_path, "wb") as f:
+                pickle.dump(inference_settings, f)
 
             num_batches = 0
             for idx, (input_data, labels) in enumerate(dataloader):
@@ -167,7 +168,8 @@ class PythonEnvironmentSystem(OliveSystem):
 
             # save inference settings
             inference_settings_path = tmp_dir_path / "inference_settings.pb"
-            pickle.dump(inference_settings, open(inference_settings_path, "wb"))
+            with open(inference_settings_path, "wb") as f:
+                pickle.dump(inference_settings, f)
 
             # save input data to npz
             input_data, _ = next(iter(dataloader))
@@ -221,7 +223,8 @@ class PythonEnvironmentSystem(OliveSystem):
                 env=self.environ,
                 check=True,
             )
-            available_eps = pickle.load(open(output_path, "rb"))
+            with open(output_path, "rb") as f:
+                available_eps = pickle.load(f)
             self.available_eps = available_eps
             return available_eps
 
@@ -272,7 +275,8 @@ class PythonEnvironmentSystem(OliveSystem):
                 env=self.environ,
                 check=True,
             )
-            result = pickle.load(open(output_path, "rb"))
+            with open(output_path, "rb") as f:
+                result = pickle.load(f)
             if result["valid"]:
                 return True
             else:

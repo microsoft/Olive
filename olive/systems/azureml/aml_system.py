@@ -190,7 +190,8 @@ class AzureMLSystem(OliveSystem):
         model_json["config"]["model_path"] = None
 
         model_config_path = tmp_dir / "model_config.json"
-        json.dump(model_json, model_config_path.open("w"), sort_keys=True)
+        with model_config_path.open("w") as f:
+            json.dump(model_json, f, sort_keys=True)
         model_config = Input(type=AssetTypes.URI_FILE, path=model_config_path)
 
         return {
@@ -220,7 +221,8 @@ class AzureMLSystem(OliveSystem):
             pass_config["config"][param] = None
 
         pass_config_path = tmp_dir / "pass_config.json"
-        json.dump(pass_config, pass_config_path.open("w"), sort_keys=True)
+        with pass_config_path.open("w") as f:
+            json.dump(pass_config, f, sort_keys=True)
 
         return {"pass_config": Input(type=AssetTypes.URI_FILE, path=pass_config_path), **pass_args}
 
@@ -317,7 +319,8 @@ class AzureMLSystem(OliveSystem):
 
     def _load_model(self, input_model, output_model_path, pipeline_output_path):
         model_json_path = pipeline_output_path / "output_model_config.json"
-        model_json = json.load(open(model_json_path, "r"))
+        with model_json_path.open("r") as f:
+            model_json = json.load(f)
 
         # resolve model path
         # this is to handle passes like OrtPerfTuning that use the same model file as input
@@ -386,7 +389,8 @@ class AzureMLSystem(OliveSystem):
             metric_config["user_config"]["data_dir"] = None
 
         metric_config_path = tmp_dir / "metric_config.json"
-        json.dump(metric_config, open(metric_config_path, "w"), sort_keys=True)
+        with metric_config_path.open("w") as f:
+            json.dump(metric_config, f, sort_keys=True)
         metric_config = Input(type=AssetTypes.URI_FILE, path=metric_config_path)
 
         return {
@@ -434,7 +438,8 @@ class AzureMLSystem(OliveSystem):
             for metric in metrics:
                 metric_json = output_dir / "named-outputs" / metric.name / "metric_result.json"
                 if metric_json.is_file():
-                    metric_results.update(json.load(open(metric_json)))
+                    with metric_json.open() as f:
+                        metric_results.update(json.load(f))
 
             return MetricResult.parse_obj(metric_results)
 
