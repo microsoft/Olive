@@ -43,114 +43,7 @@ olive_run("user_provided_info.json")
 
 Now, let's take a look at the information you can provide to Olive to optimize your model.
 
-### Input Model
-
-You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOModel and SNPEModel are supported model types.
-```json
-"input_model":{
-    "type": "PyTorchModel",
-    "config": {
-        "model_path": "resnet.pt",
-        "model_storage_kind": "file",
-        "io_config": {
-            "input_names": ["input"],
-            "input_shapes": [[1, 3, 32, 32]],
-            "output_names": ["output"],
-            "dynamic_axes": {
-                "input": {"0": "batch_size"},
-                "output": {"0": "batch_size"}
-            }
-        }
-    }
-}
-```
-
-### Host and Target Systems
-An optimization technique, which we call a Pass, can be run on a variety of **host** systems and the resulting model evaluated
-on desired **target** systems. More details for the available systems can be found at [OliveSystems api reference](systems).
-
-In this guide, you will use your local system as both the hosts for passes and target for evaluation.
-
-```json
-"systems": {
-    "local_system": {"type": "LocalSystem"}
-}
-```
-
-### Evaluator
-In order to chose the set of Pass configuration parameters that lead to the "best" model, Olive requires an evaluator that
-returns metrics values for each output model.
-
-```json
-"evaluators": {
-    "common_evaluator":{
-        "metrics":[
-            {
-                "name": "latency",
-                "type": "latency",
-                "sub_type": "avg",
-                "user_config":{
-                    "user_script": "user_script.py",
-                    "data_dir": "data",
-                    "dataloader_func": "create_dataloader",
-                    "batch_size": 16
-                }
-            }
-        ]
-    }
-}
-```
-
-`latency_metric` requires you to provide a function as value for `dataloader_func` that returns a dataloader object when called on `data_dir` and `batch_size`. You can provide the function object directly but here, let's give it a function name `"create_dataloader"` that can be imported from `user_script`.
-
-[This file](https://github.com/microsoft/Olive/blob/main/examples/resnet_ptq_cpu/user_script.py)
-has an example of how to write user scripts.
-Refer to [](user_script) for more details on user scripts.
-
-You can provide more than one metric to the evaluator `metrics` list.
-
-### Engine
-The engine which handles the auto-tuning process. You can select search strategy here.
-
-```json
-"engine": {
-    "host": {"type": "LocalSystem"},
-    "target": {"type": "LocalSystem"},
-    "cache_dir": ".cache",
-    "search_strategy": {
-        "execution_order": "joint",
-        "search_algorithm": "exhaustive",
-    }
-}
-```
-
-### Passes
-You list the Passes that you want to apply on the input model. In this example,
-let us first convert the pytorch model to ONNX and quantize it.
-
-```json
-"onnx_conversion": {
-    "type": "OnnxConversion",
-    "config": {
-        "target_opset": 13
-    }
-}
-```
-
-```json
-"onnx_quantization": {
-    "type": "OnnxDynamicQuantization",
-    "config": {
-        "user_script": "user_script.py",
-        "data_dir": "data",
-        "dataloader_func": "resnet_calibration_reader",
-        "weight_type" : "QUInt8"
-    }
-}
-```
-
-### Example JSON
-Here is the complete json configuration file as we discussed above which you use to optimizer your input model using following command
+Here is the complete json configuration file to optimize your input model using following command
 
 ```bash
 python -m olive.workflows.run --config config.json
@@ -158,7 +51,6 @@ python -m olive.workflows.run --config config.json
 
 ```json
 {
-    "verbose": true,
     "input_model":{
         "type": "PyTorchModel",
         "config": {
@@ -175,9 +67,11 @@ python -m olive.workflows.run --config config.json
             }
         }
     },
+
     "systems": {
         "local_system": {"type": "LocalSystem"}
     },
+
     "evaluators": {
         "common_evaluator":{
             "metrics":[
@@ -195,6 +89,7 @@ python -m olive.workflows.run --config config.json
             ]
         }
     },
+
     "passes": {
         "onnx_conversion": {
             "type": "OnnxConversion",
@@ -212,6 +107,7 @@ python -m olive.workflows.run --config config.json
             }
         }
     },
+
     "engine": {
         "search_strategy": {
             "execution_order": "joint",
@@ -223,9 +119,25 @@ python -m olive.workflows.run --config config.json
     }
 }
 ```
+It is composed with 5 parts:
+### [Input Model](../tutorials/options.md/#input-model-information)
+You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOModel and SNPEModel are supported model types.
 
+### [Host and Target Systems](../tutorials/options.md/#systems-information)
+An optimization technique, which we call a Pass, can be run on a variety of host systems and the resulting model evaluated on desired target systems. More details for the available systems can be found at at [OliveSystems api reference](systems).
+
+### [Evaluator](../tutorials/options.md/#evaluators-information)
+In order to chose the set of Pass configuration parameters that lead to the “best” model, Olive requires an evaluator that returns metrics values for each output model.
+
+### [Passes](../tutorials/options.md/#passes-information)
+You list the Passes that you want to apply on the input model. In this example, let us first convert the pytorch model to ONNX and quantize it.
+
+### [Engine](../tutorials/options.md/#engine-information)
+The engine is used to handle the auto-tuning process.
+
+## Olive Optimization Result
 ### Olive Footprint
-When the optimization process is complete, Olive will generate a report(json) under the `output_dir` if you specified already in `engine.run`. The report contains the:
+When the optimization process is completed, Olive will generate a report(json) under the `output_dir` if you specified already in `engine.run`. The report contains the:
 - `footprints.json`: A dictionary of all the footprints generated during the optimization process. The structure of footprints value is:
 ```python
 class FootprintNode(ConfigBase):
@@ -304,3 +216,5 @@ from olive.engine.footprint import Footprint
 footprint = Footprint.from_file("footprints.json")
 footprint.plot_pareto_frontier()
 ```
+### Olive Packaging
+Olive also can package output artifacts when user adds `PackagingConfig` to Engine configurations. Please refer to [Packaing Olive artifacts](../tutorials/packaging_output_models.md) for more details.
