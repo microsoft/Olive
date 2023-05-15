@@ -143,7 +143,7 @@ information of the evaluator contains following items:
 
     - `subtyps: [List[Dict]]` The subtypes of the metric. Cannot be null or empty. Each subtype is a dictionary that contains following items:
 
-        - `name: str` The name of the subtype. Please refer to [AccuracySubtype](accuracy_sub_type) and [LatencySubtype](latency_sub_type) 
+        - `name: str` The name of the subtype. Please refer to [AccuracySubtype](accuracy_sub_type) and [LatencySubtype](latency_sub_type)
         for the supported sub-types. It is `null` for `custom` type.
 
         - `priority_rank: [int]` The priority rank of the subtype. The subtype with the highest priority rank will be used to evaluate the. Note that it should be unique among all subtypes in the metric.
