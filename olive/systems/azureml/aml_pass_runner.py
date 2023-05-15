@@ -104,7 +104,7 @@ def main(raw_args=None):
             model_json["same_model_path_as_input"] = True
         else:
             model_json["config"]["model_path"] = str(Path(model_path).relative_to(Path(common_args.pipeline_output)))
-    with open(Path(common_args.pipeline_output) / "output_model.json", "w") as f:
+    with open(Path(common_args.pipeline_output) / "output_model_config.json", "w") as f:
         json.dump(model_json, f, indent=4)
 
 
