@@ -3,7 +3,7 @@ parameters:
   displayName: 'Whether publish package to pypi.'
   type: boolean
   default: false
-  
+
 trigger: none
 
 pool:
