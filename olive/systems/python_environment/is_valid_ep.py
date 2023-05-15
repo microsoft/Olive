@@ -32,9 +32,11 @@ def main(raw_args=None):
     # create inference session
     try:
         get_ort_inference_session(args.model_path, inference_settings)
-        pickle.dump({"valid": True}, Path(args.output_path).open("wb"))
+        with Path(args.output_path).open("wb") as f:
+            pickle.dump({"valid": True}, f)
     except Exception as e:
-        pickle.dump({"valid": False, "error": str(e)}, Path(args.output_path).open("wb"))
+        with Path(args.output_path).open("wb") as f:
+            pickle.dump({"valid": False, "error": str(e)}, f)
 
 
 if __name__ == "__main__":
