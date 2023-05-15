@@ -233,20 +233,6 @@ class Engine:
         output_dir: Path = Path(output_dir) if output_dir else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Download the AML model if the system is LocalSystem
-        if input_model.model_storage_kind == ModelStorageKind.AzureMLModel and (
-            self.host.system_type == SystemType.Local or self.target.system_type == SystemType.Local
-        ):
-            model_download_path = self._model_cache_path / "azureml_input_model"
-            model_path = input_model.download_from_azureml(aml_client, model_download_path)
-            input_model.model_path = model_path
-            if model_path.is_dir():
-                input_model.model_storage_kind = ModelStorageKind.LocalFolder
-            elif model_path.is_file():
-                input_model.model_storage_kind = ModelStorageKind.LocalFile
-            else:
-                raise ValueError(f"Invalid model path {model_path}")
-
         # TODO by myguo: replace the following for loop using the accelerator and excution provider list when adding
         # accelerator support
         outputs = {}
@@ -268,12 +254,12 @@ class Engine:
                 outputs[i] = results
             elif self.no_search:
                 output = self.run_no_search(
-                    input_model, input_model_id, i, packaging_config, verbose, output_dir, output_name
+                    input_model, input_model_id, i, aml_client, packaging_config, verbose, output_dir, output_name
                 )
                 outputs[i] = output
             else:
                 footprint = self.run_search(
-                    input_model, input_model_id, i, packaging_config, verbose, output_dir, output_name
+                    input_model, input_model_id, i, aml_client, packaging_config, verbose, output_dir, output_name
                 )
                 outputs[i] = footprint
 
@@ -302,6 +288,7 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         accelerator_spec: Any,
+        aml_client: Optional[AzureMLClient] = None,
         packaging_config: Optional[PackagingConfig] = None,
         verbose: bool = False,
         output_dir: str = None,
@@ -343,7 +330,7 @@ class Engine:
             _,
             signal,
             model_ids,
-        ) = self._run_passes(next_step["passes"], model, model_id, accelerator_spec, verbose)
+        ) = self._run_passes(next_step["passes"], model, model_id, accelerator_spec, aml_client, verbose)
         model_id = model_ids[-1]
 
         prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
@@ -378,6 +365,7 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         accelerator_spec: Any,
+        aml_client: Optional[AzureMLClient] = None,
         packaging_config: Optional[PackagingConfig] = None,
         verbose: bool = False,
         output_dir: str = None,
@@ -436,7 +424,7 @@ class Engine:
 
             # run all the passes in the step
             should_prune, signal, model_ids = self._run_passes(
-                next_step["passes"], model, model_id, accelerator_spec, verbose
+                next_step["passes"], model, model_id, accelerator_spec, aml_client, verbose
             )
 
             # record feedback signal
@@ -666,6 +654,7 @@ class Engine:
         model: OliveModel,
         model_id: str,
         accelerator_spec: Any,
+        aml_client: Optional[AzureMLClient] = None,
         verbose: bool = False,
     ):
         """
@@ -680,16 +669,19 @@ class Engine:
                 message = f"Running pass {pass_id}"
                 logger.info(message)
 
-            # For multiple passes run, if the first pass is running on AML, the AML model will not be downloaded
-            # to the local cache. So we need to check if the model is AML model and the system type is not AML
-            # for the following passes.
             if (
                 model.model_storage_kind == ModelStorageKind.AzureMLModel
                 and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
             ):
-                error_msg = "Azure ML model only supports AzureMLSystem for Olive Pass"
-                logger.error(error_msg)
-                raise Exception(error_msg)
+                model_download_path = self._model_cache_path / "azureml_input_model"
+                model_path = model.download_from_azureml(aml_client, model_download_path)
+                model.model_path = model_path
+                if model_path.is_dir():
+                    model.model_storage_kind = ModelStorageKind.LocalFolder
+                elif model_path.is_file():
+                    model.model_storage_kind = ModelStorageKind.LocalFile
+                else:
+                    raise ValueError(f"Invalid model path {model_path}")
 
             model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec, verbose)
             if model == PRUNED_CONFIG:
