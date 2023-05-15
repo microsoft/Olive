@@ -3,6 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from pathlib import Path
+
+from pydantic import validator
 
 from olive.common.config_utils import ConfigBase
 
@@ -18,6 +21,22 @@ class AzureMLClientConfig(ConfigBase):
     # The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to
     # sometimes hang for a long time between retries of job stream and download steps.
     read_timeout: int = 60
+
+    @validator("aml_config_path", always=True)
+    def validate_aml_config_path(cls, v, values):
+        if v is None:
+            if values.get("subscription_id") is None:
+                raise ValueError("subscription_id must be provided if aml_config_path is not provided")
+            if values.get("resource_group") is None:
+                raise ValueError("resource_group must be provided if aml_config_path is not provided")
+            if values.get("workspace_name") is None:
+                raise ValueError("workspace_name must be provided if aml_config_path is not provided")
+        if v is not None:
+            if not Path(v).exists():
+                raise ValueError(f"aml_config_path {v} does not exist")
+            if not Path(v).is_file():
+                raise ValueError(f"aml_config_path {v} is not a file")
+        return v
 
     def create_client(self):
         return AzureMLClient(**self.dict())

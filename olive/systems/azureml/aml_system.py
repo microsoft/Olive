@@ -42,6 +42,7 @@ class AzureMLSystem(OliveSystem):
         super().__init__()
         self._assert_not_none(aml_docker_config)
         aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
+        azureml_client_config = validate_config(azureml_client_config, AzureMLClientConfig)
         self.ml_client = azureml_client_config.create_client().ml_client
         self.compute = aml_compute
         self.environment = self._create_environment(aml_docker_config)
