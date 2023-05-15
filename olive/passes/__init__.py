@@ -8,5 +8,6 @@ from olive.passes.openvino import *  # noqa: F403
 from olive.passes.pass_config import PassParamDefault
 from olive.passes.pytorch import *  # noqa: F403
 from olive.passes.snpe import *  # noqa: F403
+from olive.passes.vitis_ai import *  # noqa: F403
 
 REGISTRY = Pass.registry
