@@ -6,12 +6,13 @@ import os
 import tempfile
 from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_latency_metric, get_pytorch_model
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 
+from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType
 from olive.model import ModelStorageKind, ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
@@ -22,14 +23,14 @@ from olive.systems.common import AzureMLDockerConfig
 
 class TestAzureMLSystem:
     @pytest.fixture(autouse=True)
-    @patch("olive.systems.azureml.aml_system.MLClient.from_config")
     @patch("olive.systems.azureml.aml_system.Environment")
-    def setup(self, mock_env, mock_from_config):
+    def setup(self, mock_env):
         docker_config = AzureMLDockerConfig(
             base_image="base_image",
             conda_file_path="conda_file_path",
         )
-        self.system = AzureMLSystem("dummy", "dummy", docker_config)
+        mock_azureml_client_config = Mock(spec=AzureMLClientConfig)
+        self.system = AzureMLSystem(mock_azureml_client_config, "dummy", docker_config)
 
     METRIC_TEST_CASE = [
         (get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)),
