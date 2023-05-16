@@ -10,7 +10,6 @@ from typing import List
 
 from olive.constants import Framework
 from olive.evaluator.metric import Metric
-from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import OliveModel
 
 logger = logging.getLogger(__name__)
@@ -20,8 +19,7 @@ def create_config_file(tempdir, model: OliveModel, metrics: List[Metric], contai
     model_json = model.to_json(check_object=True)
 
     config_file_path = Path(tempdir) / "config.json"
-    evaluator_config = OliveEvaluatorConfig(metrics=metrics)
-    data = {"metrics": evaluator_config.json(), "model": model_json}
+    data = {"metrics": [k.dict() for k in metrics], "model": model_json}
 
     # the config yaml file saved to local disk
     with config_file_path.open("w") as f:
