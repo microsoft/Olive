@@ -8,8 +8,7 @@ import logging
 import os
 import sys
 
-from olive.evaluator.metric import MetricList
-from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory
+from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory, OliveEvaluatorConfig
 from olive.model import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -18,7 +17,7 @@ logger = logging.getLogger(__name__)
 def evaluate_entry(config, model_path, output_path, output_name):
     with open(config, "r") as f:
         config_json = json.load(f)
-    metric_list = MetricList(__root__=json.loads(config_json["metrics"])).__root__
+    evaluator_config = OliveEvaluatorConfig(metrics=json.loads(config_json["metrics"]))
     model_json = config_json["model"]
 
     if model_path != "None":
@@ -26,7 +25,7 @@ def evaluate_entry(config, model_path, output_path, output_name):
     model = ModelConfig.from_json(model_json).create_model()
 
     evaluator: OliveEvaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
-    metrics_res = evaluator.evaluate(model, metric_list)
+    metrics_res = evaluator.evaluate(model, evaluator_config.metrics)
 
     with open(os.path.join(output_path, f"{output_name}"), "w") as f:
         json.dump(metrics_res, f)

@@ -136,7 +136,3 @@ class Metric(ConfigBase):
                 f" {valid_range}"
             )
         return v
-
-
-class MetricList(BaseModel):
-    __root__: List[Metric]
