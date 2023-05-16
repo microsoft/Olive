@@ -243,7 +243,12 @@ if __name__ == "__main__":
     parser.add_argument("--optimize_provider", type=str, default="directml_future", help="EP target for inference")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
-    parser.add_argument("--prompt", default="cyberpunk dog, glasses, neon, bokeh, close up", type=str)
+    parser.add_argument(
+        "--prompt",
+        default="castle surrounded by water and nature, village, volumetric lighting, photorealistic, insanely"
+        "detailed and intricate, fantasy, epic cinematic shot, mountains, 8k ultra hd",
+        type=str,
+    )
     parser.add_argument("--num_images", default=1, type=int, help="Number of images to generate")
     parser.add_argument("--batch_size", default=1, type=int, help="Number of images to generate per batch")
     parser.add_argument("--num_inference_steps", default=50, type=int, help="Number of steps in diffusion process")
