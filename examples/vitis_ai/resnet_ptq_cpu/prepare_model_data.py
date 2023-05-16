@@ -117,7 +117,7 @@ def main():
     args = get_args()
 
     data_download_path = data_dir / "cifar-10-python.tar.gz"
-    #urllib.request.urlretrieve("https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz", data_download_path)
+    urllib.request.urlretrieve("https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz", data_download_path)
     file = tarfile.open(data_download_path)
     file.extractall(data_dir)
     file.close()
