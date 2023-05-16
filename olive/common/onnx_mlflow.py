@@ -3,43 +3,42 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
-import yaml
-import numpy as np
 from pathlib import Path
-from packaging.version import Version
 
+import mlflow.tracking
+import numpy as np
 import pandas as pd
-
+import yaml
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-import mlflow.tracking
-from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
     _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
     _PythonEnv,
+    _validate_env_arguments,
 )
-from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
 )
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-import olive
+from mlflow.utils.requirements_utils import _get_pinned_requirement
+from packaging.version import Version
 
+import olive
 
 FLAVOR_NAME = "olive_onnx"
 ONNX_EXECUTION_PROVIDERS = ["CUDAExecutionProvider", "CPUExecutionProvider"]
@@ -166,6 +165,7 @@ def _load_pyfunc(path):
 class _OliveOnnxModelWrapper:
     def __init__(self, path, providers=None):
         import onnxruntime
+
         local_path = str(Path(path).parent)
         model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
@@ -189,21 +189,17 @@ class _OliveOnnxModelWrapper:
             if intra_op_num_threads:
                 sess_options.intra_op_num_threads = intra_op_num_threads
             if execution_mode:
-                if execution_mode.upper() == "SEQUENTIAL":
+                if execution_mode == 0:
                     sess_options.execution_mode = onnxruntime.ExecutionMode.ORT_SEQUENTIAL
-                elif execution_mode.upper() == "PARALLEL":
+                elif execution_mode == 1:
                     sess_options.execution_mode = onnxruntime.ExecutionMode.ORT_PARALLEL
             if graph_optimization_level:
-                sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel(
-                    graph_optimization_level
-                )
+                sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel(graph_optimization_level)
             if extra_session_config:
                 for key, value in extra_session_config.items():
                     sess_options.add_session_config_entry(key, value)
 
-        self.rt = onnxruntime.InferenceSession(
-                path, providers=providers, sess_options=sess_options
-            )
+        self.rt = onnxruntime.InferenceSession(path, providers=providers, sess_options=sess_options)
 
         assert len(self.rt.get_inputs()) >= 1
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
@@ -244,8 +240,7 @@ class _OliveOnnxModelWrapper:
 
         else:
             raise TypeError(
-                "Input should be a dictionary or a numpy array or a pandas.DataFrame, "
-                "got '{}'".format(type(data))
+                "Input should be a dictionary or a numpy array or a pandas.DataFrame, " "got '{}'".format(type(data))
             )
 
         feed_dict = self._cast_float64_to_float32(feed_dict)
@@ -257,9 +252,7 @@ class _OliveOnnxModelWrapper:
                 data = np.asarray(data)
                 return data.reshape(-1)
 
-            response = pd.DataFrame.from_dict(
-                {c: format_output(p) for (c, p) in zip(self.output_names, predicted)}
-            )
+            response = pd.DataFrame.from_dict({c: format_output(p) for (c, p) in zip(self.output_names, predicted)})
             return response
         else:
             return dict(zip(self.output_names, predicted))
@@ -308,6 +301,7 @@ def log_model(
 
 def _load_model(model_file):
     import onnx
+
     onnx.checker.check_model(model_file)
     onnx_model = onnx.load(model_file)
     # Check Formation

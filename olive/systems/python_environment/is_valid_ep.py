@@ -17,7 +17,6 @@ def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Check if execution provider is valid")
 
     parser.add_argument("--model_path", type=str, required=True, help="Path to onnx model")
-    parser.add_argument("--model_file_format", type=str, required=False, default="ONNX", help="onnx model file format")
     parser.add_argument("--ep", type=str, required=True, help="Execution provider to check")
     parser.add_argument("--output_path", type=str, required=True, help="Path to save output to")
 
@@ -32,7 +31,7 @@ def main(raw_args=None):
 
     # create inference session
     try:
-        get_ort_inference_session(args.model_path, inference_settings, model_file_format=args.model_file_format)
+        get_ort_inference_session(args.model_path, inference_settings)
         with Path(args.output_path).open("wb") as f:
             pickle.dump({"valid": True}, f)
     except Exception as e:

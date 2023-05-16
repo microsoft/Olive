@@ -8,7 +8,6 @@ from typing import Optional, Union
 
 import onnx
 
-from olive.common.onnx_mlflow import save_model as mlflow_save_model
 from olive.constants import ModelFileFormat
 from olive.model import ModelStorageKind, ONNXModel
 from olive.passes.pass_config import PassConfigParam
@@ -51,7 +50,6 @@ def model_proto_to_file(
     save_as_external_data: Optional[bool] = False,
     all_tensors_to_one_file: Optional[bool] = True,
     external_data_name: Optional[Union[str, Path]] = None,
-    is_mlflow_format: Optional[bool] = False,
 ) -> bool:
     """
     Save the ONNX model to the specified path.
@@ -78,7 +76,7 @@ def model_proto_to_file(
     output_dir = output_path.parent
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    if not save_as_external_data and not is_mlflow_format:
+    if not save_as_external_data:
         try:
             # save model
             onnx.save_model(model, str(output_path))
@@ -97,10 +95,6 @@ def model_proto_to_file(
             except Exception:
                 raise e
         return False
-
-    if is_mlflow_format:
-        mlflow_save_model(model, output_dir)
-        return True
 
     # location for external data
     external_data_path = output_dir / (external_data_name if external_data_name else f"{output_path.name}.data")
@@ -131,7 +125,7 @@ def model_proto_to_olive_model(
     output_model_path: Union[str, Path],
     external_data_config: dict,
     name: Optional[str] = None,
-    is_mlflow_format: Optional[bool] = False,
+    model_file_format: Optional[ModelFileFormat] = None,
 ) -> ONNXModel:
     """
     Save the ONNX model to the specified path and return the ONNXModel.
@@ -141,7 +135,7 @@ def model_proto_to_olive_model(
     :param external_data_config: The external data configuration. Must be a dictionary with keys
         "save_as_external_data", "all_tensors_to_one_file", and "external_data_name".
     :param name: The name of the model.
-    :param is_mlflow_model: If the model is an MLflow model.
+    :param model_file_format: Olive model file format.
 
     :return: The ONNXModel.
     """
@@ -151,8 +145,9 @@ def model_proto_to_olive_model(
         save_as_external_data=external_data_config["save_as_external_data"],
         all_tensors_to_one_file=external_data_config["all_tensors_to_one_file"],
         external_data_name=external_data_config["external_data_name"],
-        is_mlflow_format=is_mlflow_format,
     )
+
+    is_mlflow_format = True if model_file_format and "mlflow" in model_file_format.lower() else False
 
     return ONNXModel(
         model_path=output_model_path,

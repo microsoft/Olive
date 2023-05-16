@@ -5,3 +5,5 @@ docker
 # TODO: remove this once invalid graph issue resolve
 onnxruntime==1.13.1
 transformers
+azureml-evaluate-mlflow
+mlflow

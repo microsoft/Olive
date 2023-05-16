@@ -338,3 +338,10 @@ class Footprint:
             return False
 
         return model_config.get("config", {}).get("use_ort_extensions", False)
+
+    def get_model_file_format(self, model_id):
+        model_config = self.nodes[model_id].model_config
+        if model_config is None:
+            return None
+
+        return model_config.get("config", {}).get("model_file_format", None)

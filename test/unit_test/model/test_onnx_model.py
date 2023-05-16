@@ -2,23 +2,21 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from olive.common.onnx_mlflow import save_model as mlflow_save_model
 import tempfile
 from pathlib import Path
 from test.unit_test.utils import get_onnx_model
+
 import mlflow
 import onnxruntime as ort
+
+from olive.common.onnx_mlflow import save_model as mlflow_save_model
 
 
 def test_model_save_load_onnx_mlflow_format():
     input_model = get_onnx_model()
     model_proto = input_model.load_model()
 
-    onnx_session_options = {
-        "execution_mode": "sequential",
-        "graph_optimization_level": 99, 
-        "intra_op_num_threads": 19
-        }
+    onnx_session_options = {"execution_mode": 0, "graph_optimization_level": 99, "intra_op_num_threads": 19}
 
     with tempfile.TemporaryDirectory() as tempdir:
         output_dir = str(Path(tempdir) / "onnx_mlflow")

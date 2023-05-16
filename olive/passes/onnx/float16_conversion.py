@@ -62,4 +62,6 @@ class OnnxFloatToFloat16(Pass):
         )
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(model_fp16, output_model_path, config.dict(), model.name)
+        return model_proto_to_olive_model(
+            model_fp16, output_model_path, config.dict(), model.name, model.model_file_format
+        )

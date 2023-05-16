@@ -406,7 +406,7 @@ class OnnxQuantization(Pass):
         tmp_dir.cleanup()
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config, model.name)
+        return model_proto_to_olive_model(onnx_model, output_model_path, config, model.name, model.model_file_format)
 
     def _quant_preprocess(self, model: ONNXModel, output_model_path: str) -> ONNXModel:
         from onnxruntime.quantization.preprocess import quant_pre_process

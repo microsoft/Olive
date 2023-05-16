@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from examples.bert_ptq_cpu.preprare_mlflow_model import prepare_model
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
@@ -26,11 +28,23 @@ def check_output(footprints):
             assert all([value > 0 for value in v.metrics.value.values()])
 
 
+def check_mlflow_output(artifacts_path, output_dir):
+    import zipfile
+
+    import mlflow
+
+    assert artifacts_path.exists()
+    with zipfile.ZipFile(artifacts_path, "r") as zip_ref:
+        zip_ref.extractall(output_dir)
+    assert (output_dir / "CandidateModels" / "BestCandidateModel_1" / "model" / "MLmodel").exists()
+    assert mlflow.pyfunc.load_model(output_dir / "CandidateModels" / "BestCandidateModel_1" / "model")
+
+
 # Skip docker_system test until bug is fixed: https://github.com/docker/docker-py/issues/3113
 @pytest.mark.parametrize("search_algorithm", ["tpe"])
 @pytest.mark.parametrize("execution_order", ["joint"])
 @pytest.mark.parametrize("system", ["local_system", "aml_system"])
-@pytest.mark.parametrize("olive_json", ["bert_config.json"])
+@pytest.mark.parametrize("olive_json", ["bert_config.json", "mlflow_bert_config.json"])
 def test_bert(search_algorithm, execution_order, system, olive_json):
     # TODO: add gpu e2e test
     # if system == "docker_system" and platform.system() == "Windows":
@@ -41,6 +55,11 @@ def test_bert(search_algorithm, execution_order, system, olive_json):
     olive_config = None
     with open(olive_json, "r") as fin:
         olive_config = json.load(fin)
+
+    if olive_json == "mlflow_bert_config.json":
+        prepare_model()
+        output_dir = Path(__file__).parent / "outputs"
+        olive_config["engine"]["output_dir"] = output_dir
 
     # update search strategy
     olive_config["engine"]["search_strategy"]["search_algorithm"] = search_algorithm
@@ -62,6 +81,10 @@ def test_bert(search_algorithm, execution_order, system, olive_json):
 
     footprint = olive_run(olive_config)
     check_output(footprint)
+
+    if olive_json == "mlflow_bert_config.json":
+        artifacts_path = output_dir / "OutputModels.zip"
+        check_mlflow_output(artifacts_path, output_dir)
 
 
 def generate_olive_workspace_config(workspace_config_path):

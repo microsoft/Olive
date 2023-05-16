@@ -1,14 +1,11 @@
 from pathlib import Path
 from typing import Dict, Union
 
-from olive.constants import ModelFileFormat
-
 
 def get_ort_inference_session(
     model_path: Union[Path, str],
     inference_settings: Dict[str, any],
     use_ort_extensions: bool = False,
-    model_file_format: str = ModelFileFormat.ONNX,
 ):
     """
     Get an ONNXRuntime inference session.
@@ -66,13 +63,7 @@ def get_ort_inference_session(
     provider_options = inference_settings.get("provider_options")
 
     # create session
-    if model_file_format == ModelFileFormat.ONNX_MLFLOW_MODEL:
-        import mlflow
-
-        model_loaded = mlflow.pyfunc.load_model(model_path)
-        sess = model_loaded._model_impl.rt
-    else:
-        sess = ort.InferenceSession(
-            str(model_path), sess_options=sess_options, providers=execution_provider, provider_options=provider_options
-        )
+    sess = ort.InferenceSession(
+        str(model_path), sess_options=sess_options, providers=execution_provider, provider_options=provider_options
+    )
     return sess

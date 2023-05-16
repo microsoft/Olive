@@ -12,9 +12,12 @@ from collections import OrderedDict
 from pathlib import Path
 from string import Template
 
+import onnx
 import pkg_resources
 
+from olive.common.onnx_mlflow import save_model as mlflow_save_model
 from olive.common.utils import run_subprocess
+from olive.constants import ModelFileFormat
 from olive.engine.footprint import Footprint
 from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
 
@@ -57,15 +60,6 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
         model_dir = candidate_models_dir / f"BestCandidateModel_{model_rank}"
         model_dir.mkdir()
         model_rank += 1
-        # Copy model file
-        model_path = pf_footprint.get_model_path(model_id)
-        model_type = pf_footprint.get_model_type(model_id)
-        if model_type == "ONNXModel":
-            shutil.copy2(model_path, model_dir / "model.onnx")
-        elif model_type == "OpenVINOModel":
-            shutil.copytree(model_path, model_dir / "model")
-        else:
-            raise ValueError(f"Unsupported model type: {model_type} for packaging")
 
         # Copy inference config
         inference_config_path = str(model_dir / "inference_config.json")
@@ -90,6 +84,20 @@ def _package_candidate_models(tempdir, footprint: Footprint, pf_footprint: Footp
         metric_path = str(model_dir / "metrics.json")
         with open(metric_path, "w") as f:
             json.dump(node.metrics.value, f)
+
+        # Copy model file
+        model_path = pf_footprint.get_model_path(model_id)
+        model_type = pf_footprint.get_model_type(model_id)
+        if model_type == "ONNXModel":
+            model_file_format = pf_footprint.get_model_file_format(model_id)
+            if model_file_format == ModelFileFormat.ONNX_MLFLOW_MODEL:
+                _generate_onnx_mlflow_model(model_path, model_dir / "model", inference_config)
+            else:
+                shutil.copy2(model_path, model_dir / "model.onnx")
+        elif model_type == "OpenVINOModel":
+            shutil.copytree(model_path, model_dir / "model")
+        else:
+            raise ValueError(f"Unsupported model type: {model_type} for packaging")
 
 
 def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
@@ -244,3 +252,13 @@ def _download_c_packages(is_cpu: bool, is_nightly: bool, ort_version: str, downl
             urllib.request.urlretrieve(NIGHTLY_C_GPU_LINK.substitute(ort_version=ort_version), download_path)
         else:
             urllib.request.urlretrieve(STABLE_C_GPU_LINK.substitute(ort_version=ort_version), download_path)
+
+
+def _generate_onnx_mlflow_model(model_file, model_dir, inference_config):
+    model_proto = onnx.load(model_file)
+    mlflow_save_model(
+        model_proto,
+        model_dir,
+        onnx_execution_providers=inference_config.get("execution_provider", ["CPUExecutionProvider", {}]),
+        onnx_session_options=inference_config.get("session_options", None),
+    )
