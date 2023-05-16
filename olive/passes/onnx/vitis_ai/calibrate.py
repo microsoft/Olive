@@ -9,21 +9,22 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-from enum import Enum
 from typing import Optional, Sequence
 
 import numpy as np
 import onnx
-from onnx import helper
-
-import onnxruntime
 from onnxruntime.quantization.calibrate import CalibraterBase, CalibrationDataCollector, CalibrationDataReader
 from onnxruntime.quantization.quant_utils import clone_model_with_shape_infer
-from olive.passes.onnx.vitis_ai.quant_utils import get_pos_overflow, get_bound_and_scale, get_pos_min_mse, PowerOfTwoMethod
+
+from olive.passes.onnx.vitis_ai.quant_utils import (
+    PowerOfTwoMethod,
+    get_bound_and_scale,
+    get_pos_min_mse,
+    get_pos_overflow,
+)
 
 
 class PowOfTwoCalibrater(CalibraterBase):
-
     def __init__(
         self,
         model,
@@ -40,12 +41,11 @@ class PowOfTwoCalibrater(CalibraterBase):
         :param symmetric: make range of tensor symmetric (central point is 0).
         :param use_external_data_format: use external data format to store model which size is >= 2Gb
         """
-        super(PowOfTwoCalibrater,
-              self).__init__(model, op_types_to_calibrate, augmented_model_path,
-                             use_external_data_format)
+        super(PowOfTwoCalibrater, self).__init__(
+            model, op_types_to_calibrate, augmented_model_path, use_external_data_format
+        )
         self.intermediate_outputs = []
-        self.model_original_outputs = set(
-            output.name for output in self.model.graph.output)
+        self.model_original_outputs = set(output.name for output in self.model.graph.output)
         self.collector = None
         self.method = method
         self.symmetric = symmetric
@@ -58,8 +58,7 @@ class PowOfTwoCalibrater(CalibraterBase):
         """
         model = clone_model_with_shape_infer(self.model)
 
-        self.tensors_to_calibrate, value_infos = self.select_tensors_to_calibrate(
-            model)
+        self.tensors_to_calibrate, value_infos = self.select_tensors_to_calibrate(model)
         for tensor in self.tensors_to_calibrate:
             if tensor not in self.model_original_outputs:
                 model.graph.output.append(value_infos[tensor])
@@ -80,19 +79,14 @@ class PowOfTwoCalibrater(CalibraterBase):
             inputs = data_reader.get_next()
             if not inputs:
                 break
-            self.intermediate_outputs.append(
-                self.infer_session.run(None, inputs))
+            self.intermediate_outputs.append(self.infer_session.run(None, inputs))
 
         if len(self.intermediate_outputs) == 0:
             raise ValueError("No data is collected.")
 
-        output_names = [
-            self.infer_session.get_outputs()[i].name
-            for i in range(len(self.intermediate_outputs[0]))
-        ]
+        output_names = [self.infer_session.get_outputs()[i].name for i in range(len(self.intermediate_outputs[0]))]
         output_dicts_list = [
-            dict(zip(output_names, intermediate_output))
-            for intermediate_output in self.intermediate_outputs
+            dict(zip(output_names, intermediate_output)) for intermediate_output in self.intermediate_outputs
         ]
 
         merged_dict = {}
@@ -100,13 +94,10 @@ class PowOfTwoCalibrater(CalibraterBase):
             for k, v in d.items():
                 merged_dict.setdefault(k, []).append(v)
 
-        clean_merged_dict = dict((i, merged_dict[i])
-                                 for i in merged_dict
-                                 if i in self.tensors_to_calibrate)
+        clean_merged_dict = dict((i, merged_dict[i]) for i in merged_dict if i in self.tensors_to_calibrate)
 
         if not self.collector:
-            self.collector = PowOfTwoCollector(method=self.method,
-                                               symmetric=self.symmetric)
+            self.collector = PowOfTwoCollector(method=self.method, symmetric=self.symmetric)
         self.collector.collect(clean_merged_dict)
 
         self.clear_collected_data()
@@ -117,8 +108,7 @@ class PowOfTwoCalibrater(CalibraterBase):
         :return: dictionary mapping: {tensor name: (min value, max value)}
         """
         if not self.collector:
-            raise ValueError(
-                "No collector created and can't generate calibration data.")
+            raise ValueError("No collector created and can't generate calibration data.")
 
         return self.collector.compute_collection_result()
 
@@ -129,10 +119,7 @@ class PowOfTwoCollector(CalibrationDataCollector):
 
     """
 
-    def __init__(self,
-                 method=PowerOfTwoMethod.NonOverflow,
-                 symmetric=True,
-                 bit_width=8):
+    def __init__(self, method=PowerOfTwoMethod.NonOverflow, symmetric=True, bit_width=8):
         self.name_to_arr = {}
         self.method = method
         self.symmetric = symmetric
@@ -146,20 +133,15 @@ class PowOfTwoCollector(CalibrationDataCollector):
 
     def compute_collection_result(self):
         if not self.name_to_arr or len(self.name_to_arr) == 0:
-            raise ValueError(
-                "PowerOfTwoMethod has not been collected. Please run collect() first."
-            )
-        print(
-            "Finding optimal threshold for each tensor using {} algorithm ...".
-            format(self.method))
+            raise ValueError("PowerOfTwoMethod has not been collected. Please run collect() first.")
+        print("Finding optimal threshold for each tensor using {} algorithm ...".format(self.method))
 
         if self.method == PowerOfTwoMethod.NonOverflow:
             return self.compute_non_overflow()
         elif self.method == PowerOfTwoMethod.MinMSE:
             return self.compute_min_mse()
         else:
-            raise ValueError(
-                "Only 'NonOverflow' or 'MinMSE' method are supported")
+            raise ValueError("Only 'NonOverflow' or 'MinMSE' method are supported")
 
     def compute_non_overflow(self):
         thresholds_dict = {}

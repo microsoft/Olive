@@ -2,13 +2,10 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
+from enum import Enum
+
 import numpy as np
 import onnx
-import os
-import onnx.helper as helper
-import onnxruntime as ort
-from enum import Enum
-from onnxruntime.quantization.quant_utils import quantize_data
 
 
 class PowerOfTwoMethod(Enum):
@@ -23,8 +20,8 @@ def get_pos_overflow(f_tensor, bit_width=8):
     x_min = f_tensor.min()
     x_max = f_tensor.max()
     #  Use 0.5 as a guard
-    lower_bound = -2**(bit_width - 1) - 0.5
-    upper_bound = 2**(bit_width - 1) - 0.5
+    lower_bound = -(2 ** (bit_width - 1)) - 0.5
+    upper_bound = 2 ** (bit_width - 1) - 0.5
     scale = max(x_min / lower_bound, x_max / upper_bound)
     if scale == 0:
         # Set pos to 127(max of uint8) for all zero
@@ -44,11 +41,11 @@ def get_pos_min_mse(f_tensor, bit_width=8, pos_range=5):
         return 127
 
     pos_diffs = pos_overflow
-    diff_min = float('inf')
+    diff_min = float("inf")
     for i in range(pos_range):
         tmp_pos = pos_overflow + i
         q_tensor = vitis_quantize(f_tensor, tmp_pos, bit_width=bit_width)
-        diff = np.sum((q_tensor - f_tensor)**2)
+        diff = np.sum((q_tensor - f_tensor) ** 2)
         if diff < diff_min:
             diff_min = diff
             pos_diffs = tmp_pos
@@ -61,10 +58,8 @@ def vitis_quantize(f_tensor, pos, bit_width=8):
     """
     scale, lower_bound, upper_bound = get_bound_and_scale(pos)
     q_tensor = np.round(f_tensor / scale) * scale
-    q_tensor = lower_bound * (q_tensor < lower_bound) \
-                + q_tensor * (q_tensor >= lower_bound)
-    q_tensor = upper_bound * (q_tensor > upper_bound) \
-                + q_tensor * (q_tensor <= upper_bound)
+    q_tensor = lower_bound * (q_tensor < lower_bound) + q_tensor * (q_tensor >= lower_bound)
+    q_tensor = upper_bound * (q_tensor > upper_bound) + q_tensor * (q_tensor <= upper_bound)
     return q_tensor
 
 
@@ -72,7 +67,7 @@ def get_bound_and_scale(pos, bit_width=8):
     """
     Obtain the scale and bound corresponding to the fixed-point position.
     """
-    scale = np.power(2., -pos)
+    scale = np.power(2.0, -pos)
     lower_bound = -np.power(2, bit_width - 1) * scale
     upper_bound = np.power(2, bit_width - 1) * scale - scale
     return scale, lower_bound, upper_bound
@@ -104,7 +99,7 @@ def pos2scale(pos):
     """
     Obtain the scale corresponding to the fixed-point position.
     """
-    return float(np.power(2., -pos))
+    return float(np.power(2.0, -pos))
 
 
 def get_exclude_nodes(model_path, input_nodes, output_nodes):
@@ -130,8 +125,8 @@ def get_exclude_nodes(model_path, input_nodes, output_nodes):
     if output_nodes:
         for name in output_nodes:
             output_node_name = name
-            index = name_list.index(output_node_name)
-            exclude_nodes_o = name_list[index+1:]
+            index = name_list.index(output_node_name) + 1
+            exclude_nodes_o = name_list[index:]
             exclude_nodes = list(set(exclude_nodes) | set(exclude_nodes_o))
             exclude_nodes = list(set(exclude_nodes) - set(output_nodes))
 

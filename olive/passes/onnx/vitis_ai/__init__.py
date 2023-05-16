@@ -4,6 +4,7 @@
 #
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
-from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
+
 from olive.passes.onnx.vitis_ai.qdq_quantizer import VitisQuantizer
+from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
 from olive.passes.onnx.vitis_ai.quantize import quantize_static

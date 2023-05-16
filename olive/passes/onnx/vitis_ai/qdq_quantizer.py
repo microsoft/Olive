@@ -7,18 +7,15 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
-import numpy as np
 import logging
+
 import onnx
 import onnx.numpy_helper
-from onnx import TensorProto
 from onnx import onnx_pb as onnx_proto
 from onnxruntime.quantization.onnx_quantizer import tensor_proto_to_array
-from onnxruntime.quantization.registry import CreateQDQQuantizer
 from onnxruntime.quantization.qdq_quantizer import QDQQuantizer, QDQTensorQuantInfo
 from onnxruntime.quantization.quant_utils import (
     DEQUANT_OP_NAME,
-    QUANT_OP_NAME,
     QuantizedValue,
     QuantizedValueType,
     __producer__,
@@ -29,13 +26,13 @@ from onnxruntime.quantization.quant_utils import (
     add_quant_suffix,
     find_by_name,
 )
+from onnxruntime.quantization.registry import CreateQDQQuantizer
+
+from olive.passes.onnx.vitis_ai.quant_utils import vitis_quantize_data
 from olive.passes.onnx.vitis_ai.refine import adjust_quantize_info
-from olive.passes.onnx.vitis_ai.quant_utils import (
-    vitis_quantize_data,)
 
 
 class VitisQuantizer(QDQQuantizer):
-
     def __init__(
         self,
         model,
@@ -71,39 +68,25 @@ class VitisQuantizer(QDQQuantizer):
         self.calibrate_method = calibrate_method
 
         if per_channel:
-            logging.error(
-                "per_channel is not supported in PowerOfTwoMethod calibrate_method."
-            )
+            logging.error("per_channel is not supported in PowerOfTwoMethod calibrate_method.")
 
         # In PowerOfTwoMethod calibrate_method, QDQ should always appear as a pair.
         # Therefore, we need to add qdq pair to weight.
-        if "AddQDQPairToWeight" in self.extra_options and not self.extra_options[
-                "AddQDQPairToWeight"]:
-            logging.error(
-                "AddQDQPairToWeight should be True in PowerOfTwoMethod calibrate_method."
-            )
+        if "AddQDQPairToWeight" in self.extra_options and not self.extra_options["AddQDQPairToWeight"]:
+            logging.error("AddQDQPairToWeight should be True in PowerOfTwoMethod calibrate_method.")
         self.add_qdq_pair_to_weight = True
 
         # In PowerOfTwoMethod calibrate_method, QDQ should always set WeightSymmetric as True.
-        if "WeightSymmetric" in self.extra_options and not self.extra_options[
-                "WeightSymmetric"]:
-            logging.error(
-                "WeightSymmetric should be True in PowerOfTwoMethod calibrate_method."
-            )
+        if "WeightSymmetric" in self.extra_options and not self.extra_options["WeightSymmetric"]:
+            logging.error("WeightSymmetric should be True in PowerOfTwoMethod calibrate_method.")
         self.is_weight_symmetric = True
 
         # In PowerOfTwoMethod calibrate_method, QDQ should always always set ActivationSymmetric as True.
-        if "ActivationSymmetric" in self.extra_options and not self.extra_options[
-                "ActivationSymmetric"]:
-            logging.error(
-                "ActivationSymmetric should be True in PowerOfTwoMethod calibrate_method."
-            )
+        if "ActivationSymmetric" in self.extra_options and not self.extra_options["ActivationSymmetric"]:
+            logging.error("ActivationSymmetric should be True in PowerOfTwoMethod calibrate_method.")
         self.is_activation_symmetric = True
 
-    def vitis_quantize_initializer(self,
-                                   weight,
-                                   bit_width=8,
-                                   keep_float_weight=False):
+    def vitis_quantize_initializer(self, weight, bit_width=8, keep_float_weight=False):
 
         # Find if this input is already quantized
         if weight.name in self.quantized_value_map:
@@ -121,12 +104,10 @@ class VitisQuantizer(QDQQuantizer):
         # Update packed weight, zero point, and scale initializers
         weight_data = tensor_proto_to_array(weight)
         _, _, zero_point, scale, q_weight_data = vitis_quantize_data(
-            weight_data.flatten(), bit_width, method=self.calibrate_method)
-        scale_initializer = onnx.helper.make_tensor(
-            scale_name, onnx_proto.TensorProto.FLOAT, [], [scale])
-        zero_initializer = onnx.helper.make_tensor(zp_name,
-                                                   onnx_proto.TensorProto.INT8,
-                                                   [], [zero_point])
+            weight_data.flatten(), bit_width, method=self.calibrate_method
+        )
+        scale_initializer = onnx.helper.make_tensor(scale_name, onnx_proto.TensorProto.FLOAT, [], [scale])
+        zero_initializer = onnx.helper.make_tensor(zp_name, onnx_proto.TensorProto.INT8, [], [zero_point])
         self.model.initializer().extend([scale_initializer, zero_initializer])
 
         # Log entry for this quantized weight
@@ -155,8 +136,7 @@ class VitisQuantizer(QDQQuantizer):
                     for tensor_name in node.input:
                         if tensor_name not in self.tensor_to_its_receiving_nodes:
                             self.tensor_to_its_receiving_nodes[tensor_name] = []
-                        self.tensor_to_its_receiving_nodes[tensor_name].append(
-                            node)
+                        self.tensor_to_its_receiving_nodes[tensor_name].append(node)
 
         self._quantize_normal_tensors()
 
@@ -172,17 +152,14 @@ class VitisQuantizer(QDQQuantizer):
 
         return self.model.model
 
-    def _add_qdq_pair_for_initializer(self,
-                                      weight_proto,
-                                      tensor_type,
-                                      axis=None):
+    def _add_qdq_pair_for_initializer(self, weight_proto, tensor_type, axis=None):
         weight_name = weight_proto.name
         q_weight_name, zp_name, scale_name = self.vitis_quantize_initializer(
-            weight_proto, self.weight_qType, keep_float_weight=True)
+            weight_proto, self.weight_qType, keep_float_weight=True
+        )
 
         weight_dequant_output = add_dequant_output_suffix(weight_name)
-        self.model.replace_input_of_all_nodes(weight_name,
-                                              weight_dequant_output)
+        self.model.replace_input_of_all_nodes(weight_name, weight_dequant_output)
         if self.add_qdq_pair_to_weight:
             weight_quant_output = add_quant_output_suffix(weight_name)
 
@@ -208,11 +185,7 @@ class VitisQuantizer(QDQQuantizer):
 
             self.model.add_node(dequant_node)
 
-    def quantize_bias_tensor(self,
-                             bias_name,
-                             input_name,
-                             weight_name,
-                             beta=1.0):
+    def quantize_bias_tensor(self, bias_name, input_name, weight_name, beta=1.0):
         weight = find_by_name(bias_name, self.model.initializer())
         if weight is not None:
             if weight.data_type == onnx_proto.TensorProto.FLOAT:
@@ -222,11 +195,13 @@ class VitisQuantizer(QDQQuantizer):
             logging.warning("Expected {} to be a weight".format(bias_name))
 
     def _quantize_refine(self):
-        self.model = adjust_quantize_info(self.model,
-                                          adjust_vitis_sigmoid=True,
-                                          adjust_shift_cut=True,
-                                          adjust_shift_bias=True,
-                                          adjust_shift_read=True,
-                                          adjust_shift_write=True,
-                                          align_concat=True,
-                                          align_pool=True)
+        self.model = adjust_quantize_info(
+            self.model,
+            adjust_vitis_sigmoid=True,
+            adjust_shift_cut=True,
+            adjust_shift_bias=True,
+            adjust_shift_read=True,
+            adjust_shift_write=True,
+            align_concat=True,
+            align_pool=True,
+        )

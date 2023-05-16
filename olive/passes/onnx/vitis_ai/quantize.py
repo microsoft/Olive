@@ -10,16 +10,13 @@
 import tempfile
 from pathlib import Path
 
-import onnx
-import onnx.helper as helper
 from onnxruntime.quantization.calibrate import CalibrationDataReader, CalibrationMethod
 from onnxruntime.quantization.onnx_quantizer import ONNXQuantizer
-from onnxruntime.quantization.qdq_quantizer import QDQQuantizer
+from onnxruntime.quantization.quant_utils import QuantFormat, QuantizationMode, QuantType, load_model
 from onnxruntime.quantization.quantize import quantize_static as ort_quantize_static
-from onnxruntime.quantization.quant_utils import QuantizationMode, QuantType, load_model, QuantFormat
 from onnxruntime.quantization.registry import QLinearOpsRegistry
 
-from olive.passes.onnx.vitis_ai.calibrate import create_calibrator_power_of_two, PowerOfTwoMethod
+from olive.passes.onnx.vitis_ai.calibrate import PowerOfTwoMethod, create_calibrator_power_of_two
 from olive.passes.onnx.vitis_ai.qdq_quantizer import VitisQuantizer
 from olive.passes.onnx.vitis_ai.quant_utils import get_exclude_nodes
 
@@ -61,7 +58,7 @@ def quantize_static(
             https://onnxruntime.ai/docs/performance/quantization.html for more details on data type selection
         calibrate_method:
             Current calibration methods supported are MinMax and Entropy and PowerOfTwoMethod of NonOverflow and MinMSE.
-                Please use CalibrationMethod.MinMax or CalibrationMethod.Entropy 
+                Please use CalibrationMethod.MinMax or CalibrationMethod.Entropy
                 or PowerOfTwoMethod.MinMSE or PowerOfTwoMethod.NonOverflow as options.
                 Default is PowerOfTwoMethod.MinMSE.
         input_nodes:
@@ -141,10 +138,22 @@ def quantize_static(
 
     if calibrate_method in CalibrationMethod:
         return ort_quantize_static(
-            model_input, model_output, calibration_data_reader, quant_format,
-            op_types_to_quantize, per_channel, reduce_range, activation_type,
-            weight_type, nodes_to_quantize, nodes_to_exclude, optimize_model,
-            use_external_data_format, calibrate_method, extra_options)
+            model_input,
+            model_output,
+            calibration_data_reader,
+            quant_format,
+            op_types_to_quantize,
+            per_channel,
+            reduce_range,
+            activation_type,
+            weight_type,
+            nodes_to_quantize,
+            nodes_to_exclude,
+            optimize_model,
+            use_external_data_format,
+            calibrate_method,
+            extra_options,
+        )
 
     mode = QuantizationMode.QLinearOps
 
@@ -157,8 +166,7 @@ def quantize_static(
         calibrator = create_calibrator_power_of_two(
             model,
             op_types_to_quantize,
-            augmented_model_path=Path(quant_tmp_dir).joinpath(
-                "augmented_model.onnx").as_posix(),
+            augmented_model_path=Path(quant_tmp_dir).joinpath("augmented_model.onnx").as_posix(),
             method=calibrate_method,
             use_external_data_format=use_external_data_format,
             extra_options=None,
@@ -204,9 +212,7 @@ def quantize_static(
             extra_options,
         )
     else:
-        raise TypeError(
-            "Invalid quant_format type, it must be either QuantFormat or VitisQuantFormat."
-        )
+        raise TypeError("Invalid quant_format type, it must be either QuantFormat or VitisQuantFormat.")
 
     quantizer.quantize_model()
 

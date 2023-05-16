@@ -2,18 +2,18 @@
 # Copyright (C) 2023, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
-import numpy as np
 import logging
-import copy
-from olive.passes.onnx.vitis_ai.quant_utils import scale2pos, pos2scale
+
+import numpy as np
+
+from olive.passes.onnx.vitis_ai.quant_utils import pos2scale, scale2pos
 
 refine_op_type = ["DequantizeLinear", "QuantizeLinear"]
-postfix = '_Output'
+postfix = "_Output"
 logging.basicConfig(level=logging.INFO)
 
 
 class QuantPosManager(object):
-
     def __init__(self, model):
         self.model = model
 
@@ -21,8 +21,7 @@ class QuantPosManager(object):
         for i in self.model.model.graph.initializer:
             if i.name == node.input[1]:
                 return i.float_data[0]
-        raise ValueError(
-            "DequantizeLinear and QuantizeLinear do not have scale.")
+        raise ValueError("DequantizeLinear and QuantizeLinear do not have scale.")
 
     def get_pos(self, node):
         if node.op_type in refine_op_type:
@@ -42,16 +41,14 @@ class QuantPosManager(object):
 
             if node.output:
                 for n in self.model.model.graph.node:
-                    if n.name == node.output[0].strip(
-                            postfix) and n.op_type == "DequantizeLinear":
+                    if n.name == node.output[0].strip(postfix) and n.op_type == "DequantizeLinear":
                         self.set_scale(node, new_scale)
 
         elif node.op_type == "DequantizeLinear":
             new_scale = pos2scale(new_pos)
             self.set_scale(node, new_scale)
             for n in self.model.model.graph.node:
-                if n.name == node.input[0].strip(
-                        postfix) and n.op_type == "QuantizeLinear":
+                if n.name == node.input[0].strip(postfix) and n.op_type == "QuantizeLinear":
                     self.set_scale(node, new_scale)
 
     def find_node_name(self, name):
@@ -83,14 +80,13 @@ class QuantPosManager(object):
     def get_opos_by_name(self, name):
         for node in self.model.model.graph.node:
             if node.name == name:
-                cur_name = node.name
                 if node.op_type in refine_op_type:
                     return self.get_pos(node), node
 
         return None, None
 
     def find_o_name(self, o_name):
-        opos_name = o_name + '_QuantizeLinear'
+        opos_name = o_name + "_QuantizeLinear"
         for node in self.model.model.graph.node:
             if node.name == opos_name and node.op_type in "QuantizeLinear":
                 return opos_name
@@ -146,10 +142,10 @@ class QuantPosManager(object):
             # Adjust shift_cut
             min_sc = 0
             max_sc = 16
-            if wpos == None or ipos == None or opos == None:
+            if wpos is None or ipos is None or opos is None:
                 logging.warning(
-                    'Found a pos that is None. Shift cut of layer {} has not taken effect.'
-                    .format(node.name))
+                    "Found a pos that is None. Shift cut of layer {} has not taken effect.".format(node.name)
+                )
                 continue
             sc = wpos + ipos - opos
             new_sc = None
@@ -162,11 +158,11 @@ class QuantPosManager(object):
                 new_wpos = new_sc + opos - ipos
                 self.set_pos(wpos_node, new_wpos)
                 logging.info(
-                    'Shift cut of layer {} is {}. It exceeds range [{}, {}]. '
-                    'Modify wpos from {} to {}.'.format(node.input[1],
-                                                        int(sc), int(min_sc),
-                                                        int(max_sc), int(wpos),
-                                                        int(new_wpos)))
+                    "Shift cut of layer {} is {}. It exceeds range [{}, {}]. "
+                    "Modify wpos from {} to {}.".format(
+                        node.input[1], int(sc), int(min_sc), int(max_sc), int(wpos), int(new_wpos)
+                    )
+                )
 
     def adjust_shift_bias(self):
         """Adjust the shift bias of node.
@@ -190,10 +186,10 @@ class QuantPosManager(object):
             if bpos_name:
                 bpos, bpos_node = self.get_pos_by_name(bpos_name)
                 # Adjust shift_bias
-                if wpos == None or ipos == None or opos == None or bpos == None:
+                if wpos is None or ipos is None or opos is None or bpos is None:
                     logging.warning(
-                        'Found a pos that is None. Shift bias of layer {} has not taken effect.'
-                        .format(node.name))
+                        "Found a pos that is None. Shift bias of layer {} has not taken effect.".format(node.name)
+                    )
                     continue
                 shift_cut = wpos + ipos - opos
                 min_sb = min(0, -(24 - (8 + shift_cut)))
@@ -210,10 +206,11 @@ class QuantPosManager(object):
                     new_bpos = wpos + ipos - new_sb
                     self.set_pos(self.get_node_by_name(node.input[2].strip(postfix)), new_bpos)
                     logging.info(
-                        'Shift bias of layer {} is {}. It exceeds range [{}, {}]. '
-                        'Modify bpos from {} to {}.'.format(
-                            node.input[2], int(shift_bias), int(min_sb),
-                            int(max_sb), int(bpos), int(new_bpos)))
+                        "Shift bias of layer {} is {}. It exceeds range [{}, {}]. "
+                        "Modify bpos from {} to {}.".format(
+                            node.input[2], int(shift_bias), int(min_sb), int(max_sb), int(bpos), int(new_bpos)
+                        )
+                    )
 
     def adjust_vitis_sigmoid(self):
         """Adjust quantize info of VitisSigmoid nodes.
@@ -234,10 +231,11 @@ class QuantPosManager(object):
             opos_name = self.get_opos_name(node)
             opos, _ = self.get_pos_by_name(opos_name)
 
-            if ipos == None or opos == None:
+            if ipos is None or opos is None:
                 logging.warning(
-                    'Found a pos that is None. Adjust quantize info of VitisSigmoid nodes of layer {} has not taken effect.'
-                    .format(node.name))
+                    "Found a pos that is None. Adjust quantize info of VitisSigmoid "
+                    "nodes of layer {} has not taken effect.".format(node.name)
+                )
                 continue
 
             new_ipos = ipos if ipos > 0 else 0
@@ -250,16 +248,16 @@ class QuantPosManager(object):
             if new_ipos != ipos:
                 self.set_pos(self.get_node_by_name(node.inpus[0].strip(postfix)), new_ipos)
             logging.info(
-                'Input quantize pos of VitisSimoid layer {} is {}, modify it to {} '
-                'to meet the DPU constraints.'.format(node.input[0],
-                                                      int(ipos), int(new_ipos)))
+                "Input quantize pos of VitisSimoid layer {} is {}, modify it to {} "
+                "to meet the DPU constraints.".format(node.input[0], int(ipos), int(new_ipos))
+            )
 
             if new_opos != opos:
                 self.set_pos(self.get_node_by_name(self.find_o_name(node.output[0])), new_opos)
             logging.info(
-                'Output quantize pos of VitisSimoid layer {} is {}, modify it to {} '
-                'to meet the DPU constraints.'.format(node.output[0],
-                                                      int(opos), int(new_opos)))
+                "Output quantize pos of VitisSimoid layer {} is {}, modify it to {} "
+                "to meet the DPU constraints.".format(node.output[0], int(opos), int(new_opos))
+            )
 
     def adjust_shift_read(self):
         """Adjust the shift bias of node.
@@ -283,9 +281,10 @@ class QuantPosManager(object):
             for i in ipos_layers:
                 ipos, _ = self.get_pos_by_name(i)
                 if ipos is None:
-                    logging.info('Fail to get quantize position for layer {}, '
-                                 'skip adjust_shift_read for it.'.format(
-                                     ipos_layers[i]))
+                    logging.info(
+                        "Fail to get quantize position for layer {}, "
+                        "skip adjust_shift_read for it.".format(ipos_layers[i])
+                    )
                     skip = True
                 iposes.append(ipos)
 
@@ -305,14 +304,18 @@ class QuantPosManager(object):
                 new_ipos_max = iposes[id_min] + new_sr
                 self.set_pos(self.get_node_by_name(ipos_layers[id_max].strip(postfix)), new_ipos_max)
                 logging.info(
-                    'Shift read of layer {} is {}({}-{}). It exceeds range [{}, {}]. '
-                    'Modify ipos from {} to {}.'.format(node.name, int(sr),
-                                                        int(iposes[id_max]),
-                                                        int(iposes[id_min]),
-                                                        int(min_sr),
-                                                        int(max_sr),
-                                                        int(iposes[id_max]),
-                                                        int(new_ipos_max)))
+                    "Shift read of layer {} is {}({}-{}). It exceeds range [{}, {}]. "
+                    "Modify ipos from {} to {}.".format(
+                        node.name,
+                        int(sr),
+                        int(iposes[id_max]),
+                        int(iposes[id_min]),
+                        int(min_sr),
+                        int(max_sr),
+                        int(iposes[id_max]),
+                        int(new_ipos_max),
+                    )
+                )
 
     def adjust_shift_write(self):
         """Adjust the shift write of node.
@@ -337,47 +340,51 @@ class QuantPosManager(object):
                 ipos, _ = self.get_pos_by_name(i)
                 if ipos is None:
                     logging.info(
-                        'Fail to get quantize position for layer {}(input:{}) (output of layer {}), '
-                        'skip adjust_shift_read for it.'.format(
-                            ipos_layers[i], i, ipos_layers[i]))
+                        "Fail to get quantize position for layer {}(input:{}) (output of layer {}), "
+                        "skip adjust_shift_read for it.".format(ipos_layers[i], i, ipos_layers[i])
+                    )
                     skip = True
                 iposes.append(ipos)
             opos_name = self.get_opos_name(node)
             opos, _ = self.get_pos_by_name(opos_name)
             if opos is None:
                 logging.info(
-                    'Fail to get quantize position for layer {}(output:0), '
-                    'skip adjust_shift_write for it.'.format(node.name))
+                    "Fail to get quantize position for layer {}(output:0), "
+                    "skip adjust_shift_write for it.".format(node.name)
+                )
             skip = True
             if skip:
                 continue
 
             id_min = np.argmin(iposes)
-            id_max = np.argmax(iposes)
-
             sw = iposes[id_min] - opos
             min_sw, max_sw = -15, 15
 
             new_sw = None
             if sw > max_sw:
-                new_sw = iposes[id_min] - max_sw
+                new_sw = max_sw
             elif sw < min_sw:
-                new_sw = iposes[id_min] - min_sw
+                new_sw = min_sw
 
             if new_sw is not None:
                 new_opos = iposes[id_min] - new_sw
                 self.set_pos(self.get_node_by_name(self.find_o_name(node.output[0])), new_opos)
                 logging.info(
-                    'Shift write of layer {} is {}({}-{}). It exceeds range [{}, {}]. '
-                    'Modify opos from {} to {}.'.format(node.name, int(sw),
-                                                        int(iposes[id_min]),
-                                                        int(opos), int(min_sw),
-                                                        int(max_sw), int(opos),
-                                                        int(new_opos)))
+                    "Shift write of layer {} is {}({}-{}). It exceeds range [{}, {}]. "
+                    "Modify opos from {} to {}.".format(
+                        node.name,
+                        int(sw),
+                        int(iposes[id_min]),
+                        int(opos),
+                        int(min_sw),
+                        int(max_sw),
+                        int(opos),
+                        int(new_opos),
+                    )
+                )
 
     def align_concat(self):
-        """Align concat op's inputs and output pos.
-        """
+        """Align concat op's inputs and output pos."""
         for i, node in enumerate(self.model.model.graph.node):
             if node.op_type not in ["Concat"]:
                 continue
@@ -397,27 +404,28 @@ class QuantPosManager(object):
             if opos != min_pos:
                 self.set_pos(self.get_node_by_name(self.find_o_name(node.output[0])), min_pos)
                 logging.info(
-                    ('Output pos of concat node {} is {}, min_pos is {}. '
-                     'Modify opos from {} to {}.'.format(
-                         node.name, int(opos), int(min_pos), int(opos),
-                         int(min_pos))))
+                    (
+                        "Output pos of concat node {} is {}, min_pos is {}. "
+                        "Modify opos from {} to {}.".format(node.name, int(opos), int(min_pos), int(opos), int(min_pos))
+                    )
+                )
             for name in ipos_layers:
                 ipos, ipos_node = self.get_pos_by_name(name)
                 if ipos is not None and ipos != min_pos:
                     self.set_pos(ipos_node, min_pos)
                     logging.info(
-                        'Input pos of concat node {} is {}, min_pos is {}. '
-                        'Modify ipos from {} to {}.'.format(node.name, int(ipos),
-                                                            int(min_pos), int(ipos),
-                                                            int(min_pos)))
+                        "Input pos of concat node {} is {}, min_pos is {}. "
+                        "Modify ipos from {} to {}.".format(node.name, int(ipos), int(min_pos), int(ipos), int(min_pos))
+                    )
 
     def align_pool(self):
-        """Align max/avg pooling input and output pos.
-        """
+        """Align max/avg pooling input and output pos."""
         for i, node in enumerate(self.model.model.graph.node):
-            if node.op_type not in ["MaxPool"] or node.op_type not in [
-                    "AveragePool"
-            ] or node.op_type not in ["GlobalAveragePool"]:
+            if (
+                node.op_type not in ["MaxPool"]
+                or node.op_type not in ["AveragePool"]
+                or node.op_type not in ["GlobalAveragePool"]
+            ):
                 continue
             ipos_name = self.get_ipos_name(node)
             ipos, ipos_layer = self.get_pos_by_name(ipos_name)
@@ -427,21 +435,22 @@ class QuantPosManager(object):
             if ipos is not None and opos is not None and opos > ipos:
                 self.set_pos(opos_layer, ipos)
                 logging.info(
-                    'Input pos of pooling layer {} is {}. Output pos of pooling layer {} is {}.'
-                    'Modify opos from {} to {}.'.format(node.name, int(ipos),
-                                                        node.name, int(opos),
-                                                        int(opos), int(ipos)))
+                    "Input pos of pooling layer {} is {}. Output pos of pooling layer {} is {}."
+                    "Modify opos from {} to {}.".format(
+                        node.name, int(ipos), node.name, int(opos), int(opos), int(ipos)
+                    )
+                )
             elif ipos is not None and opos is not None and opos < ipos:
                 self.set_pos(ipos_layer, opos)
                 logging.info(
-                    'Input pos of pooling layer {} is {}. Output pos of pooling layer {} is {}.'
-                    'Modify ipos from {} to {}.'.format(node.name, int(ipos),
-                                                        node.name, int(opos),
-                                                        int(ipos), int(opos)))
+                    "Input pos of pooling layer {} is {}. Output pos of pooling layer {} is {}."
+                    "Modify ipos from {} to {}.".format(
+                        node.name, int(ipos), node.name, int(opos), int(ipos), int(opos)
+                    )
+                )
 
     def check_scale(self):
-        """checking whether a number of scale is a power of 2
-        """
+        """checking whether a number of scale is a power of 2"""
         for node in self.model.model.graph.node:
             if node.op_type in refine_op_type:
                 scale = self.get_scale(node)
@@ -449,14 +458,16 @@ class QuantPosManager(object):
                 self.set_scale(node, new_scale)
 
 
-def adjust_quantize_info(model,
-                         adjust_vitis_sigmoid=True,
-                         adjust_shift_cut=True,
-                         adjust_shift_bias=True,
-                         adjust_shift_read=True,
-                         adjust_shift_write=True,
-                         align_concat=True,
-                         align_pool=True):
+def adjust_quantize_info(
+    model,
+    adjust_vitis_sigmoid=True,
+    adjust_shift_cut=True,
+    adjust_shift_bias=True,
+    adjust_shift_read=True,
+    adjust_shift_write=True,
+    align_concat=True,
+    align_pool=True,
+):
     """Adjust the quantize info to meet the compiler constraints."""
 
     manager = QuantPosManager(model)

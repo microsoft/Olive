@@ -8,22 +8,16 @@ from copy import deepcopy
 from pathlib import Path
 from shutil import copyfile
 from typing import Any, Callable, Dict, Union
-import os
-import onnxruntime
-from onnxruntime.quantization.calibrate import CalibrationDataReader, CalibrationMethod
-from onnxruntime.quantization.onnx_quantizer import ONNXQuantizer
-from onnxruntime.quantization.qdq_quantizer import QDQQuantizer
-from onnxruntime.quantization.quant_utils import QuantizationMode, QuantType, load_model, QuantFormat
-from onnxruntime.quantization.registry import QLinearOpsRegistry
+
 from onnxruntime.quantization.preprocess import quant_pre_process
-from olive.passes.onnx.vitis_ai import quantize_static
-from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
-from olive.passes.onnx.vitis_ai.qdq_quantizer import VitisQuantizer
+from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
 
 from olive.model import ONNXModel
 from olive.passes import Pass
+from olive.passes.onnx.vitis_ai import quantize_static
+from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
 from olive.passes.pass_config import PassConfigParam
-from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
+from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +152,6 @@ vai_q_onnx_quantization_config = {
 }
 
 _exposed_extra_options_config = {
-
     "ActivationSymmetric": PassConfigParam(
         type_=bool, default_value=True, description="symmetrize calibration data for activations"
     ),
@@ -166,9 +159,10 @@ _exposed_extra_options_config = {
         type_=bool, default_value=True, description="symmetrize calibration data for weights"
     ),
     "AddQDQPairToWeight": PassConfigParam(
-        type_=bool, default_value=True, description="remains floating-point weight and inserts both QuantizeLinear/DeQuantizeLinear nodes to weight"
+        type_=bool,
+        default_value=True,
+        description="remains floating-point weight and inserts both QuantizeLinear/DeQuantizeLinear nodes to weight",
     ),
-
 }
 
 _extra_options_config = {
@@ -212,7 +206,6 @@ class VitisQuantization(Pass):
 
         # common quantization config
         config.update(deepcopy(vai_q_onnx_quantization_config))
-
 
         # exposed extra options config
         config.update(deepcopy(_exposed_extra_options_config))
@@ -266,7 +259,15 @@ class VitisQuantization(Pass):
                 model = ONNXModel(preprocessed_temp_model_path)
 
         # keys not needed for quantization
-        to_delete = ["quant_mode", "script_dir", "user_script", "quant_preprocess", "data_dir", "batch_size", "dataloader_func"]
+        to_delete = [
+            "quant_mode",
+            "script_dir",
+            "user_script",
+            "quant_preprocess",
+            "data_dir",
+            "batch_size",
+            "dataloader_func",
+        ]
 
         # update string values to enum values
         run_config.update(
@@ -286,20 +287,19 @@ class VitisQuantization(Pass):
 
         # get the dataloader
         if self._user_module_loader.user_module:
-                dataloader = self._user_module_loader.call_object(
-                    self._fixed_params["dataloader_func"],
-                    self._fixed_params["data_dir"],
-                    self._fixed_params["batch_size"],
-                )
+            dataloader = self._user_module_loader.call_object(
+                self._fixed_params["dataloader_func"],
+                self._fixed_params["data_dir"],
+                self._fixed_params["batch_size"],
+            )
         elif self._data_config:
-                dataloader = self._data_config.to_data_container().create_calibration_dataloader()
+            dataloader = self._data_config.to_data_container().create_calibration_dataloader()
         quantize_static(
             model_input=model.model_path,
             model_output=output_model_path,
             calibration_data_reader=dataloader,
-            **run_config
+            **run_config,
         )
-
 
         return ONNXModel(output_model_path, model.name)
 
@@ -311,4 +311,3 @@ class VitisQuantization(Pass):
             copyfile(model.model_path, output_model_path)
 
         return ONNXModel(output_model_path)
-
