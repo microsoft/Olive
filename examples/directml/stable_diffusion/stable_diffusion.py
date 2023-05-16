@@ -134,7 +134,7 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
 
 
 def optimize(
-    model_name: str,
+    model_id: str,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
     optimize_provider: str,
@@ -147,7 +147,9 @@ def optimize(
     shutil.rmtree(unoptimized_model_dir, ignore_errors=True)
     shutil.rmtree(optimized_model_dir, ignore_errors=True)
 
-    base_model_id = get_base_model_name(model_name)
+    # The model_id and base_model_id are identical when optimizing a standard stable diffusion model like
+    # runwayml/stable-diffusion-v1-5. These variables are only different when optimizing a LoRA variant.
+    base_model_id = get_base_model_name(model_id)
 
     # Load the entire PyTorch pipeline to ensure all models and their configurations are downloaded and cached.
     # This avoids an issue where the non-ONNX components (tokenizer, scheduler, and feature extractor) are not
@@ -158,7 +160,6 @@ def optimize(
     model_info = dict()
 
     for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
-        # Optimize the model with Olive
         print(f"\nOptimizing {submodel_name}")
 
         olive_config = None
@@ -167,7 +168,13 @@ def optimize(
         if optimize_provider:
             olive_config["passes"]["optimize"]["config"]["target_provider"] = optimize_provider
 
-        olive_config["input_model"]["config"]["model_path"] = model_name
+        if submodel_name in ("unet", "text_encoder"):
+            olive_config["input_model"]["config"]["model_path"] = model_id
+        else:
+            # Only the unet & text encoder are affected by LoRA, so it's better to use the base model ID for
+            # other models: the Olive cache is based on the JSON config, and two LoRA variants with the same
+            # base model ID should be able to reuse previously optimized copies.
+            olive_config["input_model"]["config"]["model_path"] = base_model_id
 
         olive_run(olive_config)
 
@@ -230,7 +237,7 @@ def optimize(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="runwayml/stable-diffusion-v1-5", type=str)
+    parser.add_argument("--model_id", default="runwayml/stable-diffusion-v1-5", type=str)
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--optimize_provider", type=str, default="directml_future", help="EP target for inference")
@@ -259,8 +266,8 @@ if __name__ == "__main__":
         exit(1)
 
     script_dir = Path(__file__).resolve().parent
-    unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model
-    optimized_model_dir = script_dir / "models" / "optimized" / args.model
+    unoptimized_model_dir = script_dir / "models" / "unoptimized" / args.model_id
+    optimized_model_dir = script_dir / "models" / "optimized" / args.model_id
 
     if args.clean_cache:
         shutil.rmtree(script_dir / "cache", ignore_errors=True)
@@ -269,7 +276,7 @@ if __name__ == "__main__":
         # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            optimize(args.model, unoptimized_model_dir, optimized_model_dir, args.optimize_provider)
+            optimize(args.model_id, unoptimized_model_dir, optimized_model_dir, args.optimize_provider)
 
     if not args.optimize:
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir

@@ -136,10 +136,10 @@ This script has limited support for optimizing [LoRA variants of a base Stable D
 
 ```
 # Optimization:
-python .\stable_diffusion.py --optimize --model "sayakpaul/sd-model-finetuned-lora-t4"
+python .\stable_diffusion.py --optimize --model_id "sayakpaul/sd-model-finetuned-lora-t4"
 
 # Inference test:
-python .\stable_diffusion.py --interactive --model "sayakpaul/sd-model-finetuned-lora-t4"
+python .\stable_diffusion.py --interactive --model_id "sayakpaul/sd-model-finetuned-lora-t4"
 ```
 
 In the above example, `sayakpaul/sd-model-finetuned-lora-t4` is based on `CompVis/stable-diffusion-v1-4`, so the text encoder, VAE decoder, and safety checker models will be optimized just as if you were optimizing `CompVis/stable-diffusion-v1-4`. The U-Net model, however, will have the custom LoRA weights applied with a default scale of 1.0 (if you wish to change the scale, modify its default value in `user_script.py:merge_lora_weights`).
