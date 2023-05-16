@@ -102,7 +102,7 @@ def dependency_setup(config):
         try:
             __import__(package)
         except ImportError:
-            subprocess.check_call(["pip", "install", "{}".format(package)])
+            subprocess.check_call(["python", "-m", "pip", "install", "{}".format(package)])
     if remote_packages:
         logger.info(
             "Please make sure the following packages are installed in {} environment: {}".format(
