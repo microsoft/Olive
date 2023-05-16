@@ -4,19 +4,15 @@
 
 This sample shows how to optimize [Stable Diffusion v1-5](https://huggingface.co/runwayml/stable-diffusion-v1-5) to run with ONNX Runtime and DirectML.
 
-- [Stable Diffusion Pipeline](#stable-diffusion-pipeline)
+Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*. This Olive sample will convert each PyTorch model to ONNX, and then run the converted ONNX models through the `OrtTransformersOptimization` pass. The transformer optimization pass performs several time-consuming graph transformations that make the models more efficient for inference at runtime. Output models are only guaranteed to be compatible with onnxruntime-directml (1.15+).
+
+Contents:
 - [Setup](#setup)
 - [Conversion to ONNX and Latency Optimization](#conversion-to-onnx-and-latency-optimization)
 - [Test Inference](#test-inference)
 - [LoRA Models (Experimental)](#lora-models-experimental)
 - [Issues](#issues)
-
-# Stable Diffusion Pipeline
-
-Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*. This Olive sample will convert each PyTorch model to ONNX, and then run the converted ONNX models through the `OrtTransformersOptimization` pass. The transformer optimization pass performs several time-consuming graph transformations that make the models more efficient for inference at runtime.
-
-![](readme/pipeline.png)  
-*Based on figure from [Hugging Face Blog](https://huggingface.co/blog/stable_diffusion) that covers Stable Diffusion with Diffusers library. Blue boxes are the converted & optimized ONNX models. Gray boxes remain implemented by diffusers library.*
+- [Stable Diffusion Pipeline](#stable-diffusion-pipeline)
 
 # Setup
 
@@ -44,91 +40,35 @@ Re-running the script with `--optimize` will delete the output models, but it wi
 
 # Test Inference
 
-This sample code is primarily intended to illustrate model optimization with Olive, but it also provides a simple interface for testing inference with the ONNX models. Inference is done by creating an `OnnxStableDiffusionPipeline` from the saved models, which leans on ONNX runtime for runtime inference of the core models (text encoder, u-net, decoder, and safety checker).
+This sample code is primarily intended to illustrate model optimization with Olive, but it also provides a simple interface for testing inference with the ONNX models. Inference is done by creating an `OnnxStableDiffusionPipeline` from the saved models, which leans on ONNX runtime for inference of the core models (text encoder, u-net, decoder, and safety checker).
 
-Invoke the script with `--interactive` to show the GUI and generate images one at a time.
+Invoke the script with `--interactive` (and optionally `--num_images <count>`) to present a simple GUI where you may enter a prompt and generate images.
 
 ```
-python stable_diffusion.py --interactive
+python stable_diffusion.py --interactive --num_images 2
 Loading models into ORT session...
 
 Inference Batch Start (batch size = 1).
-100%|█████████████████████████████| 51/51 [00:05<00:00,  9.40it/s]
+100%|███████████████████████████████████████████████| 51/51 [00:02<00:00, 23.93it/s]
 Generated result_0.png
+Inference Batch End (1/1 images passed the safety checker).
+
+Inference Batch Start (batch size = 1).
+100%|███████████████████████████████████████████████| 51/51 [00:01<00:00, 26.22it/s]
+Generated result_1.png
 Inference Batch End (1/1 images passed the safety checker).
 ```
 
 Inference will loop until the generated image passes the safety checker (otherwise you would see black images). The result will be saved as `result_0.png` on disk, which is then loaded and displayed in the UI. Example below:
 
-![](readme/example.png)
+![example output](readme/example.png)
 
-You can also generate multiple images at once. The example below shows how to request 4 valid outputs (all using the same prompt), which will be saved as `result_0.png`, `result_1.png`, and so on. The script ran inference 6 times, because 2 of the outputs failed the safety checker.
-
-```
-python .\stable_diffusion.py --num_images 4 --prompt "solar eclipse, stars, realistic, space"
-Loading models into ORT session...
-
-Inference Batch Start (batch size = 1).
-100%|█████████████████████████████| 51/51 [00:05<00:00,  8.92it/s]
-Inference Batch End (0/1 images passed the safety checker).
-
-Inference Batch Start (batch size = 1).
-100%|█████████████████████████████| 51/51 [00:05<00:00,  9.40it/s]
-Generated result_0.png
-Inference Batch End (1/1 images passed the safety checker).
-
-Inference Batch Start (batch size = 1).
-100%|█████████████████████████████| 51/51 [00:05<00:00,  9.61it/s]
-Generated result_1.png
-Inference Batch End (1/1 images passed the safety checker).
-
-Inference Batch Start (batch size = 1).
-100%|█████████████████████████████| 51/51 [00:05<00:00,  9.68it/s]
-Generated result_2.png
-Inference Batch End (1/1 images passed the safety checker).
-
-Inference Batch Start (batch size = 1).
-100%|█████████████████████████████| 51/51 [00:05<00:00,  9.51it/s]
-Inference Batch End (0/1 images passed the safety checker).
-
-Inference Batch Start (batch size = 1).
-100%|█████████████████████████████| 51/51 [00:05<00:00,  9.54it/s]
-Generated result_3.png
-Inference Batch End (1/1 images passed the safety checker).
-```
-
-If your graphics card has sufficient memory, you can try increasing the batch size to generate multiple images at the same time. This can be faster than generating single images at a time.
-
-```
-python .\stable_diffusion.py --num_images 16 --prompt "solar eclipse, stars, realistic, space" --batch_size 8
-Loading models into ORT session...
-
-Inference Batch Start (batch size = 8).
-100%|█████████████████████████████| 51/51 [00:09<00:00,  5.54it/s]
-Generated result_0.png
-Generated result_1.png
-Generated result_2.png
-Generated result_3.png
-Generated result_4.png
-Generated result_5.png
-Generated result_6.png
-Generated result_7.png
-Inference Batch End (8/8 images passed the safety checker).
-
-Inference Batch Start (batch size = 8).
-100%|█████████████████████████████| 51/51 [00:08<00:00,  6.22it/s]
-Generated result_8.png
-Generated result_9.png
-Generated result_10.png
-Generated result_11.png
-Generated result_12.png
-Generated result_13.png
-Generated result_14.png
-Generated result_15.png
-Inference Batch End (8/8 images passed the safety checker).
-```
-
-Finally, you may adjust the number of steps in the U-net loop by setting `--num_inference_steps <steps>`. The default value is 50, but a lower value may produce sufficiently high quality images while taking less time overall.
+Run `python stable_diffusion.py --help` for additional options. A few particularly relevant ones:
+- `--model_id <string>` : name of a stable diffusion model ID hosted by huggingface.co. This script has been tested with the following:
+  - `CompVis/stable-diffusion-v1-4`
+  - `runwayml/stable-diffusion-v1-5` (default)
+  - LoRA variants of the above base models may work as well. See [LoRA Models (Experimental)](#lora-models-experimental).
+- `--num_inference_steps <count>` : the default value is 50, but a lower value may produce sufficiently high quality images while taking less time overall.
 
 # LoRA Models (Experimental)
 
@@ -159,3 +99,9 @@ If you run into the following error while optimizing models, it is likely that y
 ```
 OSError: Can't load tokenizer for 'C:\Users\<username>\.cache\huggingface\hub\models--runwayml--stable-diffusion-v1-5\snapshots\<sha>'. If you were trying to load it from 'https://huggingface.co/models', make sure you don't have a local directory with the same name. Otherwise, make sure 'C:\Users\<username>\.cache\huggingface\hub\models--runwayml--stable-diffusion-v1-5\snapshots\aa9ba505e1973ae5cd05f5aedd345178f52f8e6a' is the correct path to a directory containing all relevant files for a CLIPTokenizer tokenizer.
 ```
+
+# Stable Diffusion Pipeline
+
+The figure belows a high-level overview of the Stable Diffusion pipeline, and is based on a figure from [Hugging Face Blog](https://huggingface.co/blog/stable_diffusion) that covers Stable Diffusion with Diffusers library. The blue boxes are the converted & optimized ONNX models. The gray boxes remain implemented by diffusers library when using this example for inference; a custom pipeline may implement the full pipeline without leveraging Python or the diffusers library.
+
+![sd pipeline](readme/pipeline.png)
