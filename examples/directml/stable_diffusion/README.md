@@ -59,7 +59,7 @@ Generated result_1.png
 Inference Batch End (1/1 images passed the safety checker).
 ```
 
-Inference will loop until the generated image passes the safety checker (otherwise you would see black images). The result will be saved as `result_0.png` on disk, which is then loaded and displayed in the UI. Example below:
+Inference will loop until the generated image passes the safety checker (otherwise you would see black images). The result will be saved as `result_<i>.png` on disk, which is then loaded and displayed in the UI. Example below:
 
 ![example output](readme/example.png)
 
@@ -69,6 +69,8 @@ Run `python stable_diffusion.py --help` for additional options. A few particular
   - `runwayml/stable-diffusion-v1-5` (default)
   - LoRA variants of the above base models may work as well. See [LoRA Models (Experimental)](#lora-models-experimental).
 - `--num_inference_steps <count>` : the default value is 50, but a lower value may produce sufficiently high quality images while taking less time overall.
+
+If you omit `--interactive`, the script will generate the requested number of images without displaying a UI and then terminate. Use the `--prompt` option to specify the prompt when using non-interactive mode.
 
 # LoRA Models (Experimental)
 
