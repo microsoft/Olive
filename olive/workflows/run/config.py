@@ -124,7 +124,7 @@ class RunConfig(ConfigBase):
         return v
 
 
-def _resolve_config_str(v, values, alias, component_name="systems"):
+def _resolve_config_str(v, values, alias, component_name):
     if not isinstance(v, dict):
         return v
 
@@ -132,22 +132,24 @@ def _resolve_config_str(v, values, alias, component_name="systems"):
     if not isinstance(sub_component, str):
         return v
 
-    # resolve system name to systems member config
+    # resolve component name to component config
     if component_name not in values:
-        raise ValueError("Invalid systems")
+        raise ValueError(f"Invalid {component_name}")
     components = values[component_name] or {}
     if sub_component not in components:
-        raise ValueError(f"{alias} {sub_component} not found in systems")
-    if component_name == "systems" and components[sub_component].type == "AzureML":
-        if not values["azureml_client"]:
-            raise ValueError("AzureML client config is required for AzureML system")
-        components[sub_component].config.azureml_client_config = values["azureml_client"]
+        raise ValueError(f"{alias} {sub_component} not found in {components}")
     v[alias] = components[sub_component]
     return v
 
 
 def _resolve_system(v, values, system_alias, component_name="systems"):
-    return _resolve_config_str(v, values, system_alias, component_name=component_name)
+    v = _resolve_config_str(v, values, system_alias, component_name=component_name)
+    v[system_alias] = validate_config(v[system_alias], SystemConfig)
+    if v[system_alias].type == "AzureML":
+        if not values["azureml_client"]:
+            raise ValueError("AzureML client config is required for AzureML system")
+        v[system_alias].config.azureml_client_config = values["azureml_client"]
+    return v
 
 
 def _resolve_data_config(v, values, system_alias, component_name="data_config"):
