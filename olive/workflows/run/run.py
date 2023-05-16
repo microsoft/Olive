@@ -125,9 +125,8 @@ def run(config: Union[str, Path, dict], setup: bool = False):
     input_model = config.input_model.create_model()
 
     # Azure ML Client
-    aml_client = None
     if config.azureml_client:
-        aml_client = config.azureml_client.create_client()
+        config.engine.azureml_client = config.azureml_client
 
     # engine
     engine = config.engine.create_engine()
@@ -156,7 +155,6 @@ def run(config: Union[str, Path, dict], setup: bool = False):
         best_execution = engine.run(
             input_model,
             config.engine.packaging_config,
-            aml_client,
             config.verbose,
             config.engine.output_dir,
             config.engine.output_name,

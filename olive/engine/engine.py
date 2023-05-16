@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
-from olive.azureml.azureml_client import AzureMLClient
+from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
@@ -37,6 +37,7 @@ class EngineConfig(ConfigBase):
     host: SystemConfig = None
     target: SystemConfig = None
     evaluator: OliveEvaluatorConfig = None
+    azureml_client: Optional[AzureMLClientConfig] = None
     packaging_config: PackagingConfig = None
     cache_dir: Union[Path, str] = ".olive-cache"
     clean_cache: bool = False
@@ -56,6 +57,7 @@ class Engine:
         host: Optional[OliveSystem] = None,
         target: Optional[OliveSystem] = None,
         evaluator_config: Optional[OliveEvaluatorConfig] = None,
+        azureml_client: Optional[AzureMLClientConfig] = None,
     ):
         self._config = validate_config(config, EngineConfig)
 
@@ -102,6 +104,11 @@ class Engine:
         self.passes = OrderedDict()
 
         self.footprints = defaultdict(Footprint)
+
+        # initialize azureml client
+        self.azureml_client = None
+        if self._config.azureml_client is not None:
+            self.azureml_client = self._config.azureml_client.create_client()
 
         self._initialized = False
 
@@ -208,7 +215,6 @@ class Engine:
         self,
         input_model: OliveModel,
         packaging_config: Optional[PackagingConfig] = None,
-        aml_client: Optional[AzureMLClient] = None,
         verbose: bool = False,
         output_dir: str = None,
         output_name: str = None,
@@ -254,12 +260,12 @@ class Engine:
                 outputs[i] = results
             elif self.no_search:
                 output = self.run_no_search(
-                    input_model, input_model_id, i, aml_client, packaging_config, verbose, output_dir, output_name
+                    input_model, input_model_id, i, packaging_config, verbose, output_dir, output_name
                 )
                 outputs[i] = output
             else:
                 footprint = self.run_search(
-                    input_model, input_model_id, i, aml_client, packaging_config, verbose, output_dir, output_name
+                    input_model, input_model_id, i, packaging_config, verbose, output_dir, output_name
                 )
                 outputs[i] = footprint
 
@@ -288,7 +294,6 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         accelerator_spec: Any,
-        aml_client: Optional[AzureMLClient] = None,
         packaging_config: Optional[PackagingConfig] = None,
         verbose: bool = False,
         output_dir: str = None,
@@ -330,7 +335,7 @@ class Engine:
             _,
             signal,
             model_ids,
-        ) = self._run_passes(next_step["passes"], model, model_id, accelerator_spec, aml_client, verbose)
+        ) = self._run_passes(next_step["passes"], model, model_id, accelerator_spec, verbose)
         model_id = model_ids[-1]
 
         prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
@@ -365,7 +370,6 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         accelerator_spec: Any,
-        aml_client: Optional[AzureMLClient] = None,
         packaging_config: Optional[PackagingConfig] = None,
         verbose: bool = False,
         output_dir: str = None,
@@ -424,7 +428,7 @@ class Engine:
 
             # run all the passes in the step
             should_prune, signal, model_ids = self._run_passes(
-                next_step["passes"], model, model_id, accelerator_spec, aml_client, verbose
+                next_step["passes"], model, model_id, accelerator_spec, verbose
             )
 
             # record feedback signal
@@ -654,7 +658,6 @@ class Engine:
         model: OliveModel,
         model_id: str,
         accelerator_spec: Any,
-        aml_client: Optional[AzureMLClient] = None,
         verbose: bool = False,
     ):
         """
@@ -674,7 +677,7 @@ class Engine:
                 and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
             ):
                 model_download_path = self._model_cache_path / "azureml_input_model"
-                model_path = model.download_from_azureml(aml_client, model_download_path)
+                model_path = model.download_from_azureml(self.azureml_client, model_download_path)
                 model.model_path = model_path
                 if model_path.is_dir():
                     model.model_storage_kind = ModelStorageKind.LocalFolder

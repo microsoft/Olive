@@ -108,6 +108,8 @@ class OliveModel(ABC):
         raise NotImplementedError()
 
     def download_from_azureml(self, azureml_client: AzureMLClient, download_path: Union[Path, str]):
+        if azureml_client is None:
+            raise Exception("Azure ML client is not initialized")
         if self.model_storage_kind != ModelStorageKind.AzureMLModel:
             raise Exception("Only Azure ML model can be downloaded from Azure ML workspace")
         if not self.aml_storage_name:
