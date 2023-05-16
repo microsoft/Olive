@@ -8,7 +8,7 @@ import logging
 import os
 import sys
 
-from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory, OliveEvaluatorConfig
+from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorConfig, OliveEvaluatorFactory
 from olive.model import ModelConfig
 
 logger = logging.getLogger(__name__)
