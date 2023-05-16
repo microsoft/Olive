@@ -178,7 +178,7 @@ _extra_options_config = {
 }
 
 
-class VitisQuantization(Pass):
+class VitisAIQuantization(Pass):
     """
     Quantize ONNX model with onnxruntime where we can search for
     best parameters for vai_q_onnx quantization at same time.

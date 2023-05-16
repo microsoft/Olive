@@ -72,7 +72,7 @@
             "evaluator": "common_evaluator"
         },
         "vitis_ai_quantization": {
-            "type": "VitisQuantization",
+            "type": "VitisAIQuantization",
             "disable_search": true,
             "config": {
                 "user_script": "user_script.py",
