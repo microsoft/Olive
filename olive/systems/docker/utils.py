@@ -21,7 +21,7 @@ def create_config_file(tempdir, model: OliveModel, metrics: List[Metric], contai
 
     config_file_path = Path(tempdir) / "config.json"
     evaluator_config = OliveEvaluatorConfig(metrics=metrics)
-    data = {"metrics": evaluator_config.metrics.json(), "model": model_json}
+    data = {"metrics": evaluator_config.json(), "model": model_json}
 
     # the config yaml file saved to local disk
     with config_file_path.open("w") as f:
