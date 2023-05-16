@@ -211,7 +211,6 @@ class HFConfig(ConfigBase):
     task: str = None
     # TODO: remove model_class and only use task
     model_class: str = None
-    load_model_from_hub: bool = True
     use_ort_implementation: bool = False
     components: List[HFComponent] = None
     dataset: Dict[str, Any] = None
@@ -544,7 +543,7 @@ class PyTorchModel(OliveModel):
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
         elif self.hf_config is not None:
-            input_model = self.hf_config.model_name if self.hf_config.load_model_from_hub else self.model_path
+            input_model = self.model_path or self.hf_config.model_name
             if self.hf_config.task:
                 model = load_huggingface_model_from_task(self.hf_config.task, input_model)
             else:
