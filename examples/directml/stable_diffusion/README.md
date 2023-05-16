@@ -132,15 +132,23 @@ Finally, you may adjust the number of steps in the U-net loop by setting `--num_
 
 # LoRA Models (Experimental)
 
+This script also supports optimizing [LoRA variants of the base Stable Diffusion model](https://huggingface.co/blog/lora). When optimizing or running inference, specify the LoRA model ID instead of the base model ID. For example:
+
 ```
-python stable_diffusion.py --optimize --model_id runwayml/ --lora
+# Optimization:
+python .\stable_diffusion.py --optimize --model "sayakpaul/sd-model-finetuned-lora-t4"
+
+# Inference:
+python .\stable_diffusion.py --interactive --model "sayakpaul/sd-model-finetuned-lora-t4"
 ```
 
-TODO
-- LoRA weights are fused into the original weights for better inference performance, which means you must re-optimize each (you can't overlay LoRA weights on pre-optimized base model).
-- Use LoRA model id instead of base model id
-  - ONLY for unet (and maybe text encoder)
-  - https://huggingface.co/docs/diffusers/training/lora
+In the above example, `sayakpaul/sd-model-finetuned-lora-t4` is based on `CompVis/stable-diffusion-v1-4`, so the text encoder, VAE decoder, and safety checker models will be optimized just as if you were optimizing `CompVis/stable-diffusion-v1-4`. The U-Net model, however, will have the LoRA weights merged into it.
+
+**Implementation details**
+
+LoRA adds additional linear layers (attention processors) to the base PyTorch model. The additional layers have their own weights (the "LoRA weights"), which are independent of the base model layers, and this allows users to replace only a portion of the the PyTorch weights when switching between LoRA model variants. Without preprocessing, the additional linear layers reduce inference latency. Olive will merge the weights of the LoRA layers into existing layers of the base model to eliminate this overhead, but this means you can no longer replace a portion of the weights in the optimized ONNX models; when changing between LoRA model variants, you must optimize each variant independently.
+
+The diffusers library has an API ([diffusers.loaders.LoraLoaderMixin](https://huggingface.co/docs/diffusers/api/loaders#diffusers.loaders.LoraLoaderMixin)) to load the LoRA layers and their weights into the base model with a custom scale factor, which controls the strength of the LoRA weights (0.0 = no effect, 1.0 = max effect). In this Olive script, the scale is always 1.0 (see `merge_lora_weights` in user_script.py).
 
 # Issues
 
