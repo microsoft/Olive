@@ -19,7 +19,7 @@ from onnx import helper
 import onnxruntime
 from onnxruntime.quantization.calibrate import CalibraterBase, CalibrationDataCollector, CalibrationDataReader
 from onnxruntime.quantization.quant_utils import clone_model_with_shape_infer
-from olive.vitis_ai.quant_utils import get_pos_overflow, get_bound_and_scale, get_pos_min_mse, PowerOfTwoMethod
+from olive.passes.onnx.vitis_ai.quant_utils import get_pos_overflow, get_bound_and_scale, get_pos_min_mse, PowerOfTwoMethod
 
 
 class PowOfTwoCalibrater(CalibraterBase):

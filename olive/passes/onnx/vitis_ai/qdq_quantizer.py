@@ -29,8 +29,8 @@ from onnxruntime.quantization.quant_utils import (
     add_quant_suffix,
     find_by_name,
 )
-from olive.vitis_ai.refine import adjust_quantize_info
-from olive.vitis_ai.quant_utils import (
+from olive.passes.onnx.vitis_ai.refine import adjust_quantize_info
+from olive.passes.onnx.vitis_ai.quant_utils import (
     vitis_quantize_data,)
 
 

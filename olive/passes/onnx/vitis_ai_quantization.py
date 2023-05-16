@@ -16,9 +16,9 @@ from onnxruntime.quantization.qdq_quantizer import QDQQuantizer
 from onnxruntime.quantization.quant_utils import QuantizationMode, QuantType, load_model, QuantFormat
 from onnxruntime.quantization.registry import QLinearOpsRegistry
 from onnxruntime.quantization.preprocess import quant_pre_process
-from olive.vitis_ai import quantize_static
-from olive.vitis_ai.quant_utils import PowerOfTwoMethod
-from olive.vitis_ai.qdq_quantizer import VitisQuantizer
+from olive.passes.onnx.vitis_ai import quantize_static
+from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
+from olive.passes.onnx.vitis_ai.qdq_quantizer import VitisQuantizer
 
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -285,9 +285,14 @@ class VitisQuantization(Pass):
                 del run_config[key]
 
         # get the dataloader
-        dataloader = self._user_module_loader.call_object(
-            self._fixed_params["dataloader_func"], self._fixed_params["data_dir"], str(model.model_path), self._fixed_params["batch_size"]
-        )
+        if self._user_module_loader.user_module:
+                dataloader = self._user_module_loader.call_object(
+                    self._fixed_params["dataloader_func"],
+                    self._fixed_params["data_dir"],
+                    self._fixed_params["batch_size"],
+                )
+        elif self._data_config:
+                dataloader = self._data_config.to_data_container().create_calibration_dataloader()
         quantize_static(
             model_input=model.model_path,
             model_output=output_model_path,

@@ -5,7 +5,7 @@
 import numpy as np
 import logging
 import copy
-from olive.vitis_ai.quant_utils import scale2pos, pos2scale
+from olive.passes.onnx.vitis_ai.quant_utils import scale2pos, pos2scale
 
 refine_op_type = ["DequantizeLinear", "QuantizeLinear"]
 postfix = '_Output'

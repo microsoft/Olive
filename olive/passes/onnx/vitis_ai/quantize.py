@@ -19,9 +19,9 @@ from onnxruntime.quantization.quantize import quantize_static as ort_quantize_st
 from onnxruntime.quantization.quant_utils import QuantizationMode, QuantType, load_model, QuantFormat
 from onnxruntime.quantization.registry import QLinearOpsRegistry
 
-from olive.vitis_ai.calibrate import create_calibrator_power_of_two, PowerOfTwoMethod
-from olive.vitis_ai.qdq_quantizer import VitisQuantizer
-from olive.vitis_ai.quant_utils import get_exclude_nodes
+from olive.passes.onnx.vitis_ai.calibrate import create_calibrator_power_of_two, PowerOfTwoMethod
+from olive.passes.onnx.vitis_ai.qdq_quantizer import VitisQuantizer
+from olive.passes.onnx.vitis_ai.quant_utils import get_exclude_nodes
 
 
 def quantize_static(
