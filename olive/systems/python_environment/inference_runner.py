@@ -21,6 +21,7 @@ def get_args(raw_args):
 
     parser.add_argument("--type", type=str, required=True, choices=["accuracy", "latency"], help="Type of metric")
     parser.add_argument("--model_path", type=str, required=True, help="Path to onnx model")
+    parser.add_argument("--model_file_format", type=str, required=False, default="ONNX", help="onnx model file format")
     parser.add_argument("--input_dir", type=str, required=True, help="Path to input directory")
     parser.add_argument("--output_dir", type=str, required=True, help="Path to output directory")
     parser.add_argument("--inference_settings_path", type=str, required=True, help="Path to inference settings file")
@@ -50,7 +51,7 @@ def main(raw_args=None):
         inference_settings = pickle.load(f)
 
     # create session
-    sess = get_ort_inference_session(args.model_path, inference_settings)
+    sess = get_ort_inference_session(args.model_path, inference_settings, model_file_format=args.model_file_format)
 
     if args.type == "accuracy":
         for i in range(args.num_batches):

@@ -23,6 +23,7 @@ class ModelFileFormat(str, Enum):
     """
 
     ONNX = "ONNX"
+    ONNX_MLFLOW_MODEL = "ONNX.MLflow"
     PYTORCH_ENTIRE_MODEL = "PyTorch.EntireModel"
     PYTORCH_STATE_DICT = "PyTorch.StateDict"
     PYTORCH_TORCH_SCRIPT = "PyTorch.TorchScript"

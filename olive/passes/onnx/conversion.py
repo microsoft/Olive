@@ -10,6 +10,7 @@ import onnx
 import torch
 
 from olive.common.utils import tensor_data_to_device
+from olive.constants import ModelFileFormat
 from olive.model import CompositeOnnxModel, ONNXModel, PyTorchModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -112,4 +113,5 @@ class OnnxConversion(Pass):
                         dim_proto.dim_value = dim_value
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config, model.name)
+        is_mlflow_format = True if model.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL else False
+        return model_proto_to_olive_model(onnx_model, output_model_path, config, model.name, is_mlflow_format)

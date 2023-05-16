@@ -300,6 +300,7 @@ class ONNXModel(ONNXModelBase):
         name: Optional[str] = None,
         version: Optional[int] = None,
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
+        model_file_format: ModelFileFormat = ModelFileFormat.ONNX,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
@@ -317,6 +318,7 @@ class ONNXModel(ONNXModelBase):
         self.all_graphs: Optional[List[GraphProto]] = None
         # huggingface config
         self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
+        self.model_file_format=model_file_format
 
     @staticmethod
     def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
@@ -341,6 +343,10 @@ class ONNXModel(ONNXModelBase):
 
     def load_model(self, rank: int = None) -> onnx.ModelProto:
         # HACK: ASSUME no external data
+        if self.model_file_format == ModelFileFormat.ONNX_MLFLOW_MODEL:
+            import mlflow
+
+            return mlflow.onnx.load_model(self.model_path)
         return onnx.load(self.model_path)
 
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
@@ -353,7 +359,9 @@ class ONNXModel(ONNXModelBase):
         if not inference_settings.get("execution_provider"):
             inference_settings["execution_provider"] = self.get_default_execution_providers(device)
 
-        return get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions)
+        return get_ort_inference_session(
+            self.model_path, inference_settings, self.use_ort_extensions, self.model_file_format
+        )
 
     def nodes(self):
         for graph in self.get_all_graphs():
