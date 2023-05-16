@@ -20,7 +20,8 @@ def get_version(rel_path):
 
 def get_extra_deps(rel_path):
     here = os.path.abspath(os.path.dirname(__file__))
-    extra_deps = json.load(open(os.path.join(here, rel_path), "r"))
+    with open(os.path.join(here, rel_path), "r") as fp:
+        extra_deps = json.load(fp)
     return extra_deps
 
 

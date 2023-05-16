@@ -8,8 +8,8 @@ import logging
 import os
 import sys
 
-from olive.evaluator.evaluation import evaluate_accuracy, evaluate_custom_metric, evaluate_latency
-from olive.evaluator.metric import MetricList, MetricType
+from olive.evaluator.metric import MetricList
+from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory
 from olive.model import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -19,20 +19,14 @@ def evaluate_entry(config, model_path, output_path, output_name):
     with open(config, "r") as f:
         config_json = json.load(f)
     metric_list = MetricList(__root__=json.loads(config_json["metrics"])).__root__
-    logger.info(f"Evaluation metric list: {metric_list}")
-
     model_json = config_json["model"]
-    model_json["config"]["model_path"] = model_path
+
+    if model_path != "None":
+        model_json["config"]["model_path"] = model_path
     model = ModelConfig.from_json(model_json).create_model()
 
-    metrics_res = {}
-    for metric in metric_list:
-        if metric.name == MetricType.ACCURACY:
-            metrics_res[MetricType.ACCURACY] = evaluate_accuracy(model, metric)
-        elif metric.name == MetricType.LATENCY:
-            metrics_res[MetricType.LATENCY] = evaluate_latency(model, metric)
-        else:
-            metrics_res[metric.name] = evaluate_custom_metric(model, metric)
+    evaluator: OliveEvaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
+    metrics_res = evaluator.evaluate(model, metric_list)
 
     with open(os.path.join(output_path, f"{output_name}"), "w") as f:
         json.dump(metrics_res, f)

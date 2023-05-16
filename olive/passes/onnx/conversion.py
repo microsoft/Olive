@@ -9,7 +9,7 @@ from typing import Any, Dict, Union
 import onnx
 import torch
 
-from olive.evaluator.evaluation import tensor_data_to_device
+from olive.common.utils import tensor_data_to_device
 from olive.model import CompositeOnnxModel, ONNXModel, PyTorchModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
