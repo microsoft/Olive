@@ -36,7 +36,7 @@
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [
-                        {"name": "avg","priority_rank": 2}
+                        {"name": "avg","priority_rank": 1}
                     ],
                     "user_config": {
                         "user_script": "user_script.py",
