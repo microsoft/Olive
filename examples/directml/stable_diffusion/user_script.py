@@ -5,8 +5,8 @@
 import torch
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
-from transformers.models.clip.modeling_clip import CLIPTextModel
 from huggingface_hub import model_info
+from transformers.models.clip.modeling_clip import CLIPTextModel
 
 
 # Helper latency-only dataloader that creates random tensors with no label
@@ -32,12 +32,13 @@ def is_lora_model(model_name):
 
 # Merges LoRA weights into the layers of a base model
 def merge_lora_weights(base_model, lora_model_id, submodel_name="unet", scale=1.0):
-    from diffusers.models.attention_processor import LoRAAttnProcessor
-    from diffusers.loaders import LORA_WEIGHT_NAME
-    from diffusers.utils import DIFFUSERS_CACHE
-    from diffusers.utils.hub_utils import _get_model_file
     from collections import defaultdict
     from functools import reduce
+
+    from diffusers.loaders import LORA_WEIGHT_NAME
+    from diffusers.models.attention_processor import LoRAAttnProcessor
+    from diffusers.utils import DIFFUSERS_CACHE
+    from diffusers.utils.hub_utils import _get_model_file
 
     # Load LoRA weights
     model_file = _get_model_file(
@@ -115,6 +116,7 @@ def text_encoder_load(model_name):
     if is_lora_model(model_name):
         merge_lora_weights(model, model_name, "text_encoder")
     return model
+
 
 def text_encoder_conversion_inputs(model):
     return text_encoder_inputs(1, torch.int32)

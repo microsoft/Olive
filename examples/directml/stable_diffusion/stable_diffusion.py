@@ -13,9 +13,9 @@ import PySimpleGUI as sg
 import torch
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffusionPipeline
 from packaging import version
+from user_script import get_base_model_name
 
 from olive.workflows import run as olive_run
-from user_script import get_base_model_name
 
 
 def run_inference_loop(
