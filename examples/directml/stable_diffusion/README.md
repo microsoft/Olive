@@ -15,7 +15,7 @@ This sample shows how to optimize [Stable Diffusion v1-5](https://huggingface.co
 
 Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*. This Olive sample will convert each PyTorch model to ONNX, and then run the converted ONNX models through the `OrtTransformersOptimization` pass. The transformer optimization pass performs several time-consuming graph transformations that make the models more efficient for inference at runtime.
 
-![](readme/pipeline.png)
+![](readme/pipeline.png)  
 *Based on figure from [Hugging Face Blog](https://huggingface.co/blog/stable_diffusion) that covers Stable Diffusion with Diffusers library. Blue boxes are the converted & optimized ONNX models. Gray boxes remain implemented by diffusers library.*
 
 # Setup
@@ -132,23 +132,25 @@ Finally, you may adjust the number of steps in the U-net loop by setting `--num_
 
 # LoRA Models (Experimental)
 
-This script also supports optimizing [LoRA variants of the base Stable Diffusion model](https://huggingface.co/blog/lora). When optimizing or running inference, specify the LoRA model ID instead of the base model ID. For example:
+This script has limited support for optimizing [LoRA variants of a base Stable Diffusion model](https://huggingface.co/docs/diffusers/main/en/training/lora). When optimizing or running inference, specify the LoRA model ID instead of the base model ID:
 
 ```
 # Optimization:
 python .\stable_diffusion.py --optimize --model "sayakpaul/sd-model-finetuned-lora-t4"
 
-# Inference:
+# Inference test:
 python .\stable_diffusion.py --interactive --model "sayakpaul/sd-model-finetuned-lora-t4"
 ```
 
-In the above example, `sayakpaul/sd-model-finetuned-lora-t4` is based on `CompVis/stable-diffusion-v1-4`, so the text encoder, VAE decoder, and safety checker models will be optimized just as if you were optimizing `CompVis/stable-diffusion-v1-4`. The U-Net model, however, will have the LoRA weights merged into it.
+In the above example, `sayakpaul/sd-model-finetuned-lora-t4` is based on `CompVis/stable-diffusion-v1-4`, so the text encoder, VAE decoder, and safety checker models will be optimized just as if you were optimizing `CompVis/stable-diffusion-v1-4`. The U-Net model, however, will have the custom LoRA weights applied with a default scale of 1.0 (if you wish to change the scale, modify its default value in `user_script.py:merge_lora_weights`).
 
-**Implementation details**
+This script does not yet support loading [LoRA weights from a .safetensors file](https://github.com/huggingface/diffusers/issues/3064). For now, you can only use a model ID of a pretrained model hosted inside a model repo on huggingface.co (e.g. see https://huggingface.co/lora-library).
 
-LoRA adds additional linear layers (attention processors) to the base PyTorch model. The additional layers have their own weights (the "LoRA weights"), which are independent of the base model layers, and this allows users to replace only a portion of the the PyTorch weights when switching between LoRA model variants. Without preprocessing, the additional linear layers reduce inference latency. Olive will merge the weights of the LoRA layers into existing layers of the base model to eliminate this overhead, but this means you can no longer replace a portion of the weights in the optimized ONNX models; when changing between LoRA model variants, you must optimize each variant independently.
+**Implementation Details**
 
-The diffusers library has an API ([diffusers.loaders.LoraLoaderMixin](https://huggingface.co/docs/diffusers/api/loaders#diffusers.loaders.LoraLoaderMixin)) to load the LoRA layers and their weights into the base model with a custom scale factor, which controls the strength of the LoRA weights (0.0 = no effect, 1.0 = max effect). In this Olive script, the scale is always 1.0 (see `merge_lora_weights` in user_script.py).
+LoRA adds additional linear layers (attention processors) to the base PyTorch model. The added layers have their own small set of weights ("LoRA weights"), which allows users to replace only a portion of the the full model weights when switching between LoRA variants. Without preprocessing, the additional LoRA layers reduce inference speed since there are more layers in the network architecture. In practice, the added LoRA layers can be folded into existing layers of the base model to completely remove the inference overhead; however, once the LoRA weights are merged with the base weights it is no longer possible to swap out new LoRA weights (the model is "baked").
+
+Olive merges the LoRA weights into the base model before conversion to ONNX (see `user_script.py:merge_lora_weights`), which means the output models are fully baked. This approach simplifies downstream ONNX-based graph optimizations and enables performance-critical fusions (e.g. multi-head attention) that will not occur if the injected LoRA layers remain in the graph. As a consequence, if you want to switch LoRA weights you must reoptimize the affected models (generally U-Net). Retaining the flexibility of pluggable LoRA weights in the output ONNX models would require the LoRA weights be saved as external data along with fusion of the attention processors at runtime.
 
 # Issues
 

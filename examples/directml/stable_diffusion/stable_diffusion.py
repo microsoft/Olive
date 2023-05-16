@@ -15,7 +15,7 @@ from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffu
 from packaging import version
 
 from olive.workflows import run as olive_run
-from user_script import is_lora_model, get_base_model_name
+from user_script import get_base_model_name
 
 
 def run_inference_loop(
@@ -231,7 +231,6 @@ def optimize(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="runwayml/stable-diffusion-v1-5", type=str)
-    parser.add_argument("--lora", action="store_true", help="Indicates the model has LoRA weights")
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--optimize_provider", type=str, default="directml_future", help="EP target for inference")
