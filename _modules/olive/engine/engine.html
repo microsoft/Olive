@@ -157,7 +157,8 @@
     <span class="n">packaging_config</span><span class="p">:</span> <span class="n">PackagingConfig</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">cache_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;.olive-cache&quot;</span>
     <span class="n">clean_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">clean_evaluation_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
+    <span class="n">clean_evaluation_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">plot_pareto_frontier</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
 
 
 <div class="viewcode-block" id="Engine"><a class="viewcode-back" href="../../../api/engine.html#olive.engine.Engine">[docs]</a><span class="k">class</span> <span class="nc">Engine</span><span class="p">:</span>
@@ -563,9 +564,11 @@
             <span class="n">pf_footprints</span><span class="o">.</span><span class="n">update_nodes</span><span class="p">(</span><span class="n">top_ranked_nodes</span><span class="p">)</span>
 
         <span class="n">pf_footprints</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">pareto_frontier_footprints.json&quot;</span><span class="p">)</span>
-        <span class="n">pf_footprints</span><span class="o">.</span><span class="n">plot_pareto_frontier_to_html</span><span class="p">(</span>
-            <span class="n">save_path</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">pareto_frontier_footprints_chart.html&quot;</span>
-        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">plot_pareto_frontier</span><span class="p">:</span>
+            <span class="n">pf_footprints</span><span class="o">.</span><span class="n">plot_pareto_frontier_to_html</span><span class="p">(</span>
+                <span class="n">save_path</span><span class="o">=</span><span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">pareto_frontier_footprints_chart.html&quot;</span>
+            <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">packaging_config</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package top ranked </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pf_footprints</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span><span class="si">}</span><span class="s2"> models as artifacts&quot;</span><span class="p">)</span>
