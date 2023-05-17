@@ -333,6 +333,8 @@ This is a dictionary that contains the information of the engine. The informatio
 - `clean_evaluation_cache: [Boolean]` This decides whether to clean the evaluation cache of the engine before running the engine. This is
 `false` by default.
 
+- `plot_pareto_frontier` This decides whether to plot the pareto frontier of the search results. This is `false` by default.
+
 - `output_dir: [str]` The directory to store the output of the engine. If not specified, the output will be stored in the current working
     directory. For a run with no search, the output is the output model of the final pass and its evaluation result. For a run with search, the
     output is a json file with the search results.
