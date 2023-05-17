@@ -144,11 +144,12 @@ def _resolve_config_str(v, values, alias, component_name):
 
 def _resolve_system(v, values, system_alias, component_name="systems"):
     v = _resolve_config_str(v, values, system_alias, component_name=component_name)
-    v[system_alias] = validate_config(v[system_alias], SystemConfig)
-    if v[system_alias].type == "AzureML":
-        if not values["azureml_client"]:
-            raise ValueError("AzureML client config is required for AzureML system")
-        v[system_alias].config.azureml_client_config = values["azureml_client"]
+    if system_alias in v:
+        v[system_alias] = validate_config(v[system_alias], SystemConfig)
+        if v[system_alias].type == "AzureML":
+            if not values["azureml_client"]:
+                raise ValueError("AzureML client config is required for AzureML system")
+            v[system_alias].config.azureml_client_config = values["azureml_client"]
     return v
 
 
