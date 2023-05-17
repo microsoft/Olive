@@ -10,8 +10,6 @@ from abc import abstractmethod
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Type, Union
-from urllib import request
-from urllib.parse import urlparse
 
 from pydantic import Field, validator
 
@@ -25,7 +23,6 @@ logger = logging.getLogger(__name__)
 class ResourceType(str, Enum):
     LocalFile = "file"
     LocalFolder = "folder"
-    URL = "url"
     StringName = "string_name"
     AzureMLModel = "azureml_model"
     AzureMLDatastore = "azureml_datastore"
@@ -77,7 +74,7 @@ class ResourcePath(ConfigBase):
     def create_resource_path(cls, resource_path: Union[str, Path, Dict[str, Any]]) -> "ResourcePath":
         """
         Create a resource path from a string or a dict.
-        If a string is provided, it is inferred to be a file, folder, URL, or string name.
+        If a string is provided, it is inferred to be a file, folder, or string name.
         If a Path is provided, it is inferred to be a file or folder.
         If a dict is provided, it must have "type" and "config" fields. The "type" field must be one of the
         values in the ResourceType enum. The "config" field must be a dict that can be used to create a resource
@@ -89,30 +86,19 @@ class ResourcePath(ConfigBase):
         if isinstance(resource_path, dict):
             return cls(**resource_path)
 
+        if isinstance(resource_path, Path) and not resource_path.exists():
+            ValueError(f"Resource path {resource_path} of type Path is not a file or folder.")
+
+        # check if the resource path is a file, folder, or a string name
         type: ResourceType = None
         config_key = "path"
-        if isinstance(resource_path, Path):
-            # check if the resource path is a file or a folder
-            if resource_path.is_file():
-                type = ResourceType.LocalFile
-            elif resource_path.is_dir():
-                type = ResourceType.LocalFolder
-            else:
-                raise ValueError(f"Resource path {resource_path} of type Path is not a file or folder.")
-        elif isinstance(resource_path, str):
-            # check if the resource path is a file, folder, URL, or a string name
-            if Path(resource_path).is_file():
-                type = ResourceType.LocalFile
-            elif Path(resource_path).is_dir():
-                type = ResourceType.LocalFolder
-            elif urlparse(resource_path).scheme and urlparse(resource_path).netloc:
-                type = ResourceType.URL
-                config_key = "url"
-            else:
-                type = ResourceType.StringName
-                config_key = "name"
+        if Path(resource_path).is_file():
+            type = ResourceType.LocalFile
+        elif Path(resource_path).is_dir():
+            type = ResourceType.LocalFolder
         else:
-            raise ValueError(f"Resource path {resource_path} is not a string, Path or dict.")
+            type = ResourceType.StringName
+            config_key = "name"
 
         logger.debug(f"Resource path {resource_path} is inferred to be of type {type}.")
         return cls(type=type, config={config_key: resource_path})
@@ -198,33 +184,6 @@ class LocalFolderConfig(LocalResourceConfig):
         if not path.is_dir():
             raise ValueError(f"Path {path} is not a folder.")
         return path
-
-
-class URLConfig(ResourceConfig):
-    _type = ResourceType.URL
-    url: str = Field(..., description="URL to the resource.")
-
-    def get_path(self) -> str:
-        return self.url
-
-    def save_to_dir(self, dir_path: Union[Path, str], overwrite: bool = False) -> str:
-        # directory to save the resource to
-        dir_path = Path(dir_path)
-        dir_path.mkdir(parents=True, exist_ok=True)
-
-        # path to save the resource to
-        new_path = dir_path / Path(self.url).name
-        _overwrite_helper(new_path, overwrite)
-
-        # download the resource to the new path
-        try:
-            logger.debug(f"Downloading resource from {self.url} to {new_path}.")
-            request.urlretrieve(self.url, new_path)
-        except Exception as e:
-            logger.error(f"Failed to download resource from {self.url} to {new_path}.")
-            raise e
-
-        return str(new_path)
 
 
 class StringNameConfig(ResourceConfig):
