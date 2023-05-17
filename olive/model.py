@@ -540,7 +540,7 @@ class PyTorchModel(OliveModel):
         if self.model_loader is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
-        elif self.hf_config.model_class or self.hf_config.task:
+        elif self.hf_config and (self.hf_config.model_class or self.hf_config.task):
             input_model = self.model_path or self.hf_config.model_name
             if self.hf_config.task:
                 model = load_huggingface_model_from_task(self.hf_config.task, input_model)
