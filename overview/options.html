@@ -52,6 +52,7 @@
 <li class="toctree-l1"><a class="reference internal" href="quicktour.html">Quick Tour</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Olive Options</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#verbosity">Verbosity</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#azure-ml-client">Azure ML Client</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#input-model-information">Input Model Information</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#example">Example</a></li>
 </ul>
@@ -146,6 +147,7 @@ to apply from user in the form of a json dictionary. In this document, we docume
 <p>The options are organized into following sections:</p>
 <ul class="simple">
 <li><p><a class="reference internal" href="#verbosity"><span class="xref myst">Verbosity</span></a> <code class="docutils literal notranslate"><span class="pre">verbose</span></code></p></li>
+<li><p><a class="reference internal" href="#azure-ml-client"><span class="xref myst">Azure ML client</span></a> <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code></p></li>
 <li><p><a class="reference internal" href="#input-model-information"><span class="xref myst">Input Model Information</span></a> <code class="docutils literal notranslate"><span class="pre">input_model</span></code></p></li>
 <li><p><a class="reference internal" href="#systems-information"><span class="xref myst">Systems Information</span></a> <code class="docutils literal notranslate"><span class="pre">systems</span></code></p></li>
 <li><p><a class="reference internal" href="#evaluators-information"><span class="xref myst">Evaluators Information</span></a> <code class="docutils literal notranslate"><span class="pre">evaluators</span></code></p></li>
@@ -156,6 +158,17 @@ to apply from user in the form of a json dictionary. In this document, we docume
 <h2>Verbosity<a class="headerlink" href="#verbosity" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">verbose:</span> <span class="pre">[Boolean]</span></code></p>
 <p>If set to <code class="docutils literal notranslate"><span class="pre">true</span></code>, Olive will log verbose information during the optimization process. The default value is <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p>
+</section>
+<section id="azure-ml-client">
+<h2>Azure ML Client<a class="headerlink" href="#azure-ml-client" title="Permalink to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">azureml_client:</span> <span class="pre">[Dict]</span></code></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">subscription_id:</span> <span class="pre">[str]</span></code> Azure account subscription id.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">resource_group:</span> <span class="pre">[str]</span></code> Azure account resource group name.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">workspace_name:</span> <span class="pre">[str]</span></code> Azure ML workspace name.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">aml_config_path:</span> <span class="pre">[str]</span></code> The path to Azure config file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">read_timeout:</span> <span class="pre">[int]</span></code> read timeout in seconds for HTTP requests, user can increase if they find the default value too small. The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to sometimes hang for a long time between retries of job stream and download steps.</p></li>
+</ul>
 </section>
 <section id="input-model-information">
 <h2>Input Model Information<a class="headerlink" href="#input-model-information" title="Permalink to this heading">¶</a></h2>
@@ -265,7 +278,6 @@ information of the system contains following items:</p>
 <span class="w">    </span><span class="nt">&quot;aml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">            </span><span class="nt">&quot;aml_config_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;olive-workspace-config.json&quot;</span><span class="p">,</span>
 <span class="w">            </span><span class="nt">&quot;aml_compute&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
 <span class="w">            </span><span class="nt">&quot;aml_docker_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">                </span><span class="nt">&quot;base_image&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04&quot;</span><span class="p">,</span>

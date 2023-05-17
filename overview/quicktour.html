@@ -52,6 +52,7 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Quick Tour</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#install-olive-and-dependencies">Install Olive and dependencies</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#model-optimization-workflow">Model Optimization Workflow</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#azure-ml-client">Azure ML Client</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#input-model">Input Model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#host-and-target-systems">Host and Target Systems</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#evaluator">Evaluator</a></li>
@@ -166,6 +167,39 @@ checking the <a class="reference internal" href="design.html#design"><span class
 <p><code class="docutils literal notranslate"><span class="pre">olive.workflows.run</span></code> in python code also accepts python dictionary equivalent of the config JSON object.</p>
 </div>
 <p>Now, let’s take a look at the information you can provide to Olive to optimize your model.</p>
+<section id="azure-ml-client">
+<h3>Azure ML Client<a class="headerlink" href="#azure-ml-client" title="Permalink to this heading">¶</a></h3>
+<p>If you will use Azure ML resources and assets, you need to provide your Azure ML client configurations. For example:</p>
+<ul class="simple">
+<li><p>You have AzureML system for targets or hosts.</p></li>
+<li><p>You have Azure ML model as input model.</p></li>
+</ul>
+<p>AzureML authentication credentials is needed. Refer to
+<a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?tabs=sdk">this</a>  for
+more details.</p>
+<p>You can either add configurations to the Olive json config file:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;subscription_id&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;resource_group&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;workspace_name&gt;&quot;</span>
+<span class="p">},</span>
+</pre></div>
+</div>
+<p>or you can also have your config file in a seprate json file in the following format:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;subscription_id&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;resource_group&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;workspace_name&gt;&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>and specify your config file path to <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code>:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;aml_config_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;path to your config file&gt;&quot;</span>
+<span class="p">},</span>
+</pre></div>
+</div>
+</section>
 <section id="input-model">
 <h3>Input Model<a class="headerlink" href="#input-model" title="Permalink to this heading">¶</a></h3>
 <p>You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOModel and SNPEModel are supported model types.</p>

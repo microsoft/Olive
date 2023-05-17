@@ -68,8 +68,8 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#docker-system">Docker System</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#id3">Prerequisites</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#id4">System Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id2">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id3">System Configuration</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#python-environment-system">Python Environment System</a></li>
@@ -173,9 +173,6 @@
 <p>2. AzureML Workspace with necessary compute created. Refer to
 <a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/concept-workspace">this</a> for more details. Download
 the workspace config json.</p>
-<p>3. AzureML authentication credentials. Refer to
-<a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?tabs=sdk">this</a> for
-more details.</p>
 </section>
 <section id="system-configuration">
 <h3>System Configuration<a class="headerlink" href="#system-configuration" title="Permalink to this heading">¶</a></h3>
@@ -183,7 +180,6 @@ more details.</p>
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-1-1-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-1-1-0" name="1-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-1-1-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-1-1-1" name="1-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-1-1-0" class="sphinx-tabs-panel" id="panel-1-1-0" name="1-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureML&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;aml_config_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;olive-workspace-config.json&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;aml_compute&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
 <span class="w">        </span><span class="nt">&quot;aml_docker_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">            </span><span class="nt">&quot;base_image&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04&quot;</span><span class="p">,</span>
@@ -200,7 +196,6 @@ more details.</p>
     <span class="n">conda_file_path</span><span class="o">=</span><span class="s2">&quot;conda.yaml&quot;</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">aml_system</span> <span class="o">=</span> <span class="n">AzureMLSystem</span><span class="p">(</span>
-    <span class="n">aml_config_path</span><span class="o">=</span><span class="s2">&quot;olive-workspace-config.json&quot;</span><span class="p">,</span>
     <span class="n">aml_compute</span><span class="o">=</span><span class="s2">&quot;cpu-cluster&quot;</span><span class="p">,</span>
     <span class="n">aml_docker_config</span><span class="o">=</span><span class="p">{</span>
             <span class="s2">&quot;base_image&quot;</span><span class="p">:</span> <span class="s2">&quot;mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04&quot;</span><span class="p">,</span>
@@ -221,8 +216,8 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;cond
 </section>
 <section id="docker-system">
 <h2>Docker System<a class="headerlink" href="#docker-system" title="Permalink to this heading">¶</a></h2>
-<section id="id3">
-<h3>Prerequisites<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
+<section id="id2">
+<h3>Prerequisites<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
 <ol class="arabic">
 <li><p>Docker Engine installed on the host machine.</p></li>
 <li><p>docker extra dependencies installed.</p>
@@ -238,8 +233,8 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;cond
 </li>
 </ol>
 </section>
-<section id="id4">
-<h3>System Configuration<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
+<section id="id3">
+<h3>System Configuration<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
 <div class="sphinx-tabs docutils container">
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-2-2-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-2-2-0" name="2-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-2-2-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-2-2-1" name="2-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-2-2-0" class="sphinx-tabs-panel" id="panel-2-2-0" name="2-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Docker&quot;</span><span class="p">,</span>
