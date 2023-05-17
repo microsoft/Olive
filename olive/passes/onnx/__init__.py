@@ -12,6 +12,7 @@ from olive.passes.onnx.model_optimizer import OnnxModelOptimizer
 from olive.passes.onnx.perf_tuning import OrtPerfTuning
 from olive.passes.onnx.quantization import OnnxDynamicQuantization, OnnxQuantization, OnnxStaticQuantization
 from olive.passes.onnx.transformer_optimization import OrtTransformersOptimization
+from olive.passes.onnx.vitis_ai_quantization import VitisAIQuantization
 
 __all__ = [
     "AppendPrePostProcessingOps",
@@ -28,4 +29,5 @@ __all__ = [
     "OnnxFloatToFloat16",
     "InsertBeamSearch",
     "OrtMixedPrecision",
+    "VitisAIQuantization",
 ]
