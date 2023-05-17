@@ -88,7 +88,11 @@ class QatTrainer:
                     kwargs["replace_sampler_ddp"] = False
 
             trainer = create_trainer(
-                max_epochs=self.config.num_epochs, max_steps=self.config.num_steps, logger=self.config.logger, **kwargs
+                max_epochs=self.config.num_epochs,
+                max_steps=self.config.num_steps,
+                logger=self.config.logger,
+                default_root_dir=self.config.checkpoint_path,
+                **kwargs
             )
 
             trainer.fit(ptl_module, datamodule=ptl_data_module)

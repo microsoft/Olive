@@ -5,6 +5,7 @@
 import json
 import logging
 import shutil
+import tempfile
 from pathlib import Path
 from test.unit_test.utils import (
     get_accuracy_metric,
@@ -122,7 +123,8 @@ class TestEngine:
         }
 
         # execute
-        actual_res = engine.run(pytorch_model)
+        output_dir = Path(tempfile.TemporaryDirectory().name)
+        actual_res = engine.run(pytorch_model, output_dir=output_dir)
         accelerator_spec = 0
         actual_res = actual_res[accelerator_spec]
 
@@ -143,6 +145,7 @@ class TestEngine:
         assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
         mock_local_system.run_pass.assert_called_once()
         mock_local_system.evaluate_model.assert_called_once_with(onnx_model, [metric])
+        shutil.rmtree(output_dir, ignore_errors=True)
 
     @patch("olive.engine.engine.LocalSystem")
     def test_run_no_search(self, mock_local_system):
@@ -163,8 +166,7 @@ class TestEngine:
         mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
 
         # output model to output_dir
-        output_dir = Path("cache") / "output"
-        shutil.rmtree(output_dir, ignore_errors=True)
+        output_dir = Path(tempfile.TemporaryDirectory().name)
 
         # TODO: replace with the real accelerator spec
         accelerator_spec = 0
@@ -212,10 +214,13 @@ class TestEngine:
             model = PyTorchModel(model_loader=pytorch_model_loader, model_path=None)
 
             # execute
-            engine.run(model)
+            output_dir = Path(tempfile.TemporaryDirectory().name)
+            engine.run(model, output_dir=output_dir)
 
             # assert
             assert "Exception: test" in caplog.text
+            # clean up
+            shutil.rmtree(output_dir, ignore_errors=True)
 
     @patch("olive.engine.engine.LocalSystem")
     def test_run_evaluation_only(self, mock_local_system):
@@ -236,8 +241,7 @@ class TestEngine:
         mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
 
         # output model to output_dir
-        output_dir = Path("cache") / "output"
-        shutil.rmtree(output_dir, ignore_errors=True)
+        output_dir = Path(tempfile.TemporaryDirectory().name)
 
         expected_res = {metric.name: 0.998}
 
@@ -275,10 +279,6 @@ class TestEngine:
         assert engine._new_model_number == 101
         assert mock_unlink.called
 
-        # output model to output_dir
-        output_dir = Path("cache") / "output"
-        shutil.rmtree(output_dir, ignore_errors=True)
-
     def test_model_path_suffix_with_exception(self):
         # setup
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
@@ -297,7 +297,3 @@ class TestEngine:
             with pytest.raises(ValueError) as exc_info:
                 engine.initialize()
                 assert str(exc_info.value) == "ValueError: invalid literal for int() with base 10: '435d'"
-
-        # output model to output_dir
-        output_dir = Path("cache") / "output"
-        shutil.rmtree(output_dir, ignore_errors=True)

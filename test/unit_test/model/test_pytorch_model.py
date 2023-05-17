@@ -2,7 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 
 import mlflow
 import pandas as pd
@@ -14,7 +17,8 @@ from olive.model import PyTorchModel
 
 class TestPyTorchMLflowModel(unittest.TestCase):
     def setup(self):
-        self.model_path = "mlflow_test"
+        self.tempdir = Path(tempfile.TemporaryDirectory().name)
+        self.model_path = str(self.tempdir.resolve() / "mlflow_test")
         self.task = "text-classification"
         self.architecture = "distilbert-base-uncased-finetuned-sst-2-english"
         self.original_model = transformers.AutoModelForSequenceClassification.from_pretrained(self.architecture)
@@ -55,6 +59,7 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         olive_predict_result = [olive_model.config.id2label[olive_result]]
 
         assert mlflow_predict_result == olive_predict_result
+        shutil.rmtree(self.tempdir)
 
 
 class TestPyTorchHFModel(unittest.TestCase):

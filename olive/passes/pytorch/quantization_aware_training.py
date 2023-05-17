@@ -86,6 +86,7 @@ class QuantizationAwareTraining(Pass):
             ),
             "gpus": PassConfigParam(type_=int, description="Number of GPUs to use."),
             "seed": PassConfigParam(type_=int, default_value=None, description="Random seed for training."),
+            "checkpoint_path": PassConfigParam(type_=str, description="Path to save checkpoints."),
         }
 
     def _run_for_config(self, model: PyTorchModel, config: Dict[str, Any], output_model_path: str) -> PyTorchModel:
