@@ -175,14 +175,16 @@ input and return the loaded model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">hf_config:</span> <span class="pre">[Dict]</span></code> Instead of <code class="docutils literal notranslate"><span class="pre">model_path</span></code> or <code class="docutils literal notranslate"><span class="pre">model_loader</span></code>, the model can be specified using a dictionary describing a huggingface
 model. This dictionary specifies the following items:</p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">model_name:</span> <span class="pre">[str]</span></code>: This the model name of the huggingface model such as <code class="docutils literal notranslate"><span class="pre">distilbert-base-uncased</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">model_name:</span> <span class="pre">[str]</span></code>: This the model name of the huggingface model such as <code class="docutils literal notranslate"><span class="pre">distilbert-base-uncased</span></code> which will be used to load the model with huggingface <code class="docutils literal notranslate"><span class="pre">from_pretrained</span></code> method.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">task:</span> <span class="pre">[str]</span></code>: This is the task type for the model such as <code class="docutils literal notranslate"><span class="pre">text-classification</span></code>. The complete list of supported task can be found
 at <a class="reference external" href="https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task">huggingface-tasks</a>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">model_class:</span> <span class="pre">[str]</span></code>: Instead of the <code class="docutils literal notranslate"><span class="pre">task</span></code>, the class of the model can be provided as well. Such as <code class="docutils literal notranslate"><span class="pre">DistilBertForSequenceClassification</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">model_config:</span> <span class="pre">[str]</span></code>: The config of the model can be provided as well. Such as <code class="docutils literal notranslate"><span class="pre">WhisperConfig</span></code>. See
 <a class="reference external" href="https://huggingface.co/docs/transformers/main_classes/configuration">huggingface configurations</a></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">dataset:</span> <span class="pre">[dict]</span></code>: For huggingface transformer models, if you want to use the huggingface dataset, you need to provide the dataset config. See <a class="reference external" href="https://huggingface.co/docs/datasets/loading_datasets.html">huggingface datasets</a>. Olive exposes the following configs(which will be extend in the future):</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">dataset:</span> <span class="pre">[dict]</span></code>: Ff you want to use the huggingface dataset, you need to provide the dataset config. See <a class="reference external" href="https://huggingface.co/docs/datasets/loading_datasets.html">huggingface datasets</a>. Olive exposes the following configs(which will be extend in the future):</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span>&quot;dataset&quot;: {
+    &quot;model_name&quot;: &quot;distilbert-base-uncased&quot;,  # the model name of the huggingface model, if not provided, it will use the model_name in hf_config
+    &quot;task&quot;: &quot;text-classification&quot;,  # the task type for the model, if not provided, it will use the task in hf_config
     &quot;data_name&quot;:&quot;glue&quot;,  # the name of the dataset
     &quot;subset&quot;: &quot;mrpc&quot;,  # the subset of the dataset, could be &quot;mrpc&quot;, &quot;mnli&quot; and etc. You can find the available subsets in the dataset page.
     &quot;split&quot;: &quot;validation&quot;,  # the split of the dataset, could be &quot;train&quot;, &quot;validation&quot;, &quot;test&quot; and etc. You can find the available splits in the dataset page.
@@ -192,6 +194,7 @@ at <a class="reference external" href="https://huggingface.co/docs/transformers/
 }
 </pre></div>
 </div>
+<p>For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide <code class="docutils literal notranslate"><span class="pre">dataset</span></code> config only like above.</p>
 </li>
 </ul>
 </li>
