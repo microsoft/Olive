@@ -53,11 +53,26 @@ AzureML authentication credentials is needed. Refer to
 [this](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?tabs=sdk)  for
 more details.
 
+You can either add configurations to the Olive json config file:
 ```json
 "azureml_client": {
-    "subscription_id": "<place_holder>",
-    "resource_group": "<place_holder>",
-    "workspace_name": "<place_holder>"
+    "subscription_id": "<subscription_id>",
+    "resource_group": "<resource_group>",
+    "workspace_name": "<workspace_name>"
+},
+```
+or you can also have your config file in a seprate json file in the following format:
+```json
+{
+    "subscription_id": "<subscription_id>",
+    "resource_group": "<resource_group>",
+    "workspace_name": "<workspace_name>"
+}
+```
+and specify your config file path to `azureml_client`:
+```json
+"azureml_client": {
+    "aml_config_path": "<path to your config file>"
 },
 ```
 
