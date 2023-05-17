@@ -15,7 +15,6 @@ from string import Template
 import onnx
 import pkg_resources
 
-from olive.common.onnx_mlflow import save_model as mlflow_save_model
 from olive.common.utils import run_subprocess
 from olive.constants import ModelFileFormat
 from olive.engine.footprint import Footprint
@@ -255,6 +254,8 @@ def _download_c_packages(is_cpu: bool, is_nightly: bool, ort_version: str, downl
 
 
 def _generate_onnx_mlflow_model(model_file, model_dir, inference_config):
+    from olive.common.onnx_mlflow import save_model as mlflow_save_model
+
     model_proto = onnx.load(model_file)
     mlflow_save_model(
         model_proto,
