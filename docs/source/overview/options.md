@@ -43,7 +43,7 @@ case insensitive.
     - `hf_config: [Dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
     model. This dictionary specifies the following items:
 
-        - `model_name: [str]`: This the model name of the huggingface model such as `distilbert-base-uncased`.
+        - `model_name: [str]`: This the model name of the huggingface model such as `distilbert-base-uncased` which will be used to load the model with huggingface `from_pretrained` method.
 
         - `task: [str]`: This is the task type for the model such as `text-classification`. The complete list of supported task can be found
         at [huggingface-tasks](https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task).
@@ -53,9 +53,11 @@ case insensitive.
         - `model_config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
         [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
 
-        - `dataset: [dict]`: For huggingface transformer models, if you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading_datasets.html). Olive exposes the following configs(which will be extend in the future):
+        - `dataset: [dict]`: Ff you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading_datasets.html). Olive exposes the following configs(which will be extend in the future):
             ```json
             "dataset": {
+                "model_name": "distilbert-base-uncased",  # the model name of the huggingface model, if not provided, it will use the model_name in hf_config
+                "task": "text-classification",  # the task type for the model, if not provided, it will use the task in hf_config
                 "data_name":"glue",  # the name of the dataset
                 "subset": "mrpc",  # the subset of the dataset, could be "mrpc", "mnli" and etc. You can find the available subsets in the dataset page.
                 "split": "validation",  # the split of the dataset, could be "train", "validation", "test" and etc. You can find the available splits in the dataset page.
@@ -64,6 +66,7 @@ case insensitive.
                 "batch_size": 1  # the batch size of the dataloader
             }
             ```
+            For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide `dataset` config only like above.
 
 Please find the detailed config options from following table for each model type:
 
