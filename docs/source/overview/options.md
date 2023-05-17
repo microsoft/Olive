@@ -7,6 +7,7 @@ to apply from user in the form of a json dictionary. In this document, we docume
 The options are organized into following sections:
 
 - [Verbosity](#verbosity) `verbose`
+- [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
 - [Systems Information](#systems-information) `systems`
 - [Evaluators Information](#evaluators-information) `evaluators`
@@ -17,6 +18,14 @@ The options are organized into following sections:
 `verbose: [Boolean]`
 
 If set to `true`, Olive will log verbose information during the optimization process. The default value is `false`.
+
+## Azure ML Client
+`azureml_client: [Dict]`
+- `subscription_id: [str]` Azure account subscription id.
+- `resource_group: [str]` Azure account resource group name.
+- `workspace_name: [str]` Azure ML workspace name.
+- `aml_config_path: [str]` The path to Azure config file.
+- `read_timeout: [int]` read timeout in seconds for HTTP requests, user can increase if they find the default value too small. The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to sometimes hang for a long time between retries of job stream and download steps.
 
 ## Input Model Information
 
@@ -120,7 +129,6 @@ Please refer to [Configuring OliveSystem](configuring_olivesystem) for the more 
     "aml_system": {
         "type": "AzureML",
         "config": {
-            "aml_config_path": "olive-workspace-config.json",
             "aml_compute": "cpu-cluster",
             "aml_docker_config": {
                 "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
