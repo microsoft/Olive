@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
+from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
@@ -36,6 +37,7 @@ class EngineConfig(ConfigBase):
     host: SystemConfig = None
     target: SystemConfig = None
     evaluator: OliveEvaluatorConfig = None
+    azureml_client_config: Optional[AzureMLClientConfig] = None
     packaging_config: PackagingConfig = None
     cache_dir: Union[Path, str] = ".olive-cache"
     clean_cache: bool = False
@@ -101,6 +103,8 @@ class Engine:
         self.passes = OrderedDict()
 
         self.footprints = defaultdict(Footprint)
+
+        self.azureml_client_config = self._config.azureml_client_config
 
         self._initialized = False
 
@@ -674,9 +678,19 @@ class Engine:
                 model.model_storage_kind == ModelStorageKind.AzureMLModel
                 and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
             ):
-                error_msg = "Azure ML model only supports AzureMLSystem for Olive Pass"
-                logger.error(error_msg)
-                raise Exception(error_msg)
+                if not self.azureml_client_config:
+                    raise ValueError("AzureML client config is required to download the model from AzureML storage")
+                model_download_path = self._model_cache_path / "azureml_input_model"
+                model_path = model.download_from_azureml(
+                    self.azureml_client_config.create_client(), model_download_path
+                )
+                model.model_path = model_path
+                if model_path.is_dir():
+                    model.model_storage_kind = ModelStorageKind.LocalFolder
+                elif model_path.is_file():
+                    model.model_storage_kind = ModelStorageKind.LocalFile
+                else:
+                    raise ValueError(f"Invalid model path {model_path}")
 
             model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec, verbose)
             if model == PRUNED_CONFIG:

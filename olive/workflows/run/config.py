@@ -7,6 +7,7 @@ from typing import Dict, Union
 
 from pydantic import validator
 
+from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.data.config import DataConfig
 from olive.data.constants import DEFAULT_HF_DATA_CONTAINER_NAME, DefaultDataContainer
@@ -50,6 +51,7 @@ class RunEngineConfig(EngineConfig):
 
 class RunConfig(ConfigBase):
     verbose: bool = False
+    azureml_client: AzureMLClientConfig = None
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
     data_config: Dict[str, DataConfig] = {
@@ -122,7 +124,7 @@ class RunConfig(ConfigBase):
         return v
 
 
-def _resolve_config_str(v, values, alias, component_name="systems"):
+def _resolve_config_str(v, values, alias, component_name):
     if not isinstance(v, dict):
         return v
 
@@ -130,18 +132,25 @@ def _resolve_config_str(v, values, alias, component_name="systems"):
     if not isinstance(sub_component, str):
         return v
 
-    # resolve system name to systems member config
+    # resolve component name to component config
     if component_name not in values:
-        raise ValueError("Invalid systems")
+        raise ValueError(f"Invalid {component_name}")
     components = values[component_name] or {}
     if sub_component not in components:
-        raise ValueError(f"{alias} {sub_component} not found in systems")
+        raise ValueError(f"{alias} {sub_component} not found in {components}")
     v[alias] = components[sub_component]
     return v
 
 
 def _resolve_system(v, values, system_alias, component_name="systems"):
-    return _resolve_config_str(v, values, system_alias, component_name=component_name)
+    v = _resolve_config_str(v, values, system_alias, component_name=component_name)
+    if system_alias in v:
+        v[system_alias] = validate_config(v[system_alias], SystemConfig)
+        if v[system_alias].type == "AzureML":
+            if not values["azureml_client"]:
+                raise ValueError("AzureML client config is required for AzureML system")
+            v[system_alias].config.azureml_client_config = values["azureml_client"]
+    return v
 
 
 def _resolve_data_config(v, values, system_alias, component_name="data_config"):

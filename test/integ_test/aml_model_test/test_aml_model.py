@@ -7,6 +7,7 @@ import os
 import tempfile
 from pathlib import Path
 
+from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.model import ModelStorageKind, PyTorchModel
 from olive.passes import OnnxConversion
 from olive.passes.olive_pass import create_pass_from_dict
@@ -21,12 +22,16 @@ def test_aml_model():
     conda_file_location = folder_location / "conda.yaml"
     config_file_location = folder_location / "olive-workspace-config.json"
     generate_olive_workspace_config(config_file_location)
+    azureml_client_config = AzureMLClientConfig(aml_config_path=str(config_file_location))
     docker_config = AzureMLDockerConfig(
         base_image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
         conda_file_path=conda_file_location,
     )
     aml_system = AzureMLSystem(
-        aml_config_path=config_file_location, aml_compute=aml_compute, aml_docker_config=docker_config, is_dev=True
+        azureml_client_config=azureml_client_config,
+        aml_compute=aml_compute,
+        aml_docker_config=docker_config,
+        is_dev=True,
     )
 
     # ------------------------------------------------------------------

@@ -125,6 +125,10 @@ def run(config: Union[str, Path, dict], setup: bool = False):
     # input model
     input_model = config.input_model.create_model()
 
+    # Azure ML Client
+    if config.azureml_client:
+        config.engine.azureml_client_config = config.azureml_client
+
     # engine
     engine = config.engine.create_engine()
 

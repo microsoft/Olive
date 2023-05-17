@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import onnx
 import torch
@@ -18,6 +18,8 @@ import yaml
 from onnx import AttributeProto, GraphProto
 from pydantic import validator
 
+if TYPE_CHECKING:
+    from azure.ai.ml import MLClient
 from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
 from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
@@ -64,6 +66,7 @@ class OliveModel(ABC):
         model_path: Optional[Union[Path, str]] = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
+        aml_storage_name: Optional[str] = None,
         model_storage_kind: ModelStorageKind = ModelStorageKind.LocalFile,
     ):
         if isinstance(model_storage_kind, str):
@@ -83,6 +86,7 @@ class OliveModel(ABC):
         self.framework = framework
         self.model_file_format = model_file_format
         self.name = name
+        self.aml_storage_name = aml_storage_name
         self.composite_parent = None
         self.model_storage_kind = model_storage_kind
 
@@ -103,6 +107,25 @@ class OliveModel(ABC):
         Derived class should implement its specific logic if needed.
         """
         raise NotImplementedError()
+
+    def download_from_azureml(self, ml_client: "MLClient", download_path: Union[Path, str]):
+        if ml_client is None:
+            raise Exception("Azure ML client is not initialized")
+        if self.model_storage_kind != ModelStorageKind.AzureMLModel:
+            raise Exception("Only Azure ML model can be downloaded from Azure ML workspace")
+        if not self.aml_storage_name:
+            logger.error(
+                f"Error to download model {self.model_path} from Azure ML workspace: aml_storage_name is not specified"
+            )
+            raise Exception("Please specify model 'aml_storage_name' for Azure ML model")
+        try:
+            ml_client.models.download(name=self.name, version=self.version, download_path=download_path)
+        except Exception as e:
+            logger.error(f"Failed to downloafd model {self.name} from Azure ML workspace, error: {e}")
+            raise e
+
+        model_path = Path(download_path) / self.name / self.aml_storage_name
+        return model_path
 
     def set_composite_parent(self, cp):
         self.composite_parent = cp
@@ -235,6 +258,7 @@ class ONNXModelBase(OliveModel):
         model_path: str = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
+        aml_storage_name: Optional[str] = None,
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
@@ -245,6 +269,7 @@ class ONNXModelBase(OliveModel):
             model_path=model_path,
             name=name,
             version=version,
+            aml_storage_name=aml_storage_name,
             model_storage_kind=model_storage_kind,
         )
         self.inference_settings = inference_settings
@@ -299,6 +324,7 @@ class ONNXModel(ONNXModelBase):
         model_path: str = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
+        aml_storage_name: Optional[str] = None,
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
@@ -308,6 +334,7 @@ class ONNXModel(ONNXModelBase):
             model_path=model_path,
             name=name,
             version=version,
+            aml_storage_name=aml_storage_name,
             model_storage_kind=model_storage_kind,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
@@ -493,6 +520,7 @@ class PyTorchModel(OliveModel):
         model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
         name: Optional[str] = None,
         version: Optional[int] = None,
+        aml_storage_name: Optional[str] = None,
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFolder,
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
@@ -523,6 +551,7 @@ class PyTorchModel(OliveModel):
             model_path=model_path,
             name=name,
             version=version,
+            aml_storage_name=aml_storage_name,
             model_storage_kind=model_storage_kind,
         )
 
@@ -758,6 +787,7 @@ class OpenVINOModel(OliveModel):
         name: str = None,
         model_storage_kind=ModelStorageKind.LocalFolder,
         version: Optional[int] = None,
+        aml_storage_name: Optional[str] = None,
     ):
         super().__init__(
             model_path=model_path,
@@ -765,6 +795,7 @@ class OpenVINOModel(OliveModel):
             model_file_format=ModelFileFormat.OPENVINO_IR,
             name=name,
             version=version,
+            aml_storage_name=aml_storage_name,
             model_storage_kind=model_storage_kind,
         )
 
@@ -815,6 +846,7 @@ class DistributedOnnxModel(ONNXModelBase):
         model_filepaths: List[str],
         name: Optional[str] = None,
         version: Optional[int] = None,
+        aml_storage_name: Optional[str] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
     ):
@@ -822,6 +854,7 @@ class DistributedOnnxModel(ONNXModelBase):
             model_path=None,
             name=name,
             version=version,
+            aml_storage_name=aml_storage_name,
             model_storage_kind=ModelStorageKind.LocalFolder,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
@@ -906,9 +939,16 @@ class CompositeOnnxModel(ONNXModelBase):
         model_components: List[str],
         name: Optional[str] = None,
         version: Optional[int] = None,
+        aml_storage_name: Optional[str] = None,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
     ):
-        super().__init__(model_path=None, name=name, version=version, model_storage_kind=ModelStorageKind.LocalFolder)
+        super().__init__(
+            model_path=None,
+            name=name,
+            version=version,
+            aml_storage_name=aml_storage_name,
+            model_storage_kind=ModelStorageKind.LocalFolder,
+        )
 
         if isinstance(model_components[0], dict):
             assert all(
