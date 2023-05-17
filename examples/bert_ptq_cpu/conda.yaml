@@ -14,6 +14,6 @@ dependencies:
       - scipy
       - transformers
       - onnxconverter_common
-      - azureml-evaluate-mlflow
+      - azureml-evaluate-mlflow==0.0.6.post1
       - mlflow
       - git+https://github.com/microsoft/Olive.git
