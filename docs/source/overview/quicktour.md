@@ -217,7 +217,7 @@ footprint = Footprint.from_file("footprints.json")
 footprint.plot_pareto_frontier()
 ```
 ### Olive Packaging
-Olive also can package output artifacts when user adds `PackagingConfig` to Engine configurations. 
+Olive also can package output artifacts when user adds `PackagingConfig` to Engine configurations.
 ```
 "engine": {
     ...
