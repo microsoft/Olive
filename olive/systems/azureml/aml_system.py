@@ -43,7 +43,7 @@ class AzureMLSystem(OliveSystem):
         self._assert_not_none(aml_docker_config)
         aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
         azureml_client_config = validate_config(azureml_client_config, AzureMLClientConfig)
-        self.ml_client = azureml_client_config.create_client().ml_client
+        self.azureml_client_config = azureml_client_config
         self.compute = aml_compute
         self.environment = self._create_environment(aml_docker_config)
         self.instance_count = instance_count
@@ -72,6 +72,7 @@ class AzureMLSystem(OliveSystem):
         """
         Run the pass on the model at a specific point in the search space.
         """
+        ml_client = self.azureml_client_config.create_client()
         point = point or {}
         config = the_pass.config_at_search_point(point)
         pass_config = the_pass.to_json(check_objects=True)
@@ -83,7 +84,7 @@ class AzureMLSystem(OliveSystem):
             # submit job
             logger.debug("Submitting pipeline")
             job = retry_func(
-                self.ml_client.jobs.create_or_update,
+                ml_client.jobs.create_or_update,
                 [pipeline_job],
                 {"experiment_name": "olive-pass", "tags": {"Pass": pass_config["type"]}},
                 max_tries=3,
@@ -91,14 +92,14 @@ class AzureMLSystem(OliveSystem):
                 exceptions=HttpResponseError,
             )
             logger.info(f"Pipeline submitted. Job name: {job.name}. Job link: {job.studio_url}")
-            self.ml_client.jobs.stream(job.name)
+            ml_client.jobs.stream(job.name)
 
             # get output
             output_dir = Path(tempdir) / "pipeline_output"
             output_dir.mkdir(parents=True, exist_ok=True)
             logger.debug(f"Downloading pipeline output to {output_dir}")
             retry_func(
-                self.ml_client.jobs.download,
+                ml_client.jobs.download,
                 [job.name],
                 {"output_name": "pipeline_output", "download_path": output_dir},
                 max_tries=3,
@@ -389,12 +390,13 @@ class AzureMLSystem(OliveSystem):
             raise NotImplementedError("OpenVINO model does not support azureml evaluation")
 
         with tempfile.TemporaryDirectory() as tempdir:
+            ml_client = self.azureml_client_config.create_client()
             pipeline_job = self._create_pipeline_for_evaluation(tempdir, model, metrics)
 
             # submit job
             logger.debug("Submitting pipeline")
             job = retry_func(
-                self.ml_client.jobs.create_or_update,
+                ml_client.jobs.create_or_update,
                 [pipeline_job],
                 {"experiment_name": "olive-evaluation"},
                 max_tries=3,
@@ -402,13 +404,13 @@ class AzureMLSystem(OliveSystem):
                 exceptions=HttpResponseError,
             )
             logger.info(f"Pipeline submitted. Job name: {job.name}. Job link: {job.studio_url}")
-            self.ml_client.jobs.stream(job.name)
+            ml_client.jobs.stream(job.name)
 
             # get output
             output_dir = Path(tempdir) / "pipeline_output"
             output_dir.mkdir(parents=True, exist_ok=True)
             retry_func(
-                self.ml_client.jobs.download,
+                ml_client.jobs.download,
                 [job.name],
                 {"download_path": output_dir, "all": True},
                 max_tries=3,

@@ -39,33 +39,21 @@ class AzureMLClientConfig(ConfigBase):
         return v
 
     def create_client(self):
-        return AzureMLClient(**self.dict())
-
-
-class AzureMLClient(object):
-    def __init__(
-        self,
-        subscription_id: str = None,
-        resource_group: str = None,
-        workspace_name: str = None,
-        aml_config_path: str = None,
-        read_timeout: int = 60,
-    ):
         from azure.ai.ml import MLClient
 
         logger.info("Please make sure you have logged in Azure CLI and set the default subscription.")
         try:
-            if aml_config_path is None:
+            if self.aml_config_path is None:
                 self.ml_client = MLClient(
                     credential=self._get_credentials(),
-                    subscription_id=subscription_id,
-                    resource_group_name=resource_group,
-                    workspace_name=workspace_name,
-                    read_timeout=read_timeout,
+                    subscription_id=self.subscription_id,
+                    resource_group_name=self.resource_group,
+                    workspace_name=self.workspace_name,
+                    read_timeout=self.read_timeout,
                 )
             else:
-                self.ml_client = MLClient.from_config(
-                    credential=self._get_credentials(), path=aml_config_path, read_timeout=read_timeout
+                return MLClient.from_config(
+                    credential=self._get_credentials(), path=self.aml_config_path, read_timeout=self.read_timeout
                 )
         except Exception as e:
             logger.error(f"Failed to create AzureMLClient. Error: {e}")

@@ -37,7 +37,7 @@ class EngineConfig(ConfigBase):
     host: SystemConfig = None
     target: SystemConfig = None
     evaluator: OliveEvaluatorConfig = None
-    azureml_client: Optional[AzureMLClientConfig] = None
+    azureml_client_config: Optional[AzureMLClientConfig] = None
     packaging_config: PackagingConfig = None
     cache_dir: Union[Path, str] = ".olive-cache"
     clean_cache: bool = False
@@ -57,7 +57,6 @@ class Engine:
         host: Optional[OliveSystem] = None,
         target: Optional[OliveSystem] = None,
         evaluator_config: Optional[OliveEvaluatorConfig] = None,
-        azureml_client: Optional[AzureMLClientConfig] = None,
     ):
         self._config = validate_config(config, EngineConfig)
 
@@ -106,9 +105,9 @@ class Engine:
         self.footprints = defaultdict(Footprint)
 
         # initialize azureml client
-        self.azureml_client = None
-        if self._config.azureml_client is not None:
-            self.azureml_client = self._config.azureml_client.create_client()
+        self.azureml_client_config = None
+        if self._config.azureml_client_config is not None:
+            self.azureml_client_config = self._config.azureml_client_config
 
         self._initialized = False
 
@@ -677,7 +676,7 @@ class Engine:
                 and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
             ):
                 model_download_path = self._model_cache_path / "azureml_input_model"
-                model_path = model.download_from_azureml(self.azureml_client, model_download_path)
+                model_path = model.download_from_azureml(self.azureml_client_config, model_download_path)
                 model.model_path = model_path
                 if model_path.is_dir():
                     model.model_storage_kind = ModelStorageKind.LocalFolder
