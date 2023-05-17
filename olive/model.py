@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import onnx
 import torch
@@ -18,7 +18,8 @@ import yaml
 from onnx import AttributeProto, GraphProto
 from pydantic import validator
 
-from olive.azureml.azureml_client import AzureMLClientConfig
+if TYPE_CHECKING:
+    from azure.ai.ml import MLClient
 from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
 from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
@@ -107,8 +108,8 @@ class OliveModel(ABC):
         """
         raise NotImplementedError()
 
-    def download_from_azureml(self, azureml_client_config: AzureMLClientConfig, download_path: Union[Path, str]):
-        if azureml_client_config is None:
+    def download_from_azureml(self, ml_client: "MLClient", download_path: Union[Path, str]):
+        if ml_client is None:
             raise Exception("Azure ML client is not initialized")
         if self.model_storage_kind != ModelStorageKind.AzureMLModel:
             raise Exception("Only Azure ML model can be downloaded from Azure ML workspace")
@@ -118,7 +119,6 @@ class OliveModel(ABC):
             )
             raise Exception("Please specify model 'aml_storage_name' for Azure ML model")
         try:
-            ml_client = azureml_client_config.create_client()
             ml_client.models.download(name=self.name, version=self.version, download_path=download_path)
         except Exception as e:
             logger.error(f"Failed to downloafd model {self.name} from Azure ML workspace, error: {e}")

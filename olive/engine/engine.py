@@ -675,8 +675,12 @@ class Engine:
                 model.model_storage_kind == ModelStorageKind.AzureMLModel
                 and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
             ):
+                if not self.azureml_client_config:
+                    raise ValueError("AzureML client config is required to download the model from AzureML storage")
                 model_download_path = self._model_cache_path / "azureml_input_model"
-                model_path = model.download_from_azureml(self.azureml_client_config, model_download_path)
+                model_path = model.download_from_azureml(
+                    self.azureml_client_config.create_client(), model_download_path
+                )
                 model.model_path = model_path
                 if model_path.is_dir():
                     model.model_storage_kind = ModelStorageKind.LocalFolder
