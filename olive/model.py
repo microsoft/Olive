@@ -207,7 +207,7 @@ class HFComponent(ConfigBase):
 
 
 class HFConfig(ConfigBase):
-    model_name: str
+    model_name: str = None
     task: str = None
     # TODO: remove model_class and only use task
     model_class: str = None
@@ -217,12 +217,10 @@ class HFConfig(ConfigBase):
 
     @validator("model_class", always=True)
     def task_or_model_class_required(cls, v, values):
-        if "task" not in values:
-            raise ValueError("Invalid task")
-
-        if not v and not values["task"]:
-            raise ValueError("Either task or model_class must be specified")
-        return v
+        if values["model_name"]:
+            if not v and not values.get("task", None):
+                raise ValueError("Either task or model_class must be specified")
+            return v
 
 
 class ONNXModelBase(OliveModel):
@@ -542,7 +540,7 @@ class PyTorchModel(OliveModel):
         if self.model_loader is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
-        elif self.hf_config is not None:
+        elif self.hf_config.model_class or self.hf_config.task:
             input_model = self.model_path or self.hf_config.model_name
             if self.hf_config.task:
                 model = load_huggingface_model_from_task(self.hf_config.task, input_model)
