@@ -7,6 +7,7 @@ to apply from user in the form of a json dictionary. In this document, we docume
 The options are organized into following sections:
 
 - [Verbosity](#verbosity) `verbose`
+- [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
 - [Systems Information](#systems-information) `systems`
 - [Evaluators Information](#evaluators-information) `evaluators`
@@ -17,6 +18,12 @@ The options are organized into following sections:
 `verbose: [Boolean]`
 
 If set to `true`, Olive will log verbose information during the optimization process. The default value is `false`.
+
+## Azure ML Client
+`azureml_client: [Dict]`
+- `subscription_id: [str]` Azure account subscription id.
+- `resource_group: [str]` Azure account resource group name.
+- `workspace_name: [str]` Azure ML workspace name.
 
 ## Input Model Information
 
@@ -120,7 +127,6 @@ Please refer to [Configuring OliveSystem](configuring_olivesystem) for the more 
     "aml_system": {
         "type": "AzureML",
         "config": {
-            "aml_config_path": "olive-workspace-config.json",
             "aml_compute": "cpu-cluster",
             "aml_docker_config": {
                 "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",

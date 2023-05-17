@@ -36,7 +36,6 @@
         "aml_system": {
             "type": "AzureML",
             "config": {
-                "aml_config_path": "olive-workspace-config.json",
                 "aml_compute": "cpu-cluster",
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
