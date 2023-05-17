@@ -293,6 +293,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         local_rank = MPI.COMM_WORLD.Get_rank()
 
+        # TODO: EPs should be selected based on accelerator_spec param passed down from the engine
         inference_settings["execution_provider"] = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
 
@@ -363,6 +364,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         warmup_num = metric.metric_config.warmup_num
         repeat_test_num = metric.metric_config.repeat_test_num
         sleep_num = metric.metric_config.sleep_num
+        # TODO: EPs should be selected based on accelerator_spec param passed down from the engine
         inference_settings["execution_provider"] = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
 
