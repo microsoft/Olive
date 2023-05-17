@@ -3,10 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Union, Optional
+from typing import Optional, Union
 
-from olive.common.config_utils import ConfigBase
 from olive.azureml.azureml_client import AzureMLClientConfig
+from olive.common.config_utils import ConfigBase
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.strategy.search_strategy import SearchStrategyConfig

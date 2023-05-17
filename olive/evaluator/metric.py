@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from enum import Enum
-from typing import Union, List
+from typing import List, Union
 
 from pydantic import validator
 
