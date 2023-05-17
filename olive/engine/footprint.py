@@ -143,7 +143,7 @@ class Footprint:
                 for metric_name in v.metrics.value:
                     if metric_name not in _v.metrics.cmp_direction:
                         logger.debug(f"Metric {metric_name} is not in cmp_direction, will not be compared.")
-                        break
+                        continue
                     other_point_metrics = _v.metrics.value[metric_name].value * _v.metrics.cmp_direction[metric_name]
                     current_point_metrics = v.metrics.value[metric_name].value * v.metrics.cmp_direction[metric_name]
                     dominated &= current_point_metrics <= other_point_metrics
