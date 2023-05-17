@@ -104,10 +104,7 @@ class Engine:
 
         self.footprints = defaultdict(Footprint)
 
-        # initialize azureml client
-        self.azureml_client_config = None
-        if self._config.azureml_client_config is not None:
-            self.azureml_client_config = self._config.azureml_client_config
+        self.azureml_client_config = self._config.azureml_client_config
 
         self._initialized = False
 
