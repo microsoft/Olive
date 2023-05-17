@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 
 from pydantic import Field, validator
 
-from olive.common.azureml_client import AzureMLClientConfig
+from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import retry_func
 
@@ -261,14 +261,14 @@ class AzureMLModelConfig(ResourceConfig):
         dir_path.mkdir(parents=True, exist_ok=True)
 
         # azureml client
-        ml_client = self.aml_client.create_client().ml_client
+        ml_client = self.aml_client.create_client()
 
         # azureml model
         model = ml_client.models.get(self.name, self.version)
         model_path = Path(model.path)
 
         # path to save the resource to
-        new_path = dir_path / self.name / str(self.version) / model_path.name
+        new_path = dir_path / model_path.name
         _overwrite_helper(new_path, overwrite)
 
         # download the resource to the new path
@@ -309,7 +309,39 @@ class AzureMLDatastoreConfig(ResourceConfig):
         )
 
     def save_to_dir(self, dir_path: Union[Path, str], overwrite: bool = False) -> str:
-        raise NotImplementedError("Saving AzureML datastore is not supported.")
+        # there is no direct way to download a file from a datastore
+        # so we will use a workaround to download the file by creating a aml model
+        # that references the file and downloading the model
+        from azure.ai.ml.constants import AssetTypes
+        from azure.ai.ml.entities import Model
+        from azure.core.exceptions import ServiceResponseError
+
+        # azureml client
+        ml_client = self.aml_client.create_client()
+
+        # create aml model
+        logger.debug(f"Creating aml model for datastore {self.datastore_name} path {self.relative_path}.")
+        aml_model = retry_func(
+            ml_client.models.create_or_update,
+            [
+                Model(
+                    path=self.get_path(),
+                    name="olive-backend-model",
+                    description="Model created by Olive backend. Ignore this model.",
+                    type=AssetTypes.CUSTOM_MODEL,
+                )
+            ],
+            max_tries=3,
+            delay=5,
+            exceptions=ServiceResponseError,
+        )
+
+        # use the AzureMLModelConfig to download the model
+        logger.debug(f"Downloading aml model for datastore {self.datastore_name} path {self.relative_path}.")
+        azureml_model_resource = AzureMLModelConfig(
+            aml_client=self.aml_client, name=aml_model.name, version=aml_model.version
+        )
+        return azureml_model_resource.save_to_dir(dir_path, overwrite)
 
 
 class AzureMLJobOutputConfig(ResourceConfig):
@@ -328,11 +360,11 @@ class AzureMLJobOutputConfig(ResourceConfig):
         dir_path.mkdir(parents=True, exist_ok=True)
 
         # path to save the resource to
-        new_path = dir_path / self.job_name / self.output_name / self.relative_path
+        new_path = dir_path / Path(self.relative_path).name
         _overwrite_helper(new_path, overwrite)
 
         # download the resource to the new path
-        ml_client = self.aml_client.create_client().ml_client
+        ml_client = self.aml_client.create_client()
         try:
             logger.debug(f"Downloading job output {self.job_name} output {self.output_name} to {new_path}.")
             from azure.core.exceptions import ServiceResponseError
