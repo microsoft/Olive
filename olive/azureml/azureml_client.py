@@ -44,7 +44,7 @@ class AzureMLClientConfig(ConfigBase):
         logger.info("Please make sure you have logged in Azure CLI and set the default subscription.")
         try:
             if self.aml_config_path is None:
-                self.ml_client = MLClient(
+                return MLClient(
                     credential=self._get_credentials(),
                     subscription_id=self.subscription_id,
                     resource_group_name=self.resource_group,
