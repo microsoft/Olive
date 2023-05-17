@@ -125,13 +125,13 @@
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">from</span> <span class="nn">azure.ai.ml</span> <span class="kn">import</span> <span class="n">Input</span><span class="p">,</span> <span class="n">MLClient</span><span class="p">,</span> <span class="n">Output</span><span class="p">,</span> <span class="n">command</span>
+<span class="kn">from</span> <span class="nn">azure.ai.ml</span> <span class="kn">import</span> <span class="n">Input</span><span class="p">,</span> <span class="n">Output</span><span class="p">,</span> <span class="n">command</span>
 <span class="kn">from</span> <span class="nn">azure.ai.ml.constants</span> <span class="kn">import</span> <span class="n">AssetTypes</span>
 <span class="kn">from</span> <span class="nn">azure.ai.ml.dsl</span> <span class="kn">import</span> <span class="n">pipeline</span>
 <span class="kn">from</span> <span class="nn">azure.ai.ml.entities</span> <span class="kn">import</span> <span class="n">BuildContext</span><span class="p">,</span> <span class="n">Environment</span>
 <span class="kn">from</span> <span class="nn">azure.core.exceptions</span> <span class="kn">import</span> <span class="n">HttpResponseError</span><span class="p">,</span> <span class="n">ServiceResponseError</span>
-<span class="kn">from</span> <span class="nn">azure.identity</span> <span class="kn">import</span> <span class="n">AzureCliCredential</span><span class="p">,</span> <span class="n">DefaultAzureCredential</span><span class="p">,</span> <span class="n">InteractiveBrowserCredential</span>
 
+<span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">retry_func</span>
 <span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span>
@@ -149,17 +149,17 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">aml_config_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">azureml_client_config</span><span class="p">:</span> <span class="n">AzureMLClientConfig</span><span class="p">,</span>
         <span class="n">aml_compute</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">aml_docker_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">AzureMLDockerConfig</span><span class="p">],</span>
         <span class="n">instance_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-        <span class="n">read_timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span>
         <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_assert_not_none</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">)</span>
         <span class="n">aml_docker_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">,</span> <span class="n">AzureMLDockerConfig</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">ml_client</span> <span class="o">=</span> <span class="n">MLClient</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_credentials</span><span class="p">(),</span> <span class="n">path</span><span class="o">=</span><span class="n">aml_config_path</span><span class="p">,</span> <span class="n">read_timeout</span><span class="o">=</span><span class="n">read_timeout</span><span class="p">)</span>
+        <span class="n">azureml_client_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">azureml_client_config</span><span class="p">,</span> <span class="n">AzureMLClientConfig</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span> <span class="o">=</span> <span class="n">azureml_client_config</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">compute</span> <span class="o">=</span> <span class="n">aml_compute</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_environment</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">instance_count</span> <span class="o">=</span> <span class="n">instance_count</span>
@@ -173,21 +173,6 @@
         <span class="k">if</span> <span class="n">docker_config</span><span class="o">.</span><span class="n">base_image</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Environment</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">base_image</span><span class="p">,</span> <span class="n">conda_file</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">conda_file_path</span><span class="p">)</span>
         <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Please specify DockerConfig.&quot;</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">_get_credentials</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">credential</span> <span class="o">=</span> <span class="n">AzureCliCredential</span><span class="p">()</span>
-            <span class="n">credential</span><span class="o">.</span><span class="n">get_token</span><span class="p">(</span><span class="s2">&quot;https://management.azure.com/.default&quot;</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">credential</span> <span class="o">=</span> <span class="n">DefaultAzureCredential</span><span class="p">()</span>
-                <span class="c1"># Check if given credential can get token successfully.</span>
-                <span class="n">credential</span><span class="o">.</span><span class="n">get_token</span><span class="p">(</span><span class="s2">&quot;https://management.azure.com/.default&quot;</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                <span class="c1"># Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work</span>
-                <span class="n">credential</span> <span class="o">=</span> <span class="n">InteractiveBrowserCredential</span><span class="p">()</span>
-
-        <span class="k">return</span> <span class="n">credential</span>
 
     <span class="k">def</span> <span class="nf">_assert_not_none</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">object</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">object</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -203,6 +188,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Run the pass on the model at a specific point in the search space.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
         <span class="n">point</span> <span class="o">=</span> <span class="n">point</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="n">config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">config_at_search_point</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
         <span class="n">pass_config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_objects</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -214,7 +200,7 @@
             <span class="c1"># submit job</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Submitting pipeline&quot;</span><span class="p">)</span>
             <span class="n">job</span> <span class="o">=</span> <span class="n">retry_func</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">create_or_update</span><span class="p">,</span>
+                <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">create_or_update</span><span class="p">,</span>
                 <span class="p">[</span><span class="n">pipeline_job</span><span class="p">],</span>
                 <span class="p">{</span><span class="s2">&quot;experiment_name&quot;</span><span class="p">:</span> <span class="s2">&quot;olive-pass&quot;</span><span class="p">,</span> <span class="s2">&quot;tags&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Pass&quot;</span><span class="p">:</span> <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]}},</span>
                 <span class="n">max_tries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
@@ -222,14 +208,14 @@
                 <span class="n">exceptions</span><span class="o">=</span><span class="n">HttpResponseError</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pipeline submitted. Job name: </span><span class="si">{</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">. Job link: </span><span class="si">{</span><span class="n">job</span><span class="o">.</span><span class="n">studio_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
             <span class="c1"># get output</span>
             <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempdir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;pipeline_output&quot;</span>
             <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Downloading pipeline output to </span><span class="si">{</span><span class="n">output_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="n">retry_func</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">download</span><span class="p">,</span>
+                <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">download</span><span class="p">,</span>
                 <span class="p">[</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>
                 <span class="p">{</span><span class="s2">&quot;output_name&quot;</span><span class="p">:</span> <span class="s2">&quot;pipeline_output&quot;</span><span class="p">,</span> <span class="s2">&quot;download_path&quot;</span><span class="p">:</span> <span class="n">output_dir</span><span class="p">},</span>
                 <span class="n">max_tries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
@@ -524,12 +510,13 @@
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;OpenVINO model does not support azureml evaluation&quot;</span><span class="p">)</span>
 
         <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tempdir</span><span class="p">:</span>
+            <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
             <span class="n">pipeline_job</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_pipeline_for_evaluation</span><span class="p">(</span><span class="n">tempdir</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">metrics</span><span class="p">)</span>
 
             <span class="c1"># submit job</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Submitting pipeline&quot;</span><span class="p">)</span>
             <span class="n">job</span> <span class="o">=</span> <span class="n">retry_func</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">create_or_update</span><span class="p">,</span>
+                <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">create_or_update</span><span class="p">,</span>
                 <span class="p">[</span><span class="n">pipeline_job</span><span class="p">],</span>
                 <span class="p">{</span><span class="s2">&quot;experiment_name&quot;</span><span class="p">:</span> <span class="s2">&quot;olive-evaluation&quot;</span><span class="p">},</span>
                 <span class="n">max_tries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
@@ -537,13 +524,13 @@
                 <span class="n">exceptions</span><span class="o">=</span><span class="n">HttpResponseError</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pipeline submitted. Job name: </span><span class="si">{</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">. Job link: </span><span class="si">{</span><span class="n">job</span><span class="o">.</span><span class="n">studio_url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 
             <span class="c1"># get output</span>
             <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempdir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;pipeline_output&quot;</span>
             <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">retry_func</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">download</span><span class="p">,</span>
+                <span class="n">ml_client</span><span class="o">.</span><span class="n">jobs</span><span class="o">.</span><span class="n">download</span><span class="p">,</span>
                 <span class="p">[</span><span class="n">job</span><span class="o">.</span><span class="n">name</span><span class="p">],</span>
                 <span class="p">{</span><span class="s2">&quot;download_path&quot;</span><span class="p">:</span> <span class="n">output_dir</span><span class="p">,</span> <span class="s2">&quot;all&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
                 <span class="n">max_tries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
