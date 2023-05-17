@@ -13,6 +13,7 @@ This document introduces Olive and provides some examples to get you started.
 
    overview/olive
    overview/quicktour
+   overview/options
 
 .. toctree::
    :maxdepth: 1
@@ -32,15 +33,14 @@ This document introduces Olive and provides some examples to get you started.
    :caption: TUTORIALS
 
    tutorials/design
-   tutorials/options
    tutorials/configure_systems
    tutorials/configure_metrics
    tutorials/configure_pass
    tutorials/configure_hardware_optimizations
    tutorials/advanced_users
-   tutorials/how_to_add_pass
    tutorials/how_to_write_userscript
    tutorials/packaging_output_models
+   tutorials/guide_for_contributors
 
 .. toctree::
    :maxdepth: 1

@@ -120,19 +120,19 @@ python -m olive.workflows.run --config config.json
 }
 ```
 It is composed with 5 parts:
-### [Input Model](../tutorials/options.md/#input-model-information)
+### [Input Model](../overview/options.md/#input-model-information)
 You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOModel and SNPEModel are supported model types.
 
-### [Host and Target Systems](../tutorials/options.md/#systems-information)
+### [Host and Target Systems](../overview/options.md/#systems-information)
 An optimization technique, which we call a Pass, can be run on a variety of host systems and the resulting model evaluated on desired target systems. More details for the available systems can be found at at [OliveSystems api reference](systems).
 
-### [Evaluator](../tutorials/options.md/#evaluators-information)
-In order to chose the set of Pass configuration parameters that lead to the “best” model, Olive requires an evaluator that returns metrics values for each output model.
+### [Evaluator](../overview/options.md/#evaluators-information)
+In order to chose the set of Pass configuration parameters that lead to the “best” model, Olive requires an evaluator that returns metrics values for each output model. You list your performance requirements (for example, accuracy, latency), that optimized candidate models should meet here.
 
-### [Passes](../tutorials/options.md/#passes-information)
+### [Passes](../overview/options.md/#passes-information)
 You list the Passes that you want to apply on the input model. In this example, let us first convert the pytorch model to ONNX and quantize it.
 
-### [Engine](../tutorials/options.md/#engine-information)
+### [Engine](../overview/options.md/#engine-information)
 The engine is used to handle the auto-tuning process.
 
 ## Olive Optimization Result
@@ -217,4 +217,29 @@ footprint = Footprint.from_file("footprints.json")
 footprint.plot_pareto_frontier()
 ```
 ### Olive Packaging
-Olive also can package output artifacts when user adds `PackagingConfig` to Engine configurations. Please refer to [Packaing Olive artifacts](../tutorials/packaging_output_models.md) for more details.
+Olive also can package output artifacts when user adds `PackagingConfig` to Engine configurations. 
+```
+"engine": {
+    ...
+    "packaging_config": {
+        "type": "Zipfile",
+        "name": "OutputModels"
+    },
+    ...
+}
+```
+Now, there is only one packaging type: `Zipfile`
+
+Olive packaging will generate a ZIP file which includes 3 folders: `CandidateModels`, `SampleCode` and `ONNXRuntimePackages`:
+* `CandidateModels`: top ranked output model set
+    * Model file
+    * Olive Pass run history configurations for candidate model
+    * Inference settings (`onnx` model only)
+* `SampleCode`: code sample for ONNX model
+    * C++
+    * C#
+    * Python
+* `ONNXRuntimePackages`: ONNXRuntime package files with the same version that were used by Olive Engine in this workflow run.
+
+
+Please refer to [Packaing Olive artifacts](../tutorials/packaging_output_models.md) for more details.
