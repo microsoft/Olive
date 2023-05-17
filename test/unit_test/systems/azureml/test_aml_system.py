@@ -61,13 +61,15 @@ class TestAzureMLSystem:
         olive_model = get_pytorch_model()
         output_folder = Path(__file__).absolute().parent / "output_metrics"
         mock_tempdir.return_value.__enter__.return_value = output_folder
+        ml_client = MagicMock()
+        self.system.azureml_client_config.create_client.return_value = ml_client
 
         # execute
         res = self.system.evaluate_model(olive_model, [metric])[metric.name]
 
         # assert
         mock_create_pipeline.assert_called_once_with(output_folder, olive_model, [metric])
-        self.system.ml_client.jobs.stream.assert_called_once()
+        ml_client.jobs.stream.assert_called_once()
         assert mock_retry_func.call_count == 2
         if metric.name == "accuracy":
             assert res == 0.99618
@@ -87,6 +89,8 @@ class TestAzureMLSystem:
         output_folder = Path(__file__).absolute().parent / "output_pass"
         mock_tempdir.return_value.__enter__.return_value = output_folder
         expected_model = ONNXModel(model_path=ONNXModel.resolve_path(output_model_path), name="test_model")
+        ml_client = MagicMock()
+        self.system.azureml_client_config.create_client.return_value = ml_client
 
         # execute
         actual_res = self.system.run_pass(p, olive_model, output_model_path)
@@ -94,7 +98,7 @@ class TestAzureMLSystem:
         # assert
         mock_create_pipeline.assert_called_once_with(output_folder, olive_model, p.to_json(), p.path_params)
         assert mock_retry_func.call_count == 2
-        self.system.ml_client.jobs.stream.assert_called_once()
+        ml_client.jobs.stream.assert_called_once()
         assert expected_model.to_json() == actual_res.to_json()
 
     @pytest.mark.parametrize(
