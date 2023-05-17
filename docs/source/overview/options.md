@@ -24,6 +24,8 @@ If set to `true`, Olive will log verbose information during the optimization pro
 - `subscription_id: [str]` Azure account subscription id.
 - `resource_group: [str]` Azure account resource group name.
 - `workspace_name: [str]` Azure ML workspace name.
+- `aml_config_path: [str]` The path to Azure config file.
+- `read_timeout: [int]` read timeout in seconds for HTTP requests, user can increase if they find the default value too small. The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to sometimes hang for a long time between retries of job stream and download steps.
 
 ## Input Model Information
 
