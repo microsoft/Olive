@@ -21,7 +21,7 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         self.tokenizer = transformers.DistilBertTokenizerFast.from_pretrained(self.architecture)
         self.input_text = ["Today was an amazing day!"]
         self.hf_conf = {
-            "task": self.task,
+            "task_type": self.task,
         }
         aml_mlflow.hftransformers.save_model(
             self.original_model,
