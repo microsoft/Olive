@@ -42,6 +42,7 @@ class EngineConfig(ConfigBase):
     cache_dir: Union[Path, str] = ".olive-cache"
     clean_cache: bool = False
     clean_evaluation_cache: bool = False
+    plot_pareto_frontier: bool = False
 
 
 class Engine:
@@ -447,9 +448,11 @@ class Engine:
             pf_footprints.update_nodes(top_ranked_nodes)
 
         pf_footprints.to_file(output_dir / f"{prefix_output_name}pareto_frontier_footprints.json")
-        pf_footprints.plot_pareto_frontier_to_html(
-            save_path=output_dir / f"{prefix_output_name}pareto_frontier_footprints_chart.html"
-        )
+
+        if self._config.plot_pareto_frontier:
+            pf_footprints.plot_pareto_frontier_to_html(
+                save_path=output_dir / f"{prefix_output_name}pareto_frontier_footprints_chart.html"
+            )
 
         if packaging_config:
             logger.info(f"Package top ranked {len(pf_footprints.nodes)} models as artifacts")
