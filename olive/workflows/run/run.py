@@ -126,7 +126,7 @@ def run(config: Union[str, Path, dict], setup: bool = False):
 
     # Azure ML Client
     if config.azureml_client:
-        config.engine.azureml_client = config.azureml_client
+        config.engine.azureml_client_config = config.azureml_client
 
     # engine
     engine = config.engine.create_engine()
