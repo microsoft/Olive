@@ -30,7 +30,6 @@ class ResourceType(str, Enum):
     AzureMLModel = "azureml_model"
     AzureMLDatastore = "azureml_datastore"
     AzureMLJobOutput = "azureml_job_output"
-    AzureStorageBlob = "azure_blob"
 
     def __str__(self) -> str:
         return self.value
@@ -355,16 +354,3 @@ class AzureMLJobOutputConfig(ResourceConfig):
             raise e
 
         return str(new_path)
-
-
-class AzureStorageBlob(ResourceConfig):
-    _type = ResourceType.AzureStorageBlob
-    account_name: str = Field(..., description="Name of the storage account.")
-    container_name: str = Field(..., description="Name of the container.")
-    relative_path: str = Field(..., description="Relative path to the resource from the container root.")
-
-    def get_path(self) -> str:
-        return f"https://{self.account_name}.blob.core.windows.net/{self.container_name}/{self.relative_path}"
-
-    def save_to_dir(self, dir_path: Union[Path, str], overwrite: bool = False) -> str:
-        return NotImplementedError("Saving Azure Storage Blob is not supported.")
