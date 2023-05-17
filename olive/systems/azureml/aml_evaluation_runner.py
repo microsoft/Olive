@@ -41,7 +41,8 @@ def main(raw_args=None):
     metric_args = parse_metric_args(extra_args)
 
     # load metric
-    metric_config = json.load(open(metric_args.metric_config))
+    with open(metric_args.metric_config) as f:
+        metric_config = json.load(f)
     metric = create_metric(metric_config, metric_args)
 
     # load model
@@ -54,7 +55,8 @@ def main(raw_args=None):
     metric_result = target.evaluate_model(model, [metric])
 
     # save metric result json
-    json.dump(metric_result, open(Path(common_args.pipeline_output) / "metric_result.json", "w"))
+    with open(Path(common_args.pipeline_output) / "metric_result.json", "w") as f:
+        json.dump(metric_result, f)
 
 
 if __name__ == "__main__":

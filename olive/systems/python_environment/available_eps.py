@@ -24,7 +24,8 @@ def main(raw_args=None):
 
     # save to pickle
     output_path = Path(args.output_path)
-    pickle.dump(available_eps, output_path.open("wb"))
+    with output_path.open("wb") as f:
+        pickle.dump(available_eps, f)
 
 
 if __name__ == "__main__":

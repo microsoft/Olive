@@ -1,21 +1,15 @@
 {
     "verbose": true,
-    "azureml_client": {
-        "subscription_id": "<place_holder>",
-        "resource_group": "<place_holder>",
-        "workspace_name": "<place_holder>"
-    },
     "input_model":{
         "type": "PyTorchModel",
         "config": {
-            "name": "bert-hf",
-            "version": "3",
-            "model_storage_kind": "azureml",
-            "aml_storage_name": "bert_hf",
+            "model_storage_kind": "folder",
+            "model_loader": "load_pytorch_origin_model",
+            "model_script": "user_script.py",
             "hf_config": {
-                "model_name": "Intel/bert-base-uncased-mrpc",
-                "task": "text-classification",
                 "dataset": {
+                    "model_name": "Intel/bert-base-uncased-mrpc",
+                    "task": "text-classification",
                     "data_name":"glue",
                     "subset": "mrpc",
                     "split": "validation",
@@ -42,10 +36,22 @@
         "aml_system": {
             "type": "AzureML",
             "config": {
+                "aml_config_path": "olive-workspace-config.json",
                 "aml_compute": "cpu-cluster",
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
                     "conda_file_path": "conda.yaml"
+                },
+                "is_dev": true
+            }
+        },
+        "docker_system": {
+            "type": "Docker",
+            "config": {
+                "local_docker_config": {
+                    "image_name": "olive-image",
+                    "build_context_path": "docker",
+                    "dockerfile": "Dockerfile"
                 },
                 "is_dev": true
             }
@@ -102,7 +108,7 @@
     "engine": {
         "search_strategy": {
             "execution_order": "joint",
-            "search_algorithm": "random",
+            "search_algorithm": "tpe",
             "search_algorithm_config": {
                 "num_samples": 3,
                 "seed": 0

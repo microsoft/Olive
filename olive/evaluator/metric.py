@@ -3,9 +3,9 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from enum import Enum
-from typing import List, Union
+from typing import Union
 
-from pydantic import BaseModel, validator
+from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.data.config import DataConfig
@@ -136,7 +136,3 @@ class Metric(ConfigBase):
                 f" {valid_range}"
             )
         return v
-
-
-class MetricList(BaseModel):
-    __root__: List[Metric]

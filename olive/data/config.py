@@ -194,6 +194,6 @@ class DataConfig(ConfigBase):
     def _update_default_component_type_with_task_type(self, dc_cls):
         if not self.params_config:
             return
-        task_type = self.params_config.get("task_type", None)
+        task_type = self.params_config.get("task", None)
         if task_type:
             self.default_components_type.update(dc_cls.task_type_components_map.get(task_type, {}))

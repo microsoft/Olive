@@ -59,13 +59,13 @@ def test_resnet(search_algorithm, execution_order, system, olive_json):
     olive_config["engine"]["target"] = system
 
     if system == "aml_system":
-        generate_olive_workspace_config("olive-workspace-config.json")
+        update_azureml_config(olive_config)
 
     footprint = olive_run(olive_config)
     check_output(footprint)
 
 
-def generate_olive_workspace_config(workspace_config_path):
+def update_azureml_config(olive_config):
     subscription_id = os.environ.get("WORKSPACE_SUBSCRIPTION_ID")
     if subscription_id is None:
         raise Exception("Please set the environment variable WORKSPACE_SUBSCRIPTION_ID")
@@ -78,10 +78,6 @@ def generate_olive_workspace_config(workspace_config_path):
     if workspace_name is None:
         raise Exception("Please set the environment variable WORKSPACE_NAME")
 
-    workspace_config = {
-        "subscription_id": subscription_id,
-        "resource_group": resource_group,
-        "workspace_name": workspace_name,
-    }
-
-    json.dump(workspace_config, open(workspace_config_path, "w"))
+    olive_config["azureml_client"]["subscription_id"] = subscription_id
+    olive_config["azureml_client"]["resource_group"] = resource_group
+    olive_config["azureml_client"]["workspace_name"] = workspace_name
