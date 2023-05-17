@@ -89,6 +89,8 @@ class Engine:
 
         self.footprints = defaultdict(Footprint)
 
+        self.azureml_client_config = self._config.azureml_client_config
+
         self._initialized = False
 
     def initialize(self):
@@ -218,11 +220,11 @@ class Engine:
         output_dir: Path = Path(output_dir) if output_dir else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # TODO by myguo: replace the following for loop using the accelerator and excution provider list when adding
+        # TODO by myguo: replace the following for loop using the accelerator and execution provider list when adding
         # accelerator support
         outputs = {}
         for i in range(1):
-            # generate search space and intialize the passes for each hardware accelerator
+            # generate search space and initialize the passes for each hardware accelerator
             self.setup_passes()
 
             # hash the input model
@@ -430,9 +432,11 @@ class Engine:
             pf_footprints.update_nodes(top_ranked_nodes)
 
         pf_footprints.to_file(output_dir / f"{prefix_output_name}pareto_frontier_footprints.json")
-        pf_footprints.plot_pareto_frontier_to_html(
-            save_path=output_dir / f"{prefix_output_name}pareto_frontier_footprints_chart.html"
-        )
+
+        if self._config.plot_pareto_frontier:
+            pf_footprints.plot_pareto_frontier_to_html(
+                save_path=output_dir / f"{prefix_output_name}pareto_frontier_footprints_chart.html"
+            )
 
         if packaging_config:
             logger.info(f"Package top ranked {len(pf_footprints.nodes)} models as artifacts")
@@ -689,9 +693,19 @@ class Engine:
                 model.model_storage_kind == ModelStorageKind.AzureMLModel
                 and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
             ):
-                error_msg = "Azure ML model only supports AzureMLSystem for Olive Pass"
-                logger.error(error_msg)
-                raise Exception(error_msg)
+                if not self.azureml_client_config:
+                    raise ValueError("AzureML client config is required to download the model from AzureML storage")
+                model_download_path = self._model_cache_path / "azureml_input_model"
+                model_path = model.download_from_azureml(
+                    self.azureml_client_config.create_client(), model_download_path
+                )
+                model.model_path = model_path
+                if model_path.is_dir():
+                    model.model_storage_kind = ModelStorageKind.LocalFolder
+                elif model_path.is_file():
+                    model.model_storage_kind = ModelStorageKind.LocalFile
+                else:
+                    raise ValueError(f"Invalid model path {model_path}")
 
             model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec, verbose)
             if model == PRUNED_CONFIG:

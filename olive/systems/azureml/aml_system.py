@@ -9,13 +9,13 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from azure.ai.ml import Input, MLClient, Output, command
+from azure.ai.ml import Input, Output, command
 from azure.ai.ml.constants import AssetTypes
 from azure.ai.ml.dsl import pipeline
 from azure.ai.ml.entities import BuildContext, Environment
 from azure.core.exceptions import HttpResponseError, ServiceResponseError
-from azure.identity import AzureCliCredential, DefaultAzureCredential, InteractiveBrowserCredential
 
+from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import validate_config
 from olive.common.utils import retry_func
 from olive.constants import Framework
@@ -34,17 +34,17 @@ class AzureMLSystem(OliveSystem):
 
     def __init__(
         self,
-        aml_config_path: str,
+        azureml_client_config: AzureMLClientConfig,
         aml_compute: str,
         aml_docker_config: Union[Dict[str, Any], AzureMLDockerConfig],
         instance_count: int = 1,
-        read_timeout: int = 60,
         is_dev: bool = False,
     ):
         super().__init__()
         self._assert_not_none(aml_docker_config)
         aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
-        self.ml_client = MLClient.from_config(self._get_credentials(), path=aml_config_path, read_timeout=read_timeout)
+        azureml_client_config = validate_config(azureml_client_config, AzureMLClientConfig)
+        self.azureml_client_config = azureml_client_config
         self.compute = aml_compute
         self.environment = self._create_environment(aml_docker_config)
         self.instance_count = instance_count
@@ -58,21 +58,6 @@ class AzureMLSystem(OliveSystem):
         if docker_config.base_image:
             return Environment(image=docker_config.base_image, conda_file=docker_config.conda_file_path)
         raise Exception("Please specify DockerConfig.")
-
-    def _get_credentials(self):
-        try:
-            credential = AzureCliCredential()
-            credential.get_token("https://management.azure.com/.default")
-        except Exception:
-            try:
-                credential = DefaultAzureCredential()
-                # Check if given credential can get token successfully.
-                credential.get_token("https://management.azure.com/.default")
-            except Exception:
-                # Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work
-                credential = InteractiveBrowserCredential()
-
-        return credential
 
     def _assert_not_none(self, object):
         if object is None:
@@ -88,6 +73,7 @@ class AzureMLSystem(OliveSystem):
         """
         Run the pass on the model at a specific point in the search space.
         """
+        ml_client = self.azureml_client_config.create_client()
         point = point or {}
         config = the_pass.config_at_search_point(point)
         pass_config = the_pass.to_json(check_objects=True)
@@ -99,7 +85,7 @@ class AzureMLSystem(OliveSystem):
             # submit job
             logger.debug("Submitting pipeline")
             job = retry_func(
-                self.ml_client.jobs.create_or_update,
+                ml_client.jobs.create_or_update,
                 [pipeline_job],
                 {"experiment_name": "olive-pass", "tags": {"Pass": pass_config["type"]}},
                 max_tries=3,
@@ -107,14 +93,14 @@ class AzureMLSystem(OliveSystem):
                 exceptions=HttpResponseError,
             )
             logger.info(f"Pipeline submitted. Job name: {job.name}. Job link: {job.studio_url}")
-            self.ml_client.jobs.stream(job.name)
+            ml_client.jobs.stream(job.name)
 
             # get output
             output_dir = Path(tempdir) / "pipeline_output"
             output_dir.mkdir(parents=True, exist_ok=True)
             logger.debug(f"Downloading pipeline output to {output_dir}")
             retry_func(
-                self.ml_client.jobs.download,
+                ml_client.jobs.download,
                 [job.name],
                 {"output_name": "pipeline_output", "download_path": output_dir},
                 max_tries=3,
@@ -407,12 +393,13 @@ class AzureMLSystem(OliveSystem):
             raise NotImplementedError("OpenVINO model does not support azureml evaluation")
 
         with tempfile.TemporaryDirectory() as tempdir:
+            ml_client = self.azureml_client_config.create_client()
             pipeline_job = self._create_pipeline_for_evaluation(tempdir, model, metrics)
 
             # submit job
             logger.debug("Submitting pipeline")
             job = retry_func(
-                self.ml_client.jobs.create_or_update,
+                ml_client.jobs.create_or_update,
                 [pipeline_job],
                 {"experiment_name": "olive-evaluation"},
                 max_tries=3,
@@ -420,13 +407,13 @@ class AzureMLSystem(OliveSystem):
                 exceptions=HttpResponseError,
             )
             logger.info(f"Pipeline submitted. Job name: {job.name}. Job link: {job.studio_url}")
-            self.ml_client.jobs.stream(job.name)
+            ml_client.jobs.stream(job.name)
 
             # get output
             output_dir = Path(tempdir) / "pipeline_output"
             output_dir.mkdir(parents=True, exist_ok=True)
             retry_func(
-                self.ml_client.jobs.download,
+                ml_client.jobs.download,
                 [job.name],
                 {"download_path": output_dir, "all": True},
                 max_tries=3,

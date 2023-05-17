@@ -4,11 +4,11 @@
 # --------------------------------------------------------------------------
 import logging
 from enum import Enum
-from typing import List, Union
+from typing import Union, List
 
 from pydantic import validator
 
-from olive.common.config_utils import ConfigBase, ConfigListBase, validate_config
+from olive.common.config_utils import ConfigBase, validate_config
 from olive.data.config import DataConfig
 from olive.evaluator.accuracy import AccuracyBase
 from olive.evaluator.metric_config import LatencyMetricConfig, MetricGoal, get_user_config_class
@@ -128,7 +128,3 @@ class Metric(ConfigBase):
 
         user_config_class = get_user_config_class(values["type"])
         return validate_config(v, ConfigBase, user_config_class)
-
-
-class MetricList(ConfigListBase):
-    __root__: List[Metric]

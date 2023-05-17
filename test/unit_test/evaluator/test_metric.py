@@ -3,10 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
+
 
 class TestEvaluation:
     def test_metrics_config(self):
-        # TODO move to run config tests
         metrics_config = [
             {
                 "name": "accuracy",
@@ -36,7 +37,7 @@ class TestEvaluation:
                 "sub_types": [
                     {
                         "name": "test",
-                        "priority_rank": 2,
+                        "priority_rank": 3,
                         "higher_is_better": True,
                         "goal": {"type": "max-degradation", "value": 0.01},
                     },
@@ -46,8 +47,6 @@ class TestEvaluation:
             },
         ]
 
-        from olive.evaluator.metric import MetricList
-
-        metrics = MetricList.parse_obj(metrics_config)
+        metrics = OliveEvaluatorConfig(metrics=metrics_config).metrics
         for metric in metrics:
             assert metric.name in ["accuracy", "latency", "test"]
