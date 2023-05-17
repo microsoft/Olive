@@ -176,6 +176,9 @@ class OrtTransformersOptimization(Pass):
         """Configures fusion options for stable diffusion models"""
         import onnxruntime as ort
 
+        assert "num_heads" in run_config
+        assert "hidden_size" in run_config
+
         ort_version = version.parse(ort.__version__)
         is_ort_1_13_or_older = ort_version < version.parse("1.14.0")
 
@@ -194,10 +197,11 @@ class OrtTransformersOptimization(Pass):
             from onnxruntime.transformers.fusion_options import FusionOptions
             fusion_options = FusionOptions(run_config["model_type"])
 
-        assert "num_heads" in run_config
-        assert "hidden_size" in run_config
-
         run_config["optimization_options"] = fusion_options
+
+        # The optimizer applies opt_level=1 by default for gpt2 models, but it seems to break the model when
+        # trying to merge the decoder model with the decoder_with_past model later on
+        run_config["opt_level"] = 0
 
     @staticmethod
     def _get_op_block_list(config: Dict[str, Any]):
