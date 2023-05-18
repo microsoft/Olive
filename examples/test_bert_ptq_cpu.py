@@ -23,7 +23,7 @@ def check_output(footprints):
     for footprint in footprints.values():
         assert footprint.nodes is not None
         for v in footprint.nodes.values():
-            assert all([value.value > 0 for value in v.metrics.value.values()])
+            assert all([metric_result.value > 0 for metric_result in v.metrics.value.values()])
 
 
 # Skip docker_system test until bug is fixed: https://github.com/docker/docker-py/issues/3113
