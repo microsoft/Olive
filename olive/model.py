@@ -243,11 +243,11 @@ class ONNXModelBase(OliveModel):
     ):
         super().__init__(
             framework=Framework.ONNX,
-            model_file_format=model_file_format,
             model_path=model_path,
             name=name,
             version=version,
             model_storage_kind=model_storage_kind,
+            model_file_format=model_file_format
         )
         self.inference_settings = inference_settings
         self.use_ort_extensions = use_ort_extensions
@@ -694,12 +694,13 @@ class SNPEModel(OliveModel):
         output_shapes: List[List[int]],
         model_path: str = None,
         model_storage_kind=ModelStorageKind.LocalFile,
+        model_file_format=ModelFileFormat.SNPE_DLC,
         name: Optional[str] = None,
         version: Optional[int] = None,
     ):
         super().__init__(
             framework=Framework.SNPE,
-            model_file_format=ModelFileFormat.SNPE_DLC,
+            model_file_format=model_file_format,
             model_path=model_path,
             name=name,
             version=version,
@@ -762,12 +763,13 @@ class OpenVINOModel(OliveModel):
         model_path: str,
         name: str = None,
         model_storage_kind=ModelStorageKind.LocalFolder,
+        model_file_format=ModelFileFormat.OPENVINO_IR,
         version: Optional[int] = None,
     ):
         super().__init__(
             model_path=model_path,
             framework=Framework.OPENVINO,
-            model_file_format=ModelFileFormat.OPENVINO_IR,
+            model_file_format=model_file_format,
             name=name,
             version=version,
             model_storage_kind=model_storage_kind,
