@@ -6,8 +6,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
-from olive.evaluator.metric import Metric
-from olive.evaluator.metric_config import MetricResult
+from olive.evaluator.metric import Metric, MetricResult
 from olive.model import OliveModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType

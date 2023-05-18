@@ -8,8 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from olive.constants import Framework
-from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricType
-from olive.evaluator.metric_config import MetricResult, joint_metric_key
+from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult, MetricType, joint_metric_key
 from olive.systems.local import LocalSystem
 
 

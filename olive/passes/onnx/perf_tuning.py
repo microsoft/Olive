@@ -8,8 +8,8 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
-from olive.evaluator.metric import LatencySubType, Metric, MetricType
-from olive.evaluator.metric_config import get_properties_from_metric_type, joint_metric_key
+from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_metric_key
+from olive.evaluator.metric_config import get_properties_from_metric_type
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam

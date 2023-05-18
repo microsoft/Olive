@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, validate_config
-from olive.evaluator.metric_config import MetricResult
+from olive.evaluator.metric import MetricResult
 from olive.strategy.search_algorithm import REGISTRY, SearchAlgorithm
 from olive.strategy.search_parameter import SearchParameter
 from olive.strategy.search_results import SearchResults

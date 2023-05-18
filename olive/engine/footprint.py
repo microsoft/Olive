@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import DefaultDict, Dict
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
-from olive.evaluator.metric_config import MetricResult
+from olive.evaluator.metric import MetricResult
 
 logger = logging.getLogger(__name__)
 

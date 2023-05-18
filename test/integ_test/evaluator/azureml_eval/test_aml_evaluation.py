@@ -16,7 +16,7 @@ from test.integ_test.evaluator.azureml_eval.utils import (
 
 import pytest
 
-from olive.evaluator.metric_config import joint_metric_key
+from olive.evaluator.metric import joint_metric_key
 from olive.model import ModelStorageKind, ONNXModel, PyTorchModel
 
 

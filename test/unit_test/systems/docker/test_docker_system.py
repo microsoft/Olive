@@ -9,8 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from olive.evaluator.metric import AccuracySubType
-from olive.evaluator.metric_config import joint_metric_key
+from olive.evaluator.metric import AccuracySubType, joint_metric_key
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
 

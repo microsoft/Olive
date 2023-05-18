@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 
 from olive.common.utils import hash_dict
-from olive.evaluator.metric_config import MetricResult
+from olive.evaluator.metric import MetricResult
 
 
 class SearchResults:

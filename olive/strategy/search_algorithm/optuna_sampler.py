@@ -9,7 +9,7 @@ import optuna
 
 from olive.common.config_utils import ConfigParam
 from olive.common.utils import hash_dict
-from olive.evaluator.metric_config import MetricResult
+from olive.evaluator.metric import MetricResult
 from olive.strategy.search_algorithm.search_algorithm import SearchAlgorithm
 from olive.strategy.search_parameter import Categorical, Conditional, SpecialParamValue
 

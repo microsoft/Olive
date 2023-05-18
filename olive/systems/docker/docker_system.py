@@ -14,8 +14,7 @@ import docker
 
 import olive.systems.docker.utils as docker_utils
 from olive.common.config_utils import validate_config
-from olive.evaluator.metric import Metric
-from olive.evaluator.metric_config import MetricResult
+from olive.evaluator.metric import Metric, MetricResult
 from olive.model import OliveModel
 from olive.passes import Pass
 from olive.systems.common import LocalDockerConfig, SystemType

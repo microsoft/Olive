@@ -18,8 +18,17 @@ from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
 from olive.constants import Framework
 from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Precision, Recall
-from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
-from olive.evaluator.metric_config import MetricResult, SubTypeMetricResult, flatten_metric_result, joint_metric_key
+from olive.evaluator.metric import (
+    AccuracySubType,
+    LatencySubType,
+    Metric,
+    MetricResult,
+    MetricType,
+    SubMetricResult,
+    flatten_metric_result,
+    get_latency_config_from_metric,
+    joint_metric_key,
+)
 from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
 from olive.systems.common import Device
 
@@ -105,12 +114,12 @@ class OliveEvaluator(ABC):
         for sub_type in metric.sub_types:
             if isinstance(raw_res, Number):
                 assert len(metric.sub_types) == 1, "Only one sub type is allowed for single value custom metric"
-                metric_res[sub_type.name] = SubTypeMetricResult(
+                metric_res[sub_type.name] = SubMetricResult(
                     value=raw_res, priority=sub_type.priority, higher_is_better=sub_type.higher_is_better
                 )
             elif isinstance(raw_res, Dict):
                 assert sub_type.name in raw_res, f"Custom metric {sub_type.name} is not in the result"
-                metric_res[sub_type.name] = SubTypeMetricResult(
+                metric_res[sub_type.name] = SubMetricResult(
                     value=raw_res[sub_type.name],
                     priority=sub_type.priority,
                     higher_is_better=sub_type.higher_is_better,
@@ -186,7 +195,7 @@ class OliveEvaluator(ABC):
                 sub_type_metric_value = AUC(metric_config).measure(preds, targets)
             else:
                 raise TypeError(f"{sub_type} is not a accuracy metric supported")
-            metric_res[sub_type.name] = SubTypeMetricResult(
+            metric_res[sub_type.name] = SubMetricResult(
                 value=sub_type_metric_value,
                 priority=sub_type.priority,
                 higher_is_better=sub_type.higher_is_better,
@@ -211,22 +220,12 @@ class OliveEvaluator(ABC):
         }
         metric_res = {}
         for sub_type in metric.sub_types:
-            metric_res[sub_type.name] = SubTypeMetricResult(
+            metric_res[sub_type.name] = SubMetricResult(
                 value=latency_metrics[sub_type.name],
                 priority=sub_type.priority,
                 higher_is_better=sub_type.higher_is_better,
             )
         return MetricResult.parse_obj(metric_res)
-
-    def _get_latency_config_from_metric(self, metric: Metric):
-        warmup_num, repeat_test_num, sleep_num = None, None, None
-        for sub_type in metric.sub_types:
-            if sub_type.metric_config:
-                warmup_num = sub_type.metric_config.warmup_num
-                repeat_test_num = sub_type.metric_config.repeat_test_num
-                sleep_num = sub_type.metric_config.sleep_num
-                break
-        return warmup_num, repeat_test_num, sleep_num
 
 
 class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
@@ -274,7 +273,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
     def _evaluate_onnx_latency(
         self, model: OliveModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
     ) -> Dict[str, Any]:
-        warmup_num, repeat_test_num, sleep_num = self._get_latency_config_from_metric(metric)
+        warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
         io_config = model.get_io_config()
@@ -572,7 +571,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
     def _evaluate_latency(
         self, model: SNPEModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
     ) -> MetricResult:
-        warmup_num, repeat_test_num, sleep_num = self._get_latency_config_from_metric(metric)
+        warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         data_dir, input_data, _ = next(iter(dataloader))

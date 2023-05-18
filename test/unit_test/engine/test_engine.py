@@ -19,8 +19,7 @@ import pytest
 
 from olive.common.utils import hash_dict
 from olive.engine import Engine
-from olive.evaluator.metric import AccuracySubType
-from olive.evaluator.metric_config import MetricResult, joint_metric_key
+from olive.evaluator.metric import AccuracySubType, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import PyTorchModel
 from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization

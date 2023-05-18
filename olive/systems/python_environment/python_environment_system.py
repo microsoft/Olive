@@ -14,8 +14,13 @@ import numpy as np
 import torch
 
 from olive.common.utils import run_subprocess
-from olive.evaluator.metric import Metric, MetricType
-from olive.evaluator.metric_config import MetricResult, flatten_metric_result
+from olive.evaluator.metric import (
+    Metric,
+    MetricResult,
+    MetricType,
+    flatten_metric_result,
+    get_latency_config_from_metric,
+)
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.model import OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
@@ -146,13 +151,7 @@ class PythonEnvironmentSystem(OliveSystem):
         Evaluate the latency of the model.
         """
         dataloader, _, _ = OliveEvaluator.get_user_config(metric)
-        warmup_num, repeat_test_num, sleep_num = None, None, None
-        for sub_type in metric.sub_types:
-            if sub_type.metric_config:
-                warmup_num = sub_type.metric_config.warmup_num
-                repeat_test_num = sub_type.metric_config.repeat_test_num
-                sleep_num = sub_type.metric_config.sleep_num
-                break
+        warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
         latencies = []
         inference_settings = self.get_inference_settings(model, metric)

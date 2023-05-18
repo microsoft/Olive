@@ -4,8 +4,7 @@
 # --------------------------------------------------------------------------
 from typing import Any, Dict, List, Optional
 
-from olive.evaluator.metric import Metric
-from olive.evaluator.metric_config import MetricResult
+from olive.evaluator.metric import Metric, MetricResult
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory
 from olive.model import CompositeOnnxModel, OliveModel
 from olive.passes.olive_pass import Pass
