@@ -120,6 +120,7 @@ class OliveModel(ABC):
                 "model_path": model_path,
                 "name": self.name,
                 "model_storage_kind": self.model_storage_kind.value,
+                "model_file_format": self.model_file_format,
                 "version": self.version,
             },
         }
@@ -236,12 +237,13 @@ class ONNXModelBase(OliveModel):
         name: Optional[str] = None,
         version: Optional[int] = None,
         model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
+        model_file_format: ModelFileFormat = ModelFileFormat.ONNX,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
     ):
         super().__init__(
             framework=Framework.ONNX,
-            model_file_format=ModelFileFormat.ONNX,
+            model_file_format=model_file_format,
             model_path=model_path,
             name=name,
             version=version,
@@ -310,6 +312,7 @@ class ONNXModel(ONNXModelBase):
             name=name,
             version=version,
             model_storage_kind=model_storage_kind,
+            model_file_format=model_file_format,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
         )
@@ -318,7 +321,6 @@ class ONNXModel(ONNXModelBase):
         self.all_graphs: Optional[List[GraphProto]] = None
         # huggingface config
         self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
-        self.model_file_format = model_file_format
 
     @staticmethod
     def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
