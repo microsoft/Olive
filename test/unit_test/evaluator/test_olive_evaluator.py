@@ -106,3 +106,30 @@ class TestOliveEvaluator:
 
         # assert
         assert expected_res > actual_res
+
+
+@pytest.mark.skip(reason="Requires custom onnxruntime build with mpi enabled")
+class TestDistributedOnnxEvaluator:
+    def test_evaluate(self):
+        from olive.model import DistributedOnnxModel
+
+        filepaths = ["examples/switch/model_4n_2l_8e_00.onnx", "examples/switch/model_4n_2l_8e_01.onnx"]
+        model = DistributedOnnxModel(filepaths, name="model_4n_2l_8e")
+
+        user_config = {
+            "user_script": "examples/switch/user_script.py",
+            "dataloader_func": "create_dataloader",
+            "batch_size": 1,
+        }
+        # accuracy_metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, user_config=user_config)
+        latency_metric = get_latency_metric(LatencySubType.AVG, user_config=user_config)
+        # metrics = [accuracy_metric, latency_metric]
+        metrics = [latency_metric]
+
+        target = LocalSystem()
+
+        # execute
+        actual_res = target.evaluate_model(model, metrics)
+
+        # assert
+        assert actual_res[latency_metric.name] > 1
