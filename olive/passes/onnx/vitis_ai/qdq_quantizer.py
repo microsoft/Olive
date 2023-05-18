@@ -31,6 +31,8 @@ from onnxruntime.quantization.registry import CreateQDQQuantizer
 from olive.passes.onnx.vitis_ai.quant_utils import vitis_quantize_data
 from olive.passes.onnx.vitis_ai.refine import adjust_quantize_info
 
+logger = logging.getLogger(__name__)
+
 
 class VitisQuantizer(QDQQuantizer):
     def __init__(
@@ -68,26 +70,25 @@ class VitisQuantizer(QDQQuantizer):
         self.calibrate_method = calibrate_method
 
         if per_channel:
-            logging.error("per_channel is not supported in PowerOfTwoMethod calibrate_method.")
+            logger.error("per_channel is not supported in PowerOfTwoMethod calibrate_method.")
 
         # In PowerOfTwoMethod calibrate_method, QDQ should always appear as a pair.
         # Therefore, we need to add qdq pair to weight.
         if "AddQDQPairToWeight" in self.extra_options and not self.extra_options["AddQDQPairToWeight"]:
-            logging.error("AddQDQPairToWeight should be True in PowerOfTwoMethod calibrate_method.")
+            logger.error("AddQDQPairToWeight should be True in PowerOfTwoMethod calibrate_method.")
         self.add_qdq_pair_to_weight = True
 
         # In PowerOfTwoMethod calibrate_method, QDQ should always set WeightSymmetric as True.
         if "WeightSymmetric" in self.extra_options and not self.extra_options["WeightSymmetric"]:
-            logging.error("WeightSymmetric should be True in PowerOfTwoMethod calibrate_method.")
+            logger.error("WeightSymmetric should be True in PowerOfTwoMethod calibrate_method.")
         self.is_weight_symmetric = True
 
         # In PowerOfTwoMethod calibrate_method, QDQ should always always set ActivationSymmetric as True.
         if "ActivationSymmetric" in self.extra_options and not self.extra_options["ActivationSymmetric"]:
-            logging.error("ActivationSymmetric should be True in PowerOfTwoMethod calibrate_method.")
+            logger.error("ActivationSymmetric should be True in PowerOfTwoMethod calibrate_method.")
         self.is_activation_symmetric = True
 
     def vitis_quantize_initializer(self, weight, bit_width=8, keep_float_weight=False):
-
         # Find if this input is already quantized
         if weight.name in self.quantized_value_map:
             quantized_value = self.quantized_value_map[weight.name]
@@ -124,7 +125,6 @@ class VitisQuantizer(QDQQuantizer):
         return q_weight_name, zp_name, scale_name
 
     def quantize_model(self):
-
         self.tensor_info = {}
 
         for node in self.model.nodes():
@@ -192,7 +192,7 @@ class VitisQuantizer(QDQQuantizer):
                 # Use int8 quantization for bias as well as weights.
                 self.tensors_to_quantize[bias_name] = QDQTensorQuantInfo()
         else:
-            logging.warning("Expected {} to be a weight".format(bias_name))
+            logger.warning("Expected {} to be a weight".format(bias_name))
 
     def _quantize_refine(self):
         self.model = adjust_quantize_info(
