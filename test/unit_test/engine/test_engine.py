@@ -114,7 +114,7 @@ class TestEngine:
         metric_result_dict = {
             joint_metric_key(metric.name, sub_metric.name): {
                 "value": 0.998,
-                "priority_rank": sub_metric.priority_rank,
+                "priority": sub_metric.priority,
                 "higher_is_better": sub_metric.higher_is_better,
             }
             for sub_metric in metric.sub_types
@@ -180,7 +180,7 @@ class TestEngine:
         metric_result_dict = {
             joint_metric_key(metric.name, sub_metric.name): {
                 "value": 0.998,
-                "priority_rank": sub_metric.priority_rank,
+                "priority": sub_metric.priority,
                 "higher_is_better": sub_metric.higher_is_better,
             }
             for sub_metric in metric.sub_types
@@ -267,7 +267,7 @@ class TestEngine:
         metric_result_dict = {
             joint_metric_key(metric.name, sub_metric.name): {
                 "value": 0.998,
-                "priority_rank": sub_metric.priority_rank,
+                "priority": sub_metric.priority,
                 "higher_is_better": sub_metric.higher_is_better,
             }
             for sub_metric in metric.sub_types

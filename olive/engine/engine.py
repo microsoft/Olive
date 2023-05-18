@@ -463,13 +463,13 @@ class Engine:
         objective_dict = {}
         for metric in metrics:
             for sub_type in metric.sub_types:
-                if sub_type.priority_rank <= 0:
+                if sub_type.priority <= 0:
                     continue
                 metric_key = joint_metric_key(metric.name, sub_type.name)
                 objective_dict[metric_key] = {
                     "higher_is_better": sub_type.higher_is_better,
                     "goal": goals.get(metric_key),
-                    "rank": sub_type.priority_rank,
+                    "rank": sub_type.priority,
                 }
         self.footprints[accelerator_spec].record_objective_dict(objective_dict)
         ranked_objective_dict = dict(sorted(objective_dict.items(), key=lambda x: x[1]["rank"]))
@@ -489,7 +489,7 @@ class Engine:
         goals = {}
         multipliers = {}
         for metric in metrics:
-            # only resolve sub metrics whose priority_rank > 0
+            # only resolve sub metrics whose priority > 0
             goals[metric.name] = metric.get_sub_type_info("goal")
             multipliers[metric.name] = metric.get_sub_type_info(
                 info_name="higher_is_better",
@@ -892,7 +892,7 @@ class Engine:
         return signal
 
     def _get_top_ranked_nodes(self, metrics: List[Metric], footprint: Footprint, k: int) -> List[FootprintNode]:
-        metric_priority = [metric.name for metric in sorted(metrics, key=lambda x: x.priority_rank)]
+        metric_priority = [metric.name for metric in sorted(metrics, key=lambda x: x.priority)]
         footprint_node_list = footprint.nodes.values()
         sorted_footprint_node_list = sorted(
             footprint_node_list,

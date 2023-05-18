@@ -101,7 +101,7 @@ def create_fixed_dataloader(datadir, batchsize):
 def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None):
     accuracy_metric_config = {"dataloader_func": create_dataloader if random_dataloader else create_fixed_dataloader}
     sub_types = [{"name": sub, "goal": MetricGoal(type="threshold", value=0.99)} for sub in acc_subtype]
-    sub_types[0]["priority_rank"] = 1
+    sub_types[0]["priority"] = 1
     accuracy_metric = Metric(
         name="accuracy",
         type=MetricType.ACCURACY,

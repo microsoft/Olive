@@ -94,7 +94,7 @@ class MetricGoal(ConfigBase):
 
 class SubTypeMetricResult(ConfigBase):
     value: Union[float, int]
-    priority_rank: int
+    priority: int
     higher_is_better: bool
 
 

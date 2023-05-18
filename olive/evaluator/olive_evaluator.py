@@ -106,13 +106,13 @@ class OliveEvaluator(ABC):
             if isinstance(raw_res, Number):
                 assert len(metric.sub_types) == 1, "Only one sub type is allowed for single value custom metric"
                 metric_res[sub_type.name] = SubTypeMetricResult(
-                    value=raw_res, priority_rank=sub_type.priority_rank, higher_is_better=sub_type.higher_is_better
+                    value=raw_res, priority=sub_type.priority, higher_is_better=sub_type.higher_is_better
                 )
             elif isinstance(raw_res, Dict):
                 assert sub_type.name in raw_res, f"Custom metric {sub_type.name} is not in the result"
                 metric_res[sub_type.name] = SubTypeMetricResult(
                     value=raw_res[sub_type.name],
-                    priority_rank=sub_type.priority_rank,
+                    priority=sub_type.priority,
                     higher_is_better=sub_type.higher_is_better,
                 )
         return MetricResult.parse_obj(metric_res)
@@ -188,7 +188,7 @@ class OliveEvaluator(ABC):
                 raise TypeError(f"{sub_type} is not a accuracy metric supported")
             metric_res[sub_type.name] = SubTypeMetricResult(
                 value=sub_type_metric_value,
-                priority_rank=sub_type.priority_rank,
+                priority=sub_type.priority,
                 higher_is_better=sub_type.higher_is_better,
             )
         return MetricResult.parse_obj(metric_res)
@@ -213,7 +213,7 @@ class OliveEvaluator(ABC):
         for sub_type in metric.sub_types:
             metric_res[sub_type.name] = SubTypeMetricResult(
                 value=latency_metrics[sub_type.name],
-                priority_rank=sub_type.priority_rank,
+                priority=sub_type.priority,
                 higher_is_better=sub_type.higher_is_better,
             )
         return MetricResult.parse_obj(metric_res)
@@ -645,16 +645,16 @@ class OliveEvaluatorConfig(ConfigBase):
         for metric in v:
             for sub_type in metric.sub_types:
                 sub_type_names.add(joint_metric_key(metric.name, sub_type.name))
-                if sub_type.priority_rank != -1:
+                if sub_type.priority != -1:
                     sub_type_with_rank.add(sub_type.name)
-                    rank_set.add(sub_type.priority_rank)
+                    rank_set.add(sub_type.priority)
 
         if not rank_set and len(sub_type_names) == 1:
             logger.debug(
                 """No priority rank is specified, but only one sub type
                 metric is specified. Use rank 1 for single for this metric."""
             )
-            v[0].sub_types[0].priority_rank = 1
+            v[0].sub_types[0].priority = 1
         elif not rank_set and len(sub_type_names) > 1:
             raise ValueError("Priority rank must be specified for multiple sub type metrics")
 

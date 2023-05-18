@@ -157,7 +157,7 @@ information of the evaluator contains following items:
         - `name: str` The name of the subtype. Please refer to [AccuracySubtype](accuracy_sub_type) and [LatencySubtype](latency_sub_type)
         for the supported sub-types. For `custom` type, if the result of the evaluation is a dictionary, the name of the subtype should be the key of the dictionary. Otherwise, the name of the subtype could be any unique string user gives.
 
-        - `priority_rank: [int]` The priority rank of the subtype. The subtype with the highest priority rank will be used to evaluate the. Note that it should be unique among all subtypes in the metric.
+        - `priority: [int]` The priority rank of the subtype. The subtype with the highest priority rank will be used to evaluate the. Note that it should be unique among all subtypes in the metric.
 
         - `higher_is_better: [Boolean]` True if the metric is better when it is higher. It is `true` for `accuracy` type and `false` for `latency` type.
 
@@ -202,11 +202,11 @@ information of the evaluator contains following items:
                 "name": "accuracy",
                 "type": "accuracy",
                 "sub_types": [
-                    {"name": "accuracy_score", "priority_rank": 1, "goal": {"type": "max-degradation", "value": 0.01}},
+                    {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                     {"name": "f1_score"},
                     {"name": "auc", "metric_config": {"reorder": true}}
                 ],
-                "priority_rank": 1,
+                "priority": 1,
                 "user_config":{
                     "post_processing_func": "post_process",
                     "user_script": "user_script.py",
@@ -218,7 +218,7 @@ information of the evaluator contains following items:
                 "name": "latency",
                 "type": "latency",
                 "sub_types": [
-                    {"name": "avg","priority_rank": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
+                    {"name": "avg","priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
                     {"name": "max"},
                     {"name": "min"}
                 ],

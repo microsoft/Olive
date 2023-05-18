@@ -28,7 +28,7 @@
                     "sub_types": [
                         {
                             "name": "top1",
-                            "priority_rank": 1,
+                            "priority": 1,
                             "higher_is_better": true,
                             "goal": {"type": "max-degradation", "value": 0.01}
                     },
@@ -47,7 +47,7 @@
                     "sub_types": [
                         {
                             "name": "avg",
-                            "priority_rank": 2,
+                            "priority": 2,
                             "higher_is_better": true,
                             "goal": {"type": "percent-min-improvement", "value": 20}
                         },

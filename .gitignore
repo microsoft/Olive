@@ -155,4 +155,3 @@ cython_debug/
 
 # AzureML
 .azureml
-.*.py

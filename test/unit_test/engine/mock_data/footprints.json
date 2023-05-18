@@ -16,17 +16,17 @@
             "value": {
                 "accuracy-accuracy_score": {
                     "value": 0.92,
-                    "priority_rank": 1,
+                    "priority": 1,
                     "higher_is_better": true
                 },
                 "accuracy-f1_score": {
                     "value": 0.90,
-                    "priority_rank": -1,
+                    "priority": -1,
                     "higher_is_better": true
                 },
                 "latency-avg": {
                     "value": 112,
-                    "priority_rank": 2,
+                    "priority": 2,
                     "higher_is_better": false
                 }
             },
@@ -55,17 +55,17 @@
             "value": {
                 "accuracy-accuracy_score": {
                     "value": 0.91,
-                    "priority_rank": 1,
+                    "priority": 1,
                     "higher_is_better": true
                 },
                 "accuracy-f1_score": {
                     "value": 0.81,
-                    "priority_rank": -1,
+                    "priority": -1,
                     "higher_is_better": true
                 },
                 "latency-avg": {
                     "value": 111,
-                    "priority_rank": 2,
+                    "priority": 2,
                     "higher_is_better": false
                 }
             },
@@ -89,17 +89,17 @@
             "value": {
                 "accuracy-accuracy_score": {
                     "value": 0.90,
-                    "priority_rank": 1,
+                    "priority": 1,
                     "higher_is_better": true
                 },
                 "accuracy-f1_score": {
                     "value": 0.81,
-                    "priority_rank": -1,
+                    "priority": -1,
                     "higher_is_better": true
                 },
                 "latency-avg": {
                     "value": 120,
-                    "priority_rank": 2,
+                    "priority": 2,
                     "higher_is_better": false
                 }
             },

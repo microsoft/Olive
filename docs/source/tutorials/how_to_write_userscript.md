@@ -51,7 +51,7 @@ Use `my_script.py` with Olive workflow configuration json file(sub_types name sh
         "name": "accuracy",
         "type": "accuracy",
         "sub_types": [
-            {"name": "accuracy_score", "priority_rank": 1, "goal": {"type": "max-degradation", "value": 0.01}},
+            {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
             {"name": "f1_score"},
             {"name": "auc", "metric_config": {"reorder": true}}
         ],
@@ -103,7 +103,7 @@ Use `script_dir` and `my_script.py` with Olive workflow configuration json file:
         "name": "accuracy",
         "type": "accuracy",
         "sub_types": [
-            {"name": "accuracy_score", "priority_rank": 1, "goal": {"type": "max-degradation", "value": 0.01}},
+            {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
             {"name": "f1_score"},
             {"name": "auc", "metric_config": {"reorder": true}}
         ]

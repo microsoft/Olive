@@ -38,7 +38,7 @@
                     "name": "accuracy",
                     "type": "accuracy",
                     "sub_types": [
-                        {"name": "accuracy_score", "priority_rank": 1, "goal": {"type": "max-degradation", "value": 0.01}},
+                        {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                         {"name": "f1_score"},
                         {"name": "auc", "metric_config": {"reorder": true}}
                     ]
@@ -47,7 +47,7 @@
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [
-                        {"name": "avg","priority_rank": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
+                        {"name": "avg","priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
                         {"name": "max"},
                         {"name": "min"}
                     ]

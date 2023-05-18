@@ -41,7 +41,7 @@ class TestPythonEnvironmentSystem:
         mock_return_value = {
             sub_metric.name: {
                 "value": 0.9 if metric.type == MetricType.ACCURACY else 10,
-                "priority_rank": sub_metric.priority_rank,
+                "priority": sub_metric.priority,
                 "higher_is_better": sub_metric.higher_is_better,
             }
             for metric in metrics
@@ -75,7 +75,7 @@ class TestPythonEnvironmentSystem:
             {
                 AccuracySubType.ACCURACY_SCORE: {
                     "value": 0.9,
-                    "priority_rank": 1,
+                    "priority": 1,
                     "higher_is_better": True,
                 }
             }
@@ -107,7 +107,7 @@ class TestPythonEnvironmentSystem:
             {
                 LatencySubType.AVG: {
                     "value": 10,
-                    "priority_rank": 1,
+                    "priority": 1,
                     "higher_is_better": True,
                 }
             }

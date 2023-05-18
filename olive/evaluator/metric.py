@@ -46,7 +46,7 @@ class MetricSubType(ConfigBase):
     name: Union[AccuracySubType, LatencyMetricConfig, str]
     metric_config: ConfigBase = None
     # -1 means no priority which will be evaluated only
-    priority_rank: int = -1
+    priority: int = -1
     higher_is_better: bool = False
     goal: MetricGoal = None
 
@@ -83,10 +83,10 @@ class Metric(ConfigBase):
     user_config: ConfigBase = None
     data_config: DataConfig = DataConfig()
 
-    def get_sub_type_info(self, info_name, no_priority_rank_filter=True, callback=lambda x: x):
+    def get_sub_type_info(self, info_name, no_priority_filter=True, callback=lambda x: x):
         sub_type_info = {}
         for sub_type in self.sub_types:
-            if no_priority_rank_filter and sub_type.priority_rank <= 0:
+            if no_priority_filter and sub_type.priority <= 0:
                 continue
             sub_type_info[sub_type.name] = callback(getattr(sub_type, info_name))
         return sub_type_info
@@ -97,7 +97,7 @@ class Metric(ConfigBase):
             raise ValueError("Invalid type")
 
         if values["type"] == MetricType.CUSTOM:
-            if v.get("priority_rank", -1) != -1 and v.get("higher_is_better", None) is None:
+            if v.get("priority", -1) != -1 and v.get("higher_is_better", None) is None:
                 raise ValueError(f"higher_is_better must be specified for ranked custom metric: {v['name']}")
             return v
         # name

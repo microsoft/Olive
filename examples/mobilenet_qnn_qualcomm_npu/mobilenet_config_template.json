@@ -15,7 +15,7 @@
                     "type": "accuracy",
                     "sub_type": "accuracy_score",
                     "higher_is_better": true,
-                    "priority_rank": 1,
+                    "priority": 1,
                     "user_config":{
                         "user_script": "user_script.py",
                         "data_dir": "data/eval",
@@ -29,7 +29,7 @@
                     "name": "latency",
                     "type": "latency",
                     "sub_type": "avg",
-                    "priority_rank": 2,
+                    "priority": 2,
                     "user_config":{
                         "user_script": "user_script.py",
                         "data_dir": "data/eval",

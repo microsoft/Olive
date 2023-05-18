@@ -13,10 +13,10 @@ class TestEvaluation:
                 "name": "accuracy",
                 "type": "accuracy",
                 "sub_types": [
-                    {"name": "accuracy_score", "priority_rank": 1, "goal": {"type": "max-degradation", "value": 0.01}},
+                    {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                     {
                         "name": "auc",
-                        "priority_rank": -1,
+                        "priority": -1,
                         "metric_config": {"reorder": True},
                         "goal": {"type": "max-degradation", "value": 0.01},
                     },
@@ -26,7 +26,7 @@ class TestEvaluation:
                 "name": "latency",
                 "type": "latency",
                 "sub_types": [
-                    {"name": "avg", "priority_rank": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
+                    {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
                     {"name": "max"},
                     {"name": "min"},
                 ],
@@ -37,7 +37,7 @@ class TestEvaluation:
                 "sub_types": [
                     {
                         "name": "test",
-                        "priority_rank": 3,
+                        "priority": 3,
                         "higher_is_better": True,
                         "goal": {"type": "max-degradation", "value": 0.01},
                     },

@@ -66,7 +66,7 @@ class TestLocalSystem:
             {
                 sub_metric.name: {
                     "value": 0.382715310,
-                    "priority_rank": sub_metric.priority_rank,
+                    "priority": sub_metric.priority,
                     "higher_is_better": sub_metric.higher_is_better,
                 }
                 for sub_metric in metric.sub_types
