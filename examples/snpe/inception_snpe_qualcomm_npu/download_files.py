@@ -18,7 +18,7 @@ from olive.snpe.utils.input_list import create_input_list
 
 def download_model():
     # directories
-    _, models_dir, data_dir = get_directories()
+    _, models_dir, _ = get_directories()
 
     # temporary directory
     tempdir = tempfile.TemporaryDirectory(dir=Path.cwd(), prefix="olive_tmp_")

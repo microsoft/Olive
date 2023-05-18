@@ -353,10 +353,12 @@ class Pass(ABC):
             return DistributedOnnxModel(output_filepaths, inference_settings=model.inference_settings)
         elif isinstance(model, CompositeOnnxModel) and not self._accepts_composite_model:
             components = []
+            component_names = []
             for cidx, child in enumerate(model.get_model_components()):
                 component_output_path = Path(output_model_path).with_suffix("") / str(cidx)
                 components.append(self._run_for_config(child, config, str(component_output_path)))
-            return CompositeOnnxModel(components, hf_config=model.hf_config)
+                component_names.append(model.get_model_component_name(cidx))
+            return CompositeOnnxModel(components, component_names, hf_config=model.hf_config)
 
         return self._run_for_config(model, config, output_model_path)
 

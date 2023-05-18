@@ -62,10 +62,10 @@ class AzureMLClientConfig(ConfigBase):
         """Create an MLClient instance."""
         from azure.ai.ml import MLClient
 
-        # set logger level to error to avoid too many logs from azure-ai-ml sdk
+        # set logger level to error to avoid too many logs from azure sdk
         logging.getLogger("azure.ai.ml").setLevel(logging.ERROR)
+        logging.getLogger("azure.identity").setLevel(logging.ERROR)
 
-        # logger.info("Please make sure you have logged in Azure CLI and set the default subscription.")
         try:
             if self.aml_config_path is None:
                 return MLClient(
@@ -94,16 +94,20 @@ class AzureMLClientConfig(ConfigBase):
         """
         from azure.identity import AzureCliCredential, DefaultAzureCredential, InteractiveBrowserCredential
 
+        logger.debug("Getting credentials for MLClient")
         try:
             credential = AzureCliCredential()
             credential.get_token("https://management.azure.com/.default")
+            logger.debug("Using AzureCliCredential")
         except Exception:
             try:
                 credential = DefaultAzureCredential()
                 # Check if given credential can get token successfully.
                 credential.get_token("https://management.azure.com/.default")
+                logger.debug("Using DefaultAzureCredential")
             except Exception:
                 # Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work
                 credential = InteractiveBrowserCredential()
+                logger.debug("Using InteractiveBrowserCredential")
 
         return credential

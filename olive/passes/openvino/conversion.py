@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
 from olive.constants import Framework
-from olive.model import ModelStorageKind, ONNXModel, OpenVINOModel, PyTorchModel
+from olive.model import ONNXModel, OpenVINOModel, PyTorchModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
 
@@ -65,7 +65,7 @@ class OpenVINOConversion(Pass):
 
         model_input_param = "input_model"
         input_model = model.model_path
-        if model.framework == Framework.TENSORFLOW and model.model_storage_kind == ModelStorageKind.LocalFolder:
+        if model.framework == Framework.TENSORFLOW and Path(model.model_path).is_dir():
             model_input_param = "saved_model_dir"
         if model.framework == Framework.PYTORCH:
             input_model = model.load_model()

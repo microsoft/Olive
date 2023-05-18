@@ -6,7 +6,6 @@
 import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
-from pathlib import Path
 from typing import Dict
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
@@ -331,7 +330,14 @@ class Footprint:
         if model_config is None:
             return None
 
-        return Path(model_config.get("config", {}).get("model_path", None))
+        return model_config.get("config", {}).get("model_path", None)
+
+    def get_model_config(self, model_id):
+        model_config = self.nodes[model_id].model_config
+        if model_config is None:
+            return None
+
+        return model_config.get("config", {})
 
     def get_model_type(self, model_id):
         model_config = self.nodes[model_id].model_config

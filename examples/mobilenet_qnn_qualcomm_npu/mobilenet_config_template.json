@@ -3,8 +3,7 @@
     "input_model":{
         "type": "OnnxModel",
         "config": {
-            "model_path": "models/mobilenetv2-12.onnx",
-            "model_storage_kind": "file"
+            "model_path": "models/mobilenetv2-12.onnx"
         }
     },
     "evaluators": {

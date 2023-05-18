@@ -24,7 +24,7 @@ class TestCache:
         cache_dir = Path("cache_dir")
         cache_dir.mkdir(parents=True, exist_ok=True)
         create_cache(cache_dir)
-        model_cache_dir, run_cache_dir, evaluation_cache_dir = get_cache_sub_dirs(cache_dir)
+        model_cache_dir, run_cache_dir, evaluation_cache_dir, _ = get_cache_sub_dirs(cache_dir)
 
         if model_path == "0_model_folder":
             model_folder = model_cache_dir / model_path
@@ -72,7 +72,7 @@ class TestCache:
         cache_dir = Path("cache_dir")
         cache_dir.mkdir(parents=True, exist_ok=True)
         create_cache(cache_dir)
-        model_cache_dir, _, _ = get_cache_sub_dirs(cache_dir)
+        model_cache_dir = get_cache_sub_dirs(cache_dir)[0]
 
         if model_path == "0_model_folder":
             model_folder = model_cache_dir / model_path
@@ -94,7 +94,7 @@ class TestCache:
         output_dir = cache_dir / "output"
         shutil.rmtree(output_dir, ignore_errors=True)
         output_name = "test_model"
-        output_json = save_model(model_id, output_dir, output_name, cache_dir)
+        output_json = save_model(model_id, output_dir, output_name, True, cache_dir)
 
         # assert
         output_model_path = (output_dir / f"{output_name}").with_suffix(Path(model_p).suffix).resolve()

@@ -86,7 +86,10 @@ class OliveModel(ABC):
 
         # check if model_path is downloaded
         if self.local_model_path is None:
-            raise ValueError("Model is not local and not downloaded yet. Please call download_model() first.")
+            raise ValueError(
+                "Model is not local and not downloaded yet. Please call download_model() or set_local_model_path()"
+                " first."
+            )
         return self.local_model_path.get_path()
 
     def download_model(self, download_path: Union[Path, str], overwrite: bool = False) -> str:
@@ -111,6 +114,15 @@ class OliveModel(ABC):
         logger.debug(f"Downloading model to {download_path}")
         self.local_model_path = self.model_resource_path.save_to_dir(download_path, overwrite=overwrite)
         return self.local_model_path.get_path()
+
+    def set_local_model_path(self, local_model_path: Union[Path, str, ResourcePath]):
+        """
+        Set local model path.
+
+        :param local_model_path: local model path.
+        """
+        self.local_model_path = ResourcePath.create_resource_path(local_model_path)
+        assert self.local_model_path.is_local_resource(), "local_model_path must be local resource path."
 
     @abstractmethod
     def load_model(self, rank: int = None) -> object:
@@ -140,9 +152,6 @@ class OliveModel(ABC):
         return self.composite_parent
 
     def to_json(self, check_object: bool = False):
-        model_path = self.model_path
-        if model_path and Path(model_path).exists():
-            model_path = Path(model_path)
         config = {
             "type": self.__class__.__name__,
             "config": {"model_path": self.model_resource_path.to_json() if self.model_resource_path else None},
