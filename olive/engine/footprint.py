@@ -7,6 +7,7 @@ import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from pathlib import Path
+from typing import Dict
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 
@@ -21,8 +22,8 @@ class FootprintNodeMetric(ConfigBase):
     is_goals_met: if the goals set by users is met
     """
 
-    value: dict = None
-    cmp_direction: dict = None
+    value: Dict = None
+    cmp_direction: Dict = None
     is_goals_met: bool = False
 
 
@@ -30,9 +31,9 @@ class FootprintNode(ConfigBase):
     # None for no parent which means current model is the input model
     parent_model_id: str = None
     model_id: str
-    model_config: dict = None
+    model_config: Dict = None
     from_pass: str = None
-    pass_run_config: dict = None
+    pass_run_config: Dict = None
     is_pareto_frontier: bool = False
     # TODO add EP/accelerators for same_model_id metrics
     metrics: FootprintNodeMetric = FootprintNodeMetric()
@@ -53,13 +54,21 @@ class Footprint:
 
     def __init__(
         self,
-        nodes: OrderedDict = None,
-        objective_dict: dict = None,
+        nodes: Dict = None,
+        objective_dict: Dict = None,
         is_marked_pareto_frontier: bool = False,
     ):
-        self.nodes = nodes if nodes is not None else {}
-        self.objective_dict = objective_dict if objective_dict is not None else {}
+        self.nodes = nodes or OrderedDict()
+        self.objective_dict = objective_dict or {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
+
+    def metric_numbers(self):
+        if not self.nodes:
+            return 0
+        for metric in self.nodes.values():
+            if self._is_empty_metric(metric.metrics):
+                continue
+            return len(metric.metrics.value)
 
     def record_objective_dict(self, objective_dict):
         self.objective_dict = objective_dict
@@ -169,20 +178,41 @@ class Footprint:
             if not self._is_empty_metric(v.metrics):
                 for index in indices:
                     if isinstance(index, str):
-                        assert index in v.metrics.value, f"the metric {index} is not in the metrics"
-                        rls.append(index)
+                        if index in v.metrics.value:
+                            rls.append(index)
+                        else:
+                            logger.error(f"the metric {index} is not in the metrics")
                     if isinstance(index, int):
-                        assert index < len(v.metrics.value), f"the index {index} is out of range"
-                        rls.append(list(v.metrics.value.keys())[index])
+                        if index < len(v.metrics.value):
+                            rls.append(list(v.metrics.value.keys())[index])
+                        else:
+                            logger.error(f"the index {index} is out of range")
                 return rls
         return rls
 
-    def plot_pareto_frontier(self, index=None):
-        if index is None:
-            assert len(self.nodes) > 0, "you can not plot pareto frontier with empty nodes"
-            index = [0, 1]
+    def plot_pareto_frontier_to_html(self, index=None, save_path=None, is_show=False):
+        self.plot_pareto_frontier(index, save_path, is_show, "html")
+
+    def plot_pareto_frontier_to_image(self, index=None, save_path=None, is_show=False):
+        self.plot_pareto_frontier(index, save_path, is_show, "image")
+
+    def plot_pareto_frontier(self, index=None, save_path=None, is_show=True, save_format="html"):
+        """
+        plot pareto frontier with plotly
+        :param index: the index of the metrics to be shown in the pareto frontier chart
+        :param save_path: the path to save the pareto frontier chart
+        :param is_show: whether to show the pareto frontier chart
+        :param save_format: the format of the pareto frontier chart, can be "html" or "image"
+        """
+        assert save_path is not None or is_show, "you must specify the save path or set is_show to True"
+        if self.metric_numbers() <= 1:
+            logger.warning("There is no need to plot pareto frontier with only one metric")
+            return
+
+        index = index or [0, 1]
         self.mark_pareto_frontier()
         nodes_to_be_plotted = self.get_candidates()
+
         if not nodes_to_be_plotted:
             logger.warning("there is no candidate to be plotted.")
             return
@@ -239,7 +269,19 @@ class Footprint:
         )
         size_params = {"width": 1000, "height": 600}
         fig.update_layout(xaxis_title=metric_column[index[0]], yaxis_title=metric_column[index[1]], **size_params)
-        fig.show()
+
+        if save_path:
+            try:
+                if save_format == "html":
+                    save_path = f"{save_path}.html" if not str(save_path).endswith(".html") else save_path
+                    fig.write_html(save_path)
+                elif save_format == "image":
+                    save_path = f"{save_path}.png" if not str(save_path).endswith(".png") else save_path
+                    fig.write_image(save_path)
+            except ValueError as e:
+                logger.error(f"Failed to save the pareto frontier chart to {save_path} with error {e}")
+        if is_show:
+            fig.show()
 
     def trace_back_run_history(self, model_id):
         """
@@ -297,3 +339,10 @@ class Footprint:
             return None
 
         return model_config.get("type", None)
+
+    def get_use_ort_extensions(self, model_id):
+        model_config = self.nodes[model_id].model_config
+        if model_config is None:
+            return False
+
+        return model_config.get("config", {}).get("use_ort_extensions", False)

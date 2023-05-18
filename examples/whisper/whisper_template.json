@@ -42,8 +42,7 @@
                         "dataloader_func": "<place_holder>"
                     }
                 }
-            ],
-            "target": "local_system"
+            ]
         }
     },
     "passes": {
@@ -72,15 +71,12 @@
             "config": {
                 "per_channel": false,
                 "reduce_range": false,
-                "op_types_to_quantize": ["MatMul", "Gemm"],
+                "op_types_to_quantize": ["MatMul", "Gemm", "Gather"],
                 "MatMulConstBOnly": false
             }
         },
         "insert_beam_search" : {
-            "type" : "InsertBeamSearch",
-            "config": {
-                "save_as_external_data": true
-            }
+            "type" : "InsertBeamSearch"
         },
         "prepost": {
             "type": "AppendPrePostProcessingOps",
@@ -97,10 +93,15 @@
     "engine": {
         "search_strategy": false,
         "host": "local_system",
+        "target": "local_system",
         "evaluator": "common_evaluator",
         "clean_cache": false,
         "cache_dir": "cache",
         "output_dir": "models",
-        "output_name": "<place_holder>"
+        "output_name": "<place_holder>",
+        "packaging_config": {
+            "type": "Zipfile",
+            "name": "<place_holder>"
+        }
     }
 }

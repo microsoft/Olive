@@ -8,7 +8,6 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
-from olive.evaluator.evaluation import evaluate_latency
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
 from olive.evaluator.metric_config import get_properties_from_metric_type
 from olive.model import ONNXModel
@@ -193,6 +192,8 @@ def generate_test_name(test_params):
 
 
 def get_benchmark(model, latency_metric, config, test_params=None):
+    from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
+
     test_result = {}
     session_name = generate_test_name(test_params)
     test_result["test_name"] = session_name
@@ -209,7 +210,8 @@ def get_benchmark(model, latency_metric, config, test_params=None):
 
         # add the io_bind back to test_params
         test_params["_io_bind"] = io_bind
-    test_result["latency_ms"] = evaluate_latency(model, latency_metric, config.device)
+    evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
+    test_result["latency_ms"] = evaluator.evaluate(model, [latency_metric], config.device)[latency_metric.name]
     return test_result
 
 
@@ -227,6 +229,7 @@ class OrtPerfTuning(Pass):
     """Optimize ONNX Runtime inference settings."""
 
     _requires_user_script = True
+    _requires_data_config = True
 
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:

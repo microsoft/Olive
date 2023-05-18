@@ -36,8 +36,7 @@
                         "batch_size": 1
                     }
                 }
-            ],
-            "target": "local_system"
+            ]
         }
     },
     "passes": {
@@ -53,7 +52,8 @@
                 "model_type": "vae",
                 "float16": true,
                 "use_gpu": true,
-                "keep_io_types": false
+                "keep_io_types": false,
+                "target_provider": "directml_future"
             }
         }
     },
@@ -64,6 +64,7 @@
         },
         "evaluator": "common_evaluator",
         "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_name": "vae_decoder",
         "output_dir": "footprints"

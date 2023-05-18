@@ -4,40 +4,37 @@
 # --------------------------------------------------------------------------
 import json
 import os
-import platform
 from pathlib import Path
 
 import pytest
 
 
-@pytest.fixture()
-def example_dir():
-    return str(Path(__file__).resolve().parent / "bert_ptq_cpu")
-
-
-@pytest.fixture(autouse=True)
-def setup(example_dir):
+@pytest.fixture(scope="module", autouse=True)
+def setup():
     """setup any state specific to the execution of the given module."""
-    cur_dir = str(Path(__file__).resolve().parent)
+    cur_dir = Path(__file__).resolve().parent
+    example_dir = cur_dir / "bert_ptq_cpu"
     os.chdir(example_dir)
     yield
     os.chdir(cur_dir)
 
 
-def check_output(footprint):
-    assert footprint.nodes is not None
-    for v in footprint.nodes.values():
-        assert all([value > 0 for value in v.metrics.value.values()])
+def check_output(footprints):
+    for footprint in footprints.values():
+        assert footprint.nodes is not None
+        for v in footprint.nodes.values():
+            assert all([value > 0 for value in v.metrics.value.values()])
 
 
+# Skip docker_system test until bug is fixed: https://github.com/docker/docker-py/issues/3113
 @pytest.mark.parametrize("search_algorithm", ["tpe"])
 @pytest.mark.parametrize("execution_order", ["joint"])
-@pytest.mark.parametrize("system", ["local_system", "aml_system", "docker_system"])
+@pytest.mark.parametrize("system", ["local_system", "aml_system"])
 @pytest.mark.parametrize("olive_json", ["bert_config.json"])
 def test_bert(search_algorithm, execution_order, system, olive_json):
     # TODO: add gpu e2e test
-    if system == "docker_system" and platform.system() == "Windows":
-        pytest.skip("Skip Linux containers on Windows host test case.")
+    # if system == "docker_system" and platform.system() == "Windows":
+    #     pytest.skip("Skip Linux containers on Windows host test case.")
 
     from olive.workflows import run as olive_run
 
@@ -54,20 +51,20 @@ def test_bert(search_algorithm, execution_order, system, olive_json):
     # set aml_system as dev
     olive_config["systems"]["aml_system"]["config"]["is_dev"] = True
     # set docker_system as dev
-    olive_config["systems"]["docker_system"]["config"]["is_dev"] = True
+    # olive_config["systems"]["docker_system"]["config"]["is_dev"] = True
 
     # update host and target
     olive_config["engine"]["host"] = system if system != "docker_system" else "local_system"
-    olive_config["evaluators"]["common_evaluator"]["target"] = system
+    olive_config["engine"]["target"] = system
 
     if system == "aml_system":
-        generate_olive_workspace_config("olive-workspace-config.json")
+        update_azureml_config(olive_config)
 
     footprint = olive_run(olive_config)
     check_output(footprint)
 
 
-def generate_olive_workspace_config(workspace_config_path):
+def update_azureml_config(olive_config):
     subscription_id = os.environ.get("WORKSPACE_SUBSCRIPTION_ID")
     if subscription_id is None:
         raise Exception("Please set the environment variable WORKSPACE_SUBSCRIPTION_ID")
@@ -80,10 +77,6 @@ def generate_olive_workspace_config(workspace_config_path):
     if workspace_name is None:
         raise Exception("Please set the environment variable WORKSPACE_NAME")
 
-    workspace_config = {
-        "subscription_id": subscription_id,
-        "resource_group": resource_group,
-        "workspace_name": workspace_name,
-    }
-
-    json.dump(workspace_config, open(workspace_config_path, "w"))
+    olive_config["azureml_client"]["subscription_id"] = subscription_id
+    olive_config["azureml_client"]["resource_group"] = resource_group
+    olive_config["azureml_client"]["workspace_name"] = workspace_name

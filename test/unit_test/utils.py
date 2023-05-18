@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
+from olive.data.config import DataComponentConfig, DataConfig
+from olive.data.registry import Registry
 from olive.evaluator.metric import Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
 from olive.model import ONNXModel, PyTorchModel
@@ -96,14 +98,14 @@ def create_fixed_dataloader(datadir, batchsize):
     return dataloader
 
 
-def get_accuracy_metric(acc_subtype, random_dataloader=True):
+def get_accuracy_metric(acc_subtype, random_dataloader=True, user_config=None):
     accuracy_metric_config = {"dataloader_func": create_dataloader if random_dataloader else create_fixed_dataloader}
     accuracy_metric = Metric(
         name="accuracy",
         type=MetricType.ACCURACY,
         sub_type=acc_subtype,
         goal=MetricGoal(type="threshold", value=0.99),
-        user_config=accuracy_metric_config,
+        user_config=user_config or accuracy_metric_config,
     )
     return accuracy_metric
 
@@ -117,13 +119,13 @@ def get_custom_metric():
     return custom_metric
 
 
-def get_latency_metric(lat_subtype):
+def get_latency_metric(lat_subtype, user_config=None):
     latency_metric_config = {"dataloader_func": create_dataloader}
     latency_metric = Metric(
         name="latency",
         type=MetricType.LATENCY,
         sub_type=lat_subtype,
-        user_config=latency_metric_config,
+        user_config=user_config or latency_metric_config,
     )
     return latency_metric
 
@@ -141,3 +143,70 @@ def get_onnxconversion_pass(ignore_pass_config=True):
 def get_onnx_dynamic_quantization_pass(disable_search=False):
     p = create_pass_from_dict(OnnxDynamicQuantization, disable_search=disable_search)
     return p
+
+
+def get_data_config():
+    @Registry.register_dataset("test_dataset")
+    def _test_dataset(test_value):
+        ...
+
+    @Registry.register_dataloader()
+    def _test_dataloader(test_value):
+        ...
+
+    @Registry.register_pre_process()
+    def _pre_process(test_value):
+        ...
+
+    @Registry.register_post_process()
+    def _post_process(test_value):
+        ...
+
+    return DataConfig(
+        components={
+            "load_dataset": {
+                "name": "test_dataset",
+                "type": "test_dataset",
+                "params": {"test_value": "test_value"},
+            },
+            "dataloader": {
+                "name": "test_dataloader",
+                "type": "_test_dataloader",  # This is the key to get dataloader
+                "params": {"test_value": "test_value"},
+            },
+        }
+    )
+
+
+def get_glue_huggingface_data_config():
+    return DataConfig(
+        type="HuggingfaceContainer",
+        params_config={
+            "task": "text-classification",
+            "model_name": "bert-base-uncased",
+            "data_name": "glue",
+            "subset": "mrpc",
+            "split": "validation",
+            "input_cols": ["sentence1", "sentence2"],
+            "label_cols": ["label"],
+            "batch_size": 1,
+        },
+    )
+
+
+def get_dc_params_config():
+    return DataConfig(
+        params_config={
+            "data_dir": "./params_config",
+            "batch_size": 1,
+            "label_cols": ["label_from_params_config"],
+        },
+        components={
+            "load_dataset": DataComponentConfig(
+                params={
+                    "data_dir": "./params",
+                    "batch_size": 10,
+                }
+            )
+        },
+    )

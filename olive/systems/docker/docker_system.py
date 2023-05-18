@@ -102,10 +102,12 @@ class DockerSystem(OliveSystem):
             volumes_list.append(dev_mount_str)
 
         model_copy = copy.deepcopy(model)
-        model_mount_path, model_mount_str_list = docker_utils.create_model_mount(
-            model=model_copy, container_root_path=container_root_path
-        )
-        volumes_list += model_mount_str_list
+        model_mount_path = None
+        if model_copy.model_path:
+            model_mount_path, model_mount_str_list = docker_utils.create_model_mount(
+                model=model_copy, container_root_path=container_root_path
+            )
+            volumes_list += model_mount_str_list
 
         metrics_copy = copy.deepcopy(metrics)
         volumes_list = docker_utils.create_metric_volumes_list(
@@ -139,9 +141,11 @@ class DockerSystem(OliveSystem):
         try:
             logger.debug(f"Running container with eval command: {eval_command}")
             logger.debug(f"The volumes list is {volumes_list}")
-            self.docker_client.containers.run(
-                image=self.image, command=eval_command, volumes=volumes_list, **run_command
+            container = self.docker_client.containers.run(
+                image=self.image, command=eval_command, volumes=volumes_list, detach=True, **run_command
             )
+            for line in container.logs(stream=True):
+                print(line.strip().decode())
             logger.debug("Docker container evaluation completed successfully")
         finally:
             # clean up dev mount regardless of whether the run was successful or not

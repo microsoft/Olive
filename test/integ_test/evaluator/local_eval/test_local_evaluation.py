@@ -6,6 +6,9 @@ from test.integ_test.evaluator.local_eval.utils import (
     delete_directories,
     get_accuracy_metric,
     get_directories,
+    get_hf_accuracy_metric,
+    get_hf_latency_metric,
+    get_huggingface_model,
     get_latency_metric,
     get_onnx_model,
     get_openvino_model,
@@ -16,8 +19,8 @@ from test.integ_test.evaluator.local_eval.utils import (
 
 import pytest
 
-from olive.evaluator.olive_evaluator import OliveEvaluator
 from olive.model import ONNXModel, OpenVINOModel, PyTorchModel
+from olive.systems.local import LocalSystem
 
 
 class TestLocalEvaluation:
@@ -30,6 +33,8 @@ class TestLocalEvaluation:
     EVALUATION_TEST_CASE = [
         (PyTorchModel, get_pytorch_model(), get_accuracy_metric(post_process), 0.99),
         (PyTorchModel, get_pytorch_model(), get_latency_metric(), 0.001),
+        (PyTorchModel, get_huggingface_model(), get_hf_accuracy_metric(), 0.1),
+        (PyTorchModel, get_huggingface_model(), get_hf_latency_metric(), 0.001),
         (ONNXModel, get_onnx_model(), get_accuracy_metric(post_process), 0.99),
         (ONNXModel, get_onnx_model(), get_latency_metric(), 0.001),
         (OpenVINOModel, get_openvino_model(), get_accuracy_metric(openvino_post_process), 0.99),
@@ -37,11 +42,10 @@ class TestLocalEvaluation:
     ]
 
     @pytest.mark.parametrize(
-        "model_cls,model_path,metric,expected_res",
+        "model_cls,model_config,metric,expected_res",
         EVALUATION_TEST_CASE,
     )
-    def test_evaluate_model(self, model_cls, model_path, metric, expected_res):
-        olive_model = model_cls(model_path=model_path)
-        evaluator = OliveEvaluator(metrics=[metric])
-        actual_res = evaluator.evaluate(olive_model)[metric.name]
+    def test_evaluate_model(self, model_cls, model_config, metric, expected_res):
+        olive_model = model_cls(**model_config)
+        actual_res = LocalSystem().evaluate_model(olive_model, [metric])[metric.name]
         assert actual_res >= expected_res

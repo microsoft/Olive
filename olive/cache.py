@@ -58,22 +58,13 @@ def _delete_model(model_number: str, cache_dir: Union[str, Path] = ".olive-cache
     Deletes the model and all associated runs and evaluations.
     """
     model_cache_dir, run_cache_dir, evaluation_cache_dir = get_cache_sub_dirs(cache_dir)
-    model_jsons = list(model_cache_dir.glob(f"{model_number}_*.json"))
-    for model_json in model_jsons:
-        try:
-            model_data = json.load(open(model_json, "r"))
-            if model_data != {}:
-                model_file = Path(json.load(open(model_json, "r"))["model_path"])
-                model_file_number = model_file.stem.split("_")[0]
-                if model_file_number == model_number:
-                    if model_file.is_dir():
-                        shutil.rmtree(model_file, ignore_errors=True)
-                    elif model_file.is_file():
-                        model_file.unlink()
-        except Exception as e:
-            logger.exception(e)
-        finally:
-            model_json = model_json.unlink()
+    # delete all model files that start with model_number
+    model_files = list(model_cache_dir.glob(f"{model_number}_*"))
+    for model_file in model_files:
+        if model_file.is_dir():
+            shutil.rmtree(model_file, ignore_errors=True)
+        elif model_file.is_file():
+            model_file.unlink()
 
     evaluation_jsons = list(evaluation_cache_dir.glob(f"{model_number}_*.json"))
     for evaluation_json in evaluation_jsons:
@@ -91,7 +82,8 @@ def _delete_run(run_id: str, cache_dir: Union[str, Path] = ".olive-cache"):
     run_cache_dir = get_cache_sub_dirs(cache_dir)[1]
     run_json = run_cache_dir / f"{run_id}.json"
     try:
-        run_data = json.load(open(run_json, "r"))
+        with run_json.open("r") as f:
+            run_data = json.load(f)
         # output model and children
         output_model_number = run_data["output_model_id"].split("_")[0]
         _delete_model(output_model_number, cache_dir)
@@ -135,7 +127,8 @@ def save_model(
     model_jsons = list(model_cache_dir.glob(f"{model_number}_*.json"))
     assert len(model_jsons) == 1, f"No model found for {model_number}"
 
-    model_json = serialize_to_json(json.load(open(model_jsons[0], "r")))
+    with model_jsons[0].open("r") as f:
+        model_json = serialize_to_json(json.load(f))
 
     if model_json["type"].lower() == "compositeonnxmodel":
         logger.warning("Saving composite ONNX models is not supported yet.")
@@ -168,6 +161,7 @@ def save_model(
 
     # save model json
     model_json["config"]["model_path"] = output_path
-    json.dump(model_json, open(output_dir / f"{output_name}.json", "w"), indent=4)
+    with open(output_dir / f"{output_name}.json", "w") as f:
+        json.dump(model_json, f, indent=4)
 
     return model_json

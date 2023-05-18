@@ -4,8 +4,10 @@
 # --------------------------------------------------------------------------
 import copy
 
+import pytorch_lightning
 import torch
 import torch.quantization.quantization_mappings as tqqm
+from packaging import version
 from pytorch_lightning import LightningModule, seed_everything
 from torch.ao.quantization.fake_quantize import FakeQuantize, MovingAverageMinMaxObserver
 
@@ -80,10 +82,17 @@ class QatTrainer:
                 ddp = create_ddp_strategy(cluster=cluster_environment, accelerator="gpu")
                 kwargs["strategy"] = ddp
                 kwargs["devices"] = num_gpus
-                kwargs["replace_sampler_ddp"] = False
+                if version.parse(pytorch_lightning.__version__) >= version.parse("1.9.0"):
+                    kwargs["use_distributed_sampler"] = False
+                else:
+                    kwargs["replace_sampler_ddp"] = False
 
             trainer = create_trainer(
-                max_epochs=self.config.num_epochs, max_steps=self.config.num_steps, logger=self.config.logger, **kwargs
+                max_epochs=self.config.num_epochs,
+                max_steps=self.config.num_steps,
+                logger=self.config.logger,
+                default_root_dir=self.config.checkpoint_path,
+                **kwargs
             )
 
             trainer.fit(ptl_module, datamodule=ptl_data_module)

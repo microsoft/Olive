@@ -9,6 +9,10 @@ import subprocess
 from pathlib import Path
 from typing import Union
 
+import onnxruntime as ort
+
+from olive import set_default_logger_severity
+from olive.passes import Pass
 from olive.systems.common import Device, SystemType
 from olive.workflows.run.config import RunConfig
 
@@ -48,7 +52,8 @@ def automatically_insert_passes(config):
 
 def dependency_setup(config):
     here = os.path.abspath(os.path.dirname(__file__))
-    EXTRAS = json.load(open(os.path.join(here, "../../extra_dependencies.json"), "r"))
+    with open(os.path.join(here, "../../extra_dependencies.json"), "r") as f:
+        EXTRAS = json.load(f)
     DEPENDENCY_MAPPING = {
         "device": {
             SystemType.AzureML: EXTRAS.get("azureml"),
@@ -61,6 +66,9 @@ def dependency_setup(config):
             "QuantizationAwareTraining": ["pytorch-lightning"],
             "OpenVINOConversion": EXTRAS.get("openvino"),
             "OpenVINOQuantization": EXTRAS.get("openvino"),
+            "IncQuantization": EXTRAS.get("inc"),
+            "IncDynamicQuantization": EXTRAS.get("inc"),
+            "IncStaticQuantization": EXTRAS.get("inc"),
         },
     }
 
@@ -94,7 +102,7 @@ def dependency_setup(config):
         try:
             __import__(package)
         except ImportError:
-            subprocess.check_call(["pip", "install", "{}".format(package)])
+            subprocess.check_call(["python", "-m", "pip", "install", "{}".format(package)])
     if remote_packages:
         logger.info(
             "Please make sure the following packages are installed in {} environment: {}".format(
@@ -110,8 +118,16 @@ def run(config: Union[str, Path, dict], setup: bool = False):
     else:
         config = RunConfig.parse_obj(config)
 
+    # set ort log level
+    set_default_logger_severity(config.engine.log_severity_level)
+    ort.set_default_logger_severity(config.engine.ort_log_severity_level)
+
     # input model
     input_model = config.input_model.create_model()
+
+    # Azure ML Client
+    if config.azureml_client:
+        config.engine.azureml_client_config = config.azureml_client
 
     # engine
     engine = config.engine.create_engine()
@@ -125,10 +141,16 @@ def run(config: Union[str, Path, dict], setup: bool = False):
     else:
         # passes
         for pass_name, pass_config in config.passes.items():
-            p = pass_config.create_pass()
             host = pass_config.host.create_system() if pass_config.host is not None else None
-            evaluator = pass_config.evaluator.create_evaluator() if pass_config.evaluator is not None else None
-            engine.register(p, pass_name, host, evaluator, pass_config.clean_run_cache)
+            engine.register(
+                Pass.registry[pass_config.type.lower()],
+                config=pass_config.config,
+                disable_search=pass_config.disable_search,
+                name=pass_name,
+                host=host,
+                evaluator_config=pass_config.evaluator,
+                clean_run_cache=pass_config.clean_run_cache,
+            )
 
         # run
         best_execution = engine.run(

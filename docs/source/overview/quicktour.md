@@ -43,6 +43,39 @@ olive_run("user_provided_info.json")
 
 Now, let's take a look at the information you can provide to Olive to optimize your model.
 
+### Azure ML Client
+
+If you will use Azure ML resources and assets, you need to provide your Azure ML client configurations. For example:
+* You have AzureML system for targets or hosts.
+* You have Azure ML model as input model.
+
+AzureML authentication credentials is needed. Refer to
+[this](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?tabs=sdk)  for
+more details.
+
+You can either add configurations to the Olive json config file:
+```json
+"azureml_client": {
+    "subscription_id": "<subscription_id>",
+    "resource_group": "<resource_group>",
+    "workspace_name": "<workspace_name>"
+},
+```
+or you can also have your config file in a seprate json file in the following format:
+```json
+{
+    "subscription_id": "<subscription_id>",
+    "resource_group": "<resource_group>",
+    "workspace_name": "<workspace_name>"
+}
+```
+and specify your config file path to `azureml_client`:
+```json
+"azureml_client": {
+    "aml_config_path": "<path to your config file>"
+},
+```
+
 ### Input Model
 
 You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOModel and SNPEModel are supported model types.
@@ -96,8 +129,7 @@ returns metrics values for each output model.
                     "batch_size": 16
                 }
             }
-        ],
-        "target": "local_system"
+        ]
     }
 }
 ```
@@ -115,7 +147,9 @@ The engine which handles the auto-tuning process. You can select search strategy
 
 ```json
 "engine": {
-    "cache_dir": ".cache"
+    "host": {"type": "LocalSystem"},
+    "target": {"type": "LocalSystem"},
+    "cache_dir": ".cache",
     "search_strategy": {
         "execution_order": "joint",
         "search_algorithm": "exhaustive",
@@ -132,8 +166,7 @@ let us first convert the pytorch model to ONNX and quantize it.
     "type": "OnnxConversion",
     "config": {
         "target_opset": 13
-    },
-    "host": {"type": "LocalSystem"}
+    }
 }
 ```
 
@@ -192,8 +225,7 @@ python -m olive.workflows.run --config config.json
                         "batch_size": 16
                     }
                 }
-            ],
-            "target": "local_system"
+            ]
         }
     },
     "passes": {
@@ -201,8 +233,7 @@ python -m olive.workflows.run --config config.json
             "type": "OnnxConversion",
             "config": {
                 "target_opset": 13
-            },
-            "host": {"type": "LocalSystem"}
+            }
         },
         "onnx_quantization": {
             "type": "OnnxDynamicQuantization",
@@ -221,6 +252,7 @@ python -m olive.workflows.run --config config.json
         },
         "evaluator": "common_evaluator",
         "host": {"type": "LocalSystem"},
+        "target": {"type": "LocalSystem"}
     }
 }
 ```
@@ -233,9 +265,9 @@ class FootprintNode(ConfigBase):
     # None for no parent which means current model is the input model
     parent_model_id: str = None
     model_id: str
-    model_config: dict = None
+    model_config: Dict = None
     from_pass: str = None
-    pass_run_config: dict = None
+    pass_run_config: Dict = None
     is_pareto_frontier: bool = False
     metrics: FootprintNodeMetric = FootprintNodeMetric()
     date_time: float = datetime.now().timestamp()
@@ -247,8 +279,8 @@ class FootprintNodeMetric(ConfigBase):
         1: higher is better, -1: lower is better
     is_goals_met: if the goals set by users is met
     """
-    value: dict = None
-    cmp_direction: dict = None
+    value: Dict = None
+    cmp_direction: Dict = None
     is_goals_met: bool = False
 ```
 - `pareto_frontier_footprints.json`: A dictionary of the footprints that are on the Pareto frontier based on the metrics goal you set in config of `evaluators.metrics`.

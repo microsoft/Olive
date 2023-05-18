@@ -21,6 +21,10 @@ This document describes the Olive components, and some implementation details. T
     - [Implementation](#implementation)
 - [System](#system)
     - [OliveSystem Class](#olivesystem-class)
+- [Data Container](#data-container)
+    - [General workflow for dataset load and processing](#general-workflow-for-dataset-load-and-processing)
+    - [Olive DataContainer interface](#olive-datacontainer-interface)
+    - [Relationship between DataContainer and DataComponent](#relationship-between-datacontainer-and-datacomponent)
 - [olive.workflows.run](#oliveolive)
     - [User Interface](#user-interface-1)
 
@@ -80,6 +84,9 @@ The pass then combines those with the fixed parameters to form a complete config
 - OnnxDynamicQuantization
 - OnnxStaticQuantization
 - OnnxQuantization
+- IncStaticQuantization
+- IncDynamicQuantization
+- IncQuantization
 
 ## Engine
 The engine is responsible for
@@ -143,7 +150,7 @@ Each search algorithm provides the methods:
 The following search algorithms have been implemented:
 - `ExhaustiveSearchAlgorithm`: Exhaustively iterates over the search space.
 - `RandomSearchAlgorithm`: Randomly samples points from the search space without replacement.
-- `OptunaSearchAlgorithm`: Abstract base class for algorithms built using `optuna` samplers. This class cannot be used directy
+- `OptunaSearchAlgorithm`: Abstract base class for algorithms built using `optuna` samplers. This class cannot be used directly
     - `TPESearchAlgorithm`: Uses optuna `TPESampler`.
 
 ### SearchResults
@@ -219,6 +226,133 @@ The user or engine interacts with the search strategy using the following method
 The current implementation of search strategy is not mature and will be updated in a follow-up PR to generalize the chained execution order.
 
 Currently, it maintains a list of “search spaces groups” which are just groups of search parameter dictionaries from passes that are meant to be optimized together. Joint has one search spaces group while pass-by-pass has a group for each pass.
+
+
+## Data Container
+
+### General workflow for dataset load and processing
+Before introducing the Olive `DataContainer` interface, let's first outline the general workflow for loading and processing datasets in machine learning.
+![figure](./source/images/dataset-flow.png)
+
+Based on the above workflow, we can see that dataset loading and processing can be divided into two steps:
+
+1. User to prepare the dataset with given format before invoking Olive: `[data, annotation(optional), meta_data(optional)]`.
+    - `data`: The input data for the model to process. This can be a single tensor, text, file, or a list of tensors, texts, or files.
+    - `annotation`: The label for the data. This can be a single tensor, text, file, or a list of tensors, texts, or files.
+    - `meta_data`: The metadata for the data. This includes information that can help with understanding the structure or parsing of the current data.
+2. After preparing the data, users can implement their own methods to load the dataset and obtain the dataloader, then invoke Olive to run the pass or evaluation.
+The steps would be like:
+    - `load_dataset` to load the dataset.
+    - `pre_process_data` to format the dataset and make it ready for model to consume. Could be optional if the dataset is ready for model inference. Note that the data after `load_dataset` and `pre_process_data` should be return `(data, label)` with `__getitem__` methods.
+    - `post_precess_data` to format the model output to the format which can be used for evaluation. Could be optional.
+    - `dataloader` to generate the dataloader with given batch_size/sample_ratio.
+
+
+Then Olive `DataContainer` interface will be introduced to setup above workflow where Olive can load the dataset and prepare dataloader after data processing which can be invoked by pass or evaluation in a unified way.
+
+
+### Olive DataContainer interface
+Based on above workflow, Olive `DataContainer` provides interface to:
+1. unifies the dataset interface for different dataset, models and tasks.
+2. enables Olive to provide the built-in `load_dataset`, `pre_process_data` and `post_process_data` and `dataloader`.
+3. simplifies the user experience to implement their own `load_dataset`, `pre_process_data` and `post_process_data` and `dataloader`.
+4. simplifies the user experience for popular dataset models and tasks.
+
+Then the design for `DataContainer` interface will be like:
+![figure](./source/images/datacontainer_example.png)
+
+1. There will be built-in DataContainers for different datasets, models and tasks, which implement the Olive `DataContainer` interface, like `HuggingfaceDataContainer`.
+2. User can use pre-defined register(`Decorator`) to register their own `load_dataset`, `pre_process_data`, `post_process_data` and `dataloader` in `user_scripts`, then replace the built-in default component with their own one. The register usage will be like:
+    ```python
+    ############################## Decorator ##############################
+    @Registry.register_dataset("test_load_dataset")
+    def _load_dataset(test_value):
+        ...
+
+    @Registry.register_dataloader()
+    def _test_dataloader(test_value):
+        ...
+
+    @Registry.register_pre_process()
+    def _pre_process_data(test_value):
+        ...
+
+    @Registry.register_post_process()
+    def _post_process_data(test_value):
+        ...
+
+    DataConfig(
+        components={
+            "load_dataset": {
+                "name": "test_dataset",
+                "type": "test_dataset",
+                "params": {"test_value": "test_value"},
+            },
+            "dataloader": {
+                "name": "test_dataloader",
+                "type": "_test_dataloader",  # This is the key to get dataloader
+                "params": {"test_value": "test_value"},
+            },
+        }
+    )
+    ```
+
+### Relationship between `DataContainer` and `DataComponent`
+
+`DataContainer` is the endpoint used to call the components under `DataComponent`, which will use `DataConfig` to describe the structure which includes `load_dataset`, `pre_process_data`, `post_process_data` and `dataloader`. The relationship between `DataContainer` and `DataComponent` is as follows:
+```python
+DefaultDataComponentCombos = {
+    DataComponentType.LOAD_DATASET.value: DefaultDataComponent.LOAD_DATASET.value,
+    DataComponentType.PRE_PROCESS_DATA.value: DefaultDataComponent.PRE_PROCESS_DATA.value,
+    DataComponentType.POST_PROCESS_DATA.value: DefaultDataComponent.POST_PROCESS_DATA.value,
+    DataComponentType.DATALOADER.value: DefaultDataComponent.DATALOADER.value,
+}
+
+class DataContainer(pydantic.BaseModel):
+    """
+    Base class for data container.
+    """
+    # override the default components from config with base class or subclass
+    default_components_type: ClassVar[dict] = DefaultDataComponentCombos
+    # avoid to directly create the instance of DataComponentConfig,
+    # suggest to use config.to_data_container()
+    config: DataConfig = None
+
+```
+In this way, we can compose different components which contain built-in and user-defined components to form the dataset config for users, like:
+```json
+{
+    // compose with built-in components
+    "built_in_dataset_config": {
+        "load_dataset": "olive_load_dataset_1",
+        "pre_process_data": "olive_pre_process_data_2",
+        "post_process_data": "olive_post_process_data_1",
+        "dataloader": "olive_dataloader_4",
+    },
+    // compose with customized components
+    "customized_dataset_config": {
+        "load_dataset": "my_load_dataset_2",
+        "pre_process_data": "my_pre_process_data_2",
+        "post_process_data": "my_post_process_data_2",
+        "dataloader": "my_dataloader_2",
+    },
+}
+```
+
+For popular huggingface dataset, we can wrap above data config with more concise interface to automatically load the dataset and generate the dataloader, the config will be like:
+```json
+{
+    "huggingface_dataset_config": {
+        "data_name":"glue",
+        "subset": "mrpc",
+        "split": "validation",
+        "input_cols": ["sentence1", "sentence2"],
+        "label_cols": ["label"],
+        "batch_size": 1
+    }
+}
+```
+
 
 ## olive.workflows.run
 Users can build their own workflows using the python api but we also provide a command-line interface to execute workflows specified using json configuration files.
