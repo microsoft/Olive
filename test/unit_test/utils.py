@@ -98,7 +98,7 @@ def create_fixed_dataloader(datadir, batchsize):
     return dataloader
 
 
-def get_accuracy_metric(*acc_subtype, random_dataloader=True):
+def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None):
     accuracy_metric_config = {"dataloader_func": create_dataloader if random_dataloader else create_fixed_dataloader}
     sub_types = [{"name": sub, "goal": MetricGoal(type="threshold", value=0.99)} for sub in acc_subtype]
     sub_types[0]["priority_rank"] = 1
@@ -106,7 +106,7 @@ def get_accuracy_metric(*acc_subtype, random_dataloader=True):
         name="accuracy",
         type=MetricType.ACCURACY,
         sub_types=sub_types,
-        user_config=accuracy_metric_config,
+        user_config=user_config or accuracy_metric_config,
     )
     return accuracy_metric
 
@@ -121,14 +121,14 @@ def get_custom_metric():
     return custom_metric
 
 
-def get_latency_metric(*lat_subtype):
+def get_latency_metric(*lat_subtype, user_config=None):
     latency_metric_config = {"dataloader_func": create_dataloader}
     sub_types = [{"name": sub} for sub in lat_subtype]
     latency_metric = Metric(
         name="latency",
         type=MetricType.LATENCY,
         sub_types=sub_types,
-        user_config=latency_metric_config,
+        user_config=user_config or latency_metric_config,
     )
     return latency_metric
 

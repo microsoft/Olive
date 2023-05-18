@@ -100,7 +100,10 @@ class OliveModel(ABC):
 
     @abstractmethod
     def prepare_session(
-        self, inference_settings: Optional[Dict[str, Any]] = None, device: Device = Device.CPU, rank: int = None
+        self,
+        inference_settings: Optional[Dict[str, Any]] = None,
+        device: Device = Device.CPU,
+        rank: Optional[int] = None,
     ):
         """
         Prepare inference session for Olive model, return in-memory inference session.
@@ -253,7 +256,7 @@ class ONNXModelBase(OliveModel):
 
     def __init__(
         self,
-        model_path: str = None,
+        model_path: Optional[Union[Path, str]] = None,
         name: Optional[str] = None,
         version: Optional[int] = None,
         aml_storage_name: Optional[str] = None,
@@ -368,15 +371,22 @@ class ONNXModel(ONNXModelBase):
         # HACK: ASSUME no external data
         return onnx.load(self.model_path)
 
-    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
+    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: Optional[int] = None):
         # user provided inference_settings > model's inference_settings > default settings
         inference_settings = inference_settings or self.inference_settings or {}
         # deep copy to avoid modifying the original settings
         inference_settings = deepcopy(inference_settings)
 
         # if user doesn't not provide ep list, use default value([ep]). Otherwise, use the user's ep list
-        if not inference_settings.get("execution_provider"):
-            inference_settings["execution_provider"] = self.get_default_execution_providers(device)
+        execution_providers = inference_settings.get("execution_provider")
+        if not execution_providers:
+            execution_providers = self.get_default_execution_providers(device)
+            inference_settings["execution_provider"] = execution_providers
+
+        if (device == Device.GPU) and (rank is not None) and not inference_settings.get("provider_options"):
+            inference_settings["provider_options"] = [
+                {"device_id": str(rank)} if ep == "CUDAExecutionProvider" else {} for ep in execution_providers
+            ]
 
         return get_ort_inference_session(self.model_path, inference_settings, self.use_ort_extensions)
 
@@ -613,7 +623,7 @@ class PyTorchModel(OliveModel):
 
         return loaded_model
 
-    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
+    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: Optional[int] = None):
         return self.load_model().eval()
 
     # TODO: remove this method once we have olive datasets implemented.
@@ -738,7 +748,7 @@ class SNPEModel(OliveModel):
         raise NotImplementedError()
 
     def prepare_session(
-        self, inference_settings: Dict[str, Any], device: Device, rank: int = None
+        self, inference_settings: Dict[str, Any], device: Device, rank: Optional[int] = None
     ) -> SNPEInferenceSession:
         session_options = SNPESessionOptions(**inference_settings) if inference_settings else None
         if device == Device.NPU:
@@ -774,7 +784,7 @@ class TensorFlowModel(OliveModel):
     def load_model(self, rank: int = None):
         raise NotImplementedError()
 
-    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
+    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: Optional[int] = None):
         raise NotImplementedError()
 
 
@@ -820,7 +830,7 @@ class OpenVINOModel(OliveModel):
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
         return load_model(self.model_config)
 
-    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
+    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: Optional[int] = None):
         try:
             from openvino.runtime import Core
         except ImportError:
@@ -841,7 +851,7 @@ class DistributedOnnxModel(ONNXModelBase):
 
     def __init__(
         self,
-        model_filepaths: List[str],
+        model_filepaths: List[Union[Path, str]] = [],
         name: Optional[str] = None,
         version: Optional[int] = None,
         aml_storage_name: Optional[str] = None,
@@ -863,29 +873,16 @@ class DistributedOnnxModel(ONNXModelBase):
     def ranks(self):
         return len(self.model_filepaths)
 
+    def ranked_model_path(self, rank: int) -> Union[Path, str]:
+        return self.model_filepaths[rank]
+
     def load_model(self, rank: int) -> ONNXModel:
         return ONNXModel(self.model_filepaths[rank], inference_settings=self.inference_settings)
 
     def prepare_session(
-        self, inference_settings: Optional[Dict[str, Any]] = None, device: Device = Device.GPU, rank: int = 0
+        self, inference_settings: Optional[Dict[str, Any]] = None, device: Device = Device.GPU, rank: Optional[int] = 0
     ):
-        # user provided inference_settings > model's inference_settings > default settings
-        inference_settings = inference_settings or self.inference_settings or {}
-        # deep copy to avoid modifying the original settings
-        inference_settings = deepcopy(inference_settings)
-
-        # if user doesn't not provide ep list, use default value([ep]). Otherwise, use the user's ep list
-        execution_providers = inference_settings.get("execution_provider")
-        if not execution_providers:
-            execution_providers = self.get_default_execution_providers(device)
-            inference_settings["execution_provider"] = execution_providers
-
-        if not inference_settings.get("provider_options"):
-            inference_settings["provider_options"] = [
-                {"device_id": str(rank)} if ep == "CUDAExecutionProvider" else {} for ep in execution_providers
-            ]
-
-        return get_ort_inference_session(self.model_filepaths[rank], inference_settings)
+        raise RuntimeError("DistributedOnnxModel doesn't have a session of its own")
 
     def get_default_execution_providers(self, filepath: str, device: Device):
         # return firstly available ep as ort default ep
@@ -965,7 +962,7 @@ class CompositeOnnxModel(ONNXModelBase):
     def load_model(self, rank: int = None):
         raise NotImplementedError()
 
-    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
+    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: Optional[int] = None):
         raise NotImplementedError()
 
     def get_default_execution_providers(self, device: Device):

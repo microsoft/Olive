@@ -18,10 +18,10 @@ python -m pip install .
 
 Then cd into the desired example folder and follow the instructions in the `README.md` file.
 
-For examples corresponding to a specific release of Olive, checkout the corresponding tag. For instance, to use the examples corresponding to the `v0.1.0` release, run the following command:
+For examples corresponding to a specific release of Olive, checkout the corresponding tag. For instance, to use the examples corresponding to the `v0.2.0` release, run the following command:
 
 ```bash
-git checkout tags/v0.1.0
+git checkout tags/v0.2.0
 ```
 
 ### Conda env

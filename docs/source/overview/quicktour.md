@@ -43,6 +43,39 @@ olive_run("user_provided_info.json")
 
 Now, let's take a look at the information you can provide to Olive to optimize your model.
 
+### Azure ML Client
+
+If you will use Azure ML resources and assets, you need to provide your Azure ML client configurations. For example:
+* You have AzureML system for targets or hosts.
+* You have Azure ML model as input model.
+
+AzureML authentication credentials is needed. Refer to
+[this](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?tabs=sdk)  for
+more details.
+
+You can either add configurations to the Olive json config file:
+```json
+"azureml_client": {
+    "subscription_id": "<subscription_id>",
+    "resource_group": "<resource_group>",
+    "workspace_name": "<workspace_name>"
+},
+```
+or you can also have your config file in a seprate json file in the following format:
+```json
+{
+    "subscription_id": "<subscription_id>",
+    "resource_group": "<resource_group>",
+    "workspace_name": "<workspace_name>"
+}
+```
+and specify your config file path to `azureml_client`:
+```json
+"azureml_client": {
+    "aml_config_path": "<path to your config file>"
+},
+```
+
 ### Input Model
 
 You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOModel and SNPEModel are supported model types.

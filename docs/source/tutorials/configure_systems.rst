@@ -53,10 +53,6 @@ Prerequisites
 `this <https://learn.microsoft.com/en-us/azure/machine-learning/concept-workspace>`_ for more details. Download
 the workspace config json.
 
-3. AzureML authentication credentials. Refer to
-`this <https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?tabs=sdk>`_ for
-more details.
-
 System Configuration
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -68,7 +64,6 @@ System Configuration
             {
                 "type": "AzureML",
                 "config": {
-                    "aml_config_path": "olive-workspace-config.json",
                     "aml_compute": "cpu-cluster",
                     "aml_docker_config": {
                         "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
@@ -88,7 +83,6 @@ System Configuration
                 conda_file_path="conda.yaml",
             )
             aml_system = AzureMLSystem(
-                aml_config_path="olive-workspace-config.json",
                 aml_compute="cpu-cluster",
                 aml_docker_config={
                         "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",

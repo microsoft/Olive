@@ -1,0 +1,99 @@
+{
+    "verbose": true,
+    "azureml_client": {
+        "subscription_id": "<place_holder>",
+        "resource_group": "<place_holder>",
+        "workspace_name": "<place_holder>"
+    },
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_path": "models/resnet_trained_for_cifar10.pt",
+            "model_storage_kind": "file",
+            "io_config": {
+                "input_names": ["input"],
+                "input_shapes": [[1, 3, 32, 32]],
+                "output_names": ["output"],
+                "dynamic_axes": {
+                    "input": {"0": "batch_size"},
+                    "output": {"0": "batch_size"}
+                }
+            }
+        }
+    },
+    "systems": {
+        "local_system": {"type": "LocalSystem"},
+        "aml_system": {
+            "type": "AzureML",
+            "config": {
+                "aml_compute": "cpu-cluster",
+                "aml_docker_config": {
+                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                    "conda_file_path": "conda.yaml"
+                },
+                "is_dev": true
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator":{
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "sub_type": "accuracy_score",
+                    "priority_rank": 1,
+                    "user_config":{
+                        "post_processing_func": "post_process",
+                        "user_script": "user_script.py",
+                        "data_dir": "data",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 16
+                    }
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_type": "avg",
+                    "priority_rank": 2,
+                    "user_config":{
+                        "user_script": "user_script.py",
+                        "data_dir": "data",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 16
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "onnx_conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 13
+            },
+            "host": "local_system",
+            "evaluator": "common_evaluator"
+        },
+        "vitis_ai_quantization": {
+            "type": "VitisAIQuantization",
+            "disable_search": true,
+            "config": {
+                "user_script": "user_script.py",
+                "data_dir": "data",
+                "dataloader_func": "resnet_calibration_reader"
+            },
+            "clean_run_cache": false
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "exhaustive"
+        },
+        "evaluator": "common_evaluator",
+        "host": "local_system",
+        "target": "local_system",
+        "cache_dir": "cache"
+    }
+}

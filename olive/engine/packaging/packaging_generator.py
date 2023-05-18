@@ -111,8 +111,8 @@ def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
     )
 
     installed_packages = pkg_resources.working_set
-    onnxruntime_pkg = [i for i in installed_packages if i.key == "onnxruntime"]
-    ort_nightly_pkg = [i for i in installed_packages if i.key == "ort-nightly"]
+    onnxruntime_pkg = [i for i in installed_packages if i.key.startswith("onnxruntime")]
+    ort_nightly_pkg = [i for i in installed_packages if i.key.startswith("ort-nightly")]
     is_nightly = True if ort_nightly_pkg else False
     is_stable = True if onnxruntime_pkg else False
 
