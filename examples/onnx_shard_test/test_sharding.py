@@ -48,6 +48,7 @@ def _main():
 
     # override the default host with pass specific host
     engine.register(onnx_sharding_pass, host=LocalSystem())
+    engine.register(OnnxModelOptimizer(), host=local_system)
 
     best_execution = engine.run(input_model, verbose=True)
 
