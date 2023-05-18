@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import json
 import logging
-import shutil
 import tempfile
 from pathlib import Path
 from test.unit_test.utils import (
@@ -123,7 +122,8 @@ class TestEngine:
         }
 
         # execute
-        output_dir = Path(tempfile.TemporaryDirectory().name)
+        temp_dir = tempfile.TemporaryDirectory()
+        output_dir = Path(temp_dir.name)
         actual_res = engine.run(pytorch_model, output_dir=output_dir)
         accelerator_spec = 0
         actual_res = actual_res[accelerator_spec]
@@ -145,7 +145,6 @@ class TestEngine:
         assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
         mock_local_system.run_pass.assert_called_once()
         mock_local_system.evaluate_model.assert_called_once_with(onnx_model, [metric])
-        shutil.rmtree(output_dir, ignore_errors=True)
 
     @patch("olive.engine.engine.LocalSystem")
     def test_run_no_search(self, mock_local_system):
@@ -166,7 +165,8 @@ class TestEngine:
         mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
 
         # output model to output_dir
-        output_dir = Path(tempfile.TemporaryDirectory().name)
+        temp_dir = tempfile.TemporaryDirectory()
+        output_dir = Path(temp_dir.name)
 
         # TODO: replace with the real accelerator spec
         accelerator_spec = 0
@@ -187,9 +187,6 @@ class TestEngine:
         result_json_path = Path(output_dir / f"{accelerator_spec}_metrics.json")
         assert result_json_path.is_file()
         assert json.load(open(result_json_path, "r")) == actual_res["metrics"]
-
-        # clean up
-        shutil.rmtree(output_dir, ignore_errors=True)
 
     def test_pass_exception(self, caplog):
         # Need explicitly set the propagate to allow the message to be logged into caplog
@@ -214,13 +211,14 @@ class TestEngine:
             model = PyTorchModel(model_loader=pytorch_model_loader, model_path=None)
 
             # execute
-            output_dir = Path(tempfile.TemporaryDirectory().name)
+            temp_dir = tempfile.TemporaryDirectory()
+            output_dir = Path(temp_dir.name)
             engine.run(model, output_dir=output_dir)
 
             # assert
             assert "Exception: test" in caplog.text
-            # clean up
-            shutil.rmtree(output_dir, ignore_errors=True)
+
+            # clean up: tempfile will be deleted automatically
 
     @patch("olive.engine.engine.LocalSystem")
     def test_run_evaluation_only(self, mock_local_system):
@@ -241,7 +239,8 @@ class TestEngine:
         mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
 
         # output model to output_dir
-        output_dir = Path(tempfile.TemporaryDirectory().name)
+        temp_dir = tempfile.TemporaryDirectory()
+        output_dir = Path(temp_dir.name)
 
         expected_res = {metric.name: 0.998}
 
@@ -255,9 +254,6 @@ class TestEngine:
         result_json_path = Path(output_dir / f"{accelerator_spec}_metrics.json")
         assert result_json_path.is_file()
         assert json.load(open(result_json_path, "r")) == actual_res
-
-        # clean up
-        shutil.rmtree(output_dir, ignore_errors=True)
 
     @patch.object(Path, "glob", return_value=[Path("cache") / "output" / "100_model.json"])
     @patch.object(Path, "unlink")
