@@ -23,7 +23,7 @@ class NewOptimizationTrick(Pass):
 ## 2. Define configuration
 
 Next, define the options used to configure this new technique by defining static method `_default_config`. This method
-take an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
+takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
 
 `AcceleratorSpec` is a dataclass that holds the information about the accelerator. The dataclass has the following fields:
 

@@ -2,8 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import tempfile
 import shutil
+import tempfile
 import unittest
 from pathlib import Path
 
