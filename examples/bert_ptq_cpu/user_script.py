@@ -42,7 +42,6 @@ class BertDataset:
         self.raw_datasets = self.raw_datasets.map(
             self.preprocess_function,
             batched=True,
-            load_from_cache_file=False,
             desc="Running tokenizer on dataset",
         )
 
