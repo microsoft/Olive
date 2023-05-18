@@ -55,4 +55,4 @@ class SNPEtoONNXConversion(Pass):
         onnx_model = dlc_to_onnx(model.model_path, config.dict(), **model.io_config)
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config.dict(), model.name)
+        return model_proto_to_olive_model(onnx_model, output_model_path, config.dict())

@@ -196,7 +196,7 @@ class OrtTransformersOptimization(Pass):
             disable_shape_infer=disable_shape_infer,
         )
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(model_fp16, output_model_path, config, model.name)
+        return model_proto_to_olive_model(model_fp16, output_model_path, config)
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
         import onnxruntime as ort
@@ -236,4 +236,4 @@ class OrtTransformersOptimization(Pass):
             optimizer.change_graph_inputs_to_int32()
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(optimizer.model, output_model_path, config, model.name)
+        return model_proto_to_olive_model(optimizer.model, output_model_path, config)

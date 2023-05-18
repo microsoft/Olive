@@ -44,10 +44,10 @@ def convertquantize(
     model_file = Path(model).resolve()
     if model_file.suffix == ".onnx":
         logger.info("Loading model...")
-        model = ONNXModel(model_file, name)
+        model = ONNXModel(model_file)
     elif model_file.suffix == ".pb":
         logger.info("Loading model...")
-        model = TensorFlowModel(model_file, name)
+        model = TensorFlowModel(model_file)
     else:
         raise Exception(f"Unsupported model format: {model_file.suffix}")
 

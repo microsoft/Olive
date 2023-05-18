@@ -245,7 +245,7 @@ class IncQuantization(Pass):
         q_model = quantization.fit(inc_model, ptq_config, calib_dataloader=inc_calib_dataloader)
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(q_model.model, output_model_path, config, model.name)
+        return model_proto_to_olive_model(q_model.model, output_model_path, config)
 
 
 class IncDynamicQuantization(IncQuantization):

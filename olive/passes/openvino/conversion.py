@@ -60,7 +60,8 @@ class OpenVINOConversion(Pass):
         except ImportError:
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
 
-        model_name = model.name if model.name else "ov_model"
+        # output model always has ov_model as name stem
+        model_name = "ov_model"
 
         model_input_param = "input_model"
         input_model = model.model_path
@@ -85,6 +86,6 @@ class OpenVINOConversion(Pass):
 
         # Save as ov model
         serialize(ov_model, xml_path=str(output_dir.with_suffix(".xml")), bin_path=str(output_dir.with_suffix(".bin")))
-        openvino_model = OpenVINOModel(model_path=output_model_path, name=model_name)
+        openvino_model = OpenVINOModel(model_path=output_model_path)
 
         return openvino_model

@@ -48,11 +48,13 @@ class OnnxConversion(Pass):
         # check if the model has components
         if model.components:
             onnx_models = []
+            component_names = []
             for component_name in model.components:
                 component_model = model.get_component(component_name)
                 component_output_path = Path(output_model_path).with_suffix("") / component_name
                 onnx_models.append(self._run_for_config(component_model, config, str(component_output_path)))
-            return CompositeOnnxModel(onnx_models, hf_config=model.hf_config)
+                component_names.append(component_name)
+            return CompositeOnnxModel(onnx_models, component_names, hf_config=model.hf_config)
 
         # get dummy inputs
         dummy_inputs = model.get_dummy_inputs()
@@ -112,4 +114,4 @@ class OnnxConversion(Pass):
                         dim_proto.dim_value = dim_value
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config, model.name)
+        return model_proto_to_olive_model(onnx_model, output_model_path, config)

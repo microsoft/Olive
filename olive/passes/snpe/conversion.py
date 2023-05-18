@@ -105,4 +105,4 @@ class SNPEConversion(Pass):
 
         to_dlc(model.model_path, model.framework, config.dict(), output_model_path)
         io_config = get_dlc_io_config(output_model_path, config.input_names, config.output_names)
-        return SNPEModel(model_path=output_model_path, name=model.name, **io_config)
+        return SNPEModel(model_path=output_model_path, **io_config)

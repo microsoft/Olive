@@ -301,7 +301,7 @@ class VitisAIQuantization(Pass):
             **run_config,
         )
 
-        return ONNXModel(output_model_path, model.name)
+        return ONNXModel(output_model_path)
 
     def _quant_preprocess(self, model: ONNXModel, output_model_path: str) -> ONNXModel:
         try:

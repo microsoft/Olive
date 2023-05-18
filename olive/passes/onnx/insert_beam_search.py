@@ -133,16 +133,18 @@ class InsertBeamSearch(Pass):
 
         # Load encoder/decoder and insert necessary (but unused) graph inputs expected by BeamSearch op
         model_A = model.get_model_component(0)
+        model_A_name = model.get_model_component_name(0)
         model_B = model.get_model_component(1)
+        model_B_name = model.get_model_component_name(1)
         model_proto_A = model_A.load_model()
         model_proto_B = model_B.load_model()
         self.add_attention_mask(model_proto_A)
         self.add_attention_mask(model_proto_B)
 
         combined_model = self.chain_model(
-            model_proto_A, model_A.name, model_proto_B, model_B.name, model.get_model_config(), config
+            model_proto_A, model_A_name, model_proto_B, model_B_name, model.get_model_config(), config
         )
 
         # save the model to the output path and return the model
         output_model_path = ONNXModel.resolve_path(output_model_path)
-        return model_proto_to_olive_model(combined_model, output_model_path, config, model.name)
+        return model_proto_to_olive_model(combined_model, output_model_path, config)

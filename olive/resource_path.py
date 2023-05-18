@@ -111,6 +111,10 @@ class ResourcePath(ConfigBase):
         """Save the resource to a directory."""
         return self.config.save_to_dir(dir_path, overwrite)
 
+    def is_local_resource(self) -> bool:
+        """Return True if the resource is a local resource."""
+        return self.type in [ResourceType.LocalFile, ResourceType.LocalFolder, ResourceType.StringName]
+
 
 def _overwrite_helper(new_path: Union[Path, str], overwrite: bool):
     new_path = Path(new_path).resolve()
@@ -160,6 +164,11 @@ class LocalResourceConfig(ResourceConfig):
         if not path.exists():
             raise FileNotFoundError(f"{path} does not exist.")
         return path
+
+    @validator("path")
+    def resolve_path(cls, v: Union[Path, str]) -> Union[Path, str]:
+        """Resolve the path."""
+        return Path(v).resolve()
 
 
 class LocalFileConfig(LocalResourceConfig):

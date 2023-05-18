@@ -350,15 +350,13 @@ class Pass(ABC):
                 rank_output_path = Path(output_model_path).with_suffix("") / str(rank)
                 output_rank_model = self._run_for_config(input_rank_model, config, rank_output_path)
                 output_filepaths.append(output_rank_model.model_path)
-            return DistributedOnnxModel(
-                output_filepaths, model.name, version=model.version, inference_settings=model.inference_settings
-            )
+            return DistributedOnnxModel(output_filepaths, inference_settings=model.inference_settings)
         elif isinstance(model, CompositeOnnxModel) and not self._accepts_composite_model:
             components = []
             for cidx, child in enumerate(model.get_model_components()):
                 component_output_path = Path(output_model_path).with_suffix("") / str(cidx)
                 components.append(self._run_for_config(child, config, str(component_output_path)))
-            return CompositeOnnxModel(components, model.name, hf_config=model.hf_config)
+            return CompositeOnnxModel(components, hf_config=model.hf_config)
 
         return self._run_for_config(model, config, output_model_path)
 

@@ -8,8 +8,9 @@ from typing import Optional, Union
 
 import onnx
 
-from olive.model import ModelStorageKind, ONNXModel
+from olive.model import ONNXModel
 from olive.passes.pass_config import PassConfigParam
+from olive.resource_path import ResourcePath, ResourceType
 
 logger = logging.getLogger(__name__)
 
@@ -119,10 +120,7 @@ def model_proto_to_file(
 
 
 def model_proto_to_olive_model(
-    model_proto: onnx.ModelProto,
-    output_model_path: Union[str, Path],
-    external_data_config: dict,
-    name: Optional[str] = None,
+    model_proto: onnx.ModelProto, output_model_path: Union[str, Path], external_data_config: dict
 ) -> ONNXModel:
     """
     Save the ONNX model to the specified path and return the ONNXModel.
@@ -142,9 +140,11 @@ def model_proto_to_olive_model(
         all_tensors_to_one_file=external_data_config["all_tensors_to_one_file"],
         external_data_name=external_data_config["external_data_name"],
     )
+    if has_external_data:
+        model_path = ResourcePath(type=ResourceType.LocalFolder, path=Path(output_model_path).parent)
+        onnx_file_name = Path(output_model_path).name
+    else:
+        model_path = ResourcePath(type=ResourceType.LocalFile, path=output_model_path)
+        onnx_file_name = None
 
-    return ONNXModel(
-        model_path=output_model_path,
-        name=name,
-        model_storage_kind=ModelStorageKind.LocalFile if not has_external_data else ModelStorageKind.LocalFolder,
-    )
+    return ONNXModel(model_path=model_path, onnx_file_name=onnx_file_name)
