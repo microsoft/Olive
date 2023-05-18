@@ -218,6 +218,16 @@ class OliveEvaluator(ABC):
             )
         return MetricResult.parse_obj(metric_res)
 
+    def _get_latency_config_from_metric(self, metric: Metric):
+        warmup_num, repeat_test_num, sleep_num = None, None, None
+        for sub_type in metric.sub_types:
+            if sub_type.metric_config:
+                warmup_num = sub_type.metric_config.warmup_num
+                repeat_test_num = sub_type.metric_config.repeat_test_num
+                sleep_num = sub_type.metric_config.sleep_num
+                break
+        return warmup_num, repeat_test_num, sleep_num
+
 
 class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
     def __init__(self):
@@ -264,13 +274,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
     def _evaluate_onnx_latency(
         self, model: OliveModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
     ) -> Dict[str, Any]:
-        warmup_num, repeat_test_num, sleep_num = None, None, None
-        for sub_type in metric.sub_types:
-            if sub_type.metric_config:
-                warmup_num = sub_type.metric_config.warmup_num
-                repeat_test_num = sub_type.metric_config.repeat_test_num
-                sleep_num = sub_type.metric_config.sleep_num
-                break
+        warmup_num, repeat_test_num, sleep_num = self._get_latency_config_from_metric(metric)
 
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
         io_config = model.get_io_config()
@@ -568,13 +572,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
     def _evaluate_latency(
         self, model: SNPEModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
     ) -> MetricResult:
-        warmup_num, repeat_test_num, sleep_num = None, None, None
-        for sub_type in metric.sub_types:
-            if sub_type.metric_config:
-                warmup_num = sub_type.metric_config.warmup_num
-                repeat_test_num = sub_type.metric_config.repeat_test_num
-                sleep_num = sub_type.metric_config.sleep_num
-                break
+        warmup_num, repeat_test_num, sleep_num = self._get_latency_config_from_metric(metric)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         data_dir, input_data, _ = next(iter(dataloader))
@@ -651,16 +649,16 @@ class OliveEvaluatorConfig(ConfigBase):
 
         if not rank_set and len(sub_type_names) == 1:
             logger.debug(
-                """No priority rank is specified, but only one sub type
+                """No priority is specified, but only one sub type
                 metric is specified. Use rank 1 for single for this metric."""
             )
             v[0].sub_types[0].priority = 1
         elif not rank_set and len(sub_type_names) > 1:
-            raise ValueError("Priority rank must be specified for multiple sub type metrics")
+            raise ValueError("Priority must be specified for multiple sub type metrics")
 
         expected_rank_set = set(range(1, len(sub_type_with_rank) + 1))
         # Check if all ranks are present
         if rank_set != expected_rank_set:
-            raise ValueError(f"Priority ranks must be unique and in the range 1 to {metric_len}")
+            raise ValueError(f"Priorities must be unique and in the range 1 to {metric_len}")
 
         return v

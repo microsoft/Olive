@@ -123,7 +123,7 @@ def flatten_metric_sub_type(metric_dict: Dict[str, Dict]):
     flatten_results = {}
     for metric_name, metric_res in metric_dict.items():
         for sub_type_name, sub_type_res in metric_res.items():
-            key = f"{metric_name}{MetricResult.delimiter}{sub_type_name}"
+            key = joint_metric_key(metric_name, sub_type_name)
             flatten_results[key] = sub_type_res
     return flatten_results
 

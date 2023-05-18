@@ -8,7 +8,6 @@ from pathlib import Path
 
 import mlflow
 import pandas as pd
-import pytest
 import transformers
 from azureml.evaluate import mlflow as aml_mlflow
 
@@ -16,7 +15,6 @@ from olive.model import PyTorchModel
 
 
 class TestPyTorchMLflowModel(unittest.TestCase):
-    @pytest.fixture(autouse=True)
     def setup(self):
         self.tempdir = tempfile.TemporaryDirectory()
         self.root_dir = Path(self.tempdir.name)
@@ -38,6 +36,7 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         )
 
     def test_load_model(self):
+        self.setup()
 
         olive_model = PyTorchModel(model_path=self.model_path, model_file_format="PyTorch.MLflow").load_model()
         mlflow_model = mlflow.pyfunc.load_model(self.model_path)
@@ -60,6 +59,7 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         olive_predict_result = [olive_model.config.id2label[olive_result]]
 
         assert mlflow_predict_result == olive_predict_result
+        self.tempdir.cleanup()
 
 
 class TestPyTorchHFModel(unittest.TestCase):
