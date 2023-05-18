@@ -20,9 +20,6 @@ from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Precision, Rec
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.hardware import Device
 from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
-from olive.systems.olive_system import OliveSystem
-from olive.systems.local import LocalSystem
-
 
 logger = logging.getLogger(__name__)
 
@@ -470,7 +467,13 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         return OliveEvaluator.compute_latency(metric, latencies)
 
     def _evaluate_accuracy(
-        self, model: ONNXModel, metric: Metric, dataloader: Dataset, post_func=None, device: Device = Device.CPU, execution_providers: Union[str, List[str]] = None
+        self,
+        model: ONNXModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
     ) -> Dict[str, Any]:
         if isinstance(model, ONNXModel):
             return self._evaluate_onnx_accuracy(model, metric, dataloader, post_func, device, execution_providers)
@@ -480,7 +483,13 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             raise TypeError(f"Cannot evaluate accuracy for model of type: {type(model)}")
 
     def _evaluate_latency(
-        self, model: OliveModel, metric: Metric, dataloader: Dataset, post_func=None, device: Device = Device.CPU, execution_providers: Union[str, List[str]] = None
+        self,
+        model: OliveModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
     ) -> Dict[str, Any]:
         if isinstance(model, ONNXModel):
             return self._evaluate_onnx_latency(model, metric, dataloader, post_func, device, execution_providers)
