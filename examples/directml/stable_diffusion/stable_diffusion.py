@@ -7,6 +7,7 @@ import json
 import shutil
 import warnings
 from pathlib import Path
+import protobuf
 
 import onnxruntime as ort
 import PySimpleGUI as sg
@@ -268,6 +269,11 @@ if __name__ == "__main__":
 
     if version.parse(ort.__version__) < version.parse("1.15.0"):
         print("This script requires onnxruntime-directml 1.15.0 or newer")
+        exit(1)
+
+    # protobuf 4.x aborts with OOM when optimizing unet
+    if version.parse(protobuf.__version__) > version.parse("3.20.3"):
+        print("This script requires protobuf 3.20.3. Please ensure your package version matches requirements.txt.")
         exit(1)
 
     script_dir = Path(__file__).resolve().parent

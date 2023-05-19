@@ -53,7 +53,7 @@
                 "float16": true,
                 "use_gpu": true,
                 "keep_io_types": false,
-                "target_provider": "directml_future"
+                "target_provider": "directml"
             }
         }
     },
