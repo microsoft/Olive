@@ -1,7 +1,7 @@
 (Quick-tour)=
 # Quick Tour
 
-Here is a quick guide on using Olive for model optimization with two steps. We will focus on accelerating a PyTorch model on the CPU leveraging ONNX conversion and ONNX quantization. 
+Here is a quick guide on using Olive for model optimization with two steps. We will focus on accelerating a PyTorch model on the CPU leveraging ONNX conversion and ONNX quantization.
 
 ## Step1 Install Olive
 Before you begin, install Olive and the necessary packages.
@@ -107,7 +107,7 @@ You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOMode
 An optimization technique, which we call a Pass, can be run on a variety of host systems and the resulting model evaluated on desired target systems. More details for the available systems can be found at at [OliveSystems api reference](systems).
 
 ### [Evaluator](../overview/options.md/#evaluators-information)
-You specify your performance requirements in evaluator, such as accuracy and latency, which the optimized candidate models should meet. Olive utilizes the information to tune the optimal set of optimization parameters for the "best" model. 
+You specify your performance requirements in evaluator, such as accuracy and latency, which the optimized candidate models should meet. Olive utilizes the information to tune the optimal set of optimization parameters for the "best" model.
 
 ### [Passes](../overview/options.md/#passes-information)
 An optimization technique is called as a Pass in Olive. You list optimizations that you want to apply on the input model. In this example, we first convert the pytorch model to ONNX then quantize it.
@@ -120,7 +120,7 @@ Note: In addition to these five core sectors, Olive provides a rich selection of
 ## Olive Optimization Result
 ### Olive Footprint
 When the optimization process is completed, Olive will generate a report(json) under the `output_dir`. The report contains the:
-- `footprints.json`: A dictionary of all the footprints generated during the optimization process. 
+- `footprints.json`: A dictionary of all the footprints generated during the optimization process.
 - `pareto_frontier_footprints.json`: A dictionary of the footprints that are on the Pareto frontier based on the metrics goal you set in config of `evaluators.metrics`.
 
 Here is an example of that:
