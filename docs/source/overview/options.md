@@ -206,7 +206,6 @@ information of the evaluator contains following items:
                     {"name": "f1_score"},
                     {"name": "auc", "metric_config": {"reorder": true}}
                 ],
-                "priority": 1,
                 "user_config":{
                     "post_processing_func": "post_process",
                     "user_script": "user_script.py",
@@ -218,7 +217,7 @@ information of the evaluator contains following items:
                 "name": "latency",
                 "type": "latency",
                 "sub_types": [
-                    {"name": "avg","priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
+                    {"name": "avg", "goal": {"type": "percent-min-improvement", "value": 20}},
                     {"name": "max"},
                     {"name": "min"}
                 ],

@@ -70,7 +70,7 @@ Latency Metric
                 "name": "latency",
                 "type": "latency",
                 "sub_types": [
-                    {"name": "avg","priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}}
+                    {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}}
                 ],
                 "user_config": {
                     "user_script": "user_script.py",
@@ -185,7 +185,7 @@ If you have multiple metrics to evaluate, you can configure them in the followin
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [
-                        {"name": "avg","priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
+                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
                         {"name": "max"},
                         {"name": "min"}
                     ]
