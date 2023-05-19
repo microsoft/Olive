@@ -28,9 +28,9 @@ def stablelm_inputs(batch_size, torch_dtype):
         "attention_mask": torch.randint(10, (batch_size, attention_mask_sequence_length), dtype=torch.int64),
     }
 
-    for layer_index in range(32):
-        inputs[f"past_key_values.{layer_index}.key"] = torch.rand((batch_size, 32, past_sequence_length, 128), dtype=torch_dtype)
-        inputs[f"past_key_values.{layer_index}.value"] = torch.rand((batch_size, 32, past_sequence_length, 128), dtype=torch_dtype)
+    for layer_index in range(16):
+        inputs[f"past_key_values.{layer_index}.key"] = torch.rand((batch_size, 48, past_sequence_length, 128), dtype=torch_dtype)
+        inputs[f"past_key_values.{layer_index}.value"] = torch.rand((batch_size, 48, past_sequence_length, 128), dtype=torch_dtype)
 
     inputs["use_cache_branch"] = torch.ones((1,), dtype=torch.bool)
 

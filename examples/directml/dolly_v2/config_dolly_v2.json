@@ -54,7 +54,10 @@
             }
         },
         "merge": {
-            "type": "OptimumMerging"
+            "type": "OptimumMerging",
+            "config": {
+                "target_provider": "directml"
+            }
         }
     },
     "engine": {

@@ -126,7 +126,7 @@ if __name__ == "__main__":
     parser.add_argument("--optimize_provider", type=str, default="directml", help="EP target for inference")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
-    parser.add_argument("--model", default="stabilityai/stablelm-base-alpha-7b", type=str)
+    parser.add_argument("--model", default="stabilityai/stablelm-tuned-alpha-7b", type=str)
     parser.add_argument("--max_new_tokens", default=64, type=int, help="Maximum number of tokens that the model will generate")
     args = parser.parse_args()
 

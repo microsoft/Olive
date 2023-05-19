@@ -1,7 +1,6 @@
 torch
---extra-index-url https://download.pytorch.org/whl/cu117
 transformers
 onnx
 accelerate
-optimum @ git+https://github.com/PatriceVignola/optimum@c2f93a4
+optimum
 protobuf==3.20.3 # protobuf 4.x aborts with OOM when optimizing

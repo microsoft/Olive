@@ -12,6 +12,7 @@ from pathlib import Path
 
 from optimum.onnx import merge_decoders
 import onnx
+import onnxruntime
 import os
 from onnx import ModelProto
 
@@ -23,7 +24,18 @@ class OptimumMerging(Pass):
 
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
-        return get_external_data_config()
+        config = {
+            "target_provider": PassConfigParam(
+                type_=str,
+                default_value=None,
+                description=(
+                    "Target execution provider. This parameter will be removed when "
+                    "accelerators/targets are visible to passes."
+                ),
+            ),
+        }
+        config.update(get_external_data_config())
+        return config
 
     def _run_for_config(
         self, model: CompositeOnnxModel, config: Dict[str, Any], output_model_path: str
@@ -58,5 +70,19 @@ class OptimumMerging(Pass):
             all_tensors_to_one_file=True,
             location="decoder_model_merged.onnx.data",
         )
+
+        # Doing a dry run of ORT allows us to remove the initializers that were orphaned by the merging step
+        sess_options = onnxruntime.SessionOptions()
+        sess_options.optimized_model_filepath = output_model_path
+
+        target_provider = config["target_provider"]
+        if target_provider == "directml":
+            providers = ["DmlExecutionProvider"]
+        elif target_provider == "cuda":
+            providers = ["CUDAExecutionProvider"]
+        else:
+            providers = ["CPUExecutionProvider"]
+        
+        onnxruntime.InferenceSession(output_model_path, sess_options, providers=providers)
 
         return ONNXModel(output_model_path, model.name)

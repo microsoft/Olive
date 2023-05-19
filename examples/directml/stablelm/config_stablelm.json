@@ -3,7 +3,7 @@
     "input_model":{
         "type": "OptimumModel",
         "config": {
-            "model_path": "stabilityai/stablelm-base-alpha-7b",
+            "model_path": "stabilityai/stablelm-tuned-alpha-7b",
             "name": "stablelm",
             "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"]
         }
@@ -54,7 +54,10 @@
             }
         },
         "merge": {
-            "type": "OptimumMerging"
+            "type": "OptimumMerging",
+            "config": {
+                "target_provider": "directml"
+            }
         }
     },
     "engine": {
