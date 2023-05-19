@@ -1,13 +1,12 @@
-(Guide-for-contributors)=
-# Guide for contributors
-## How to add new Pass
+(How-to-add-optimization-pass)=
+# How to add new optimization Pass
 
 Olive provides simple interface to introduce new model optimization techniques. Each optimization technique is
 represented as a Pass in Olive.
 
 To introduce a new Pass follow these 3 steps.
 
-### 1. Define a new class
+## 1. Define a new class
 
 Define a new class using Pass as the base class. For example
 
@@ -21,7 +20,7 @@ class NewOptimizationTrick(Pass):
     _requires_user_script: bool = False
 ```
 
-### 2. Define configuration
+## 2. Define configuration
 
 Next, define the options used to configure this new technique by defining static method `_default_config`. The method should
 return `Dict[str, PassConfigParam]`.
@@ -45,7 +44,7 @@ return `Dict[str, PassConfigParam]`.
 - `searchable_values`: default searchable values for the parameter. This value is used as the default if `disable_search=True`.
     Must be a Categorical or Conditional SearchParameter.
 
-#### Example
+### Example
 ```python
     @staticmethod
     def _default_config() -> Dict[str, PassConfigParam]:
@@ -88,7 +87,7 @@ return `Dict[str, PassConfigParam]`.
 
 ```
 
-### 3. Implement the run function
+## 3. Implement the run function
 
 The final step is to implement the `_run_for_config` method to optimize the input model. Olive Engine will invoke the
 method while auto tuning the model. This method will also receive a search point (one set of configuration option from

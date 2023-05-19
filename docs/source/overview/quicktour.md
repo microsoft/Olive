@@ -3,17 +3,11 @@
 
 Here is a quick guide on using Olive for model optimization with two steps. We will focus on accelerating a PyTorch model on the CPU leveraging ONNX conversion and ONNX quantization. 
 
-## Step1 Install Olive and dependencies
+## Step1 Install Olive
 Before you begin, install Olive and the necessary packages.
 ```bash
 pip install olive-ai
 ```
-
-Olive leverages ONNX Runtime as its model infeference engine, requiring the installation of the ONNX Runtime package. Here we install the ONNX Runtime CPU package given our target hardware is CPU.
-```bash
-pip install onnxruntime
-```
-
 Refer to the [Installation](Installation) section for more details.
 
 ## Step 2 Run Olive with Model Optimization Workflow
@@ -60,6 +54,14 @@ Now, let's take a look at the json configuration file you need to provide to opt
         }
     },
 
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "device": "cpu"
+            }
+        }
+    },
 
     "evaluators": {
         "common_evaluator":{
@@ -87,20 +89,31 @@ Now, let's take a look at the json configuration file you need to provide to opt
             }
         },
         "quantization": {
-            "type": "OnnxQuantization"
+            "type": "OnnxDynamicQuantization"
         },
     },
+
+    "engine": {
+        "evaluator": "common_evaluator",
+        "packaging_config": {}
+    }
 }
 ```
-It is composed with 3 parts:
+It is composed with 5 parts:
 ### [Input Model](../overview/options.md/#input-model-information)
 You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOModel and SNPEModel are supported model types.
+
+### [Host and Target Systems](../overview/options.md/#systems-information)
+An optimization technique, which we call a Pass, can be run on a variety of host systems and the resulting model evaluated on desired target systems. More details for the available systems can be found at at [OliveSystems api reference](systems).
 
 ### [Evaluator](../overview/options.md/#evaluators-information)
 You specify your performance requirements in evaluator, such as accuracy and latency, which the optimized candidate models should meet. Olive utilizes the information to tune the optimal set of optimization parameters for the "best" model. 
 
 ### [Passes](../overview/options.md/#passes-information)
 An optimization technique is called as a Pass in Olive. You list optimizations that you want to apply on the input model. In this example, we first convert the pytorch model to ONNX then quantize it.
+
+### [Engine](../overview/options.md/#engine-information)
+The engine is used to handle the auto-tuning process.
 
 Note: In addition to these three core sectors, Olive provides a rich selection of optional configurations to suit diverse scenarios. For detailed information on these options, please refer to the [options.md](../overview/options.md/) file 
 

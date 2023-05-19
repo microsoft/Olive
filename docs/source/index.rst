@@ -40,7 +40,7 @@ This document introduces Olive and provides some examples to get you started.
    tutorials/advanced_users
    tutorials/how_to_write_userscript
    tutorials/packaging_output_models
-   tutorials/guide_for_contributors
+   tutorials/how_to_add_optimization_pass
 
 .. toctree::
    :maxdepth: 1
