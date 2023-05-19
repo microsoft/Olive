@@ -15,8 +15,11 @@ from olive.model import OliveModel
 logger = logging.getLogger(__name__)
 
 
-def create_config_file(tempdir, model: OliveModel, metrics: List[Metric], container_root_path: Path):
+def create_config_file(
+    tempdir, model: OliveModel, metrics: List[Metric], container_root_path: Path, model_mount_path: str
+):
     model_json = model.to_json(check_object=True)
+    model_json["config"]["model_path"] = model_mount_path
 
     config_file_path = Path(tempdir) / "config.json"
     data = {"metrics": [k.dict() for k in metrics], "model": model_json}
@@ -81,7 +84,6 @@ def create_metric_volumes_list(metrics: List[Metric], container_root_path: Path,
 def create_model_mount(model: OliveModel, container_root_path: Path):
     model_mount_path = str(container_root_path / Path(model.model_path).name)
     model_mount_str = f"{str(Path(model.model_path).resolve())}:{model_mount_path}"
-    model.model_path = model_mount_path
     model_mount_str_list = [model_mount_str]
 
     if model.framework == Framework.PYTORCH:

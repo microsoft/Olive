@@ -117,7 +117,11 @@ class DockerSystem(OliveSystem):
         )
 
         config_mount_path, config_file_mount_str = docker_utils.create_config_file(
-            tempdir=tempdir, model=model_copy, metrics=metrics_copy, container_root_path=container_root_path
+            tempdir=tempdir,
+            model=model_copy,
+            metrics=metrics_copy,
+            container_root_path=container_root_path,
+            model_mount_path=model_mount_path,
         )
         volumes_list.append(config_file_mount_str)
 
