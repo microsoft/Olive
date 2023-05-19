@@ -1,5 +1,5 @@
 # Acceleration on CPU
-[Whisper Optimization](https://github.com/microsoft/Olive/tree/main/examples/whisper)
+[Whisper optimization with PTQ and pre/post processing](https://github.com/microsoft/Olive/tree/main/examples/whisper)
 
 [BERT optimization with Intel® Neural Compressor Post Training quantization](https://github.com/microsoft/Olive/tree/main/examples/bert_inc_ptq_cpu)
 
