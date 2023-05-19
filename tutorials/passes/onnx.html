@@ -87,6 +87,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#post-training-quantization-ptq">Post Training Quantization (PTQ)</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#quantize-with-onnxruntime">Quantize with onnxruntime</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#quantize-with-intel-neural-compressor">Quantize with Intel® Neural Compressor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#quantize-with-amd-vitis-ai-quantizer">Quantize with AMD Vitis AI Quantizer</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#id5">Example Configuration</a></li>
 </ul>
 </li>
@@ -298,6 +299,13 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 <code class="docutils literal notranslate"><span class="pre">IncStaticQuantization</span></code> respectively.</p>
 <p>Please refer to <a class="reference internal" href="../../api/passes.html#inc-quantization"><span class="std std-ref">IncQuantization</span></a>, <a class="reference internal" href="../../api/passes.html#inc-dynamic-quantization"><span class="std std-ref">IncDynamicQuantization</span></a> and
 <a class="reference internal" href="../../api/passes.html#inc-static-quantization"><span class="std std-ref">IncStaticQuantization</span></a> for more details about the passes and their config parameters.</p>
+</section>
+<section id="quantize-with-amd-vitis-ai-quantizer">
+<h3>Quantize with AMD Vitis AI Quantizer<a class="headerlink" href="#quantize-with-amd-vitis-ai-quantizer" title="Permalink to this heading">¶</a></h3>
+<p>Olive also integrates <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/qdq_quantizer.py">AMD Vitis AI Quantizer</a> for quantization.</p>
+<p>The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
+Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.</p>
+<p>Please refer to <a class="reference internal" href="../../api/passes.html#vitis-ai-quantization"><span class="std std-ref">VitisAIQuantization</span></a> for more details about the pass and its config parameters.</p>
 </section>
 <section id="id5">
 <h3>Example Configuration<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
