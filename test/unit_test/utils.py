@@ -98,14 +98,14 @@ def create_fixed_dataloader(datadir, batchsize):
     return dataloader
 
 
-def get_accuracy_metric(acc_subtype, random_dataloader=True):
+def get_accuracy_metric(acc_subtype, random_dataloader=True, user_config=None):
     accuracy_metric_config = {"dataloader_func": create_dataloader if random_dataloader else create_fixed_dataloader}
     accuracy_metric = Metric(
         name="accuracy",
         type=MetricType.ACCURACY,
         sub_type=acc_subtype,
         goal=MetricGoal(type="threshold", value=0.99),
-        user_config=accuracy_metric_config,
+        user_config=user_config or accuracy_metric_config,
     )
     return accuracy_metric
 
@@ -119,13 +119,13 @@ def get_custom_metric():
     return custom_metric
 
 
-def get_latency_metric(lat_subtype):
+def get_latency_metric(lat_subtype, user_config=None):
     latency_metric_config = {"dataloader_func": create_dataloader}
     latency_metric = Metric(
         name="latency",
         type=MetricType.LATENCY,
         sub_type=lat_subtype,
-        user_config=latency_metric_config,
+        user_config=user_config or latency_metric_config,
     )
     return latency_metric
 
@@ -182,7 +182,7 @@ def get_glue_huggingface_data_config():
     return DataConfig(
         type="HuggingfaceContainer",
         params_config={
-            "task_type": "text-classification",
+            "task": "text-classification",
             "model_name": "bert-base-uncased",
             "data_name": "glue",
             "subset": "mrpc",

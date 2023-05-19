@@ -7,6 +7,7 @@ to apply from user in the form of a json dictionary. In this document, we docume
 The options are organized into following sections:
 
 - [Verbosity](#verbosity) `verbose`
+- [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
 - [Systems Information](#systems-information) `systems`
 - [Evaluators Information](#evaluators-information) `evaluators`
@@ -17,6 +18,14 @@ The options are organized into following sections:
 `verbose: [Boolean]`
 
 If set to `true`, Olive will log verbose information during the optimization process. The default value is `false`.
+
+## Azure ML Client
+`azureml_client: [Dict]`
+- `subscription_id: [str]` Azure account subscription id.
+- `resource_group: [str]` Azure account resource group name.
+- `workspace_name: [str]` Azure ML workspace name.
+- `aml_config_path: [str]` The path to Azure config file.
+- `read_timeout: [int]` read timeout in seconds for HTTP requests, user can increase if they find the default value too small. The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to sometimes hang for a long time between retries of job stream and download steps.
 
 ## Input Model Information
 
@@ -43,7 +52,7 @@ case insensitive.
     - `hf_config: [Dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
     model. This dictionary specifies the following items:
 
-        - `model_name: [str]`: This the model name of the huggingface model such as `distilbert-base-uncased`.
+        - `model_name: [str]`: This the model name of the huggingface model such as `distilbert-base-uncased` which will be used to load the model with huggingface `from_pretrained` method.
 
         - `task: [str]`: This is the task type for the model such as `text-classification`. The complete list of supported task can be found
         at [huggingface-tasks](https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task).
@@ -53,9 +62,11 @@ case insensitive.
         - `model_config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
         [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
 
-        - `dataset: [dict]`: For huggingface transformer models, if you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading_datasets.html). Olive exposes the following configs(which will be extend in the future):
+        - `dataset: [dict]`: Ff you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading_datasets.html). Olive exposes the following configs(which will be extend in the future):
             ```json
             "dataset": {
+                "model_name": "distilbert-base-uncased",  # the model name of the huggingface model, if not provided, it will use the model_name in hf_config
+                "task": "text-classification",  # the task type for the model, if not provided, it will use the task in hf_config
                 "data_name":"glue",  # the name of the dataset
                 "subset": "mrpc",  # the subset of the dataset, could be "mrpc", "mnli" and etc. You can find the available subsets in the dataset page.
                 "split": "validation",  # the split of the dataset, could be "train", "validation", "test" and etc. You can find the available splits in the dataset page.
@@ -64,6 +75,7 @@ case insensitive.
                 "batch_size": 1  # the batch size of the dataloader
             }
             ```
+            For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide `dataset` config only like above.
 
 Please find the detailed config options from following table for each model type:
 
@@ -117,7 +129,6 @@ Please refer to [Configuring OliveSystem](configuring_olivesystem) for the more 
     "aml_system": {
         "type": "AzureML",
         "config": {
-            "aml_config_path": "olive-workspace-config.json",
             "aml_compute": "cpu-cluster",
             "aml_docker_config": {
                 "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
@@ -258,6 +269,7 @@ Please also find the detailed options from following table for each pass:
 | [SNPEConversion](snpe_conversion) | Convert ONNX or TensorFlow model to SNPE DLC. Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK. |
 | [SNPEQuantization](snpe_quantization) | Quantize SNPE model. Uses snpe-dlc-quantize tool from the SNPE SDK. |
 | [SNPEtoONNXConversion](snpe_to_onnx_conversion) | Convert a SNPE DLC to ONNX to use with SNPE Execution Provider. Creates a ONNX graph with the SNPE DLC as a node. |
+| [VitisAIQuantization](vitis_ai_quantization) | AMD-Xilinx Vitis-AI Quantization Pass.  |
 
 ### Example
 ```json
@@ -332,6 +344,8 @@ This is a dictionary that contains the information of the engine. The informatio
 
 - `clean_evaluation_cache: [Boolean]` This decides whether to clean the evaluation cache of the engine before running the engine. This is
 `false` by default.
+
+- `plot_pareto_frontier` This decides whether to plot the pareto frontier of the search results. This is `false` by default.
 
 - `output_dir: [str]` The directory to store the output of the engine. If not specified, the output will be stored in the current working
     directory. For a run with no search, the output is the output model of the final pass and its evaluation result. For a run with search, the

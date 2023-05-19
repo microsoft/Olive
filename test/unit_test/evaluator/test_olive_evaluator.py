@@ -7,53 +7,56 @@ from unittest.mock import patch
 
 import pytest
 
-from olive.evaluator.evaluation import evaluate_accuracy, evaluate_latency
 from olive.evaluator.metric import AccuracySubType, LatencySubType
+from olive.systems.local import LocalSystem
 
 
-class TestEvaluation:
+class TestOliveEvaluator:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.system = LocalSystem()
 
     ACCURACY_TEST_CASE = [
         (
             get_pytorch_model(),
             get_accuracy_metric(AccuracySubType.ACCURACY_SCORE),
-            "olive.evaluator.evaluation.AccuracyScore",
+            "olive.evaluator.accuracy.AccuracyScore",
             0.99,
         ),
         (
             get_pytorch_model(),
             get_accuracy_metric(AccuracySubType.F1_SCORE),
-            "olive.evaluator.evaluation.F1Score",
+            "olive.evaluator.accuracy.F1Score",
             0.99,
         ),
         (
             get_pytorch_model(),
             get_accuracy_metric(AccuracySubType.PRECISION),
-            "olive.evaluator.evaluation.Precision",
+            "olive.evaluator.accuracy.Precision",
             0.99,
         ),
-        (get_pytorch_model(), get_accuracy_metric(AccuracySubType.RECALL), "olive.evaluator.evaluation.Recall", 0.99),
-        (get_pytorch_model(), get_accuracy_metric(AccuracySubType.AUC), "olive.evaluator.evaluation.AUC", 0.99),
+        (get_pytorch_model(), get_accuracy_metric(AccuracySubType.RECALL), "olive.evaluator.accuracy.Recall", 0.99),
+        (get_pytorch_model(), get_accuracy_metric(AccuracySubType.AUC), "olive.evaluator.accuracy.AUC", 0.99),
         (
             get_onnx_model(),
             get_accuracy_metric(AccuracySubType.ACCURACY_SCORE),
-            "olive.evaluator.evaluation.AccuracyScore",
+            "olive.evaluator.accuracy.AccuracyScore",
             0.99,
         ),
         (
             get_onnx_model(),
             get_accuracy_metric(AccuracySubType.F1_SCORE),
-            "olive.evaluator.evaluation.F1Score",
+            "olive.evaluator.accuracy.F1Score",
             0.99,
         ),
         (
             get_onnx_model(),
             get_accuracy_metric(AccuracySubType.PRECISION),
-            "olive.evaluator.evaluation.Precision",
+            "olive.evaluator.accuracy.Precision",
             0.99,
         ),
-        (get_onnx_model(), get_accuracy_metric(AccuracySubType.RECALL), "olive.evaluator.evaluation.Recall", 0.99),
-        (get_onnx_model(), get_accuracy_metric(AccuracySubType.AUC), "olive.evaluator.evaluation.AUC", 0.99),
+        (get_onnx_model(), get_accuracy_metric(AccuracySubType.RECALL), "olive.evaluator.accuracy.Recall", 0.99),
+        (get_onnx_model(), get_accuracy_metric(AccuracySubType.AUC), "olive.evaluator.accuracy.AUC", 0.99),
     ]
 
     @pytest.mark.parametrize(
@@ -62,14 +65,14 @@ class TestEvaluation:
     )
     def test_evaluate_accuracy(self, olive_model, metric, acc_subtype, expected_res):
         # setup
-        with patch(acc_subtype) as mock_acc:
-            mock_acc.return_value.measure.return_value = expected_res
+        with patch(f"{acc_subtype}.measure") as mock_acc:
+            mock_acc.return_value = expected_res
 
             # execute
-            actual_res = evaluate_accuracy(olive_model, metric)
+            actual_res = self.system.evaluate_model(olive_model, [metric])[metric.name]
 
             # assert
-            mock_acc.return_value.measure.assert_called_once()
+            mock_acc.assert_called_once()
             assert expected_res == actual_res
 
     LATENCY_TEST_CASE = [
@@ -99,7 +102,34 @@ class TestEvaluation:
     )
     def test_evaluate_latency(self, olive_model, metric, expected_res):
         # execute
-        actual_res = evaluate_latency(olive_model, metric)
+        actual_res = self.system.evaluate_model(olive_model, [metric])[metric.name]
 
         # assert
         assert expected_res > actual_res
+
+
+@pytest.mark.skip(reason="Requires custom onnxruntime build with mpi enabled")
+class TestDistributedOnnxEvaluator:
+    def test_evaluate(self):
+        from olive.model import DistributedOnnxModel
+
+        filepaths = ["examples/switch/model_4n_2l_8e_00.onnx", "examples/switch/model_4n_2l_8e_01.onnx"]
+        model = DistributedOnnxModel(filepaths, name="model_4n_2l_8e")
+
+        user_config = {
+            "user_script": "examples/switch/user_script.py",
+            "dataloader_func": "create_dataloader",
+            "batch_size": 1,
+        }
+        # accuracy_metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, user_config=user_config)
+        latency_metric = get_latency_metric(LatencySubType.AVG, user_config=user_config)
+        # metrics = [accuracy_metric, latency_metric]
+        metrics = [latency_metric]
+
+        target = LocalSystem()
+
+        # execute
+        actual_res = target.evaluate_model(model, metrics)
+
+        # assert
+        assert actual_res[latency_metric.name] > 1

@@ -62,8 +62,13 @@ class Footprint:
         self.objective_dict = objective_dict or {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
 
-    def is_multi_objective(self):
-        return len(self.objective_dict) > 1
+    def metric_numbers(self):
+        if not self.nodes:
+            return 0
+        for metric in self.nodes.values():
+            if self._is_empty_metric(metric.metrics):
+                continue
+            return len(metric.metrics.value)
 
     def record_objective_dict(self, objective_dict):
         self.objective_dict = objective_dict
@@ -200,6 +205,9 @@ class Footprint:
         :param save_format: the format of the pareto frontier chart, can be "html" or "image"
         """
         assert save_path is not None or is_show, "you must specify the save path or set is_show to True"
+        if self.metric_numbers() <= 1:
+            logger.warning("There is no need to plot pareto frontier with only one metric")
+            return
 
         index = index or [0, 1]
         self.mark_pareto_frontier()

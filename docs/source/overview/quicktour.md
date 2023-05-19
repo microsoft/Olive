@@ -115,8 +115,7 @@ An optimization technique is called as a Pass in Olive. You list optimizations t
 ### [Engine](../overview/options.md/#engine-information)
 The engine is used to handle the auto-tuning process.
 
-Note: In addition to these three core sectors, Olive provides a rich selection of optional configurations to suit diverse scenarios. For detailed information on these options, please refer to the [options.md](../overview/options.md/) file 
-
+Note: In addition to these five core sectors, Olive provides a rich selection of optional configurations to suit diverse scenarios. For detailed information on these options, please refer to the [options.md](../overview/options.md/) file.
 
 ## Olive Optimization Result
 ### Olive Footprint
@@ -199,7 +198,39 @@ Olive packaging will generate a ZIP file which includes 3 folders: `CandidateMod
     * Python
 * `ONNXRuntimePackages`: ONNXRuntime package files with the same version that were used by Olive Engine in this workflow run.
 
-
 Please refer to [Packaing Olive artifacts](../tutorials/packaging_output_models.md) for more details.
+
+## Azure ML Client
+
+If you will use Azure ML resources and assets, you need to provide your Azure ML client configurations. For example:
+* You have AzureML system for targets or hosts.
+* You have Azure ML model as input model.
+
+AzureML authentication credentials is needed. Refer to
+[this](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?tabs=sdk)  for
+more details.
+
+You can either add configurations to the Olive json config file:
+```json
+"azureml_client": {
+    "subscription_id": "<subscription_id>",
+    "resource_group": "<resource_group>",
+    "workspace_name": "<workspace_name>"
+},
+```
+or you can also have your config file in a seprate json file in the following format:
+```json
+{
+    "subscription_id": "<subscription_id>",
+    "resource_group": "<resource_group>",
+    "workspace_name": "<workspace_name>"
+}
+```
+and specify your config file path to `azureml_client`:
+```json
+"azureml_client": {
+    "aml_config_path": "<path to your config file>"
+},
+```
 
 For more detailed information about Olive, please refer to the [Design](Design) and Tutorials sections, where you can find in-depth explanations.

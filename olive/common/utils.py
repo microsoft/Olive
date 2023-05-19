@@ -142,3 +142,23 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
             logger.debug(f"Failed. Retrying in {sleep_time} seconds...")
             time.sleep(sleep_time)
             sleep_time *= backoff
+
+
+def tensor_data_to_device(data, device: str):
+    if device is None:
+        return data
+
+    from torch import Tensor
+
+    if isinstance(data, Tensor):
+        return data.to(device)
+    elif isinstance(data, dict):
+        return {k: tensor_data_to_device(v, device) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [tensor_data_to_device(v, device) for v in data]
+    elif isinstance(data, tuple):
+        return tuple(tensor_data_to_device(v, device) for v in data)
+    elif isinstance(data, set):
+        return set(tensor_data_to_device(v, device) for v in data)
+    else:
+        return data

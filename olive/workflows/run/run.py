@@ -52,7 +52,8 @@ def automatically_insert_passes(config):
 
 def dependency_setup(config):
     here = os.path.abspath(os.path.dirname(__file__))
-    EXTRAS = json.load(open(os.path.join(here, "../../extra_dependencies.json"), "r"))
+    with open(os.path.join(here, "../../extra_dependencies.json"), "r") as f:
+        EXTRAS = json.load(f)
     DEPENDENCY_MAPPING = {
         "device": {
             SystemType.AzureML: EXTRAS.get("azureml"),
@@ -101,7 +102,7 @@ def dependency_setup(config):
         try:
             __import__(package)
         except ImportError:
-            subprocess.check_call(["pip", "install", "{}".format(package)])
+            subprocess.check_call(["python", "-m", "pip", "install", "{}".format(package)])
     if remote_packages:
         logger.info(
             "Please make sure the following packages are installed in {} environment: {}".format(
@@ -124,6 +125,10 @@ def run(config: Union[str, Path, dict], setup: bool = False):
     # input model
     input_model = config.input_model.create_model()
 
+    # Azure ML Client
+    if config.azureml_client:
+        config.engine.azureml_client_config = config.azureml_client
+
     # engine
     engine = config.engine.create_engine()
 
@@ -137,15 +142,14 @@ def run(config: Union[str, Path, dict], setup: bool = False):
         # passes
         for pass_name, pass_config in config.passes.items():
             host = pass_config.host.create_system() if pass_config.host is not None else None
-            evaluator = pass_config.evaluator.create_evaluator() if pass_config.evaluator is not None else None
             engine.register(
                 Pass.registry[pass_config.type.lower()],
-                pass_config.config,
-                pass_config.disable_search,
-                pass_name,
-                host,
-                evaluator,
-                pass_config.clean_run_cache,
+                config=pass_config.config,
+                disable_search=pass_config.disable_search,
+                name=pass_name,
+                host=host,
+                evaluator_config=pass_config.evaluator,
+                clean_run_cache=pass_config.clean_run_cache,
             )
 
         # run

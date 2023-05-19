@@ -14,9 +14,9 @@
 [Cifar10 optimization with OpenVINO for Intel HW](https://github.com/microsoft/Olive/tree/main/examples/cifar10_openvino_intel_hw)
 
 # Acceleration on GPU
-[SqueezeNet latency optimization](https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet)
+[SqueezeNet latency optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet)
 
-[Stable Diffusion optimization](https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion)
+[Stable Diffusion optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion)
 
 # Acceleration on NPU
 [Inception model optimization on Qualcomm NPU](https://github.com/microsoft/Olive/tree/main/examples/snpe/inception_snpe_qualcomm_npu)

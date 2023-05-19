@@ -141,9 +141,11 @@ class DockerSystem(OliveSystem):
         try:
             logger.debug(f"Running container with eval command: {eval_command}")
             logger.debug(f"The volumes list is {volumes_list}")
-            self.docker_client.containers.run(
-                image=self.image, command=eval_command, volumes=volumes_list, **run_command
+            container = self.docker_client.containers.run(
+                image=self.image, command=eval_command, volumes=volumes_list, detach=True, **run_command
             )
+            for line in container.logs(stream=True):
+                print(line.strip().decode())
             logger.debug("Docker container evaluation completed successfully")
         finally:
             # clean up dev mount regardless of whether the run was successful or not
