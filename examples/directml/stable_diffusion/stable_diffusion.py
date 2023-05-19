@@ -248,7 +248,7 @@ if __name__ == "__main__":
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
     parser.add_argument(
         "--prompt",
-        default="castle surrounded by water and nature, village, volumetric lighting, photorealistic, insanely"
+        default="castle surrounded by water and nature, village, volumetric lighting, photorealistic, "
         "detailed and intricate, fantasy, epic cinematic shot, mountains, 8k ultra hd",
         type=str,
     )
