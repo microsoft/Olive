@@ -4,7 +4,7 @@ Configuring Metric
 This document describes how to configure the different types of Metrics.
 
 Metric Types
----------
+-------------
 
 Accuracy Metric
 ~~~~~~~~~~~~~~~
@@ -154,7 +154,7 @@ In your :code:`"user_script.py"`, you need to define a function that takes in an
 
 
 Multi Metrics configuration
----------
+----------------------------
 If you have multiple metrics to evaluate, you can configure them in the following way::
 
         {

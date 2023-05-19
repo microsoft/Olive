@@ -30,6 +30,7 @@ This document introduces Olive and provides some examples to get you started.
    tutorials/configure_systems
    tutorials/configure_metrics
    tutorials/configure_pass
+   tutorials/configure_model_path
    tutorials/configure_hardware_optimizations
    tutorials/advanced_users
    tutorials/how_to_add_pass
@@ -47,6 +48,7 @@ This document introduces Olive and provides some examples to get you started.
    :caption: API REFERENCE
 
    api/models.rst
+   api/resource_path.rst
    api/systems.rst
    api/evaluator.rst
    api/metric.rst

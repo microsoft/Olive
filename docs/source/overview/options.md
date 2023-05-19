@@ -38,11 +38,9 @@ case insensitive.
 
 - `config: [Dict]` The input model config dictionary specifies following items:
 
-    - `model_path: [str]` The model path.
-
-    - `name: [str]` The name of the model.
-
-    - `model_storage_kind: [str]` Identify the model storage kind. It could be 'file', 'folder', 'azureml'.
+    - `model_path: [str | Dict]` The model path. The model path can be a string or a dictionary. If it is a string, it is either a string name
+    used by the model loader or the path to the model file/directory. If it is a dictionary, it contains information about the model path.
+    Please refer to [Configuring Model Path](configuring_model_path) for the more information of the model path dictionary.
 
     - `model_loader: [str]` The name of the function provided by the user to load the model. The function should take the model path as
     input and return the loaded model.
@@ -87,13 +85,10 @@ Please find the detailed config options from following table for each model type
 | [SNPEModel](snpe_model) | SNPE DLC model |
 
 ### Example
-
 ```json
 "input_model": {
     "type": "PyTorchModel",
     "config": {
-        "model_path": null,
-        "model_storage_kind": "folder",
         "model_loader": "load_pytorch_origin_model",
         "model_script": "user_script.py",
         "io_config": {

@@ -86,7 +86,7 @@ class TestAzureMLSystem:
         onnx_conversion_config = {}
         p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
         olive_model = get_pytorch_model()
-        output_model_path = str(Path("output_model_path.onnx").resolve())
+        output_model_path = str(Path("output_model_path.onnx").absolute())
         output_folder = Path(__file__).absolute().parent / "output_pass"
         mock_tempdir.return_value.__enter__.return_value = output_folder
         expected_model = ONNXModel(model_path=output_model_path)

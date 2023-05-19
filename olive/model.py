@@ -8,7 +8,6 @@ import shutil
 import tempfile
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
@@ -38,15 +37,6 @@ from olive.systems.common import Device
 
 REGISTRY = {}
 logger = logging.getLogger(__name__)
-
-
-class ModelStorageKind(str, Enum):
-    LocalFile = "file"
-    LocalFolder = "folder"
-    AzureMLModel = "azureml"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 class OliveModel(ABC):

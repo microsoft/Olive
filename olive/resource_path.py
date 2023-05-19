@@ -182,6 +182,8 @@ class LocalResourceConfig(ResourceConfig):
 
 
 class LocalFileConfig(LocalResourceConfig):
+    """Config for a local file."""
+
     _type = ResourceType.LocalFile
 
     @validator("path")
@@ -194,6 +196,8 @@ class LocalFileConfig(LocalResourceConfig):
 
 
 class LocalFolderConfig(LocalResourceConfig):
+    """Config for a local folder."""
+
     _type = ResourceType.LocalFolder
 
     @validator("path")
@@ -206,6 +210,8 @@ class LocalFolderConfig(LocalResourceConfig):
 
 
 class StringNameConfig(ResourceConfig):
+    """Config for a string name."""
+
     _type = ResourceType.StringName
     name: str = Field(..., description="Name of the resource.")
 
@@ -226,6 +232,8 @@ def _get_azureml_resource_prefix(workspace_config: Dict[str, str]) -> str:
 
 
 class AzureMLModelConfig(ResourceConfig):
+    """Config for an AzureML model."""
+
     _type = ResourceType.AzureMLModel
     azureml_client: AzureMLClientConfig = Field(..., description="AzureML client config.")
     name: str = Field(..., description="Name of the model.")
@@ -279,6 +287,8 @@ class AzureMLModelConfig(ResourceConfig):
 
 
 class AzureMLDatastoreConfig(ResourceConfig):
+    """Config for an AzureML datastore resource."""
+
     _type = ResourceType.AzureMLDatastore
     azureml_client: AzureMLClientConfig = Field(..., description="AzureML client config.")
     datastore_name: str = Field(..., description="Name of the datastore.")
@@ -328,6 +338,8 @@ class AzureMLDatastoreConfig(ResourceConfig):
 
 
 class AzureMLJobOutputConfig(ResourceConfig):
+    """Config for an AzureML job output resource."""
+
     _type = ResourceType.AzureMLJobOutput
     azureml_client: AzureMLClientConfig = Field(..., description="AzureML client config.")
     job_name: str = Field(..., description="Name of the job.")

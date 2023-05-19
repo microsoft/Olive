@@ -49,7 +49,7 @@ AzureMLTargetUserConfig
 
 .. _python_environment_system_config:
 PythonEnvironmentTargetUserConfig
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. autopydantic_settings:: olive.systems.system_config.PythonEnvironmentTargetUserConfig
 
@@ -71,5 +71,5 @@ DockerSystem
 .. autoclass:: olive.systems.docker.DockerSystem
 
 PythonEnvironmentSystem
-^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: olive.systems.python_environment.PythonEnvironmentSystem
