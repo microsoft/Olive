@@ -91,8 +91,6 @@ def main():
         metric_config={"warmup_num": 0, "repeat_test_num": 5, "sleep_num": 2},
     )
 
-    system = LocalSystem()
-
     # Evaluate models
     devices_dict = {
         "SNPE": Device.CPU,
@@ -101,8 +99,9 @@ def main():
     metrics_dict = {}
     for model_name in models_dict:
         device = devices_dict[model_name]
+        system = LocalSystem(device=device)
         print(f"   {model_name} on {device}...")
-        metrics = system.evaluate(models_dict[model_name], [accuracy_metrics, latency_metrics], device)
+        metrics = system.evaluate_model(models_dict[model_name], [accuracy_metrics, latency_metrics])
         metrics_dict[model_name] = metrics
 
     # Print metrics
