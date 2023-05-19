@@ -67,10 +67,10 @@ def main():
     accuracy_metrics = Metric(
         name="accuracy",
         type=MetricType.ACCURACY,
-        sub_types={
+        sub_types=[{
             "name": AccuracySubType.ACCURACY_SCORE,
             "priority": 1,
-        },
+        }],
         user_config={
             "user_script": user_script,
             "post_processing_func": "post_process",
@@ -83,11 +83,11 @@ def main():
     latency_metrics = Metric(
         name="latency",
         type=MetricType.LATENCY,
-        sub_types={
+        sub_types=[{
             "name": LatencySubType.AVG,
             "priority": 2,
             "metric_config": {"warmup_num": 0, "repeat_test_num": 5, "sleep_num": 2},
-        },
+        }],
         user_config={
             "user_script": user_script,
             "data_dir": data_folder,
