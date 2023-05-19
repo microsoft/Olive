@@ -133,6 +133,12 @@ If the user desires to only tune either of dynamic or static quantization, Olive
 Please refer to [IncQuantization](inc_quantization), [IncDynamicQuantization](inc_dynamic_quantization) and
 [IncStaticQuantization](inc_static_quantization) for more details about the passes and their config parameters.
 
+### Quantize with AMD Vitis AI Quantizer
+Olive also integrates [AMD Vitis AI Quantizer](https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/qdq_quantizer.py) for quantization.
+
+Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
+
+
 ### Example Configuration
 a. Tune the parameters of the OlivePass with pre-defined searchable values
 ```json
