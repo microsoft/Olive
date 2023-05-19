@@ -57,16 +57,16 @@
                 {
                     "name": "accuracy",
                     "type": "accuracy",
-                    "sub_type": "accuracy_score",
-                    "priority": 1,
-                    "goal": {"type": "max-degradation", "value": 0.01}
+                    "sub_types": [
+                        {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}}
+                    ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_type": "avg",
-                    "priority": 2,
-                    "goal": {"type": "percent-min-improvement", "value": 20}
+                    "sub_types": [
+                        {"name": "avg","priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}}
+                    ]
                 }
             ]
         }

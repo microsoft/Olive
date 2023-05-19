@@ -630,8 +630,6 @@ class OliveEvaluatorConfig(ConfigBase):
     @validator("metrics")
     def validate_metrics(cls, v):
         metric_len = len(v)
-        if metric_len == 1:
-            return v
 
         metric_names = set([metric.name for metric in v])
         assert len(metric_names) == metric_len, "Metric names must be unique"
