@@ -506,8 +506,7 @@ class Engine:
                     break
                 if sub_goal.type != "threshold":
                     assert self.evaluator_config is not None, "Default evaluator must be provided to resolve goals"
-                    if verbose:
-                        logger.info("Computing baseline for metrics ...")
+                    logger.info("Computing baseline for metrics ...")
                     baseline = self._evaluate_model(
                         input_model, input_model_id, self.evaluator_config, accelerator_spec, verbose=False
                     )

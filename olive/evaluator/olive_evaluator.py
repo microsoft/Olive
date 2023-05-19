@@ -639,7 +639,7 @@ class OliveEvaluatorConfig(ConfigBase):
         if not rank_set and len(sub_type_names) == 1:
             logger.debug(
                 "No priority is specified, but only one sub type"
-                + " metric is specified. Use rank 1 for single for this metric."
+                " metric is specified. Use rank 1 for single for this metric."
             )
             v[0].sub_types[0].priority = 1
         elif not rank_set and len(sub_type_names) > 1:
