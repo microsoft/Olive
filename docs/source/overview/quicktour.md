@@ -1,27 +1,25 @@
 (Quick-tour)=
 # Quick Tour
 
-Below is a quick guide to get the packages installed to use Olive for model optimization. We will start with a
-PyTorch model and then convert and quantize it to ONNX. If you are new to Olive and model optimization, we recommend
-checking the [Design](Design) and Tutorials sections for more in-depth explanations.
+Here is a quick guide on using Olive for model optimization with two steps. We will focus on accelerating a PyTorch model on the CPU leveraging ONNX conversion and ONNX quantization. 
 
-## Install Olive and dependencies
+## Step1 Install Olive and dependencies
 Before you begin, install Olive and the necessary packages.
 ```bash
 pip install olive-ai
 ```
 
-You will also need to install your preferred build of onnxruntime. Let's choose the default CPU package for this tour.
+Olive leverages ONNX Runtime as its model infeference engine, requiring the installation of the ONNX Runtime package. Here we install the ONNX Runtime CPU package given our target hardware is CPU.
 ```bash
 pip install onnxruntime
 ```
 
 Refer to the [Installation](Installation) section for more details.
 
-## Model Optimization Workflow
-Olive model optimization workflows are defined using config JSON files. You can use the Olive CLI to run the pipeline:
+## Step 2 Run Olive with Model Optimization Workflow
+Olive model optimization workflows are defined using config JSON files. You can use the Olive CLI to run the pipeline.
 
-First, install required packages according to passes.
+First, install required packages according to your config file.
 ```
 python -m olive.workflows.run --config user_provided_info.json --setup
 ```
@@ -41,13 +39,7 @@ olive_run("user_provided_info.json")
 `olive.workflows.run` in python code also accepts python dictionary equivalent of the config JSON object.
 ```
 
-Now, let's take a look at the information you can provide to Olive to optimize your model.
-
-Here is the complete json configuration file to optimize your input model using following command
-
-```bash
-python -m olive.workflows.run --config config.json
-```
+Now, let's take a look at the json configuration file you need to provide to optimize your model.
 
 ```json
 {
@@ -68,9 +60,6 @@ python -m olive.workflows.run --config config.json
         }
     },
 
-    "systems": {
-        "local_system": {"type": "LocalSystem"}
-    },
 
     "evaluators": {
         "common_evaluator":{
@@ -97,71 +86,29 @@ python -m olive.workflows.run --config config.json
                 "target_opset": 13
             }
         },
-        "onnx_quantization": {
-            "type": "OnnxDynamicQuantization",
-            "config": {
-                "user_script": "user_script.py",
-                "data_dir": "data",
-                "dataloader_func": "resnet_calibration_reader",
-                "weight_type" : "QUInt8"
-            }
-        }
-    },
-
-    "engine": {
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "exhaustive"
+        "quantization": {
+            "type": "OnnxQuantization"
         },
-        "evaluator": "common_evaluator",
-        "host": {"type": "LocalSystem"},
-        "target": {"type": "LocalSystem"}
-    }
+    },
 }
 ```
-It is composed with 5 parts:
+It is composed with 3 parts:
 ### [Input Model](../overview/options.md/#input-model-information)
 You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOModel and SNPEModel are supported model types.
 
-### [Host and Target Systems](../overview/options.md/#systems-information)
-An optimization technique, which we call a Pass, can be run on a variety of host systems and the resulting model evaluated on desired target systems. More details for the available systems can be found at at [OliveSystems api reference](systems).
-
 ### [Evaluator](../overview/options.md/#evaluators-information)
-In order to chose the set of Pass configuration parameters that lead to the “best” model, Olive requires an evaluator that returns metrics values for each output model. You list your performance requirements (for example, accuracy, latency), that optimized candidate models should meet here.
+You specify your performance requirements in evaluator, such as accuracy and latency, which the optimized candidate models should meet. Olive utilizes the information to tune the optimal set of optimization parameters for the "best" model. 
 
 ### [Passes](../overview/options.md/#passes-information)
-You list the Passes that you want to apply on the input model. In this example, let us first convert the pytorch model to ONNX and quantize it.
+An optimization technique is called as a Pass in Olive. You list optimizations that you want to apply on the input model. In this example, we first convert the pytorch model to ONNX then quantize it.
 
-### [Engine](../overview/options.md/#engine-information)
-The engine is used to handle the auto-tuning process.
+Note: In addition to these three core sectors, Olive provides a rich selection of optional configurations to suit diverse scenarios. For detailed information on these options, please refer to the [options.md](../overview/options.md/) file 
+
 
 ## Olive Optimization Result
 ### Olive Footprint
-When the optimization process is completed, Olive will generate a report(json) under the `output_dir` if you specified already in `engine.run`. The report contains the:
-- `footprints.json`: A dictionary of all the footprints generated during the optimization process. The structure of footprints value is:
-```python
-class FootprintNode(ConfigBase):
-    # None for no parent which means current model is the input model
-    parent_model_id: str = None
-    model_id: str
-    model_config: Dict = None
-    from_pass: str = None
-    pass_run_config: Dict = None
-    is_pareto_frontier: bool = False
-    metrics: FootprintNodeMetric = FootprintNodeMetric()
-    date_time: float = datetime.now().timestamp()
-
-class FootprintNodeMetric(ConfigBase):
-    """
-    value: {"metric_name": metrics_value, ...}
-    cmp_direction: will be auto suggested. The format will be like: {"metric_name": 1, ...},
-        1: higher is better, -1: lower is better
-    is_goals_met: if the goals set by users is met
-    """
-    value: Dict = None
-    cmp_direction: Dict = None
-    is_goals_met: bool = False
-```
+When the optimization process is completed, Olive will generate a report(json) under the `output_dir`. The report contains the:
+- `footprints.json`: A dictionary of all the footprints generated during the optimization process. 
 - `pareto_frontier_footprints.json`: A dictionary of the footprints that are on the Pareto frontier based on the metrics goal you set in config of `evaluators.metrics`.
 
 Here is an example of that:
@@ -228,8 +175,6 @@ Olive also can package output artifacts when user adds `PackagingConfig` to Engi
     ...
 }
 ```
-Now, there is only one packaging type: `Zipfile`
-
 Olive packaging will generate a ZIP file which includes 3 folders: `CandidateModels`, `SampleCode` and `ONNXRuntimePackages`:
 * `CandidateModels`: top ranked output model set
     * Model file
@@ -243,3 +188,5 @@ Olive packaging will generate a ZIP file which includes 3 folders: `CandidateMod
 
 
 Please refer to [Packaing Olive artifacts](../tutorials/packaging_output_models.md) for more details.
+
+For more detailed information about Olive, please refer to the [Design](Design) and Tutorials sections, where you can find in-depth explanations.
