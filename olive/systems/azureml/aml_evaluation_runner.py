@@ -56,7 +56,7 @@ def main(raw_args=None):
 
     # save metric result json
     with open(Path(common_args.pipeline_output) / "metric_result.json", "w") as f:
-        json.dump(metric_result, f)
+        json.dump(metric_result, f, indent=4)
 
 
 if __name__ == "__main__":

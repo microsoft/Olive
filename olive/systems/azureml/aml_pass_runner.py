@@ -11,6 +11,7 @@ from pathlib import Path
 from olive.model import ModelConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
 from olive.passes import FullPassConfig
+from olive.resource_path import ResourcePath, ResourceType
 from olive.systems.utils import get_model_config, parse_common_args
 
 
@@ -56,10 +57,8 @@ def main(raw_args=None):
         pass_config = json.load(f)
     pass_type = pass_config["type"].lower()
 
-    # TODO: contact ort team for a workaround
     # Some passes create temporary files in the same directory as the model
     # original directory for model path is read only, so we need to copy the model to a temp directory
-    # TODO: test if sym link solves it
     if common_args.model_path is not None:
         tmp_dir = tempfile.TemporaryDirectory()
         old_path = Path(common_args.model_path).resolve()
@@ -98,12 +97,24 @@ def main(raw_args=None):
     # this is to handle passes like OrtPerfTuning that use the same model file as input
     model_json["same_model_path_as_input"] = False
     if model_json["config"]["model_path"] is not None:
-        model_path = str(Path(model_json["config"]["model_path"]).resolve())
-        if model_path == input_model_path:
+        # create a resource path from the model path
+        model_resource_path = ResourcePath.create_resource_path(model_json["config"]["model_path"])
+        # string representation of the model path
+        model_path_str = model_resource_path.get_path()
+        if model_path_str == input_model_path:
+            # if the model path is the same as the input model path, set model_path to None
+            # and set same_model_path_as_input to True
             model_json["config"]["model_path"] = None
             model_json["same_model_path_as_input"] = True
-        else:
-            model_json["config"]["model_path"] = str(Path(model_path).relative_to(Path(common_args.pipeline_output)))
+        elif model_resource_path.type in [ResourceType.LocalFile, ResourceType.LocalFolder]:
+            # if the model is a local file or folder, set the model path to be relative to the pipeline output
+            # the aml system will resolve the relative path to the pipeline output during download
+            relative_path = str(Path(model_path_str).relative_to(Path(common_args.pipeline_output)))
+            model_path_json = model_resource_path.to_json()
+            model_path_json["config"]["path"] = relative_path
+            model_json["config"]["model_path"] = model_path_json
+
+    # save model json
     with open(Path(common_args.pipeline_output) / "output_model_config.json", "w") as f:
         json.dump(model_json, f, indent=4)
 

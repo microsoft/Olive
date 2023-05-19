@@ -564,7 +564,7 @@ class Engine:
         while True:
             new_model_number = self._new_model_number
             self._new_model_number += 1
-            if list(self._model_cache_path.glob(f"{new_model_number}_*.json")) == []:
+            if list(self._model_cache_path.glob(f"{new_model_number}_*")) == []:
                 break
         return new_model_number
 
@@ -764,7 +764,9 @@ class Engine:
         # new model id
         input_model_number = input_model_id.split("_")[0]
         output_model_id = f"{self._get_new_model_number()}_{pass_name}-{input_model_number}-{hash_dict(pass_config)}"
-        output_model_path = str(self._model_cache_path / f"{output_model_id}")
+        output_model_path = self._model_cache_path / f"{output_model_id}" / "output_model"
+        output_model_path.parent.mkdir(parents=True, exist_ok=True)
+        output_model_path = str(output_model_path)
 
         # prune if invalid search_point
         if not p.validate_search_point(pass_search_point) and not self.no_search:

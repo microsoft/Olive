@@ -229,7 +229,7 @@ class AzureMLModelConfig(ResourceConfig):
     _type = ResourceType.AzureMLModel
     azureml_client: AzureMLClientConfig = Field(..., description="AzureML client config.")
     name: str = Field(..., description="Name of the model.")
-    version: int = Field(..., description="Version of the model.")
+    version: Union[int, str] = Field(..., description="Version of the model.")
 
     def get_path(self) -> str:
         return f"azureml:{self.name}:{self.version}"

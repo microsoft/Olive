@@ -8,6 +8,7 @@ olive_tmp_*/
 augmented_model.onnx
 examples/**/data
 examples/**/model
+test/**/data
 nc_workspace/
 
 # Byte-compiled / optimized / DLL files

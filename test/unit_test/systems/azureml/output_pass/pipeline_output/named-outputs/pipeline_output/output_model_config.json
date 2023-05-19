@@ -1,10 +1,12 @@
 {
     "type": "ONNXModel",
     "config": {
-        "model_path": "output_model.onnx",
-        "name": "test_model",
-        "model_storage_kind": "file",
-        "version": null,
+        "model_path": {
+            "type": "file",
+            "config": {
+                "path": "output_model.onnx"
+            }
+        },
         "inference_settings": null
     },
     "same_model_path_as_input": false
