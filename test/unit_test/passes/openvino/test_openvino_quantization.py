@@ -77,7 +77,7 @@ def create_dataloader(data_dir, batchsize):
             Initialize config and dataset.
             :param config: created config with DATA_DIR path.
             """
-            if not isinstance(config, Dict):
+            if not isinstance(config, dict):
                 config = Dict(config)
             super().__init__(config)
             self.indexes, self.pictures, self.labels = self.load_data(dataset)

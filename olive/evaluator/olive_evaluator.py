@@ -117,7 +117,7 @@ class OliveEvaluator(ABC):
                 metric_res[sub_type.name] = SubMetricResult(
                     value=raw_res, priority=sub_type.priority, higher_is_better=sub_type.higher_is_better
                 )
-            elif isinstance(raw_res, Dict):
+            elif isinstance(raw_res, dict):
                 assert sub_type.name in raw_res, f"Custom metric {sub_type.name} is not in the result"
                 metric_res[sub_type.name] = SubMetricResult(
                     value=raw_res[sub_type.name],
@@ -638,7 +638,7 @@ class OliveEvaluatorConfig(ConfigBase):
 
         if not rank_set and len(sub_type_names) == 1:
             logger.debug(
-                "No priority is specified, but only one sub type"
+                "No priority is specified, but only one sub type "
                 " metric is specified. Use rank 1 for single for this metric."
             )
             v[0].sub_types[0].priority = 1
