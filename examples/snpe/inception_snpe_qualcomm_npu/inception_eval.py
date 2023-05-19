@@ -67,7 +67,10 @@ def main():
     accuracy_metrics = Metric(
         name="accuracy",
         type=MetricType.ACCURACY,
-        sub_type=AccuracySubType.ACCURACY_SCORE,
+        sub_types={
+            "name": AccuracySubType.ACCURACY_SCORE,
+            "priority": 1,
+        },
         user_config={
             "user_script": user_script,
             "post_processing_func": "post_process",
@@ -80,7 +83,11 @@ def main():
     latency_metrics = Metric(
         name="latency",
         type=MetricType.LATENCY,
-        sub_type=LatencySubType.AVG,
+        sub_types={
+            "name": LatencySubType.AVG,
+            "priority": 2,
+            "metric_config": {"warmup_num": 0, "repeat_test_num": 5, "sleep_num": 2},
+        },
         user_config={
             "user_script": user_script,
             "data_dir": data_folder,
@@ -88,7 +95,6 @@ def main():
             "dataloader_func": "create_eval_dataloader",
             "inference_settings": inference_settings,
         },
-        metric_config={"warmup_num": 0, "repeat_test_num": 5, "sleep_num": 2},
     )
 
     system = LocalSystem()

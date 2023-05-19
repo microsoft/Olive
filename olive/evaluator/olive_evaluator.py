@@ -394,10 +394,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         from mpi4py import MPI
 
         local_rank = MPI.COMM_WORLD.Get_rank()
-
-        warmup_num = metric.metric_config.warmup_num
-        repeat_test_num = metric.metric_config.repeat_test_num
-        sleep_num = metric.metric_config.sleep_num
+        warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
         # TODO: EPs should be selected based on accelerator_spec param passed down from the engine
         inference_settings["execution_provider"] = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
@@ -512,12 +509,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     def _evaluate_latency(
         self, model: PyTorchModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
     ) -> MetricResult:
-        warmup_num, repeat_test_num = None, None
-        for sub_type in metric.sub_types:
-            if sub_type.metric_config:
-                warmup_num = sub_type.metric_config.warmup_num
-                repeat_test_num = sub_type.metric_config.repeat_test_num
-                break
+        warmup_num, repeat_test_num, _ = get_latency_config_from_metric(metric)
 
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
