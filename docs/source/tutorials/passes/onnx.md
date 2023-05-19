@@ -125,7 +125,7 @@ In addition to the default onnxruntime quantization tool, Olive also integrates 
 
 Intel® Neural Compressor is a model compression tool across popular deep learning frameworks including TensorFlow, PyTorch, ONNX Runtime (ORT) and MXNet, which supports a variety of powerful model compression techniques, e.g., quantization, pruning, distillation, etc. As a user-experience-driven and hardware friendly tool, Intel® Neural Compressor focuses on providing users with an easy-to-use interface and strives to reach “quantize once, run everywhere” goal.
 
-Olive consolidates the Intel® Neural Compressor dynamic and static quantization into a single pass called `IncQuantization`, and provide the user with the ability to
+Olive consolidates the Intel® Neural Compressor dynamic and static quantization into a single pass called `IncQuantization`, and provide the user with the ability to`
 tune both quantization methods and hyperparameter at the same time.
 If the user desires to only tune either of dynamic or static quantization, Olive also supports them through `IncDynamicQuantization` and
 `IncStaticQuantization` respectively.
@@ -136,8 +136,10 @@ Please refer to [IncQuantization](inc_quantization), [IncDynamicQuantization](in
 ### Quantize with AMD Vitis AI Quantizer
 Olive also integrates [AMD Vitis AI Quantizer](https://github.com/microsoft/Olive/blob/main/olive/passes/onnx/vitis_ai/qdq_quantizer.py) for quantization.
 
-Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
+The Vitis™ AI development environment accelerates AI inference on AMD® hardware platforms. The Vitis AI quantizer can reduce the computing complexity by converting the 32-bit floating-point weights and activations to fixed-point like INT8. The fixed-point network model requires less memory bandwidth, thus providing faster speed and higher power efficiency than the floating-point model.
+Olive consolidates the Vitis™ AI quantization into a single pass called VitisAIQuantization which supports power-of-2 scale quantization methods and supports Vitis AI Execution Provider.
 
+Please refer to [VitisAIQuantization](vitis_ai_quantization) for more details about the pass and its config parameters.
 
 ### Example Configuration
 a. Tune the parameters of the OlivePass with pre-defined searchable values
