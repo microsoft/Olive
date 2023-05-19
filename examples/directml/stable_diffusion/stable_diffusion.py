@@ -137,7 +137,6 @@ def optimize(
     model_id: str,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
-    optimize_provider: str,
 ):
     from google.protobuf import __version__ as protobuf_version
 
@@ -172,8 +171,6 @@ def optimize(
         olive_config = None
         with open(script_dir / f"config_{submodel_name}.json", "r") as fin:
             olive_config = json.load(fin)
-        if optimize_provider:
-            olive_config["passes"]["optimize"]["config"]["target_provider"] = optimize_provider
 
         if submodel_name in ("unet", "text_encoder"):
             olive_config["input_model"]["config"]["model_path"] = model_id
@@ -247,7 +244,6 @@ if __name__ == "__main__":
     parser.add_argument("--model_id", default="runwayml/stable-diffusion-v1-5", type=str)
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
-    parser.add_argument("--optimize_provider", type=str, default="directml", help="EP target for inference")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
     parser.add_argument(
@@ -288,7 +284,7 @@ if __name__ == "__main__":
         # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            optimize(args.model_id, unoptimized_model_dir, optimized_model_dir, args.optimize_provider)
+            optimize(args.model_id, unoptimized_model_dir, optimized_model_dir)
 
     if not args.optimize:
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
