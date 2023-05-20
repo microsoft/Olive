@@ -61,7 +61,7 @@ latency_metric = Metric(
     type=MetricType.LATENCY,
         sub_types=[{
         "name": LatencySubType.AVG,
-        "priority": 2,
+        "priority": 1,
         "metric_config": {"warmup_num": 0, "repeat_test_num": 5, "sleep_num": 2},
     }],
     user_config={

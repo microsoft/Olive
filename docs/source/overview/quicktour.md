@@ -122,7 +122,7 @@ returns metrics values for each output model.
                 "name": "latency",
                 "type": "latency",
                 "sub_types": [
-                    {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
+                    {"name": "avg", "goal": {"type": "percent-min-improvement", "value": 20}},
                     {"name": "max"},
                     {"name": "min"}
                 ]
@@ -222,7 +222,7 @@ python -m olive.workflows.run --config config.json
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [
-                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
+                        {"name": "avg", "goal": {"type": "percent-min-improvement", "value": 20}},
                         {"name": "max"},
                         {"name": "min"}
                     ]

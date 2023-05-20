@@ -217,7 +217,7 @@ information of the evaluator contains following items:
                 "name": "latency",
                 "type": "latency",
                 "sub_types": [
-                    {"name": "avg", "goal": {"type": "percent-min-improvement", "value": 20}},
+                    {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
                     {"name": "max"},
                     {"name": "min"}
                 ],

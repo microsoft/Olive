@@ -425,8 +425,7 @@ class Engine:
         if output_model_num is None or len(pf_footprints.nodes) <= output_model_num:
             logger.info(f"Output all {len(pf_footprints.nodes)} models")
         else:
-            metrics = evaluator_config.metrics if evaluator_config else []
-            top_ranked_nodes = self._get_top_ranked_nodes(metrics, pf_footprints, output_model_num)
+            top_ranked_nodes = self._get_top_ranked_nodes(objective_dict, pf_footprints, output_model_num)
             logger.info(f"Output top ranked {len(top_ranked_nodes)} models based on metric priorities")
             pf_footprints.update_nodes(top_ranked_nodes)
 
@@ -468,10 +467,10 @@ class Engine:
                 objective_dict[metric_key] = {
                     "higher_is_better": sub_type.higher_is_better,
                     "goal": goals.get(metric_key),
-                    "rank": sub_type.priority,
+                    "priority": sub_type.priority,
                 }
         self.footprints[accelerator_spec].record_objective_dict(objective_dict)
-        ranked_objective_dict = dict(sorted(objective_dict.items(), key=lambda x: x[1]["rank"]))
+        ranked_objective_dict = dict(sorted(objective_dict.items(), key=lambda x: x[1]["priority"]))
         return ranked_objective_dict
 
     def resolve_goals(
@@ -889,14 +888,17 @@ class Engine:
         )
         return signal
 
-    def _get_top_ranked_nodes(self, metrics: List[Metric], footprint: Footprint, k: int) -> List[FootprintNode]:
-        metric_priority = [metric.name for metric in sorted(metrics, key=lambda x: x.priority)]
+    def _get_top_ranked_nodes(
+        self, objective_dict: Dict[str, Any], footprint: Footprint, k: int
+    ) -> List[FootprintNode]:
         footprint_node_list = footprint.nodes.values()
         sorted_footprint_node_list = sorted(
             footprint_node_list,
             key=lambda x: tuple(
-                x.metrics.value[metric] if x.metrics.cmp_direction[metric] == 1 else -x.metrics.value[metric]
-                for metric in metric_priority
+                x.metrics.value[metric].value
+                if x.metrics.cmp_direction[metric] == 1
+                else -x.metrics.value[metric].value
+                for metric in objective_dict.keys()
             ),
             reverse=True,
         )

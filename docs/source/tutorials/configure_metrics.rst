@@ -70,7 +70,7 @@ Latency Metric
                 "name": "latency",
                 "type": "latency",
                 "sub_types": [
-                    {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}}
+                    {"name": "avg", "priority": 1, "goal": {"type": "percent-min-improvement", "value": 20}}
                 ],
                 "user_config": {
                     "user_script": "user_script.py",
@@ -118,7 +118,7 @@ specify its name in :code:`"evaluate_func"` field, and Olive will call your func
             {
                 "name": "accuracy",
                 "type": "custom",
-                sub_types: [
+                "sub_types": [
                     {"name": "accuracy_custom", "priority": 1, "higher_is_better": True, "goal": {"type": "max-degradation", "value": 0.01}}
                 ],
                 "user_config": {
