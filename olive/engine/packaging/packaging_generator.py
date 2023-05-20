@@ -29,7 +29,7 @@ def generate_output_artifacts(
     pf_footprints: Dict[AcceleratorSpec, Footprint],
     output_dir: Path,
 ):
-    if sum([len(f.nodes) for f in pf_footprints.values()]) == 0:
+    if sum([len(f.nodes) if f.nodes else 0 for f in pf_footprints.values()]) == 0:
         logger.warning("No model is selected. Skip packaging output artifacts.")
         return
     if packaging_config.type == PackagingType.Zipfile:
