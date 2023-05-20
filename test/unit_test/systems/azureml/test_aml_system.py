@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -80,21 +81,44 @@ class TestAzureMLSystem:
     @patch("olive.systems.azureml.aml_system.shutil.copy")
     @patch("olive.systems.azureml.aml_system.retry_func")
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_pass")
-    @patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory")
-    def test_run_pass(self, mock_tempdir, mock_create_pipeline, mock_retry_func, mock_copy):
+    def test_run_pass(self, mock_create_pipeline, mock_retry_func, mock_copy):
         # setup
+        tmp_dir = tempfile.TemporaryDirectory()
+        tmp_dir_path = Path(tmp_dir.name)
+        # dummy pipeline output download path
+        pipeline_output_path = tmp_dir_path / "pipeline_output" / "named-outputs" / "pipeline_output"
+        pipeline_output_path.mkdir(parents=True, exist_ok=True)
+        # create dummy output model
+        output_model_path = pipeline_output_path / "output_model.onnx"
+        with open(output_model_path, "w") as f:
+            f.write("dummy")
+        # create dummy output config
+        dummy_config = {
+            "type": "ONNXModel",
+            "config": {
+                "model_path": {"type": "file", "config": {"path": "output_model.onnx"}},
+                "inference_settings": None,
+            },
+            "same_model_path_as_input": False,
+        }
+        dummy_config_path = pipeline_output_path / "output_model_config.json"
+        with open(dummy_config_path, "w") as f:
+            json.dump(dummy_config, f, indent=4)
+
         onnx_conversion_config = {}
         p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
         olive_model = get_pytorch_model()
         output_model_path = str(Path("output_model_path.onnx").absolute())
-        output_folder = Path(__file__).absolute().parent / "output_pass"
-        mock_tempdir.return_value.__enter__.return_value = output_folder
+        output_folder = tmp_dir_path
+
         expected_model = ONNXModel(model_path=output_model_path)
         ml_client = MagicMock()
         self.system.azureml_client_config.create_client.return_value = ml_client
 
-        # execute
-        actual_res = self.system.run_pass(p, olive_model, output_model_path)
+        with patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory") as mock_tempdir:
+            mock_tempdir.return_value.__enter__.return_value = output_folder
+            # execute
+            actual_res = self.system.run_pass(p, olive_model, output_model_path)
 
         # assert
         mock_create_pipeline.assert_called_once_with(output_folder, olive_model, p.to_json(), p.path_params)
