@@ -13,7 +13,7 @@ from olive.passes.olive_pass import create_pass_from_dict
 from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
 
 
-def test_aml_model():
+def test_aml_model_pass_run():
     # ------------------------------------------------------------------
     # Azure ML System
     aml_compute = "cpu-cluster"
@@ -34,6 +34,33 @@ def test_aml_model():
 
     # ------------------------------------------------------------------
     # Input model
+    pytorch_model = get_pytorch_model()
+
+    # ------------------------------------------------------------------
+    # Onnx conversion pass
+    # config can be a dictionary
+    onnx_conversion_config = {
+        "target_opset": 13,
+    }
+    with tempfile.TemporaryDirectory() as tempdir:
+        onnx_model_file = str(Path(tempdir) / "model.onnx")
+        onnx_conversion_pass = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
+        onnx_model = aml_system.run_pass(onnx_conversion_pass, pytorch_model, onnx_model_file)
+        assert Path(onnx_model.model_path).is_file()
+
+
+def test_aml_model_download():
+    pytorch_model = get_pytorch_model()
+    tmp_dir = tempfile.TemporaryDirectory()
+    tmp_dir_path = Path(tmp_dir.name).resolve()
+
+    download_path = pytorch_model.download_model(tmp_dir_path)
+    assert Path(download_path).is_file()
+
+
+def get_pytorch_model():
+    workspace_config = get_olive_workspace_config()
+    azureml_client_config = AzureMLClientConfig(**workspace_config)
     pytorch_model = PyTorchModel(
         model_path={
             "type": "azureml_model",
@@ -50,18 +77,7 @@ def test_aml_model():
             "output_names": ["output"],
         },
     )
-
-    # ------------------------------------------------------------------
-    # Onnx conversion pass
-    # config can be a dictionary
-    onnx_conversion_config = {
-        "target_opset": 13,
-    }
-    with tempfile.TemporaryDirectory() as tempdir:
-        onnx_model_file = str(Path(tempdir) / "model.onnx")
-        onnx_conversion_pass = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
-        onnx_model = aml_system.run_pass(onnx_conversion_pass, pytorch_model, onnx_model_file)
-        assert Path(onnx_model.model_path).is_file()
+    return pytorch_model
 
 
 def get_olive_workspace_config():

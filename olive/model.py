@@ -102,7 +102,9 @@ class OliveModel(ABC):
 
         # download model
         logger.debug(f"Downloading model to {download_path}")
-        self.local_model_path = self.model_resource_path.save_to_dir(download_path, overwrite=overwrite)
+        self.local_model_path = ResourcePath.create_resource_path(
+            self.model_resource_path.save_to_dir(download_path, overwrite=overwrite)
+        )
         return self.local_model_path.get_path()
 
     def set_local_model_path(self, local_model_path: Union[Path, str, ResourcePath]):
