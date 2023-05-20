@@ -115,15 +115,23 @@ class Engine:
             logger.warning("No accelerators specified for target system. Using CPU.")
             accelerators = ["CPU"]
 
+        not_supported_ep = []
         self.accelerator_specs: List[AcceleratorSpec] = []
         for accelerator in accelerators:
             device = Device(accelerator.lower())
             supported_eps = AcceleratorLookup.get_execution_providers_for_device(device)
             device_eps = list(set(supported_eps).intersection(self.execution_providers))
+            for ep in set(self.execution_providers).difference(supported_eps):
+                not_supported_ep.append(ep)
             for ep in device_eps:
                 self.accelerator_specs.append(AcceleratorSpec(device, ep))
 
         assert self.accelerator_specs, "No valid accelerator specified for target system."
+        if not_supported_ep:
+            logger.warning(
+                f"The following execution provider is not supported: {','.join(not_supported_ep)}. "
+                "Please consider install the onnxruntime contains the appropriated execution providers. "
+            )
 
         # default evaluator
         self.evaluator_config = None
@@ -272,7 +280,7 @@ class Engine:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         outputs = {}
-        footprints = {}
+        pf_footprints = {}
         for accelerator_spec in self.accelerator_specs:
             # generate search space and intialize the passes for each hardware accelerator
             self.setup_passes(accelerator_spec)
@@ -305,7 +313,7 @@ class Engine:
                         output_name,
                     )
                     outputs[accelerator_spec] = output
-                    footprints[accelerator_spec] = self.footprints[accelerator_spec].get_last_node()
+                    pf_footprints[accelerator_spec] = self.footprints[accelerator_spec].get_last_node()
                 else:
                     footprint = self.run_search(
                         input_model,
@@ -316,17 +324,17 @@ class Engine:
                         output_name,
                     )
                     outputs[accelerator_spec] = footprint
-                    footprints[accelerator_spec] = footprint
+                    pf_footprints[accelerator_spec] = footprint
 
             except Exception as e:
                 logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}")
 
         if packaging_config:
-            logger.info(f"Package top ranked {sum([len(f.nodes) for f in footprints.values()])} models as artifacts")
+            logger.info(f"Package top ranked {sum([len(f.nodes) for f in pf_footprints.values()])} models as artifacts")
             generate_output_artifacts(
                 packaging_config,
                 self.footprints,
-                footprints,
+                pf_footprints,
                 output_dir,
             )
         else:
@@ -805,6 +813,7 @@ class Engine:
         # new model id
         input_model_number = input_model_id.split("_")[0]
         # Note: the output model id need contains the accelerator information.
+        # TODO: consider how to reuse the run which is indepedent with accelerator and EP.
         output_model_id_parts = [
             f"{self._get_new_model_number()}_{pass_name}",
             input_model_number,
