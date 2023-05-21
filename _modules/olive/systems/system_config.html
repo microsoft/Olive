@@ -127,15 +127,15 @@
 
 <span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validate_config</span>
-<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">AzureMLDockerConfig</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">LocalDockerConfig</span><span class="p">,</span> <span class="n">SystemType</span>
+<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">AzureMLDockerConfig</span><span class="p">,</span> <span class="n">LocalDockerConfig</span><span class="p">,</span> <span class="n">SystemType</span>
 
 
 <span class="k">class</span> <span class="nc">TargetUserConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
-    <span class="k">pass</span>
+    <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
 
 <div class="viewcode-block" id="LocalTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.LocalTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">LocalTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
-    <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span></div>
+    <span class="k">pass</span></div>
 
 
 <div class="viewcode-block" id="DockerTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.DockerTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">DockerTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
@@ -152,7 +152,6 @@
 
 
 <div class="viewcode-block" id="PythonEnvironmentTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.PythonEnvironmentTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">PythonEnvironmentTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
-    <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span>
     <span class="n">python_environment_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
         <span class="n">Path</span><span class="p">,</span> <span class="nb">str</span>
     <span class="p">]</span>  <span class="c1"># path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv</span>

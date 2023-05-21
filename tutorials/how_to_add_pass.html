@@ -143,8 +143,16 @@ represented as a Pass in Olive.</p>
 </section>
 <section id="define-configuration">
 <h2>2. Define configuration<a class="headerlink" href="#define-configuration" title="Permalink to this heading">¶</a></h2>
-<p>Next, define the options used to configure this new technique by defining static method <code class="docutils literal notranslate"><span class="pre">_default_config</span></code>. The method should
-return <code class="docutils literal notranslate"><span class="pre">Dict[str,</span> <span class="pre">PassConfigParam]</span></code>.</p>
+<p>Next, define the options used to configure this new technique by defining static method <code class="docutils literal notranslate"><span class="pre">_default_config</span></code>. This method
+takes an <code class="docutils literal notranslate"><span class="pre">AcceleratorSpec</span></code> as input and returns <code class="docutils literal notranslate"><span class="pre">Dict[str,</span> <span class="pre">PassConfigParam]</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">AcceleratorSpec</span></code> is a dataclass that holds the information about the accelerator. The dataclass has the following fields:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">accelerator_type</span></code>: type of the accelerator. For example, <code class="docutils literal notranslate"><span class="pre">CPU</span></code>, <code class="docutils literal notranslate"><span class="pre">GPU</span></code> etc.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">execution_provider</span></code>: execution provider for the accelerator. For example, <code class="docutils literal notranslate"><span class="pre">CPUExecutionProvider</span></code>, <code class="docutils literal notranslate"><span class="pre">CUDAExecutionProvider</span></code> etc.
+Please note if user specify some execution providers that don’t belong to the installed onnxruntime, these execution providers
+will be ignored. For example, if user specify CUDA, TensorRT, DML execution provider, but the onnxruntime-gpu is installed then
+the DML execution provider will be ignored since it is only available in onnxruntime-directml package.</p></li>
+</ul>
 <p><code class="docutils literal notranslate"><span class="pre">PassConfigParam</span></code> is a dataclass that holds the information about the configuration option. The dataclass has the following fields:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">type_</span></code> : type of the parameter</p></li>
@@ -161,7 +169,7 @@ Must be a Categorical or Conditional SearchParameter.</p></li>
 <section id="example">
 <h3>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_default_config</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">_default_config</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">{</span>
             <span class="c1"># required parameter</span>
             <span class="s2">&quot;param1&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;param1 description&quot;</span><span class="p">),</span>
@@ -206,8 +214,8 @@ Must be a Categorical or Conditional SearchParameter.</p></li>
 <h3>3. Implement the run function<a class="headerlink" href="#implement-the-run-function" title="Permalink to this heading">¶</a></h3>
 <p>The final step is to implement the <code class="docutils literal notranslate"><span class="pre">_run_for_config</span></code> method to optimize the input model. Olive Engine will invoke the
 method while auto tuning the model. This method will also receive a search point (one set of configuration option from
-the search space created based on the options defined in <code class="docutils literal notranslate"><span class="pre">_default_config()</span></code>) along with output path. The method
-should return a valid OliveModel which can be used as an input for the next Pass.</p>
+the search space created based on the options defined in <code class="docutils literal notranslate"><span class="pre">_default_config(accelerator_spec:</span> <span class="pre">AcceleratorSpec)</span></code>) along
+with output path. The method should return a valid OliveModel which can be used as an input for the next Pass.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>    <span class="k">def</span> <span class="nf">_run_for_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">ONNXModel</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ONNXModel</span><span class="p">:</span>
 </pre></div>
 </div>

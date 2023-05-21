@@ -250,7 +250,7 @@ sepcify its name in <code class="code docutils literal notranslate"><span class=
 for <code class="code docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code>.</p>
 <p>Here is an example of the <code class="code docutils literal notranslate"><span class="pre">&quot;eval_accuracy&quot;</span></code> function in <code class="code docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code>:
 In your <code class="code docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code>, you need to define a function that takes in an Olive model, the data directory, and the batch size, and returns a metric value:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">eval_accuracy</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data_dir</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">eval_accuracy</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data_dir</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">):</span>
     <span class="c1"># load data</span>
     <span class="c1"># evaluate model</span>
     <span class="c1"># return metric value</span>

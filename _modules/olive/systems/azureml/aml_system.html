@@ -136,6 +136,7 @@
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">retry_func</span>
 <span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
+<span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">ModelStorageKind</span><span class="p">,</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">ONNXModel</span>
 <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
 <span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">AzureMLDockerConfig</span><span class="p">,</span> <span class="n">SystemType</span>
@@ -154,8 +155,9 @@
         <span class="n">aml_docker_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">AzureMLDockerConfig</span><span class="p">],</span>
         <span class="n">instance_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
         <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">accelerators</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_assert_not_none</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">)</span>
         <span class="n">aml_docker_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">,</span> <span class="n">AzureMLDockerConfig</span><span class="p">)</span>
         <span class="n">azureml_client_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">azureml_client_config</span><span class="p">,</span> <span class="n">AzureMLClientConfig</span><span class="p">)</span>
@@ -332,7 +334,7 @@
     <span class="p">):</span>
         <span class="n">parameters</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="nb">input</span> <span class="ow">in</span> <span class="n">inputs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="nb">input</span><span class="o">.</span><span class="n">optional</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">Input</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">input</span><span class="o">.</span><span class="n">optional</span><span class="p">:</span>
                 <span class="n">parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;$[[--</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2"> $</span><span class="se">{{{{</span><span class="s2">inputs.</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="se">}}}}</span><span class="s2">]]&quot;</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2"> $</span><span class="se">{{{{</span><span class="s2">inputs.</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="se">}}}}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -379,8 +381,16 @@
             <span class="n">project_folder</span> <span class="o">=</span> <span class="n">cur_dir</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">code_root</span> <span class="o">/</span> <span class="s2">&quot;olive&quot;</span><span class="p">,</span> <span class="n">ignore</span><span class="o">=</span><span class="n">shutil</span><span class="o">.</span><span class="n">ignore_patterns</span><span class="p">(</span><span class="s2">&quot;__pycache__&quot;</span><span class="p">))</span>
 
+        <span class="n">accelerator_info</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;pass_accelerator_type&quot;</span><span class="p">:</span> <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;accelerator&quot;</span><span class="p">][</span><span class="s2">&quot;accelerator_type&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;pass_execution_provider&quot;</span><span class="p">:</span> <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;accelerator&quot;</span><span class="p">][</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">],</span>
+        <span class="p">}</span>
         <span class="c1"># prepare inputs</span>
-        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_inputs</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">model_storage_kind</span><span class="p">),</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_pass_inputs</span><span class="p">(</span><span class="n">pass_path_params</span><span class="p">)}</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_inputs</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">model_storage_kind</span><span class="p">),</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_pass_inputs</span><span class="p">(</span><span class="n">pass_path_params</span><span class="p">),</span>
+            <span class="o">**</span><span class="n">accelerator_info</span><span class="p">,</span>
+        <span class="p">}</span>
 
         <span class="c1"># pass type</span>
         <span class="n">pass_type</span> <span class="o">=</span> <span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span>
@@ -405,6 +415,7 @@
         <span class="n">args</span> <span class="o">=</span> <span class="p">{</span>
             <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_args</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">),</span>
             <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_pass_args</span><span class="p">(</span><span class="n">pass_config</span><span class="p">,</span> <span class="n">pass_path_params</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">),</span>
+            <span class="o">**</span><span class="n">accelerator_info</span><span class="p">,</span>
         <span class="p">}</span>
 
         <span class="nd">@pipeline</span><span class="p">()</span>
@@ -503,7 +514,7 @@
             <span class="s2">&quot;metric_data_dir&quot;</span><span class="p">:</span> <span class="n">metric_data_dir</span><span class="p">,</span>
         <span class="p">}</span>
 
-    <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">accelerator</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">framework</span> <span class="o">==</span> <span class="n">Framework</span><span class="o">.</span><span class="n">SNPE</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;SNPE model does not support azureml evaluation&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">model</span><span class="o">.</span><span class="n">framework</span> <span class="o">==</span> <span class="n">Framework</span><span class="o">.</span><span class="n">OPENVINO</span><span class="p">:</span>
@@ -511,7 +522,7 @@
 
         <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tempdir</span><span class="p">:</span>
             <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
-            <span class="n">pipeline_job</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_pipeline_for_evaluation</span><span class="p">(</span><span class="n">tempdir</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">metrics</span><span class="p">)</span>
+            <span class="n">pipeline_job</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_pipeline_for_evaluation</span><span class="p">(</span><span class="n">tempdir</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator</span><span class="p">)</span>
 
             <span class="c1"># submit job</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Submitting pipeline&quot;</span><span class="p">)</span>
@@ -547,7 +558,9 @@
 
             <span class="k">return</span> <span class="n">metric_results</span>
 
-    <span class="k">def</span> <span class="nf">_create_pipeline_for_evaluation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]):</span>
+    <span class="k">def</span> <span class="nf">_create_pipeline_for_evaluation</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">accelerator</span><span class="p">:</span> <span class="n">AcceleratorSpec</span>
+    <span class="p">):</span>
         <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span>
 
         <span class="c1"># model json</span>
@@ -556,13 +569,17 @@
         <span class="c1"># model args</span>
         <span class="n">model_args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_model_args</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">)</span>
 
+        <span class="n">accelerator_config_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;accelerator.json&quot;</span>
+        <span class="k">with</span> <span class="n">accelerator_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">accelerator</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
         <span class="nd">@pipeline</span>
         <span class="k">def</span> <span class="nf">evaluate_pipeline</span><span class="p">():</span>
             <span class="n">outputs</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
                 <span class="n">metric_tmp_dir</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="n">metric</span><span class="o">.</span><span class="n">name</span>
                 <span class="n">metric_component</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_metric_component</span><span class="p">(</span>
-                    <span class="n">metric_tmp_dir</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">model_args</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">model_storage_kind</span>
+                    <span class="n">metric_tmp_dir</span><span class="p">,</span> <span class="n">metric</span><span class="p">,</span> <span class="n">model_args</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">model_storage_kind</span><span class="p">,</span> <span class="n">accelerator_config_path</span>
                 <span class="p">)</span>
                 <span class="n">outputs</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric_component</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">pipeline_output</span>
             <span class="k">return</span> <span class="n">outputs</span>
@@ -573,7 +590,12 @@
         <span class="k">return</span> <span class="n">pipeline_job</span>
 
     <span class="k">def</span> <span class="nf">_create_metric_component</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">model_args</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Input</span><span class="p">],</span> <span class="n">model_storage_kind</span><span class="p">:</span> <span class="n">ModelStorageKind</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+        <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
+        <span class="n">model_args</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Input</span><span class="p">],</span>
+        <span class="n">model_storage_kind</span><span class="p">:</span> <span class="n">ModelStorageKind</span><span class="p">,</span>
+        <span class="n">accelerator_config_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="n">metric_json</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_objects</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
@@ -593,7 +615,11 @@
             <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">code_root</span> <span class="o">/</span> <span class="s2">&quot;olive&quot;</span><span class="p">,</span> <span class="n">ignore</span><span class="o">=</span><span class="n">shutil</span><span class="o">.</span><span class="n">ignore_patterns</span><span class="p">(</span><span class="s2">&quot;__pycache__&quot;</span><span class="p">))</span>
 
         <span class="c1"># prepare inputs</span>
-        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_inputs</span><span class="p">(</span><span class="n">model_storage_kind</span><span class="p">),</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_metric_inputs</span><span class="p">()}</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_inputs</span><span class="p">(</span><span class="n">model_storage_kind</span><span class="p">),</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_metric_inputs</span><span class="p">(),</span>
+            <span class="o">**</span><span class="p">{</span><span class="s2">&quot;accelerator_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)},</span>
+        <span class="p">}</span>
 
         <span class="c1"># metric type</span>
         <span class="n">metric_type</span> <span class="o">=</span> <span class="n">metric_json</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span>
@@ -614,7 +640,11 @@
         <span class="p">)</span>
 
         <span class="c1"># input argument values</span>
-        <span class="n">args</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">model_args</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_metric_args</span><span class="p">(</span><span class="n">metric_json</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">)}</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">**</span><span class="n">model_args</span><span class="p">,</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_metric_args</span><span class="p">(</span><span class="n">metric_json</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">),</span>
+            <span class="o">**</span><span class="p">{</span><span class="s2">&quot;accelerator_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">accelerator_config_path</span><span class="p">)},</span>
+        <span class="p">}</span>
 
         <span class="c1"># metric component</span>
         <span class="n">metric_component</span> <span class="o">=</span> <span class="n">cmd</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
