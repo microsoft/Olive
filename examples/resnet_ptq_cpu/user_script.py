@@ -78,8 +78,8 @@ def resnet_calibration_reader(data_dir, batch_size=16):
 
 
 # keep this to demo/test custom evaluation function
-def eval_accuracy(model: OliveModel, data_dir, batch_size, device):
-    sess = model.prepare_session(inference_settings=None, device=device)
+def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_providers):
+    sess = model.prepare_session(inference_settings=None, device=device, execution_providers=execution_providers)
     dataloader = create_dataloader(data_dir, batch_size)
 
     preds = []

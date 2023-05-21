@@ -9,6 +9,7 @@ import pytest
 
 from olive.constants import Framework
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricType
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
 
 
@@ -68,14 +69,13 @@ class TestLocalSystem:
         mock_get_user_config.return_value = (None, None, None)
 
         # execute
-        actual_res = self.system.evaluate_model(olive_model, [metric])[metric.name]
+        actual_res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)[metric.name]
 
         # assert
         if metric.type == MetricType.ACCURACY:
-            mock_evaluate_accuracy.called_once_with(olive_model, metric, None, self.system.device, None)
-        elif metric.type == MetricType.LATENCY:
-            mock_evaluate_latency.called_once_with(olive_model, metric, None, self.system.device, None)
-        elif metric.type == MetricType.CUSTOM:
-            mock_evaluate_custom.called_once_with(olive_model, metric, None, None, self.system.device, None)
-
+            mock_evaluate_accuracy.called_once_with(olive_model, metric, None, "cpu", "CPUExecutionProvider")
+        if metric.type == MetricType.LATENCY:
+            mock_evaluate_latency.called_once_with(olive_model, metric, None, "cpu", "CPUExecutionProvider")
+        if metric.type == MetricType.CUSTOM:
+            mock_evaluate_custom.called_once_with(olive_model, metric, None, None, "cpu", "CPUExecutionProvider")
         assert actual_res == expected_res

@@ -178,8 +178,9 @@ def optimize(
 
         olive_run(olive_config)
 
-        # TODO: rename the 0 prefix in the path when the hardware accelerator feature is implemented.
-        footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_0_footprints.json"
+        footprints_file_path = (
+            Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_cpu-cpu_footprints.json"
+        )
         with footprints_file_path.open("r") as footprint_file:
             footprints = json.load(footprint_file)
 

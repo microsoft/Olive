@@ -19,6 +19,7 @@ from test.integ_test.evaluator.docker_eval.utils import (
 
 import pytest
 
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ONNXModel, OpenVINOModel, PyTorchModel
 
 
@@ -50,5 +51,5 @@ class TestDockerEvaluation:
     def test_evaluate_model(self, model_cls, model_config, metric, expected_res):
         docker_target = get_docker_target()
         olive_model = model_cls(**model_config)
-        actual_res = docker_target.evaluate_model(olive_model, [metric])[metric.name]
+        actual_res = docker_target.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)[metric.name]
         assert actual_res >= expected_res

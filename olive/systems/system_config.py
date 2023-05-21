@@ -11,15 +11,15 @@ from pydantic import validator
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
-from olive.systems.common import AzureMLDockerConfig, Device, LocalDockerConfig, SystemType
+from olive.systems.common import AzureMLDockerConfig, LocalDockerConfig, SystemType
 
 
 class TargetUserConfig(ConfigBase):
-    pass
+    accelerators: List[str] = None
 
 
 class LocalTargetUserConfig(TargetUserConfig):
-    device: Device = Device.CPU
+    pass
 
 
 class DockerTargetUserConfig(TargetUserConfig):
@@ -36,7 +36,6 @@ class AzureMLTargetUserConfig(TargetUserConfig):
 
 
 class PythonEnvironmentTargetUserConfig(TargetUserConfig):
-    device: Device = Device.CPU
     python_environment_path: Union[
         Path, str
     ]  # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv

@@ -19,6 +19,7 @@ from test.integ_test.evaluator.local_eval.utils import (
 
 import pytest
 
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ONNXModel, OpenVINOModel, PyTorchModel
 from olive.systems.local import LocalSystem
 
@@ -47,5 +48,7 @@ class TestLocalEvaluation:
     )
     def test_evaluate_model(self, model_cls, model_config, metric, expected_res):
         olive_model = model_cls(**model_config)
-        actual_res = LocalSystem().evaluate_model(olive_model, [metric])[metric.name]
+        actual_res = LocalSystem().evaluate_model(olive_model, [metric], accelerator=DEFAULT_CPU_ACCELERATOR)[
+            metric.name
+        ]
         assert actual_res >= expected_res
