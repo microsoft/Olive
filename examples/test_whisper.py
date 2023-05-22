@@ -28,7 +28,9 @@ def setup():
 
 def check_output(outputs):
     for output in outputs.values():
-        assert output["metrics"]["latency"] > 0
+        output_metrics = output["metrics"]
+        for item in output_metrics.values():
+            assert item.value > 0
 
 
 @pytest.mark.parametrize("device_precision", [("cpu", "fp32"), ("cpu", "int8")])

@@ -9,6 +9,7 @@ from typing import Any, Callable, Dict, List
 import onnx
 from onnxruntime import __version__ as OrtVersion
 
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -21,7 +22,7 @@ class AppendPrePostProcessingOps(Pass):
     """
 
     @staticmethod
-    def _default_config() -> Dict[str, Dict[str, Any]]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Dict[str, Any]]:
         config = {
             "pre": PassConfigParam(
                 type_=List[str],

@@ -58,7 +58,11 @@ from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 latency_metric = Metric(
     name="latency",
     type=MetricType.LATENCY,
-    sub_type=LatencySubType.AVG,
+        sub_types=[{
+        "name": LatencySubType.AVG,
+        "priority": 1,
+        "metric_config": {"warmup_num": 0, "repeat_test_num": 5, "sleep_num": 2},
+    }],
     user_config={
         "user_script": "user_script.py",
         "data_dir": "data",

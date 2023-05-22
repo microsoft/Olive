@@ -9,10 +9,10 @@ from typing import Dict, Optional, Union
 
 import numpy as np
 
+from olive.hardware import Device
 from olive.model import SNPEModel
 from olive.snpe import SNPEProcessedDataLoader
 from olive.snpe.utils.local import get_snpe_target_arch
-from olive.systems.common import Device
 
 logger = logging.getLogger(__name__)
 

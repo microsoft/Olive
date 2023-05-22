@@ -7,6 +7,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -161,7 +162,7 @@ class IncQuantization(Pass):
         super()._initialize()
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "approach": PassConfigParam(
                 type_=str,
@@ -254,7 +255,7 @@ class IncDynamicQuantization(IncQuantization):
     _requires_user_script = False
 
     @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
         config = {
             "approach": PassConfigParam(type_=str, default_value="dynamic", description="dynamic quantization mode")
         }
@@ -271,7 +272,7 @@ class IncStaticQuantization(IncQuantization):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config() -> Dict[str, Any]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
         config = {
             "approach": PassConfigParam(type_=str, default_value="static", description="static quantization mode")
         }

@@ -40,8 +40,9 @@
                 {
                     "name": "accuracy",
                     "type": "accuracy",
-                    "sub_type": "accuracy_score",
-                    "priority_rank": 1,
+                    "sub_types": [
+                        {"name": "accuracy_score", "priority": 1, "higher_is_better": true, "goal": {"type": "max-degradation", "value": 0.01}}
+                    ],
                     "user_config":{
                         "post_processing_func": "post_process",
                         "user_script": "user_script.py",
@@ -53,8 +54,9 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_type": "avg",
-                    "priority_rank": 2,
+                    "sub_types": [
+                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}}
+                    ],
                     "user_config":{
                         "user_script": "user_script.py",
                         "data_dir": "data",

@@ -12,9 +12,7 @@
                 {
                     "name": "accuracy",
                     "type": "accuracy",
-                    "sub_type": "accuracy_score",
-                    "higher_is_better": true,
-                    "priority_rank": 1,
+                    "sub_types": [{"name": "accuracy_score", "priority": 1}],
                     "user_config":{
                         "user_script": "user_script.py",
                         "data_dir": "data/eval",
@@ -27,8 +25,7 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_type": "avg",
-                    "priority_rank": 2,
+                    "sub_types": [{"name": "avg", "priority": 2}],
                     "user_config":{
                         "user_script": "user_script.py",
                         "data_dir": "data/eval",

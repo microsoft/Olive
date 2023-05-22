@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Union
 import onnx
 
 from olive.common.utils import hash_string
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
@@ -222,7 +223,7 @@ class OnnxQuantization(Pass):
         self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(
                 type_=str,
@@ -436,7 +437,7 @@ class OnnxDynamicQuantization(OnnxQuantization):
     _requires_user_script = False
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(type_=str, default_value="dynamic", description="dynamic quantization mode")
         }
@@ -456,7 +457,7 @@ class OnnxStaticQuantization(OnnxQuantization):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(type_=str, default_value="static", description="static quantization mode")
         }

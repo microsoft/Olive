@@ -5,6 +5,7 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Union
 
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModel
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
@@ -16,7 +17,7 @@ class QuantizationAwareTraining(Pass):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         import pytorch_lightning
         from packaging import version
 

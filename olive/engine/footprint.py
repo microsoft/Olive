@@ -6,9 +6,10 @@
 import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
-from typing import Dict
+from typing import DefaultDict, Dict
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
+from olive.evaluator.metric import MetricResult
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +22,8 @@ class FootprintNodeMetric(ConfigBase):
     is_goals_met: if the goals set by users is met
     """
 
-    value: Dict = None
-    cmp_direction: Dict = None
+    value: MetricResult = None
+    cmp_direction: DefaultDict[str, int] = None
     is_goals_met: bool = False
 
 
@@ -35,7 +36,7 @@ class FootprintNode(ConfigBase):
     pass_run_config: Dict = None
     is_pareto_frontier: bool = False
     # TODO add EP/accelerators for same_model_id metrics
-    metrics: FootprintNodeMetric = FootprintNodeMetric()
+    metrics: FootprintNodeMetric = None
 
     date_time: float = datetime.now().timestamp()
 
@@ -73,29 +74,29 @@ class Footprint:
         self.objective_dict = objective_dict
 
     def _is_empty_metric(self, metric: FootprintNodeMetric):
-        return not metric or not metric.value
+        return not metric
 
     def resolve_metrics(self):
         for k, v in self.nodes.items():
-            if v.metrics is None:
+            if self._is_empty_metric(v.metrics):
                 continue
             if self.nodes[k].metrics.cmp_direction is None:
                 self.nodes[k].metrics.cmp_direction = {}
-            if self.nodes[k].metrics.value is None:
-                self.nodes[k].metrics.value = {}
 
             is_goals_met = []
             for metric_name in v.metrics.value:
-                if metric_name in self.objective_dict:
-                    cmp_direction = 1 if self.objective_dict[metric_name]["higher_is_better"] else -1
-                    self.nodes[k].metrics.cmp_direction[metric_name] = cmp_direction
-                    _goal = self.objective_dict[metric_name]["goal"]
-                    if _goal is None:
-                        is_goals_met.append(True)
-                    else:
-                        is_goals_met.append(v.metrics.value[metric_name] * cmp_direction >= _goal)
+                if metric_name not in self.objective_dict:
+                    logger.debug("There is no goal set for metric: {metric_name}.")
+                    continue
+                higher_is_better = self.objective_dict[metric_name]["higher_is_better"]
+                cmp_direction = 1 if higher_is_better else -1
+                self.nodes[k].metrics.cmp_direction[metric_name] = cmp_direction
+
+                _goal = self.objective_dict[metric_name]["goal"]
+                if _goal is None:
+                    is_goals_met.append(True)
                 else:
-                    logger.warning(f"Metric {metric_name} is not in the objective dict")
+                    is_goals_met.append(v.metrics.value[metric_name].value * cmp_direction >= _goal)
             self.nodes[k].metrics.is_goals_met = all(is_goals_met)
 
     def record(self, foot_print_node: FootprintNode = None, **kwargs):
@@ -139,8 +140,11 @@ class Footprint:
                 equal = True  # two points are equal
                 dominated = True  # current point is dominated by other point
                 for metric_name in v.metrics.value:
-                    other_point_metrics = _v.metrics.value[metric_name] * _v.metrics.cmp_direction[metric_name]
-                    current_point_metrics = v.metrics.value[metric_name] * v.metrics.cmp_direction[metric_name]
+                    if metric_name not in _v.metrics.cmp_direction:
+                        logger.debug(f"Metric {metric_name} is not in cmp_direction, will not be compared.")
+                        continue
+                    other_point_metrics = _v.metrics.value[metric_name].value * _v.metrics.cmp_direction[metric_name]
+                    current_point_metrics = v.metrics.value[metric_name].value * v.metrics.cmp_direction[metric_name]
                     dominated &= current_point_metrics <= other_point_metrics
                     equal &= current_point_metrics == other_point_metrics
                 # point is not on pareto frontier if dominated and not equal
@@ -177,13 +181,13 @@ class Footprint:
             if not self._is_empty_metric(v.metrics):
                 for index in indices:
                     if isinstance(index, str):
-                        if index in v.metrics.value:
+                        if index in self.objective_dict:
                             rls.append(index)
                         else:
                             logger.error(f"the metric {index} is not in the metrics")
                     if isinstance(index, int):
-                        if index < len(v.metrics.value):
-                            rls.append(list(v.metrics.value.keys())[index])
+                        if index < len(self.objective_dict):
+                            rls.append(list(self.objective_dict.keys())[index])
                         else:
                             logger.error(f"the index {index} is out of range")
                 return rls
@@ -195,10 +199,10 @@ class Footprint:
     def plot_pareto_frontier_to_image(self, index=None, save_path=None, is_show=False):
         self.plot_pareto_frontier(index, save_path, is_show, "image")
 
-    def plot_pareto_frontier(self, index=None, save_path=None, is_show=True, save_format="html"):
+    def plot_pareto_frontier(self, ranks=None, save_path=None, is_show=True, save_format="html"):
         """
         plot pareto frontier with plotly
-        :param index: the index of the metrics to be shown in the pareto frontier chart
+        :param ranks: the rank list of the metrics to be shown in the pareto frontier chart
         :param save_path: the path to save the pareto frontier chart
         :param is_show: whether to show the pareto frontier chart
         :param save_format: the format of the pareto frontier chart, can be "html" or "image"
@@ -208,7 +212,8 @@ class Footprint:
             logger.warning("There is no need to plot pareto frontier with only one metric")
             return
 
-        index = index or [0, 1]
+        ranks = ranks or [1, 2]
+        index = [i - 1 for i in ranks]
         self.mark_pareto_frontier()
         nodes_to_be_plotted = self.get_candidates()
 
@@ -239,8 +244,8 @@ class Footprint:
             dict_data["marker_size"].append(12 if v.is_pareto_frontier else 8)
             show_list = [k]
             for metric_name in metric_column:
-                dict_data[metric_name].append(v.metrics.value[metric_name])
-                show_list.append(f"{metric_name}: {v.metrics.value[metric_name]}")
+                dict_data[metric_name].append(v.metrics.value[metric_name].value)
+                show_list.append(f"{metric_name}: {v.metrics.value}")
             dict_data["show_text"].append("<br>".join(show_list))
         data = pd.DataFrame(dict_data)
 

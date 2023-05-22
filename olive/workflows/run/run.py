@@ -12,8 +12,9 @@ from typing import Union
 import onnxruntime as ort
 
 from olive import set_default_logger_severity
+from olive.hardware import Device
 from olive.passes import Pass
-from olive.systems.common import Device, SystemType
+from olive.systems.common import SystemType
 from olive.workflows.run.config import RunConfig
 
 logger = logging.getLogger(__name__)

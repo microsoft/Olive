@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
 from olive.common.user_module_loader import UserModuleLoader
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OpenVINOModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
@@ -20,7 +21,7 @@ class OpenVINOQuantization(Pass):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "engine_config": PassConfigParam(
                 type_=Dict,

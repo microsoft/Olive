@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict
 
 from pydantic import validator
 
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel, SNPEModel
 from olive.passes.olive_pass import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -28,7 +29,7 @@ class SNPEtoONNXConversion(Pass):
     """
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "target_device": PassConfigParam(
                 type_=str,

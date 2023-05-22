@@ -28,7 +28,7 @@ def evaluate_entry(config, model_path, output_path, output_name):
     metrics_res = evaluator.evaluate(model, evaluator_config.metrics)
 
     with open(os.path.join(output_path, f"{output_name}"), "w") as f:
-        json.dump(metrics_res, f)
+        f.write(metrics_res.json())
     logger.info(f"Metric result: {metrics_res}")
 
 

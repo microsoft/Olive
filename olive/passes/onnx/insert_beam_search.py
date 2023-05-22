@@ -7,6 +7,7 @@ from typing import Any, Dict
 from onnx import ModelProto, TensorProto, helper
 from onnxruntime.transformers.convert_generation import get_shared_initializers
 
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeOnnxModel, OliveModel, ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -19,7 +20,7 @@ class InsertBeamSearch(Pass):
     _accepts_composite_model = True
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "no_repeat_ngram_size": PassConfigParam(
                 type_=int,
