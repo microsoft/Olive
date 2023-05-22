@@ -1,3 +1,9 @@
+parameters:
+- name: doc_version
+  displayName: 'If it's doc build for released branch, please specify the version number.'
+  type: string
+  default: ''
+
 trigger:
   batch: true
   branches:
@@ -14,6 +20,7 @@ stages:
         display_name: Build Docs
         pool: $(OLIVE_POOL_UBUNTU2004)
         publish_docs: true
+        doc_version: ${{parameters.doc_version}}
 
   - stage: Publish_Docs
     dependsOn: [Build_Docs]
@@ -27,14 +34,15 @@ stages:
         clean: true
         persistCredentials: true
 
-      # checkout gh-pages branch and delete all files
+      # checkout gh-pages branch and delete all files except released version folder in format x.x.x
       - script: |
           git config --global user.email "olivedevteam@microsoft.com"
           git config --global user.name "olivedevteam"
           git pull origin gh-pages
           git checkout gh-pages
-          git rm -rf .
+          ls | grep -vE "[0-9]+\.[0-9]+\.[0-9]+" | xargs -d '\n' git rm -rf --
         displayName: Checkout gh-pages branch
+        condition: eq('${{parameters.doc_version}}', '')
 
       # copy the docs to the root of the repo
       - task: DownloadPipelineArtifact@2
@@ -43,6 +51,27 @@ stages:
           artifact: olive_doc_src
           path: $(Build.SourcesDirectory)
         displayName: Download Docs from Pipeline Artifact
+        condition: eq('${{parameters.doc_version}}', '')
+      
+      # checkout gh-pages branch and delete files in version folder
+      - script: |
+          git config --global user.email "olivedevteam@microsoft.com"
+          git config --global user.name "olivedevteam"
+          git pull origin gh-pages
+          git checkout gh-pages
+          git rm -rf ${{parameters.doc_version}}
+          mkdir ${{parameters.doc_version}}
+        displayName: Checkout gh-pages branch
+        condition: ne('${{parameters.doc_version}}', '')
+
+      # copy the docs to the version folder
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          source: current
+          artifact: olive_doc_src
+          path: $(Build.SourcesDirectory)/${{parameters.doc_version}}
+        displayName: Download Docs from Pipeline Artifact
+        condition: ne('${{parameters.doc_version}}', '')
 
       # commit and push the docs
       - script: |

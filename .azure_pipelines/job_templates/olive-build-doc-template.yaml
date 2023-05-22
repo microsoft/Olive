@@ -5,17 +5,28 @@ parameters:
   display_name: ''
   pool: ''
   publish_docs: false
+  doc_version: ''
 
 jobs:
   - job: ${{parameters.job_name}}
     displayName: ${{parameters.display_name}}
     pool: ${{ parameters.pool}}
+    doc_version: ${{parameters.doc_version}}
 
     steps:
     - task: UsePythonVersion@0
       inputs:
         versionSpec: 3.8
       displayName: Use Python 3.8
+
+    # checout release branch if doc_version provided
+    - script: |
+        git config --global user.email "olivedevteam@microsoft.com"
+        git config --global user.name "olivedevteam"
+        git fetch origin rel-$(doc_version)
+        git checkout rel-$(doc_version)
+      displayName: Checkout release branch
+      condition: ne($(doc_version), '')
 
     - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
       displayName: Install Olive
