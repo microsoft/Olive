@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -27,6 +28,9 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         self.hf_conf = {
             "task_type": self.task,
         }
+
+        # cleanup the model path, otherwise, the test will fail after the firsr run.
+        shutil.rmtree(self.model_path, ignore_errors=True)
         aml_mlflow.hftransformers.save_model(
             self.original_model,
             self.model_path,

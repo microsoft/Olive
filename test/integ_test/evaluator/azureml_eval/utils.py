@@ -42,7 +42,7 @@ def get_accuracy_metric():
     accuracy_metric = Metric(
         name="accuracy",
         type=MetricType.ACCURACY,
-        sub_type=AccuracySubType.ACCURACY_SCORE,
+        sub_types=[{"name": AccuracySubType.ACCURACY_SCORE}],
         user_config=accuracy_metric_config,
     )
     return accuracy_metric
@@ -57,7 +57,7 @@ def get_latency_metric():
     latency_metric = Metric(
         name="latency",
         type=MetricType.LATENCY,
-        sub_type=LatencySubType.AVG,
+        sub_types=[{"name": LatencySubType.AVG}],
         user_config=latency_metric_config,
     )
     return latency_metric

@@ -4,7 +4,9 @@
 # --------------------------------------------------------------------------
 from copy import deepcopy
 from typing import Any, Dict, List, Union
+from packaging import version
 
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -16,7 +18,7 @@ class OrtTransformersOptimization(Pass):
     It is based on onnxruntime.transformers.optimizer."""
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         # TODO: add default search if supported
         from onnxruntime.transformers.fusion_options import FusionOptions
 

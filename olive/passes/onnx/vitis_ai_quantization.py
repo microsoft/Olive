@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, Union
 from onnxruntime.quantization.preprocess import quant_pre_process
 from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
 
+from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.vitis_ai import quantize_static
@@ -191,7 +192,7 @@ class VitisAIQuantization(Pass):
         self.tmp_dir = tempfile.TemporaryDirectory()
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(
                 type_=str,

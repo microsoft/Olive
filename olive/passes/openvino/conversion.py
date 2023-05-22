@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
 from olive.constants import Framework
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ModelStorageKind, ONNXModel, OpenVINOModel, PyTorchModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
@@ -17,7 +18,7 @@ class OpenVINOConversion(Pass):
     """
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "input": PassConfigParam(
                 type_=List[Tuple],

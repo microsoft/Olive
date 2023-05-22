@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import shutil
+import tempfile
 import zipfile
 from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_pytorch_model
@@ -13,6 +13,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig, PackagingTy
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.onnx.conversion import OnnxConversion
 
 
@@ -38,7 +39,8 @@ def test_generate_zipfile_artifacts():
     packaging_config.type = PackagingType.Zipfile
     packaging_config.name = "OutputModels"
 
-    output_dir = Path(__file__).parent / "outputs"
+    tempdir = tempfile.TemporaryDirectory()
+    output_dir = Path(tempdir.name) / "outputs"
 
     # execute
     engine.run(input_model=input_model, packaging_config=packaging_config, output_dir=output_dir)
@@ -51,9 +53,6 @@ def test_generate_zipfile_artifacts():
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
     assert (output_dir / "ONNXRuntimePackages").exists()
-
-    # cleanup
-    shutil.rmtree(output_dir)
 
 
 def test_generate_zipfile_artifacts_no_search():
@@ -72,7 +71,8 @@ def test_generate_zipfile_artifacts_no_search():
     packaging_config.type = PackagingType.Zipfile
     packaging_config.name = "OutputModels"
 
-    output_dir = Path(__file__).parent / "outputs"
+    tempdir = tempfile.TemporaryDirectory()
+    output_dir = Path(tempdir.name) / "outputs"
 
     # execute
     engine.run(input_model=input_model, packaging_config=packaging_config, output_dir=output_dir)
@@ -86,9 +86,6 @@ def test_generate_zipfile_artifacts_no_search():
     assert (output_dir / "CandidateModels").exists()
     assert (output_dir / "ONNXRuntimePackages").exists()
 
-    # cleanup
-    shutil.rmtree(output_dir)
-
 
 def test_generate_zipfile_artifacts_none_nodes():
     # setup
@@ -99,10 +96,13 @@ def test_generate_zipfile_artifacts_none_nodes():
     foot_print = Footprint()
     pf_footprint = Footprint()
     pf_footprint.nodes = None
-    output_dir = Path(__file__).parent / "outputs"
+    tempdir = tempfile.TemporaryDirectory()
+    output_dir = Path(tempdir.name) / "outputs"
 
     # execute
-    generate_output_artifacts(packaging_config, foot_print, pf_footprint, output_dir)
+    generate_output_artifacts(
+        packaging_config, {DEFAULT_CPU_ACCELERATOR: foot_print}, {DEFAULT_CPU_ACCELERATOR: pf_footprint}, output_dir
+    )
 
     # assert
     artifacts_path = output_dir / "OutputModels.zip"
@@ -118,10 +118,13 @@ def test_generate_zipfile_artifacts_zero_len_nodes():
     foot_print = Footprint()
     pf_footprint = Footprint()
     pf_footprint.nodes = {}
-    output_dir = Path(__file__).parent / "outputs"
+    tempdir = tempfile.TemporaryDirectory()
+    output_dir = Path(tempdir.name) / "outputs"
 
     # execute
-    generate_output_artifacts(packaging_config, foot_print, pf_footprint, output_dir)
+    generate_output_artifacts(
+        packaging_config, {DEFAULT_CPU_ACCELERATOR: foot_print}, {DEFAULT_CPU_ACCELERATOR: pf_footprint}, output_dir
+    )
 
     # assert
     artifacts_path = output_dir / "OutputModels.zip"

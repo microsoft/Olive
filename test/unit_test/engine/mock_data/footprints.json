@@ -14,12 +14,26 @@
         },
         "metrics": {
             "value": {
-                "accuracy": 0.92,
-                "latency": 112
+                "accuracy-accuracy_score": {
+                    "value": 0.92,
+                    "priority": 1,
+                    "higher_is_better": true
+                },
+                "accuracy-f1_score": {
+                    "value": 0.90,
+                    "priority": -1,
+                    "higher_is_better": true
+                },
+                "latency-avg": {
+                    "value": 112,
+                    "priority": 2,
+                    "higher_is_better": false
+                }
             },
             "cmp_direction": {
-                "accuracy": 1,
-                "latency": -1
+                "accuracy-accuracy_score": 1,
+                "accuracy-f1_score": 1,
+                "latency-avg": -1
             },
             "is_goals_met": true
         }
@@ -39,12 +53,26 @@
         },
         "metrics": {
             "value": {
-                "accuracy": 0.91,
-                "latency": 111
+                "accuracy-accuracy_score": {
+                    "value": 0.91,
+                    "priority": 1,
+                    "higher_is_better": true
+                },
+                "accuracy-f1_score": {
+                    "value": 0.81,
+                    "priority": -1,
+                    "higher_is_better": true
+                },
+                "latency-avg": {
+                    "value": 111,
+                    "priority": 2,
+                    "higher_is_better": false
+                }
             },
             "cmp_direction": {
-                "accuracy": 1,
-                "latency": -1
+                "accuracy-accuracy_score": 1,
+                "accuracy-f1_score": 1,
+                "latency-avg": -1
             },
             "is_goals_met": true
         }
@@ -59,12 +87,26 @@
         },
         "metrics": {
             "value": {
-                "accuracy": 0.90,
-                "latency": 120
+                "accuracy-accuracy_score": {
+                    "value": 0.90,
+                    "priority": 1,
+                    "higher_is_better": true
+                },
+                "accuracy-f1_score": {
+                    "value": 0.81,
+                    "priority": -1,
+                    "higher_is_better": true
+                },
+                "latency-avg": {
+                    "value": 120,
+                    "priority": 2,
+                    "higher_is_better": false
+                }
             },
             "cmp_direction": {
-                "accuracy": 1,
-                "latency": -1
+                "accuracy-accuracy_score": 1,
+                "accuracy-f1_score": 1,
+                "latency-avg": -1
             }
         }
     }
