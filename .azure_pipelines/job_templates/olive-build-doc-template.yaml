@@ -5,7 +5,7 @@ parameters:
   display_name: ''
   pool: ''
   publish_docs: false
-  doc_version: ''
+  doc_version: 'latest'
 
 jobs:
   - job: ${{parameters.job_name}}
@@ -25,7 +25,7 @@ jobs:
         git fetch origin rel-${{parameters.doc_version}}
         git checkout rel-${{parameters.doc_version}}
       displayName: Checkout release branch
-      condition: ne(${{parameters.doc_version}}, ' ')
+      condition: ne(${{parameters.doc_version}}, 'latest')
 
     - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
       displayName: Install Olive

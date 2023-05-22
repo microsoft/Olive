@@ -2,7 +2,7 @@ parameters:
 - name: doc_version
   displayName: "If it's doc build for released branch, please specify the version number."
   type: string
-  default: ' '
+  default: 'latest'
 
 trigger:
   batch: true
@@ -42,7 +42,7 @@ stages:
           git checkout gh-pages
           ls | grep -vE "[0-9]+\.[0-9]+\.[0-9]+" | xargs -d '\n' git rm -rf --
         displayName: Checkout gh-pages branch
-        condition: eq('${{parameters.doc_version}}', ' ')
+        condition: eq('${{parameters.doc_version}}', 'latest')
 
       # copy the docs to the root of the repo
       - task: DownloadPipelineArtifact@2
@@ -51,7 +51,7 @@ stages:
           artifact: olive_doc_src
           path: $(Build.SourcesDirectory)
         displayName: Download Docs from Pipeline Artifact
-        condition: eq('${{parameters.doc_version}}', ' ')
+        condition: eq('${{parameters.doc_version}}', 'latest')
       
       # checkout gh-pages branch and delete files in version folder
       - script: |
@@ -62,7 +62,7 @@ stages:
           git rm -rf ${{parameters.doc_version}}
           mkdir ${{parameters.doc_version}}
         displayName: Checkout gh-pages branch
-        condition: ne('${{parameters.doc_version}}', ' ')
+        condition: ne('${{parameters.doc_version}}', 'latest')
 
       # copy the docs to the version folder
       - task: DownloadPipelineArtifact@2
@@ -71,7 +71,7 @@ stages:
           artifact: olive_doc_src
           path: $(Build.SourcesDirectory)/${{parameters.doc_version}}
         displayName: Download Docs from Pipeline Artifact
-        condition: ne('${{parameters.doc_version}}', ' ')
+        condition: ne('${{parameters.doc_version}}', 'latest')
 
       # commit and push the docs
       - script: |
