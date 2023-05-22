@@ -67,6 +67,8 @@
 <li class="toctree-l1"><a class="reference internal" href="tutorials/advanced_users.html">Advanced User Tour</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/how_to_add_pass.html">How to add new Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/how_to_write_userscript.html#my-script-py">my_script.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/how_to_write_userscript.html#you-can-use-file-module-here">You can use file module here</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/packaging_output_models.html">Packaging Olive artifacts</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
@@ -732,7 +734,7 @@
 <h2 id="G">G</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="api/metric.html#olive.evaluator.metric.Metric.goal">goal (olive.evaluator.metric.Metric attribute)</a>
+      <li><a href="api/metric.html#olive.evaluator.metric.Metric.get_sub_type_info">get_sub_type_info() (olive.evaluator.metric.Metric method)</a>
 </li>
       <li>
     gpus
@@ -763,8 +765,6 @@
         <li><a href="api/passes.html#cmdoption-arg-hidden_size">command line option</a>
 </li>
       </ul></li>
-      <li><a href="api/metric.html#olive.evaluator.metric.Metric.higher_is_better">higher_is_better (olive.evaluator.metric.Metric attribute)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/engine.html#olive.engine.EngineConfig.host">host (olive.engine.EngineConfig attribute)</a>
@@ -935,8 +935,6 @@
 </li>
       <li><a href="api/engine.html#olive.strategy.search_strategy.SearchStrategyConfig.max_time">max_time (olive.strategy.search_strategy.SearchStrategyConfig attribute)</a>
 </li>
-      <li><a href="api/metric.html#olive.evaluator.metric.Metric.metric_config">metric_config (olive.evaluator.metric.Metric attribute)</a>
-</li>
       <li>
     metric_func
 
@@ -944,10 +942,10 @@
         <li><a href="api/passes.html#cmdoption-arg-metric_func">command line option</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/engine.html#olive.evaluator.olive_evaluator.OliveEvaluatorConfig.metrics">metrics (olive.evaluator.olive_evaluator.OliveEvaluatorConfig attribute)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api/metric.html#olive.evaluator.metric.MetricType">MetricType (class in olive.evaluator.metric)</a>
 </li>
       <li><a href="api/metric.html#olive.evaluator.metric.LatencySubType.MIN">MIN (olive.evaluator.metric.LatencySubType attribute)</a>
@@ -1181,8 +1179,6 @@
 </li>
       <li><a href="api/systems.html#olive.systems.system_config.PythonEnvironmentTargetUserConfig.prepend_to_path">prepend_to_path (olive.systems.system_config.PythonEnvironmentTargetUserConfig attribute)</a>
 </li>
-      <li><a href="api/metric.html#olive.evaluator.metric.Metric.priority_rank">priority_rank (olive.evaluator.metric.Metric attribute)</a>
-</li>
       <li>
     providers_list
 
@@ -1328,7 +1324,7 @@
 </li>
       <li><a href="api/engine.html#olive.strategy.search_strategy.SearchStrategyConfig.stop_when_goals_met">stop_when_goals_met (olive.strategy.search_strategy.SearchStrategyConfig attribute)</a>
 </li>
-      <li><a href="api/metric.html#olive.evaluator.metric.Metric.sub_type">sub_type (olive.evaluator.metric.Metric attribute)</a>
+      <li><a href="api/metric.html#olive.evaluator.metric.Metric.sub_types">sub_types (olive.evaluator.metric.Metric attribute)</a>
 </li>
       <li><a href="api/systems.html#olive.systems.common.SystemType">SystemType (class in olive.systems.common)</a>
 </li>

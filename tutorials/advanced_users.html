@@ -77,6 +77,8 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="how_to_add_pass.html">How to add new Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="how_to_write_userscript.html#my-script-py">my_script.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="how_to_write_userscript.html#you-can-use-file-module-here">You can use file module here</a></li>
 <li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
@@ -180,7 +182,11 @@ returns metrics values for each output model.</p>
 <span class="n">latency_metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="p">(</span>
     <span class="n">name</span><span class="o">=</span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
     <span class="nb">type</span><span class="o">=</span><span class="n">MetricType</span><span class="o">.</span><span class="n">LATENCY</span><span class="p">,</span>
-    <span class="n">sub_type</span><span class="o">=</span><span class="n">LatencySubType</span><span class="o">.</span><span class="n">AVG</span><span class="p">,</span>
+        <span class="n">sub_types</span><span class="o">=</span><span class="p">[{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">LatencySubType</span><span class="o">.</span><span class="n">AVG</span><span class="p">,</span>
+        <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;metric_config&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;warmup_num&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;repeat_test_num&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;sleep_num&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span>
+    <span class="p">}],</span>
     <span class="n">user_config</span><span class="o">=</span><span class="p">{</span>
         <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
         <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;data&quot;</span><span class="p">,</span>
