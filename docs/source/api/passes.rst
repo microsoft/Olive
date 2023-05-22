@@ -104,3 +104,8 @@ SNPEQuantization
 SNPEtoONNXConversion
 --------------------
 .. autoconfigclass:: olive.passes.SNPEtoONNXConversion
+
+.. _vitis_ai_quantization:
+VitisAIQuantization
+--------------------
+.. autoconfigclass:: olive.passes.VitisAIQuantization

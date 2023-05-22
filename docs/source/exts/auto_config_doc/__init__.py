@@ -10,6 +10,7 @@ from sphinx.util.nodes import nested_parse_with_titles
 from sphinx.util.typing import stringify_annotation
 
 from olive.common.auto_config import AutoConfigClass
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes import Pass
 
 
@@ -40,8 +41,10 @@ class AutoConfigDirective(Directive):
             output_model_type = stringify_annotation(output_model_type).replace("olive.model.", "")
             lines += ["", f"**Output:** {stringify_annotation(output_model_type)}"]
 
-        # TODO: Use default accelerator spec for Passes when it is implemented
-        default_config = auto_config_class.default_config()
+        if issubclass(auto_config_class, Pass):
+            default_config = auto_config_class.default_config(DEFAULT_CPU_ACCELERATOR)
+        else:
+            default_config = auto_config_class.default_config()
         for key in default_config:
             param = default_config[key]
             lines += ["", f".. option:: {key}"]

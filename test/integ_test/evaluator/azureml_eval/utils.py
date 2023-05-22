@@ -11,6 +11,7 @@ from azure.storage.blob import BlobClient
 from torchvision import datasets
 from torchvision.transforms import ToTensor
 
+from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
 from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
 
@@ -41,7 +42,7 @@ def get_accuracy_metric():
     accuracy_metric = Metric(
         name="accuracy",
         type=MetricType.ACCURACY,
-        sub_type=AccuracySubType.ACCURACY_SCORE,
+        sub_types=[{"name": AccuracySubType.ACCURACY_SCORE}],
         user_config=accuracy_metric_config,
     )
     return accuracy_metric
@@ -56,7 +57,7 @@ def get_latency_metric():
     latency_metric = Metric(
         name="latency",
         type=MetricType.LATENCY,
-        sub_type=LatencySubType.AVG,
+        sub_types=[{"name": LatencySubType.AVG}],
         user_config=latency_metric_config,
     )
     return latency_metric
@@ -114,12 +115,16 @@ def get_aml_target():
     conda_file_location = current_path / "conda.yaml"
     config_file_location = current_path / "olive-workspace-config.json"
     generate_olive_workspace_config(config_file_location)
+    azureml_client_config = AzureMLClientConfig(aml_config_path=str(config_file_location))
     docker_config = AzureMLDockerConfig(
         base_image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
         conda_file_path=conda_file_location,
     )
     return AzureMLSystem(
-        aml_config_path=config_file_location, aml_compute=aml_compute, aml_docker_config=docker_config, is_dev=True
+        azureml_client_config=azureml_client_config,
+        aml_compute=aml_compute,
+        aml_docker_config=docker_config,
+        is_dev=True,
     )
 
 

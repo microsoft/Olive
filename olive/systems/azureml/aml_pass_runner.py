@@ -8,6 +8,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
 from olive.passes import FullPassConfig
@@ -19,18 +20,21 @@ def parse_pass_config_arg(raw_args):
 
     # parse config arg
     parser.add_argument("--pass_config", type=str, help="pass config", required=True)
+    parser.add_argument("--pass_accelerator_type", type=str, help="pass accelerator type", default="cpu")
+    parser.add_argument(
+        "--pass_execution_provider", type=str, help="pass execution provider", default="CPUExecutionProvider"
+    )
 
     return parser.parse_known_args(raw_args)
 
 
-def parse_pass_args(pass_type, raw_args):
+def parse_pass_args(pass_type, accelerator_spec, raw_args):
     pass_class = PASS_REGISTRY[pass_type]
 
     parser = argparse.ArgumentParser(f"{pass_type} pass args")
 
-    # TODO: get accelerator specs from args when it is implemented
     # parse pass args
-    for param, param_config in pass_class.default_config().items():
+    for param, param_config in pass_class.default_config(accelerator_spec).items():
         if param_config.is_path:
             parser.add_argument(f"--pass_{param}", type=str, help=f"pass {param}", required=param_config.required)
 
@@ -52,7 +56,8 @@ def main(raw_args=None):
     pass_config_arg, extra_args = parse_pass_config_arg(extra_args)
 
     # pass config
-    pass_config = json.load(open(pass_config_arg.pass_config))
+    with open(pass_config_arg.pass_config) as f:
+        pass_config = json.load(f)
     pass_type = pass_config["type"].lower()
 
     # TODO: contact ort team for a workaround
@@ -71,7 +76,8 @@ def main(raw_args=None):
         common_args.model_path = str(new_path)
 
     # pass specific args
-    pass_args = parse_pass_args(pass_type, extra_args)
+    accelerator_spec = AcceleratorSpec(pass_config_arg.pass_accelerator_type, pass_config_arg.pass_execution_provider)
+    pass_args = parse_pass_args(pass_type, accelerator_spec, extra_args)
 
     # load input_model
     input_model_config = get_model_config(common_args)
@@ -103,7 +109,8 @@ def main(raw_args=None):
             model_json["same_model_path_as_input"] = True
         else:
             model_json["config"]["model_path"] = str(Path(model_path).relative_to(Path(common_args.pipeline_output)))
-    json.dump(model_json, open(Path(common_args.pipeline_output) / "output_model_config.json", "w"), indent=4)
+    with open(Path(common_args.pipeline_output) / "output_model_config.json", "w") as f:
+        json.dump(model_json, f, indent=4)
 
 
 if __name__ == "__main__":

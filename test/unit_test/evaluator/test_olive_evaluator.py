@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
 
 
@@ -69,14 +70,15 @@ class TestOliveEvaluator:
             mock_acc.return_value = expected_res
 
             # execute
-            actual_res = self.system.evaluate_model(olive_model, [metric])[metric.name]
+            actual_res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
 
             # assert
             mock_acc.assert_called_once()
-            assert expected_res == actual_res
+            for sub_type in metric.sub_types:
+                assert expected_res == actual_res.get_value(metric.name, sub_type.name)
 
     LATENCY_TEST_CASE = [
-        (get_pytorch_model(), get_latency_metric(LatencySubType.AVG), 1),
+        (get_pytorch_model(), get_latency_metric(LatencySubType.AVG, LatencySubType.MAX), 1),
         (get_pytorch_model(), get_latency_metric(LatencySubType.MAX), 1),
         (get_pytorch_model(), get_latency_metric(LatencySubType.MIN), 1),
         (get_pytorch_model(), get_latency_metric(LatencySubType.P50), 1),
@@ -102,7 +104,36 @@ class TestOliveEvaluator:
     )
     def test_evaluate_latency(self, olive_model, metric, expected_res):
         # execute
-        actual_res = self.system.evaluate_model(olive_model, [metric])[metric.name]
+        actual_res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
-        assert expected_res > actual_res
+        for sub_type in metric.sub_types:
+            assert expected_res > actual_res.get_value(metric.name, sub_type.name)
+
+
+@pytest.mark.skip(reason="Requires custom onnxruntime build with mpi enabled")
+class TestDistributedOnnxEvaluator:
+    def test_evaluate(self):
+        from olive.model import DistributedOnnxModel
+
+        filepaths = ["examples/switch/model_4n_2l_8e_00.onnx", "examples/switch/model_4n_2l_8e_01.onnx"]
+        model = DistributedOnnxModel(filepaths, name="model_4n_2l_8e")
+
+        user_config = {
+            "user_script": "examples/switch/user_script.py",
+            "dataloader_func": "create_dataloader",
+            "batch_size": 1,
+        }
+        # accuracy_metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, user_config=user_config)
+        latency_metric = get_latency_metric(LatencySubType.AVG, user_config=user_config)
+        # metrics = [accuracy_metric, latency_metric]
+        metrics = [latency_metric]
+
+        target = LocalSystem()
+
+        # execute
+        actual_res = target.evaluate_model(model, metrics)
+
+        # assert
+        for sub_type in latency_metric.sub_types:
+            assert actual_res.get_value(latency_metric.name, sub_type.name) > 1

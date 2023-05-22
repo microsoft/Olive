@@ -13,11 +13,16 @@ from olive.systems.local import LocalSystem
 
 def test_quantization_aware_training_pass_default():
     # setup
-    local_system = LocalSystem()
-    input_model = get_pytorch_model()
-    config = {"train_dataloader_func": create_dataloader}
-    p = create_pass_from_dict(QuantizationAwareTraining, config, disable_search=True)
+
     with tempfile.TemporaryDirectory() as tempdir:
+        local_system = LocalSystem()
+        input_model = get_pytorch_model()
+        config = {
+            "train_dataloader_func": create_dataloader,
+            "checkpoint_path": str(Path(tempdir) / "checkpoint"),
+        }
+
+        p = create_pass_from_dict(QuantizationAwareTraining, config, disable_search=True)
         output_folder = str(Path(tempdir) / "onnx")
 
         # execute

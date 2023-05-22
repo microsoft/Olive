@@ -33,7 +33,7 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_type": "avg",
+                    "sub_types": [{"name": "avg"}],
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "unet_data_loader",
@@ -60,7 +60,7 @@
                 "float16": true,
                 "use_gpu": true,
                 "keep_io_types": false,
-                "target_provider": "directml"
+                "target_provider": "directml_future"
             }
         }
     },

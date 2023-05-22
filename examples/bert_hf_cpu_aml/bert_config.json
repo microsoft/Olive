@@ -1,15 +1,20 @@
 {
     "verbose": true,
+    "azureml_client": {
+        "subscription_id": "<place_holder>",
+        "resource_group": "<place_holder>",
+        "workspace_name": "<place_holder>"
+    },
     "input_model":{
         "type": "PyTorchModel",
         "config": {
             "name": "bert-hf",
             "version": "3",
             "model_storage_kind": "azureml",
+            "aml_storage_name": "bert_hf",
             "hf_config": {
                 "model_name": "Intel/bert-base-uncased-mrpc",
                 "task": "text-classification",
-                "load_model_from_hub": false,
                 "dataset": {
                     "data_name":"glue",
                     "subset": "mrpc",
@@ -33,10 +38,10 @@
         }
     },
     "systems": {
+        "local_system": {"type": "LocalSystem"},
         "aml_system": {
             "type": "AzureML",
             "config": {
-                "aml_config_path": "olive-workspace-config.json",
                 "aml_compute": "cpu-cluster",
                 "aml_docker_config": {
                     "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
@@ -52,16 +57,16 @@
                 {
                     "name": "accuracy",
                     "type": "accuracy",
-                    "sub_type": "accuracy_score",
-                    "priority_rank": 1,
-                    "goal": {"type": "max-degradation", "value": 0.01}
+                    "sub_types": [
+                        {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}}
+                    ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_type": "avg",
-                    "priority_rank": 2,
-                    "goal": {"type": "percent-min-improvement", "value": 20}
+                    "sub_types": [
+                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}}
+                    ]
                 }
             ]
         }
@@ -104,8 +109,8 @@
             }
         },
         "evaluator": "common_evaluator",
-        "host": "aml_system",
-        "target": "aml_system",
+        "host": "local_system",
+        "target": "local_system",
         "clean_cache": true,
         "cache_dir": "cache"
     }

@@ -13,6 +13,7 @@ from pydantic import validator
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
+from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
 from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel
 from olive.passes.pass_config import (
     PassConfigBase,
@@ -57,7 +58,9 @@ class Pass(ABC):
         if not inspect.isabstract(cls):
             cls.registry[cls.__name__.lower()] = cls
 
-    def __init__(self, config_class: Type[PassConfigBase], config: Dict[str, Any]):
+    def __init__(
+        self, accelerator_spec: AcceleratorSpec, config: Dict[str, Any], disable_search: Optional[bool] = False
+    ):
         """Initialize the pass.
 
         :param config_class: the PassConfig class with the default value or default search values.
@@ -65,6 +68,12 @@ class Pass(ABC):
         :param config: the configuration representing search space.
         :type config: Dict[str, Any]
         """
+        assert accelerator_spec is not None, "Please specify the accelerator spec for the pass."
+        assert config is not None, "Please specify the configuration for the pass."
+
+        config_class, default_config = self.get_config_class(accelerator_spec, disable_search)
+
+        self._accelerator_spec = accelerator_spec
         self._config_class = config_class
         self._config = config
         if self._requires_user_script:
@@ -83,7 +92,7 @@ class Pass(ABC):
 
         # Params that are paths [(param_name, required)]
         self.path_params = []
-        for param, param_config in self._config_class._default_config.items():
+        for param, param_config in default_config.items():
             if param_config.is_path:
                 self.path_params.append((param, param_config.required))
 
@@ -95,30 +104,38 @@ class Pass(ABC):
 
     @classmethod
     def generate_search_space(
-        cls, config: Optional[Union[Dict[str, Any], PassConfigBase]] = None, disable_search: Optional[bool] = False
+        cls,
+        accelerator_spec: AcceleratorSpec,
+        config: Optional[Union[Dict[str, Any], PassConfigBase]] = None,
+        disable_search: Optional[bool] = False,
     ) -> Tuple[Type[PassConfigBase], Dict[str, Any]]:
         """
         Generate search space for the pass.
         """
-        default_config = cls.default_config()
+        assert accelerator_spec is not None, "Please specify the accelerator spec for the pass"
+
         # Get the config class with default value or default search value
-        config_class = cls.get_config_class(default_config, disable_search)
+        config_class, default_config = cls.get_config_class(accelerator_spec, disable_search)
         # Generate the search space by using both default value and default search value and user provided config
-        config = cls._resolve_config(config_class, config, default_config)
+        config = validate_config(config, PassConfigBase, config_class)
+
+        config = cls._resolve_config(config, default_config)
         config = cls._init_fixed_and_search_params(config, default_config)
-        return config_class, config
+        return config
 
     @classmethod
     def get_config_class(
-        cls, default_config: Dict[str, PassConfigParam], disable_search: Optional[bool] = False
+        cls, accelerator_spec: AcceleratorSpec, disable_search: Optional[bool] = False
     ) -> Type[PassConfigBase]:
         """
         Get the configuration class for the pass.
         """
-        return create_config_class(cls.__name__, default_config, disable_search, cls._validators())
+        default_config = cls.default_config(accelerator_spec)
+        config_class = create_config_class(cls.__name__, default_config, disable_search, cls._validators())
+        return config_class, default_config
 
     @classmethod
-    def default_config(cls) -> Dict[str, PassConfigParam]:
+    def default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         """
         Get the default configuration for the pass.
         """
@@ -127,7 +144,7 @@ class Pass(ABC):
             config.update(get_user_script_config())
         if cls.requires_data_config():
             config.update(get_data_config())
-        return {**config, **cls._default_config()}
+        return {**config, **cls._default_config(accelerator_spec)}
 
     @staticmethod
     def _validators() -> Dict[str, Callable]:
@@ -138,7 +155,7 @@ class Pass(ABC):
 
     @staticmethod
     @abstractmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         """
         Get the default configuration for the pass. Doesn't include user_script and script_dir.
 
@@ -275,15 +292,13 @@ class Pass(ABC):
     @classmethod
     def _resolve_config(
         cls,
-        config_class: Type[PassConfigBase],
         input_config: Union[Dict[str, Any], PassConfigBase],
         default_config: Dict[str, PassConfigParam],
     ) -> Dict[str, Any]:
         """
         Resolve config to PassConfigBase.
         """
-        config = validate_config(input_config, PassConfigBase, config_class)
-        config = config.dict()
+        config = input_config.dict()
         config = cls._resolve_defaults(config, default_config)
         if cls._requires_user_script:
             user_module_loader = UserModuleLoader(config["user_script"], config["script_dir"])
@@ -359,8 +374,8 @@ class Pass(ABC):
                 component_output_path = Path(output_model_path).with_suffix("") / str(cidx)
                 components.append(self._run_for_config(child, config, str(component_output_path)))
             return CompositeOnnxModel(components, model.name, hf_config=model.hf_config)
-
-        return self._run_for_config(model, config, output_model_path)
+        else:
+            return self._run_for_config(model, config, output_model_path)
 
     def serialize_config(self, config: Dict[str, Any], check_objects: bool = False) -> str:
         """
@@ -375,6 +390,7 @@ class Pass(ABC):
         return {
             "type": self.__class__.__name__,
             "disable_search": True,
+            "accelerator": self._accelerator_spec.to_json(),
             "config": self.serialize_config(self._config, check_objects),
         }
 
@@ -383,6 +399,7 @@ class Pass(ABC):
 class FullPassConfig(ConfigBase):
     type: str
     disable_search: bool = False
+    accelerator: Dict[str, str] = None
     config: Dict[str, Any] = None
 
     @validator("type")
@@ -393,12 +410,20 @@ class FullPassConfig(ConfigBase):
 
     def create_pass(self):
         pass_cls = Pass.registry[self.type.lower()]
-        return create_pass_from_dict(pass_cls, self.config, self.disable_search)
+        accelerator_spec = AcceleratorSpec(**self.accelerator)
+        return pass_cls(accelerator_spec, self.config, self.disable_search)
 
 
-def create_pass_from_dict(pass_cls: Type[Pass], config: Dict[str, Any] = None, disable_search=False) -> Pass:
+# TODO: deprecate or remove this method by explicitly specify the accelerator_spec in the arguement instead of using
+# the default argument.
+def create_pass_from_dict(
+    pass_cls: Type[Pass], config: Dict[str, Any] = None, disable_search=False, accelerator_spec: AcceleratorSpec = None
+) -> Pass:
     """
     Create a pass from a dictionary.
     """
-    config_class, config = pass_cls.generate_search_space(config, disable_search)
-    return pass_cls(config_class, config)
+    if accelerator_spec is None:
+        accelerator_spec = DEFAULT_CPU_ACCELERATOR
+
+    config = pass_cls.generate_search_space(accelerator_spec, config, disable_search)
+    return pass_cls(accelerator_spec, config, disable_search)

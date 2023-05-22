@@ -8,8 +8,9 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
-from olive.evaluator.metric import LatencySubType, Metric, MetricType
+from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_metric_key
 from olive.evaluator.metric_config import get_properties_from_metric_type
+from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
@@ -20,7 +21,11 @@ logger = logging.getLogger(__name__)
 def generate_tuning_combos(model, config):
     import onnxruntime as ort
 
-    providers_list = config.providers_list if config.providers_list else model.get_execution_providers(config.device)
+    providers_list = (
+        config.providers_list
+        if config.providers_list
+        else AcceleratorLookup.get_execution_providers_for_device(config.device)
+    )
     execution_mode_list = (
         config.execution_mode_list
         if config.execution_mode_list
@@ -54,8 +59,9 @@ def tune_onnx_model(model, config):
     for eval_config in get_properties_from_metric_type(MetricType.LATENCY):
         if eval_config in config_dict:
             latency_user_config[eval_config] = config_dict.get(eval_config)
+    latency_sub_types = [{"name": LatencySubType.AVG}]
     latency_metric = Metric(
-        name="latency", type=MetricType.LATENCY, sub_type=LatencySubType.AVG, user_config=latency_user_config
+        name="latency", type=MetricType.LATENCY, sub_types=latency_sub_types, user_config=latency_user_config
     )
 
     pretuning_inference_result = get_benchmark(model, latency_metric, config)
@@ -211,7 +217,10 @@ def get_benchmark(model, latency_metric, config, test_params=None):
         # add the io_bind back to test_params
         test_params["_io_bind"] = io_bind
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
-    test_result["latency_ms"] = evaluator.evaluate(model, [latency_metric], config.device)[latency_metric.name]
+    joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
+    test_result["latency_ms"] = evaluator.evaluate(model, [latency_metric], config.device, config.providers_list)[
+        joint_key
+    ].value
     return test_result
 
 
@@ -232,7 +241,7 @@ class OrtPerfTuning(Pass):
     _requires_data_config = True
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
                 type_=Union[Path, str], is_path=True, description="Directory of sample inference data."
@@ -291,6 +300,13 @@ class OrtPerfTuning(Pass):
         }
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+        if "providers_list" not in config:
+            # add the provider to the config if user doesn't provide the execution providers
+            config["providers_list"] = [self._accelerator_spec.execution_provider]
+
+        if "device" not in config:
+            config["device"] = self._accelerator_spec.accelerator_type
+
         config = self._config_class(**config)
         # TODO: decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model

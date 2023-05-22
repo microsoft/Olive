@@ -9,10 +9,10 @@ from typing import Dict, Optional, Union
 
 import numpy as np
 
+from olive.hardware import Device
 from olive.model import SNPEModel
 from olive.snpe import SNPEProcessedDataLoader
 from olive.snpe.utils.local import get_snpe_target_arch
-from olive.systems.common import Device
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,8 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
     data_dir = Path(data).resolve()
     name = Path(model).resolve().stem
     if type(config) is str:
-        config = json.load(open(Path(config).resolve()))
+        with open(Path(config).resolve()) as f:
+            config = json.load(f)
 
     # SNPE Model
     model = SNPEModel(model_path=model, name=name, **config["io_config"])

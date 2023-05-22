@@ -18,6 +18,7 @@ def create_trainer(
     val_check_interval=None,
     log_every_n_steps=50,
     precision=32,
+    default_root_dir=None,
     **kwargs,
 ):
     trainer = pl.Trainer(
@@ -28,6 +29,7 @@ def create_trainer(
         val_check_interval=val_check_interval,
         log_every_n_steps=log_every_n_steps,
         precision=precision,
+        default_root_dir=default_root_dir,
         **kwargs,
     )
 

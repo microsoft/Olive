@@ -9,16 +9,17 @@ from typing import Dict, List, Union
 
 from pydantic import validator
 
+from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
-from olive.systems.common import AzureMLDockerConfig, Device, LocalDockerConfig, SystemType
+from olive.systems.common import AzureMLDockerConfig, LocalDockerConfig, SystemType
 
 
 class TargetUserConfig(ConfigBase):
-    pass
+    accelerators: List[str] = None
 
 
 class LocalTargetUserConfig(TargetUserConfig):
-    device: Device = Device.CPU
+    pass
 
 
 class DockerTargetUserConfig(TargetUserConfig):
@@ -27,19 +28,14 @@ class DockerTargetUserConfig(TargetUserConfig):
 
 
 class AzureMLTargetUserConfig(TargetUserConfig):
-    aml_config_path: Union[Path, str]
+    azureml_client_config: AzureMLClientConfig = None
     aml_compute: str
     aml_docker_config: AzureMLDockerConfig
     instance_count: int = 1
-    # read timeout in seconds for HTTP requests, user can increase if they find the default value too small.
-    # The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to
-    # sometimes hang for a long time between retries of job stream and download steps.
-    read_timeout: int = 60
     is_dev: bool = False
 
 
 class PythonEnvironmentTargetUserConfig(TargetUserConfig):
-    device: Device = Device.CPU
     python_environment_path: Union[
         Path, str
     ]  # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv
@@ -100,4 +96,6 @@ class SystemConfig(ConfigBase):
 
     def create_system(self):
         system_class = import_system_from_type(self.type)
+        if system_class.system_type == SystemType.AzureML and not self.config.azureml_client_config:
+            raise ValueError("azureml_client is required for AzureML system")
         return system_class(**self.config.dict())

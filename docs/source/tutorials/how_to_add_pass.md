@@ -22,8 +22,17 @@ class NewOptimizationTrick(Pass):
 
 ## 2. Define configuration
 
-Next, define the options used to configure this new technique by defining static method `_default_config`. The method should
-return `Dict[str, PassConfigParam]`.
+Next, define the options used to configure this new technique by defining static method `_default_config`. This method
+takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
+
+`AcceleratorSpec` is a dataclass that holds the information about the accelerator. The dataclass has the following fields:
+
+- `accelerator_type`: type of the accelerator. For example, `CPU`, `GPU` etc.
+
+- `execution_provider`: execution provider for the accelerator. For example, `CPUExecutionProvider`, `CUDAExecutionProvider` etc.
+    Please note if user specify some execution providers that don't belong to the installed onnxruntime, these execution providers
+    will be ignored. For example, if user specify CUDA, TensorRT, DML execution provider, but the onnxruntime-gpu is installed then
+    the DML execution provider will be ignored since it is only available in onnxruntime-directml package.  
 
 `PassConfigParam` is a dataclass that holds the information about the configuration option. The dataclass has the following fields:
 
@@ -47,7 +56,7 @@ return `Dict[str, PassConfigParam]`.
 ### Example
 ```python
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             # required parameter
             "param1": PassConfigParam(type_=int, required=True, description="param1 description"),
@@ -91,8 +100,8 @@ return `Dict[str, PassConfigParam]`.
 
 The final step is to implement the `_run_for_config` method to optimize the input model. Olive Engine will invoke the
 method while auto tuning the model. This method will also receive a search point (one set of configuration option from
-the search space created based on the options defined in `_default_config()`) along with output path. The method
-should return a valid OliveModel which can be used as an input for the next Pass.
+the search space created based on the options defined in `_default_config(accelerator_spec: AcceleratorSpec)`) along
+with output path. The method should return a valid OliveModel which can be used as an input for the next Pass.
 
 ```python
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
