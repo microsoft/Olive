@@ -311,7 +311,7 @@ class Engine:
                     pf_footprints[accelerator_spec] = footprint
 
             except Exception as e:
-                logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}")
+                logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
 
         if packaging_config:
             logger.info(f"Package top ranked {sum([len(f.nodes) for f in pf_footprints.values()])} models as artifacts")

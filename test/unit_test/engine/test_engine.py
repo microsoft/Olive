@@ -360,6 +360,7 @@ class TestEngine:
         ]
         mock_get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         mock_local_system.run_pass.return_value = get_onnx_model()
+        mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         assert len(engine.accelerator_specs) == 2
@@ -397,6 +398,7 @@ class TestEngine:
         ]
         mock_get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         mock_local_system.run_pass.return_value = get_onnx_model()
+        mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, clean_run_cache=True)
