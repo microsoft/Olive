@@ -103,8 +103,8 @@ It is composed with 5 parts:
 ### [Input Model](../overview/options.md/#input-model-information)
 You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOModel and SNPEModel are supported model types.
 
-### [Host and Target Systems](../overview/options.md/#systems-information)
-An optimization technique, which we call a Pass, can be run on a variety of host systems and the resulting model evaluated on desired target systems. More details for the available systems can be found at at [OliveSystems api reference](systems).
+### [Systems](../overview/options.md/#systems-information)(Optional)
+You can define hardware target in this section for both Olive host system and target system used in the engine section below. Olive host system is for running optimizations and target system for evaluating the optimized model. The default value is local system with CPU. More details for the available systems can be found at [OliveSystems api reference](systems).
 
 ### [Evaluator](../overview/options.md/#evaluators-information)
 You specify your performance requirements in evaluator, such as accuracy and latency, which the optimized candidate models should meet. Olive utilizes the information to tune the optimal set of optimization parameters for the "best" model.
@@ -113,7 +113,7 @@ You specify your performance requirements in evaluator, such as accuracy and lat
 An optimization technique is called as a Pass in Olive. You list optimizations that you want to apply on the input model. In this example, we first convert the pytorch model to ONNX then quantize it.
 
 ### [Engine](../overview/options.md/#engine-information)
-The engine is used to handle the auto-tuning process.
+The engine tunes optimization passes to produces optimized model(s) based on evaluation criteria. It has default auto-tuning algorithm, also allow you to set your own. You can also define host system and target system in this section if you have to run the optimizations and evaluate the model on different hardware target. Please check [Engine api reference](engine) for more details.
 
 Note: In addition to these five core sectors, Olive provides a rich selection of optional configurations to suit diverse scenarios. For detailed information on these options, please refer to the [options.md](../overview/options.md/) file.
 
