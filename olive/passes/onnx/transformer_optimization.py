@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 from copy import deepcopy
 from typing import Any, Dict, List, Union
-from packaging import version
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
