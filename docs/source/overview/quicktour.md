@@ -98,6 +98,7 @@ Now, let's take a look at the json configuration file you need to provide to opt
     },
 
     "engine": {
+        "log_severity_level": 0,
         "evaluator": "common_evaluator",
         "packaging_config": {}
     }

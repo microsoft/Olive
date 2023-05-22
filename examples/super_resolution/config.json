@@ -1,5 +1,4 @@
 {
-    "verbose": true,
     "input_model":{
         "type": "PyTorchModel",
         "config": {
@@ -36,6 +35,7 @@
         }
     },
     "engine": {
+        "log_severity_level": 0,
         "host": "local_system",
         "target": "local_system",
         "clean_cache": true,
