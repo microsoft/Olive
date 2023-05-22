@@ -52,7 +52,7 @@ stages:
           path: $(Build.SourcesDirectory)
         displayName: Download Docs from Pipeline Artifact
         condition: eq('${{parameters.doc_version}}', 'latest')
-      
+
       # checkout gh-pages branch and delete files in version folder
       - script: |
           git config --global user.email "olivedevteam@microsoft.com"
