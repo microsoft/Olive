@@ -19,7 +19,7 @@ from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import validate_config
 from olive.common.utils import retry_func
 from olive.constants import Framework
-from olive.evaluator.metric import Metric
+from olive.evaluator.metric import Metric, MetricResult
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ModelConfig, ModelStorageKind, OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
@@ -369,8 +369,6 @@ class AzureMLSystem(OliveSystem):
         }
 
     def _create_metric_args(self, metric_config: dict, tmp_dir: Path) -> Tuple[List[str], dict]:
-        metric_config["name"] = "result"
-        metric_config.pop("goal", None)
         metric_user_script = metric_config["user_config"]["user_script"]
         if metric_user_script:
             metric_user_script = Input(type=AssetTypes.URI_FILE, path=metric_user_script)
@@ -398,7 +396,7 @@ class AzureMLSystem(OliveSystem):
             "metric_data_dir": metric_data_dir,
         }
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> Dict[str, Any]:
+    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> MetricResult:
         if model.framework == Framework.SNPE:
             raise NotImplementedError("SNPE model does not support azureml evaluation")
         if model.framework == Framework.OPENVINO:
@@ -438,9 +436,9 @@ class AzureMLSystem(OliveSystem):
                 metric_json = output_dir / "named-outputs" / metric.name / "metric_result.json"
                 if metric_json.is_file():
                     with metric_json.open() as f:
-                        metric_results[metric.name] = json.load(f)["result"]
+                        metric_results.update(json.load(f))
 
-            return metric_results
+            return MetricResult.parse_obj(metric_results)
 
     def _create_pipeline_for_evaluation(
         self, tmp_dir: str, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec
@@ -507,8 +505,9 @@ class AzureMLSystem(OliveSystem):
 
         # metric type
         metric_type = metric_json["type"]
-        if metric_json["sub_type"] is not None:
-            metric_type = f"{metric_type}-{metric_json['sub_type']}"
+        if metric_json["sub_types"] is not None:
+            sub_type_name = ",".join([st["name"] for st in metric_json["sub_types"]])
+            metric_type = f"{metric_type}-{sub_type_name}"
 
         # aml command object
         cmd = self._create_step(

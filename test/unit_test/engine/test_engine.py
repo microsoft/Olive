@@ -19,7 +19,7 @@ import pytest
 
 from olive.common.utils import hash_dict
 from olive.engine import Engine
-from olive.evaluator.metric import AccuracySubType
+from olive.evaluator.metric import AccuracySubType, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import PyTorchModel
@@ -38,6 +38,8 @@ class TestEngine:
         evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
 
         options = {
+            "output_dir": "./cache",
+            "output_name": "test",
             "cache_dir": "./cache",
             "clean_cache": True,
             "search_strategy": {
@@ -96,6 +98,8 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
+            "output_dir": "./cache",
+            "output_name": "test",
             "cache_dir": "./cache",
             "clean_cache": True,
             "search_strategy": {
@@ -105,8 +109,16 @@ class TestEngine:
             "clean_evaluation_cache": True,
         }
         onnx_model = get_onnx_model()
+        metric_result_dict = {
+            joint_metric_key(metric.name, sub_metric.name): {
+                "value": 0.998,
+                "priority": sub_metric.priority,
+                "higher_is_better": sub_metric.higher_is_better,
+            }
+            for sub_metric in metric.sub_types
+        }
         mock_local_system.run_pass.return_value = onnx_model
-        mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
+        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
@@ -117,8 +129,8 @@ class TestEngine:
                 "model_id": model_id,
                 "parent_model_id": input_model_id,
                 "metrics": {
-                    "value": {metric.name: 0.998},
-                    "cmp_direction": {metric.name: 1},
+                    "value": metric_result_dict,
+                    "cmp_direction": {},
                     "is_goals_met": True,
                 },
             }
@@ -144,7 +156,8 @@ class TestEngine:
         for k, v in expected_res[model_id].items():
             if k == "metrics":
                 assert getattr(actual_res.nodes[model_id].metrics, "is_goals_met")
-            assert getattr(actual_res.nodes[model_id], k) == v
+            else:
+                assert getattr(actual_res.nodes[model_id], k) == v
         assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
         mock_local_system.run_pass.assert_called_once()
         mock_local_system.evaluate_model.assert_called_once_with(onnx_model, [metric], accelerator_spec)
@@ -156,14 +169,24 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
+            "output_dir": "./cache",
+            "output_name": "test",
             "cache_dir": "./cache",
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
         }
         onnx_model = get_onnx_model()
+        metric_result_dict = {
+            joint_metric_key(metric.name, sub_metric.name): {
+                "value": 0.998,
+                "priority": sub_metric.priority,
+                "higher_is_better": sub_metric.higher_is_better,
+            }
+            for sub_metric in metric.sub_types
+        }
         mock_local_system.run_pass.return_value = onnx_model
-        mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
+        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
@@ -173,7 +196,7 @@ class TestEngine:
         output_dir = Path(temp_dir.name)
 
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        expected_res = {"model": onnx_model.to_json(), "metrics": {metric.name: 0.998}}
+        expected_res = {"model": onnx_model.to_json(), "metrics": MetricResult.parse_obj(metric_result_dict)}
         expected_res["model"]["config"]["model_path"] = str(
             Path(output_dir / f"{accelerator_spec}_model.onnx").resolve()
         )
@@ -186,10 +209,12 @@ class TestEngine:
         assert Path(actual_res["model"]["config"]["model_path"]).is_file()
         model_json_path = Path(output_dir / f"{accelerator_spec}_model.json")
         assert model_json_path.is_file()
-        assert json.load(open(model_json_path, "r")) == actual_res["model"]
+        with open(model_json_path, "r") as f:
+            assert json.load(f) == actual_res["model"]
         result_json_path = Path(output_dir / f"{accelerator_spec}_metrics.json")
         assert result_json_path.is_file()
-        assert json.load(open(result_json_path, "r")) == actual_res["metrics"]
+        with open(result_json_path, "r") as f:
+            assert json.load(f) == actual_res["metrics"].__root__
 
     def test_pass_exception(self, caplog):
         # Need explicitly set the propagate to allow the message to be logged into caplog
@@ -236,8 +261,16 @@ class TestEngine:
             "clean_evaluation_cache": True,
         }
         onnx_model = get_onnx_model()
+        metric_result_dict = {
+            joint_metric_key(metric.name, sub_metric.name): {
+                "value": 0.998,
+                "priority": sub_metric.priority,
+                "higher_is_better": sub_metric.higher_is_better,
+            }
+            for sub_metric in metric.sub_types
+        }
         mock_local_system.run_pass.return_value = onnx_model
-        mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
+        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
@@ -247,7 +280,7 @@ class TestEngine:
         temp_dir = tempfile.TemporaryDirectory()
         output_dir = Path(temp_dir.name)
 
-        expected_res = {metric.name: 0.998}
+        expected_res = MetricResult.parse_obj(metric_result_dict)
 
         # execute
         actual_res = engine.run(pytorch_model, output_dir=output_dir, evaluation_only=True)
@@ -257,7 +290,8 @@ class TestEngine:
         assert expected_res == actual_res
         result_json_path = Path(output_dir / f"{accelerator_spec}_metrics.json")
         assert result_json_path.is_file()
-        assert json.load(open(result_json_path, "r")) == actual_res
+        with open(result_json_path, "r") as f:
+            assert f.read() == actual_res.json()
 
     @patch.object(Path, "glob", return_value=[Path("cache") / "output" / "100_model.json"])
     @patch.object(Path, "unlink")

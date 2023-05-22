@@ -15,7 +15,7 @@ from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 
 from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.evaluator.metric import AccuracySubType, LatencySubType
+from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelStorageKind, ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
@@ -70,16 +70,18 @@ class TestAzureMLSystem:
         self.system.azureml_client_config.create_client.return_value = ml_client
 
         # execute
-        res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)[metric.name]
+        res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
         mock_create_pipeline.assert_called_once_with(output_folder, olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
         ml_client.jobs.stream.assert_called_once()
         assert mock_retry_func.call_count == 2
         if metric.name == "accuracy":
-            assert res == 0.99618
+            for sub_type in metric.sub_types:
+                assert res.get_value(metric.name, sub_type.name) == 0.99618
         if metric.name == "latency":
-            assert res == 0.031415
+            for sub_type in metric.sub_types:
+                assert res.get_value(metric.name, sub_type.name) == 0.031415
 
     @patch("olive.systems.azureml.aml_system.shutil.copy")
     @patch("olive.systems.azureml.aml_system.retry_func")
@@ -205,7 +207,8 @@ class TestAzureMLSystem:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         metric.user_config = {}
         model_args = {"input": Input(type=AssetTypes.URI_FILE, path="path")}
-        metric_type = f"{metric.type}-{metric.sub_type}"
+        sub_type_name = ",".join([st.name for st in metric.sub_types])
+        metric_type = f"{metric.type}-{sub_type_name}"
         model_inputs = {
             "model_config": Input(type=AssetTypes.URI_FILE),
             "model_path": Input(type=AssetTypes.CUSTOM_MODEL)
@@ -266,8 +269,10 @@ class TestAzureMLSystem:
         return f"python {script_name} {' '.join(parameters)}"
 
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.evaluate")
-    def test_aml_evaluation_runner(self, mock_evalute, tmp_path):
-        mock_evalute.return_value = {"accuracy": 0.5}
+    def test_aml_evaluation_runner(self, mock_evaluate, tmp_path):
+        mock_evaluate.return_value = MetricResult.parse_obj(
+            {"accuracy-accuracy_score": {"value": 0.5, "priority": 1, "higher_is_better": True}}
+        )
 
         # create model_config.json
         model_config = {
@@ -379,18 +384,12 @@ class TestAzureMLSystem:
                 },
                 "type": "HuggingfaceContainer",
             },
-            "higher_is_better": True,
-            "metric_config": {
-                "average": "micro",
-                "ignore_index": None,
-                "mdmc_average": "global",
-                "num_classes": None,
-                "threshold": 0.5,
-                "top_k": None,
-            },
             "name": "result",
-            "priority_rank": 1,
-            "sub_type": "accuracy_score",
+            "sub_types": [
+                {
+                    "name": "accuracy_score",
+                }
+            ],
             "type": "accuracy",
             "user_config": {
                 "batch_size": 1,
@@ -428,7 +427,7 @@ class TestAzureMLSystem:
             str(ouptut_dir),
         ]
         aml_evaluation_runner_main(args)
-        mock_evalute.assert_called_once()
+        mock_evaluate.assert_called_once()
 
     @patch("olive.passes.onnx.conversion.OnnxConversion.run")
     def test_pass_runner(self, mock_conversion_run, tmp_path):

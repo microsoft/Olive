@@ -10,41 +10,23 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
-from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
+from olive.engine.config import PRUNED_CONFIG, EngineConfig
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
-from olive.evaluator.metric import Metric
+from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig, ModelStorageKind, OliveModel
 from olive.passes.olive_pass import Pass
-from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
+from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
-from olive.systems.system_config import SystemConfig
 
 logger = logging.getLogger(__name__)
-
-# pass search-point/config was pruned due invalid config or failed run
-PRUNED_CONFIG = "pruned-config"
-
-
-class EngineConfig(ConfigBase):
-    search_strategy: Union[SearchStrategyConfig, bool] = None
-    host: SystemConfig = None
-    target: SystemConfig = None
-    execution_providers: List[str] = None
-    evaluator: OliveEvaluatorConfig = None
-    azureml_client_config: Optional[AzureMLClientConfig] = None
-    packaging_config: PackagingConfig = None
-    cache_dir: Union[Path, str] = ".olive-cache"
-    clean_cache: bool = False
-    clean_evaluation_cache: bool = False
-    plot_pareto_frontier: bool = False
 
 
 class Engine:
@@ -282,7 +264,7 @@ class Engine:
         outputs = {}
         pf_footprints = {}
         for accelerator_spec in self.accelerator_specs:
-            # generate search space and intialize the passes for each hardware accelerator
+            # generate search space and initialize the passes for each hardware accelerator
             self.setup_passes(accelerator_spec)
 
             # hash the input model
@@ -301,7 +283,7 @@ class Engine:
                     result_name = f"{prefix_output_name}metrics"
                     results_path = output_dir / f"{result_name}.json"
                     with open(results_path, "w") as f:
-                        json.dump(results, f, indent=4)
+                        f.write(results.json())
                     outputs[accelerator_spec] = results
                 elif self.no_search:
                     output = self.run_no_search(
@@ -418,7 +400,7 @@ class Engine:
         results_path = output_dir / f"{result_name}.json"
         if signal is not None:
             with open(results_path, "w") as f:
-                json.dump(signal, f, indent=4)
+                f.write(signal.json())
 
         output = {"model": output_model_json}
         if signal is not None:
@@ -503,8 +485,7 @@ class Engine:
         if output_model_num is None or len(pf_footprints.nodes) <= output_model_num:
             logger.info(f"Output all {len(pf_footprints.nodes)} models")
         else:
-            metrics = evaluator_config.metrics if evaluator_config else []
-            top_ranked_nodes = self._get_top_ranked_nodes(metrics, pf_footprints, output_model_num)
+            top_ranked_nodes = self._get_top_ranked_nodes(objective_dict, pf_footprints, output_model_num)
             logger.info(f"Output top ranked {len(top_ranked_nodes)} models based on metric priorities")
             pf_footprints.update_nodes(top_ranked_nodes)
 
@@ -531,12 +512,20 @@ class Engine:
         {objective_name: {"higher_is_better": bool, "goal": float}}
         """
         goals = self.resolve_goals(input_model, input_model_id, metrics, accelerator_spec, verbose)
-        objective_dict = {
-            metric.name: {"higher_is_better": metric.higher_is_better, "goal": goals.get(metric.name)}
-            for metric in metrics
-        }
+        objective_dict = {}
+        for metric in metrics:
+            for sub_type in metric.sub_types:
+                if sub_type.priority <= 0:
+                    continue
+                metric_key = joint_metric_key(metric.name, sub_type.name)
+                objective_dict[metric_key] = {
+                    "higher_is_better": sub_type.higher_is_better,
+                    "goal": goals.get(metric_key),
+                    "priority": sub_type.priority,
+                }
         self.footprints[accelerator_spec].record_objective_dict(objective_dict)
-        return objective_dict
+        ranked_objective_dict = dict(sorted(objective_dict.items(), key=lambda x: x[1]["priority"]))
+        return ranked_objective_dict
 
     def resolve_goals(
         self,
@@ -552,40 +541,59 @@ class Engine:
         goals = {}
         multipliers = {}
         for metric in metrics:
-            if metric.goal is not None:
-                goals[metric.name] = metric.goal
-                multipliers[metric.name] = 1 if metric.higher_is_better else -1
-        if verbose and len(goals) > 0:
+            # only resolve sub metrics whose priority > 0
+            goals[metric.name] = metric.get_sub_type_info("goal")
+            multipliers[metric.name] = metric.get_sub_type_info(
+                info_name="higher_is_better",
+                callback=lambda x: 1 if x else -1,
+            )
+
+        if verbose and goals:
             logger.info(f"Resolving goals: {goals}")
 
-        # compute baseline for input model if needed
-        baseline = {}
-        for _, goal in goals.items():
-            if goal.type != "threshold":
-                assert self.evaluator_config is not None, "Default evaluator must be provided to resolve goals"
-                if verbose:
+        baseline = MetricResult()
+        for goal in goals.values():
+            _evaluated = False
+            for sub_goal in goal.values():
+                if not sub_goal:
+                    break
+                if sub_goal.type != "threshold":
+                    assert self.evaluator_config is not None, "Default evaluator must be provided to resolve goals"
                     logger.info("Computing baseline for metrics ...")
-                baseline = self._evaluate_model(
-                    input_model, input_model_id, self.evaluator_config, accelerator_spec, verbose=False
-                )
+                    baseline = self._evaluate_model(
+                        input_model, input_model_id, self.evaluator_config, accelerator_spec, verbose=False
+                    )
+                    _evaluated = True
+                    break
+            if _evaluated:
                 break
-        if verbose and len(baseline) > 0:
+        if not baseline:
+            logger.info("No baseline got as no goal is provided the the goal is threshold")
+            return {}
+
+        if verbose and baseline:
             logger.info(f"Baseline: {baseline}")
 
         # resolve goals to thresholds
         resolved_goals = {}
-        for name, goal in goals.items():
-            # TODO: make the logic cleaner
-            if goal.type == "threshold":
-                resolved_goals[name] = goal.value
-            elif goal.type == "max-degradation":
-                resolved_goals[name] = baseline[name] - multipliers[name] * goal.value
-            elif goal.type == "min-improvement":
-                resolved_goals[name] = baseline[name] + multipliers[name] * goal.value
-            elif goal.type == "percent-max-degradation":
-                resolved_goals[name] = baseline[name] * (1 - multipliers[name] * goal.value / 100)
-            elif goal.type == "percent-min-improvement":
-                resolved_goals[name] = baseline[name] * (1 + multipliers[name] * goal.value / 100)
+        for metric_name, sub_type_goals in goals.items():
+            for sub_type_name, goal in sub_type_goals.items():
+                # TODO: make the logic cleaner
+                resolved_goal_value = None
+                baseline_sub_type = baseline.get_value(metric_name, sub_type_name)
+                multiplier = multipliers[metric_name][sub_type_name]
+                if goal.type == "threshold":
+                    resolved_goal_value = goal.value
+                elif goal.type == "max-degradation":
+                    resolved_goal_value = baseline_sub_type - multiplier * goal.value
+                elif goal.type == "min-improvement":
+                    resolved_goal_value = baseline_sub_type + multiplier * goal.value
+                elif goal.type == "percent-max-degradation":
+                    resolved_goal_value = baseline_sub_type * (1 - multiplier * goal.value / 100)
+                elif goal.type == "percent-min-improvement":
+                    resolved_goal_value = baseline_sub_type * (1 + multiplier * goal.value / 100)
+
+                resolved_goals[joint_metric_key(metric_name, sub_type_name)] = resolved_goal_value
         if verbose and len(resolved_goals) > 0:
             logger.info(f"Resolved goals: {resolved_goals}")
 
@@ -863,13 +871,13 @@ class Engine:
         evaluation_json_path = self._evaluation_cache_path / f"{model_id}.json"
         return evaluation_json_path
 
-    def _cache_evaluation(self, model_id: str, signal: dict):
+    def _cache_evaluation(self, model_id: str, signal: MetricResult):
         """
         Cache the evaluation in the cache directory.
         """
         evaluation_json = {
             "model_id": model_id,
-            "signal": signal,
+            "signal": signal.dict(),
         }
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         try:
@@ -888,6 +896,7 @@ class Engine:
                 with open(evaluation_json_path, "r") as f:
                     evaluation_json = json.load(f)
                 signal = evaluation_json["signal"]
+                signal = MetricResult(**signal)
             except Exception as e:
                 logger.error(f"Failed to load evaluation: {e}")
                 signal = None
@@ -940,14 +949,17 @@ class Engine:
         )
         return signal
 
-    def _get_top_ranked_nodes(self, metrics: List[Metric], footprint: Footprint, k: int) -> List[FootprintNode]:
-        metric_priority = [metric.name for metric in sorted(metrics, key=lambda x: x.priority_rank)]
+    def _get_top_ranked_nodes(
+        self, objective_dict: Dict[str, Any], footprint: Footprint, k: int
+    ) -> List[FootprintNode]:
         footprint_node_list = footprint.nodes.values()
         sorted_footprint_node_list = sorted(
             footprint_node_list,
             key=lambda x: tuple(
-                x.metrics.value[metric] if x.metrics.cmp_direction[metric] == 1 else -x.metrics.value[metric]
-                for metric in metric_priority
+                x.metrics.value[metric].value
+                if x.metrics.cmp_direction[metric] == 1
+                else -x.metrics.value[metric].value
+                for metric in objective_dict.keys()
             ),
             reverse=True,
         )

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from typing import Any, Dict, List, Optional
 
-from olive.evaluator.metric import Metric
+from olive.evaluator.metric import Metric, MetricResult
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import CompositeOnnxModel, OliveModel
@@ -31,7 +31,7 @@ class LocalSystem(OliveSystem):
         """
         return the_pass.run(model, output_model_path, point)
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> Dict[str, Any]:
+    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> MetricResult:
         """
         Evaluate the model
         """

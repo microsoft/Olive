@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from olive.evaluator.metric import AccuracySubType
+from olive.evaluator.metric import AccuracySubType, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
@@ -155,7 +155,7 @@ class TestDockerSystem:
         mock_create_run_command.return_value = run_command
 
         # execute
-        actual_res = docker_system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)[metric.name]
+        actual_res = docker_system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
         mock_create_eval_script_mount.called_once_with(container_root_path)
@@ -172,4 +172,6 @@ class TestDockerSystem:
         volumes_list.append(output_mount_str)
         mock_docker_client.containers.run.call_once_with(docker_system.image, eval_command, volumes_list, **run_command)
 
-        assert actual_res == 0.99618
+        for sub_type in metric.sub_types:
+            joint_key = joint_metric_key(metric.name, sub_type.name)
+            assert actual_res[joint_key].value == 0.99618
