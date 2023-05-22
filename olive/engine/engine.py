@@ -97,16 +97,23 @@ class Engine:
             logger.warning("No accelerators specified for target system. Using CPU.")
             accelerators = ["CPU"]
 
-        not_supported_ep = []
+        not_supported_ep = set()
+        processed_ep = set()
         self.accelerator_specs: List[AcceleratorSpec] = []
+        is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
         for accelerator in accelerators:
             device = Device(accelerator.lower())
             supported_eps = AcceleratorLookup.get_execution_providers_for_device(device)
-            device_eps = list(set(supported_eps).intersection(self.execution_providers))
-            for ep in set(self.execution_providers).difference(supported_eps):
-                not_supported_ep.append(ep)
-            for ep in device_eps:
-                self.accelerator_specs.append(AcceleratorSpec(device, ep))
+            eps = [e for e in self.execution_providers if e not in processed_ep]
+            for ep in eps:
+                if ep not in supported_eps:
+                    not_supported_ep.add(ep)
+                    processed_ep.add(ep)
+                elif ep == "CPUExecutionProvider" and device != "cpu" and is_cpu_available:
+                    logger.info("ignore the CPUExecutionProvider for non-cpu device")
+                else:
+                    self.accelerator_specs.append(AcceleratorSpec(device, ep))
+                    processed_ep.add(ep)
 
         assert self.accelerator_specs, "No valid accelerator specified for target system."
         if not_supported_ep:
@@ -320,7 +327,6 @@ class Engine:
         return outputs
 
     def setup_passes(self, accelerator_spec: AcceleratorSpec):
-        # TODO: add the hardware spec later
         # clean the passes
         self.passes.clear()
         for config in self.pass_config.values():
@@ -691,15 +697,35 @@ class Engine:
 
         return model_hash
 
-    def get_run_json_path(self, pass_name: int, input_model_number: str, pass_config: dict):
+    def get_run_json_path(
+        self,
+        pass_name: int,
+        input_model_number: str,
+        pass_config: dict,
+        is_accelerator_agonistic: bool,
+        accelerator_spec: AcceleratorSpec,
+    ):
         """
         Get the path to the run json.
         """
         pass_config_hash = hash_dict(pass_config)
-        run_json_path = self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}.json"
+        if is_accelerator_agonistic:
+            run_json_path = self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}.json"
+        else:
+            run_json_path = (
+                self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}-{accelerator_spec}.json"
+            )
         return run_json_path
 
-    def _cache_run(self, pass_name: int, pass_config: dict, input_model_id: str, output_model_id: str):
+    def _cache_run(
+        self,
+        pass_name: int,
+        pass_config: dict,
+        input_model_id: str,
+        output_model_id: str,
+        is_accelerator_agonistic: bool,
+        accelerator_spec: AcceleratorSpec,
+    ):
         """
         Cache the run in the cache directory.
         """
@@ -710,19 +736,23 @@ class Engine:
             "output_model_id": output_model_id,
         }
         input_model_number = input_model_id.split("_")[0]
-        run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config)
+        run_json_path = self.get_run_json_path(
+            pass_name, input_model_number, pass_config, is_accelerator_agonistic, accelerator_spec
+        )
         try:
             with open(run_json_path, "w") as f:
                 json.dump(run_json, f, indent=4)
         except Exception as e:
             logger.error(f"Failed to cache run: {e}")
 
-    def _load_run(self, input_model_id: str, pass_name: int, pass_config: dict):
+    def _load_run(self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: AcceleratorSpec):
         """
         Load the run from the cache directory.
         """
         input_model_number = input_model_id.split("_")[0]
-        run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config)
+        run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, False, accelerator_spec)
+        if not run_json_path.exists():
+            run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, True, None)
         if run_json_path.exists():
             try:
                 with open(run_json_path, "r") as f:
@@ -794,7 +824,7 @@ class Engine:
         pass_config = p.serialize_config(pass_config)
 
         # load run from cache if it exists
-        output_model_id = self._load_run(input_model_id, pass_name, pass_config)
+        output_model_id = self._load_run(input_model_id, pass_name, pass_config, accelerator_spec)
         if output_model_id is not None:
             logger.debug("Loading model from cache ...")
             output_model = self._load_model(output_model_id)
@@ -811,13 +841,12 @@ class Engine:
 
         # new model id
         input_model_number = input_model_id.split("_")[0]
-        # Note: the output model id need contains the accelerator information.
-        # TODO: consider how to reuse the run which is indepedent with accelerator and EP.
+        # Note: the final output model id need contains the accelerator information
+        # if the output model is accelerator dependent.
         output_model_id_parts = [
             f"{self._get_new_model_number()}_{pass_name}",
             input_model_number,
             hash_dict(pass_config),
-            accelerator_spec,
         ]
         output_model_id = "-".join(map(str, output_model_id_parts))
         output_model_path = self._model_cache_path / f"{output_model_id}" / "output_model"
@@ -843,11 +872,20 @@ class Engine:
                 if self.no_search:
                     raise  # rethrow the exception if no search is performed
 
+        # Do we need get the output_model_id from the output_model.model_path like the following?
+        # if output_model != PRUNED_CONFIG and output_model.model_path:
+        #     # get the updated output_model_id from the output model path
+        #     output_model_id = Path(output_model.model_path).name
+        if not p.is_accelerator_agnostic:
+            output_model_id = f"{output_model_id}-{accelerator_spec}"
+
         # cache model
         self._cache_model(output_model, output_model_id)
 
         # cache run
-        self._cache_run(pass_name, pass_config, input_model_id, output_model_id)
+        self._cache_run(
+            pass_name, pass_config, input_model_id, output_model_id, p.is_accelerator_agnostic, accelerator_spec
+        )
 
         # footprint model and run
         self.footprints[accelerator_spec].record(

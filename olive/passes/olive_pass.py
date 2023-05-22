@@ -74,6 +74,8 @@ class Pass(ABC):
         config_class, default_config = self.get_config_class(accelerator_spec, disable_search)
 
         self._accelerator_spec = accelerator_spec
+        self._is_accelerator_agnostic = True
+
         self._config_class = config_class
         self._config = config
         if self._requires_user_script:
@@ -97,6 +99,17 @@ class Pass(ABC):
                 self.path_params.append((param, param_config.required))
 
         self._initialized = False
+
+    @property
+    def is_accelerator_agnostic(self) -> bool:
+        return self._is_accelerator_agnostic
+
+    @is_accelerator_agnostic.setter
+    def is_accelerator_agnostic(self, value: bool) -> None:
+        """The _run_for_config will be responsible for set the flag to True and
+        append the accelerator spec suffix to the output model path.
+        """
+        self._is_accelerator_agnostic = value
 
     @classmethod
     def requires_data_config(cls):
