@@ -28,6 +28,8 @@ The easiest way to optimize the pipeline is with the `stable_diffusion.py` helpe
 python stable_diffusion.py --optimize
 ```
 
+The above command will enumerate the `config_<model_name>.json` files and optimize each with Olive, then gather the optimized models into a directory structure suitable for testing inference.
+
 The stable diffusion models are large, and the optimization process is resource intensive. It is recommended to run optimization on a system with a minimum of 16GB of memory (preferably 32GB). Expect optimization to take several minutes (especially the U-Net model).
 
 Once the script successfully completes:
@@ -57,18 +59,20 @@ Generated result_1.png
 Inference Batch End (1/1 images passed the safety checker).
 ```
 
-Inference will loop until the generated image passes the safety checker (otherwise you would see black images). The result will be saved as `result_<i>.png` on disk, which is then loaded and displayed in the UI. Example below:
-
-![example output](readme/example.png)
+Inference will loop until the generated image passes the safety checker (otherwise you would see black images). The result will be saved as `result_<i>.png` on disk, which is then loaded and displayed in the UI.
 
 Run `python stable_diffusion.py --help` for additional options. A few particularly relevant ones:
 - `--model_id <string>` : name of a stable diffusion model ID hosted by huggingface.co. This script has been tested with the following:
   - `CompVis/stable-diffusion-v1-4`
   - `runwayml/stable-diffusion-v1-5` (default)
   - LoRA variants of the above base models may work as well. See [LoRA Models (Experimental)](#lora-models-experimental).
-- `--num_inference_steps <count>` : the default value is 50, but a lower value may produce sufficiently high quality images while taking less time overall.
+- `--num_inference_steps <int>` : the number of sampling steps per inference. The default value is 50. A lower value (e.g. 20) will speed up inference at the expensive of quality, and a higher value (e.g. 100) may produce higher quality images.
+- `--num_images <int>` : the number of images to generate per script invocation (non-interactive UI) or per click of the generate button (interactive UI). The default value is 1.
+- `--batch_size <int>` : the number of images to generate per inference (default of 1). It is typically more efficient to use a larger batch size when producing multiple images than generating a single image at a time; however, larger batches also consume more video memory.
 
 If you omit `--interactive`, the script will generate the requested number of images without displaying a UI and then terminate. Use the `--prompt` option to specify the prompt when using non-interactive mode.
+
+The minimum number of inferences will be `ceil(num_images / batch_size)`; additional inferences may be required of some outputs are flagged by the safety checker to ensure the desired number of outputs are produced.
 
 # LoRA Models (Experimental)
 

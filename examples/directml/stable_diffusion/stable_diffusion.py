@@ -65,7 +65,7 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
         sess_options.add_free_dimension_override_by_name("unet_sample_channels", 4)
         sess_options.add_free_dimension_override_by_name("unet_sample_height", 64)
         sess_options.add_free_dimension_override_by_name("unet_sample_width", 64)
-        sess_options.add_free_dimension_override_by_name("unet_time_batch", batch_size)
+        sess_options.add_free_dimension_override_by_name("unet_time_batch", 1)
         sess_options.add_free_dimension_override_by_name("unet_hidden_batch", batch_size * 2)
         sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
 
@@ -288,9 +288,7 @@ if __name__ == "__main__":
 
     if not args.optimize:
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
-
-        # TODO: investigate issue with static shapes and batch_size > 1
-        use_static_dims = not args.dynamic_dims and args.batch_size == 1
+        use_static_dims = not args.dynamic_dims
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
