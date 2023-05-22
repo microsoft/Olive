@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>olive.systems.system_config &mdash; Olive  documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/autodoc_pydantic.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/tabs.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/width.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+        <script src="../../../_static/tabs.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.2.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_systems.html">Configuring OliveSystem</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_metrics.html">Configuring Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_pass.html">Configuring Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_hardware_optimizations.html">Configuring HW-dependent optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/how_to_add_pass.html">How to add new Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/packaging_output_models.html">Packaging Olive artifacts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html">Inception model optimization on Qualcomm NPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html#cifar10-optimization-with-openvino-for-intel-hw">Cifar10 optimization with OpenVINO for Intel HW</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html#bert-optimization-with-qat-customized-training-loop-on-cpu">BERT optimization with QAT Customized Training Loop on CPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html#resnet-optimization-with-qat-default-training-loop-on-cpu">ResNet optimization with QAT Default Training Loop on CPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu">ResNet optimization with QAT PyTorch Lightning Module on CPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html#squeezenet-latency-optimization-with-directml">SqueezeNet latency optimization with DirectML</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html#stable-diffusion-optimization-with-directml">Stable Diffusion optimization with DirectML</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html#bert-optimization-with-intel-neural-compressor-post-training-quantization-on-cpu">BERT optimization with Intel® Neural Compressor Post Training quantization on CPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../examples.html#whisper-optimization-using-ort-toolchain">Whisper optimization using ORT toolchain</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">olive.systems.system_config</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for olive.systems.system_config</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -------------------------------------------------------------------------</span>
+<span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
+<span class="c1"># Licensed under the MIT License.</span>
+<span class="c1"># --------------------------------------------------------------------------</span>
+<span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">validator</span>
+
+<span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
+<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">AzureMLDockerConfig</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">LocalDockerConfig</span><span class="p">,</span> <span class="n">SystemType</span>
+
+
+<span class="k">class</span> <span class="nc">TargetUserConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+
+<div class="viewcode-block" id="LocalTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.LocalTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">LocalTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span></div>
+
+
+<div class="viewcode-block" id="DockerTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.DockerTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">DockerTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
+    <span class="n">local_docker_config</span><span class="p">:</span> <span class="n">LocalDockerConfig</span>
+    <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="AzureMLTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.AzureMLTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">AzureMLTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
+    <span class="n">azureml_client_config</span><span class="p">:</span> <span class="n">AzureMLClientConfig</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">aml_compute</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">aml_docker_config</span><span class="p">:</span> <span class="n">AzureMLDockerConfig</span>
+    <span class="n">instance_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="PythonEnvironmentTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.PythonEnvironmentTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">PythonEnvironmentTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span>
+    <span class="n">python_environment_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
+        <span class="n">Path</span><span class="p">,</span> <span class="nb">str</span>
+    <span class="p">]</span>  <span class="c1"># path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv</span>
+    <span class="n">environment_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># os.environ will be updated with these variables</span>
+    <span class="n">prepend_to_path</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># paths to prepend to os.environ[&quot;PATH&quot;]</span>
+
+    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;python_environment_path&quot;</span><span class="p">,</span> <span class="s2">&quot;prepend_to_path&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">each_item</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_get_abspath</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span> <span class="k">if</span> <span class="n">v</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;python_environment_path&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_validate_python_environment_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="c1"># check if the path exists</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">Path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python path </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> does not exist&quot;</span><span class="p">)</span>
+
+        <span class="c1"># check if python exists in the path</span>
+        <span class="n">python_path</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">python_path</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python executable not found in the path </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">v</span></div>
+
+
+<span class="n">_type_to_config</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span><span class="p">:</span> <span class="n">LocalTargetUserConfig</span><span class="p">,</span>
+    <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span><span class="p">:</span> <span class="n">AzureMLTargetUserConfig</span><span class="p">,</span>
+    <span class="n">SystemType</span><span class="o">.</span><span class="n">Docker</span><span class="p">:</span> <span class="n">DockerTargetUserConfig</span><span class="p">,</span>
+    <span class="n">SystemType</span><span class="o">.</span><span class="n">PythonEnvironment</span><span class="p">:</span> <span class="n">PythonEnvironmentTargetUserConfig</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">_type_to_system_path</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span><span class="p">:</span> <span class="s2">&quot;olive.systems.local.LocalSystem&quot;</span><span class="p">,</span>
+    <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span><span class="p">:</span> <span class="s2">&quot;olive.systems.azureml.AzureMLSystem&quot;</span><span class="p">,</span>
+    <span class="n">SystemType</span><span class="o">.</span><span class="n">Docker</span><span class="p">:</span> <span class="s2">&quot;olive.systems.docker.DockerSystem&quot;</span><span class="p">,</span>
+    <span class="n">SystemType</span><span class="o">.</span><span class="n">PythonEnvironment</span><span class="p">:</span> <span class="s2">&quot;olive.systems.python_environment.PythonEnvironmentSystem&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+
+<span class="k">def</span> <span class="nf">import_system_from_type</span><span class="p">(</span><span class="n">system_type</span><span class="p">:</span> <span class="n">SystemType</span><span class="p">):</span>
+    <span class="n">system_path</span> <span class="o">=</span> <span class="n">_type_to_system_path</span><span class="p">[</span><span class="n">system_type</span><span class="p">]</span>
+    <span class="n">module_path</span><span class="p">,</span> <span class="n">class_name</span> <span class="o">=</span> <span class="n">system_path</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_path</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">class_name</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SystemConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.SystemConfig">[docs]</a><span class="k">class</span> <span class="nc">SystemConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+    <span class="nb">type</span><span class="p">:</span> <span class="n">SystemType</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">TargetUserConfig</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;config&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+        <span class="k">if</span> <span class="s2">&quot;type&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid type&quot;</span><span class="p">)</span>
+
+        <span class="n">system_type</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span>
+        <span class="n">config_class</span> <span class="o">=</span> <span class="n">_type_to_config</span><span class="p">[</span><span class="n">system_type</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">config_class</span><span class="p">)</span>
+
+<div class="viewcode-block" id="SystemConfig.create_system"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.SystemConfig.create_system">[docs]</a>    <span class="k">def</span> <span class="nf">create_system</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">system_class</span> <span class="o">=</span> <span class="n">import_system_from_type</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">system_class</span><span class="o">.</span><span class="n">system_type</span> <span class="o">==</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;azureml_client is required for AzureML system&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">system_class</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">dict</span><span class="p">())</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
