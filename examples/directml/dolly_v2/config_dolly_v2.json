@@ -22,7 +22,7 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_type": "avg",
+                    "sub_types": [{"name": "avg"}],
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "dolly_v2_data_loader",
@@ -44,11 +44,10 @@
         "optimize": {
             "type": "OrtTransformersOptimization",
             "config": {
-                "model_type": "gpt_neox",
+                "model_type": "gpt2",
                 "float16": true,
                 "use_gpu": false,
                 "keep_io_types": true,
-                "target_provider": "directml",
                 "num_heads": 32,
                 "hidden_size": 4096,
                 "optimization_options": {
@@ -76,7 +75,7 @@
         "merge": {
             "type": "OptimumMerging",
             "config": {
-                "target_provider": "directml"
+                "execution_provider": "DmlExecutionProvider"
             }
         }
     },

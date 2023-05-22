@@ -6,29 +6,22 @@ import argparse
 import json
 import shutil
 from pathlib import Path
+from packaging import version
 
 import os
 import onnxruntime as ort
-from transformers import AutoTokenizer
-from optimum.onnxruntime import ORTModelForCausalLM
-from instruct_pipeline import InstructionTextGenerationPipeline
 
 from olive.workflows import run as olive_run
 
 
-def run_inference(optimized_model_dir, prompt, max_new_tokens):
-    ort.set_default_logger_severity(3)
+def optimize(model_name: str, optimized_model_dir: Path):
+    from google.protobuf import __version__ as protobuf_version
 
-    print("Loading models into ORT session...")
-    tokenizer = AutoTokenizer.from_pretrained(optimized_model_dir, padding_side="left")
-    model = ORTModelForCausalLM.from_pretrained(optimized_model_dir, provider="DmlExecutionProvider", use_cache=True, use_merged=True, use_io_binding=False)
+    # protobuf 4.x aborts with OOM when optimizing dolly
+    if version.parse(protobuf_version) > version.parse("3.20.3"):
+        print("This script requires protobuf 3.20.3. Please ensure your package version matches requirements.txt.")
+        exit(1)
 
-    generate_text = InstructionTextGenerationPipeline(model=model, tokenizer=tokenizer, max_new_tokens=max_new_tokens)
-    result = generate_text(prompt)
-    print(result)
-
-
-def optimize(model_name: str, optimized_model_dir: Path, optimize_provider: str):
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
 
@@ -38,10 +31,8 @@ def optimize(model_name: str, optimized_model_dir: Path, optimize_provider: str)
     print(f"\nOptimizing {model_name}")
 
     olive_config = None
-    with open(script_dir / "config_dolly_v2.json", "r", encoding="utf8") as fin:
+    with open(script_dir / "config_dolly_v2.json", "r") as fin:
         olive_config = json.load(fin)
-    if optimize_provider:
-        olive_config["passes"]["optimize"]["config"]["target_provider"] = optimize_provider
 
     olive_run(olive_config)
 
@@ -91,9 +82,7 @@ def optimize(model_name: str, optimized_model_dir: Path, optimize_provider: str)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
-    parser.add_argument("--optimize_provider", type=str, default="directml", help="EP target for inference")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
-    parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
     parser.add_argument("--model", default="databricks/dolly-v2-7b", type=str)
     parser.add_argument("--prompt", default="Explain to me the difference between nuclear fission and fusion.", type=str)
     parser.add_argument("--max_new_tokens", default=64, type=int, help="Maximum number of tokens that the model will generate")
@@ -110,7 +99,7 @@ if __name__ == "__main__":
         shutil.rmtree(optimized_model_dir, ignore_errors=True)
 
     if args.optimize or not optimized_model_dir.exists():
-        optimize(args.model, optimized_model_dir, args.optimize_provider)
+        optimize(args.model, optimized_model_dir)
 
     if not args.optimize:
-        run_inference(optimized_model_dir, args.prompt, args.max_new_tokens)
+        print("This example doesn't support inference yet")

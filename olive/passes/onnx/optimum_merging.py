@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 from typing import Any, Dict, Union
 
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeOnnxModel, ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
@@ -23,9 +24,9 @@ class OptimumMerging(Pass):
     _accepts_composite_model = True
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
-            "target_provider": PassConfigParam(
+            "execution_provider": PassConfigParam(
                 type_=str,
                 default_value=None,
                 description=(
@@ -75,14 +76,7 @@ class OptimumMerging(Pass):
         sess_options = onnxruntime.SessionOptions()
         sess_options.optimized_model_filepath = output_model_path
 
-        target_provider = config["target_provider"]
-        if target_provider == "directml":
-            providers = ["DmlExecutionProvider"]
-        elif target_provider == "cuda":
-            providers = ["CUDAExecutionProvider"]
-        else:
-            providers = ["CPUExecutionProvider"]
-        
-        onnxruntime.InferenceSession(output_model_path, sess_options, providers=providers)
+        execution_provider = config["execution_provider"]
+        onnxruntime.InferenceSession(output_model_path, sess_options, providers=[execution_provider])
 
         return ONNXModel(output_model_path, model.name)
