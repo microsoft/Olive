@@ -116,11 +116,15 @@ class OliveEvaluator(ABC):
         dataloader: Dataset,
         eval_func,
         post_func=None,
+        device: Device = Device.CPU,
+        execution_providers=None,
     ) -> MetricResult:
         # TODO: Change the evaluate function to accept the metric rather than
         # breaking it into multiple arguments
         # return eval_func(model, metric, dataloader, device, post_func)
-        raw_res = eval_func(model, metric.user_config.data_dir, metric.user_config.batch_size, device, execution_providers)
+        raw_res = eval_func(
+            model, metric.user_config.data_dir, metric.user_config.batch_size, device, execution_providers
+        )
         metric_res = {}
         for sub_type in metric.sub_types:
             if isinstance(raw_res, Number):
@@ -137,7 +141,13 @@ class OliveEvaluator(ABC):
                 )
         return MetricResult.parse_obj(metric_res)
 
-    def evaluate(self, model: OliveModel, metrics: List[Metric], device: Device = Device.CPU) -> MetricResult:
+    def evaluate(
+        self,
+        model: OliveModel,
+        metrics: List[Metric],
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
         metrics_res = {}
         for metric in metrics:
             dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric)
@@ -568,8 +578,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        warmup_num = metric.metric_config.warmup_num
-        repeat_test_num = metric.metric_config.repeat_test_num
+        warmup_num, repeat_test_num, _ = get_latency_config_from_metric(metric)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         input_data, _ = next(iter(dataloader))

@@ -15,7 +15,7 @@ from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 
 from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.evaluator.metric import AccuracySubType, LatencySubType
+from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ModelStorageKind, ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
@@ -269,8 +269,14 @@ class TestAzureMLSystem:
         return f"python {script_name} {' '.join(parameters)}"
 
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.evaluate")
-    def test_aml_evaluation_runner(self, mock_evalute, tmp_path):
-        mock_evalute.return_value = {"accuracy": 0.5}
+    def test_aml_evaluation_runner(self, mock_evaluate, tmp_path):
+        mock_evaluate.return_value = MetricResult.parse_obj({
+            "accuracy-accuracy_score": {
+                "value": 0.5,
+                "priority": 1,
+                "higher_is_better": True
+            }
+        })
 
         # create model_config.json
         model_config = {
@@ -382,18 +388,10 @@ class TestAzureMLSystem:
                 },
                 "type": "HuggingfaceContainer",
             },
-            "higher_is_better": True,
-            "metric_config": {
-                "average": "micro",
-                "ignore_index": None,
-                "mdmc_average": "global",
-                "num_classes": None,
-                "threshold": 0.5,
-                "top_k": None,
-            },
             "name": "result",
-            "priority_rank": 1,
-            "sub_type": "accuracy_score",
+            "sub_types": [{
+                "name": "accuracy_score",
+            }],
             "type": "accuracy",
             "user_config": {
                 "batch_size": 1,
@@ -431,7 +429,7 @@ class TestAzureMLSystem:
             str(ouptut_dir),
         ]
         aml_evaluation_runner_main(args)
-        mock_evalute.assert_called_once()
+        mock_evaluate.assert_called_once()
 
     @patch("olive.passes.onnx.conversion.OnnxConversion.run")
     def test_pass_runner(self, mock_conversion_run, tmp_path):

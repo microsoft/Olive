@@ -78,7 +78,7 @@ class TestLocalSystem:
         mock_get_user_config.return_value = (None, None, None)
 
         # execute
-        actual_res = self.system.evaluate_model(olive_model, [metric])
+        actual_res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
         if metric.type == MetricType.ACCURACY:

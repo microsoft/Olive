@@ -283,7 +283,7 @@ class Engine:
                     result_name = f"{prefix_output_name}metrics"
                     results_path = output_dir / f"{result_name}.json"
                     with open(results_path, "w") as f:
-                        json.dump(results, f, indent=4)
+                        f.write(results.json())
                     outputs[accelerator_spec] = results
                 elif self.no_search:
                     output = self.run_no_search(
