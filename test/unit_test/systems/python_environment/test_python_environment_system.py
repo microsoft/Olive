@@ -11,6 +11,7 @@ import pytest
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult, MetricType, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.python_environment import PythonEnvironmentSystem
 
 
@@ -24,7 +25,7 @@ class TestPythonEnvironmentSystem:
     def test_available_eps(self):
         import onnxruntime as ort
 
-        assert set(self.system.get_available_eps()) == set(ort.get_available_providers())
+        assert set(self.system.get_supported_execution_providers()) == set(ort.get_available_providers())
 
     @patch("olive.systems.python_environment.PythonEnvironmentSystem.evaluate_accuracy")
     @patch("olive.systems.python_environment.PythonEnvironmentSystem.evaluate_latency")
@@ -55,7 +56,7 @@ class TestPythonEnvironmentSystem:
         )
 
         # execute
-        res = self.system.evaluate_model(model, metrics)
+        res = self.system.evaluate_model(model, metrics, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         assert res[metrics_key[0]].value == 0.9

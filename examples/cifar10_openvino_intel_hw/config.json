@@ -10,7 +10,12 @@
         }
     },
     "systems": {
-        "local_system": {"type": "LocalSystem"}
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["CPU"]
+            }
+        }
     },
     "evaluators": {
         "common_evaluator": {

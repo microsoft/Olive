@@ -9,6 +9,7 @@ import pytest
 
 from olive.constants import Framework
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult, MetricType, joint_metric_key
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
 
 
@@ -81,11 +82,11 @@ class TestLocalSystem:
 
         # assert
         if metric.type == MetricType.ACCURACY:
-            mock_evaluate_accuracy.called_once_with(olive_model, metric, None, self.system.device, None)
-        elif metric.type == MetricType.LATENCY:
-            mock_evaluate_latency.called_once_with(olive_model, metric, None, self.system.device, None)
-        elif metric.type == MetricType.CUSTOM:
-            mock_evaluate_custom.called_once_with(olive_model, metric, None, None, self.system.device, None)
+            mock_evaluate_accuracy.called_once_with(olive_model, metric, None, "cpu", "CPUExecutionProvider")
+        if metric.type == MetricType.LATENCY:
+            mock_evaluate_latency.called_once_with(olive_model, metric, None, "cpu", "CPUExecutionProvider")
+        if metric.type == MetricType.CUSTOM:
+            mock_evaluate_custom.called_once_with(olive_model, metric, None, None, "cpu", "CPUExecutionProvider")
 
         joint_keys = [joint_metric_key(metric.name, sub_metric.name) for sub_metric in metric.sub_types]
         for joint_key in joint_keys:

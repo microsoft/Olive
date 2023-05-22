@@ -26,7 +26,7 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {"device": "<place_holder>"}
+            "config": {"accelerators": ["<place_holder>"]}
         }
     },
     "evaluators": {

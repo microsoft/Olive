@@ -13,6 +13,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig, PackagingTy
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import AccuracySubType
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.onnx.conversion import OnnxConversion
 
 
@@ -99,7 +100,9 @@ def test_generate_zipfile_artifacts_none_nodes():
     output_dir = Path(tempdir.name) / "outputs"
 
     # execute
-    generate_output_artifacts(packaging_config, foot_print, pf_footprint, output_dir)
+    generate_output_artifacts(
+        packaging_config, {DEFAULT_CPU_ACCELERATOR: foot_print}, {DEFAULT_CPU_ACCELERATOR: pf_footprint}, output_dir
+    )
 
     # assert
     artifacts_path = output_dir / "OutputModels.zip"
@@ -119,7 +122,9 @@ def test_generate_zipfile_artifacts_zero_len_nodes():
     output_dir = Path(tempdir.name) / "outputs"
 
     # execute
-    generate_output_artifacts(packaging_config, foot_print, pf_footprint, output_dir)
+    generate_output_artifacts(
+        packaging_config, {DEFAULT_CPU_ACCELERATOR: foot_print}, {DEFAULT_CPU_ACCELERATOR: pf_footprint}, output_dir
+    )
 
     # assert
     artifacts_path = output_dir / "OutputModels.zip"

@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 from olive.evaluator.metric import Metric, MetricResult
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OliveModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
@@ -17,8 +18,8 @@ logger = logging.getLogger(__name__)
 class OliveSystem(ABC):
     system_type: SystemType
 
-    def __init__(self):
-        self.accelerators = []
+    def __init__(self, accelerators: List[str] = None):
+        self.accelerators = accelerators
 
     @abstractmethod
     def run_pass(
@@ -34,7 +35,7 @@ class OliveSystem(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> MetricResult:
+    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> MetricResult:
         """
         Evaluate the model
         """

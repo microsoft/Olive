@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
 
 
@@ -69,7 +70,7 @@ class TestOliveEvaluator:
             mock_acc.return_value = expected_res
 
             # execute
-            actual_res = self.system.evaluate_model(olive_model, [metric])
+            actual_res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
 
             # assert
             mock_acc.assert_called_once()
@@ -103,7 +104,7 @@ class TestOliveEvaluator:
     )
     def test_evaluate_latency(self, olive_model, metric, expected_res):
         # execute
-        actual_res = self.system.evaluate_model(olive_model, [metric])
+        actual_res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
         for sub_type in metric.sub_types:

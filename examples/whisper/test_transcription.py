@@ -43,9 +43,10 @@ def main(raw_args=None):
     # load config
     config = json.load(open(args.config, "r"))
 
-    # TODO: change the 0 to the real hardware spec when accelerator is supported
     # load output model json
-    output_model_json_path = Path(config["engine"]["output_dir"]) / f"{config['engine']['output_name']}_0_model.json"
+    output_model_json_path = (
+        Path(config["engine"]["output_dir"]) / f"{config['engine']['output_name']}_cpu-cpu_model.json"
+    )
     output_model_json = json.load(open(output_model_json_path, "r"))
 
     # load output model onnx

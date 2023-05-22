@@ -15,6 +15,7 @@ import docker
 import olive.systems.docker.utils as docker_utils
 from olive.common.config_utils import validate_config
 from olive.evaluator.metric import Metric, MetricResult
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OliveModel
 from olive.passes import Pass
 from olive.systems.common import LocalDockerConfig, SystemType
@@ -29,6 +30,7 @@ class DockerSystem(OliveSystem):
     BASE_DOCKERFILE = "Dockerfile"
 
     def __init__(self, local_docker_config: Union[Dict[str, Any], LocalDockerConfig], is_dev: bool = False):
+        super().__init__(accelerators=None)
         logger.info("Initializing Docker System...")
         local_docker_config = validate_config(local_docker_config, LocalDockerConfig)
         self.is_dev = is_dev
@@ -79,7 +81,7 @@ class DockerSystem(OliveSystem):
         logger.warning("DockerSystem.run_pass is not implemented yet.")
         raise NotImplementedError()
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> Dict[str, Any]:
+    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> Dict[str, Any]:
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
             metrics_res = None

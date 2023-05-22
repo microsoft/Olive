@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase
@@ -20,6 +20,7 @@ class EngineConfig(ConfigBase):
     search_strategy: Union[SearchStrategyConfig, bool] = None
     host: SystemConfig = None
     target: SystemConfig = None
+    execution_providers: List[str] = None
     evaluator: OliveEvaluatorConfig = None
     azureml_client_config: Optional[AzureMLClientConfig] = None
     packaging_config: PackagingConfig = None
