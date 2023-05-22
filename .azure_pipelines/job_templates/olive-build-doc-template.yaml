@@ -11,7 +11,6 @@ jobs:
   - job: ${{parameters.job_name}}
     displayName: ${{parameters.display_name}}
     pool: ${{ parameters.pool}}
-    doc_version: ${{parameters.doc_version}}
 
     steps:
     - task: UsePythonVersion@0
@@ -23,10 +22,10 @@ jobs:
     - script: |
         git config --global user.email "olivedevteam@microsoft.com"
         git config --global user.name "olivedevteam"
-        git fetch origin rel-$(doc_version)
-        git checkout rel-$(doc_version)
+        git fetch origin rel-${{parameters.doc_version}}
+        git checkout rel-${{parameters.doc_version}}
       displayName: Checkout release branch
-      condition: ne($(doc_version), ' ')
+      condition: ne(${{parameters.doc_version}}, ' ')
 
     - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
       displayName: Install Olive
