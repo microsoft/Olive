@@ -383,6 +383,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
                 io_bind_op.bind_output(item.name, "cuda")
 
         latencies = []
+        print(f"Input feed rank: {input_feed['onnx::Cast_1'].shape}")
         for i in range(warmup_num + repeat_test_num):
             MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
             start_time = time.perf_counter()

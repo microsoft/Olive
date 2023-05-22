@@ -1,0 +1,13 @@
+{
+    "word_embeddings.weight": "RR",
+    "word_embeddings_layernorm.weight": "R",
+    "word_embeddings_layernorm.bias": "R",
+    "/h.0/mlp/dense_4h_to_h/Transpose_output_0": "SR",
+    "h.0.self_attention.query_key_value.bias": "S",
+    "/h.0/mlp/dense_h_to_4h/Transpose_output_0": "RS",
+    "/h.0/self_attention/query_key_value/Transpose_output_0": "RS",
+    "h.0.mlp.dense_h_to_4h.bias": "S",
+    "/h.0/self_attention/dense/Transpose_output_0": "SR",
+    "input.1": "RR",
+    "onnx::Cast_1": "RR"
+}

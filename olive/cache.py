@@ -135,7 +135,7 @@ def save_model(
         return
 
     # save model file/folder
-    model_path = model_json["config"]["model_path"]
+    model_path = model_json["config"].get("model_path")
     if model_path is not None and Path(model_path).exists():
         if (
             model_json["type"].lower() == "onnxmodel"

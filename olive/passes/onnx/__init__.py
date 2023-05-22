@@ -30,6 +30,6 @@ __all__ = [
     "OnnxFloatToFloat16",
     "InsertBeamSearch",
     "OrtMixedPrecision",
-    "OnnxModelSharding"
+    "OnnxModelSharding",
     "VitisAIQuantization",
 ]

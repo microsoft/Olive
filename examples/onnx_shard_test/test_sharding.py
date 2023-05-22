@@ -1,7 +1,7 @@
 from olive.systems.local import LocalSystem
 from olive.model import ONNXModel, DistributedOnnxModel
 from olive.evaluator.metric import LatencySubType, Metric, MetricType
-from olive.evaluator.olive_evaluator import OliveEvaluator
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.engine import Engine
 from olive.passes import OnnxModelSharding
 from olive.passes.olive_pass import create_pass_from_dict
@@ -11,7 +11,7 @@ from olive.evaluator.distributed_evaluator import eval_onnx_distributed_latency,
 
 def _main():
     input_model = ONNXModel(
-        model_path="bloom-test-model_opt.onnx"
+        model_path="bloom-test-model_opt.onnx",
     )
 
     # create latency metric instance
@@ -22,13 +22,13 @@ def _main():
         user_config={
             "user_script": "inference_script.py",
             "data_dir": "data",
-            "evaluate_func": "eval_latency",
+            "dataloader_func": "create_bloom_dataloader",
             "batch_size": 1,
         }
     )
 
-    # create evaluator
-    evaluator = OliveEvaluator(metrics=[latency_metric])
+    # create evaluator configuration
+    evaluator_config =  OliveEvaluatorConfig(metrics=[latency_metric])
 
     # configuration options for engine
     engine_config = {
@@ -37,18 +37,15 @@ def _main():
 
     local_system = LocalSystem()
 
-    engine = Engine(engine_config, evaluator=evaluator, host=local_system)
+    engine = Engine(engine_config, evaluator_config=evaluator_config, host=local_system)
 
-    onnx_conversion_config = {
+    onnx_sharding_config = {
         "sharding_spec_path": "best_shard.json",
         "hardware_spec_path": "hardware-test-device.json"
     }
 
-    onnx_sharding_pass = create_pass_from_dict(OnnxModelSharding, onnx_conversion_config)
-
     # override the default host with pass specific host
-    engine.register(onnx_sharding_pass, host=LocalSystem())
-    engine.register(OnnxModelOptimizer(), host=local_system)
+    engine.register(OnnxModelSharding, onnx_sharding_config, True, host=LocalSystem())
 
     best_execution = engine.run(input_model, verbose=True)
 

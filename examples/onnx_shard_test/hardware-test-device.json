@@ -1,0 +1,12 @@
+{
+  "device_count": ,
+  "core_card": {
+    "TENSOR": 2,
+    "VECTOR": 2
+  },
+  "device_memory_byte": 17179869184,
+  "cycle_frequency_hz": 3400000000,
+  "inter_device_bandwidth_byte_per_second": 150000000000,
+  "tensor_ops": {},
+  "vector_ops": {}
+}
