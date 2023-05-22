@@ -37,6 +37,9 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
+              <div class="version">
+                latest
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -70,10 +73,12 @@
 <li class="toctree-l3"><a class="reference internal" href="#examples">Examples</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="#script-dir"><code class="docutils literal notranslate"><span class="pre">script_dir</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id2">Examples</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="#my-script-py">my_script.py</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#you-can-use-file-module-here">You can use file module here</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
@@ -160,94 +165,67 @@
     <span class="o">...</span>
 </pre></div>
 </div>
-<p>Use <code class="docutils literal notranslate"><span class="pre">my_script.py</span></code> with Olive workflow configuration json file(sub_types name should be the returned dict key of your custom function):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
-</pre></div>
-</div>
-<p>“metrics”:[
-{
-“name”: “accuracy”,
-“type”: “accuracy”,
-“sub_types”: [
-{“name”: “accuracy_score”, “priority”: 1, “goal”: {“type”: “max-degradation”, “value”: 0.01}},
-{“name”: “f1_score”},
-{“name”: “auc”, “metric_config”: {“reorder”: true}}
-],
-“user_config”:{
-“post_processing_func”: “post_process”,
-“user_script”: “user_script.py”,
-“dataloader_func”: “create_dataloader”,
-“batch_size”: 4
-}
-}
-]</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
-
-## `script_dir`
-`script_dir` is the directory where you collect your own modules that will be used in Olive. Olive will append this directory to your `sys.path` for your Python interpreter.
-
-`script_dir` can be either a `str` path to your script file, or a `Path` object.
-
-### Examples
-
-You can place your own Python modules, let&#39;s say `file.py`, in `my_modules` directory
-
-</pre></div>
-</div>
-<ul class="simple">
-<li><p>my_olive_project</p>
-<ul>
-<li><p>my_modules</p>
-<ul>
-<li><p>file.py</p></li>
-</ul>
-</li>
-<li><p>my_script.py</p></li>
-</ul>
-</li>
-</ul>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
-Your script can use this module directly when specifying `script_dir` in configuration:
-
+<p>Use <code class="docutils literal notranslate"><span class="pre">my_script.py</span></code> with Olive workflow configuration json file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;metrics&quot;</span><span class="p">:[</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sub_type&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy_score&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;user_config&quot;</span><span class="p">:{</span>
+            <span class="s2">&quot;post_processing_func&quot;</span><span class="p">:</span> <span class="s2">&quot;post_process&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">4</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">]</span>
 </pre></div>
 </div>
 </section>
 </section>
-</section>
-<section id="my-script-py">
-<h1>my_script.py<a class="headerlink" href="#my-script-py" title="Permalink to this heading">¶</a></h1>
-<p>import file</p>
-</section>
-<section id="you-can-use-file-module-here">
-<h1>You can use file module here<a class="headerlink" href="#you-can-use-file-module-here" title="Permalink to this heading">¶</a></h1>
-<p>print(file.my_val)
-…</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
-Use `script_dir` and `my_script.py` with Olive workflow configuration json file:
+<section id="script-dir">
+<h2><code class="docutils literal notranslate"><span class="pre">script_dir</span></code><a class="headerlink" href="#script-dir" title="Permalink to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">script_dir</span></code> is the directory where you collect your own modules that will be used in Olive. Olive will append this directory to your <code class="docutils literal notranslate"><span class="pre">sys.path</span></code> for your Python interpreter.</p>
+<p><code class="docutils literal notranslate"><span class="pre">script_dir</span></code> can be either a <code class="docutils literal notranslate"><span class="pre">str</span></code> path to your script file, or a <code class="docutils literal notranslate"><span class="pre">Path</span></code> object.</p>
+<section id="id2">
+<h3>Examples<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<p>You can place your own Python modules, let’s say <code class="docutils literal notranslate"><span class="pre">file.py</span></code>, in <code class="docutils literal notranslate"><span class="pre">my_modules</span></code> directory</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span> <span class="n">my_olive_project</span>
+  <span class="o">-</span> <span class="n">my_modules</span>
+    <span class="o">-</span> <span class="n">file</span><span class="o">.</span><span class="n">py</span>
+  <span class="o">-</span> <span class="n">my_script</span><span class="o">.</span><span class="n">py</span>
 
 </pre></div>
 </div>
-<p>“metrics”:[
-{
-“name”: “accuracy”,
-“type”: “accuracy”,
-“sub_types”: [
-{“name”: “accuracy_score”, “priority”: 1, “goal”: {“type”: “max-degradation”, “value”: 0.01}},
-{“name”: “f1_score”},
-{“name”: “auc”, “metric_config”: {“reorder”: true}}
-]
-“user_config”:{
-“post_processing_func”: “post_process”,
-“user_script”: “user_script.py”,
-“script_dir”: “my_modules”
-“dataloader_func”: “create_dataloader”,
-“batch_size”: 4
-}
-}
-]</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>
+<p>Your script can use this module directly when specifying <code class="docutils literal notranslate"><span class="pre">script_dir</span></code> in configuration:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_script.py</span>
+
+<span class="kn">import</span> <span class="nn">file</span>
+
+<span class="c1"># You can use file module here</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">file</span><span class="o">.</span><span class="n">my_val</span><span class="p">)</span>
+<span class="o">...</span>
 </pre></div>
 </div>
+<p>Use <code class="docutils literal notranslate"><span class="pre">script_dir</span></code> and <code class="docutils literal notranslate"><span class="pre">my_script.py</span></code> with Olive workflow configuration json file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;metrics&quot;</span><span class="p">:[</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;sub_type&quot;</span><span class="p">:</span> <span class="s2">&quot;accuracy_score&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;user_config&quot;</span><span class="p">:{</span>
+            <span class="s2">&quot;post_processing_func&quot;</span><span class="p">:</span> <span class="s2">&quot;post_process&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;script_dir&quot;</span><span class="p">:</span> <span class="s2">&quot;my_modules&quot;</span>
+            <span class="s2">&quot;dataloader_func&quot;</span><span class="p">:</span> <span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">4</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</section>
+</section>
 </section>
 
 

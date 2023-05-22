@@ -37,6 +37,9 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
+              <div class="version">
+                latest
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -90,8 +93,6 @@
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_add_pass.html">How to add new Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_write_userscript.html#my-script-py">my_script.py</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_write_userscript.html#you-can-use-file-module-here">You can use file module here</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/packaging_output_models.html">Packaging Olive artifacts</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
@@ -304,21 +305,16 @@ contains following items:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">[str]</span></code> The name of the metric. This must be a unique name among all metrics in the evaluator.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> The type of the metric. The supported types are <code class="docutils literal notranslate"><span class="pre">accuracy</span></code>, <code class="docutils literal notranslate"><span class="pre">latency</span></code> and <code class="docutils literal notranslate"><span class="pre">custom</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">subtypes:</span> <span class="pre">[List[Dict]]</span></code> The subtypes of the metric. Cannot be null or empty. Each subtype is a dictionary that contains following items:</p>
-<ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">str</span></code> The name of the subtype. Please refer to <a class="reference internal" href="../api/metric.html#accuracy-sub-type"><span class="std std-ref">AccuracySubtype</span></a> and <a class="reference internal" href="../api/metric.html#latency-sub-type"><span class="std std-ref">LatencySubtype</span></a>
-for the supported subtypes. For <code class="docutils literal notranslate"><span class="pre">custom</span></code> type, if the result of the evaluation is a dictionary, the name of the subtype should be the key of the dictionary. Otherwise, the name of the subtype could be any unique string user gives.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">priority:</span> <span class="pre">[int]</span></code> The priority of the subtype. The higher priority subtype will be given priority during evaluation. Note that it should be unique among all subtypes in the metric.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">subtype:</span> <span class="pre">[str]</span></code> The subtype of the metric. Please refer to <a class="reference internal" href="../api/metric.html#accuracy-sub-type"><span class="std std-ref">AccuracySubtype</span></a> and
+<a class="reference internal" href="../api/metric.html#latency-sub-type"><span class="std std-ref">LatencySubtype</span></a> for the supported sub-types. It is <code class="docutils literal notranslate"><span class="pre">null</span></code> for <code class="docutils literal notranslate"><span class="pre">custom</span></code> type.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">higher_is_better:</span> <span class="pre">[Boolean]</span></code> True if the metric is better when it is higher. It is <code class="docutils literal notranslate"><span class="pre">true</span></code> for <code class="docutils literal notranslate"><span class="pre">accuracy</span></code> type and <code class="docutils literal notranslate"><span class="pre">false</span></code> for <code class="docutils literal notranslate"><span class="pre">latency</span></code> type.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">goal:</span> <span class="pre">[Dict]</span></code> The goal of the metric. It is a dictionary that contains following items:</p>
 <ul>
-<li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> The type of the goal. The supported types are <code class="docutils literal notranslate"><span class="pre">threshold</span></code>, <code class="docutils literal notranslate"><span class="pre">min-improvement</span></code>, <code class="docutils literal notranslate"><span class="pre">percent-min-improvement</span></code>,
+<li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> The type of the goal. The supoorted types are <code class="docutils literal notranslate"><span class="pre">threshold</span></code>, <code class="docutils literal notranslate"><span class="pre">min-improvement</span></code>, <code class="docutils literal notranslate"><span class="pre">percent-min-improvement</span></code>,
 <code class="docutils literal notranslate"><span class="pre">max-degradation</span></code>, and <code class="docutils literal notranslate"><span class="pre">percent-max-degradation</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">value:</span> <span class="pre">[float]</span></code> The value of the goal. It is the threshold value for <code class="docutils literal notranslate"><span class="pre">threshold</span></code> type. It is the minimum improvement value
 for <code class="docutils literal notranslate"><span class="pre">min-improvement</span></code> type. It is the minimum improvement percentage for <code class="docutils literal notranslate"><span class="pre">percent-min-improvement</span></code> type. It is the maximum
 degradation value for <code class="docutils literal notranslate"><span class="pre">max-degradation</span></code> type. It is the maximum degradation percentage for <code class="docutils literal notranslate"><span class="pre">percent-max-degradation</span></code> type.</p></li>
-</ul>
-</li>
 </ul>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">user_config:</span> <span class="pre">[Dict]</span></code> The user config dictionary that contains the user specific information for the metric. The
@@ -349,11 +345,8 @@ model, <code class="docutils literal notranslate"><span class="pre">data_dir</sp
 <span class="w">            </span><span class="p">{</span>
 <span class="w">                </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
 <span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy_score&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max-degradation&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.01</span><span class="p">}},</span>
-<span class="w">                    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;f1_score&quot;</span><span class="p">},</span>
-<span class="w">                    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;auc&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;metric_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;reorder&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}}</span>
-<span class="w">                </span><span class="p">],</span>
+<span class="w">                </span><span class="nt">&quot;sub_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;accuracy_score&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;priority_rank&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
 <span class="w">                </span><span class="nt">&quot;user_config&quot;</span><span class="p">:{</span>
 <span class="w">                    </span><span class="nt">&quot;post_processing_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;post_process&quot;</span><span class="p">,</span>
 <span class="w">                    </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
@@ -364,11 +357,8 @@ model, <code class="docutils literal notranslate"><span class="pre">data_dir</sp
 <span class="w">            </span><span class="p">{</span>
 <span class="w">                </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
 <span class="w">                </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
-<span class="w">                </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-<span class="w">                    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;avg&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;priority&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">}},</span>
-<span class="w">                    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max&quot;</span><span class="p">},</span>
-<span class="w">                    </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;min&quot;</span><span class="p">}</span>
-<span class="w">                </span><span class="p">],</span>
+<span class="w">                </span><span class="nt">&quot;sub_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;avg&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;priority_rank&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
 <span class="w">                </span><span class="nt">&quot;user_config&quot;</span><span class="p">:{</span>
 <span class="w">                    </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
 <span class="w">                    </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
@@ -386,7 +376,7 @@ model, <code class="docutils literal notranslate"><span class="pre">data_dir</sp
 <h2>Passes Information<a class="headerlink" href="#passes-information" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">passes:</span> <span class="pre">[Dict]</span></code></p>
 <p>This is a dictionary that contains the information of passes that are executed by the engine. The passes are executed
-in order of their definition in this dictionary. The key of the dictionary is the name of the pass. The value of the dictionary is
+in order of their definintion in this dictionary. The key of the dictionary is the name of the pass. The value of the dictionary is
 another dictionary that contains the information of the pass. The information of the pass contains following items:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> The type of the pass.</p></li>
@@ -497,7 +487,7 @@ will be used.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">search_algorithm:</span> <span class="pre">[str]</span></code> The search algorithm of the engine. The available search algorithms are <code class="docutils literal notranslate"><span class="pre">exhaustive</span></code>, <code class="docutils literal notranslate"><span class="pre">random</span></code> and <code class="docutils literal notranslate"><span class="pre">tpe</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">search_algorithm_config:</span> <span class="pre">[Dict]</span></code> The configuration of the search algorithm. The configuration of the search algorithm depends on
 the search algorithm.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">output_model_num:</span> <span class="pre">[int]</span></code> The number of output models from the engine based on metric priority. If not specified, the engine will output all qualified models.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_model_num:</span> <span class="pre">[int]</span></code> The number of output models from the engine based on metric priority rank. If not specified, the engine will output all qualified models.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">stop_when_goals_met:</span> <span class="pre">[Boolean]</span></code> This decides whether to stop the search when the metric goals, if any,  are met. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by
 default.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_iter:</span> <span class="pre">[int]</span></code> The maximum number of iterations of the search. Only valid for <code class="docutils literal notranslate"><span class="pre">joint</span></code> execution order. By default, there is no

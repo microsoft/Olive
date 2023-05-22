@@ -35,6 +35,9 @@
           <a href="../../../index.html" class="icon icon-home">
             Olive
           </a>
+              <div class="version">
+                latest
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -64,8 +67,6 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_users.html">Advanced User Tour</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/how_to_add_pass.html">How to add new Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/how_to_write_userscript.html#my-script-py">my_script.py</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/how_to_write_userscript.html#you-can-use-file-module-here">You can use file module here</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/packaging_output_models.html">Packaging Olive artifacts</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
@@ -128,23 +129,41 @@
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">olive.cache</span> <span class="k">as</span> <span class="nn">cache_utils</span>
+<span class="kn">from</span> <span class="nn">olive.azureml.azureml_client</span> <span class="kn">import</span> <span class="n">AzureMLClientConfig</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">hash_dict</span>
-<span class="kn">from</span> <span class="nn">olive.engine.config</span> <span class="kn">import</span> <span class="n">PRUNED_CONFIG</span><span class="p">,</span> <span class="n">EngineConfig</span>
 <span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">FootprintNode</span><span class="p">,</span> <span class="n">FootprintNodeMetric</span>
 <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_config</span> <span class="kn">import</span> <span class="n">PackagingConfig</span>
 <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_generator</span> <span class="kn">import</span> <span class="n">generate_output_artifacts</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricResult</span><span class="p">,</span> <span class="n">joint_metric_key</span>
+<span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
 <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorLookup</span><span class="p">,</span> <span class="n">AcceleratorSpec</span><span class="p">,</span> <span class="n">Device</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">ModelStorageKind</span><span class="p">,</span> <span class="n">OliveModel</span>
 <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
-<span class="kn">from</span> <span class="nn">olive.strategy.search_strategy</span> <span class="kn">import</span> <span class="n">SearchStrategy</span>
+<span class="kn">from</span> <span class="nn">olive.strategy.search_strategy</span> <span class="kn">import</span> <span class="n">SearchStrategy</span><span class="p">,</span> <span class="n">SearchStrategyConfig</span>
 <span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>
 <span class="kn">from</span> <span class="nn">olive.systems.local</span> <span class="kn">import</span> <span class="n">LocalSystem</span>
 <span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
+<span class="kn">from</span> <span class="nn">olive.systems.system_config</span> <span class="kn">import</span> <span class="n">SystemConfig</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># pass search-point/config was pruned due invalid config or failed run</span>
+<span class="n">PRUNED_CONFIG</span> <span class="o">=</span> <span class="s2">&quot;pruned-config&quot;</span>
+
+
+<div class="viewcode-block" id="EngineConfig"><a class="viewcode-back" href="../../../api/engine.html#olive.engine.EngineConfig">[docs]</a><span class="k">class</span> <span class="nc">EngineConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+    <span class="n">search_strategy</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">SearchStrategyConfig</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">host</span><span class="p">:</span> <span class="n">SystemConfig</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">target</span><span class="p">:</span> <span class="n">SystemConfig</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">execution_providers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">evaluator</span><span class="p">:</span> <span class="n">OliveEvaluatorConfig</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">azureml_client_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AzureMLClientConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">packaging_config</span><span class="p">:</span> <span class="n">PackagingConfig</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">cache_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;.olive-cache&quot;</span>
+    <span class="n">clean_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">clean_evaluation_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">plot_pareto_frontier</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
 
 
 <div class="viewcode-block" id="Engine"><a class="viewcode-back" href="../../../api/engine.html#olive.engine.Engine">[docs]</a><span class="k">class</span> <span class="nc">Engine</span><span class="p">:</span>
@@ -382,7 +401,7 @@
         <span class="n">outputs</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">pf_footprints</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">accelerator_spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="p">:</span>
-            <span class="c1"># generate search space and initialize the passes for each hardware accelerator</span>
+            <span class="c1"># generate search space and intialize the passes for each hardware accelerator</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">setup_passes</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">)</span>
 
             <span class="c1"># hash the input model</span>
@@ -401,7 +420,7 @@
                     <span class="n">result_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">metrics&quot;</span>
                     <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">result_name</span><span class="si">}</span><span class="s2">.json&quot;</span>
                     <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">results</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
+                        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
                     <span class="n">outputs</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">results</span>
                 <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
                     <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_no_search</span><span class="p">(</span>
@@ -518,7 +537,7 @@
         <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">result_name</span><span class="si">}</span><span class="s2">.json&quot;</span>
         <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">signal</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
         <span class="n">output</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">output_model_json</span><span class="p">}</span>
         <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -603,7 +622,8 @@
         <span class="k">if</span> <span class="n">output_model_num</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">pf_footprints</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">output_model_num</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Output all </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pf_footprints</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span><span class="si">}</span><span class="s2"> models&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">top_ranked_nodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_top_ranked_nodes</span><span class="p">(</span><span class="n">objective_dict</span><span class="p">,</span> <span class="n">pf_footprints</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">)</span>
+            <span class="n">metrics</span> <span class="o">=</span> <span class="n">evaluator_config</span><span class="o">.</span><span class="n">metrics</span> <span class="k">if</span> <span class="n">evaluator_config</span> <span class="k">else</span> <span class="p">[]</span>
+            <span class="n">top_ranked_nodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_top_ranked_nodes</span><span class="p">(</span><span class="n">metrics</span><span class="p">,</span> <span class="n">pf_footprints</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Output top ranked </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">top_ranked_nodes</span><span class="p">)</span><span class="si">}</span><span class="s2"> models based on metric priorities&quot;</span><span class="p">)</span>
             <span class="n">pf_footprints</span><span class="o">.</span><span class="n">update_nodes</span><span class="p">(</span><span class="n">top_ranked_nodes</span><span class="p">)</span>
 
@@ -630,20 +650,12 @@
 <span class="sd">        {objective_name: {&quot;higher_is_better&quot;: bool, &quot;goal&quot;: float}}</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">goals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolve_goals</span><span class="p">(</span><span class="n">input_model</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
-        <span class="n">objective_dict</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">sub_type</span> <span class="ow">in</span> <span class="n">metric</span><span class="o">.</span><span class="n">sub_types</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">sub_type</span><span class="o">.</span><span class="n">priority</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-                    <span class="k">continue</span>
-                <span class="n">metric_key</span> <span class="o">=</span> <span class="n">joint_metric_key</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">sub_type</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-                <span class="n">objective_dict</span><span class="p">[</span><span class="n">metric_key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-                    <span class="s2">&quot;higher_is_better&quot;</span><span class="p">:</span> <span class="n">sub_type</span><span class="o">.</span><span class="n">higher_is_better</span><span class="p">,</span>
-                    <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="n">goals</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric_key</span><span class="p">),</span>
-                    <span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="n">sub_type</span><span class="o">.</span><span class="n">priority</span><span class="p">,</span>
-                <span class="p">}</span>
+        <span class="n">objective_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">:</span> <span class="n">metric</span><span class="o">.</span><span class="n">higher_is_better</span><span class="p">,</span> <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="n">goals</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">)}</span>
+            <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span>
+        <span class="p">}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record_objective_dict</span><span class="p">(</span><span class="n">objective_dict</span><span class="p">)</span>
-        <span class="n">ranked_objective_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">objective_dict</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">&quot;priority&quot;</span><span class="p">]))</span>
-        <span class="k">return</span> <span class="n">ranked_objective_dict</span>
+        <span class="k">return</span> <span class="n">objective_dict</span>
 
     <span class="k">def</span> <span class="nf">resolve_goals</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -659,59 +671,40 @@
         <span class="n">goals</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">multipliers</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
-            <span class="c1"># only resolve sub metrics whose priority &gt; 0</span>
-            <span class="n">goals</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">get_sub_type_info</span><span class="p">(</span><span class="s2">&quot;goal&quot;</span><span class="p">)</span>
-            <span class="n">multipliers</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">get_sub_type_info</span><span class="p">(</span>
-                <span class="n">info_name</span><span class="o">=</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">,</span>
-                <span class="n">callback</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">x</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
-            <span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="n">goals</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">goal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">goals</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">goal</span>
+                <span class="n">multipliers</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">higher_is_better</span> <span class="k">else</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">goals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Resolving goals: </span><span class="si">{</span><span class="n">goals</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="n">baseline</span> <span class="o">=</span> <span class="n">MetricResult</span><span class="p">()</span>
-        <span class="k">for</span> <span class="n">goal</span> <span class="ow">in</span> <span class="n">goals</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-            <span class="n">_evaluated</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="k">for</span> <span class="n">sub_goal</span> <span class="ow">in</span> <span class="n">goal</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">sub_goal</span><span class="p">:</span>
-                    <span class="k">break</span>
-                <span class="k">if</span> <span class="n">sub_goal</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">&quot;threshold&quot;</span><span class="p">:</span>
-                    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Default evaluator must be provided to resolve goals&quot;</span>
+        <span class="c1"># compute baseline for input model if needed</span>
+        <span class="n">baseline</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">goal</span> <span class="ow">in</span> <span class="n">goals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">goal</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">&quot;threshold&quot;</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Default evaluator must be provided to resolve goals&quot;</span>
+                <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Computing baseline for metrics ...&quot;</span><span class="p">)</span>
-                    <span class="n">baseline</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_model</span><span class="p">(</span>
-                        <span class="n">input_model</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span>
-                    <span class="p">)</span>
-                    <span class="n">_evaluated</span> <span class="o">=</span> <span class="kc">True</span>
-                    <span class="k">break</span>
-            <span class="k">if</span> <span class="n">_evaluated</span><span class="p">:</span>
+                <span class="n">baseline</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_model</span><span class="p">(</span>
+                    <span class="n">input_model</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">)</span>
                 <span class="k">break</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">baseline</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No baseline got as no goal is provided the the goal is threshold&quot;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="p">{}</span>
-
-        <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="n">baseline</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">baseline</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Baseline: </span><span class="si">{</span><span class="n">baseline</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="c1"># resolve goals to thresholds</span>
         <span class="n">resolved_goals</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">metric_name</span><span class="p">,</span> <span class="n">sub_type_goals</span> <span class="ow">in</span> <span class="n">goals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">for</span> <span class="n">sub_type_name</span><span class="p">,</span> <span class="n">goal</span> <span class="ow">in</span> <span class="n">sub_type_goals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="c1"># TODO: make the logic cleaner</span>
-                <span class="n">resolved_goal_value</span> <span class="o">=</span> <span class="kc">None</span>
-                <span class="n">baseline_sub_type</span> <span class="o">=</span> <span class="n">baseline</span><span class="o">.</span><span class="n">get_value</span><span class="p">(</span><span class="n">metric_name</span><span class="p">,</span> <span class="n">sub_type_name</span><span class="p">)</span>
-                <span class="n">multiplier</span> <span class="o">=</span> <span class="n">multipliers</span><span class="p">[</span><span class="n">metric_name</span><span class="p">][</span><span class="n">sub_type_name</span><span class="p">]</span>
-                <span class="k">if</span> <span class="n">goal</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;threshold&quot;</span><span class="p">:</span>
-                    <span class="n">resolved_goal_value</span> <span class="o">=</span> <span class="n">goal</span><span class="o">.</span><span class="n">value</span>
-                <span class="k">elif</span> <span class="n">goal</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;max-degradation&quot;</span><span class="p">:</span>
-                    <span class="n">resolved_goal_value</span> <span class="o">=</span> <span class="n">baseline_sub_type</span> <span class="o">-</span> <span class="n">multiplier</span> <span class="o">*</span> <span class="n">goal</span><span class="o">.</span><span class="n">value</span>
-                <span class="k">elif</span> <span class="n">goal</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;min-improvement&quot;</span><span class="p">:</span>
-                    <span class="n">resolved_goal_value</span> <span class="o">=</span> <span class="n">baseline_sub_type</span> <span class="o">+</span> <span class="n">multiplier</span> <span class="o">*</span> <span class="n">goal</span><span class="o">.</span><span class="n">value</span>
-                <span class="k">elif</span> <span class="n">goal</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;percent-max-degradation&quot;</span><span class="p">:</span>
-                    <span class="n">resolved_goal_value</span> <span class="o">=</span> <span class="n">baseline_sub_type</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">multiplier</span> <span class="o">*</span> <span class="n">goal</span><span class="o">.</span><span class="n">value</span> <span class="o">/</span> <span class="mi">100</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">goal</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">:</span>
-                    <span class="n">resolved_goal_value</span> <span class="o">=</span> <span class="n">baseline_sub_type</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">multiplier</span> <span class="o">*</span> <span class="n">goal</span><span class="o">.</span><span class="n">value</span> <span class="o">/</span> <span class="mi">100</span><span class="p">)</span>
-
-                <span class="n">resolved_goals</span><span class="p">[</span><span class="n">joint_metric_key</span><span class="p">(</span><span class="n">metric_name</span><span class="p">,</span> <span class="n">sub_type_name</span><span class="p">)]</span> <span class="o">=</span> <span class="n">resolved_goal_value</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">goal</span> <span class="ow">in</span> <span class="n">goals</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># TODO: make the logic cleaner</span>
+            <span class="k">if</span> <span class="n">goal</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;threshold&quot;</span><span class="p">:</span>
+                <span class="n">resolved_goals</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">goal</span><span class="o">.</span><span class="n">value</span>
+            <span class="k">elif</span> <span class="n">goal</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;max-degradation&quot;</span><span class="p">:</span>
+                <span class="n">resolved_goals</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">baseline</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">-</span> <span class="n">multipliers</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">*</span> <span class="n">goal</span><span class="o">.</span><span class="n">value</span>
+            <span class="k">elif</span> <span class="n">goal</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;min-improvement&quot;</span><span class="p">:</span>
+                <span class="n">resolved_goals</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">baseline</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">+</span> <span class="n">multipliers</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">*</span> <span class="n">goal</span><span class="o">.</span><span class="n">value</span>
+            <span class="k">elif</span> <span class="n">goal</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;percent-max-degradation&quot;</span><span class="p">:</span>
+                <span class="n">resolved_goals</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">baseline</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">multipliers</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">*</span> <span class="n">goal</span><span class="o">.</span><span class="n">value</span> <span class="o">/</span> <span class="mi">100</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">goal</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">:</span>
+                <span class="n">resolved_goals</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">baseline</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">multipliers</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">*</span> <span class="n">goal</span><span class="o">.</span><span class="n">value</span> <span class="o">/</span> <span class="mi">100</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">resolved_goals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Resolved goals: </span><span class="si">{</span><span class="n">resolved_goals</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
@@ -989,13 +982,13 @@
         <span class="n">evaluation_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluation_cache_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">model_id</span><span class="si">}</span><span class="s2">.json&quot;</span>
         <span class="k">return</span> <span class="n">evaluation_json_path</span>
 
-    <span class="k">def</span> <span class="nf">_cache_evaluation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">signal</span><span class="p">:</span> <span class="n">MetricResult</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_cache_evaluation</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">signal</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Cache the evaluation in the cache directory.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">evaluation_json</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;model_id&quot;</span><span class="p">:</span> <span class="n">model_id</span><span class="p">,</span>
-            <span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">signal</span><span class="o">.</span><span class="n">dict</span><span class="p">(),</span>
+            <span class="s2">&quot;signal&quot;</span><span class="p">:</span> <span class="n">signal</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="n">evaluation_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_evaluation_json_path</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
@@ -1014,7 +1007,6 @@
                 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">evaluation_json_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                     <span class="n">evaluation_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
                 <span class="n">signal</span> <span class="o">=</span> <span class="n">evaluation_json</span><span class="p">[</span><span class="s2">&quot;signal&quot;</span><span class="p">]</span>
-                <span class="n">signal</span> <span class="o">=</span> <span class="n">MetricResult</span><span class="p">(</span><span class="o">**</span><span class="n">signal</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to load evaluation: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="n">signal</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1067,17 +1059,14 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">signal</span>
 
-    <span class="k">def</span> <span class="nf">_get_top_ranked_nodes</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">footprint</span><span class="p">:</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">FootprintNode</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">_get_top_ranked_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">footprint</span><span class="p">:</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">FootprintNode</span><span class="p">]:</span>
+        <span class="n">metric_priority</span> <span class="o">=</span> <span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">metrics</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">priority_rank</span><span class="p">)]</span>
         <span class="n">footprint_node_list</span> <span class="o">=</span> <span class="n">footprint</span><span class="o">.</span><span class="n">nodes</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
         <span class="n">sorted_footprint_node_list</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
             <span class="n">footprint_node_list</span><span class="p">,</span>
             <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">(</span>
-                <span class="n">x</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
-                <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">cmp_direction</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
-                <span class="k">else</span> <span class="o">-</span><span class="n">x</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span><span class="o">.</span><span class="n">value</span>
-                <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">objective_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+                <span class="n">x</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">cmp_direction</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="o">-</span><span class="n">x</span><span class="o">.</span><span class="n">metrics</span><span class="o">.</span><span class="n">value</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metric_priority</span>
             <span class="p">),</span>
             <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>

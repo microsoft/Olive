@@ -37,6 +37,9 @@
           <a href="../index.html" class="icon icon-home">
             Olive
           </a>
+              <div class="version">
+                latest
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -66,8 +69,6 @@
 <li class="toctree-l1"><a class="reference internal" href="advanced_users.html">Advanced User Tour</a></li>
 <li class="toctree-l1"><a class="reference internal" href="how_to_add_pass.html">How to add new Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="how_to_write_userscript.html#my-script-py">my_script.py</a></li>
-<li class="toctree-l1"><a class="reference internal" href="how_to_write_userscript.html#you-can-use-file-module-here">You can use file module here</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Packaging Olive artifacts</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#what-is-olive-packaging">What is Olive Packaging</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#zipfile">Zipfile</a><ul>
@@ -132,7 +133,7 @@
 <h1>Packaging Olive artifacts<a class="headerlink" href="#packaging-olive-artifacts" title="Permalink to this heading">¶</a></h1>
 <section id="what-is-olive-packaging">
 <h2>What is Olive Packaging<a class="headerlink" href="#what-is-olive-packaging" title="Permalink to this heading">¶</a></h2>
-<p>Olive will output multiple candidate models based on metrics priorities. It also can package output artifacts when the user required. Olive packaging can be used in different scenarios. There is only one packaging type: <code class="docutils literal notranslate"><span class="pre">Zipfile</span></code>.</p>
+<p>Olive will output multiple candidate models based on metrics priority ranks. It also can package output artifacts when the user required. Olive packaging can be used in different scenarios. There is only one packaging type: <code class="docutils literal notranslate"><span class="pre">Zipfile</span></code>.</p>
 <section id="zipfile">
 <h3>Zipfile<a class="headerlink" href="#zipfile" title="Permalink to this heading">¶</a></h3>
 <p>Zipfile packaging will generate a ZIP file which includes 3 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>, <code class="docutils literal notranslate"><span class="pre">SampleCode</span></code> and <code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code> in the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> folder (from Engine Configuration):</p>
@@ -155,7 +156,7 @@
 </ul>
 <section id="candidatemodels">
 <h4>CandidateModels<a class="headerlink" href="#candidatemodels" title="Permalink to this heading">¶</a></h4>
-<p><code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code> includes k folders where k is the number of output models, with name <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_1</span></code>, <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_2</span></code>, … and <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_k</span></code>. The order is ranked by metrics priorities. e.g., if you have 3 metrics <code class="docutils literal notranslate"><span class="pre">metric_1</span></code>, <code class="docutils literal notranslate"><span class="pre">metric_2</span></code> and <code class="docutils literal notranslate"><span class="pre">metric_3</span></code> with priority <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">2</span></code> and <code class="docutils literal notranslate"><span class="pre">3</span></code>. The output models will be sorted firstly by <code class="docutils literal notranslate"><span class="pre">metric_1</span></code>. If the value of <code class="docutils literal notranslate"><span class="pre">metric_1</span></code> of 2 output models are same, they will be sorted by <code class="docutils literal notranslate"><span class="pre">metric_2</span></code>, and followed by next lower priority metric.</p>
+<p><code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code> includes k folders where k is the number of output models, with name <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_1</span></code>, <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_2</span></code>, … and <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_k</span></code>. The order is ranked by metrics priorities. e.g., if you have 3 metrics <code class="docutils literal notranslate"><span class="pre">metric_1</span></code>, <code class="docutils literal notranslate"><span class="pre">metric_2</span></code> and <code class="docutils literal notranslate"><span class="pre">metric_3</span></code> with priority rank <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">2</span></code> and <code class="docutils literal notranslate"><span class="pre">3</span></code>. The output models will be sorted firstly by <code class="docutils literal notranslate"><span class="pre">metric_1</span></code>. If the value of <code class="docutils literal notranslate"><span class="pre">metric_1</span></code> of 2 output models are same, they will be sorted by <code class="docutils literal notranslate"><span class="pre">metric_2</span></code>, and followed by next lower priority metric.</p>
 <p>Each <code class="docutils literal notranslate"><span class="pre">BestCandidateModel</span></code> folder will include model file/folder. The folder also includes a json file which includes the Olive Pass run history configurations since input model, a json file with performance metrics and a json file for inference settings for the candidate model if the candidate model is an ONNX model.</p>
 </section>
 <section id="samplecode">

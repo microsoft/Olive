@@ -35,6 +35,9 @@
           <a href="../../../../index.html" class="icon icon-home">
             Olive
           </a>
+              <div class="version">
+                latest
+              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
@@ -64,8 +67,6 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/advanced_users.html">Advanced User Tour</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/how_to_add_pass.html">How to add new Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/how_to_write_userscript.html#my-script-py">my_script.py</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/how_to_write_userscript.html#you-can-use-file-module-here">You can use file module here</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/packaging_output_models.html">Packaging Olive artifacts</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
@@ -132,7 +133,7 @@
 
 <span class="kn">import</span> <span class="nn">olive.systems.docker.utils</span> <span class="k">as</span> <span class="nn">docker_utils</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">validate_config</span>
-<span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricResult</span>
+<span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span>
 <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">OliveModel</span>
 <span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">Pass</span>
@@ -202,12 +203,12 @@
     <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">accelerator</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="n">container_root_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/olive-ws/&quot;</span><span class="p">)</span>
         <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tempdir</span><span class="p">:</span>
-            <span class="n">metrics_res</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">metrics_res</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="n">metric_json</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_container</span><span class="p">(</span><span class="n">tempdir</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">metrics</span><span class="p">,</span> <span class="n">container_root_path</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">metric_json</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
                 <span class="k">with</span> <span class="n">metric_json</span><span class="o">.</span><span class="n">open</span><span class="p">()</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                     <span class="n">metrics_res</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">MetricResult</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">metrics_res</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">metrics_res</span>
 
     <span class="k">def</span> <span class="nf">_run_container</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tempdir</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">container_root_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
         <span class="n">eval_output_path</span> <span class="o">=</span> <span class="s2">&quot;eval_output&quot;</span>
