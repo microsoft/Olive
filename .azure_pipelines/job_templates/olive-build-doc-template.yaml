@@ -26,7 +26,7 @@ jobs:
         git fetch origin rel-$(doc_version)
         git checkout rel-$(doc_version)
       displayName: Checkout release branch
-      condition: ne($(doc_version), '')
+      condition: ne($(doc_version), ' ')
 
     - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
       displayName: Install Olive
