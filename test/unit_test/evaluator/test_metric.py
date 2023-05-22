@@ -23,6 +23,18 @@ class TestEvaluation:
                 ],
             },
             {
+                "name": "hf_accuracy",
+                "type": "accuracy",
+                "backend": "huggingface_metrics",
+                "sub_types": [
+                    {"name": "precision", "priority": -1, "goal": {"type": "max-degradation", "value": 0.01}},
+                    {
+                        "name": "recall",
+                        "priority": -1,
+                    },
+                ],
+            },
+            {
                 "name": "latency",
                 "type": "latency",
                 "sub_types": [
@@ -49,4 +61,4 @@ class TestEvaluation:
 
         metrics = OliveEvaluatorConfig(metrics=metrics_config).metrics
         for metric in metrics:
-            assert metric.name in ["accuracy", "latency", "test"]
+            assert metric.name in ["accuracy", "hf_accuracy", "latency", "test"]

@@ -17,9 +17,7 @@ from olive.common.config_utils import ConfigBase
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
 from olive.constants import Framework
-from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Precision, Recall
 from olive.evaluator.metric import (
-    AccuracySubType,
     LatencySubType,
     Metric,
     MetricResult,
@@ -29,6 +27,7 @@ from olive.evaluator.metric import (
     get_latency_config_from_metric,
     joint_metric_key,
 )
+from olive.evaluator.metric_backend import MetricBackend
 from olive.hardware import Device
 from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
 
@@ -203,29 +202,8 @@ class OliveEvaluator(ABC):
         """
         Compute accuracy metrics
         """
-        metric_res = {}
-        sub_type_metric_value = None
-        sub_types = metric.sub_types
-        for sub_type in sub_types:
-            metric_config = sub_type.metric_config
-            if sub_type.name == AccuracySubType.ACCURACY_SCORE:
-                sub_type_metric_value = AccuracyScore(metric_config).measure(preds, targets)
-            elif sub_type.name == AccuracySubType.F1_SCORE:
-                sub_type_metric_value = F1Score(metric_config).measure(preds, targets)
-            elif sub_type.name == AccuracySubType.PRECISION:
-                sub_type_metric_value = Precision(metric_config).measure(preds, targets)
-            elif sub_type.name == AccuracySubType.RECALL:
-                sub_type_metric_value = Recall(metric_config).measure(preds, targets)
-            elif sub_type.name == AccuracySubType.AUC:
-                sub_type_metric_value = AUC(metric_config).measure(preds, targets)
-            else:
-                raise TypeError(f"{sub_type} is not a accuracy metric supported")
-            metric_res[sub_type.name] = SubMetricResult(
-                value=sub_type_metric_value,
-                priority=sub_type.priority,
-                higher_is_better=sub_type.higher_is_better,
-            )
-        return MetricResult.parse_obj(metric_res)
+        evaluate_backend_cls = MetricBackend.registry[metric.backend]
+        return evaluate_backend_cls().combine_measure(preds, targets, metric)
 
     @staticmethod
     def compute_latency(metric: Metric, latencies: Any) -> MetricResult:

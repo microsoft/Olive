@@ -152,10 +152,19 @@ information of the evaluator contains following items:
 
     - `type: [str]` The type of the metric. The supported types are `accuracy`, `latency` and `custom`.
 
+    - `backend: [str]` The type of metrics' backend. Olive implement `torch_metrics` and `huggingface_metrics` backends. The default value is `torch_metrics`.
+        - `torch_metrics` backend uses `torchmetrics` library to compute metrics. It supports `accuracy_score`, `f1_score`, `precision`, `recall` and `auc` metrics.
+        - `huggingface_metrics` backend uses huggingface `evaluate` library to compute metrics. The supported metrics can be found at [huggingface metrics](https://huggingface.co/metrics).
+
     - `subtypes: [List[Dict]]` The subtypes of the metric. Cannot be null or empty. Each subtype is a dictionary that contains following items:
 
         - `name: str` The name of the subtype. Please refer to [AccuracySubtype](accuracy_sub_type) and [LatencySubtype](latency_sub_type)
         for the supported subtypes. For `custom` type, if the result of the evaluation is a dictionary, the name of the subtype should be the key of the dictionary. Otherwise, the name of the subtype could be any unique string user gives.
+
+        - `metric_config` The parameter config used to measure detailed metrics. Please note that when the `backend` is `huggingface_metrics`, you should see the `metric_config` as dictionary of:
+            - `load_params`: The parameters used to load the metric, run as `evaluator = evaluate.load("word_length", **load_params)`.
+            - `compute_params` The parameters used to compute the metric, run as `evaluator.compute(predictions=preds, references=target, **compute_params)`.
+            - `post_lambda_str` The lambda function used to post process the metric, run as `eval("lambda x: x['precision']")`. If it is none, the metric name will be used as the key of the result dictionary.
 
         - `priority: [int]` The priority of the subtype. The higher priority subtype will be given priority during evaluation. Note that it should be unique among all subtypes in the metric.
 
@@ -205,6 +214,21 @@ information of the evaluator contains following items:
                     {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                     {"name": "f1_score"},
                     {"name": "auc", "metric_config": {"reorder": true}}
+                ],
+                "user_config":{
+                    "post_processing_func": "post_process",
+                    "user_script": "user_script.py",
+                    "dataloader_func": "create_dataloader",
+                    "batch_size": 1
+                }
+            },
+            {
+                "name": "accuracy",
+                "type": "accuracy",
+                "backend": "huggingface_metrics",
+                "sub_types": [
+                    {"name": "accuracy", "priority": -1},
+                    {"name": "f1"}
                 ],
                 "user_config":{
                     "post_processing_func": "post_process",
