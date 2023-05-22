@@ -343,10 +343,7 @@ class TestAzureMLSystem:
                 "model_loader": None,
                 "model_path": None,
                 "model_script": None,
-                "model_storage_kind": "folder",
-                "name": None,
                 "script_dir": None,
-                "version": None,
             },
             "type": "PyTorchModel",
         }
@@ -499,10 +496,7 @@ class TestAzureMLSystem:
                 "model_loader": None,
                 "model_path": None,
                 "model_script": None,
-                "model_storage_kind": "folder",
-                "name": None,
                 "script_dir": None,
-                "version": None,
             },
             "type": "PyTorchModel",
         }
