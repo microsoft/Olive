@@ -1,6 +1,6 @@
 parameters:
 - name: doc_version
-  displayName: 'If it's doc build for released branch, please specify the version number.'
+  displayName: "If it's doc build for released branch, please specify the version number."
   type: string
   default: ''
 
