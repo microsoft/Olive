@@ -102,12 +102,13 @@ class Pass(ABC):
 
     @property
     def is_accelerator_agnostic(self) -> bool:
+        """Whether the pass is accelerator agnostic. If True, the pass will be reused for all accelerators."""
         return self._is_accelerator_agnostic
 
     @is_accelerator_agnostic.setter
     def is_accelerator_agnostic(self, value: bool) -> None:
         """The _run_for_config will be responsible for set the flag to True and
-        append the accelerator spec suffix to the output model path.
+        append the accelerator spec suffix to the output model path if the pass is accelerator dependent.
         """
         self._is_accelerator_agnostic = value
 
