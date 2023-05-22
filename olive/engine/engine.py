@@ -12,34 +12,21 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
+from olive.engine.config import PRUNED_CONFIG, EngineConfig
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
-from olive.evaluator.metric import Metric
+from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
+from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig, ModelStorageKind, OliveModel
 from olive.passes.olive_pass import Pass
-from olive.strategy.search_strategy import SearchStrategy, SearchStrategyConfig
+from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
-from olive.systems.system_config import SystemConfig
 
 logger = logging.getLogger(__name__)
-
-# pass search-point/config was pruned due invalid config or failed run
-PRUNED_CONFIG = "pruned-config"
-
-
-class EngineConfig(ConfigBase):
-    search_strategy: Union[SearchStrategyConfig, bool] = None
-    host: SystemConfig = None
-    target: SystemConfig = None
-    evaluator: OliveEvaluatorConfig = None
-    packaging_config: PackagingConfig = None
-    cache_dir: Union[Path, str] = ".olive-cache"
-    clean_cache: bool = False
-    clean_evaluation_cache: bool = False
 
 
 class Engine:
@@ -55,6 +42,7 @@ class Engine:
         host: Optional[OliveSystem] = None,
         target: Optional[OliveSystem] = None,
         evaluator_config: Optional[OliveEvaluatorConfig] = None,
+        execution_providers: Optional[List[str]] = None,
     ):
         self._config = validate_config(config, EngineConfig)
 
@@ -87,6 +75,46 @@ class Engine:
         else:
             self.target = LocalSystem()
 
+        if execution_providers is None:
+            execution_providers = self._config.execution_providers
+
+        # verfiy the AzureML system have specified the execution providers
+        # Please note we could not use isinstance(target, AzureMLSystem) since it would import AzureML packages.
+        if self.target.system_type == SystemType.AzureML and execution_providers is None:
+            raise ValueError("AzureMLSystem requires execution providers to be specified.")
+        elif execution_providers is None:
+            if self.target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
+                execution_providers = self.target.get_supported_execution_providers()
+            else:
+                # for docker system and python system, we default use CPUExecutionProvider
+                execution_providers = ["CPUExecutionProvider"]
+
+        self.execution_providers = execution_providers
+
+        # Flatten the accelerators to list of AcceleratorSpec
+        accelerators: List[str] = self.target.accelerators
+        if accelerators is None:
+            logger.warning("No accelerators specified for target system. Using CPU.")
+            accelerators = ["CPU"]
+
+        not_supported_ep = []
+        self.accelerator_specs: List[AcceleratorSpec] = []
+        for accelerator in accelerators:
+            device = Device(accelerator.lower())
+            supported_eps = AcceleratorLookup.get_execution_providers_for_device(device)
+            device_eps = list(set(supported_eps).intersection(self.execution_providers))
+            for ep in set(self.execution_providers).difference(supported_eps):
+                not_supported_ep.append(ep)
+            for ep in device_eps:
+                self.accelerator_specs.append(AcceleratorSpec(device, ep))
+
+        assert self.accelerator_specs, "No valid accelerator specified for target system."
+        if not_supported_ep:
+            logger.warning(
+                f"The following execution provider is not supported: {','.join(not_supported_ep)}. "
+                "Please consider install the onnxruntime contains the appropriated execution providers. "
+            )
+
         # default evaluator
         self.evaluator_config = None
         if evaluator_config is not None:
@@ -101,6 +129,8 @@ class Engine:
         self.passes = OrderedDict()
 
         self.footprints = defaultdict(Footprint)
+
+        self.azureml_client_config = self._config.azureml_client_config
 
         self._initialized = False
 
@@ -231,47 +261,78 @@ class Engine:
         output_dir: Path = Path(output_dir) if output_dir else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # TODO by myguo: replace the following for loop using the accelerator and excution provider list when adding
-        # accelerator support
         outputs = {}
-        for i in range(1):
-            # generate search space and intialize the passes for each hardware accelerator
-            self.setup_passes()
+        pf_footprints = {}
+        for accelerator_spec in self.accelerator_specs:
+            # generate search space and initialize the passes for each hardware accelerator
+            self.setup_passes(accelerator_spec)
 
             # hash the input model
             input_model_id = self._init_input_model(input_model)
-            self.footprints[i].record(model_id=input_model_id)
+            self.footprints[accelerator_spec].record(model_id=input_model_id)
 
-            if evaluation_only:
-                prefix_output_name = f"{output_name}_{i}_" if output_name is not None else f"{i}_"
-                assert self.evaluator_config is not None, "'evaluation_only' is True but no evaluator provided"
-                results = self._evaluate_model(input_model, input_model_id, self.evaluator_config, i, verbose)
-                result_name = f"{prefix_output_name}metrics"
-                results_path = output_dir / f"{result_name}.json"
-                json.dump(results, open(results_path, "w"), indent=4)
-                outputs[i] = results
-            elif self.no_search:
-                output = self.run_no_search(
-                    input_model, input_model_id, i, packaging_config, verbose, output_dir, output_name
-                )
-                outputs[i] = output
-            else:
-                footprint = self.run_search(
-                    input_model, input_model_id, i, packaging_config, verbose, output_dir, output_name
-                )
-                outputs[i] = footprint
+            try:
+                if evaluation_only:
+                    prefix_output_name = (
+                        f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
+                    )
+                    assert self.evaluator_config is not None, "Evaluation only is True but no evaluator provided"
+                    results = self._evaluate_model(
+                        input_model, input_model_id, self.evaluator_config, accelerator_spec, verbose
+                    )
+                    result_name = f"{prefix_output_name}metrics"
+                    results_path = output_dir / f"{result_name}.json"
+                    with open(results_path, "w") as f:
+                        f.write(results.json())
+                    outputs[accelerator_spec] = results
+                elif self.no_search:
+                    output = self.run_no_search(
+                        input_model,
+                        input_model_id,
+                        accelerator_spec,
+                        verbose,
+                        output_dir,
+                        output_name,
+                    )
+                    outputs[accelerator_spec] = output
+                    pf_footprints[accelerator_spec] = self.footprints[accelerator_spec].get_last_node()
+                else:
+                    footprint = self.run_search(
+                        input_model,
+                        input_model_id,
+                        accelerator_spec,
+                        verbose,
+                        output_dir,
+                        output_name,
+                    )
+                    outputs[accelerator_spec] = footprint
+                    pf_footprints[accelerator_spec] = footprint
+
+            except Exception as e:
+                logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}")
+
+        if packaging_config:
+            logger.info(f"Package top ranked {sum([len(f.nodes) for f in pf_footprints.values()])} models as artifacts")
+            generate_output_artifacts(
+                packaging_config,
+                self.footprints,
+                pf_footprints,
+                output_dir,
+            )
+        else:
+            logger.info("No packaging config provided, skip packaging artifacts")
 
         return outputs
 
-    def setup_passes(self):
+    def setup_passes(self, accelerator_spec: AcceleratorSpec):
         # TODO: add the hardware spec later
         # clean the passes
         self.passes.clear()
         for config in self.pass_config.values():
             pass_cls: Type[Pass] = config["type"]
             pass_cfg = config["config"]
-            config_class, pass_cfg = pass_cls.generate_search_space(pass_cfg, config["disable_search"])
-            p = pass_cls(config_class, pass_cfg)
+            pass_cfg = pass_cls.generate_search_space(accelerator_spec, pass_cfg, config["disable_search"])
+            p = pass_cls(accelerator_spec, pass_cfg, config["disable_search"])
             self.register_pass(p, host=config["host"], evaluator_config=config["evaluator"])
 
         # list of passes starting from the first pass with non-empty search space
@@ -285,8 +346,7 @@ class Engine:
         self,
         input_model: OliveModel,
         input_model_id: str,
-        accelerator_spec: Any,
-        packaging_config: Optional[PackagingConfig] = None,
+        accelerator_spec: AcceleratorSpec,
         verbose: bool = False,
         output_dir: str = None,
         output_name: str = None,
@@ -339,21 +399,12 @@ class Engine:
         result_name = f"{prefix_output_name}metrics"
         results_path = output_dir / f"{result_name}.json"
         if signal is not None:
-            json.dump(signal, open(results_path, "w"), indent=4)
+            with open(results_path, "w") as f:
+                f.write(signal.json())
 
         output = {"model": output_model_json}
         if signal is not None:
             output["metrics"] = signal
-
-        # Package output model as artifacts if no search
-        if packaging_config:
-            logger.info("Package output model as artifacts")
-            generate_output_artifacts(
-                packaging_config,
-                self.footprints[accelerator_spec],
-                self.footprints[accelerator_spec].get_last_node(),
-                output_dir,
-            )
 
         return output
 
@@ -361,8 +412,7 @@ class Engine:
         self,
         input_model: OliveModel,
         input_model_id: str,
-        accelerator_spec: Any,
-        packaging_config: Optional[PackagingConfig] = None,
+        accelerator_spec: AcceleratorSpec,
         verbose: bool = False,
         output_dir: str = None,
         output_name: str = None,
@@ -435,21 +485,16 @@ class Engine:
         if output_model_num is None or len(pf_footprints.nodes) <= output_model_num:
             logger.info(f"Output all {len(pf_footprints.nodes)} models")
         else:
-            metrics = evaluator_config.metrics if evaluator_config else []
-            top_ranked_nodes = self._get_top_ranked_nodes(metrics, pf_footprints, output_model_num)
+            top_ranked_nodes = self._get_top_ranked_nodes(objective_dict, pf_footprints, output_model_num)
             logger.info(f"Output top ranked {len(top_ranked_nodes)} models based on metric priorities")
             pf_footprints.update_nodes(top_ranked_nodes)
 
         pf_footprints.to_file(output_dir / f"{prefix_output_name}pareto_frontier_footprints.json")
-        pf_footprints.plot_pareto_frontier_to_html(
-            save_path=output_dir / f"{prefix_output_name}pareto_frontier_footprints_chart.html"
-        )
 
-        if packaging_config:
-            logger.info(f"Package top ranked {len(pf_footprints.nodes)} models as artifacts")
-            generate_output_artifacts(packaging_config, self.footprints[accelerator_spec], pf_footprints, output_dir)
-        else:
-            logger.info("No packaging config provided, skip packaging artifacts")
+        if self._config.plot_pareto_frontier:
+            pf_footprints.plot_pareto_frontier_to_html(
+                save_path=output_dir / f"{prefix_output_name}pareto_frontier_footprints_chart.html"
+            )
 
         return pf_footprints
 
@@ -458,7 +503,7 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         metrics: List[Metric],
-        accelerator_spec: Any,
+        accelerator_spec: AcceleratorSpec,
         verbose: bool = False,
     ) -> Dict[str, Dict[str, Any]]:
         """
@@ -467,19 +512,27 @@ class Engine:
         {objective_name: {"higher_is_better": bool, "goal": float}}
         """
         goals = self.resolve_goals(input_model, input_model_id, metrics, accelerator_spec, verbose)
-        objective_dict = {
-            metric.name: {"higher_is_better": metric.higher_is_better, "goal": goals.get(metric.name)}
-            for metric in metrics
-        }
+        objective_dict = {}
+        for metric in metrics:
+            for sub_type in metric.sub_types:
+                if sub_type.priority <= 0:
+                    continue
+                metric_key = joint_metric_key(metric.name, sub_type.name)
+                objective_dict[metric_key] = {
+                    "higher_is_better": sub_type.higher_is_better,
+                    "goal": goals.get(metric_key),
+                    "priority": sub_type.priority,
+                }
         self.footprints[accelerator_spec].record_objective_dict(objective_dict)
-        return objective_dict
+        ranked_objective_dict = dict(sorted(objective_dict.items(), key=lambda x: x[1]["priority"]))
+        return ranked_objective_dict
 
     def resolve_goals(
         self,
         input_model: OliveModel,
         input_model_id: str,
         metrics: List[Metric],
-        accelerator_spec: Any,
+        accelerator_spec: AcceleratorSpec,
         verbose: bool = False,
     ) -> Dict[str, float]:
         """
@@ -488,40 +541,59 @@ class Engine:
         goals = {}
         multipliers = {}
         for metric in metrics:
-            if metric.goal is not None:
-                goals[metric.name] = metric.goal
-                multipliers[metric.name] = 1 if metric.higher_is_better else -1
-        if verbose and len(goals) > 0:
+            # only resolve sub metrics whose priority > 0
+            goals[metric.name] = metric.get_sub_type_info("goal")
+            multipliers[metric.name] = metric.get_sub_type_info(
+                info_name="higher_is_better",
+                callback=lambda x: 1 if x else -1,
+            )
+
+        if verbose and goals:
             logger.info(f"Resolving goals: {goals}")
 
-        # compute baseline for input model if needed
-        baseline = {}
-        for _, goal in goals.items():
-            if goal.type != "threshold":
-                assert self.evaluator_config is not None, "Default evaluator must be provided to resolve goals"
-                if verbose:
+        baseline = MetricResult()
+        for goal in goals.values():
+            _evaluated = False
+            for sub_goal in goal.values():
+                if not sub_goal:
+                    break
+                if sub_goal.type != "threshold":
+                    assert self.evaluator_config is not None, "Default evaluator must be provided to resolve goals"
                     logger.info("Computing baseline for metrics ...")
-                baseline = self._evaluate_model(
-                    input_model, input_model_id, self.evaluator_config, accelerator_spec, verbose=False
-                )
+                    baseline = self._evaluate_model(
+                        input_model, input_model_id, self.evaluator_config, accelerator_spec, verbose=False
+                    )
+                    _evaluated = True
+                    break
+            if _evaluated:
                 break
-        if verbose and len(baseline) > 0:
+        if not baseline:
+            logger.info("No baseline got as no goal is provided the the goal is threshold")
+            return {}
+
+        if verbose and baseline:
             logger.info(f"Baseline: {baseline}")
 
         # resolve goals to thresholds
         resolved_goals = {}
-        for name, goal in goals.items():
-            # TODO: make the logic cleaner
-            if goal.type == "threshold":
-                resolved_goals[name] = goal.value
-            elif goal.type == "max-degradation":
-                resolved_goals[name] = baseline[name] - multipliers[name] * goal.value
-            elif goal.type == "min-improvement":
-                resolved_goals[name] = baseline[name] + multipliers[name] * goal.value
-            elif goal.type == "percent-max-degradation":
-                resolved_goals[name] = baseline[name] * (1 - multipliers[name] * goal.value / 100)
-            elif goal.type == "percent-min-improvement":
-                resolved_goals[name] = baseline[name] * (1 + multipliers[name] * goal.value / 100)
+        for metric_name, sub_type_goals in goals.items():
+            for sub_type_name, goal in sub_type_goals.items():
+                # TODO: make the logic cleaner
+                resolved_goal_value = None
+                baseline_sub_type = baseline.get_value(metric_name, sub_type_name)
+                multiplier = multipliers[metric_name][sub_type_name]
+                if goal.type == "threshold":
+                    resolved_goal_value = goal.value
+                elif goal.type == "max-degradation":
+                    resolved_goal_value = baseline_sub_type - multiplier * goal.value
+                elif goal.type == "min-improvement":
+                    resolved_goal_value = baseline_sub_type + multiplier * goal.value
+                elif goal.type == "percent-max-degradation":
+                    resolved_goal_value = baseline_sub_type * (1 - multiplier * goal.value / 100)
+                elif goal.type == "percent-min-improvement":
+                    resolved_goal_value = baseline_sub_type * (1 + multiplier * goal.value / 100)
+
+                resolved_goals[joint_metric_key(metric_name, sub_type_name)] = resolved_goal_value
         if verbose and len(resolved_goals) > 0:
             logger.info(f"Resolved goals: {resolved_goals}")
 
@@ -570,7 +642,8 @@ class Engine:
             model_json = model.to_json(check_object=check_objects)
         model_json_path = self.get_model_json_path(model_id)
         try:
-            json.dump(model_json, open(model_json_path, "w"), indent=4)
+            with open(model_json_path, "w") as f:
+                json.dump(model_json, f, indent=4)
         except Exception as e:
             logger.error(f"Failed to cache model: {e}")
 
@@ -580,7 +653,8 @@ class Engine:
         """
         model_json_path = self.get_model_json_path(model_id)
         try:
-            model_json = json.load(open(model_json_path, "r"))
+            with open(model_json_path, "r") as f:
+                model_json = json.load(f)
         except Exception as e:
             logger.error(f"Failed to load model: {e}")
             return None
@@ -623,7 +697,8 @@ class Engine:
         input_model_number = input_model_id.split("_")[0]
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config)
         try:
-            json.dump(run_json, open(run_json_path, "w"), indent=4)
+            with open(run_json_path, "w") as f:
+                json.dump(run_json, f, indent=4)
         except Exception as e:
             logger.error(f"Failed to cache run: {e}")
 
@@ -635,7 +710,8 @@ class Engine:
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config)
         if run_json_path.exists():
             try:
-                run_json = json.load(open(run_json_path, "r"))
+                with open(run_json_path, "r") as f:
+                    run_json = json.load(f)
                 output_model_id = run_json["output_model_id"]
             except Exception as e:
                 logger.error(f"Failed to load run: {e}")
@@ -649,7 +725,7 @@ class Engine:
         passes: List[Tuple[str, Dict[str, Any]]],
         model: OliveModel,
         model_id: str,
-        accelerator_spec: Any,
+        accelerator_spec: AcceleratorSpec,
         verbose: bool = False,
     ):
         """
@@ -668,9 +744,19 @@ class Engine:
                 model.model_storage_kind == ModelStorageKind.AzureMLModel
                 and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
             ):
-                error_msg = "Azure ML model only supports AzureMLSystem for Olive Pass"
-                logger.error(error_msg)
-                raise Exception(error_msg)
+                if not self.azureml_client_config:
+                    raise ValueError("AzureML client config is required to download the model from AzureML storage")
+                model_download_path = self._model_cache_path / "azureml_input_model"
+                model_path = model.download_from_azureml(
+                    self.azureml_client_config.create_client(), model_download_path
+                )
+                model.model_path = model_path
+                if model_path.is_dir():
+                    model.model_storage_kind = ModelStorageKind.LocalFolder
+                elif model_path.is_file():
+                    model.model_storage_kind = ModelStorageKind.LocalFile
+                else:
+                    raise ValueError(f"Invalid model path {model_path}")
 
             model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec, verbose)
             if model == PRUNED_CONFIG:
@@ -703,7 +789,7 @@ class Engine:
         pass_search_point: Dict[str, Any],
         input_model: OliveModel,
         input_model_id: str,
-        accelerator_spec: Any,
+        accelerator_spec: AcceleratorSpec,
         verbose: bool,
     ):
         """
@@ -734,7 +820,15 @@ class Engine:
 
         # new model id
         input_model_number = input_model_id.split("_")[0]
-        output_model_id = f"{self._get_new_model_number()}_{pass_name}-{input_model_number}-{hash_dict(pass_config)}"
+        # Note: the output model id need contains the accelerator information.
+        # TODO: consider how to reuse the run which is indepedent with accelerator and EP.
+        output_model_id_parts = [
+            f"{self._get_new_model_number()}_{pass_name}",
+            input_model_number,
+            hash_dict(pass_config),
+            accelerator_spec,
+        ]
+        output_model_id = "-".join(map(str, output_model_id_parts))
         output_model_path = str(self._model_cache_path / f"{output_model_id}")
 
         # prune if invalid search_point
@@ -777,17 +871,18 @@ class Engine:
         evaluation_json_path = self._evaluation_cache_path / f"{model_id}.json"
         return evaluation_json_path
 
-    def _cache_evaluation(self, model_id: str, signal: dict):
+    def _cache_evaluation(self, model_id: str, signal: MetricResult):
         """
         Cache the evaluation in the cache directory.
         """
         evaluation_json = {
             "model_id": model_id,
-            "signal": signal,
+            "signal": signal.dict(),
         }
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         try:
-            json.dump(evaluation_json, open(evaluation_json_path, "w"), indent=4)
+            with open(evaluation_json_path, "w") as f:
+                json.dump(evaluation_json, f, indent=4)
         except Exception as e:
             logger.error(f"Failed to cache evaluation: {e}")
 
@@ -798,8 +893,10 @@ class Engine:
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         if evaluation_json_path.exists():
             try:
-                evaluation_json = json.load(open(evaluation_json_path, "r"))
+                with open(evaluation_json_path, "r") as f:
+                    evaluation_json = json.load(f)
                 signal = evaluation_json["signal"]
+                signal = MetricResult(**signal)
             except Exception as e:
                 logger.error(f"Failed to load evaluation: {e}")
                 signal = None
@@ -812,7 +909,7 @@ class Engine:
         model: OliveModel,
         model_id: str,
         evaluator_config: OliveEvaluatorConfig,
-        accelerator_spec: Any,
+        accelerator_spec: AcceleratorSpec,
         verbose: bool,
     ):
         """
@@ -835,10 +932,9 @@ class Engine:
             )
             return signal
 
-        # TODO: add the accelerator spec to the evaluate
         # evaluate model
         metrics = evaluator_config.metrics if evaluator_config else []
-        signal = self.target.evaluate_model(model, metrics)
+        signal = self.target.evaluate_model(model, metrics, accelerator_spec)
 
         # cache evaluation
         self._cache_evaluation(model_id, signal)
@@ -853,14 +949,17 @@ class Engine:
         )
         return signal
 
-    def _get_top_ranked_nodes(self, metrics: List[Metric], footprint: Footprint, k: int) -> List[FootprintNode]:
-        metric_priority = [metric.name for metric in sorted(metrics, key=lambda x: x.priority_rank)]
+    def _get_top_ranked_nodes(
+        self, objective_dict: Dict[str, Any], footprint: Footprint, k: int
+    ) -> List[FootprintNode]:
         footprint_node_list = footprint.nodes.values()
         sorted_footprint_node_list = sorted(
             footprint_node_list,
             key=lambda x: tuple(
-                x.metrics.value[metric] if x.metrics.cmp_direction[metric] == 1 else -x.metrics.value[metric]
-                for metric in metric_priority
+                x.metrics.value[metric].value
+                if x.metrics.cmp_direction[metric] == 1
+                else -x.metrics.value[metric].value
+                for metric in objective_dict.keys()
             ),
             reverse=True,
         )

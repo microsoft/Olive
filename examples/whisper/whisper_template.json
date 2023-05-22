@@ -26,7 +26,7 @@
     "systems": {
         "local_system": {
             "type": "LocalSystem",
-            "config": {"device": "<place_holder>"}
+            "config": {"accelerators": ["<place_holder>"]}
         }
     },
     "evaluators": {
@@ -35,7 +35,9 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_type": "avg",
+                    "sub_types": [
+                        {"name": "avg", "priority": 1}
+                    ],
                     "user_config": {
                         "user_script": "user_script.py",
                         "data_dir": "data",

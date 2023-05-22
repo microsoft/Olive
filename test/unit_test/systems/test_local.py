@@ -8,7 +8,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from olive.constants import Framework
-from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricType
+from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult, MetricType, joint_metric_key
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
 
 
@@ -61,21 +62,32 @@ class TestLocalSystem:
         # setup
         olive_model = MagicMock()
         olive_model.framework = Framework.ONNX
-        expected_res = "0.382715310"
+        expected_res = MetricResult.parse_obj(
+            {
+                sub_metric.name: {
+                    "value": 0.382715310,
+                    "priority": sub_metric.priority,
+                    "higher_is_better": sub_metric.higher_is_better,
+                }
+                for sub_metric in metric.sub_types
+            }
+        )
         mock_evaluate_custom.return_value = expected_res
         mock_evaluate_latency.return_value = expected_res
         mock_evaluate_accuracy.return_value = expected_res
         mock_get_user_config.return_value = (None, None, None)
 
         # execute
-        actual_res = self.system.evaluate_model(olive_model, [metric])[metric.name]
+        actual_res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
         if metric.type == MetricType.ACCURACY:
-            mock_evaluate_accuracy.called_once_with(olive_model, metric, None, self.system.device, None)
-        elif metric.type == MetricType.LATENCY:
-            mock_evaluate_latency.called_once_with(olive_model, metric, None, self.system.device, None)
-        elif metric.type == MetricType.CUSTOM:
-            mock_evaluate_custom.called_once_with(olive_model, metric, None, None, self.system.device, None)
+            mock_evaluate_accuracy.called_once_with(olive_model, metric, None, "cpu", "CPUExecutionProvider")
+        if metric.type == MetricType.LATENCY:
+            mock_evaluate_latency.called_once_with(olive_model, metric, None, "cpu", "CPUExecutionProvider")
+        if metric.type == MetricType.CUSTOM:
+            mock_evaluate_custom.called_once_with(olive_model, metric, None, None, "cpu", "CPUExecutionProvider")
 
-        assert actual_res == expected_res
+        joint_keys = [joint_metric_key(metric.name, sub_metric.name) for sub_metric in metric.sub_types]
+        for joint_key in joint_keys:
+            assert actual_res[joint_key].value == 0.38271531

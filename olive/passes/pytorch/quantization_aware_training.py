@@ -5,6 +5,7 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Union
 
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModel
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
@@ -16,7 +17,7 @@ class QuantizationAwareTraining(Pass):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         import pytorch_lightning
         from packaging import version
 
@@ -86,6 +87,7 @@ class QuantizationAwareTraining(Pass):
             ),
             "gpus": PassConfigParam(type_=int, description="Number of GPUs to use."),
             "seed": PassConfigParam(type_=int, default_value=None, description="Random seed for training."),
+            "checkpoint_path": PassConfigParam(type_=str, default_value=None, description="Path to save checkpoints."),
         }
 
     def _run_for_config(self, model: PyTorchModel, config: Dict[str, Any], output_model_path: str) -> PyTorchModel:

@@ -7,8 +7,8 @@ import argparse
 from inception_utils import get_directories, print_metrics
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
+from olive.hardware import DEFAULT_CPU_ACCELERATOR, Device
 from olive.model import SNPEModel
-from olive.systems.common import Device
 from olive.systems.local import LocalSystem
 
 
@@ -67,7 +67,12 @@ def main():
     accuracy_metrics = Metric(
         name="accuracy",
         type=MetricType.ACCURACY,
-        sub_type=AccuracySubType.ACCURACY_SCORE,
+        sub_types=[
+            {
+                "name": AccuracySubType.ACCURACY_SCORE,
+                "priority": 1,
+            }
+        ],
         user_config={
             "user_script": user_script,
             "post_processing_func": "post_process",
@@ -80,7 +85,13 @@ def main():
     latency_metrics = Metric(
         name="latency",
         type=MetricType.LATENCY,
-        sub_type=LatencySubType.AVG,
+        sub_types=[
+            {
+                "name": LatencySubType.AVG,
+                "priority": 2,
+                "metric_config": {"warmup_num": 0, "repeat_test_num": 5, "sleep_num": 2},
+            }
+        ],
         user_config={
             "user_script": user_script,
             "data_dir": data_folder,
@@ -88,10 +99,7 @@ def main():
             "dataloader_func": "create_eval_dataloader",
             "inference_settings": inference_settings,
         },
-        metric_config={"warmup_num": 0, "repeat_test_num": 5, "sleep_num": 2},
     )
-
-    system = LocalSystem()
 
     # Evaluate models
     devices_dict = {
@@ -101,8 +109,11 @@ def main():
     metrics_dict = {}
     for model_name in models_dict:
         device = devices_dict[model_name]
+        system = LocalSystem(device=device)
         print(f"   {model_name} on {device}...")
-        metrics = system.evaluate(models_dict[model_name], [accuracy_metrics, latency_metrics], device)
+        metrics = system.evaluate_model(
+            models_dict[model_name], [accuracy_metrics, latency_metrics], accelerator=DEFAULT_CPU_ACCELERATOR
+        )
         metrics_dict[model_name] = metrics
 
     # Print metrics

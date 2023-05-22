@@ -5,7 +5,8 @@
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from numbers import Number
+from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -17,9 +18,19 @@ from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
 from olive.constants import Framework
 from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Precision, Recall
-from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
-from olive.model import OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
-from olive.systems.common import Device
+from olive.evaluator.metric import (
+    AccuracySubType,
+    LatencySubType,
+    Metric,
+    MetricResult,
+    MetricType,
+    SubMetricResult,
+    flatten_metric_result,
+    get_latency_config_from_metric,
+    joint_metric_key,
+)
+from olive.hardware import Device
+from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
 
 logger = logging.getLogger(__name__)
 
@@ -76,14 +87,26 @@ class OliveEvaluator(ABC):
 
     @abstractmethod
     def _evaluate_accuracy(
-        self, model: OliveModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
-    ) -> Dict[str, Any]:
+        self,
+        model: OliveModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
         raise NotImplementedError()
 
     @abstractmethod
     def _evaluate_latency(
-        self, model: OliveModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
-    ) -> Dict[str, Any]:
+        self,
+        model: OliveModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
         raise NotImplementedError()
 
     def _evaluate_custom(
@@ -92,30 +115,58 @@ class OliveEvaluator(ABC):
         metric: Metric,
         dataloader: Dataset,
         eval_func,
-        device: Device = Device.CPU,
         post_func=None,
-    ) -> Dict[str, Any]:
+        device: Device = Device.CPU,
+        execution_providers=None,
+    ) -> MetricResult:
         # TODO: Change the evaluate function to accept the metric rather than
         # breaking it into multiple arguments
         # return eval_func(model, metric, dataloader, device, post_func)
-        return eval_func(model, metric.user_config.data_dir, metric.user_config.batch_size, device)
+        raw_res = eval_func(
+            model, metric.user_config.data_dir, metric.user_config.batch_size, device, execution_providers
+        )
+        metric_res = {}
+        for sub_type in metric.sub_types:
+            if isinstance(raw_res, Number):
+                assert len(metric.sub_types) == 1, "Only one sub type is allowed for single value custom metric"
+                metric_res[sub_type.name] = SubMetricResult(
+                    value=raw_res, priority=sub_type.priority, higher_is_better=sub_type.higher_is_better
+                )
+            elif isinstance(raw_res, dict):
+                assert sub_type.name in raw_res, f"Custom metric {sub_type.name} is not in the result"
+                metric_res[sub_type.name] = SubMetricResult(
+                    value=raw_res[sub_type.name],
+                    priority=sub_type.priority,
+                    higher_is_better=sub_type.higher_is_better,
+                )
+        return MetricResult.parse_obj(metric_res)
 
-    def evaluate(self, model: OliveModel, metrics: List[Metric], device: Device = Device.CPU) -> Dict[str, Any]:
+    def evaluate(
+        self,
+        model: OliveModel,
+        metrics: List[Metric],
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
         metrics_res = {}
         for metric in metrics:
             dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric)
 
             if metric.type == MetricType.ACCURACY:
-                metrics_res[metric.name] = self._evaluate_accuracy(model, metric, dataloader, device, post_func)
+                metrics_res[metric.name] = self._evaluate_accuracy(
+                    model, metric, dataloader, post_func, device, execution_providers
+                )
             elif metric.type == MetricType.LATENCY:
-                metrics_res[metric.name] = self._evaluate_latency(model, metric, dataloader, device, post_func)
+                metrics_res[metric.name] = self._evaluate_latency(
+                    model, metric, dataloader, post_func, device, execution_providers
+                )
             elif metric.type == MetricType.CUSTOM:
                 metrics_res[metric.name] = self._evaluate_custom(
-                    model, metric, dataloader, eval_func, device, post_func
+                    model, metric, dataloader, eval_func, post_func, device, execution_providers
                 )
             else:
                 raise TypeError(f"{metric.type} is not a supported metric type")
-        return metrics_res
+        return flatten_metric_result(metrics_res)
 
     @staticmethod
     def get_user_config(metric: Metric):
@@ -148,48 +199,58 @@ class OliveEvaluator(ABC):
         return dataloader, eval_func, post_func
 
     @staticmethod
-    def compute_accuracy(metric: Metric, preds: Any, targets: Any) -> Dict[str, Any]:
+    def compute_accuracy(metric: Metric, preds: Any, targets: Any) -> MetricResult:
         """
         Compute accuracy metrics
         """
-        if metric.sub_type == AccuracySubType.ACCURACY_SCORE:
-            return AccuracyScore(metric.metric_config).measure(preds, targets)
-        elif metric.sub_type == AccuracySubType.F1_SCORE:
-            return F1Score(metric.metric_config).measure(preds, targets)
-        elif metric.sub_type == AccuracySubType.PRECISION:
-            return Precision(metric.metric_config).measure(preds, targets)
-        elif metric.sub_type == AccuracySubType.RECALL:
-            return Recall(metric.metric_config).measure(preds, targets)
-        elif metric.sub_type == AccuracySubType.AUC:
-            return AUC(metric.metric_config).measure(preds, targets)
-        else:
-            raise TypeError(f"{metric.sub_type} is not a supported accuracy metric")
+        metric_res = {}
+        sub_type_metric_value = None
+        sub_types = metric.sub_types
+        for sub_type in sub_types:
+            metric_config = sub_type.metric_config
+            if sub_type.name == AccuracySubType.ACCURACY_SCORE:
+                sub_type_metric_value = AccuracyScore(metric_config).measure(preds, targets)
+            elif sub_type.name == AccuracySubType.F1_SCORE:
+                sub_type_metric_value = F1Score(metric_config).measure(preds, targets)
+            elif sub_type.name == AccuracySubType.PRECISION:
+                sub_type_metric_value = Precision(metric_config).measure(preds, targets)
+            elif sub_type.name == AccuracySubType.RECALL:
+                sub_type_metric_value = Recall(metric_config).measure(preds, targets)
+            elif sub_type.name == AccuracySubType.AUC:
+                sub_type_metric_value = AUC(metric_config).measure(preds, targets)
+            else:
+                raise TypeError(f"{sub_type} is not a accuracy metric supported")
+            metric_res[sub_type.name] = SubMetricResult(
+                value=sub_type_metric_value,
+                priority=sub_type.priority,
+                higher_is_better=sub_type.higher_is_better,
+            )
+        return MetricResult.parse_obj(metric_res)
 
     @staticmethod
-    def compute_latency(metric: Metric, latencies: Any) -> float:
+    def compute_latency(metric: Metric, latencies: Any) -> MetricResult:
         """
         Compute latency metrics
         """
-        if metric.sub_type == LatencySubType.AVG:
-            return round(sum(latencies) / len(latencies) * 1000, 5)
-        elif metric.sub_type == LatencySubType.MAX:
-            return round(max(latencies) * 1000, 5)
-        elif metric.sub_type == LatencySubType.MIN:
-            return round(min(latencies) * 1000, 5)
-        elif metric.sub_type == LatencySubType.P50:
-            return round(np.percentile(latencies, 50) * 1000, 5)
-        elif metric.sub_type == LatencySubType.P75:
-            return round(np.percentile(latencies, 75) * 1000, 5)
-        elif metric.sub_type == LatencySubType.P90:
-            return round(np.percentile(latencies, 90) * 1000, 5)
-        elif metric.sub_type == LatencySubType.P95:
-            return round(np.percentile(latencies, 95) * 1000, 5)
-        elif metric.sub_type == LatencySubType.P99:
-            return round(np.percentile(latencies, 99) * 1000, 5)
-        elif metric.sub_type == LatencySubType.P999:
-            return round(np.percentile(latencies, 99.9) * 1000, 5)
-        else:
-            raise TypeError(f"{metric.sub_type} is not a supported latency metric")
+        latency_metrics = {
+            LatencySubType.AVG: round(sum(latencies) / len(latencies) * 1000, 5),
+            LatencySubType.MAX: round(max(latencies) * 1000, 5),
+            LatencySubType.MIN: round(min(latencies) * 1000, 5),
+            LatencySubType.P50: round(np.percentile(latencies, 50) * 1000, 5),
+            LatencySubType.P75: round(np.percentile(latencies, 75) * 1000, 5),
+            LatencySubType.P90: round(np.percentile(latencies, 90) * 1000, 5),
+            LatencySubType.P95: round(np.percentile(latencies, 95) * 1000, 5),
+            LatencySubType.P99: round(np.percentile(latencies, 99) * 1000, 5),
+            LatencySubType.P999: round(np.percentile(latencies, 99.9) * 1000, 5),
+        }
+        metric_res = {}
+        for sub_type in metric.sub_types:
+            metric_res[sub_type.name] = SubMetricResult(
+                value=latency_metrics[sub_type.name],
+                priority=sub_type.priority,
+                higher_is_better=sub_type.higher_is_better,
+            )
+        return MetricResult.parse_obj(metric_res)
 
 
 class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
@@ -215,10 +276,20 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         }
         return input_dict
 
-    def _evaluate_accuracy(
-        self, model: ONNXModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
-    ) -> Dict[str, Any]:
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+    def _evaluate_onnx_accuracy(
+        self,
+        model: ONNXModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        session = model.prepare_session(
+            inference_settings=self.get_inference_settings(metric),
+            device=device,
+            execution_providers=execution_providers,
+        )
         io_config = model.get_io_config()
 
         preds = []
@@ -234,14 +305,22 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         return OliveEvaluator.compute_accuracy(metric, preds, targets)
 
-    def _evaluate_latency(
-        self, model: OliveModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
-    ) -> Dict[str, Any]:
-        warmup_num = metric.metric_config.warmup_num
-        repeat_test_num = metric.metric_config.repeat_test_num
-        sleep_num = metric.metric_config.sleep_num
+    def _evaluate_onnx_latency(
+        self,
+        model: OliveModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
-        session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
+        session = model.prepare_session(
+            inference_settings=self.get_inference_settings(metric),
+            device=device,
+            execution_providers=execution_providers,
+        )
         io_config = model.get_io_config()
 
         input_data, _ = next(iter(dataloader))
@@ -275,6 +354,183 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         return OliveEvaluator.compute_latency(metric, latencies)
 
+    @staticmethod
+    def _evaluate_distributed_accuracy_worker(config) -> Tuple[List[Any], List[Any]]:
+        model_path = config["model_path"]
+        local_rank = config["local_rank"]
+        world_size = config["world_size"]
+        inference_settings = config.get("inference_settings", {}) or {}
+        metric = Metric.from_json(config["metric"])
+        dataloader, _, post_func = OnnxEvaluator.get_user_config(metric)
+
+        import os
+
+        os.environ["OMPI_COMM_WORLD_RANK"] = str(local_rank)
+        os.environ["OMPI_COMM_WORLD_SIZE"] = str(world_size)
+
+        from mpi4py import MPI
+
+        local_rank = MPI.COMM_WORLD.Get_rank()
+
+        # TODO: EPs should be selected based on accelerator_spec param passed down from the engine
+        inference_settings["execution_provider"] = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
+
+        model = ONNXModel(model_path, inference_settings=inference_settings)
+        session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
+        io_config = model.get_io_config()
+
+        preds = []
+        targets = []
+        output_names = io_config["output_names"]
+        for _, (input_data, labels) in enumerate(dataloader):
+            input_dict = OnnxEvaluator.format_input(input_data, io_config)
+            MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
+            output = session.run(input_feed=input_dict, output_names=None)
+            output = torch.Tensor(output[0]) if len(output_names) == 1 else torch.Tensor(output)
+            output = post_func(output) if post_func else output
+            preds.extend(output.tolist())
+            targets.extend(labels.data.tolist())
+
+        return preds, targets
+
+    def _evaluate_distributed_accuracy(self, model: DistributedOnnxModel, metric: Metric) -> MetricResult:
+        from copy import deepcopy
+
+        from mpi4py.futures import MPIPoolExecutor
+
+        config = {
+            "model_path": None,
+            "local_rank": None,
+            "world_size": model.ranks,
+            "inference_settings": self.get_inference_settings(metric),
+            "metric": metric.to_json(),
+        }
+
+        args = []
+        for rank in range(model.ranks):
+            cfg = deepcopy(config)
+            cfg["local_rank"] = rank
+            cfg["model_path"] = model.ranked_model_path(rank)
+            args.append(cfg)
+
+        with MPIPoolExecutor(max_workers=model.ranks) as executor:
+            results = executor.map(OnnxEvaluator._evaluate_distributed_accuracy_worker, args)
+            executor.shutdown()
+
+        preds = [x for p, _ in results for x in p]
+        targets = [x for _, t in results for x in t]
+        return OliveEvaluator.compute_accuracy(metric, preds, targets)
+
+    @staticmethod
+    def _evaluate_distributed_latency_worker(config) -> List[float]:
+        model_path = config["model_path"]
+        local_rank = config["local_rank"]
+        world_size = config["world_size"]
+        inference_settings = config.get("inference_settings", {}) or {}
+        metric = Metric.from_json(config["metric"])
+        dataloader, _, _ = OnnxEvaluator.get_user_config(metric)
+
+        import os
+
+        os.environ["OMPI_COMM_WORLD_RANK"] = str(local_rank)
+        os.environ["OMPI_COMM_WORLD_SIZE"] = str(world_size)
+
+        from mpi4py import MPI
+
+        local_rank = MPI.COMM_WORLD.Get_rank()
+        warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
+        # TODO: EPs should be selected based on accelerator_spec param passed down from the engine
+        inference_settings["execution_provider"] = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
+
+        model = ONNXModel(model_path, inference_settings=inference_settings)
+        session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
+        io_config = model.get_io_config()
+
+        input_feed, _ = next(iter(dataloader))
+        input_feed = OnnxEvaluator.format_input(input_feed, io_config)
+
+        if metric.user_config.io_bind:
+            io_bind_op = session.io_binding()
+            for k, v in input_feed.items():
+                io_bind_op.bind_cpu_input(k, v)
+            for item in session.get_outputs():
+                io_bind_op.bind_output(item.name, "cuda")
+
+        latencies = []
+        for i in range(warmup_num + repeat_test_num):
+            MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
+            start_time = time.perf_counter()
+            if metric.user_config.io_bind:
+                session.run_with_iobinding(io_bind_op)
+            else:
+                session.run(input_feed=input_feed, output_names=None)
+            if i > warmup_num:
+                latencies.append(time.perf_counter() - start_time)
+            time.sleep(sleep_num)
+
+        return latencies
+
+    def _evaluate_distributed_latency(self, model: DistributedOnnxModel, metric: Metric) -> MetricResult:
+        from copy import deepcopy
+
+        from mpi4py.futures import MPIPoolExecutor
+
+        config = {
+            "model_path": None,
+            "local_rank": None,
+            "world_size": model.ranks,
+            "inference_settings": self.get_inference_settings(metric),
+            "metric": metric.to_json(),
+        }
+
+        args = []
+        for rank in range(model.ranks):
+            cfg = deepcopy(config)
+            cfg["local_rank"] = rank
+            cfg["model_path"] = model.ranked_model_path(rank)
+            args.append(cfg)
+
+        with MPIPoolExecutor(max_workers=model.ranks) as executor:
+            results = executor.map(OnnxEvaluator._evaluate_distributed_latency_worker, args)
+            executor.shutdown()
+
+        latencies = [x for r in results for x in r]
+        return OliveEvaluator.compute_latency(metric, latencies)
+
+    def _evaluate_accuracy(
+        self,
+        model: ONNXModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        if isinstance(model, ONNXModel):
+            return self._evaluate_onnx_accuracy(model, metric, dataloader, post_func, device, execution_providers)
+        elif isinstance(model, DistributedOnnxModel):
+            return self._evaluate_distributed_accuracy(model, metric)
+        else:
+            raise TypeError(f"Cannot evaluate accuracy for model of type: {type(model)}")
+
+    def _evaluate_latency(
+        self,
+        model: OliveModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        if isinstance(model, ONNXModel):
+            return self._evaluate_onnx_latency(model, metric, dataloader, post_func, device, execution_providers)
+        elif isinstance(model, DistributedOnnxModel):
+            return self._evaluate_distributed_latency(model, metric)
+        else:
+            raise TypeError(f"Cannot evaluate latency for model of type: {type(model)}")
+
 
 class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     def __init__(self):
@@ -285,8 +541,14 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         return torch.device("cuda") if device == Device.GPU else torch.device(device)
 
     def _evaluate_accuracy(
-        self, model: PyTorchModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
-    ) -> Dict[str, Any]:
+        self,
+        model: PyTorchModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         preds = []
@@ -308,10 +570,15 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         return OliveEvaluator.compute_accuracy(metric, preds, targets)
 
     def _evaluate_latency(
-        self, model: PyTorchModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
-    ) -> Dict[str, Any]:
-        warmup_num = metric.metric_config.warmup_num
-        repeat_test_num = metric.metric_config.repeat_test_num
+        self,
+        model: PyTorchModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        warmup_num, repeat_test_num, _ = get_latency_config_from_metric(metric)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         input_data, _ = next(iter(dataloader))
@@ -344,8 +611,14 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         super().__init__()
 
     def _evaluate_accuracy(
-        self, model: SNPEModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
-    ) -> Dict[str, Any]:
+        self,
+        model: SNPEModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         preds = []
@@ -362,14 +635,21 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         return OliveEvaluator.compute_accuracy(metric, preds, targets)
 
     def _evaluate_latency(
-        self, model: SNPEModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
-    ) -> Dict[str, Any]:
+        self,
+        model: SNPEModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         data_dir, input_data, _ = next(iter(dataloader))
-        total_runs = metric.metric_config.warmup_num + metric.metric_config.repeat_test_num
-        results = session(input_data, data_dir, runs=total_runs, sleep=metric.metric_config.sleep_num)
-        latencies = results["latencies"]["total_inference_time"][metric.metric_config.warmup_num:]  # fmt: skip
+        total_runs = warmup_num + repeat_test_num
+        results = session(input_data, data_dir, runs=total_runs, sleep=sleep_num)
+        latencies = results["latencies"]["total_inference_time"][warmup_num]
 
         return OliveEvaluator.compute_latency(metric, latencies)
 
@@ -379,8 +659,14 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         super().__init__()
 
     def _evaluate_accuracy(
-        self, model: OpenVINOModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
-    ) -> Dict[str, Any]:
+        self,
+        model: OpenVINOModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         preds = []
@@ -396,8 +682,14 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         return OliveEvaluator.compute_accuracy(metric, preds, targets)
 
     def _evaluate_latency(
-        self, model: OpenVINOModel, metric: Metric, dataloader: Dataset, device: Device = Device.CPU, post_func=None
-    ) -> Dict[str, Any]:
+        self,
+        model: OpenVINOModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         latencies = []
@@ -422,16 +714,32 @@ class OliveEvaluatorConfig(ConfigBase):
     @validator("metrics")
     def validate_metrics(cls, v):
         metric_len = len(v)
-        if metric_len == 1:
-            return v
 
         metric_names = set([metric.name for metric in v])
         assert len(metric_names) == metric_len, "Metric names must be unique"
 
-        rank_set = set([metric.priority_rank for metric in v])
-        expected_rank_set = set(range(1, metric_len + 1))
+        sub_type_names = set()
+        sub_type_with_rank = set()
+        rank_set = set()
+        for metric in v:
+            for sub_type in metric.sub_types:
+                sub_type_names.add(joint_metric_key(metric.name, sub_type.name))
+                if sub_type.priority != -1:
+                    sub_type_with_rank.add(sub_type.name)
+                    rank_set.add(sub_type.priority)
+
+        if not rank_set and len(sub_type_names) == 1:
+            logger.debug(
+                "No priority is specified, but only one sub type "
+                " metric is specified. Use rank 1 for single for this metric."
+            )
+            v[0].sub_types[0].priority = 1
+        elif not rank_set and len(sub_type_names) > 1:
+            raise ValueError("Priority must be specified for multiple sub type metrics")
+
+        expected_rank_set = set(range(1, len(sub_type_with_rank) + 1))
         # Check if all ranks are present
         if rank_set != expected_rank_set:
-            raise ValueError(f"Priority ranks must be unique and in the range 1 to {metric_len}")
+            raise ValueError(f"Priorities must be unique and in the range 1 to {metric_len}")
 
         return v

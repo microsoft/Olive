@@ -26,7 +26,8 @@ def parse_common_args(raw_args):
 
 
 def get_model_config(common_args):
-    model_json = json.load(open(common_args.model_config))
+    with open(common_args.model_config) as f:
+        model_json = json.load(f)
 
     for key, value in common_args.__dict__.items():
         if value and key in model_json["config"]:

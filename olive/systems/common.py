@@ -18,13 +18,6 @@ class SystemType(str, Enum):
     PythonEnvironment = "PythonEnvironment"
 
 
-class Device(str, Enum):
-    CPU = "cpu"
-    GPU = "gpu"
-    NPU = "npu"
-    INTEL_MYRIAD = "intel_myriad"
-
-
 class AzureMLDockerConfig(ConfigBase):
     base_image: Optional[str] = None
     dockerfile: Optional[str] = None

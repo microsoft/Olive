@@ -9,7 +9,7 @@ from test.unit_test.utils import get_onnx_model
 
 from onnxruntime.transformers.fusion_options import FusionOptions
 
-from olive.passes.olive_pass import create_pass_from_dict
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.onnx import OrtTransformersOptimization
 from olive.passes.onnx.common import get_external_data_config
 from olive.systems.local import LocalSystem
@@ -17,15 +17,14 @@ from olive.systems.local import LocalSystem
 
 def test_fusion_options():
     config = {"model_type": "bart", "optimization_options": {"use_multi_head_attention": True}}
-    config_class, config = OrtTransformersOptimization.generate_search_space(config, True)
-    transformer_optimization = OrtTransformersOptimization(config_class, config)
+    config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, True)
+    transformer_optimization = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
     run_config = deepcopy(config)
     del (
         run_config["float16"],
         run_config["input_int32"],
         run_config["keep_io_types"],
         run_config["force_fp32_ops"],
-        run_config["target_provider"],
     )
     for key in get_external_data_config():
         del run_config[key]
@@ -44,7 +43,9 @@ def test_ort_transformer_optimization_pass():
     local_system = LocalSystem()
     input_model = get_onnx_model()
     config = {"model_type": "bert"}
-    p = create_pass_from_dict(OrtTransformersOptimization, config, disable_search=True)
+
+    config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
+    p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
     with tempfile.TemporaryDirectory() as tempdir:
         output_folder = str(Path(tempdir) / "onnx")
 
