@@ -37,7 +37,7 @@ def optimize(model_name: str, optimized_model_dir: Path):
     olive_run(olive_config)
 
     # TODO: rename the 0 prefix in the path when the hardware accelerator feature is implemented.
-    footprints_file_path = Path(__file__).resolve().parent / "footprints/dolly_v2_0_footprints.json"
+    footprints_file_path = Path(__file__).resolve().parent / "footprints/dolly_v2_gpu-dml_footprints.json"
     with footprints_file_path.open("r") as footprint_file:
         footprints = json.load(footprint_file)
         conversion_footprint = None
