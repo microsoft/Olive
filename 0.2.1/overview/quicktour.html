@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quick Tour &mdash; Olive  documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/autodoc_pydantic.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/tabs.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/width.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Olive Options" href="options.html" />
+    <link rel="prev" title="Olive" href="olive.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.2.1
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="olive.html">Olive</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Quick Tour</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#step1-install-olive">Step1 Install Olive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#step-2-run-olive-with-model-optimization-workflow">Step 2 Run Olive with Model Optimization Workflow</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#input-model"><span class="xref myst">Input Model</span></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#systems-optional"><span class="xref myst">Systems</span>(Optional)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#evaluator"><span class="xref myst">Evaluator</span></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#passes"><span class="xref myst">Passes</span></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#engine"><span class="xref myst">Engine</span></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#olive-optimization-result">Olive Optimization Result</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#olive-footprint">Olive Footprint</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#olive-packaging">Olive Packaging</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#azure-ml-client">Azure ML Client</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html">Acceleration on CPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-gpu">Acceleration on GPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-npu">Acceleration on NPU</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_systems.html">Configuring OliveSystem</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_metrics.html">Configuring Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_pass.html">Configuring Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_hardware_optimizations.html">Configuring HW-dependent optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_write_userscript.html#my-script-py">my_script.py</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_write_userscript.html#you-can-use-file-module-here">You can use file module here</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Quick Tour</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/overview/quicktour.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="quick-tour">
+<span id="id1"></span><h1>Quick Tour<a class="headerlink" href="#quick-tour" title="Permalink to this heading">¶</a></h1>
+<p>Here is a quick guide on using Olive for model optimization with two steps. We will focus on accelerating a PyTorch model on the CPU leveraging ONNX conversion and ONNX quantization.</p>
+<section id="step1-install-olive">
+<h2>Step1 Install Olive<a class="headerlink" href="#step1-install-olive" title="Permalink to this heading">¶</a></h2>
+<p>Before you begin, install Olive and the necessary packages.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>olive-ai
+</pre></div>
+</div>
+<p>Refer to the <a class="reference internal" href="../getstarted/installation.html#installation"><span class="std std-ref">Installation</span></a> section for more details.</p>
+</section>
+<section id="step-2-run-olive-with-model-optimization-workflow">
+<h2>Step 2 Run Olive with Model Optimization Workflow<a class="headerlink" href="#step-2-run-olive-with-model-optimization-workflow" title="Permalink to this heading">¶</a></h2>
+<p>Olive model optimization workflows are defined using config JSON files. You can use the Olive CLI to run the pipeline.</p>
+<p>First, install required packages according to your config file.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">olive</span><span class="o">.</span><span class="n">workflows</span><span class="o">.</span><span class="n">run</span> <span class="o">--</span><span class="n">config</span> <span class="n">user_provided_info</span><span class="o">.</span><span class="n">json</span> <span class="o">--</span><span class="n">setup</span>
+</pre></div>
+</div>
+<p>Then, optimize the model</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="o">-</span><span class="n">m</span> <span class="n">olive</span><span class="o">.</span><span class="n">workflows</span><span class="o">.</span><span class="n">run</span> <span class="o">--</span><span class="n">config</span> <span class="n">user_provided_info</span><span class="o">.</span><span class="n">json</span>
+</pre></div>
+</div>
+<p>or in python code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.workflows</span> <span class="kn">import</span> <span class="n">run</span> <span class="k">as</span> <span class="n">olive_run</span>
+<span class="n">olive_run</span><span class="p">(</span><span class="s2">&quot;user_provided_info.json&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">olive.workflows.run</span></code> in python code also accepts python dictionary equivalent of the config JSON object.</p>
+</div>
+<p>Now, let’s take a look at the json configuration file you need to provide to optimize your model.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resnet.pt&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;model_storage_kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;io_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;input_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">],</span>
+<span class="w">                </span><span class="nt">&quot;input_shapes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="p">]],</span>
+<span class="w">                </span><span class="nt">&quot;output_names&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;output&quot;</span><span class="p">],</span>
+<span class="w">                </span><span class="nt">&quot;dynamic_axes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;input&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;0&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;batch_size&quot;</span><span class="p">},</span>
+<span class="w">                    </span><span class="nt">&quot;output&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;0&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;batch_size&quot;</span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+
+<span class="w">    </span><span class="nt">&quot;systems&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;local_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LocalSystem&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+
+<span class="w">    </span><span class="nt">&quot;evaluators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;common_evaluator&quot;</span><span class="p">:{</span>
+<span class="w">            </span><span class="nt">&quot;metrics&quot;</span><span class="p">:[</span>
+<span class="w">                </span><span class="p">{</span>
+<span class="w">                    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;latency&quot;</span><span class="p">,</span>
+<span class="w">                    </span><span class="nt">&quot;sub_types&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;avg&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;goal&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;percent-min-improvement&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">}},</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;max&quot;</span><span class="p">},</span>
+<span class="w">                        </span><span class="p">{</span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;min&quot;</span><span class="p">}</span>
+<span class="w">                    </span><span class="p">]</span>
+<span class="w">                    </span><span class="nt">&quot;user_config&quot;</span><span class="p">:{</span>
+<span class="w">                        </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;create_dataloader&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;batch_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span>
+<span class="w">                    </span><span class="p">}</span>
+<span class="w">                </span><span class="p">}</span>
+<span class="w">            </span><span class="p">]</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+
+<span class="w">    </span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;onnx_conversion&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxConversion&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxDynamicQuantization&quot;</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">    </span><span class="p">},</span>
+
+<span class="w">    </span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;log_severity_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;evaluator&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;common_evaluator&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;packaging_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>It is composed with 5 parts:</p>
+<section id="input-model">
+<h3><a class="reference internal" href="options.html#input-model-information"><span class="std std-ref">Input Model</span></a><a class="headerlink" href="#input-model" title="Permalink to this heading">¶</a></h3>
+<p>You provide input model location and type. PyTorchModel, ONNXModel, OpenVINOModel and SNPEModel are supported model types.</p>
+</section>
+<section id="systems-optional">
+<h3><a class="reference internal" href="options.html#systems-information"><span class="std std-ref">Systems</span></a>(Optional)<a class="headerlink" href="#systems-optional" title="Permalink to this heading">¶</a></h3>
+<p>You can define hardware target in this section for both Olive host system and target system used in the engine section below. Olive host system is for running optimizations and target system for evaluating the optimized model. The default value is local system with CPU. More details for the available systems can be found at <a class="reference internal" href="../api/systems.html#systems"><span class="std std-ref">OliveSystems api reference</span></a>.</p>
+</section>
+<section id="evaluator">
+<h3><a class="reference internal" href="options.html#evaluators-information"><span class="std std-ref">Evaluator</span></a><a class="headerlink" href="#evaluator" title="Permalink to this heading">¶</a></h3>
+<p>You specify your performance requirements in evaluator, such as accuracy and latency, which the optimized candidate models should meet. Olive utilizes the information to tune the optimal set of optimization parameters for the “best” model.</p>
+</section>
+<section id="passes">
+<h3><a class="reference internal" href="options.html#passes-information"><span class="std std-ref">Passes</span></a><a class="headerlink" href="#passes" title="Permalink to this heading">¶</a></h3>
+<p>An optimization technique is called as a Pass in Olive. You list optimizations that you want to apply on the input model. In this example, we first convert the pytorch model to ONNX then quantize it.</p>
+</section>
+<section id="engine">
+<h3><a class="reference internal" href="options.html#engine-information"><span class="std std-ref">Engine</span></a><a class="headerlink" href="#engine" title="Permalink to this heading">¶</a></h3>
+<p>The engine tunes optimization passes to produces optimized model(s) based on evaluation criteria. It has default auto-tuning algorithm, also allow you to set your own. You can also define host system and target system in this section if you have to run the optimizations and evaluate the model on different hardware target. Please check <a class="reference internal" href="../api/engine.html#engine"><span class="std std-ref">Engine api reference</span></a> for more details.</p>
+<p>Note: In addition to these five core sectors, Olive provides a rich selection of optional configurations to suit diverse scenarios. For detailed information on these options, please refer to the <a class="reference internal" href="options.html"><span class="std std-doc">options.md</span></a> file.</p>
+</section>
+</section>
+<section id="olive-optimization-result">
+<h2>Olive Optimization Result<a class="headerlink" href="#olive-optimization-result" title="Permalink to this heading">¶</a></h2>
+<section id="olive-footprint">
+<h3>Olive Footprint<a class="headerlink" href="#olive-footprint" title="Permalink to this heading">¶</a></h3>
+<p>When the optimization process is completed, Olive will generate a report(json) under the <code class="docutils literal notranslate"><span class="pre">output_dir</span></code>. The report contains the:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">footprints.json</span></code>: A dictionary of all the footprints generated during the optimization process.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pareto_frontier_footprints.json</span></code>: A dictionary of the footprints that are on the Pareto frontier based on the metrics goal you set in config of <code class="docutils literal notranslate"><span class="pre">evaluators.metrics</span></code>.</p></li>
+</ul>
+<p>Here is an example of that:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;24_OrtTransformersOptimization-23-28b039f9e50b7a04f9ab69bcfe75b9a2&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;parent_model_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;23_OnnxConversion-9d98a0131bcdfd593432adfa2190016b-fa609d8c8586ea9b21b129a124e3fdb0&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;model_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;24_OrtTransformersOptimization-23-28b039f9e50b7a04f9ab69bcfe75b9a2&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;model_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ONNXModel&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;path&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;model_storage_kind&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;file&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;inference_settings&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;from_pass&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtTransformersOptimization&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;pass_run_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;model_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bert&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;num_heads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;hidden_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;optimization_options&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;opt_level&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;use_gpu&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;only_onnxruntime&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;float16&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;input_int32&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;use_external_data_format&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;is_pareto_frontier&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;metrics&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;value&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;accuracy&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8602941036224365</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;latency&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">87.4454</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="nt">&quot;cmp_direction&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;accuracy&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;latency&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">-1</span>
+<span class="w">            </span><span class="p">},</span>
+<span class="w">            </span><span class="nt">&quot;is_goals_met&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">},</span>
+<span class="w">        </span><span class="nt">&quot;date_time&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1681211541.682187</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>You can also call the following methods to plot the Pareto frontier footprints. Also please make sure you installed <code class="docutils literal notranslate"><span class="pre">plotly</span></code> successfully.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span>
+<span class="n">footprint</span> <span class="o">=</span> <span class="n">Footprint</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s2">&quot;footprints.json&quot;</span><span class="p">)</span>
+<span class="n">footprint</span><span class="o">.</span><span class="n">plot_pareto_frontier</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="olive-packaging">
+<h3>Olive Packaging<a class="headerlink" href="#olive-packaging" title="Permalink to this heading">¶</a></h3>
+<p>Olive also can package output artifacts when user adds <code class="docutils literal notranslate"><span class="pre">PackagingConfig</span></code> to Engine configurations.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;engine&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="o">...</span>
+    <span class="s2">&quot;packaging_config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;Zipfile&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;OutputModels&quot;</span>
+    <span class="p">},</span>
+    <span class="o">...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Olive packaging will generate a ZIP file which includes 3 folders: <code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>, <code class="docutils literal notranslate"><span class="pre">SampleCode</span></code> and <code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code>: top ranked output model set</p>
+<ul>
+<li><p>Model file</p></li>
+<li><p>Olive Pass run history configurations for candidate model</p></li>
+<li><p>Inference settings (<code class="docutils literal notranslate"><span class="pre">onnx</span></code> model only)</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SampleCode</span></code>: code sample for ONNX model</p>
+<ul>
+<li><p>C++</p></li>
+<li><p>C#</p></li>
+<li><p>Python</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ONNXRuntimePackages</span></code>: ONNXRuntime package files with the same version that were used by Olive Engine in this workflow run.</p></li>
+</ul>
+<p>Please refer to <a class="reference internal" href="../tutorials/packaging_output_models.html"><span class="std std-doc">Packaing Olive artifacts</span></a> for more details.</p>
+</section>
+</section>
+<section id="azure-ml-client">
+<h2>Azure ML Client<a class="headerlink" href="#azure-ml-client" title="Permalink to this heading">¶</a></h2>
+<p>If you will use Azure ML resources and assets, you need to provide your Azure ML client configurations. For example:</p>
+<ul class="simple">
+<li><p>You have AzureML system for targets or hosts.</p></li>
+<li><p>You have Azure ML model as input model.</p></li>
+</ul>
+<p>AzureML authentication credentials is needed. Refer to
+<a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?tabs=sdk">this</a>  for
+more details.</p>
+<p>You can either add configurations to the Olive json config file:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;subscription_id&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;resource_group&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;workspace_name&gt;&quot;</span>
+<span class="p">},</span>
+</pre></div>
+</div>
+<p>or you can also have your config file in a seprate json file in the following format:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;subscription_id&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;resource_group&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;workspace_name&gt;&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>and specify your config file path to <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code>:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;aml_config_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;path to your config file&gt;&quot;</span>
+<span class="p">},</span>
+</pre></div>
+</div>
+<p>For more detailed information about Olive, please refer to the <a class="reference internal" href="../tutorials/design.html#design"><span class="std std-ref">Design</span></a> and Tutorials sections, where you can find in-depth explanations.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="olive.html" class="btn btn-neutral float-left" title="Olive" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="options.html" class="btn btn-neutral float-right" title="Olive Options" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
