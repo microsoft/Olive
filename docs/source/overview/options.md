@@ -329,7 +329,7 @@ This is a dictionary that contains the information of the engine. The informatio
     - `max_time: [int]` The maximum time of the search in seconds. Only valid for `joint` execution order. By default, there is no
     maximum time.
 
-  If `search_strategy` is `null` or `false`, the engine will run the passes in the order they were registered without. Thus, the passes must
+  If `search_strategy` is `null` or `false`, the engine will run the passes in the order they were registered without searching. Thus, the passes must
   have empty search spaces. The output of the final pass will be evaluated if there is a valid evaluator. The output of the engine will be
   the output model of the final pass and its evaluation result.
 

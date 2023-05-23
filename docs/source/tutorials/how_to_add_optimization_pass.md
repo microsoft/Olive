@@ -1,5 +1,5 @@
-(How-to-add-pass)=
-# How to add new Pass
+(How-to-add-optimization-pass)=
+# How to add new optimization Pass
 
 Olive provides simple interface to introduce new model optimization techniques. Each optimization technique is
 represented as a Pass in Olive.
@@ -96,7 +96,7 @@ takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
 
 ```
 
-### 3. Implement the run function
+## 3. Implement the run function
 
 The final step is to implement the `_run_for_config` method to optimize the input model. Olive Engine will invoke the
 method while auto tuning the model. This method will also receive a search point (one set of configuration option from
