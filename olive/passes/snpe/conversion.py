@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Union
 
 from pydantic import validator
 
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel, SNPEModel, TensorFlowModel
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
@@ -44,7 +45,7 @@ class SNPEConversion(Pass):
     """
 
     @staticmethod
-    def _default_config() -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "input_names": PassConfigParam(type_=List[str], required=True, description="List of input names."),
             "input_shapes": PassConfigParam(

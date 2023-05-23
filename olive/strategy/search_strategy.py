@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, validate_config
+from olive.evaluator.metric import MetricResult
 from olive.strategy.search_algorithm import REGISTRY, SearchAlgorithm
 from olive.strategy.search_parameter import SearchParameter
 from olive.strategy.search_results import SearchResults
@@ -139,7 +140,11 @@ class SearchStrategy(ABC):
             # TODO: this is a hack to get the best search point for the current search space group
             #      it totally work for joint execution order, but not for pass-by-pass
             if sorted_search_points and sorted_results:
-                best_search_point = (sorted_search_points[0], list(sorted_results[0].values()), sorted_model_ids[0])
+                best_search_point = (
+                    sorted_search_points[0],
+                    list(sorted_results[0].values()),
+                    sorted_model_ids[0],
+                )
                 self._best_search_points[tuple(self._active_spaces_group)] = best_search_point
                 init_model_id = best_search_point[2][-1]
 
@@ -207,7 +212,7 @@ class SearchStrategy(ABC):
     def record_feedback_signal(
         self,
         search_point: Dict[str, Dict[str, Any]],
-        signal: Dict[str, float],
+        signal: MetricResult,
         model_ids: List[str],
         should_prune: bool = False,
     ):

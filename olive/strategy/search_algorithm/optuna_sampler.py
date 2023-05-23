@@ -3,12 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Tuple
 
 import optuna
 
 from olive.common.config_utils import ConfigParam
 from olive.common.utils import hash_dict
+from olive.evaluator.metric import MetricResult
 from olive.strategy.search_algorithm.search_algorithm import SearchAlgorithm
 from olive.strategy.search_parameter import Categorical, Conditional, SpecialParamValue
 
@@ -98,13 +99,11 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
             invalid_trial = invalid_trial or (search_point[space_name][param_name] == SpecialParamValue.INVALID)
         return trial, search_point, invalid_trial
 
-    def report(
-        self, search_point: Dict[str, Dict[str, Any]], result: Dict[str, Union[float, int]], should_prune: bool = False
-    ):
+    def report(self, search_point: Dict[str, Dict[str, Any]], result: MetricResult, should_prune: bool = False):
         search_point_hash = hash_dict(search_point)
         trial_id = self._trial_ids[search_point_hash]
         if should_prune:
             self._study.tell(trial_id, state=optuna.trial.TrialState.PRUNED)
         else:
-            objectives = [result[objective] for objective in self._objectives]
+            objectives = [result[objective].value for objective in self._objectives]
             self._study.tell(trial_id, objectives)

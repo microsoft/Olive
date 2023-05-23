@@ -69,7 +69,11 @@ Now, let's take a look at the json configuration file you need to provide to opt
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_type": "avg",
+                    "sub_types": [
+                        {"name": "avg", "goal": {"type": "percent-min-improvement", "value": 20}},
+                        {"name": "max"},
+                        {"name": "min"}
+                    ]
                     "user_config":{
                         "user_script": "user_script.py",
                         "data_dir": "data",

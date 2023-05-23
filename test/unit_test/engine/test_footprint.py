@@ -54,6 +54,10 @@ class TestFootprint:
 
     def test_plot_pareto_frontier(self):
         with tempfile.TemporaryDirectory() as tempdir:
+            self.fp.objective_dict = {
+                "accuracy-accuracy_score": {"higher_is_better": True, "priority": 1},
+                "latency-avg": {"higher_is_better": False, "priority": 2},
+            }
             self.fp.plot_pareto_frontier(
                 is_show=False,
                 save_path=Path(tempdir) / "pareto_frontier.html",

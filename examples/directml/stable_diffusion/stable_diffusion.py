@@ -65,7 +65,7 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
         sess_options.add_free_dimension_override_by_name("unet_sample_channels", 4)
         sess_options.add_free_dimension_override_by_name("unet_sample_height", 64)
         sess_options.add_free_dimension_override_by_name("unet_sample_width", 64)
-        sess_options.add_free_dimension_override_by_name("unet_time_batch", batch_size)
+        sess_options.add_free_dimension_override_by_name("unet_time_batch", 1)
         sess_options.add_free_dimension_override_by_name("unet_hidden_batch", batch_size * 2)
         sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
 
@@ -137,8 +137,14 @@ def optimize(
     model_id: str,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
-    optimize_provider: str,
 ):
+    from google.protobuf import __version__ as protobuf_version
+
+    # protobuf 4.x aborts with OOM when optimizing unet
+    if version.parse(protobuf_version) > version.parse("3.20.3"):
+        print("This script requires protobuf 3.20.3. Please ensure your package version matches requirements.txt.")
+        exit(1)
+
     ort.set_default_logger_severity(4)
     script_dir = Path(__file__).resolve().parent
 
@@ -165,8 +171,6 @@ def optimize(
         olive_config = None
         with open(script_dir / f"config_{submodel_name}.json", "r") as fin:
             olive_config = json.load(fin)
-        if optimize_provider:
-            olive_config["passes"]["optimize"]["config"]["target_provider"] = optimize_provider
 
         if submodel_name in ("unet", "text_encoder"):
             olive_config["input_model"]["config"]["model_path"] = model_id
@@ -178,8 +182,9 @@ def optimize(
 
         olive_run(olive_config)
 
-        # TODO: rename the 0 prefix in the path when the hardware accelerator feature is implemented.
-        footprints_file_path = Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_0_footprints.json"
+        footprints_file_path = (
+            Path(__file__).resolve().parent / "footprints" / f"{submodel_name}_gpu-dml_footprints.json"
+        )
         with footprints_file_path.open("r") as footprint_file:
             footprints = json.load(footprint_file)
 
@@ -240,12 +245,11 @@ if __name__ == "__main__":
     parser.add_argument("--model_id", default="runwayml/stable-diffusion-v1-5", type=str)
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
-    parser.add_argument("--optimize_provider", type=str, default="directml_future", help="EP target for inference")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
     parser.add_argument(
         "--prompt",
-        default="castle surrounded by water and nature, village, volumetric lighting, photorealistic, insanely"
+        default="castle surrounded by water and nature, village, volumetric lighting, photorealistic, "
         "detailed and intricate, fantasy, epic cinematic shot, mountains, 8k ultra hd",
         type=str,
     )
@@ -281,13 +285,11 @@ if __name__ == "__main__":
         # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            optimize(args.model_id, unoptimized_model_dir, optimized_model_dir, args.optimize_provider)
+            optimize(args.model_id, unoptimized_model_dir, optimized_model_dir)
 
     if not args.optimize:
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
-
-        # TODO: investigate issue with static shapes and batch_size > 1
-        use_static_dims = not args.dynamic_dims and args.batch_size == 1
+        use_static_dims = not args.dynamic_dims
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

@@ -9,6 +9,7 @@ import torch
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
+from olive.hardware import AcceleratorSpec
 from olive.model import PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.openvino.conversion import OpenVINOConversion
@@ -33,7 +34,12 @@ def test_openvino_quantization():
                 }
             ],
         }
-        p = create_pass_from_dict(OpenVINOQuantization, config, disable_search=True)
+        p = create_pass_from_dict(
+            OpenVINOQuantization,
+            config,
+            disable_search=True,
+            accelerator_spec=AcceleratorSpec("cpu", "OpenVINOExecutionProvider"),
+        )
         output_folder = str(Path(tempdir) / "quantized")
 
         # execute
@@ -59,7 +65,12 @@ def get_openvino_model(tempdir):
         "input_shape": [1, 3, 32, 32],
     }
 
-    p = create_pass_from_dict(OpenVINOConversion, openvino_conversion_config, disable_search=True)
+    p = create_pass_from_dict(
+        OpenVINOConversion,
+        openvino_conversion_config,
+        disable_search=True,
+        accelerator_spec=AcceleratorSpec("cpu", "OpenVINOExecutionProvider"),
+    )
     output_folder = str(Path(tempdir) / "openvino")
 
     # execute
@@ -77,7 +88,7 @@ def create_dataloader(data_dir, batchsize):
             Initialize config and dataset.
             :param config: created config with DATA_DIR path.
             """
-            if not isinstance(config, Dict):
+            if not isinstance(config, dict):
                 config = Dict(config)
             super().__init__(config)
             self.indexes, self.pictures, self.labels = self.load_data(dataset)
