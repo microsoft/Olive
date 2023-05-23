@@ -89,7 +89,7 @@ class TestOliveEvaluator:
     def test_evaluate_benchmark(self, olive_model, metric, expected_res):
         from olive.evaluator.metric_backend import HuggingfaceMetrics
 
-        with patch.object(HuggingfaceMetrics, "measure") as mock_measure:
+        with patch.object(HuggingfaceMetrics, "measure_sub_metric") as mock_measure:
             mock_measure.return_value = SubMetricResult(value=expected_res, higher_is_better=True, priority=-1)
 
             # execute
