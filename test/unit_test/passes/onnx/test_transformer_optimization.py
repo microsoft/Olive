@@ -25,7 +25,6 @@ def test_fusion_options():
         run_config["input_int32"],
         run_config["keep_io_types"],
         run_config["force_fp32_ops"],
-        run_config["target_provider"],
     )
     for key in get_external_data_config():
         del run_config[key]
