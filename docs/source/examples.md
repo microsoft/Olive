@@ -19,6 +19,9 @@
 # Stable Diffusion optimization with DirectML
 [directml/stable_diffusion](https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion)
 
+# Dolly V2 optimization with DirectML
+[directml/dolly_v2](https://github.com/microsoft/Olive/tree/main/examples/directml/dolly_v2)
+
 # BERT optimization with Intel® Neural Compressor Post Training quantization on CPU
 [bert_inc_ptq_cpu](https://github.com/microsoft/Olive/tree/main/examples/bert_inc_ptq_cpu)
 
