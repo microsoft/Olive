@@ -79,12 +79,10 @@ class RunConfig(ConfigBase):
         # insert aml_client if resource_path_type is azureml and not already set
         if resource_path_type in AZUREML_RESOURCE_TYPES:
             model_aml_client = input_model_path.get("config", {}).get("azureml_client")
-            print("here", model_aml_client)
             if not model_aml_client:
                 if "azureml_client" not in values:
                     raise ValueError("azureml_client is required for azureml resource path")
                 v["config"]["model_path"]["config"]["azureml_client"] = values["azureml_client"]
-        print(v)
         return v
 
     @validator("data_config", pre=True, each_item=True, always=True)

@@ -26,7 +26,17 @@ class AzureMLClientConfig(ConfigBase):
     # read timeout in seconds for HTTP requests, user can increase if they find the default value too small.
     # The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to
     # sometimes hang for a long time between retries of job stream and download steps.
-    read_timeout: int = 60
+    read_timeout: int = Field(60, description="Read timeout in seconds for HTTP requests.")
+    max_operation_retries: int = Field(
+        3, description="Max number of retries for AzureML operations like resource creation or download."
+    )
+    operation_retry_interval: int = Field(
+        5,
+        description=(
+            "Initial interval in seconds between retries for AzureML operations like resource creation or download. The"
+            " interval doubles after each retry."
+        ),
+    )
 
     @validator("aml_config_path", always=True)
     def validate_aml_config_path(cls, v, values):

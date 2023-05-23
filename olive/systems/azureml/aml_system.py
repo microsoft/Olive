@@ -99,8 +99,8 @@ class AzureMLSystem(OliveSystem):
                 ml_client.jobs.create_or_update,
                 [pipeline_job],
                 {"experiment_name": "olive-pass", "tags": {"Pass": pass_config["type"]}},
-                max_tries=3,
-                delay=5,
+                max_tries=self.azureml_client_config.max_operation_retries,
+                delay=self.azureml_client_config.operation_retry_interval,
                 exceptions=HttpResponseError,
             )
             logger.info(f"Pipeline submitted. Job name: {job.name}. Job link: {job.studio_url}")
@@ -114,8 +114,8 @@ class AzureMLSystem(OliveSystem):
                 ml_client.jobs.download,
                 [job.name],
                 {"output_name": "pipeline_output", "download_path": output_dir},
-                max_tries=3,
-                delay=5,
+                max_tries=self.azureml_client_config.max_operation_retries,
+                delay=self.azureml_client_config.operation_retry_interval,
                 exceptions=ServiceResponseError,
             )
 
@@ -178,8 +178,8 @@ class AzureMLSystem(OliveSystem):
                             type=AssetTypes.CUSTOM_MODEL,
                         )
                     ],
-                    max_tries=3,
-                    delay=5,
+                    max_tries=self.azureml_client_config.max_operation_retries,
+                    delay=self.azureml_client_config.operation_retry_interval,
                     exceptions=ServiceResponseError,
                 )
                 model_resource_path = ResourcePath.create_resource_path(
@@ -415,8 +415,8 @@ class AzureMLSystem(OliveSystem):
                 ml_client.jobs.create_or_update,
                 [pipeline_job],
                 {"experiment_name": "olive-evaluation"},
-                max_tries=3,
-                delay=5,
+                max_tries=self.azureml_client_config.max_operation_retries,
+                delay=self.azureml_client_config.operation_retry_interval,
                 exceptions=HttpResponseError,
             )
             logger.info(f"Pipeline submitted. Job name: {job.name}. Job link: {job.studio_url}")
@@ -429,8 +429,8 @@ class AzureMLSystem(OliveSystem):
                 ml_client.jobs.download,
                 [job.name],
                 {"download_path": output_dir, "all": True},
-                max_tries=3,
-                delay=5,
+                max_tries=self.azureml_client_config.max_operation_retries,
+                delay=self.azureml_client_config.operation_retry_interval,
                 exceptions=ServiceResponseError,
             )
 

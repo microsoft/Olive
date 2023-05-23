@@ -272,8 +272,8 @@ class AzureMLModelConfig(ResourceConfig):
                 ml_client.models.download,
                 [self.name],
                 {"version": self.version, "download_path": temp_dir},
-                max_tries=3,
-                delay=5,
+                max_tries=self.azureml_client.max_operation_retries,
+                delay=self.azureml_client.operation_retry_interval,
                 exceptions=ServiceResponseError,
             )
             new_path.parent.mkdir(parents=True, exist_ok=True)
@@ -320,8 +320,8 @@ class AzureMLDatastoreConfig(ResourceConfig):
                     type=AssetTypes.CUSTOM_MODEL,
                 )
             ],
-            max_tries=3,
-            delay=5,
+            max_tries=self.azureml_client.max_operation_retries,
+            delay=self.azureml_client.operation_retry_interval,
             exceptions=ServiceResponseError,
         )
 
@@ -369,8 +369,8 @@ class AzureMLJobOutputConfig(ResourceConfig):
                 ml_client.jobs.download,
                 [self.job_name],
                 {"output_name": self.output_name, "download_path": temp_dir},
-                max_tries=3,
-                delay=5,
+                max_tries=self.azureml_client.max_operation_retries,
+                delay=self.azureml_client.operation_retry_interval,
                 exceptions=ServiceResponseError,
             )
             new_path.parent.mkdir(parents=True, exist_ok=True)
