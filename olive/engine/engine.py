@@ -237,7 +237,6 @@ class Engine:
         self,
         input_model: OliveModel,
         packaging_config: Optional[PackagingConfig] = None,
-        verbose: bool = False,
         output_dir: str = None,
         output_name: str = None,
         evaluation_only: bool = False,
@@ -277,9 +276,7 @@ class Engine:
                         f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
                     )
                     assert self.evaluator_config is not None, "Evaluation only is True but no evaluator provided"
-                    results = self._evaluate_model(
-                        input_model, input_model_id, self.evaluator_config, accelerator_spec, verbose
-                    )
+                    results = self._evaluate_model(input_model, input_model_id, self.evaluator_config, accelerator_spec)
                     result_name = f"{prefix_output_name}metrics"
                     results_path = output_dir / f"{result_name}.json"
                     with open(results_path, "w") as f:
@@ -290,7 +287,6 @@ class Engine:
                         input_model,
                         input_model_id,
                         accelerator_spec,
-                        verbose,
                         output_dir,
                         output_name,
                     )
@@ -301,7 +297,6 @@ class Engine:
                         input_model,
                         input_model_id,
                         accelerator_spec,
-                        verbose,
                         output_dir,
                         output_name,
                     )
@@ -347,7 +342,6 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         accelerator_spec: AcceleratorSpec,
-        verbose: bool = False,
         output_dir: str = None,
         output_name: str = None,
     ):
@@ -362,7 +356,7 @@ class Engine:
             objective_dict = {"dummy": {"higher_is_better": True, "goal": 0}}
         else:
             objective_dict = self.resolve_objectives(
-                input_model, input_model_id, evaluator_config.metrics, accelerator_spec, verbose
+                input_model, input_model_id, evaluator_config.metrics, accelerator_spec
             )
 
         # initialize the search strategy
@@ -379,15 +373,14 @@ class Engine:
         else:
             model = self._load_model(model_id)
 
-        if verbose:
-            logger.info(f"Step no search with search point {next_step['search_point']} ...")
+        logger.debug(f"Step no search with search point {next_step['search_point']} ...")
 
         # run all the passes in the step
         (
             _,
             signal,
             model_ids,
-        ) = self._run_passes(next_step["passes"], model, model_id, accelerator_spec, verbose)
+        ) = self._run_passes(next_step["passes"], model, model_id, accelerator_spec)
         model_id = model_ids[-1]
 
         prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
@@ -419,7 +412,6 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         accelerator_spec: AcceleratorSpec,
-        verbose: bool = False,
         output_dir: str = None,
         output_name: str = None,
     ):
@@ -444,7 +436,7 @@ class Engine:
             raise ValueError("No evaluator provided for the last pass")
         else:
             objective_dict = self.resolve_objectives(
-                input_model, input_model_id, evaluator_config.metrics, accelerator_spec, verbose
+                input_model, input_model_id, evaluator_config.metrics, accelerator_spec
             )
 
         # initialize the search strategy
@@ -471,13 +463,10 @@ class Engine:
             else:
                 model = self._load_model(model_id)
 
-            if verbose:
-                logger.info(f"Step {iter_num} with search point {next_step['search_point']} ...")
+            logger.debug(f"Step {iter_num} with search point {next_step['search_point']} ...")
 
             # run all the passes in the step
-            should_prune, signal, model_ids = self._run_passes(
-                next_step["passes"], model, model_id, accelerator_spec, verbose
-            )
+            should_prune, signal, model_ids = self._run_passes(next_step["passes"], model, model_id, accelerator_spec)
 
             # record feedback signal
             self.search_strategy.record_feedback_signal(next_step["search_point"], signal, model_ids, should_prune)
@@ -510,14 +499,13 @@ class Engine:
         input_model_id: str,
         metrics: List[Metric],
         accelerator_spec: AcceleratorSpec,
-        verbose: bool = False,
     ) -> Dict[str, Dict[str, Any]]:
         """
         Return a dictionary of objectives and their higher_is_better and goal values.
 
         {objective_name: {"higher_is_better": bool, "goal": float}}
         """
-        goals = self.resolve_goals(input_model, input_model_id, metrics, accelerator_spec, verbose)
+        goals = self.resolve_goals(input_model, input_model_id, metrics, accelerator_spec)
         objective_dict = {}
         for metric in metrics:
             for sub_type in metric.sub_types:
@@ -539,7 +527,6 @@ class Engine:
         input_model_id: str,
         metrics: List[Metric],
         accelerator_spec: AcceleratorSpec,
-        verbose: bool = False,
     ) -> Dict[str, float]:
         """
         Resolve the goals of the given metrics into thresholds for the given model.
@@ -554,8 +541,8 @@ class Engine:
                 callback=lambda x: 1 if x else -1,
             )
 
-        if verbose and goals:
-            logger.info(f"Resolving goals: {goals}")
+        if goals:
+            logger.debug(f"Resolving goals: {goals}")
 
         baseline = MetricResult()
         for goal in goals.values():
@@ -565,20 +552,20 @@ class Engine:
                     break
                 if sub_goal.type != "threshold":
                     assert self.evaluator_config is not None, "Default evaluator must be provided to resolve goals"
-                    logger.info("Computing baseline for metrics ...")
+                    logger.debug("Computing baseline for metrics ...")
                     baseline = self._evaluate_model(
-                        input_model, input_model_id, self.evaluator_config, accelerator_spec, verbose=False
+                        input_model, input_model_id, self.evaluator_config, accelerator_spec
                     )
                     _evaluated = True
                     break
             if _evaluated:
                 break
         if not baseline:
-            logger.info("No baseline got as no goal is provided the the goal is threshold")
+            logger.debug("No baseline got as no goal is provided the the goal is threshold")
             return {}
 
-        if verbose and baseline:
-            logger.info(f"Baseline: {baseline}")
+        if baseline:
+            logger.debug(f"Baseline: {baseline}")
 
         # resolve goals to thresholds
         resolved_goals = {}
@@ -600,8 +587,8 @@ class Engine:
                     resolved_goal_value = baseline_sub_type * (1 + multiplier * goal.value / 100)
 
                 resolved_goals[joint_metric_key(metric_name, sub_type_name)] = resolved_goal_value
-        if verbose and len(resolved_goals) > 0:
-            logger.info(f"Resolved goals: {resolved_goals}")
+        if len(resolved_goals) > 0:
+            logger.debug(f"Resolved goals: {resolved_goals}")
 
         return resolved_goals
 
@@ -750,7 +737,6 @@ class Engine:
         model: OliveModel,
         model_id: str,
         accelerator_spec: AcceleratorSpec,
-        verbose: bool = False,
     ):
         """
         Run all the passes in the order they were registered.
@@ -760,14 +746,12 @@ class Engine:
         # run all the passes in the step
         model_ids = []
         for pass_id, pass_search_point in passes:
-            if verbose:
-                message = f"Running pass {pass_id}"
-                logger.info(message)
+            logger.debug(f"Running pass {pass_id}")
 
-            model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec, verbose)
+            model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec)
             if model == PRUNED_CONFIG:
                 should_prune = True
-                logger.info("Pruned")
+                logger.debug("Pruned")
                 break
             model_ids.append(model_id)
 
@@ -780,12 +764,11 @@ class Engine:
                     # skip evaluation if no search and no evaluator
                     signal = None
                 else:
-                    signal = self._evaluate_model(model, model_id, evaluator_config, accelerator_spec, verbose)
+                    signal = self._evaluate_model(model, model_id, evaluator_config, accelerator_spec)
             except Exception as e:
                 logger.error(f"Evaluation failed: {e}")
                 raise e
-            if verbose:
-                logger.info(f"Signal: {signal}")
+            logger.debug(f"Signal: {signal}")
 
         return should_prune, signal, model_ids
 
@@ -796,7 +779,6 @@ class Engine:
         input_model: OliveModel,
         input_model_id: str,
         accelerator_spec: AcceleratorSpec,
-        verbose: bool,
     ):
         """
         Run a pass on the input model.
@@ -810,8 +792,7 @@ class Engine:
         # load run from cache if it exists
         output_model_id = self._load_run(input_model_id, pass_name, pass_config)
         if output_model_id is not None:
-            if verbose:
-                logger.info("Loading model from cache ...")
+            logger.debug("Loading model from cache ...")
             output_model = self._load_model(output_model_id)
             if output_model is not None:
                 # footprint model and run
@@ -920,18 +901,15 @@ class Engine:
         model_id: str,
         evaluator_config: OliveEvaluatorConfig,
         accelerator_spec: AcceleratorSpec,
-        verbose: bool,
     ):
         """
         Evaluate a model.
         """
-        if verbose:
-            logger.info("Evaluating model ...")
+        logger.debug("Evaluating model ...")
         # load evaluation from cache if it exists
         signal = self._load_evaluation(model_id)
         if signal is not None:
-            if verbose:
-                logger.info("Loading evaluation from cache ...")
+            logger.debug("Loading evaluation from cache ...")
             # footprint evaluation
             self.footprints[accelerator_spec].record(
                 model_id=model_id,

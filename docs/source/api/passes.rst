@@ -109,3 +109,13 @@ SNPEtoONNXConversion
 VitisAIQuantization
 --------------------
 .. autoconfigclass:: olive.passes.VitisAIQuantization
+
+.. _optimum_conversion:
+OptimumConversion
+--------------------
+.. autoconfigclass:: olive.passes.OptimumConversion
+
+.. _optimum_merging:
+OptimumMerging
+--------------------
+.. autoconfigclass:: olive.passes.OptimumMerging

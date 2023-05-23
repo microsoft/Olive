@@ -1,5 +1,4 @@
 {
-    "verbose": true,
     "input_model":{
         "type": "OnnxModel",
         "config": {
@@ -49,6 +48,7 @@
         }
     },
     "engine": {
+        "log_severity_level": 0,
         "search_strategy": true,
         "cache_dir": "cache",
         "output_dir": "models",

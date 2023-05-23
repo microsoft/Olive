@@ -721,6 +721,27 @@ class PyTorchModel(OliveModel):
         return serialize_to_json(config, check_object)
 
 
+class OptimumModel(OliveModel):
+    def __init__(self, model_path: str, model_components: List[str]):
+        super().__init__(
+            framework=Framework.PYTORCH,
+            model_file_format=ModelFileFormat.OPTIMUM,
+            model_path=model_path,
+        )
+        self.model_components = model_components
+
+    def load_model(self, rank: int = None):
+        raise NotImplementedError()
+
+    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
+        raise NotImplementedError()
+
+    def to_json(self, check_object: bool = False):
+        config = super().to_json(check_object)
+        config["config"].update({"model_components": self.model_components})
+        return serialize_to_json(config, check_object)
+
+
 class SNPEModel(OliveModel):
     def __init__(
         self,

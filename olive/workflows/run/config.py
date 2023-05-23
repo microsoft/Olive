@@ -51,7 +51,6 @@ class RunEngineConfig(EngineConfig):
 
 
 class RunConfig(ConfigBase):
-    verbose: bool = False
     azureml_client: AzureMLClientConfig = None
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None

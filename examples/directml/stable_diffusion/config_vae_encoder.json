@@ -1,5 +1,4 @@
 {
-    "verbose": false,
     "input_model": {
         "type": "PyTorchModel",
         "config": {
@@ -86,6 +85,7 @@
         "target": "local_system",
         "cache_dir": "cache",
         "output_name": "vae_encoder",
-        "output_dir": "footprints"
+        "output_dir": "footprints",
+        "execution_providers": ["DmlExecutionProvider"]
     }
 }

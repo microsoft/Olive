@@ -18,5 +18,7 @@
 
 [Stable Diffusion optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion)
 
+[Dolly V2 optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/dolly_v2)
+
 # Acceleration on NPU
 [Inception model optimization on Qualcomm NPU](https://github.com/microsoft/Olive/tree/main/examples/snpe/inception_snpe_qualcomm_npu)

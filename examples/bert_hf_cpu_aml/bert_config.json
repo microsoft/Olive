@@ -1,5 +1,4 @@
 {
-    "verbose": true,
     "azureml_client": {
         "subscription_id": "<place_holder>",
         "resource_group": "<place_holder>",
@@ -103,6 +102,7 @@
         }
     },
     "engine": {
+        "log_severity_level": 0,
         "search_strategy": {
             "execution_order": "joint",
             "search_algorithm": "random",

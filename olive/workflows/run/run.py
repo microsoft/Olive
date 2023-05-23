@@ -11,8 +11,8 @@ from typing import Union
 
 import onnxruntime as ort
 
-from olive import set_default_logger_severity
 from olive.hardware import Device
+from olive.logging import set_default_logger_severity
 from olive.passes import Pass
 from olive.systems.common import SystemType
 from olive.workflows.run.config import RunConfig
@@ -70,6 +70,8 @@ def dependency_setup(config):
             "IncQuantization": EXTRAS.get("inc"),
             "IncDynamicQuantization": EXTRAS.get("inc"),
             "IncStaticQuantization": EXTRAS.get("inc"),
+            "OptimumConversion": EXTRAS.get("optimum"),
+            "OptimumMerging": EXTRAS.get("optimum"),
         },
     }
 
@@ -157,7 +159,6 @@ def run(config: Union[str, Path, dict], setup: bool = False):
         best_execution = engine.run(
             input_model,
             config.engine.packaging_config,
-            config.verbose,
             config.engine.output_dir,
             config.engine.output_name,
             config.engine.evaluation_only,
