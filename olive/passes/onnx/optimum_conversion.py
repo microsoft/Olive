@@ -4,14 +4,12 @@
 # --------------------------------------------------------------------------
 from typing import Any, Dict, Union
 
-from olive.model import CompositeOnnxModel, ONNXModel, OptimumModel
 from olive.hardware.accelerator import AcceleratorSpec
+from olive.model import CompositeOnnxModel, ONNXModel, OptimumModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import PassConfigParam
 from pathlib import Path
-
-from optimum.exporters.onnx import main_export as export_optimum_model
 
 
 class OptimumConversion(Pass):
@@ -34,6 +32,7 @@ class OptimumConversion(Pass):
     ) -> Union[ONNXModel, CompositeOnnxModel]:
         assert len(model.model_components) > 0
 
+        from optimum.exporters.onnx import main_export as export_optimum_model
         export_optimum_model(
             model.model_path,
             output_model_path,
