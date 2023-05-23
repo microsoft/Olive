@@ -15,4 +15,3 @@ _logger.addHandler(_sc)
 _logger.propagate = False
 
 __version__ = "0.3.0"
-
