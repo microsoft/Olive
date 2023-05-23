@@ -108,6 +108,8 @@
 <li class="toctree-l2"><a class="reference internal" href="#snpequantization">SNPEQuantization</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#snpetoonnxconversion">SNPEtoONNXConversion</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#vitisaiquantization">VitisAIQuantization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#optimumconversion">OptimumConversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#optimummerging">OptimumMerging</a></li>
 </ul>
 </li>
 </ul>
@@ -2931,6 +2933,108 @@
             [‘ActivationSymmetric’, ‘WeightSymmetric’, ‘AddQDQPairToWeight’], it will be overwritten by the corresponding config parameter
             value.</p>
 <p><strong>type:</strong> dict</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+</section>
+<section id="optimumconversion">
+<span id="optimum-conversion"></span><h2>OptimumConversion<a class="headerlink" href="#optimumconversion" title="Permalink to this heading">¶</a></h2>
+<p>Convert a Optimum model to ONNX model using the Optimum export function.</p>
+<p><strong>Input:</strong> OptimumModel</p>
+<p><strong>Output:</strong> ONNXModel | CompositeOnnxModel</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-162">
+<span class="sig-name descname"><span class="pre">script_dir</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-162" title="Permalink to this definition">¶</a></dt>
+<dd><p>Directory containing user script dependencies.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-163">
+<span class="sig-name descname"><span class="pre">user_script</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-163" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to user script. The values for other parameters which were assigned function or object names will be imported from this script.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-164">
+<span class="sig-name descname"><span class="pre">target_opset</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-164" title="Permalink to this definition">¶</a></dt>
+<dd><p>The version of the default (ai.onnx) opset to target.</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> 14</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-165">
+<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-165" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-166">
+<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-166" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-167">
+<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-167" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+</section>
+<section id="optimummerging">
+<span id="optimum-merging"></span><h2>OptimumMerging<a class="headerlink" href="#optimummerging" title="Permalink to this heading">¶</a></h2>
+<p>Merges a decoder_model with its decoder_with_past_model via the Optimum library.</p>
+<p><strong>Input:</strong> CompositeOnnxModel</p>
+<p><strong>Output:</strong> ONNXModel | CompositeOnnxModel</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-execution_provider">
+<span id="cmdoption-arg-execution-provider"></span><span class="sig-name descname"><span class="pre">execution_provider</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-execution_provider" title="Permalink to this definition">¶</a></dt>
+<dd><p>Target execution provider. This parameter will be removed when accelerators/targets are visible to passes.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-168">
+<span class="sig-name descname"><span class="pre">save_as_external_data</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-168" title="Permalink to this definition">¶</a></dt>
+<dd><p>Serializes tensor data to separate files instead of directly in the ONNX file. Large models (&gt;2GB) may be forced to save external data regardless of the value of this parameter.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-169">
+<span class="sig-name descname"><span class="pre">all_tensors_to_one_file</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-169" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if save_as_external_data is True. If true, save all tensors to one external file specified by ‘external_data_name’. If false, save each tensor to a file named with the tensor name.</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-170">
+<span class="sig-name descname"><span class="pre">external_data_name</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-170" title="Permalink to this definition">¶</a></dt>
+<dd><p>Effective only if all_tensors_to_one_file is True and save_as_external_data is True. If not specified, the external data file will be named with &lt;model_path_name&gt;.data</p>
+<p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
