@@ -546,7 +546,7 @@ class Engine:
                     break
                 if sub_goal.type != "threshold":
                     assert self.evaluator_config is not None, "Default evaluator must be provided to resolve goals"
-                    logger.info("Computing baseline for metrics ...")
+                    logger.debug("Computing baseline for metrics ...")
                     baseline = self._evaluate_model(
                         input_model, input_model_id, self.evaluator_config, accelerator_spec
                     )
@@ -555,7 +555,7 @@ class Engine:
             if _evaluated:
                 break
         if not baseline:
-            logger.info("No baseline got as no goal is provided the the goal is threshold")
+            logger.debug("No baseline got as no goal is provided the the goal is threshold")
             return {}
 
         if baseline:
@@ -745,7 +745,7 @@ class Engine:
             model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec)
             if model == PRUNED_CONFIG:
                 should_prune = True
-                logger.info("Pruned")
+                logger.debug("Pruned")
                 break
             model_ids.append(model_id)
 
