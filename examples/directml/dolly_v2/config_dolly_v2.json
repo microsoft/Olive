@@ -1,5 +1,4 @@
 {
-    "verbose": false,
     "input_model":{
         "type": "OptimumModel",
         "config": {
