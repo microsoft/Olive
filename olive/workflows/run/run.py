@@ -70,8 +70,8 @@ def dependency_setup(config):
             "IncQuantization": EXTRAS.get("inc"),
             "IncDynamicQuantization": EXTRAS.get("inc"),
             "IncStaticQuantization": EXTRAS.get("inc"),
-            "OptimumConversion": ["optimum"],
-            "OptimumMerging": ["optimum"],
+            "OptimumConversion": EXTRAS.get("optimum"),
+            "OptimumMerging": EXTRAS.get("optimum"),
         },
     }
 

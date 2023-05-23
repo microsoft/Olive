@@ -725,6 +725,13 @@ class OptimumModel(OliveModel):
     def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
         raise NotImplementedError()
 
+    def to_json(self, check_object: bool = False):
+        config = {
+            "type": self.__class__.__name__,
+            "config": {"name": self.name, "model_path": self.model_path, "model_components": self.model_components},
+        }
+        return serialize_to_json(config, check_object)
+
 
 class SNPEModel(OliveModel):
     def __init__(
