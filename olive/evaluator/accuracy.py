@@ -34,6 +34,7 @@ class AccuracyBase(AutoConfigClass):
             "ignore_index": ConfigParam(type_=list, default_value=None),
             "top_k": ConfigParam(type_=int, default_value=None),
             "mdmc_average": ConfigParam(type_=str, default_value="global"),
+            "task": ConfigParam(type_=str, default_value=None),
         }
 
     @abstractmethod
