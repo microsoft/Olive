@@ -702,14 +702,13 @@ class Engine:
         pass_name: int,
         input_model_number: str,
         pass_config: dict,
-        is_accelerator_agonistic: bool,
         accelerator_spec: AcceleratorSpec,
     ):
         """
         Get the path to the run json.
         """
         pass_config_hash = hash_dict(pass_config)
-        if is_accelerator_agonistic:
+        if not accelerator_spec:
             run_json_path = self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}.json"
         else:
             run_json_path = (
@@ -723,7 +722,6 @@ class Engine:
         pass_config: dict,
         input_model_id: str,
         output_model_id: str,
-        is_accelerator_agonistic: bool,
         accelerator_spec: AcceleratorSpec,
     ):
         """
@@ -736,9 +734,7 @@ class Engine:
             "output_model_id": output_model_id,
         }
         input_model_number = input_model_id.split("_")[0]
-        run_json_path = self.get_run_json_path(
-            pass_name, input_model_number, pass_config, is_accelerator_agonistic, accelerator_spec
-        )
+        run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
         try:
             with open(run_json_path, "w") as f:
                 json.dump(run_json, f, indent=4)
@@ -750,9 +746,9 @@ class Engine:
         Load the run from the cache directory.
         """
         input_model_number = input_model_id.split("_")[0]
-        run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, False, accelerator_spec)
+        run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
         if not run_json_path.exists():
-            run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, True, None)
+            run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, None)
         if run_json_path.exists():
             try:
                 with open(run_json_path, "r") as f:
@@ -876,16 +872,17 @@ class Engine:
         # if output_model != PRUNED_CONFIG and output_model.model_path:
         #     # get the updated output_model_id from the output model path
         #     output_model_id = Path(output_model.model_path).name
-        if not p.is_accelerator_agnostic:
+        if p.is_accelerator_agnostic:
+            run_accel = None
+        else:
             output_model_id = f"{output_model_id}-{accelerator_spec}"
+            run_accel = accelerator_spec
 
         # cache model
         self._cache_model(output_model, output_model_id)
 
         # cache run
-        self._cache_run(
-            pass_name, pass_config, input_model_id, output_model_id, p.is_accelerator_agnostic, accelerator_spec
-        )
+        self._cache_run(pass_name, pass_config, input_model_id, output_model_id, run_accel)
 
         # footprint model and run
         self.footprints[accelerator_spec].record(
