@@ -24,6 +24,6 @@ The documentation is organized as follows:
 
 - **OVERVIEW** provides an introduction to Olive and how it works.
 - **GET STARTED** provides guidance to start with Olive.
-- **TUTORIALS** provides detailed instruction for using Olive.
 - **EXAMPLES** provides E2E examples with Olive for various scenarios.
+- **TUTORIALS** provides detailed instruction for using Olive.
 - **API REFERENCE** provides an overview of the core Olive components.
