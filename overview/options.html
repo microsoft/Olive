@@ -53,7 +53,6 @@
 <li class="toctree-l1"><a class="reference internal" href="olive.html">Olive</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quicktour.html">Quick Tour</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Olive Options</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#verbosity">Verbosity</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#azure-ml-client">Azure ML Client</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#input-model-information">Input Model Information</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#example">Example</a></li>
@@ -145,7 +144,6 @@ used to compose a pipeline. Olive receives input model, target hardware, perform
 to apply from user in the form of a json dictionary. In this document, we document the options user can set in this dictionary.</p>
 <p>The options are organized into following sections:</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="#verbosity"><span class="xref myst">Verbosity</span></a> <code class="docutils literal notranslate"><span class="pre">verbose</span></code></p></li>
 <li><p><a class="reference internal" href="#azure-ml-client"><span class="xref myst">Azure ML client</span></a> <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code></p></li>
 <li><p><a class="reference internal" href="#input-model-information"><span class="xref myst">Input Model Information</span></a> <code class="docutils literal notranslate"><span class="pre">input_model</span></code></p></li>
 <li><p><a class="reference internal" href="#systems-information"><span class="xref myst">Systems Information</span></a> <code class="docutils literal notranslate"><span class="pre">systems</span></code></p></li>
@@ -153,11 +151,6 @@ to apply from user in the form of a json dictionary. In this document, we docume
 <li><p><a class="reference internal" href="#passes-information"><span class="xref myst">Passes Information</span></a> <code class="docutils literal notranslate"><span class="pre">passes</span></code></p></li>
 <li><p><a class="reference internal" href="#engine-information"><span class="xref myst">Engine Information</span></a> <code class="docutils literal notranslate"><span class="pre">engine</span></code></p></li>
 </ul>
-<section id="verbosity">
-<h2>Verbosity<a class="headerlink" href="#verbosity" title="Permalink to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">verbose:</span> <span class="pre">[Boolean]</span></code></p>
-<p>If set to <code class="docutils literal notranslate"><span class="pre">true</span></code>, Olive will log verbose information during the optimization process. The default value is <code class="docutils literal notranslate"><span class="pre">false</span></code>.</p>
-</section>
 <section id="azure-ml-client">
 <h2>Azure ML Client<a class="headerlink" href="#azure-ml-client" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">azureml_client:</span> <span class="pre">[Dict]</span></code></p>
