@@ -87,6 +87,7 @@
         "target": "local_system",
         "cache_dir": "cache",
         "output_name": "text_encoder",
-        "output_dir": "footprints"
+        "output_dir": "footprints",
+        "execution_providers": ["DmlExecutionProvider"]
     }
 }

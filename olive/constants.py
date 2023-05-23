@@ -31,3 +31,4 @@ class ModelFileFormat(str, Enum):
     TENSORFLOW_SAVED_MODEL = "TensorFlow.SavedModel"
     SNPE_DLC = "SNPE.DLC"
     OPENVINO_IR = "OpenVINO.IR"
+    OPTIMUM = "Optimum"

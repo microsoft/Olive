@@ -24,5 +24,8 @@
     ],
     "inc": [
         "neural-compressor"
+    ],
+    "optimum": [
+        "optimum"
     ]
 }

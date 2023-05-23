@@ -1,18 +1,11 @@
 {
     "verbose": false,
-    "input_model": {
-        "type": "PyTorchModel",
+    "input_model":{
+        "type": "OptimumModel",
         "config": {
-            "model_path": "runwayml/stable-diffusion-v1-5",
-            "model_storage_kind": "folder",
-            "model_loader": "vae_encoder_load",
-            "model_script": "user_script.py",
-            "io_config": {
-                "input_names": [ "sample", "return_dict" ],
-                "output_names": [ "latent_sample" ],
-                "dynamic_axes": { "sample": { "0": "batch", "1": "channels", "2": "height", "3": "width" } }
-            },
-            "dummy_inputs_func": "vae_encoder_conversion_inputs"
+            "model_path": "databricks/dolly-v2-7b",
+            "name": "dolly_v2",
+            "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"]
         }
     },
     "systems": {
@@ -32,7 +25,7 @@
                     "sub_types": [{"name": "avg"}],
                     "user_config": {
                         "user_script": "user_script.py",
-                        "dataloader_func": "vae_encoder_data_loader",
+                        "dataloader_func": "dolly_v2_data_loader",
                         "batch_size": 1
                     }
                 }
@@ -41,18 +34,22 @@
     },
     "passes": {
         "convert": {
-            "type": "OnnxConversion",
+            "type": "OptimumConversion",
             "config": {
-                "target_opset": 14
+                "target_opset": 14,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
             }
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
             "config": {
-                "model_type": "vae",
+                "model_type": "gpt2",
                 "float16": true,
-                "use_gpu": true,
-                "keep_io_types": false,
+                "use_gpu": false,
+                "keep_io_types": true,
+                "num_heads": 32,
+                "hidden_size": 4096,
                 "optimization_options": {
                     "enable_gelu": true,
                     "enable_layer_norm": true,
@@ -72,8 +69,13 @@
                     "enable_packed_qkv": true,
                     "enable_packed_kv": true,
                     "enable_bias_add": false
-                },
-                "force_fp32_ops": ["RandomNormalLike"]
+                }
+            }
+        },
+        "merge": {
+            "type": "OptimumMerging",
+            "config": {
+                "execution_provider": "DmlExecutionProvider"
             }
         }
     },
@@ -86,7 +88,7 @@
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
-        "output_name": "vae_encoder",
+        "output_name": "dolly_v2",
         "output_dir": "footprints",
         "execution_providers": ["DmlExecutionProvider"]
     }
