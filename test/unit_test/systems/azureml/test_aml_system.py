@@ -69,6 +69,8 @@ class TestAzureMLSystem:
         mock_tempdir.return_value.__enter__.return_value = output_folder
         ml_client = MagicMock()
         self.system.azureml_client_config.create_client.return_value = ml_client
+        self.system.azureml_client_config.max_operation_retries = 3
+        self.system.azureml_client_config.operation_retry_interval = 5
 
         # execute
         res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
@@ -120,6 +122,8 @@ class TestAzureMLSystem:
         expected_model = ONNXModel(model_path=output_model_path)
         ml_client = MagicMock()
         self.system.azureml_client_config.create_client.return_value = ml_client
+        self.system.azureml_client_config.max_operation_retries = 3
+        self.system.azureml_client_config.operation_retry_interval = 5
 
         with patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory") as mock_tempdir:
             mock_tempdir.return_value.__enter__.return_value = output_folder
