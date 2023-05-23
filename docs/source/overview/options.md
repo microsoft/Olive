@@ -6,18 +6,12 @@ to apply from user in the form of a json dictionary. In this document, we docume
 
 The options are organized into following sections:
 
-- [Verbosity](#verbosity) `verbose`
 - [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
 - [Systems Information](#systems-information) `systems`
 - [Evaluators Information](#evaluators-information) `evaluators`
 - [Passes Information](#passes-information) `passes`
 - [Engine Information](#engine-information) `engine`
-
-## Verbosity
-`verbose: [Boolean]`
-
-If set to `true`, Olive will log verbose information during the optimization process. The default value is `false`.
 
 ## Azure ML Client
 `azureml_client: [Dict]`

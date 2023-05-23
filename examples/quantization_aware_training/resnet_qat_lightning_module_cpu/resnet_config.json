@@ -1,5 +1,4 @@
 {
-    "verbose": true,
     "input_model":{
         "type": "PyTorchModel",
         "config": {
@@ -75,6 +74,7 @@
         }
     },
     "engine": {
+        "log_severity_level": 0,
         "search_strategy": {
             "execution_order": "pass-by-pass",
             "search_algorithm": "exhaustive"
