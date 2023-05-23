@@ -26,6 +26,6 @@ python dolly_v2.py --optimize
 
 The Dolly V2 model is very large, and the optimization process is resource intensive. The optimization process can easily take more than 128GB of memory. You can still optimize the model on a machine with less memory, but you'd have to increase your paging file size accordingly and the conversion process will take significantly longer to complete (many hours).
 
-Once the script successfully completes, the optimized ONNX pipeline will be stored under `models/optimized/runwayml/dolly_v2`.
+Once the script successfully completes, the optimized ONNX pipeline will be stored under `models/optimized/databricks/dolly-v2-7b`.
 
 Re-running the script with `--optimize` will delete the output models, but it will *not* delete the Olive cache. Subsequent runs will complete much faster since it will simply be copying previously optimized models; you may use the `--clean_cache` option to start from scratch (not typically used unless you are modifying the scripts, for example).
