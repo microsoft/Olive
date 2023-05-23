@@ -89,6 +89,7 @@
         "target": "local_system",
         "cache_dir": "cache",
         "output_name": "dolly_v2",
-        "output_dir": "footprints"
+        "output_dir": "footprints",
+        "execution_providers": ["DmlExecutionProvider"]
     }
 }

@@ -87,6 +87,7 @@
         "target": "local_system",
         "cache_dir": "cache",
         "output_name": "vae_decoder",
-        "output_dir": "footprints"
+        "output_dir": "footprints",
+        "execution_providers": ["DmlExecutionProvider"]
     }
 }
