@@ -2,20 +2,19 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import os
+from pathlib import Path
 from typing import Any, Dict, Union
+
+import onnx
+import onnxruntime
+from onnx import ModelProto
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeOnnxModel, ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import PassConfigParam
-from pathlib import Path
-
-from optimum.onnx import merge_decoders
-import onnx
-import onnxruntime
-import os
-from onnx import ModelProto
 
 
 class OptimumMerging(Pass):
@@ -53,6 +52,9 @@ class OptimumMerging(Pass):
         prev_byte_size_func = ModelProto.ByteSize
         try:
             ModelProto.ByteSize = new_byte_size_func
+
+            from optimum.onnx import merge_decoders
+
             merged_model = merge_decoders(
                 model.model_components[0].model_path,
                 model.model_components[1].model_path,
@@ -74,6 +76,7 @@ class OptimumMerging(Pass):
 
         # Doing a dry run of ORT allows us to remove the initializers that were orphaned by the merging step
         sess_options = onnxruntime.SessionOptions()
+        sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_BASIC
         sess_options.optimized_model_filepath = output_model_path
 
         execution_provider = config["execution_provider"]

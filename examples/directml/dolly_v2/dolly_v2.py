@@ -4,12 +4,12 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+import os
 import shutil
 from pathlib import Path
-from packaging import version
 
-import os
 import onnxruntime as ort
+from packaging import version
 
 from olive.workflows import run as olive_run
 
@@ -66,7 +66,9 @@ def optimize(model_name: str, optimized_model_dir: Path):
         print(f"Optimized Model   : {model_info['optimized']['path']}")
 
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
-    shutil.copytree(model_info['unoptimized']['path'], optimized_model_dir, ignore=shutil.ignore_patterns("*.onnx", "*.onnx_data"))
+    shutil.copytree(
+        model_info["unoptimized"]["path"], optimized_model_dir, ignore=shutil.ignore_patterns("*.onnx", "*.onnx_data")
+    )
 
     merged_model_path = str(model_info["optimized"]["path"])
     merged_weights_path = merged_model_path + ".data"
@@ -84,8 +86,12 @@ if __name__ == "__main__":
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
     parser.add_argument("--model", default="databricks/dolly-v2-7b", type=str)
-    parser.add_argument("--prompt", default="Explain to me the difference between nuclear fission and fusion.", type=str)
-    parser.add_argument("--max_new_tokens", default=64, type=int, help="Maximum number of tokens that the model will generate")
+    parser.add_argument(
+        "--prompt", default="Explain to me the difference between nuclear fission and fusion.", type=str
+    )
+    parser.add_argument(
+        "--max_new_tokens", default=64, type=int, help="Maximum number of tokens that the model will generate"
+    )
     args = parser.parse_args()
 
     script_dir = Path(__file__).resolve().parent

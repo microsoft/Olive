@@ -721,10 +721,8 @@ class OptimumModel(OliveModel):
 
     def load_model(self, rank: int = None):
         raise NotImplementedError()
-    
-    def prepare_session(
-        self, inference_settings: Dict[str, Any], device: Device, rank: int = None
-    ):
+
+    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
         raise NotImplementedError()
 
 
