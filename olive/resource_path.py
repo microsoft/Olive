@@ -263,25 +263,21 @@ class AzureMLModelConfig(ResourceConfig):
         _overwrite_helper(new_path, overwrite)
 
         # download the resource to the new path
-        try:
-            logger.debug(f"Downloading model {self.name} version {self.version} to {new_path}.")
-            from azure.core.exceptions import ServiceResponseError
+        logger.debug(f"Downloading model {self.name} version {self.version} to {new_path}.")
+        from azure.core.exceptions import ServiceResponseError
 
-            with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
-                temp_dir = Path(temp_dir)
-                retry_func(
-                    ml_client.models.download,
-                    [self.name],
-                    {"version": self.version, "download_path": temp_dir},
-                    max_tries=3,
-                    delay=5,
-                    exceptions=ServiceResponseError,
-                )
-                new_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(temp_dir / self.name / model_path.name, new_path)
-        except Exception as e:
-            logger.error(f"Failed to download model {self.name} version {self.version} to {new_path}.")
-            raise e
+        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
+            temp_dir = Path(temp_dir)
+            retry_func(
+                ml_client.models.download,
+                [self.name],
+                {"version": self.version, "download_path": temp_dir},
+                max_tries=3,
+                delay=5,
+                exceptions=ServiceResponseError,
+            )
+            new_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(temp_dir / self.name / model_path.name, new_path)
 
         return str(new_path)
 
@@ -364,24 +360,20 @@ class AzureMLJobOutputConfig(ResourceConfig):
 
         # download the resource to the new path
         ml_client = self.azureml_client.create_client()
-        try:
-            logger.debug(f"Downloading job output {self.job_name} output {self.output_name} to {new_path}.")
-            from azure.core.exceptions import ServiceResponseError
+        logger.debug(f"Downloading job output {self.job_name} output {self.output_name} to {new_path}.")
+        from azure.core.exceptions import ServiceResponseError
 
-            with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
-                temp_dir = Path(temp_dir)
-                retry_func(
-                    ml_client.jobs.download,
-                    [self.job_name],
-                    {"output_name": self.output_name, "download_path": temp_dir},
-                    max_tries=3,
-                    delay=5,
-                    exceptions=ServiceResponseError,
-                )
-                new_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(temp_dir / "named-outputs" / self.output_name / self.relative_path, new_path)
-        except Exception as e:
-            logger.error(f"Failed to download job output {self.job_name} output {self.output_name} to {new_path}.")
-            raise e
+        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
+            temp_dir = Path(temp_dir)
+            retry_func(
+                ml_client.jobs.download,
+                [self.job_name],
+                {"output_name": self.output_name, "download_path": temp_dir},
+                max_tries=3,
+                delay=5,
+                exceptions=ServiceResponseError,
+            )
+            new_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(temp_dir / "named-outputs" / self.output_name / self.relative_path, new_path)
 
         return str(new_path)

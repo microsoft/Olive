@@ -156,7 +156,7 @@ class AzureMLSystem(OliveSystem):
                 system_workspace_config = self.azureml_client_config.get_workspace_config()
                 for key in model_workspace_config:
                     if model_workspace_config[key] != system_workspace_config[key]:
-                        raise Exception(
+                        raise ValueError(
                             f"Model workspace {model_workspace_config} is different from system workspace"
                             f" {system_workspace_config}."
                         )
