@@ -109,7 +109,7 @@ class OrtTransformersOptimization(Pass):
             optimizer.change_graph_inputs_to_int32()
 
         # Topologically sort the graph at the end since previous optimizations may have broken it
-        optimizer.topological_sort(is_deterministic=True)
+        optimizer.topological_sort()
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(optimizer.model, output_model_path, config, model.name)
