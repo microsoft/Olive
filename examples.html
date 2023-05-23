@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Inception model optimization on Qualcomm NPU &mdash; Olive  documentation</title>
+  <title>Acceleration on CPU &mdash; Olive  documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="_static/autodoc_pydantic.css" type="text/css" />
@@ -22,8 +22,8 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="OliveModels" href="api/models.html" />
-    <link rel="prev" title="Packaging Olive artifacts" href="tutorials/packaging_output_models.html" /> 
+    <link rel="next" title="Design" href="tutorials/design.html" />
+    <link rel="prev" title="ResNet optimization with PTQ on CPU" href="getstarted/quickstart_resnet_example.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -51,7 +51,6 @@
               <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="overview/olive.html">Olive</a></li>
-<li class="toctree-l1"><a class="reference internal" href="overview/design.html">Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="overview/quicktour.html">Quick Tour</a></li>
 <li class="toctree-l1"><a class="reference internal" href="overview/options.html">Olive Options</a></li>
 </ul>
@@ -60,30 +59,25 @@
 <li class="toctree-l1"><a class="reference internal" href="getstarted/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="getstarted/quickstart_examples.html">Quickstart Examples</a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Acceleration on CPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#acceleration-on-gpu">Acceleration on GPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#acceleration-on-npu">Acceleration on NPU</a></li>
+</ul>
 <p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/design.html">Design</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/configure_systems.html">Configuring OliveSystem</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/configure_metrics.html">Configuring Metric</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/configure_pass.html">Configuring Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/configure_hardware_optimizations.html">Configuring HW-dependent optimizations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/advanced_users.html">Advanced User Tour</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tutorials/how_to_add_pass.html">How to add new Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/how_to_write_userscript.html#my-script-py">my_script.py</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/how_to_write_userscript.html#you-can-use-file-module-here">You can use file module here</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials/packaging_output_models.html">Packaging Olive artifacts</a></li>
-</ul>
-<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
-<ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Inception model optimization on Qualcomm NPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#cifar10-optimization-with-openvino-for-intel-hw">Cifar10 optimization with OpenVINO for Intel HW</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#bert-optimization-with-qat-customized-training-loop-on-cpu">BERT optimization with QAT Customized Training Loop on CPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#resnet-optimization-with-qat-default-training-loop-on-cpu">ResNet optimization with QAT Default Training Loop on CPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu">ResNet optimization with QAT PyTorch Lightning Module on CPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#squeezenet-latency-optimization-with-directml">SqueezeNet latency optimization with DirectML</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#stable-diffusion-optimization-with-directml">Stable Diffusion optimization with DirectML</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#bert-optimization-with-intel-neural-compressor-post-training-quantization-on-cpu">BERT optimization with Intel® Neural Compressor Post Training quantization on CPU</a></li>
-<li class="toctree-l1"><a class="reference internal" href="#whisper-optimization-using-ort-toolchain">Whisper optimization using ORT toolchain</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
 <ul>
@@ -110,7 +104,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Inception model optimization on Qualcomm NPU</li>
+      <li class="breadcrumb-item active">Acceleration on CPU</li>
       <li class="wy-breadcrumbs-aside">
             <a href="_sources/examples.md.txt" rel="nofollow"> View page source</a>
       </li>
@@ -120,49 +114,32 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="inception-model-optimization-on-qualcomm-npu">
-<h1>Inception model optimization on Qualcomm NPU<a class="headerlink" href="#inception-model-optimization-on-qualcomm-npu" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/snpe/inception_snpe_qualcomm_npu">inception_snpe_qualcomm_npu</a></p>
+  <section id="acceleration-on-cpu">
+<h1>Acceleration on CPU<a class="headerlink" href="#acceleration-on-cpu" title="Permalink to this heading">¶</a></h1>
+<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/whisper">Whisper optimization with PTQ and pre/post processing</a></p>
+<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/bert_inc_ptq_cpu">BERT optimization with Intel® Neural Compressor Post Training quantization</a></p>
+<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/quantization_aware_training/bert_qat_customized_train_loop_cpu">BERT optimization with QAT Customized Training Loop</a></p>
+<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/quantization_aware_training/resnet_qat_default_train_loop_cpu">ResNet optimization with QAT Default Training Loop</a></p>
+<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/quantization_aware_training/resnet_qat_lightning_module_cpu">ResNet optimization with QAT PyTorch Lightning Module</a></p>
+<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/resnet_vitis_ai_ptq_cpu">ResNet optimization with PTQ using Vitis-AI</a></p>
+<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/cifar10_openvino_intel_hw">Cifar10 optimization with OpenVINO for Intel HW</a></p>
 </section>
-<section id="cifar10-optimization-with-openvino-for-intel-hw">
-<h1>Cifar10 optimization with OpenVINO for Intel HW<a class="headerlink" href="#cifar10-optimization-with-openvino-for-intel-hw" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/cifar10_openvino_intel_hw">cifar10_openvino_intel_hw</a></p>
+<section id="acceleration-on-gpu">
+<h1>Acceleration on GPU<a class="headerlink" href="#acceleration-on-gpu" title="Permalink to this heading">¶</a></h1>
+<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet">SqueezeNet latency optimization with DirectML</a></p>
+<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion">Stable Diffusion optimization with DirectML</a></p>
 </section>
-<section id="bert-optimization-with-qat-customized-training-loop-on-cpu">
-<h1>BERT optimization with QAT Customized Training Loop on CPU<a class="headerlink" href="#bert-optimization-with-qat-customized-training-loop-on-cpu" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/quantization_aware_training/bert_qat_customized_train_loop_cpu">bert_qat_customized_train_loop_cpu</a></p>
-</section>
-<section id="resnet-optimization-with-qat-default-training-loop-on-cpu">
-<h1>ResNet optimization with QAT Default Training Loop on CPU<a class="headerlink" href="#resnet-optimization-with-qat-default-training-loop-on-cpu" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/quantization_aware_training/resnet_qat_default_train_loop_cpu">resnet_qat_default_train_loop_cpu</a></p>
-</section>
-<section id="resnet-optimization-with-qat-pytorch-lightning-module-on-cpu">
-<h1>ResNet optimization with QAT PyTorch Lightning Module on CPU<a class="headerlink" href="#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/quantization_aware_training/resnet_qat_lightning_module_cpu">resnet_qat_lightning_module_cpu</a></p>
-</section>
-<section id="squeezenet-latency-optimization-with-directml">
-<h1>SqueezeNet latency optimization with DirectML<a class="headerlink" href="#squeezenet-latency-optimization-with-directml" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet">directml/squeezenet</a></p>
-</section>
-<section id="stable-diffusion-optimization-with-directml">
-<h1>Stable Diffusion optimization with DirectML<a class="headerlink" href="#stable-diffusion-optimization-with-directml" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion">directml/stable_diffusion</a></p>
-</section>
-<section id="bert-optimization-with-intel-neural-compressor-post-training-quantization-on-cpu">
-<h1>BERT optimization with Intel® Neural Compressor Post Training quantization on CPU<a class="headerlink" href="#bert-optimization-with-intel-neural-compressor-post-training-quantization-on-cpu" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/bert_inc_ptq_cpu">bert_inc_ptq_cpu</a></p>
-</section>
-<section id="whisper-optimization-using-ort-toolchain">
-<h1>Whisper optimization using ORT toolchain<a class="headerlink" href="#whisper-optimization-using-ort-toolchain" title="Permalink to this heading">¶</a></h1>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/whisper">whisper</a></p>
+<section id="acceleration-on-npu">
+<h1>Acceleration on NPU<a class="headerlink" href="#acceleration-on-npu" title="Permalink to this heading">¶</a></h1>
+<p><a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/snpe/inception_snpe_qualcomm_npu">Inception model optimization on Qualcomm NPU</a></p>
 </section>
 
 
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="tutorials/packaging_output_models.html" class="btn btn-neutral float-left" title="Packaging Olive artifacts" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="api/models.html" class="btn btn-neutral float-right" title="OliveModels" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="getstarted/quickstart_resnet_example.html" class="btn btn-neutral float-left" title="ResNet optimization with PTQ on CPU" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="tutorials/design.html" class="btn btn-neutral float-right" title="Design" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
