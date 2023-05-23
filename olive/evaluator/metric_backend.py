@@ -8,7 +8,7 @@ from typing import Any, Dict, Union
 from olive.common.auto_config import AutoConfigClass, ConfigBase
 from olive.common.config_utils import ConfigParam
 from olive.evaluator.accuracy import AccuracyBase
-from olive.evaluator.metric import MetricResult, SubMetricResult
+from olive.evaluator.metric import Metric, MetricResult, SubMetric, SubMetricResult
 
 
 class MetricBackend(AutoConfigClass):
@@ -22,20 +22,20 @@ class MetricBackend(AutoConfigClass):
         return {}
 
     @abstractmethod
-    def measure(self, preds, targets, sub_metric) -> SubMetricResult:
+    def measure_sub_metric(self, preds, targets, sub_metric: SubMetric) -> SubMetricResult:
         raise NotImplementedError()
 
-    def combine_measure(self, preds, targets, metrics) -> MetricResult:
+    def measure(self, preds, targets, metrics: Metric) -> MetricResult:
         metric_results_dict = {}
         for sub_metric in metrics.sub_types:
-            metric_results_dict[sub_metric.name] = self.measure(preds, targets, sub_metric)
+            metric_results_dict[sub_metric.name] = self.measure_sub_metric(preds, targets, sub_metric)
         return MetricResult.parse_obj(metric_results_dict)
 
 
 class TorchMetrics(MetricBackend):
     name: str = "torch_metrics"
 
-    def measure(self, preds, targets, sub_metric) -> SubMetricResult:
+    def measure_sub_metric(self, preds, targets, sub_metric: SubMetric) -> SubMetricResult:
         metric_cls = AccuracyBase.registry[sub_metric.name.value]
         metric_obj = metric_cls(sub_metric.metric_config)
         result = metric_obj.measure(preds, targets)
@@ -71,7 +71,7 @@ class HuggingfaceMetrics(MetricBackend):
             ),
         }
 
-    def measure(self, preds, target, sub_metric) -> SubMetricResult:
+    def measure_sub_metric(self, preds, target, sub_metric: SubMetric) -> SubMetricResult:
         load_params = sub_metric.metric_config.load_params or {}
         evaluator = self.evaluate_module.load(sub_metric.name, **load_params)
 

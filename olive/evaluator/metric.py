@@ -99,11 +99,7 @@ class Metric(ConfigBase):
         from olive.evaluator.metric_backend import MetricBackend
 
         assert v in MetricBackend.registry, f"Backend {v} is not in {list(MetricBackend.registry.keys())}"
-        if v == "huggingface_metrics":
-            try:
-                import evaluate  # noqa: F401
-            except ImportError:
-                raise ImportError("Please install the huggingface/evaluate package to use huggingface metrics.")
+        assert MetricBackend.registry[v]() is not None, f"Backend {v} is not available"
         return v
 
     @validator("sub_types", always=True, pre=True, each_item=True)

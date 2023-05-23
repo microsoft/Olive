@@ -203,7 +203,7 @@ class OliveEvaluator(ABC):
         Compute accuracy metrics
         """
         evaluate_backend_cls = MetricBackend.registry[metric.backend]
-        return evaluate_backend_cls().combine_measure(preds, targets, metric)
+        return evaluate_backend_cls().measure(preds, targets, metric)
 
     @staticmethod
     def compute_latency(metric: Metric, latencies: Any) -> MetricResult:
