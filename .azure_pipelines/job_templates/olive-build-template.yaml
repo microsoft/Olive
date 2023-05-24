@@ -4,6 +4,9 @@ parameters:
   name: ''
   pool: ''
 
+variables:
+  ComponentDetection.Timeout: 1200
+
 jobs:
 - job: ${{parameters.name}}_Test_Olive
   timeoutInMinutes: 300
@@ -45,7 +48,6 @@ jobs:
       scanType: 'Register'
       verbosity: 'Verbose'
       alertWarningLevel: 'High'
-      timeoutInMinutes: 15
     displayName: Component Detection
 
   - task: PublishTestResults@2
@@ -104,7 +106,6 @@ jobs:
       scanType: 'Register'
       verbosity: 'Verbose'
       alertWarningLevel: 'High'
-      timeoutInMinutes: 15
     displayName: Component Detection
 
   - task: PublishTestResults@2
