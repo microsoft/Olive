@@ -87,7 +87,7 @@ class Footprint:
             is_goals_met = []
             for metric_name in v.metrics.value:
                 if metric_name not in self.objective_dict:
-                    logger.debug("There is no goal set for metric: {metric_name}.")
+                    logger.debug(f"There is no goal set for metric: {metric_name}.")
                     continue
                 higher_is_better = self.objective_dict[metric_name]["higher_is_better"]
                 cmp_direction = 1 if higher_is_better else -1

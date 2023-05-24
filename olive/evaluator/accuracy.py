@@ -2,8 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from abc import abstractmethod
-from typing import Any, Dict, Union
+from inspect import isfunction, signature
+from typing import Any, Callable, Dict, Union
 
 import numpy as np
 import torch
@@ -12,9 +14,18 @@ import torchmetrics
 from olive.common.auto_config import AutoConfigClass, ConfigBase
 from olive.common.config_utils import ConfigParam
 
+logger = logging.getLogger(__name__)
+
 
 class AccuracyBase(AutoConfigClass):
     registry: Dict[str, "AccuracyBase"] = {}
+    metric_cls_map: Dict[str, Union[torchmetrics.Metric, Callable]] = {
+        "accuracy_score": torchmetrics.Accuracy,
+        "f1_score": torchmetrics.F1Score,
+        "precision": torchmetrics.Precision,
+        "recall": torchmetrics.Recall,
+        "auc": torchmetrics.functional.auc,
+    }
 
     @classmethod
     @property
@@ -25,17 +36,30 @@ class AccuracyBase(AutoConfigClass):
     def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
         super().__init__(config)
 
-    @staticmethod
-    def _default_config() -> Dict[str, ConfigParam]:
-        return {
-            "num_classes": ConfigParam(type_=int),
-            "threshold": ConfigParam(type_=float, default_value=0.5),
-            "average": ConfigParam(type_=str, default_value="micro"),
-            "ignore_index": ConfigParam(type_=list, default_value=None),
-            "top_k": ConfigParam(type_=int, default_value=None),
-            "mdmc_average": ConfigParam(type_=str, default_value="global"),
-            "multiclass": ConfigParam(type_=bool, default_value=None),
-        }
+    @classmethod
+    def metric_config_from_torch_metrics(cls):
+        metric_module = cls.metric_cls_map[cls.name]
+        params = signature(metric_module).parameters
+        # if the metrics is calculated by torchmetrics.functional, we should filter the label data out
+        ignore_idx = 0
+        if isfunction(metric_module):
+            ignore_idx = 2
+            logger.debug("Will ignore the first two params of torchmetrics.functional.")
+        metric_config = {}
+        for param, info in params.items():
+            if ignore_idx > 0:
+                ignore_idx -= 1
+                continue
+            annotation = info.annotation if info.annotation != info.empty else None
+            default_value, required = (info.default, False) if info.default != info.empty else (None, True)
+            if info.kind == info.VAR_KEYWORD or info.kind == info.VAR_POSITIONAL:
+                required = False
+            metric_config[param] = ConfigParam(type_=annotation, required=required, default_value=default_value)
+        return metric_config
+
+    @classmethod
+    def _default_config(cls) -> Dict[str, ConfigParam]:
+        return cls.metric_config_from_torch_metrics()
 
     @abstractmethod
     def measure(self, preds, target):
@@ -88,10 +112,6 @@ class Recall(AccuracyBase):
 
 class AUC(AccuracyBase):
     name: str = "auc"
-
-    @staticmethod
-    def _default_config():
-        return {"reorder": ConfigParam(type_=bool, default_value=False)}
 
     def measure(self, preds, target):
         preds = np.array(preds).flatten()
