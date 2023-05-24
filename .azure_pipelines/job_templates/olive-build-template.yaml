@@ -4,9 +4,6 @@ parameters:
   name: ''
   pool: ''
 
-variables:
-  ComponentDetection.Timeout: 1200
-
 jobs:
 - job: ${{parameters.name}}_Test_Olive
   timeoutInMinutes: 300
@@ -15,6 +12,7 @@ jobs:
   variables:
     WINDOWS: ${{ parameters.windows}}
     runCodesignValidationInjection: false
+    ComponentDetection.Timeout: 1200
 
   steps:
   - task: UsePythonVersion@0
@@ -79,6 +77,7 @@ jobs:
   variables:
     WINDOWS: ${{ parameters.windows }}
     runCodesignValidationInjection: false
+    ComponentDetection.Timeout: 1200
 
   steps:
   - task: UsePythonVersion@0
