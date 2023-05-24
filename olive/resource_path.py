@@ -32,7 +32,7 @@ class ResourceType(str, Enum):
         return self.value
 
 
-LOCAL_RESOURCE_TYPES = [ResourceType.LocalFile, ResourceType.LocalFolder, ResourceType.StringName]
+LOCAL_RESOURCE_TYPES = [ResourceType.LocalFile, ResourceType.LocalFolder]
 AZUREML_RESOURCE_TYPES = [ResourceType.AzureMLModel, ResourceType.AzureMLDatastore, ResourceType.AzureMLJobOutput]
 
 
@@ -57,6 +57,14 @@ class ResourcePath(AutoConfigClass):
     def is_local_resource(self) -> bool:
         """Return True if the resource is a local resource."""
         return self.type in LOCAL_RESOURCE_TYPES
+
+    def is_azureml_resource(self) -> bool:
+        """Return True if the resource is an AzureML resource."""
+        return self.type in AZUREML_RESOURCE_TYPES
+
+    def is_string_name(self) -> bool:
+        """Return True if the resource is a string name."""
+        return self.type == ResourceType.StringName
 
     def to_json(self):
         json_data = {"type": self.type, "config": self.config.to_json()}

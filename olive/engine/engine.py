@@ -663,8 +663,12 @@ class Engine:
         Prepare models with non-local model path for local run by downloading the model resource to cache
         """
         model_resource_path = model.model_resource_path
-        if model_resource_path is None or model_resource_path.is_local_resource():
-            logger.debug("Model path is None or local, no need to prepare")
+        if (
+            model_resource_path is None
+            or model_resource_path.is_local_resource()
+            or model_resource_path.is_string_name()
+        ):
+            logger.debug("Model path is None, local or string name. No need to prepare")
             return model
 
         # download and cache the model resource

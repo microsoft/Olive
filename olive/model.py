@@ -70,8 +70,8 @@ class OliveModel(ABC):
         if self.model_resource_path is None:
             return None
 
-        # return local path if model_path is local
-        if self.model_resource_path.is_local_resource():
+        # return local path if model_path is local or string name
+        if self.model_resource_path.is_local_resource() or self.model_resource_path.is_string_name():
             return self.model_resource_path.get_path()
 
         # check if model_path is downloaded
@@ -95,9 +95,9 @@ class OliveModel(ABC):
             logger.debug("Model path is None, skip downloading.")
             return None
 
-        # return local path if model_path is local
-        if self.model_resource_path.is_local_resource():
-            logger.debug("Model path is local, skip downloading.")
+        # return local path if model_path is local or string name
+        if self.model_resource_path.is_local_resource() or self.model_resource_path.is_string_name():
+            logger.debug("Model path is local or string name, skip downloading.")
             return self.model_resource_path.get_path()
 
         # download model
@@ -114,7 +114,9 @@ class OliveModel(ABC):
         :param local_model_path: local model path.
         """
         self.local_model_path = create_resource_path(local_model_path)
-        assert self.local_model_path.is_local_resource(), "local_model_path must be local resource path."
+        assert (
+            self.local_model_path.is_local_resource() or self.local_model_path.is_string_name()
+        ), "local_model_path must be local resource path or string name."
 
     @abstractmethod
     def load_model(self, rank: int = None) -> object:

@@ -179,8 +179,8 @@ def save_model(
         # create resource path
         model_resource_path = create_resource_path(model_path)
 
-        # get cached resource path if not local
-        if not model_resource_path.is_local_resource():
+        # get cached resource path if not local or string name
+        if not (model_resource_path.is_local_resource() or model_resource_path.is_string_name()):
             model_resource_path = get_non_local_resource(model_resource_path, cache_dir)
 
         # save model to output directory

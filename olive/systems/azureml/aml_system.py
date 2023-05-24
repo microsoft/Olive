@@ -24,7 +24,13 @@ from olive.evaluator.metric import Metric, MetricResult
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ModelConfig, OliveModel
 from olive.passes.olive_pass import Pass
-from olive.resource_path import AZUREML_RESOURCE_TYPES, AzureMLModel, ResourceType, create_resource_path
+from olive.resource_path import (
+    AZUREML_RESOURCE_TYPES,
+    LOCAL_RESOURCE_TYPES,
+    AzureMLModel,
+    ResourceType,
+    create_resource_path,
+)
 from olive.systems.common import AzureMLDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 
@@ -348,24 +354,24 @@ class AzureMLSystem(OliveSystem):
             model_path = input_model.model_resource_path
         elif model_json["config"]["model_path"] is not None:
             resource_type = model_json["config"]["model_path"]["type"]
-            if resource_type in [ResourceType.LocalFile, ResourceType.LocalFolder]:
-                # if the model is downloaded from remote, we need to copy it to the output folder
-                # get the downloaded model path
-                download_model_path = pipeline_output_path / model_json["config"]["model_path"]["config"]["path"]
-                # create a resource path object for the downloaded model
-                downloaded_resource_path = deepcopy(model_json["config"]["model_path"])
-                downloaded_resource_path["config"]["path"] = str(download_model_path)
-                downloaded_resource_path = create_resource_path(downloaded_resource_path)
-                # save the downloaded model to the output folder
-                output_model_path = downloaded_resource_path.save_to_dir(
-                    Path(output_model_path).parent, Path(output_model_path).name, True
-                )
-                # create a resource path object for the output model
-                output_model_resource_path = deepcopy(model_json["config"]["model_path"])
-                output_model_resource_path["config"]["path"] = str(output_model_path)
-                model_path = create_resource_path(output_model_resource_path)
-            else:
-                model_path = model_json["config"]["model_path"]
+            # we currently only have passes that generate local files or folders
+            # check that this is true
+            assert resource_type in LOCAL_RESOURCE_TYPES, f"Expected local file or folder, got {resource_type}"
+            # if the model is downloaded from job, we need to copy it to the output folder
+            # get the downloaded model path
+            download_model_path = pipeline_output_path / model_json["config"]["model_path"]["config"]["path"]
+            # create a resource path object for the downloaded model
+            downloaded_resource_path = deepcopy(model_json["config"]["model_path"])
+            downloaded_resource_path["config"]["path"] = str(download_model_path)
+            downloaded_resource_path = create_resource_path(downloaded_resource_path)
+            # save the downloaded model to the output folder
+            output_model_path = downloaded_resource_path.save_to_dir(
+                Path(output_model_path).parent, Path(output_model_path).name, True
+            )
+            # create a resource path object for the output model
+            output_model_resource_path = deepcopy(model_json["config"]["model_path"])
+            output_model_resource_path["config"]["path"] = str(output_model_path)
+            model_path = create_resource_path(output_model_resource_path)
         model_json["config"]["model_path"] = model_path
         return ModelConfig(**model_json).create_model()
 

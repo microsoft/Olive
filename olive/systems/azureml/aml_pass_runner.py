@@ -12,7 +12,7 @@ from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
 from olive.passes import FullPassConfig
-from olive.resource_path import ResourceType, create_resource_path
+from olive.resource_path import create_resource_path
 from olive.systems.utils import get_model_config, parse_common_args
 
 
@@ -104,6 +104,9 @@ def main(raw_args=None):
     if model_json["config"]["model_path"] is not None:
         # create a resource path from the model path
         model_resource_path = create_resource_path(model_json["config"]["model_path"])
+        # we currently only have passes that generate local files or folders
+        # check that this is true
+        assert model_resource_path.is_local_resource(), f"Expected local resource, got {model_resource_path.type}"
         # string representation of the model path
         model_path_str = model_resource_path.get_path()
         if model_path_str == input_model_path:
@@ -111,7 +114,7 @@ def main(raw_args=None):
             # and set same_model_path_as_input to True
             model_json["config"]["model_path"] = None
             model_json["same_model_path_as_input"] = True
-        elif model_resource_path.type in [ResourceType.LocalFile, ResourceType.LocalFolder]:
+        else:
             # if the model is a local file or folder, set the model path to be relative to the pipeline output
             # the aml system will resolve the relative path to the pipeline output during download
             relative_path = str(Path(model_path_str).relative_to(Path(common_args.pipeline_output)))
