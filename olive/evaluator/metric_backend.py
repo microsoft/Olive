@@ -66,8 +66,14 @@ class HuggingfaceMetrics(MetricBackend):
             "compute_params": ConfigParam(
                 type_=Dict[str, Any], default_value=None, description="The parameters to compute the metric."
             ),
-            "post_lambda_str": ConfigParam(
-                type_=str, default_value=None, description="The lambda function to post-process the metric."
+            "result_key": ConfigParam(
+                type_=str,
+                default_value=None,
+                description=(
+                    "The key used to extract the metric result with given format."
+                    "For example, if the metric result is {'accuracy': {'value': 0.9}},"
+                    "then the post_key_str should be 'accuracy.value'."
+                ),
             ),
         }
 
@@ -77,11 +83,19 @@ class HuggingfaceMetrics(MetricBackend):
 
         compute_params = sub_metric.metric_config.compute_params or {}
         result = evaluator.compute(predictions=preds, references=target, **compute_params)
+        if not result:
+            raise ValueError(
+                f"Cannot find the result for {sub_metric.name} in the metric result. Please check your parameters."
+            )
 
-        post_lambda_str = sub_metric.metric_config.post_lambda_str or None
+        result_key = sub_metric.metric_config.result_key or None
 
-        if post_lambda_str:
-            result = eval(post_lambda_str)(result)
+        if result_key:
+            result_key_list = result_key.split(".")
+            for k in result_key_list:
+                result = result.get(k, None)
+                if result is None:
+                    raise ValueError(f"Cannot find the result with key {k} of {result_key} in the metric result.")
         else:
             result = result[sub_metric.name]
         return SubMetricResult(
