@@ -72,7 +72,7 @@ class HuggingfaceMetrics(MetricBackend):
                 description=(
                     "The key used to extract the metric result with given format."
                     "For example, if the metric result is {'accuracy': {'value': 0.9}},"
-                    "then the post_key_str should be 'accuracy.value'."
+                    "then the result_key should be 'accuracy.value'."
                 ),
             ),
         }
