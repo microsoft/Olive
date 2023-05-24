@@ -12,7 +12,6 @@ jobs:
   variables:
     WINDOWS: ${{ parameters.windows}}
     runCodesignValidationInjection: false
-    ComponentDetection.Timeout: 1200
 
   steps:
   - task: UsePythonVersion@0
@@ -77,7 +76,6 @@ jobs:
   variables:
     WINDOWS: ${{ parameters.windows }}
     runCodesignValidationInjection: false
-    ComponentDetection.Timeout: 1200
 
   steps:
   - task: UsePythonVersion@0

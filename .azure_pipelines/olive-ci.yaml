@@ -23,6 +23,9 @@ pr:
     - CONTRIBUTING.md
     - LICENSE
 
+variables:
+    ComponentDetection.Timeout: 1200
+
 jobs:
 - template: job_templates/olive-build-template.yaml
   parameters:
