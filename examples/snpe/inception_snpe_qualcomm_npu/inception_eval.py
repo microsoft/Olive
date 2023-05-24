@@ -49,12 +49,12 @@ def main():
     # ------------------------------------------------------------------
     # SNPE model
     snpe_model_file = str(models_dir / f"{name}_snpe.dlc")
-    snpe_model = SNPEModel(model_path=snpe_model_file, name=name, **io_config)
+    snpe_model = SNPEModel(model_path=snpe_model_file, **io_config)
 
     # ------------------------------------------------------------------
     # SNPE Quantized model
     snpe_quantized_model_file = str(models_dir / f"{name}_snpe_quantized.dlc")
-    snpe_quantized_model = SNPEModel(model_path=snpe_quantized_model_file, name=name, **io_config)
+    snpe_quantized_model = SNPEModel(model_path=snpe_quantized_model_file, **io_config)
 
     # ------------------------------------------------------------------
     # Models dictionary

@@ -15,6 +15,7 @@ from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffu
 from packaging import version
 from user_script import get_base_model_name
 
+from olive.model import ONNXModel
 from olive.workflows import run as olive_run
 
 
@@ -198,15 +199,15 @@ def optimize(
 
             assert conversion_footprint and optimizer_footprint
 
-            unoptimized_config = conversion_footprint["model_config"]["config"]
-            optimized_config = optimizer_footprint["model_config"]["config"]
+            unoptimized_olive_model = ONNXModel(**conversion_footprint["model_config"]["config"])
+            optimized_olive_model = ONNXModel(**optimizer_footprint["model_config"]["config"])
 
             model_info[submodel_name] = {
                 "unoptimized": {
-                    "path": Path(unoptimized_config["model_path"]),
+                    "path": Path(unoptimized_olive_model.model_path),
                 },
                 "optimized": {
-                    "path": Path(optimized_config["model_path"]),
+                    "path": Path(optimized_olive_model.model_path),
                 },
             }
 
@@ -249,8 +250,10 @@ if __name__ == "__main__":
     parser.add_argument("--test_unoptimized", action="store_true", help="Use unoptimized model for inference")
     parser.add_argument(
         "--prompt",
-        default="castle surrounded by water and nature, village, volumetric lighting, photorealistic, "
-        "detailed and intricate, fantasy, epic cinematic shot, mountains, 8k ultra hd",
+        default=(
+            "castle surrounded by water and nature, village, volumetric lighting, photorealistic, "
+            "detailed and intricate, fantasy, epic cinematic shot, mountains, 8k ultra hd"
+        ),
         type=str,
     )
     parser.add_argument("--num_images", default=1, type=int, help="Number of images to generate")

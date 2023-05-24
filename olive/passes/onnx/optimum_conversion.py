@@ -34,6 +34,9 @@ class OptimumConversion(Pass):
 
         from optimum.exporters.onnx import main_export as export_optimum_model
 
+        # TODO: export into temp dir and then move to sub-dirs of output_model_path
+        # so that we only keep the final model files in the output_model_path
+        # and track external data if present
         export_optimum_model(
             model.model_path,
             output_model_path,
@@ -42,11 +45,11 @@ class OptimumConversion(Pass):
         )
 
         onnx_model_components = [
-            ONNXModel(str(Path(output_model_path) / model_component), model.name)
-            for model_component in model.model_components
+            ONNXModel(str(Path(output_model_path) / model_component)) for model_component in model.model_components
         ]
+        onnx_model_component_names = [Path(model_component).stem for model_component in model.model_components]
 
         if len(onnx_model_components) == 1:
-            return ONNXModel(output_model_path / model.model_components[0], model.name)
+            return ONNXModel(output_model_path / model.model_components[0])
 
-        return CompositeOnnxModel(onnx_model_components, model.name)
+        return CompositeOnnxModel(onnx_model_components, onnx_model_component_names)

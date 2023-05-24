@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import json
 import os
 import shutil
 from pathlib import Path
@@ -113,9 +112,7 @@ def get_aml_target():
     aml_compute = "cpu-cluster"
     current_path = Path(__file__).absolute().parent
     conda_file_location = current_path / "conda.yaml"
-    config_file_location = current_path / "olive-workspace-config.json"
-    generate_olive_workspace_config(config_file_location)
-    azureml_client_config = AzureMLClientConfig(aml_config_path=str(config_file_location))
+    azureml_client_config = AzureMLClientConfig(**get_olive_workspace_config())
     docker_config = AzureMLDockerConfig(
         base_image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
         conda_file_path=conda_file_location,
@@ -128,7 +125,7 @@ def get_aml_target():
     )
 
 
-def generate_olive_workspace_config(workspace_config_path):
+def get_olive_workspace_config():
     subscription_id = os.environ.get("WORKSPACE_SUBSCRIPTION_ID")
     if subscription_id is None:
         raise Exception("Please set the environment variable WORKSPACE_SUBSCRIPTION_ID")
@@ -147,4 +144,4 @@ def generate_olive_workspace_config(workspace_config_path):
         "workspace_name": workspace_name,
     }
 
-    json.dump(workspace_config, open(workspace_config_path, "w"))
+    return workspace_config

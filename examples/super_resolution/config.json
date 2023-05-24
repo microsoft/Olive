@@ -2,7 +2,6 @@
     "input_model":{
         "type": "PyTorchModel",
         "config": {
-            "name": "supres",
             "model_loader": "load_pytorch_model",
             "model_script": "loader.py",
             "io_config": {

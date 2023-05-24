@@ -3,7 +3,6 @@
         "type": "PyTorchModel",
         "config": {
             "model_path": "chenyaofo/pytorch-cifar-models",
-            "model_storage_kind": "file",
             "model_loader": "load_pytorch_origin_model",
             "model_script": "{USER_SCRIPT}"
         }

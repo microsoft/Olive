@@ -130,4 +130,4 @@ class OnnxModelOptimizer(Pass):
         model_optimizer.optimize()
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(model_optimizer.model, output_model_path, config, model.name)
+        return model_proto_to_olive_model(model_optimizer.model, output_model_path, config)

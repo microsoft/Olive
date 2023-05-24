@@ -19,7 +19,7 @@ from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
-from olive.model import ModelConfig, ModelStorageKind, OliveModel
+from olive.model import ModelConfig, OliveModel
 from olive.passes.olive_pass import Pass
 from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
@@ -144,7 +144,7 @@ class Engine:
         if self._config.clean_evaluation_cache:
             cache_utils.clean_evaluation_cache(cache_dir)
 
-        self._model_cache_path, self._run_cache_path, self._evaluation_cache_path = cache_utils.get_cache_sub_dirs(
+        self._model_cache_path, self._run_cache_path, self._evaluation_cache_path, _ = cache_utils.get_cache_sub_dirs(
             cache_dir
         )
         cache_utils.create_cache(cache_dir)
@@ -386,7 +386,13 @@ class Engine:
         prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
         # save the model to output_dir
         output_model_name = f"{prefix_output_name}model"
-        output_model_json = cache_utils.save_model(model_id, output_dir, output_model_name, self._config.cache_dir)
+        output_model_json = cache_utils.save_model(
+            model_number=model_id,
+            output_dir=output_dir,
+            output_name=output_model_name,
+            overwrite=True,
+            cache_dir=self._config.cache_dir,
+        )
 
         # save the evaluation results to output_dir
         result_name = f"{prefix_output_name}metrics"
@@ -608,7 +614,7 @@ class Engine:
         while True:
             new_model_number = self._new_model_number
             self._new_model_number += 1
-            if list(self._model_cache_path.glob(f"{new_model_number}_*.json")) == []:
+            if list(self._model_cache_path.glob(f"{new_model_number}_*")) == []:
                 break
         return new_model_number
 
@@ -650,6 +656,28 @@ class Engine:
             return PRUNED_CONFIG
 
         model = ModelConfig.from_json(model_json).create_model()
+        return model
+
+    def _prepare_non_local_model(self, model: OliveModel) -> OliveModel:
+        """
+        Prepare models with non-local model path for local run by downloading the model resource to cache
+        """
+        model_resource_path = model.model_resource_path
+        if (
+            model_resource_path is None
+            or model_resource_path.is_local_resource()
+            or model_resource_path.is_string_name()
+        ):
+            logger.debug("Model path is None, local or string name. No need to prepare")
+            return model
+
+        # download and cache the model resource
+        logger.debug("Downloading non local model resource to cache")
+        local_model_resource_path = cache_utils.get_non_local_resource(model_resource_path, self._config.cache_dir)
+
+        # set local model resource path
+        model.set_local_model_path(local_model_resource_path)
+
         return model
 
     def _init_input_model(self, input_model: OliveModel):
@@ -724,24 +752,6 @@ class Engine:
         for pass_id, pass_search_point in passes:
             logger.debug(f"Running pass {pass_id}")
 
-            if (
-                model.model_storage_kind == ModelStorageKind.AzureMLModel
-                and not self.host_for_pass(pass_id).system_type == SystemType.AzureML
-            ):
-                if not self.azureml_client_config:
-                    raise ValueError("AzureML client config is required to download the model from AzureML storage")
-                model_download_path = self._model_cache_path / "azureml_input_model"
-                model_path = model.download_from_azureml(
-                    self.azureml_client_config.create_client(), model_download_path
-                )
-                model.model_path = model_path
-                if model_path.is_dir():
-                    model.model_storage_kind = ModelStorageKind.LocalFolder
-                elif model_path.is_file():
-                    model.model_storage_kind = ModelStorageKind.LocalFile
-                else:
-                    raise ValueError(f"Invalid model path {model_path}")
-
             model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec)
             if model == PRUNED_CONFIG:
                 should_prune = True
@@ -810,15 +820,19 @@ class Engine:
             accelerator_spec,
         ]
         output_model_id = "-".join(map(str, output_model_id_parts))
-        output_model_path = str(self._model_cache_path / f"{output_model_id}")
+        output_model_path = self._model_cache_path / f"{output_model_id}" / "output_model"
+        output_model_path.parent.mkdir(parents=True, exist_ok=True)
+        output_model_path = str(output_model_path)
 
         # prune if invalid search_point
         if not p.validate_search_point(pass_search_point) and not self.no_search:
             output_model = PRUNED_CONFIG
         else:
             # run pass
+            host = self.host_for_pass(pass_id)
+            if host.system_type != SystemType.AzureML:
+                input_model = self._prepare_non_local_model(input_model)
             try:
-                host = self.host_for_pass(pass_id)
                 output_model = host.run_pass(p, input_model, output_model_path, pass_search_point)
             except Exception:
                 output_model = PRUNED_CONFIG
@@ -912,6 +926,8 @@ class Engine:
 
         # evaluate model
         metrics = evaluator_config.metrics if evaluator_config else []
+        if self.target.system_type != SystemType.AzureML:
+            model = self._prepare_non_local_model(model)
         signal = self.target.evaluate_model(model, metrics, accelerator_spec)
 
         # cache evaluation

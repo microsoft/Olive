@@ -11,6 +11,7 @@ from pathlib import Path
 import onnxruntime as ort
 from packaging import version
 
+from olive.model import CompositeOnnxModel, ONNXModel
 from olive.workflows import run as olive_run
 
 
@@ -50,15 +51,15 @@ def optimize(model_name: str, optimized_model_dir: Path):
 
         assert conversion_footprint and merger_footprint
 
-        unoptimized_config = conversion_footprint["model_config"]["config"]
-        optimized_config = merger_footprint["model_config"]["config"]
+        unopimized_olive_model = CompositeOnnxModel(**conversion_footprint["model_config"]["config"])
+        optimized_olive_model = ONNXModel(**merger_footprint["model_config"]["config"])
 
         model_info = {
             "unoptimized": {
-                "path": os.path.dirname(unoptimized_config["model_components"][0]["config"]["model_path"]),
+                "path": Path(unopimized_olive_model.get_model_component(0).model_path).parent,
             },
             "optimized": {
-                "path": Path(optimized_config["model_path"]),
+                "path": Path(optimized_olive_model.model_path),
             },
         }
 

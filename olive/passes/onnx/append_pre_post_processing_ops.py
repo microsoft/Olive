@@ -101,6 +101,6 @@ class AppendPrePostProcessingOps(Pass):
         # the model is loaded into memory, so it's safe to delete previously exported files
         tmp_dir.cleanup()
 
-        olive_model = model_proto_to_olive_model(onnx_model, output_model_path, config, model.name)
+        olive_model = model_proto_to_olive_model(onnx_model, output_model_path, config)
         olive_model.use_ort_extensions = True
         return olive_model

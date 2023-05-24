@@ -68,13 +68,13 @@ class OpenVINOQuantization(Pass):
         }
 
     def _run_for_config(self, model: OpenVINOModel, config: Dict[str, Any], output_model_path: str) -> OpenVINOModel:
-
         try:
             from openvino.tools.pot import IEEngine, compress_model_weights, create_pipeline, save_model
         except ImportError:
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
 
-        model_name = model.name if model.name else "ov_model"
+        # output model always has ov_model name stem
+        model_name = "ov_model"
 
         loader = UserModuleLoader(user_script=config["user_script"], script_dir=config["script_dir"])
         data_loader = loader.call_object(config["dataloader_func"], config["data_dir"], config["batch_size"])
@@ -90,6 +90,6 @@ class OpenVINOQuantization(Pass):
             model_name=model_name,
         )
         model_path = Path(compressed_model_paths[0]["model"]).parent
-        openvino_model = OpenVINOModel(model_path, model_name)
+        openvino_model = OpenVINOModel(model_path)
 
         return openvino_model

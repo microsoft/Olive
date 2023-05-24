@@ -8,7 +8,6 @@ import shutil
 import tempfile
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
@@ -19,7 +18,8 @@ from onnx import AttributeProto, GraphProto
 from pydantic import validator
 
 if TYPE_CHECKING:
-    from azure.ai.ml import MLClient
+    from azure.ai.ml import MLClient  # noqa: F401
+
 from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
 from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
@@ -31,20 +31,12 @@ from olive.hf_utils import (
     load_huggingface_model_from_model_class,
     load_huggingface_model_from_task,
 )
+from olive.resource_path import ResourcePath, ResourcePathConfig, ResourceType, create_resource_path
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
 
 REGISTRY = {}
 logger = logging.getLogger(__name__)
-
-
-class ModelStorageKind(str, Enum):
-    LocalFile = "file"
-    LocalFolder = "folder"
-    AzureMLModel = "azureml"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 class OliveModel(ABC):
@@ -63,32 +55,68 @@ class OliveModel(ABC):
         self,
         framework: Framework,
         model_file_format: ModelFileFormat,
-        model_path: Optional[Union[Path, str]] = None,
-        name: Optional[str] = None,
-        version: Optional[int] = None,
-        aml_storage_name: Optional[str] = None,
-        model_storage_kind: ModelStorageKind = ModelStorageKind.LocalFile,
+        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
     ):
-        if isinstance(model_storage_kind, str):
-            model_storage_kind = ModelStorageKind(model_storage_kind)
-
-        assert isinstance(model_storage_kind, ModelStorageKind)
-
-        if model_storage_kind == ModelStorageKind.AzureMLModel:
-            if not name:
-                raise Exception("Please specify model 'name' for Azure ML model")
-            if not version:
-                raise Exception("Please specify model 'version' for Azure ML model")
-            self.model_path = f"azureml:{name}:{version}"
-        else:
-            self.model_path = model_path
-        self.version = version
         self.framework = framework
         self.model_file_format = model_file_format
-        self.name = name
-        self.aml_storage_name = aml_storage_name
+        self.model_resource_path = create_resource_path(model_path) if model_path else None
+        self.local_model_path = None
         self.composite_parent = None
-        self.model_storage_kind = model_storage_kind
+
+    @property
+    def model_path(self) -> str:
+        """Return local model path."""
+        # return None if model_path is None
+        if self.model_resource_path is None:
+            return None
+
+        # return local path if model_path is local or string name
+        if self.model_resource_path.is_local_resource() or self.model_resource_path.is_string_name():
+            return self.model_resource_path.get_path()
+
+        # check if model_path is downloaded
+        if self.local_model_path is None:
+            raise ValueError(
+                "Model is not local and not downloaded yet. Please call download_model() or set_local_model_path()"
+                " first."
+            )
+        return self.local_model_path.get_path()
+
+    def download_model(self, download_path: Union[Path, str], overwrite: bool = False) -> str:
+        """
+        Download model to local path.
+
+        :param download_path: local directory to download model to.
+        :param overwrite: whether to overwrite existing model. If not overwrite, will raise exception if model exists.
+        :return: local model path.
+        """
+        # return None if model_path is None
+        if self.model_resource_path is None:
+            logger.debug("Model path is None, skip downloading.")
+            return None
+
+        # return local path if model_path is local or string name
+        if self.model_resource_path.is_local_resource() or self.model_resource_path.is_string_name():
+            logger.debug("Model path is local or string name, skip downloading.")
+            return self.model_resource_path.get_path()
+
+        # download model
+        logger.debug(f"Downloading model to {download_path}")
+        self.local_model_path = create_resource_path(
+            self.model_resource_path.save_to_dir(download_path, overwrite=overwrite)
+        )
+        return self.local_model_path.get_path()
+
+    def set_local_model_path(self, local_model_path: Union[Path, str, ResourcePath, ResourcePathConfig]):
+        """
+        Set local model path.
+
+        :param local_model_path: local model path.
+        """
+        self.local_model_path = create_resource_path(local_model_path)
+        assert (
+            self.local_model_path.is_local_resource() or self.local_model_path.is_string_name()
+        ), "local_model_path must be local resource path or string name."
 
     @abstractmethod
     def load_model(self, rank: int = None) -> object:
@@ -112,25 +140,6 @@ class OliveModel(ABC):
         """
         raise NotImplementedError()
 
-    def download_from_azureml(self, ml_client: "MLClient", download_path: Union[Path, str]):
-        if ml_client is None:
-            raise Exception("Azure ML client is not initialized")
-        if self.model_storage_kind != ModelStorageKind.AzureMLModel:
-            raise Exception("Only Azure ML model can be downloaded from Azure ML workspace")
-        if not self.aml_storage_name:
-            logger.error(
-                f"Error to download model {self.model_path} from Azure ML workspace: aml_storage_name is not specified"
-            )
-            raise Exception("Please specify model 'aml_storage_name' for Azure ML model")
-        try:
-            ml_client.models.download(name=self.name, version=self.version, download_path=download_path)
-        except Exception as e:
-            logger.error(f"Failed to downloafd model {self.name} from Azure ML workspace, error: {e}")
-            raise e
-
-        model_path = Path(download_path) / self.name / self.aml_storage_name
-        return model_path
-
     def set_composite_parent(self, cp):
         self.composite_parent = cp
 
@@ -138,17 +147,9 @@ class OliveModel(ABC):
         return self.composite_parent
 
     def to_json(self, check_object: bool = False):
-        model_path = self.model_path
-        if model_path and Path(model_path).exists():
-            model_path = Path(model_path)
         config = {
             "type": self.__class__.__name__,
-            "config": {
-                "model_path": model_path,
-                "name": self.name,
-                "model_storage_kind": self.model_storage_kind.value,
-                "version": self.version,
-            },
+            "config": {"model_path": self.model_resource_path.to_json() if self.model_resource_path else None},
         }
         return serialize_to_json(config, check_object)
 
@@ -257,23 +258,11 @@ class ONNXModelBase(OliveModel):
 
     def __init__(
         self,
-        model_path: Optional[Union[Path, str]] = None,
-        name: Optional[str] = None,
-        version: Optional[int] = None,
-        aml_storage_name: Optional[str] = None,
-        model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
+        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
     ):
-        super().__init__(
-            framework=Framework.ONNX,
-            model_file_format=ModelFileFormat.ONNX,
-            model_path=model_path,
-            name=name,
-            version=version,
-            aml_storage_name=aml_storage_name,
-            model_storage_kind=model_storage_kind,
-        )
+        super().__init__(framework=Framework.ONNX, model_file_format=ModelFileFormat.ONNX, model_path=model_path)
         self.inference_settings = inference_settings
         self.use_ort_extensions = use_ort_extensions
 
@@ -310,29 +299,68 @@ class ONNXModelBase(OliveModel):
 class ONNXModel(ONNXModelBase):
     def __init__(
         self,
-        model_path: str = None,
-        name: Optional[str] = None,
-        version: Optional[int] = None,
-        aml_storage_name: Optional[str] = None,
-        model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFile,
+        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
+        onnx_file_name: Optional[str] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
     ):
         super().__init__(
             model_path=model_path,
-            name=name,
-            version=version,
-            aml_storage_name=aml_storage_name,
-            model_storage_kind=model_storage_kind,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
         )
+        self.onnx_file_name = onnx_file_name
         self.io_config = None
         self.graph = None
         self.all_graphs: Optional[List[GraphProto]] = None
         # huggingface config
         self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
+
+        # if model_path is local folder, check for onnx file name
+        if self.model_resource_path and self.model_resource_path.type == ResourceType.LocalFolder:
+            self.get_onnx_file_path(self.model_resource_path.get_path(), self.onnx_file_name)
+
+    @staticmethod
+    def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) -> str:
+        """
+        Get the path to the ONNX model file. If model_path is a file, it is returned as is. If model_path is a
+        directory, the onnx_file_name is appended to it and the resulting path is returned. If onnx_file_name is not
+        specified, it is inferred if there is only one .onnx file in the directory, else an error is raised.
+        """
+        assert Path(model_path).exists(), f"Model path {model_path} does not exist"
+
+        # if model_path is a file, return it as is
+        if Path(model_path).is_file():
+            return model_path
+
+        # if model_path is a directory, append onnx_file_name to it
+        if onnx_file_name:
+            onnx_file_path = Path(model_path) / onnx_file_name
+            assert onnx_file_path.exists(), f"ONNX model file {onnx_file_path} does not exist"
+            return str(onnx_file_path)
+
+        # try to infer onnx_file_name
+        logger.warning(
+            "model_path is a directory but onnx_file_name is not specified. Trying to infer it. It is recommended to"
+            " specify onnx_file_name explicitly."
+        )
+        onnx_file_names = list(Path(model_path).glob("*.onnx"))
+        if len(onnx_file_names) == 1:
+            return str(onnx_file_names[0])
+        elif len(onnx_file_names) > 1:
+            raise ValueError(
+                f"Multiple .onnx model files found in the model folder {model_path}. Please specify one using the"
+                " onnx_file_name argument."
+            )
+        else:
+            raise ValueError(f"No .onnx file found in the model folder {model_path}.")
+
+    @property
+    def model_path(self) -> str:
+        model_path = super().model_path
+        model_path = self.get_onnx_file_path(model_path, self.onnx_file_name) if model_path else None
+        return model_path
 
     @staticmethod
     def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
@@ -439,6 +467,7 @@ class ONNXModel(ONNXModelBase):
         config = super().to_json(check_object)
         config["config"].update(
             {
+                "onnx_file_name": self.onnx_file_name,
                 "inference_settings": self.inference_settings,
                 "use_ort_extensions": self.use_ort_extensions,
                 "hf_config": self.hf_config,
@@ -509,12 +538,8 @@ class ONNXModel(ONNXModelBase):
 class PyTorchModel(OliveModel):
     def __init__(
         self,
-        model_path: str = None,
+        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
         model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
-        name: Optional[str] = None,
-        version: Optional[int] = None,
-        aml_storage_name: Optional[str] = None,
-        model_storage_kind: Union[str, ModelStorageKind] = ModelStorageKind.LocalFolder,
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
         script_dir: Union[str, Path] = None,
@@ -526,27 +551,17 @@ class PyTorchModel(OliveModel):
             isinstance(model_loader, Callable)
             or (isinstance(model_loader, str) and model_script)
             or model_path
-            or model_storage_kind == ModelStorageKind.AzureMLModel
             or hf_config
         ):
             raise ValueError(
-                "model_path or model_storage_kind/AzureMLModel is required "
-                "since model_loader is not callable or model_script is not provided"
+                "model_path is required since model_loader is not callable or model_script is not provided"
             )
 
         self.model_loader = model_loader
         self.model_script = model_script
         self.script_dir = script_dir
         self.model = None
-        super().__init__(
-            framework=Framework.PYTORCH,
-            model_file_format=model_file_format,
-            model_path=model_path,
-            name=name,
-            version=version,
-            aml_storage_name=aml_storage_name,
-            model_storage_kind=model_storage_kind,
-        )
+        super().__init__(framework=Framework.PYTORCH, model_file_format=model_file_format, model_path=model_path)
 
         # io config for conversion to onnx
         self.io_config = validate_config(io_config, IOConfig) if io_config else None
@@ -686,7 +701,6 @@ class PyTorchModel(OliveModel):
 
         return PyTorchModel(
             model_loader=model_loader,
-            name=hf_component.name,
             io_config=hf_component.io_config,
             dummy_inputs_func=hf_component.dummy_inputs_func,
             model_script=self.model_script,
@@ -697,6 +711,7 @@ class PyTorchModel(OliveModel):
         config = super().to_json(check_object)
         config["config"].update(
             {
+                "model_file_format": self.model_file_format,
                 "model_loader": self.model_loader,
                 "model_script": Path(self.model_script) if self.model_script else None,
                 "script_dir": Path(self.script_dir) if self.script_dir else None,
@@ -709,13 +724,13 @@ class PyTorchModel(OliveModel):
 
 
 class OptimumModel(OliveModel):
-    def __init__(self, model_path: str, name: str, model_components: List[str]):
+    def __init__(
+        self, model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]], model_components: List[str]
+    ):
         super().__init__(
-            name=name,
-            model_storage_kind=ModelStorageKind.LocalFolder,
-            model_path=model_path,
-            model_file_format=ModelFileFormat.OPTIMUM,
             framework=Framework.PYTORCH,
+            model_file_format=ModelFileFormat.OPTIMUM,
+            model_path=model_path,
         )
         self.model_components = model_components
 
@@ -726,10 +741,8 @@ class OptimumModel(OliveModel):
         raise NotImplementedError()
 
     def to_json(self, check_object: bool = False):
-        config = {
-            "type": self.__class__.__name__,
-            "config": {"name": self.name, "model_path": self.model_path, "model_components": self.model_components},
-        }
+        config = super().to_json(check_object)
+        config["config"].update({"model_components": self.model_components})
         return serialize_to_json(config, check_object)
 
 
@@ -740,19 +753,9 @@ class SNPEModel(OliveModel):
         input_shapes: List[List[int]],
         output_names: List[str],
         output_shapes: List[List[int]],
-        model_path: str = None,
-        model_storage_kind=ModelStorageKind.LocalFile,
-        name: Optional[str] = None,
-        version: Optional[int] = None,
+        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
     ):
-        super().__init__(
-            framework=Framework.SNPE,
-            model_file_format=ModelFileFormat.SNPE_DLC,
-            model_path=model_path,
-            name=name,
-            version=version,
-            model_storage_kind=model_storage_kind,
-        )
+        super().__init__(framework=Framework.SNPE, model_file_format=ModelFileFormat.SNPE_DLC, model_path=model_path)
         self.io_config = {
             "input_names": input_names,
             "input_shapes": input_shapes,
@@ -788,18 +791,10 @@ class SNPEModel(OliveModel):
 class TensorFlowModel(OliveModel):
     def __init__(
         self,
-        model_path: str = None,
+        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
         model_file_format: ModelFileFormat = ModelFileFormat.TENSORFLOW_SAVED_MODEL,
-        name: Optional[str] = None,
-        model_storage_kind=ModelStorageKind.LocalFolder,
     ):
-        super().__init__(
-            model_path=model_path,
-            framework=Framework.TENSORFLOW,
-            model_file_format=model_file_format,
-            name=name,
-            model_storage_kind=model_storage_kind,
-        )
+        super().__init__(model_path=model_path, framework=Framework.TENSORFLOW, model_file_format=model_file_format)
 
     def load_model(self, rank: int = None):
         raise NotImplementedError()
@@ -815,23 +810,19 @@ class TensorFlowModel(OliveModel):
 
 
 class OpenVINOModel(OliveModel):
-    def __init__(
-        self,
-        model_path: str,
-        name: str = None,
-        model_storage_kind=ModelStorageKind.LocalFolder,
-        version: Optional[int] = None,
-        aml_storage_name: Optional[str] = None,
-    ):
+    def __init__(self, model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]]):
         super().__init__(
-            model_path=model_path,
-            framework=Framework.OPENVINO,
-            model_file_format=ModelFileFormat.OPENVINO_IR,
-            name=name,
-            version=version,
-            aml_storage_name=aml_storage_name,
-            model_storage_kind=model_storage_kind,
+            model_path=model_path, framework=Framework.OPENVINO, model_file_format=ModelFileFormat.OPENVINO_IR
         )
+        # check if the model files (xml, bin) are in the same directory
+        if self.model_resource_path.is_local_resource():
+            _ = self.model_config
+
+    @property
+    def model_config(self) -> Dict[str, str]:
+        """Get the model configuration for OpenVINO model."""
+        model_path = self.model_path
+        assert Path(model_path).is_dir(), f"OpenVINO model path {model_path} is not a directory"
 
         if len(list(Path(model_path).glob("*.xml"))) == 0 or len(list(Path(model_path).glob("*.bin"))) == 0:
             raise Exception(f"No OpenVINO model found in {model_path}")
@@ -843,8 +834,8 @@ class OpenVINOModel(OliveModel):
         for weights_file in Path(model_path).glob("*.bin"):
             ov_weights = Path(weights_file)
 
-        self.model_config = {
-            "model_name": name if name else ov_model.stem,
+        return {
+            "model_name": ov_model.stem,
             "model": str(ov_model.resolve()),
             "weights": str(ov_weights.resolve()),
         }
@@ -884,18 +875,11 @@ class DistributedOnnxModel(ONNXModelBase):
     def __init__(
         self,
         model_filepaths: List[Union[Path, str]] = [],
-        name: Optional[str] = None,
-        version: Optional[int] = None,
-        aml_storage_name: Optional[str] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
     ):
         super().__init__(
             model_path=None,
-            name=name,
-            version=version,
-            aml_storage_name=aml_storage_name,
-            model_storage_kind=ModelStorageKind.LocalFolder,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
         )
@@ -942,8 +926,6 @@ class DistributedOnnxModel(ONNXModelBase):
             "type": self.__class__.__name__,
             "config": {
                 "model_filepaths": self.model_filepaths,
-                "name": self.name,
-                "version": self.version,
                 "inference_settings": self.inference_settings,
                 "use_ort_extensions": self.use_ort_extensions,
             },
@@ -960,19 +942,11 @@ class CompositeOnnxModel(ONNXModelBase):
 
     def __init__(
         self,
-        model_components: List[str],
-        name: Optional[str] = None,
-        version: Optional[int] = None,
-        aml_storage_name: Optional[str] = None,
+        model_components: List[Union[ONNXModel, Dict[str, Any]]],
+        model_component_names: List[str],
         hf_config: Union[Dict[str, Any], HFConfig] = None,
     ):
-        super().__init__(
-            model_path=None,
-            name=name,
-            version=version,
-            aml_storage_name=aml_storage_name,
-            model_storage_kind=ModelStorageKind.LocalFolder,
-        )
+        super().__init__(model_path=None)
 
         if isinstance(model_components[0], dict):
             assert all(
@@ -982,6 +956,9 @@ class CompositeOnnxModel(ONNXModelBase):
         else:
             assert all([isinstance(m, ONNXModel) for m in model_components]), "All components must be ONNXModel"
             self.model_components = model_components
+
+        assert len(self.model_components) == len(model_component_names), "Number of components and names must match"
+        self.model_component_names = model_component_names
 
         for m in self.model_components:
             m.set_composite_parent(self)
@@ -1009,6 +986,12 @@ class CompositeOnnxModel(ONNXModelBase):
     def get_model_component(self, idx):
         return self.model_components[idx]
 
+    def get_model_component_names(self):
+        return self.model_component_names
+
+    def get_model_component_name(self, idx):
+        return self.model_component_names[idx]
+
     def get_model_config(self):
         if self.hf_config is None:
             raise Exception("HF model_config is not available")
@@ -1017,7 +1000,7 @@ class CompositeOnnxModel(ONNXModelBase):
     def to_json(self, check_object: bool = False):
         json_dict = {
             "type": self.__class__.__name__,
-            "config": {"name": self.name, "version": self.version, "hf_config": self.hf_config},
+            "config": {"hf_config": self.hf_config, "model_component_names": self.model_component_names},
         }
         json_dict["config"]["model_components"] = []
         for m in self.model_components:

@@ -3,7 +3,6 @@
         "type": "PyTorchModel",
         "config": {
             "model_path": "runwayml/stable-diffusion-v1-5",
-            "model_storage_kind": "folder",
             "model_loader": "text_encoder_load",
             "model_script": "user_script.py",
             "io_config": {

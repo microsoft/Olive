@@ -6,7 +6,6 @@
 import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
-from pathlib import Path
 from typing import DefaultDict, Dict
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
@@ -87,7 +86,7 @@ class Footprint:
             is_goals_met = []
             for metric_name in v.metrics.value:
                 if metric_name not in self.objective_dict:
-                    logger.debug("There is no goal set for metric: {metric_name}.")
+                    logger.debug(f"There is no goal set for metric: {metric_name}.")
                     continue
                 higher_is_better = self.objective_dict[metric_name]["higher_is_better"]
                 cmp_direction = 1 if higher_is_better else -1
@@ -336,7 +335,14 @@ class Footprint:
         if model_config is None:
             return None
 
-        return Path(model_config.get("config", {}).get("model_path", None))
+        return model_config.get("config", {}).get("model_path", None)
+
+    def get_model_config(self, model_id):
+        model_config = self.nodes[model_id].model_config
+        if model_config is None:
+            return None
+
+        return model_config.get("config", {})
 
     def get_model_type(self, model_id):
         model_config = self.nodes[model_id].model_config

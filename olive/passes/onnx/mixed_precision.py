@@ -90,7 +90,7 @@ class OrtMixedPrecision(Pass):
         )
         output_model_path = ONNXModel.resolve_path(output_model_path)
         config = self._config_class(**config)
-        return model_proto_to_olive_model(fp16_model, output_model_path, config.dict(), model.name)
+        return model_proto_to_olive_model(fp16_model, output_model_path, config.dict())
 
     def _convert_float_to_float16(self, model, use_symbolic_shape_infer=True, **kwargs):
         """Convert a model to half (default) or mixed precision.

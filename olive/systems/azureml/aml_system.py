@@ -6,13 +6,14 @@ import json
 import logging
 import shutil
 import tempfile
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from azure.ai.ml import Input, Output, command
 from azure.ai.ml.constants import AssetTypes
 from azure.ai.ml.dsl import pipeline
-from azure.ai.ml.entities import BuildContext, Environment
+from azure.ai.ml.entities import BuildContext, Environment, Model
 from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
@@ -21,12 +22,28 @@ from olive.common.utils import retry_func
 from olive.constants import Framework
 from olive.evaluator.metric import Metric, MetricResult
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import ModelConfig, ModelStorageKind, OliveModel, ONNXModel
+from olive.model import ModelConfig, OliveModel
 from olive.passes.olive_pass import Pass
+from olive.resource_path import (
+    AZUREML_RESOURCE_TYPES,
+    LOCAL_RESOURCE_TYPES,
+    AzureMLModel,
+    ResourceType,
+    create_resource_path,
+)
 from olive.systems.common import AzureMLDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 
 logger = logging.getLogger(__name__)
+
+RESOURCE_TYPE_TO_ASSET_TYPE = {
+    ResourceType.LocalFile: AssetTypes.URI_FILE,
+    ResourceType.LocalFolder: AssetTypes.URI_FOLDER,
+    ResourceType.StringName: AssetTypes.URI_FILE,  # this is a place holder since we won't upload a string as input
+    ResourceType.AzureMLModel: AssetTypes.CUSTOM_MODEL,
+    ResourceType.AzureMLDatastore: AssetTypes.CUSTOM_MODEL,
+    ResourceType.AzureMLJobOutput: AssetTypes.CUSTOM_MODEL,
+}
 
 
 class AzureMLSystem(OliveSystem):
@@ -89,8 +106,8 @@ class AzureMLSystem(OliveSystem):
                 ml_client.jobs.create_or_update,
                 [pipeline_job],
                 {"experiment_name": "olive-pass", "tags": {"Pass": pass_config["type"]}},
-                max_tries=3,
-                delay=5,
+                max_tries=self.azureml_client_config.max_operation_retries,
+                delay=self.azureml_client_config.operation_retry_interval,
                 exceptions=HttpResponseError,
             )
             logger.info(f"Pipeline submitted. Job name: {job.name}. Job link: {job.studio_url}")
@@ -104,8 +121,8 @@ class AzureMLSystem(OliveSystem):
                 ml_client.jobs.download,
                 [job.name],
                 {"output_name": "pipeline_output", "download_path": output_dir},
-                max_tries=3,
-                delay=5,
+                max_tries=self.azureml_client_config.max_operation_retries,
+                delay=self.azureml_client_config.operation_retry_interval,
                 exceptions=ServiceResponseError,
             )
 
@@ -113,20 +130,18 @@ class AzureMLSystem(OliveSystem):
 
             return self._load_model(model, output_model_path, pipeline_output_path)
 
-    def _create_model_inputs(self, model_storage_kind: ModelStorageKind):
+    def _create_model_inputs(self, model_path_type: ResourceType):
+        # model_path_type can be None if the model_path is None
+        # we create a placeholder input for model_path in this case
+        model_path_asset_type = RESOURCE_TYPE_TO_ASSET_TYPE[model_path_type] if model_path_type else AssetTypes.URI_FILE
         return {
             "model_config": Input(type=AssetTypes.URI_FILE),
-            # aml supports uploading file/folder even though model_path is typed as URI_FOLDER
-            "model_path": Input(type=AssetTypes.CUSTOM_MODEL)
-            if model_storage_kind == ModelStorageKind.AzureMLModel
-            else Input(type=AssetTypes.URI_FOLDER, optional=True),
+            "model_path": Input(type=model_path_asset_type, optional=True),
             "model_script": Input(type=AssetTypes.URI_FILE, optional=True),
             "model_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
 
     def _create_model_args(self, model_json: dict, tmp_dir: Path):
-        # TODO: consider symlinking model_script and model_script_dir also when we decide
-        # the relationship between the two
         model_script = None
         if model_json["config"].get("model_script"):
             model_script = Input(type=AssetTypes.URI_FILE, path=model_json["config"]["model_script"])
@@ -138,47 +153,60 @@ class AzureMLSystem(OliveSystem):
             model_json["config"]["script_dir"] = None
 
         model_path = None
-        if model_json["config"]["model_storage_kind"] == ModelStorageKind.AzureMLModel:
-            model_path = Input(
-                type=AssetTypes.CUSTOM_MODEL,
-                path=model_json["config"]["model_path"],
-            )
-            model_json["config"]["model_storage_kind"] = str(ModelStorageKind.LocalFile)
-            model_json["config"]["version"] = None
-        else:
-            if model_json["config"].get("model_path"):
-                original_model_path = Path(model_json["config"]["model_path"]).resolve()
-                if (
-                    model_json["type"].lower() == "onnxmodel"
-                    and model_json["config"]["model_storage_kind"] == ModelStorageKind.LocalFolder
-                ):
-                    # onnx model with external data
-                    # need to upload the parent directory of .onnx file
-                    original_model_path = original_model_path.parent
-                # use common name "model" for model_path
-                tmp_model_path = (tmp_dir / "model").with_suffix(original_model_path.suffix)
-                if original_model_path.is_dir():
-                    # copy model directory
-                    # symlink doesn't work for directory
-                    shutil.copytree(original_model_path, tmp_model_path, symlinks=True)
-                    if model_json["type"].lower() == "onnxmodel":
-                        # rename .onnx file to model.onnx
-                        onnx_model_file = Path(model_json["config"]["model_path"]).resolve().name
-                        (tmp_model_path / onnx_model_file).rename(tmp_model_path / "model.onnx")
-                else:
-                    # symlink model file
-                    tmp_model_path.symlink_to(original_model_path)
-                model_path = Input(
-                    type=AssetTypes.URI_FILE
-                    if model_json["config"].get("model_storage_kind") == ModelStorageKind.LocalFile
-                    else AssetTypes.URI_FOLDER,
-                    path=tmp_model_path,
+        if model_json["config"].get("model_path"):
+            model_resource_path = create_resource_path(model_json["config"]["model_path"])
+            asset_type = RESOURCE_TYPE_TO_ASSET_TYPE[model_resource_path.type]
+
+            if model_resource_path.type in AZUREML_RESOURCE_TYPES:
+                # ensure that the model is in the same workspace as the system
+                model_workspace_config = model_resource_path.config.azureml_client.get_workspace_config()
+                system_workspace_config = self.azureml_client_config.get_workspace_config()
+                for key in model_workspace_config:
+                    if model_workspace_config[key] != system_workspace_config[key]:
+                        raise ValueError(
+                            f"Model workspace {model_workspace_config} is different from system workspace"
+                            f" {system_workspace_config}."
+                        )
+
+            if model_resource_path.type == ResourceType.AzureMLJobOutput:
+                # there is no direct way to use the output of a job as input to another job
+                # so we create a dummy aml model and use it as input
+                ml_client = self.azureml_client_config.create_client()
+
+                # create aml model
+                logger.debug(f"Creating aml model for job output {model_resource_path}")
+                aml_model = retry_func(
+                    ml_client.models.create_or_update,
+                    [
+                        Model(
+                            path=model_resource_path.get_path(),
+                            name="olive-backend-model",
+                            description="Model created by Olive backend. Ignore this model.",
+                            type=AssetTypes.CUSTOM_MODEL,
+                        )
+                    ],
+                    max_tries=self.azureml_client_config.max_operation_retries,
+                    delay=self.azureml_client_config.operation_retry_interval,
+                    exceptions=ServiceResponseError,
                 )
-        model_json["config"]["model_path"] = None
+                model_resource_path = create_resource_path(
+                    AzureMLModel(
+                        {
+                            "azureml_client": self.azureml_client_config,
+                            "name": aml_model.name,
+                            "version": aml_model.version,
+                        }
+                    )
+                )
+
+            # we keep the model path as a string in the config file
+            if model_resource_path.type != ResourceType.StringName:
+                model_path = Input(type=asset_type, path=model_resource_path.get_path())
+                model_json["config"]["model_path"] = None
 
         model_config_path = tmp_dir / "model_config.json"
         with model_config_path.open("w") as f:
-            json.dump(model_json, f, sort_keys=True)
+            json.dump(model_json, f, sort_keys=True, indent=4)
         model_config = Input(type=AssetTypes.URI_FILE, path=model_config_path)
 
         return {
@@ -209,7 +237,7 @@ class AzureMLSystem(OliveSystem):
 
         pass_config_path = tmp_dir / "pass_config.json"
         with pass_config_path.open("w") as f:
-            json.dump(pass_config, f, sort_keys=True)
+            json.dump(pass_config, f, sort_keys=True, indent=4)
 
         return {"pass_config": Input(type=AssetTypes.URI_FILE, path=pass_config_path), **pass_args}
 
@@ -259,7 +287,7 @@ class AzureMLSystem(OliveSystem):
         shutil.copy(str(code_file), str(code_root))
         if self.is_dev:
             logger.warning(
-                "This mode is only enabled for CI pipeline! "
+                "Dev mode is only enabled for CI pipeline! "
                 + "It will overwrite the Olive package in AML computer with latest code."
             )
             project_folder = cur_dir.parent.parent
@@ -271,7 +299,7 @@ class AzureMLSystem(OliveSystem):
         }
         # prepare inputs
         inputs = {
-            **self._create_model_inputs(model.model_storage_kind),
+            **self._create_model_inputs(model.model_resource_path.type if model.model_resource_path else None),
             **self._create_pass_inputs(pass_path_params),
             **accelerator_info,
         }
@@ -323,40 +351,27 @@ class AzureMLSystem(OliveSystem):
         same_model_path_as_input = model_json.pop("same_model_path_as_input")
         model_path = None
         if same_model_path_as_input:
-            model_path = input_model.model_path
-            model_json["config"].update(
-                {
-                    "name": input_model.name,
-                    "version": input_model.version,
-                    "model_storage_kind": input_model.model_storage_kind,
-                }
-            )
+            model_path = input_model.model_resource_path
         elif model_json["config"]["model_path"] is not None:
-            downloaded_model_path = pipeline_output_path / model_json["config"]["model_path"]
-            if model_json["type"].lower() == "onnxmodel":
-                # onnx model can have external data
-                output_model_path = ONNXModel.resolve_path(output_model_path)
-                if model_json["config"]["model_storage_kind"] == ModelStorageKind.LocalFolder:
-                    # has external data
-                    # copy the .onnx file along with external data files
-                    shutil.copytree(downloaded_model_path.parent, Path(output_model_path).parent, dirs_exist_ok=True)
-                    # rename the .onnx file to the output_model_path, the downloaded model has "model.onnx" name
-                    (Path(output_model_path).parent / downloaded_model_path.name).rename(output_model_path)
-                else:
-                    # no external data
-                    # just copy over the .onnx file
-                    shutil.copy(downloaded_model_path, output_model_path)
-            else:
-                # handle other model types
-                if Path(output_model_path).suffix != Path(downloaded_model_path).suffix:
-                    output_model_path += Path(downloaded_model_path).suffix
-                if downloaded_model_path.is_file():
-                    # model is a file
-                    shutil.copy(downloaded_model_path, output_model_path)
-                else:
-                    # model is a directory
-                    shutil.copytree(downloaded_model_path, output_model_path, dirs_exist_ok=True)
-            model_path = output_model_path
+            resource_type = model_json["config"]["model_path"]["type"]
+            # we currently only have passes that generate local files or folders
+            # check that this is true
+            assert resource_type in LOCAL_RESOURCE_TYPES, f"Expected local file or folder, got {resource_type}"
+            # if the model is downloaded from job, we need to copy it to the output folder
+            # get the downloaded model path
+            download_model_path = pipeline_output_path / model_json["config"]["model_path"]["config"]["path"]
+            # create a resource path object for the downloaded model
+            downloaded_resource_path = deepcopy(model_json["config"]["model_path"])
+            downloaded_resource_path["config"]["path"] = str(download_model_path)
+            downloaded_resource_path = create_resource_path(downloaded_resource_path)
+            # save the downloaded model to the output folder
+            output_model_path = downloaded_resource_path.save_to_dir(
+                Path(output_model_path).parent, Path(output_model_path).name, True
+            )
+            # create a resource path object for the output model
+            output_model_resource_path = deepcopy(model_json["config"]["model_path"])
+            output_model_resource_path["config"]["path"] = str(output_model_path)
+            model_path = create_resource_path(output_model_resource_path)
         model_json["config"]["model_path"] = model_path
         return ModelConfig(**model_json).create_model()
 
@@ -386,7 +401,7 @@ class AzureMLSystem(OliveSystem):
 
         metric_config_path = tmp_dir / "metric_config.json"
         with metric_config_path.open("w") as f:
-            json.dump(metric_config, f, sort_keys=True)
+            json.dump(metric_config, f, sort_keys=True, indent=4)
         metric_config = Input(type=AssetTypes.URI_FILE, path=metric_config_path)
 
         return {
@@ -412,8 +427,8 @@ class AzureMLSystem(OliveSystem):
                 ml_client.jobs.create_or_update,
                 [pipeline_job],
                 {"experiment_name": "olive-evaluation"},
-                max_tries=3,
-                delay=5,
+                max_tries=self.azureml_client_config.max_operation_retries,
+                delay=self.azureml_client_config.operation_retry_interval,
                 exceptions=HttpResponseError,
             )
             logger.info(f"Pipeline submitted. Job name: {job.name}. Job link: {job.studio_url}")
@@ -426,8 +441,8 @@ class AzureMLSystem(OliveSystem):
                 ml_client.jobs.download,
                 [job.name],
                 {"download_path": output_dir, "all": True},
-                max_tries=3,
-                delay=5,
+                max_tries=self.azureml_client_config.max_operation_retries,
+                delay=self.azureml_client_config.operation_retry_interval,
                 exceptions=ServiceResponseError,
             )
 
@@ -461,7 +476,11 @@ class AzureMLSystem(OliveSystem):
             for metric in metrics:
                 metric_tmp_dir = tmp_dir / metric.name
                 metric_component = self._create_metric_component(
-                    metric_tmp_dir, metric, model_args, model.model_storage_kind, accelerator_config_path
+                    metric_tmp_dir,
+                    metric,
+                    model_args,
+                    model.model_resource_path.type if model.model_resource_path else None,
+                    accelerator_config_path,
                 )
                 outputs[metric.name] = metric_component.outputs.pipeline_output
             return outputs
@@ -476,7 +495,7 @@ class AzureMLSystem(OliveSystem):
         tmp_dir: Path,
         metric: Metric,
         model_args: Dict[str, Input],
-        model_storage_kind: ModelStorageKind,
+        model_resource_type: ResourceType,
         accelerator_config_path: str,
     ):
         metric_json = metric.to_json(check_objects=True)
@@ -490,7 +509,7 @@ class AzureMLSystem(OliveSystem):
         shutil.copy(str(code_file), str(code_root))
         if self.is_dev:
             logger.warning(
-                "This mode is only enabled for CI pipeline! "
+                "Dev mode is only enabled for CI pipeline! "
                 + "It will overwrite the Olive package in AML computer with latest code."
             )
             project_folder = cur_dir.parent.parent
@@ -498,7 +517,7 @@ class AzureMLSystem(OliveSystem):
 
         # prepare inputs
         inputs = {
-            **self._create_model_inputs(model_storage_kind),
+            **self._create_model_inputs(model_resource_type),
             **self._create_metric_inputs(),
             **{"accelerator_config": Input(type=AssetTypes.URI_FILE)},
         }

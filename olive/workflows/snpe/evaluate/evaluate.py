@@ -27,13 +27,12 @@ def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: O
         input_list_file (str, optional): Name of input list file. Optional if it is 'input_list.txt'.
     """
     data_dir = Path(data).resolve()
-    name = Path(model).resolve().stem
     if type(config) is str:
         with open(Path(config).resolve()) as f:
             config = json.load(f)
 
     # SNPE Model
-    model = SNPEModel(model_path=model, name=name, **config["io_config"])
+    model = SNPEModel(model_path=model, **config["io_config"])
 
     # Devices to evaluate on
     devices = [Device.CPU]

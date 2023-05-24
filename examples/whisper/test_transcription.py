@@ -10,6 +10,8 @@ import numpy as np
 import onnxruntime as ort
 from onnxruntime_extensions import PyOrtFunction
 
+from olive.model import ONNXModel
+
 # hard-coded audio hyperparameters
 # copied from https://github.com/openai/whisper/blob/main/whisper/audio.py#L12
 SAMPLE_RATE = 16000
@@ -50,8 +52,8 @@ def main(raw_args=None):
     output_model_json = json.load(open(output_model_json_path, "r"))
 
     # load output model onnx
-    output_model_path = output_model_json["config"]["model_path"]
-    model = PyOrtFunction.from_model(output_model_path)
+    olive_model = ONNXModel(**output_model_json["config"])
+    model = PyOrtFunction.from_model(olive_model.model_path)
 
     # load audio data
     if not args.audio_path:

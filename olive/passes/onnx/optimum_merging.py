@@ -6,14 +6,13 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Union
 
-import onnx
 import onnxruntime
 from onnx import ModelProto
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeOnnxModel, ONNXModel
 from olive.passes import Pass
-from olive.passes.onnx.common import get_external_data_config
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
 
 
@@ -66,13 +65,7 @@ class OptimumMerging(Pass):
         Path(output_model_path).mkdir(parents=True, exist_ok=True)
         output_model_path = os.path.join(output_model_path, "decoder_model_merged.onnx")
 
-        onnx.save(
-            merged_model,
-            output_model_path,
-            save_as_external_data=True,
-            all_tensors_to_one_file=True,
-            location="decoder_model_merged.onnx.data",
-        )
+        olive_model = model_proto_to_olive_model(merged_model, output_model_path, config)
 
         # Doing a dry run of ORT allows us to remove the initializers that were orphaned by the merging step
         sess_options = onnxruntime.SessionOptions()
@@ -82,4 +75,4 @@ class OptimumMerging(Pass):
         execution_provider = config["execution_provider"]
         onnxruntime.InferenceSession(output_model_path, sess_options, providers=[execution_provider])
 
-        return ONNXModel(output_model_path, model.name)
+        return olive_model

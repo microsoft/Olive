@@ -17,6 +17,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
 from olive.passes import FullPassConfig, Pass
+from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
 
 
@@ -64,8 +65,31 @@ class RunConfig(ConfigBase):
     engine: RunEngineConfig
     passes: Dict[str, RunPassConfig]
 
+    @validator("input_model", pre=True)
+    def insert_aml_client(cls, v, values):
+        if isinstance(v, ModelConfig):
+            v = v.dict()
+
+        input_model_path = v["config"].get("model_path")
+        # if not a dict, return the original value
+        if not input_model_path or not isinstance(input_model_path, dict):
+            return v
+
+        resource_path_type = input_model_path.get("type")
+        # insert aml_client if resource_path_type is azureml and not already set
+        if resource_path_type in AZUREML_RESOURCE_TYPES:
+            model_aml_client = input_model_path.get("config", {}).get("azureml_client")
+            if not model_aml_client:
+                if "azureml_client" not in values:
+                    raise ValueError("azureml_client is required for azureml resource path")
+                v["config"]["model_path"]["config"]["azureml_client"] = values["azureml_client"]
+        return v
+
     @validator("data_config", pre=True, each_item=True, always=True)
     def validate_data_config(cls, v, values):
+        if "input_model" not in values:
+            raise ValueError("Invalid input model")
+
         hf_config = values["input_model"].dict()["config"].get("hf_config", {})
 
         if isinstance(v, DataConfig):
@@ -154,6 +178,8 @@ def _resolve_system(v, values, system_alias, component_name="systems"):
 
 def _resolve_data_config(v, values, system_alias, component_name="data_config"):
     data_container_config = v.get("data_config", None)
+    if "input_model" not in values:
+        raise ValueError("Invalid input model")
     hf_data_config = values["input_model"].dict()["config"].get("hf_config", {}).get("dataset", None)
     if not data_container_config and hf_data_config:
         # if data_container is None, we need to update the config to use HuggingfaceContainer

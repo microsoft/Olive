@@ -32,7 +32,7 @@ def main():
     # Tensorflow model
     print("Loading Tensorflow model...")
     tensorflow_model_file = str(models_dir / f"{name}.pb")
-    tensorflow_model = TensorFlowModel(model_path=tensorflow_model_file, name="inception_v3")
+    tensorflow_model = TensorFlowModel(model_path=tensorflow_model_file)
 
     # ------------------------------------------------------------------
     # SNPE model

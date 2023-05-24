@@ -2,7 +2,6 @@
     "input_model":{
         "type": "PyTorchModel",
         "config": {
-            "model_storage_kind": "folder",
             "model_loader": "load_pytorch_origin_model",
             "model_script": "user_script.py",
             "hf_config": {

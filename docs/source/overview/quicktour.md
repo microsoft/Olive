@@ -41,7 +41,6 @@ Now, let's take a look at the json configuration file you need to provide to opt
         "type": "PyTorchModel",
         "config": {
             "model_path": "resnet.pt",
-            "model_storage_kind": "file",
             "io_config": {
                 "input_names": ["input"],
                 "input_shapes": [[1, 3, 32, 32]],
@@ -138,9 +137,6 @@ Here is an example of that:
             "type": "ONNXModel",
             "config": {
                 "model_path": "path",
-                "name": null,
-                "model_storage_kind": "file",
-                "version": null,
                 "inference_settings": null
             }
         },

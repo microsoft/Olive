@@ -2,8 +2,6 @@
     "input_model": {
         "type": "PyTorchModel",
         "config": {
-            "model_path": null,
-            "model_storage_kind": "folder",
             "model_loader": "load_pytorch_origin_model",
             "model_script": "user_script.py",
             "io_config": {

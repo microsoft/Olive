@@ -2,27 +2,25 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import json
 import os
 import tempfile
 from pathlib import Path
 
 from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.model import ModelStorageKind, PyTorchModel
+from olive.model import PyTorchModel
 from olive.passes import OnnxConversion
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
 
 
-def test_aml_model():
+def test_aml_model_pass_run():
     # ------------------------------------------------------------------
     # Azure ML System
     aml_compute = "cpu-cluster"
     folder_location = Path(__file__).absolute().parent
     conda_file_location = folder_location / "conda.yaml"
-    config_file_location = folder_location / "olive-workspace-config.json"
-    generate_olive_workspace_config(config_file_location)
-    azureml_client_config = AzureMLClientConfig(aml_config_path=str(config_file_location))
+    workspace_config = get_olive_workspace_config()
+    azureml_client_config = AzureMLClientConfig(**workspace_config)
     docker_config = AzureMLDockerConfig(
         base_image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
         conda_file_path=conda_file_location,
@@ -36,17 +34,7 @@ def test_aml_model():
 
     # ------------------------------------------------------------------
     # Input model
-    pytorch_model = PyTorchModel(
-        name="bert_glue",
-        model_storage_kind=ModelStorageKind.AzureMLModel,
-        version=10,
-        io_config={
-            "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-            "input_shapes": [[1, 128], [1, 128], [1, 128]],
-            "input_types": ["int64", "int64", "int64"],
-            "output_names": ["output"],
-        },
-    )
+    pytorch_model = get_pytorch_model()
 
     # ------------------------------------------------------------------
     # Onnx conversion pass
@@ -61,7 +49,38 @@ def test_aml_model():
         assert Path(onnx_model.model_path).is_file()
 
 
-def generate_olive_workspace_config(workspace_config_path):
+def test_aml_model_download():
+    pytorch_model = get_pytorch_model()
+    tmp_dir = tempfile.TemporaryDirectory()
+    tmp_dir_path = Path(tmp_dir.name).resolve()
+
+    download_path = pytorch_model.download_model(tmp_dir_path)
+    assert Path(download_path).is_file()
+
+
+def get_pytorch_model():
+    workspace_config = get_olive_workspace_config()
+    azureml_client_config = AzureMLClientConfig(**workspace_config)
+    pytorch_model = PyTorchModel(
+        model_path={
+            "type": "azureml_model",
+            "config": {
+                "azureml_client": azureml_client_config,
+                "name": "bert_glue",
+                "version": 10,
+            },
+        },
+        io_config={
+            "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+            "input_shapes": [[1, 128], [1, 128], [1, 128]],
+            "input_types": ["int64", "int64", "int64"],
+            "output_names": ["output"],
+        },
+    )
+    return pytorch_model
+
+
+def get_olive_workspace_config():
     subscription_id = os.environ.get("WORKSPACE_SUBSCRIPTION_ID")
     if subscription_id is None:
         raise Exception("Please set the environment variable WORKSPACE_SUBSCRIPTION_ID")
@@ -80,4 +99,4 @@ def generate_olive_workspace_config(workspace_config_path):
         "workspace_name": workspace_name,
     }
 
-    json.dump(workspace_config, open(workspace_config_path, "w"))
+    return workspace_config

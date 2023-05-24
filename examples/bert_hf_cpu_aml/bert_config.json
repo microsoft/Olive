@@ -7,10 +7,13 @@
     "input_model":{
         "type": "PyTorchModel",
         "config": {
-            "name": "bert-hf",
-            "version": "3",
-            "model_storage_kind": "azureml",
-            "aml_storage_name": "bert_hf",
+            "model_path": {
+                "type": "azureml_model",
+                "config": {
+                    "name": "bert-hf",
+                    "version": "3"
+                }
+            },
             "hf_config": {
                 "model_name": "Intel/bert-base-uncased-mrpc",
                 "task": "text-classification",
@@ -112,6 +115,7 @@
         "host": "local_system",
         "target": "local_system",
         "clean_cache": true,
-        "cache_dir": "cache"
+        "cache_dir": "cache",
+        "output_dir": "models"
     }
 }

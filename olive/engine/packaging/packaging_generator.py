@@ -19,6 +19,8 @@ from olive.common.utils import run_subprocess
 from olive.engine.footprint import Footprint
 from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
 from olive.hardware import AcceleratorSpec
+from olive.model import ONNXModel
+from olive.resource_path import ResourceType, create_resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -70,11 +72,30 @@ def _package_candidate_models(
         model_rank += 1
         # Copy model file
         model_path = pf_footprint.get_model_path(model_id)
+        model_resource_path = create_resource_path(model_path) if model_path else None
         model_type = pf_footprint.get_model_type(model_id)
         if model_type == "ONNXModel":
-            shutil.copy2(model_path, model_dir / "model.onnx")
+            with tempfile.TemporaryDirectory(dir=model_dir, prefix="olive_tmp") as tempdir:
+                # save to tempdir first since model_path may be a folder
+                temp_resource_path = create_resource_path(model_resource_path.save_to_dir(tempdir, "model", True))
+                # save to model_dir
+                if temp_resource_path.type == ResourceType.LocalFile:
+                    # if model_path is a file, rename it to model_dir / model.onnx
+                    Path(temp_resource_path.get_path()).rename(model_dir / "model.onnx")
+                elif temp_resource_path.type == ResourceType.LocalFolder:
+                    # if model_path is a folder, save all files in the folder to model_dir / file_name
+                    # file_name for .onnx file is model.onnx, otherwise keep the original file name
+                    model_config = pf_footprint.get_model_config(model_id)
+                    onnx_file_name = model_config.get("onnx_file_name")
+                    onnx_model = ONNXModel(temp_resource_path, onnx_file_name)
+                    for file in Path(temp_resource_path.get_path()).iterdir():
+                        if file.name == Path(onnx_model.model_path).name:
+                            file_name = "model.onnx"
+                        else:
+                            file_name = file.name
+                        Path(file).rename(model_dir / file_name)
         elif model_type == "OpenVINOModel":
-            shutil.copytree(model_path, model_dir / "model")
+            model_resource_path.save_to_dir(model_dir, "model", True)
         else:
             raise ValueError(f"Unsupported model type: {model_type} for packaging")
 

@@ -79,4 +79,4 @@ class SNPEQuantization(Pass):
             output_model_path += ".dlc"
 
         quantize_dlc(model.model_path, self.dataloader.get_input_list(), config.dict(), output_model_path)
-        return SNPEModel(model_path=output_model_path, name=model.name, **model.io_config)
+        return SNPEModel(model_path=output_model_path, **model.io_config)
