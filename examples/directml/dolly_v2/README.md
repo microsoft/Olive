@@ -10,9 +10,21 @@ Dolly V2 comprises multiple PyTorch models tied together into a *pipeline*. This
 
 # Setup
 
-Ensure that you have [installed Olive from pip or from source](https://microsoft.github.io/Olive/getstarted/installation.html) (either `olive-ai` or `olive-ai[directml]` will work since this sample has an explicit dependency on `onnxruntime-directml`). Next, install the requirements specific to this sample:
+Olive is currently under pre-release, with constant updates and improvements to the functions and usage. This sample code will be frequently updated as Olive evolves, so it is important to install Olive from source when checking out this code from the main branch. See the [README for examples](https://github.com/microsoft/Olive/blob/main/examples/README.md#important) for detailed instructions on how to do this.
+
+**Alternatively**, you may install a stable release that we have validated. For example:
 
 ```
+# Install stable release of the Olive tool
+pip install olive-ai[directml]==0.2.1
+
+# Clone Olive repo to access sample code
+git clone https://github.com/microsoft/olive --branch v0.2.1
+```
+
+Once you've installed Olive, install the requirements for this sample matching the version of the library you are using:
+```
+cd olive/examples/directml/dolly_v2
 pip install -r requirements.txt
 ```
 
