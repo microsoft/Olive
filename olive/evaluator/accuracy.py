@@ -37,7 +37,7 @@ class AccuracyBase(AutoConfigClass):
         super().__init__(config)
 
     @classmethod
-    def metric_config_from_torch_metrics(cls):
+    def _metric_config_from_torch_metrics(cls):
         metric_module = cls.metric_cls_map[cls.name]
         params = signature(metric_module).parameters
         # if the metrics is calculated by torchmetrics.functional, we should filter the label data out
@@ -59,7 +59,7 @@ class AccuracyBase(AutoConfigClass):
 
     @classmethod
     def _default_config(cls) -> Dict[str, ConfigParam]:
-        return cls.metric_config_from_torch_metrics()
+        return cls._metric_config_from_torch_metrics()
 
     @abstractmethod
     def measure(self, preds, target):
