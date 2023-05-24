@@ -98,7 +98,7 @@ def create_fixed_dataloader(datadir, batchsize):
     return dataloader
 
 
-def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None):
+def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None, backend="torch_metrics"):
     accuracy_metric_config = {"dataloader_func": create_dataloader if random_dataloader else create_fixed_dataloader}
     sub_types = [{"name": sub, "goal": MetricGoal(type="threshold", value=0.99)} for sub in acc_subtype]
     sub_types[0]["priority"] = 1
@@ -107,6 +107,7 @@ def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None):
         type=MetricType.ACCURACY,
         sub_types=sub_types,
         user_config=user_config or accuracy_metric_config,
+        backend=backend,
     )
     return accuracy_metric
 
