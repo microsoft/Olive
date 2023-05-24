@@ -8,10 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from olive.logging import set_default_logger_severity
 from olive.resource_path import ResourceType, create_resource_path
-
-set_default_logger_severity(0)
 
 
 class TestAMLResourcePath:
