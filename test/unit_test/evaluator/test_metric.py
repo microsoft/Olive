@@ -31,6 +31,11 @@ class TestEvaluation:
                     {
                         "name": "recall",
                         "priority": -1,
+                        "metric_config": {
+                            "load_params": {"process_id": 0},
+                            "compute_params": {"suffix": True},
+                            "result_key": "recall",
+                        },
                     },
                 ],
             },

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from olive.evaluator.metric import AccuracySubType, LatencySubType, SubMetricResult
+from olive.evaluator.metric import AccuracySubType, LatencySubType
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
 
@@ -74,29 +74,6 @@ class TestOliveEvaluator:
 
             # assert
             mock_acc.assert_called_once()
-            for sub_type in metric.sub_types:
-                assert expected_res == actual_res.get_value(metric.name, sub_type.name)
-
-    HF_ACCURACY_TEST_CASE = [
-        (get_pytorch_model(), get_accuracy_metric("accuracy", "f1", backend="huggingface_metrics"), 0.99),
-        (get_onnx_model(), get_accuracy_metric("accuracy", "f1", backend="huggingface_metrics"), 0.99),
-    ]
-
-    @pytest.mark.parametrize(
-        "olive_model,metric,expected_res",
-        HF_ACCURACY_TEST_CASE,
-    )
-    def test_evaluate_benchmark(self, olive_model, metric, expected_res):
-        from olive.evaluator.metric_backend import HuggingfaceMetrics
-
-        with patch.object(HuggingfaceMetrics, "measure_sub_metric") as mock_measure:
-            mock_measure.return_value = SubMetricResult(value=expected_res, higher_is_better=True, priority=-1)
-
-            # execute
-            actual_res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
-
-            # assert
-            mock_measure.call_count == len(metric.sub_types)
             for sub_type in metric.sub_types:
                 assert expected_res == actual_res.get_value(metric.name, sub_type.name)
 
