@@ -132,8 +132,13 @@ def _overwrite_helper(new_path: Union[Path, str], overwrite: bool):
     # check if the resource already exists
     if new_path.exists():
         if not overwrite:
-            # raise an error if the resource already exists
-            raise FileExistsError(f"File {new_path} already exists and overwrite is set to False.")
+            # raise an error if the file/folder with same name already exists and overwrite is set to False
+            # Olive doesn't know if the existing file/folder is the same as the one being saved
+            # or if the user wants to overwrite the existing file/folder
+            raise FileExistsError(
+                f"Trying to save resource to {new_path} but a file/folder with the same name already exists and"
+                " overwrite is set to False. If you want to overwrite the existing file/folder, set overwrite to True."
+            )
         else:
             # delete the resource if it already exists
             if new_path.is_file():
