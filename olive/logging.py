@@ -27,3 +27,20 @@ def set_verbosity_error():
 
 def set_verbosity_critical():
     set_verbosity(logging.CRITICAL)
+
+
+def set_default_logger_severity(level):
+    """
+    Set log level for olive package.
+
+    :param level: 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL
+    """
+    # mapping from level to logging level
+    level_map = {0: logging.DEBUG, 1: logging.INFO, 2: logging.WARNING, 3: logging.ERROR, 4: logging.CRITICAL}
+
+    # check if level is valid
+    if level not in level_map:
+        raise ValueError(f"Invalid level {level}, should be one of {list(level_map.keys())}")
+
+    # set logger level
+    set_verbosity(level_map[level])

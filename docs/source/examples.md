@@ -1,26 +1,24 @@
-# Inception model optimization on Qualcomm NPU
-[inception_snpe_qualcomm_npu](https://github.com/microsoft/Olive/tree/main/examples/snpe/inception_snpe_qualcomm_npu)
+# Acceleration on CPU
+[Whisper optimization with PTQ and pre/post processing](https://github.com/microsoft/Olive/tree/main/examples/whisper)
 
-# Cifar10 optimization with OpenVINO for Intel HW
-[cifar10_openvino_intel_hw](https://github.com/microsoft/Olive/tree/main/examples/cifar10_openvino_intel_hw)
+[BERT optimization with Intel® Neural Compressor Post Training quantization](https://github.com/microsoft/Olive/tree/main/examples/bert_inc_ptq_cpu)
 
-# BERT optimization with QAT Customized Training Loop on CPU
-[bert_qat_customized_train_loop_cpu](https://github.com/microsoft/Olive/tree/main/examples/quantization_aware_training/bert_qat_customized_train_loop_cpu)
+[BERT optimization with QAT Customized Training Loop](https://github.com/microsoft/Olive/tree/main/examples/quantization_aware_training/bert_qat_customized_train_loop_cpu)
 
-# ResNet optimization with QAT Default Training Loop on CPU
-[resnet_qat_default_train_loop_cpu](https://github.com/microsoft/Olive/tree/main/examples/quantization_aware_training/resnet_qat_default_train_loop_cpu)
+[ResNet optimization with QAT Default Training Loop](https://github.com/microsoft/Olive/tree/main/examples/quantization_aware_training/resnet_qat_default_train_loop_cpu)
 
-# ResNet optimization with QAT PyTorch Lightning Module on CPU
-[resnet_qat_lightning_module_cpu](https://github.com/microsoft/Olive/tree/main/examples/quantization_aware_training/resnet_qat_lightning_module_cpu)
+[ResNet optimization with QAT PyTorch Lightning Module](https://github.com/microsoft/Olive/tree/main/examples/quantization_aware_training/resnet_qat_lightning_module_cpu)
 
-# SqueezeNet latency optimization with DirectML
-[directml/squeezenet](https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet)
+[ResNet optimization with PTQ using Vitis-AI](https://github.com/microsoft/Olive/tree/main/examples/resnet_vitis_ai_ptq_cpu)
 
-# Stable Diffusion optimization with DirectML
-[directml/stable_diffusion](https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion)
+[Cifar10 optimization with OpenVINO for Intel HW](https://github.com/microsoft/Olive/tree/main/examples/cifar10_openvino_intel_hw)
 
-# BERT optimization with Intel® Neural Compressor Post Training quantization on CPU
-[bert_inc_ptq_cpu](https://github.com/microsoft/Olive/tree/main/examples/bert_inc_ptq_cpu)
+# Acceleration on GPU
+[SqueezeNet latency optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet)
 
-# Whisper optimization using ORT toolchain
-[whisper](https://github.com/microsoft/Olive/tree/main/examples/whisper)
+[Stable Diffusion optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion)
+
+[Dolly V2 optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/dolly_v2)
+
+# Acceleration on NPU
+[Inception model optimization on Qualcomm NPU](https://github.com/microsoft/Olive/tree/main/examples/snpe/inception_snpe_qualcomm_npu)

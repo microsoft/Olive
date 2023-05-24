@@ -6,18 +6,12 @@ to apply from user in the form of a json dictionary. In this document, we docume
 
 The options are organized into following sections:
 
-- [Verbosity](#verbosity) `verbose`
 - [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
 - [Systems Information](#systems-information) `systems`
 - [Evaluators Information](#evaluators-information) `evaluators`
 - [Passes Information](#passes-information) `passes`
 - [Engine Information](#engine-information) `engine`
-
-## Verbosity
-`verbose: [Boolean]`
-
-If set to `true`, Olive will log verbose information during the optimization process. The default value is `false`.
 
 ## Azure ML Client
 `azureml_client: [Dict]`
@@ -304,6 +298,8 @@ Please also find the detailed options from following table for each pass:
 | [SNPEQuantization](snpe_quantization) | Quantize SNPE model. Uses snpe-dlc-quantize tool from the SNPE SDK. |
 | [SNPEtoONNXConversion](snpe_to_onnx_conversion) | Convert a SNPE DLC to ONNX to use with SNPE Execution Provider. Creates a ONNX graph with the SNPE DLC as a node. |
 | [VitisAIQuantization](vitis_ai_quantization) | AMD-Xilinx Vitis-AI Quantization Pass.  |
+| [OptimumConversion](optimum_conversion) | Convert huggingface models to ONNX via the Optimum library.  |
+| [OptimumMerging](optimum_merging) | Merge 2 models together with an `if` node via the Optimum library.  |
 
 ### Example
 ```json
@@ -351,7 +347,7 @@ This is a dictionary that contains the information of the engine. The informatio
     - `max_time: [int]` The maximum time of the search in seconds. Only valid for `joint` execution order. By default, there is no
     maximum time.
 
-  If `search_strategy` is `null` or `false`, the engine will run the passes in the order they were registered without. Thus, the passes must
+  If `search_strategy` is `null` or `false`, the engine will run the passes in the order they were registered without searching. Thus, the passes must
   have empty search spaces. The output of the final pass will be evaluated if there is a valid evaluator. The output of the engine will be
   the output model of the final pass and its evaluation result.
 
