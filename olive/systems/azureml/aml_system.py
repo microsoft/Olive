@@ -6,6 +6,7 @@ import json
 import logging
 import shutil
 import tempfile
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -23,7 +24,7 @@ from olive.evaluator.metric import Metric, MetricResult
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ModelConfig, OliveModel
 from olive.passes.olive_pass import Pass
-from olive.resource_path import AZUREML_RESOURCE_TYPES, AzureMLModelConfig, ResourcePath, ResourceType
+from olive.resource_path import AZUREML_RESOURCE_TYPES, AzureMLModel, ResourceType, create_resource_path
 from olive.systems.common import AzureMLDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
 
@@ -147,7 +148,7 @@ class AzureMLSystem(OliveSystem):
 
         model_path = None
         if model_json["config"].get("model_path"):
-            model_resource_path = ResourcePath.create_resource_path(model_json["config"]["model_path"])
+            model_resource_path = create_resource_path(model_json["config"]["model_path"])
             asset_type = RESOURCE_TYPE_TO_ASSET_TYPE[model_resource_path.type]
 
             if model_resource_path.type in AZUREML_RESOURCE_TYPES:
@@ -182,13 +183,14 @@ class AzureMLSystem(OliveSystem):
                     delay=self.azureml_client_config.operation_retry_interval,
                     exceptions=ServiceResponseError,
                 )
-                model_resource_path = ResourcePath.create_resource_path(
-                    type=ResourceType.AzureMLModel,
-                    config=AzureMLModelConfig(
-                        azureml_client=self.azureml_client_config,
-                        name=aml_model.name,
-                        version=aml_model.version,
-                    ),
+                model_resource_path = create_resource_path(
+                    AzureMLModel(
+                        {
+                            "azureml_client": self.azureml_client_config,
+                            "name": aml_model.name,
+                            "version": aml_model.version,
+                        }
+                    )
                 )
 
             # we keep the model path as a string in the config file
@@ -351,13 +353,17 @@ class AzureMLSystem(OliveSystem):
                 # get the downloaded model path
                 download_model_path = pipeline_output_path / model_json["config"]["model_path"]["config"]["path"]
                 # create a resource path object for the downloaded model
-                downloaded_resource_path = ResourcePath.create_resource_path(download_model_path)
+                downloaded_resource_path = deepcopy(model_json["config"]["model_path"])
+                downloaded_resource_path["config"]["path"] = str(download_model_path)
+                downloaded_resource_path = create_resource_path(downloaded_resource_path)
                 # save the downloaded model to the output folder
                 output_model_path = downloaded_resource_path.save_to_dir(
                     Path(output_model_path).parent, Path(output_model_path).name, True
                 )
                 # create a resource path object for the output model
-                model_path = ResourcePath.create_resource_path(output_model_path)
+                output_model_resource_path = deepcopy(model_json["config"]["model_path"])
+                output_model_resource_path["config"]["path"] = str(output_model_path)
+                model_path = create_resource_path(output_model_resource_path)
             else:
                 model_path = model_json["config"]["model_path"]
         model_json["config"]["model_path"] = model_path

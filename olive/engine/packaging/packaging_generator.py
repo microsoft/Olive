@@ -20,7 +20,7 @@ from olive.engine.footprint import Footprint
 from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
-from olive.resource_path import ResourcePath, ResourceType
+from olive.resource_path import ResourceType, create_resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -72,14 +72,12 @@ def _package_candidate_models(
         model_rank += 1
         # Copy model file
         model_path = pf_footprint.get_model_path(model_id)
-        model_resource_path = ResourcePath.create_resource_path(model_path) if model_path else None
+        model_resource_path = create_resource_path(model_path) if model_path else None
         model_type = pf_footprint.get_model_type(model_id)
         if model_type == "ONNXModel":
             with tempfile.TemporaryDirectory(dir=model_dir, prefix="olive_tmp") as tempdir:
                 # save to tempdir first since model_path may be a folder
-                temp_resource_path = ResourcePath.create_resource_path(
-                    model_resource_path.save_to_dir(tempdir, "model", True)
-                )
+                temp_resource_path = create_resource_path(model_resource_path.save_to_dir(tempdir, "model", True))
                 # save to model_dir
                 if temp_resource_path.type == ResourceType.LocalFile:
                     # if model_path is a file, rename it to model_dir / model.onnx

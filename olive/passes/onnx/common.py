@@ -10,7 +10,7 @@ import onnx
 
 from olive.model import ONNXModel
 from olive.passes.pass_config import PassConfigParam
-from olive.resource_path import LocalFileConfig, LocalFolderConfig, ResourcePath, ResourceType
+from olive.resource_path import LocalFile, LocalFolder
 
 logger = logging.getLogger(__name__)
 
@@ -141,12 +141,11 @@ def model_proto_to_olive_model(
         external_data_name=external_data_config["external_data_name"],
     )
     if has_external_data:
-        model_path = ResourcePath(
-            type=ResourceType.LocalFolder, config=LocalFolderConfig(path=Path(output_model_path).parent)
-        )
+        model_path = LocalFolder({"path": Path(output_model_path).parent})
+
         onnx_file_name = Path(output_model_path).name
     else:
-        model_path = ResourcePath(type=ResourceType.LocalFile, config=LocalFileConfig(path=output_model_path))
+        model_path = LocalFile({"path": output_model_path})
         onnx_file_name = None
 
     return ONNXModel(model_path=model_path, onnx_file_name=onnx_file_name)

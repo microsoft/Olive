@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from olive.resource_path import ResourcePath, ResourceType
+from olive.resource_path import ResourceType, create_resource_path
 
 
 class TestDataConfig:
@@ -36,7 +36,7 @@ class TestDataConfig:
         [ResourceType.LocalFile, ResourceType.LocalFolder, ResourceType.StringName],
     )
     def test_create_resource_path(self, resource_path_type):
-        resource_path = ResourcePath.create_resource_path(self.resource_path_configs[resource_path_type])
+        resource_path = create_resource_path(self.resource_path_configs[resource_path_type])
         assert resource_path.type == resource_path_type
         assert resource_path.get_path() == str(self.resource_path_configs[resource_path_type])
 
@@ -45,7 +45,7 @@ class TestDataConfig:
         [ResourceType.LocalFile, ResourceType.LocalFolder],
     )
     def test_save_to_dir(self, resource_path_type):
-        resource_path = ResourcePath.create_resource_path(self.resource_path_configs[resource_path_type])
+        resource_path = create_resource_path(self.resource_path_configs[resource_path_type])
 
         # test save to dir
         saved_resource = resource_path.save_to_dir(self.tmp_dir_path / "save_to_dir")

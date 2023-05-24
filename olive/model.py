@@ -31,7 +31,7 @@ from olive.hf_utils import (
     load_huggingface_model_from_model_class,
     load_huggingface_model_from_task,
 )
-from olive.resource_path import ResourcePath, ResourceType
+from olive.resource_path import ResourcePath, ResourcePathConfig, ResourceType, create_resource_path
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
 
@@ -55,11 +55,11 @@ class OliveModel(ABC):
         self,
         framework: Framework,
         model_file_format: ModelFileFormat,
-        model_path: Optional[Union[Path, str, ResourcePath]] = None,
+        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
     ):
         self.framework = framework
         self.model_file_format = model_file_format
-        self.model_resource_path = ResourcePath.create_resource_path(model_path) if model_path else None
+        self.model_resource_path = create_resource_path(model_path) if model_path else None
         self.local_model_path = None
         self.composite_parent = None
 
@@ -102,18 +102,18 @@ class OliveModel(ABC):
 
         # download model
         logger.debug(f"Downloading model to {download_path}")
-        self.local_model_path = ResourcePath.create_resource_path(
+        self.local_model_path = create_resource_path(
             self.model_resource_path.save_to_dir(download_path, overwrite=overwrite)
         )
         return self.local_model_path.get_path()
 
-    def set_local_model_path(self, local_model_path: Union[Path, str, ResourcePath]):
+    def set_local_model_path(self, local_model_path: Union[Path, str, ResourcePath, ResourcePathConfig]):
         """
         Set local model path.
 
         :param local_model_path: local model path.
         """
-        self.local_model_path = ResourcePath.create_resource_path(local_model_path)
+        self.local_model_path = create_resource_path(local_model_path)
         assert self.local_model_path.is_local_resource(), "local_model_path must be local resource path."
 
     @abstractmethod
@@ -256,7 +256,7 @@ class ONNXModelBase(OliveModel):
 
     def __init__(
         self,
-        model_path: Optional[Union[Path, str, ResourcePath]] = None,
+        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
     ):
@@ -297,7 +297,7 @@ class ONNXModelBase(OliveModel):
 class ONNXModel(ONNXModelBase):
     def __init__(
         self,
-        model_path: Optional[Union[Path, str, ResourcePath]],
+        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
         onnx_file_name: Optional[str] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
@@ -536,7 +536,7 @@ class ONNXModel(ONNXModelBase):
 class PyTorchModel(OliveModel):
     def __init__(
         self,
-        model_path: Optional[Union[Path, str, ResourcePath]] = None,
+        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
         model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
@@ -749,7 +749,7 @@ class SNPEModel(OliveModel):
         input_shapes: List[List[int]],
         output_names: List[str],
         output_shapes: List[List[int]],
-        model_path: Optional[Union[Path, str, ResourcePath]] = None,
+        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
     ):
         super().__init__(framework=Framework.SNPE, model_file_format=ModelFileFormat.SNPE_DLC, model_path=model_path)
         self.io_config = {
@@ -787,7 +787,7 @@ class SNPEModel(OliveModel):
 class TensorFlowModel(OliveModel):
     def __init__(
         self,
-        model_path: Optional[Union[Path, str, ResourcePath]] = None,
+        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
         model_file_format: ModelFileFormat = ModelFileFormat.TENSORFLOW_SAVED_MODEL,
     ):
         super().__init__(model_path=model_path, framework=Framework.TENSORFLOW, model_file_format=model_file_format)
@@ -806,7 +806,7 @@ class TensorFlowModel(OliveModel):
 
 
 class OpenVINOModel(OliveModel):
-    def __init__(self, model_path: Optional[Union[Path, str, ResourcePath]]):
+    def __init__(self, model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]]):
         super().__init__(
             model_path=model_path, framework=Framework.OPENVINO, model_file_format=ModelFileFormat.OPENVINO_IR
         )

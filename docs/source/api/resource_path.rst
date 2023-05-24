@@ -1,42 +1,40 @@
 .. _resource_path
 ResourcePath
 =============
-
-
-ResourcePath
-------------
-.. autopydantic_settings:: olive.resource_path.ResourcePath
+The following are the resource paths available in Olive.
 
 ResourceType
-^^^^^^^^^^^^
+------------
 .. autoclass:: olive.resource_path.ResourceType
     :members:
     :undoc-members:
 
-LocalFileConfig
-^^^^^^^^^^^^^^^^
-.. autopydantic_settings:: olive.resource_path.LocalFileConfig
+Each resource path is followed by a description of the path and a list of the its configuration options.
 
-LocalFolderConfig
-^^^^^^^^^^^^^^^^^
-.. autopydantic_settings:: olive.resource_path.LocalFolderConfig
+LocalFile
+^^^^^^^^^
+.. autoconfigclass:: olive.resource_path.LocalFile
 
-StringNameConfig
-^^^^^^^^^^^^^^^^
-.. autopydantic_settings:: olive.resource_path.StringNameConfig
+LocalFolder
+^^^^^^^^^^^
+.. autoconfigclass:: olive.resource_path.LocalFolder
 
-AzureMLModelConfig
-^^^^^^^^^^^^^^^^^^
-.. autopydantic_settings:: olive.resource_path.AzureMLModelConfig
+StringName
+^^^^^^^^^^
+.. autoconfigclass:: olive.resource_path.StringName
+
+AzureMLModel
+^^^^^^^^^^^^
+.. autoconfigclass:: olive.resource_path.AzureMLModel
 
 **AzureMLClientConfig**
 
 .. autopydantic_settings:: olive.azureml.azureml_client.AzureMLClientConfig
 
-AzureMLDatastoreConfig
-^^^^^^^^^^^^^^^^^^^^^^
-.. autopydantic_settings:: olive.resource_path.AzureMLDatastoreConfig
+AzureMLDatastore
+^^^^^^^^^^^^^^^^
+.. autoconfigclass:: olive.resource_path.AzureMLDatastore
 
-AzureMLJobOutputConfig
-^^^^^^^^^^^^^^^^^^^^^^
-.. autopydantic_settings:: olive.resource_path.AzureMLJobOutputConfig
+AzureMLJobOutput
+^^^^^^^^^^^^^^^^
+.. autoconfigclass:: olive.resource_path.AzureMLJobOutput

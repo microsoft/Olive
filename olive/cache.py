@@ -11,7 +11,7 @@ from typing import Union
 from olive.common.config_utils import serialize_to_json
 from olive.common.utils import hash_dict
 from olive.passes import REGISTRY as PASS_REGISTRY
-from olive.resource_path import ResourcePath
+from olive.resource_path import ResourcePath, create_resource_path
 
 logger = logging.getLogger(__name__)
 
@@ -123,10 +123,10 @@ def get_non_local_resource(resource_path: ResourcePath, cache_dir: Union[str, Pa
 
     # check if resource path is cached
     if resource_path_json.exists():
-        logger.debug(f"Using cached resource path {resource_path}")
+        logger.debug(f"Using cached resource path {resource_path.to_json()}")
         with resource_path_json.open("r") as f:
             resource_path_data = json.load(f)["dest"]
-        return ResourcePath.from_json(resource_path_data)
+        return create_resource_path(resource_path_data)
 
     # cache resource path
     save_dir = non_local_resource_dir / resource_path_hash
@@ -136,8 +136,8 @@ def get_non_local_resource(resource_path: ResourcePath, cache_dir: Union[str, Pa
     save_dir.mkdir(parents=True, exist_ok=True)
 
     # download resource to save directory
-    logger.debug(f"Downloading non-local resource {resource_path} to {save_dir}")
-    local_resource_path = ResourcePath.create_resource_path(resource_path.save_to_dir(save_dir))
+    logger.debug(f"Downloading non-local resource {resource_path.to_json()} to {save_dir}")
+    local_resource_path = create_resource_path(resource_path.save_to_dir(save_dir))
 
     # cache resource path
     logger.debug(f"Caching resource path {resource_path}")
@@ -177,7 +177,7 @@ def save_model(
     model_path = model_json["config"]["model_path"]
     if model_path:
         # create resource path
-        model_resource_path = ResourcePath.create_resource_path(model_path)
+        model_resource_path = create_resource_path(model_path)
 
         # get cached resource path if not local
         if not model_resource_path.is_local_resource():

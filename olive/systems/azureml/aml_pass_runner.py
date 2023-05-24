@@ -12,7 +12,7 @@ from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
 from olive.passes import FullPassConfig
-from olive.resource_path import ResourcePath, ResourceType
+from olive.resource_path import ResourceType, create_resource_path
 from olive.systems.utils import get_model_config, parse_common_args
 
 
@@ -103,7 +103,7 @@ def main(raw_args=None):
     model_json["same_model_path_as_input"] = False
     if model_json["config"]["model_path"] is not None:
         # create a resource path from the model path
-        model_resource_path = ResourcePath.create_resource_path(model_json["config"]["model_path"])
+        model_resource_path = create_resource_path(model_json["config"]["model_path"])
         # string representation of the model path
         model_path_str = model_resource_path.get_path()
         if model_path_str == input_model_path:
