@@ -119,7 +119,7 @@
 <span class="c1"># --------------------------------------------------------------------------</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">validator</span>
 
@@ -194,6 +194,7 @@
 <div class="viewcode-block" id="Metric"><a class="viewcode-back" href="../../../api/metric.html#olive.evaluator.metric.Metric">[docs]</a><span class="k">class</span> <span class="nc">Metric</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="nb">type</span><span class="p">:</span> <span class="n">MetricType</span>
+    <span class="n">backend</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;torch_metrics&quot;</span>
     <span class="n">sub_types</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">SubMetric</span><span class="p">]</span>
     <span class="n">user_config</span><span class="p">:</span> <span class="n">ConfigBase</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">data_config</span><span class="p">:</span> <span class="n">DataConfig</span> <span class="o">=</span> <span class="n">DataConfig</span><span class="p">()</span>
@@ -205,6 +206,16 @@
                 <span class="k">continue</span>
             <span class="n">sub_type_info</span><span class="p">[</span><span class="n">sub_type</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">callback</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">sub_type</span><span class="p">,</span> <span class="n">info_name</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">sub_type_info</span></div>
+
+    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;backend&quot;</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_backend</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">CUSTOM</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="kn">from</span> <span class="nn">olive.evaluator.metric_backend</span> <span class="kn">import</span> <span class="n">MetricBackend</span>
+
+        <span class="k">assert</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">MetricBackend</span><span class="o">.</span><span class="n">registry</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Backend </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> is not in </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">MetricBackend</span><span class="o">.</span><span class="n">registry</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">assert</span> <span class="n">MetricBackend</span><span class="o">.</span><span class="n">registry</span><span class="p">[</span><span class="n">v</span><span class="p">]()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Backend </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> is not available&quot;</span>
+        <span class="k">return</span> <span class="n">v</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;sub_types&quot;</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">each_item</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">validate_sub_types</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
@@ -218,7 +229,14 @@
         <span class="c1"># name</span>
         <span class="n">sub_type_enum</span> <span class="o">=</span> <span class="n">AccuracySubType</span> <span class="k">if</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">ACCURACY</span> <span class="k">else</span> <span class="n">LatencySubType</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">v</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub_type_enum</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>
+            <span class="c1"># backend joint checking</span>
+            <span class="k">if</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;backend&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;huggingface_metrics&quot;</span><span class="p">:</span>
+                <span class="kn">import</span> <span class="nn">evaluate</span>
+
+                <span class="n">full_sub_type</span> <span class="o">=</span> <span class="n">evaluate</span><span class="o">.</span><span class="n">list_evaluation_modules</span><span class="p">()</span>
+                <span class="k">assert</span> <span class="n">v</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">full_sub_type</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">v</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> is not in https://huggingface.co/metrics&quot;</span>
+            <span class="k">elif</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;backend&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;torch_metrics&quot;</span><span class="p">:</span>
+                <span class="n">v</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sub_type_enum</span><span class="p">(</span><span class="n">v</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;sub_type </span><span class="si">{</span><span class="n">v</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> is not in </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">sub_type_enum</span><span class="o">.</span><span class="n">__members__</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">values</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> metric&quot;</span>
@@ -227,10 +245,15 @@
         <span class="c1"># metric_config</span>
         <span class="n">metric_config_cls</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">sub_type_enum</span> <span class="ow">is</span> <span class="n">AccuracySubType</span><span class="p">:</span>
-            <span class="n">v</span><span class="p">[</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="n">metric_config_cls</span> <span class="o">=</span> <span class="n">AccuracyBase</span><span class="o">.</span><span class="n">registry</span><span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">get_config_class</span><span class="p">()</span>
+            <span class="n">v</span><span class="p">[</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;backend&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;torch_metrics&quot;</span><span class="p">:</span>
+                <span class="n">metric_config_cls</span> <span class="o">=</span> <span class="n">AccuracyBase</span><span class="o">.</span><span class="n">registry</span><span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">get_config_class</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;backend&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;huggingface_metrics&quot;</span><span class="p">:</span>
+                <span class="kn">from</span> <span class="nn">olive.evaluator.metric_backend</span> <span class="kn">import</span> <span class="n">HuggingfaceMetrics</span>
+
+                <span class="n">metric_config_cls</span> <span class="o">=</span> <span class="n">HuggingfaceMetrics</span><span class="o">.</span><span class="n">get_config_class</span><span class="p">()</span>
         <span class="k">elif</span> <span class="n">sub_type_enum</span> <span class="ow">is</span> <span class="n">LatencySubType</span><span class="p">:</span>
-            <span class="n">v</span><span class="p">[</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">v</span><span class="p">[</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
             <span class="n">metric_config_cls</span> <span class="o">=</span> <span class="n">LatencyMetricConfig</span>
         <span class="n">v</span><span class="p">[</span><span class="s2">&quot;metric_config&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metric_config&quot;</span><span class="p">,</span> <span class="p">{}),</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">metric_config_cls</span><span class="p">)</span>
 
