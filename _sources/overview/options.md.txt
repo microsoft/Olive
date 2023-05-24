@@ -20,6 +20,9 @@ The options are organized into following sections:
 - `workspace_name: [str]` Azure ML workspace name.
 - `aml_config_path: [str]` The path to Azure config file.
 - `read_timeout: [int]` read timeout in seconds for HTTP requests, user can increase if they find the default value too small. The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to sometimes hang for a long time between retries of job stream and download steps.
+- `max_operation_retries: [int]` The maximum number of retries for Azure ML operations like resource creation and downlaod.
+The default value is 3. User can increase if there are network issues and the operations fail.
+- `operation_retry_interval: [int]` The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.
 
 ## Input Model Information
 
@@ -32,11 +35,9 @@ case insensitive.
 
 - `config: [Dict]` The input model config dictionary specifies following items:
 
-    - `model_path: [str]` The model path.
-
-    - `name: [str]` The name of the model.
-
-    - `model_storage_kind: [str]` Identify the model storage kind. It could be 'file', 'folder', 'azureml'.
+    - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is either a string name
+    used by the model loader or the path to the model file/directory. If it is a dictionary, it contains information about the model path.
+    Please refer to [Configuring Model Path](configuring_model_path) for the more information of the model path dictionary.
 
     - `model_loader: [str]` The name of the function provided by the user to load the model. The function should take the model path as
     input and return the loaded model.
@@ -81,13 +82,10 @@ Please find the detailed config options from following table for each model type
 | [SNPEModel](snpe_model) | SNPE DLC model |
 
 ### Example
-
 ```json
 "input_model": {
     "type": "PyTorchModel",
     "config": {
-        "model_path": null,
-        "model_storage_kind": "folder",
         "model_loader": "load_pytorch_origin_model",
         "model_script": "user_script.py",
         "io_config": {

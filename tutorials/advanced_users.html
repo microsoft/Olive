@@ -71,6 +71,7 @@
 <li class="toctree-l1"><a class="reference internal" href="configure_systems.html">Configuring OliveSystem</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configure_metrics.html">Configuring Metric</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configure_pass.html">Configuring Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_model_path.html">Configuring Model Path</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configure_hardware_optimizations.html">Configuring HW-dependent optimizations</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Advanced User Tour</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#input-model">Input Model</a></li>
@@ -90,6 +91,7 @@
 <p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/resource_path.html">ResourcePath</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../api/systems.html">OliveSystems</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../api/evaluator.html">OliveEvaluator</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../api/metric.html">Metric</a></li>
@@ -139,11 +141,10 @@ approach may not take advantage of all the features supported by standard Olive 
 <h2>Input Model<a class="headerlink" href="#input-model" title="Permalink to this heading">¶</a></h2>
 <p>Start by creating an instance of an OliveModel to represent the model to be optimized. Depending on the model framework, the
 model can be loaded from file or using a model loader function. For a complete of available models and their initialization options, refer to <a class="reference internal" href="../api/models.html#models"><span class="std std-ref">OliveModels api reference</span></a>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.models</span> <span class="kn">import</span> <span class="n">PytorchModel</span><span class="p">,</span> <span class="n">ModelStorageKind</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.models</span> <span class="kn">import</span> <span class="n">PytorchModel</span>
 
 <span class="n">input_model</span> <span class="o">=</span> <span class="n">PyTorchModel</span><span class="p">(</span>
     <span class="n">model_path</span><span class="o">=</span><span class="s2">&quot;resnet.pt&quot;</span><span class="p">,</span>
-    <span class="n">model_storage_kind</span><span class="o">=</span><span class="n">ModelStorageKind</span><span class="o">.</span><span class="n">LocalFile</span><span class="p">,</span>
     <span class="n">io_config</span><span class="o">=</span><span class="p">{</span>
         <span class="s2">&quot;input_names&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;input&quot;</span><span class="p">],</span>
         <span class="s2">&quot;input_shapes&quot;</span><span class="p">:</span> <span class="p">[[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">]],</span>
