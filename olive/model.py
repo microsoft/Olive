@@ -724,7 +724,9 @@ class PyTorchModel(OliveModel):
 
 
 class OptimumModel(OliveModel):
-    def __init__(self, model_path: str, model_components: List[str]):
+    def __init__(
+        self, model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]], model_components: List[str]
+    ):
         super().__init__(
             framework=Framework.PYTORCH,
             model_file_format=ModelFileFormat.OPTIMUM,

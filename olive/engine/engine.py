@@ -138,16 +138,16 @@ class Engine:
         """
         Initialize engine state. This should be done before running the registered passes.
         """
-        self.cache_dir = self._config.cache_dir
+        cache_dir = self._config.cache_dir
         if self._config.clean_cache:
-            cache_utils.clean_cache(self.cache_dir)
+            cache_utils.clean_cache(cache_dir)
         if self._config.clean_evaluation_cache:
-            cache_utils.clean_evaluation_cache(self.cache_dir)
+            cache_utils.clean_evaluation_cache(cache_dir)
 
         self._model_cache_path, self._run_cache_path, self._evaluation_cache_path, _ = cache_utils.get_cache_sub_dirs(
-            self.cache_dir
+            cache_dir
         )
-        cache_utils.create_cache(self.cache_dir)
+        cache_utils.create_cache(cache_dir)
 
         # initialize counters
         # we do this before cleaning pass run caches to ensure we don't reuse model numbers even if the model was
@@ -166,7 +166,7 @@ class Engine:
         for pass_config in self.pass_config.values():
             clean_run_cache = pass_config["clean_run_cache"]
             if clean_run_cache:
-                cache_utils.clean_pass_run_cache(pass_config["type"].__name__, self.cache_dir)
+                cache_utils.clean_pass_run_cache(pass_config["type"].__name__, cache_dir)
 
         self._initialized = True
 
@@ -673,7 +673,7 @@ class Engine:
 
         # download and cache the model resource
         logger.debug("Downloading non local model resource to cache")
-        local_model_resource_path = cache_utils.get_non_local_resource(model_resource_path, self.cache_dir)
+        local_model_resource_path = cache_utils.get_non_local_resource(model_resource_path, self._config.cache_dir)
 
         # set local model resource path
         model.set_local_model_path(local_model_resource_path)
