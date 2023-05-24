@@ -16,13 +16,16 @@ from olive.systems.local import LocalSystem
 class TestMetricBackend:
     @pytest.fixture(autouse=True)
     def setup(self):
-        self.preds = [['O', 'O', 'B-MISC', 'I-MISC', 'I-MISC', 'I-MISC', 'O'], ['B-PER', 'I-PER', 'O']]
-        self.targets = [['O', 'O', 'O', 'B-MISC', 'I-MISC', 'I-MISC', 'O'], ['B-PER', 'I-PER', 'O']]
+        self.preds = [["O", "O", "B-MISC", "I-MISC", "I-MISC", "I-MISC", "O"], ["B-PER", "I-PER", "O"]]
+        self.targets = [["O", "O", "O", "B-MISC", "I-MISC", "I-MISC", "O"], ["B-PER", "I-PER", "O"]]
         self.compute_res = {
-            'MISC': {'precision': 0.999, 'recall': 1.0, 'f1': 1.0, 'number': 1},
-            'PER': {'precision': 1.0, 'recall': 1.0, 'f1': 1.0, 'number': 1},
-            'overall_precision': 1.0, 'overall_recall': 1.0, 'overall_f1': 1.0,
-            'overall_accuracy': 1.0}
+            "MISC": {"precision": 0.999, "recall": 1.0, "f1": 1.0, "number": 1},
+            "PER": {"precision": 1.0, "recall": 1.0, "f1": 1.0, "number": 1},
+            "overall_precision": 1.0,
+            "overall_recall": 1.0,
+            "overall_f1": 1.0,
+            "overall_accuracy": 1.0,
+        }
 
     @patch("evaluate.load")
     @patch("evaluate.module.EvaluationModule")
