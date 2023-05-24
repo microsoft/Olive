@@ -86,10 +86,9 @@ class TestAzureMLSystem:
             for sub_type in metric.sub_types:
                 assert res.get_value(metric.name, sub_type.name) == 0.031415
 
-    @patch("olive.systems.azureml.aml_system.shutil.copy")
     @patch("olive.systems.azureml.aml_system.retry_func")
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_pass")
-    def test_run_pass(self, mock_create_pipeline, mock_retry_func, mock_copy):
+    def test_run_pass(self, mock_create_pipeline, mock_retry_func):
         # setup
         tmp_dir = tempfile.TemporaryDirectory()
         tmp_dir_path = Path(tmp_dir.name)
@@ -97,8 +96,8 @@ class TestAzureMLSystem:
         pipeline_output_path = tmp_dir_path / "pipeline_output" / "named-outputs" / "pipeline_output"
         pipeline_output_path.mkdir(parents=True, exist_ok=True)
         # create dummy output model
-        output_model_path = pipeline_output_path / "output_model.onnx"
-        with open(output_model_path, "w") as f:
+        downloaded_output_model_path = pipeline_output_path / "output_model.onnx"
+        with open(downloaded_output_model_path, "w") as f:
             f.write("dummy")
         # create dummy output config
         dummy_config = {
@@ -116,7 +115,11 @@ class TestAzureMLSystem:
         onnx_conversion_config = {}
         p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
         olive_model = get_pytorch_model()
-        output_model_path = str(Path("output_model_path.onnx").absolute())
+        output_model_path = tmp_dir_path / "output_folder" / "output_model_path.onnx"
+        output_model_path.parent.mkdir(parents=True, exist_ok=True)
+        # create dummy output model so that ONNXModel can be created with the same path
+        with open(output_model_path, "w") as f:
+            f.write("dummy")
         output_folder = tmp_dir_path
 
         expected_model = ONNXModel(model_path=output_model_path)
