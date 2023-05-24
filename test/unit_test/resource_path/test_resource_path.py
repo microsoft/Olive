@@ -10,7 +10,7 @@ import pytest
 from olive.resource_path import ResourceType, create_resource_path
 
 
-class TestDataConfig:
+class TestResourcePath:
     @pytest.fixture(autouse=True)
     def setup(self):
         self.tmp_dir = tempfile.TemporaryDirectory()
