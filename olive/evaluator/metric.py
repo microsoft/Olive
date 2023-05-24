@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from enum import Enum
-from typing import ClassVar, Dict, List, Union
+from typing import ClassVar, Dict, List, Optional, Union
 
 from pydantic import validator
 
@@ -79,6 +79,7 @@ class SubMetric(ConfigBase):
 class Metric(ConfigBase):
     name: str
     type: MetricType
+    backend: Optional[str] = "torch_metrics"
     sub_types: List[SubMetric]
     user_config: ConfigBase = None
     data_config: DataConfig = DataConfig()
@@ -90,6 +91,16 @@ class Metric(ConfigBase):
                 continue
             sub_type_info[sub_type.name] = callback(getattr(sub_type, info_name))
         return sub_type_info
+
+    @validator("backend", always=True, pre=True)
+    def validate_backend(cls, v, values):
+        if values["type"] == MetricType.CUSTOM:
+            return None
+        from olive.evaluator.metric_backend import MetricBackend
+
+        assert v in MetricBackend.registry, f"Backend {v} is not in {list(MetricBackend.registry.keys())}"
+        assert MetricBackend.registry[v]() is not None, f"Backend {v} is not available"
+        return v
 
     @validator("sub_types", always=True, pre=True, each_item=True)
     def validate_sub_types(cls, v, values):
@@ -103,7 +114,14 @@ class Metric(ConfigBase):
         # name
         sub_type_enum = AccuracySubType if values["type"] == MetricType.ACCURACY else LatencySubType
         try:
-            v["name"] = sub_type_enum(v["name"])
+            # backend joint checking
+            if values["backend"] == "huggingface_metrics":
+                import evaluate
+
+                full_sub_type = evaluate.list_evaluation_modules()
+                assert v["name"] in full_sub_type, f"{v['name']} is not in https://huggingface.co/metrics"
+            elif values["backend"] == "torch_metrics":
+                v["name"] = sub_type_enum(v["name"])
         except ValueError:
             raise ValueError(
                 f"sub_type {v['name']} is not in {list(sub_type_enum.__members__.keys())} for {values['type']} metric"
@@ -112,10 +130,15 @@ class Metric(ConfigBase):
         # metric_config
         metric_config_cls = None
         if sub_type_enum is AccuracySubType:
-            v["higher_is_better"] = True
-            metric_config_cls = AccuracyBase.registry[v["name"]].get_config_class()
+            v["higher_is_better"] = v.get("higher_is_better", True)
+            if values["backend"] == "torch_metrics":
+                metric_config_cls = AccuracyBase.registry[v["name"]].get_config_class()
+            elif values["backend"] == "huggingface_metrics":
+                from olive.evaluator.metric_backend import HuggingfaceMetrics
+
+                metric_config_cls = HuggingfaceMetrics.get_config_class()
         elif sub_type_enum is LatencySubType:
-            v["higher_is_better"] = False
+            v["higher_is_better"] = v.get("higher_is_better", False)
             metric_config_cls = LatencyMetricConfig
         v["metric_config"] = validate_config(v.get("metric_config", {}), ConfigBase, metric_config_cls)
 

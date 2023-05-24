@@ -16,3 +16,4 @@ torchvision
 datasets
 azureml-evaluate-mlflow
 mlflow
+evaluate
