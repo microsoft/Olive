@@ -747,8 +747,6 @@ class Engine:
         """
         input_model_number = input_model_id.split("_")[0]
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
-        if not run_json_path.exists():
-            run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, None)
         if run_json_path.exists():
             try:
                 with open(run_json_path, "r") as f:
@@ -820,7 +818,8 @@ class Engine:
         pass_config = p.serialize_config(pass_config)
 
         # load run from cache if it exists
-        output_model_id = self._load_run(input_model_id, pass_name, pass_config, accelerator_spec)
+        run_accel = None if p.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
+        output_model_id = self._load_run(input_model_id, pass_name, pass_config, run_accel)
         if output_model_id is not None:
             logger.debug("Loading model from cache ...")
             output_model = self._load_model(output_model_id)
@@ -845,11 +844,8 @@ class Engine:
             hash_dict(pass_config),
         ]
 
-        if p.is_accelerator_agnostic(accelerator_spec):
-            run_accel = None
-        else:
+        if not p.is_accelerator_agnostic(accelerator_spec):
             output_model_id_parts.append(f"{accelerator_spec}")
-            run_accel = accelerator_spec
 
         output_model_id = "-".join(map(str, output_model_id_parts))
         output_model_path = self._model_cache_path / f"{output_model_id}" / "output_model"
