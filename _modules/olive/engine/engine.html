@@ -135,7 +135,7 @@
 <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_generator</span> <span class="kn">import</span> <span class="n">generate_output_artifacts</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricResult</span><span class="p">,</span> <span class="n">joint_metric_key</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
-<span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorLookup</span><span class="p">,</span> <span class="n">AcceleratorSpec</span><span class="p">,</span> <span class="n">Device</span>
+<span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">AcceleratorLookup</span><span class="p">,</span> <span class="n">AcceleratorSpec</span><span class="p">,</span> <span class="n">Device</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">OliveModel</span>
 <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
 <span class="kn">from</span> <span class="nn">olive.strategy.search_strategy</span> <span class="kn">import</span> <span class="n">SearchStrategy</span>
@@ -214,16 +214,23 @@
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No accelerators specified for target system. Using CPU.&quot;</span><span class="p">)</span>
             <span class="n">accelerators</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CPU&quot;</span><span class="p">]</span>
 
-        <span class="n">not_supported_ep</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">not_supported_ep</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">processed_ep</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">AcceleratorSpec</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">is_cpu_available</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span> <span class="ow">in</span> <span class="p">[</span><span class="n">accelerator</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">accelerator</span> <span class="ow">in</span> <span class="n">accelerators</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">accelerator</span> <span class="ow">in</span> <span class="n">accelerators</span><span class="p">:</span>
             <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="n">accelerator</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
             <span class="n">supported_eps</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers_for_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-            <span class="n">device_eps</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">supported_eps</span><span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span><span class="p">))</span>
-            <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span><span class="p">)</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="n">supported_eps</span><span class="p">):</span>
-                <span class="n">not_supported_ep</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ep</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">device_eps</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">AcceleratorSpec</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">ep</span><span class="p">))</span>
+            <span class="n">eps</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span> <span class="k">if</span> <span class="n">e</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">processed_ep</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">eps</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">ep</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">supported_eps</span><span class="p">:</span>
+                    <span class="n">not_supported_ep</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ep</span><span class="p">)</span>
+                    <span class="n">processed_ep</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ep</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">ep</span> <span class="o">==</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span> <span class="ow">and</span> <span class="n">device</span> <span class="o">!=</span> <span class="s2">&quot;cpu&quot;</span> <span class="ow">and</span> <span class="n">is_cpu_available</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;ignore the CPUExecutionProvider for non-cpu device&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">AcceleratorSpec</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">ep</span><span class="p">))</span>
+                    <span class="n">processed_ep</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ep</span><span class="p">)</span>
 
         <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="p">,</span> <span class="s2">&quot;No valid accelerator specified for target system.&quot;</span>
         <span class="k">if</span> <span class="n">not_supported_ep</span><span class="p">:</span>
@@ -421,7 +428,7 @@
                     <span class="n">pf_footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">footprint</span>
 
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to run Olive on </span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to run Olive on </span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">packaging_config</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package top ranked </span><span class="si">{</span><span class="nb">sum</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">pf_footprints</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span><span class="si">}</span><span class="s2"> models as artifacts&quot;</span><span class="p">)</span>
@@ -437,7 +444,6 @@
         <span class="k">return</span> <span class="n">outputs</span></div>
 
     <span class="k">def</span> <span class="nf">setup_passes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">):</span>
-        <span class="c1"># TODO: add the hardware spec later</span>
         <span class="c1"># clean the passes</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
         <span class="k">for</span> <span class="n">config</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_config</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
@@ -808,15 +814,33 @@
 
         <span class="k">return</span> <span class="n">model_hash</span>
 
-    <span class="k">def</span> <span class="nf">get_run_json_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">input_model_number</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">get_run_json_path</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pass_name</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">input_model_number</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">pass_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Get the path to the run json.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">pass_config_hash</span> <span class="o">=</span> <span class="n">hash_dict</span><span class="p">(</span><span class="n">pass_config</span><span class="p">)</span>
-        <span class="n">run_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_cache_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pass_name</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">input_model_number</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">pass_config_hash</span><span class="si">}</span><span class="s2">.json&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">accelerator_spec</span><span class="p">:</span>
+            <span class="n">run_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_cache_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pass_name</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">input_model_number</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">pass_config_hash</span><span class="si">}</span><span class="s2">.json&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">run_json_path</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_run_cache_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pass_name</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">input_model_number</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">pass_config_hash</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">.json&quot;</span>
+            <span class="p">)</span>
         <span class="k">return</span> <span class="n">run_json_path</span>
 
-    <span class="k">def</span> <span class="nf">_cache_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_cache_run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pass_name</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">pass_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">output_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Cache the run in the cache directory.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -827,19 +851,19 @@
             <span class="s2">&quot;output_model_id&quot;</span><span class="p">:</span> <span class="n">output_model_id</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="n">input_model_number</span> <span class="o">=</span> <span class="n">input_model_id</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">run_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_run_json_path</span><span class="p">(</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">input_model_number</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">)</span>
+        <span class="n">run_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_run_json_path</span><span class="p">(</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">input_model_number</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">run_json_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">run_json</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to cache run: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_load_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_load_run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Load the run from the cache directory.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">input_model_number</span> <span class="o">=</span> <span class="n">input_model_id</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">run_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_run_json_path</span><span class="p">(</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">input_model_number</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">)</span>
+        <span class="n">run_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_run_json_path</span><span class="p">(</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">input_model_number</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">run_json_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">run_json_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
@@ -911,7 +935,8 @@
         <span class="n">pass_config</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">serialize_config</span><span class="p">(</span><span class="n">pass_config</span><span class="p">)</span>
 
         <span class="c1"># load run from cache if it exists</span>
-        <span class="n">output_model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_run</span><span class="p">(</span><span class="n">input_model_id</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">)</span>
+        <span class="n">run_accel</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">is_accelerator_agnostic</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">)</span> <span class="k">else</span> <span class="n">accelerator_spec</span>
+        <span class="n">output_model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_run</span><span class="p">(</span><span class="n">input_model_id</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">run_accel</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">output_model_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading model from cache ...&quot;</span><span class="p">)</span>
             <span class="n">output_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">output_model_id</span><span class="p">)</span>
@@ -928,14 +953,17 @@
 
         <span class="c1"># new model id</span>
         <span class="n">input_model_number</span> <span class="o">=</span> <span class="n">input_model_id</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="c1"># Note: the output model id need contains the accelerator information.</span>
-        <span class="c1"># TODO: consider how to reuse the run which is indepedent with accelerator and EP.</span>
+        <span class="c1"># Note: the final output model id need contains the accelerator information</span>
+        <span class="c1"># if the output model is accelerator dependent.</span>
         <span class="n">output_model_id_parts</span> <span class="o">=</span> <span class="p">[</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_new_model_number</span><span class="p">()</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">pass_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
             <span class="n">input_model_number</span><span class="p">,</span>
             <span class="n">hash_dict</span><span class="p">(</span><span class="n">pass_config</span><span class="p">),</span>
-            <span class="n">accelerator_spec</span><span class="p">,</span>
         <span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="o">.</span><span class="n">is_accelerator_agnostic</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">):</span>
+            <span class="n">output_model_id_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
         <span class="n">output_model_id</span> <span class="o">=</span> <span class="s2">&quot;-&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">output_model_id_parts</span><span class="p">))</span>
         <span class="n">output_model_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model_cache_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output_model_id</span><span class="si">}</span><span class="s2">&quot;</span> <span class="o">/</span> <span class="s2">&quot;output_model&quot;</span>
         <span class="n">output_model_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -964,7 +992,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">output_model</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">)</span>
 
         <span class="c1"># cache run</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_run</span><span class="p">(</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_run</span><span class="p">(</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">,</span> <span class="n">run_accel</span><span class="p">)</span>
 
         <span class="c1"># footprint model and run</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record</span><span class="p">(</span>
@@ -1027,8 +1055,15 @@
 <span class="sd">        Evaluate a model.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Evaluating model ...&quot;</span><span class="p">)</span>
+        <span class="n">accelerator_suffix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;-</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">accelerator_spec</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">model_id</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">accelerator_suffix</span><span class="p">):</span>
+            <span class="c1"># append the suffix if the model is accelerator independent</span>
+            <span class="n">model_id_with_accelerator</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">model_id</span><span class="si">}{</span><span class="n">accelerator_suffix</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">model_id_with_accelerator</span> <span class="o">=</span> <span class="n">model_id</span>
+
         <span class="c1"># load evaluation from cache if it exists</span>
-        <span class="n">signal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_evaluation</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
+        <span class="n">signal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_evaluation</span><span class="p">(</span><span class="n">model_id_with_accelerator</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading evaluation from cache ...&quot;</span><span class="p">)</span>
             <span class="c1"># footprint evaluation</span>
@@ -1048,7 +1083,7 @@
         <span class="n">signal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">evaluate_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
 
         <span class="c1"># cache evaluation</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_evaluation</span><span class="p">(</span><span class="n">model_id</span><span class="p">,</span> <span class="n">signal</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_evaluation</span><span class="p">(</span><span class="n">model_id_with_accelerator</span><span class="p">,</span> <span class="n">signal</span><span class="p">)</span>
 
         <span class="c1"># footprint evaluation</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record</span><span class="p">(</span>
