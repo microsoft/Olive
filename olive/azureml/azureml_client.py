@@ -76,22 +76,18 @@ class AzureMLClientConfig(ConfigBase):
         logging.getLogger("azure.ai.ml").setLevel(logging.ERROR)
         logging.getLogger("azure.identity").setLevel(logging.ERROR)
 
-        try:
-            if self.aml_config_path is None:
-                return MLClient(
-                    credential=self._get_credentials(),
-                    subscription_id=self.subscription_id,
-                    resource_group_name=self.resource_group,
-                    workspace_name=self.workspace_name,
-                    read_timeout=self.read_timeout,
-                )
-            else:
-                return MLClient.from_config(
-                    credential=self._get_credentials(), path=self.aml_config_path, read_timeout=self.read_timeout
-                )
-        except Exception as e:
-            logger.error(f"Failed to create AzureMLClient. Error: {e}")
-            raise e
+        if self.aml_config_path is None:
+            return MLClient(
+                credential=self._get_credentials(),
+                subscription_id=self.subscription_id,
+                resource_group_name=self.resource_group,
+                workspace_name=self.workspace_name,
+                read_timeout=self.read_timeout,
+            )
+        else:
+            return MLClient.from_config(
+                credential=self._get_credentials(), path=self.aml_config_path, read_timeout=self.read_timeout
+            )
 
     def _get_credentials(self):
         """

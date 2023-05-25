@@ -669,7 +669,7 @@ class PyTorchModel(OliveModel):
 
     def get_model_config(self):
         if self.hf_config is None:
-            raise Exception("HF model_config is not available")
+            raise ValueError("HF model_config is not available")
         return get_hf_model_config(self.hf_config.model_name)
 
     @property
@@ -825,9 +825,9 @@ class OpenVINOModel(OliveModel):
         assert Path(model_path).is_dir(), f"OpenVINO model path {model_path} is not a directory"
 
         if len(list(Path(model_path).glob("*.xml"))) == 0 or len(list(Path(model_path).glob("*.bin"))) == 0:
-            raise Exception(f"No OpenVINO model found in {model_path}")
+            raise FileNotFoundError(f"No OpenVINO model found in {model_path}")
         if len(list(Path(model_path).glob("*.xml"))) > 1 or len(list(Path(model_path).glob("*.bin"))) > 1:
-            raise Exception(f"More than 1 OpenVINO models are found in {model_path}")
+            raise FileExistsError(f"More than 1 OpenVINO models are found in {model_path}")
 
         for model_file in Path(model_path).glob("*.xml"):
             ov_model = Path(model_file)
@@ -994,7 +994,7 @@ class CompositeOnnxModel(ONNXModelBase):
 
     def get_model_config(self):
         if self.hf_config is None:
-            raise Exception("HF model_config is not available")
+            raise ValueError("HF model_config is not available")
         return get_hf_model_config(self.hf_config.model_name)
 
     def to_json(self, check_object: bool = False):

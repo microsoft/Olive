@@ -121,7 +121,7 @@ def create_input_list(
         for input_dir in input_dirs:
             members = get_dir_members(data_dir_path / input_dir)
             if members != input_dir_members:
-                raise Exception(f"Input directories {input_dirs[0]}' and '{input_dir}' do not have the same members")
+                raise ValueError(f"Input directories {input_dirs[0]}' and '{input_dir}' do not have the same members")
 
     input_list_content = ""
     zero_str = ":0" if append_0 else ""

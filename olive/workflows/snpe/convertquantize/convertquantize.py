@@ -49,7 +49,7 @@ def convertquantize(
         logger.info("Loading model...")
         model = TensorFlowModel(model_file)
     else:
-        raise Exception(f"Unsupported model format: {model_file.suffix}")
+        raise ValueError(f"Unsupported model format: {model_file.suffix}")
 
     # ------------------------------------------------------------------
     # SNPE model

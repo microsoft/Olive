@@ -75,11 +75,11 @@ class AzureMLSystem(OliveSystem):
             )
         if docker_config.base_image:
             return Environment(image=docker_config.base_image, conda_file=docker_config.conda_file_path)
-        raise Exception("Please specify DockerConfig.")
+        raise ValueError("Please specify DockerConfig.")
 
     def _assert_not_none(self, object):
         if object is None:
-            raise Exception(f"{object.__class__.__name__} is missing in the inputs!")
+            raise ValueError(f"{object.__class__.__name__} is missing in the inputs!")
 
     def run_pass(
         self,
