@@ -192,11 +192,11 @@
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">docker_config</span><span class="o">.</span><span class="n">base_image</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">Environment</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">base_image</span><span class="p">,</span> <span class="n">conda_file</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">conda_file_path</span><span class="p">)</span>
-        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Please specify DockerConfig.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Please specify DockerConfig.&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_assert_not_none</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">object</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">object</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">object</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> is missing in the inputs!&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">object</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> is missing in the inputs!&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">run_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>

@@ -193,22 +193,18 @@
         <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;azure.ai.ml&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
         <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;azure.identity&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
 
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aml_config_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">MLClient</span><span class="p">(</span>
-                    <span class="n">credential</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_credentials</span><span class="p">(),</span>
-                    <span class="n">subscription_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">subscription_id</span><span class="p">,</span>
-                    <span class="n">resource_group_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">resource_group</span><span class="p">,</span>
-                    <span class="n">workspace_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">workspace_name</span><span class="p">,</span>
-                    <span class="n">read_timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">read_timeout</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">MLClient</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span>
-                    <span class="n">credential</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_credentials</span><span class="p">(),</span> <span class="n">path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">aml_config_path</span><span class="p">,</span> <span class="n">read_timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">read_timeout</span>
-                <span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to create AzureMLClient. Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">e</span></div>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aml_config_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">MLClient</span><span class="p">(</span>
+                <span class="n">credential</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_credentials</span><span class="p">(),</span>
+                <span class="n">subscription_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">subscription_id</span><span class="p">,</span>
+                <span class="n">resource_group_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">resource_group</span><span class="p">,</span>
+                <span class="n">workspace_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">workspace_name</span><span class="p">,</span>
+                <span class="n">read_timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">read_timeout</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">MLClient</span><span class="o">.</span><span class="n">from_config</span><span class="p">(</span>
+                <span class="n">credential</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_credentials</span><span class="p">(),</span> <span class="n">path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">aml_config_path</span><span class="p">,</span> <span class="n">read_timeout</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">read_timeout</span>
+            <span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_get_credentials</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
