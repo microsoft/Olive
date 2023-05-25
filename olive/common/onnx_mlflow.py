@@ -182,20 +182,26 @@ class _OliveOnnxModelWrapper:
         sess_options = ort.SessionOptions()
         options = model_meta.flavors.get(FLAVOR_NAME)["onnx_session_options"]
         if options:
-            if inter_op_num_threads := options.get("inter_op_num_threads"):
+            inter_op_num_threads = options.get("inter_op_num_threads")
+            intra_op_num_threads = options.get("intra_op_num_threads")
+            execution_mode = options.get("execution_mode")
+            graph_optimization_level = options.get("graph_optimization_level")
+            extra_session_config = options.get("extra_session_config")
+            if inter_op_num_threads:
                 sess_options.inter_op_num_threads = inter_op_num_threads
-            if intra_op_num_threads := options.get("intra_op_num_threads"):
+            if intra_op_num_threads:
                 sess_options.intra_op_num_threads = intra_op_num_threads
-            if execution_mode := options.get("execution_mode"):
+            if execution_mode:
                 if execution_mode.upper() == "SEQUENTIAL":
                     sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
                 elif execution_mode.upper() == "PARALLEL":
                     sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
-            if graph_optimization_level := options.get("graph_optimization_level"):
+            if graph_optimization_level:
                 sess_options.graph_optimization_level = ort.GraphOptimizationLevel(graph_optimization_level)
-            if extra_session_config := options.get("extra_session_config"):
+            if extra_session_config:
                 for key, value in extra_session_config.items():
                     sess_options.add_session_config_entry(key, value)
+
         self.rt = ort.InferenceSession(path, providers=providers, sess_options=sess_options)
 
         assert len(self.rt.get_inputs()) >= 1
