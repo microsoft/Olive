@@ -226,7 +226,7 @@ class Footprint:
             import plotly.graph_objects as go
 
             pd.options.mode.chained_assignment = None
-        except Exception:
+        except ImportError:
             logger.warning("Please make sure you installed pandas and plotly successfully.")
             return
 

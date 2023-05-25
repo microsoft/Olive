@@ -137,7 +137,7 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
         except exceptions as e:
             num_tries += 1
             if num_tries == max_tries:
-                logger.error(f"Failed with error: {e}")
+                logger.error(f"Failed with error: {e}", exc_info=True)
                 raise e
             logger.debug(f"Failed. Retrying in {sleep_time} seconds...")
             time.sleep(sleep_time)

@@ -644,7 +644,7 @@ class Engine:
             with open(model_json_path, "w") as f:
                 json.dump(model_json, f, indent=4)
         except Exception as e:
-            logger.error(f"Failed to cache model: {e}")
+            logger.error(f"Failed to cache model: {e}", exc_info=True)
 
     def _load_model(self, model_id: str) -> Union[OliveModel, str]:
         """
@@ -655,7 +655,7 @@ class Engine:
             with open(model_json_path, "r") as f:
                 model_json = json.load(f)
         except Exception as e:
-            logger.error(f"Failed to load model: {e}")
+            logger.error(f"Failed to load model: {e}", exc_info=True)
             return None
 
         if model_json == {}:
@@ -739,7 +739,7 @@ class Engine:
             with open(run_json_path, "w") as f:
                 json.dump(run_json, f, indent=4)
         except Exception as e:
-            logger.error(f"Failed to cache run: {e}")
+            logger.error(f"Failed to cache run: {e}", exc_info=True)
 
     def _load_run(self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: AcceleratorSpec):
         """
@@ -753,7 +753,7 @@ class Engine:
                     run_json = json.load(f)
                 output_model_id = run_json["output_model_id"]
             except Exception as e:
-                logger.error(f"Failed to load run: {e}")
+                logger.error(f"Failed to load run: {e}", exc_info=True)
                 output_model_id = None
             return output_model_id
         else:
@@ -786,16 +786,12 @@ class Engine:
         signal = {}
         if not should_prune:
             # evaluate the model
-            try:
-                evaluator_config = self.evaluator_for_pass(pass_id)
-                if self.no_search and evaluator_config is None:
-                    # skip evaluation if no search and no evaluator
-                    signal = None
-                else:
-                    signal = self._evaluate_model(model, model_id, evaluator_config, accelerator_spec)
-            except Exception as e:
-                logger.error(f"Evaluation failed: {e}")
-                raise e
+            evaluator_config = self.evaluator_for_pass(pass_id)
+            if self.no_search and evaluator_config is None:
+                # skip evaluation if no search and no evaluator
+                signal = None
+            else:
+                signal = self._evaluate_model(model, model_id, evaluator_config, accelerator_spec)
             logger.debug(f"Signal: {signal}")
 
         return should_prune, signal, model_ids
@@ -907,7 +903,7 @@ class Engine:
             with open(evaluation_json_path, "w") as f:
                 json.dump(evaluation_json, f, indent=4)
         except Exception as e:
-            logger.error(f"Failed to cache evaluation: {e}")
+            logger.error(f"Failed to cache evaluation: {e}", exc_info=True)
 
     def _load_evaluation(self, model_id: str):
         """
@@ -921,7 +917,7 @@ class Engine:
                 signal = evaluation_json["signal"]
                 signal = MetricResult(**signal)
             except Exception as e:
-                logger.error(f"Failed to load evaluation: {e}")
+                logger.error(f"Failed to load evaluation: {e}", exc_info=True)
                 signal = None
             return signal
         else:
