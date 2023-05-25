@@ -74,6 +74,7 @@ class Pass(ABC):
         config_class, default_config = self.get_config_class(accelerator_spec, disable_search)
 
         self._accelerator_spec = accelerator_spec
+
         self._config_class = config_class
         self._config = config
         if self._requires_user_script:
@@ -97,6 +98,14 @@ class Pass(ABC):
                 self.path_params.append((param, param_config.required))
 
         self._initialized = False
+
+    @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        """Whether the pass is accelerator agnostic. If True, the pass will be reused for all accelerators.
+        The default value is True. The subclass could choose to override this method to return False by using the
+        accelerator spec information.
+        """
+        return True
 
     @classmethod
     def requires_data_config(cls):
