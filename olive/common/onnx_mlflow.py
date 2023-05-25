@@ -7,6 +7,7 @@ from pathlib import Path
 
 import mlflow.tracking
 import numpy as np
+import onnxruntime as ort
 import pandas as pd
 import yaml
 from mlflow import pyfunc
@@ -39,7 +40,6 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 from packaging.version import Version
 
 import olive
-import onnxruntime as ort
 
 FLAVOR_NAME = "olive_onnx"
 ONNX_EXECUTION_PROVIDERS = ["CUDAExecutionProvider", "CPUExecutionProvider"]
@@ -192,9 +192,7 @@ class _OliveOnnxModelWrapper:
                 elif execution_mode.upper() == "PARALLEL":
                     sess_options.execution_mode = ort.ExecutionMode.ORT_PARALLEL
             if graph_optimization_level := options.get("graph_optimization_level"):
-                sess_options.graph_optimization_level = ort.GraphOptimizationLevel(
-                    graph_optimization_level
-                )
+                sess_options.graph_optimization_level = ort.GraphOptimizationLevel(graph_optimization_level)
             if extra_session_config := options.get("extra_session_config"):
                 for key, value in extra_session_config.items():
                     sess_options.add_session_config_entry(key, value)
@@ -314,33 +312,21 @@ def _validate_onnx_session_options(onnx_session_options):
     """
     if onnx_session_options is not None:
         if not isinstance(onnx_session_options, dict):
-            raise TypeError(
-                "Argument onnx_session_options should be a dict, not {}".format(
-                    type(onnx_session_options)
-                )
-            )
+            raise TypeError("Argument onnx_session_options should be a dict, not {}".format(type(onnx_session_options)))
         for key, value in onnx_session_options.items():
             if key != "extra_session_config" and not hasattr(ort.SessionOptions, key):
                 raise ValueError(
-                    f"Key {key} in onnx_session_options is not a valid "
-                    "ONNX Runtime session options key"
+                    f"Key {key} in onnx_session_options is not a valid " "ONNX Runtime session options key"
                 )
             elif key == "extra_session_config" and value and not isinstance(value, dict):
-                raise TypeError(
-                    f"Value for key {key} in onnx_session_options should be a dict, "
-                    "not {type(value)}"
-                )
+                raise TypeError(f"Value for key {key} in onnx_session_options should be a dict, " "not {type(value)}")
             elif key == "execution_mode" and value.upper() not in ["PARALLEL", "SEQUENTIAL"]:
                 raise ValueError(
-                    f"Value for key {key} in onnx_session_options should be "
-                    "'parallel' or 'sequential', not {value}"
+                    f"Value for key {key} in onnx_session_options should be " "'parallel' or 'sequential', not {value}"
                 )
             elif key == "graph_optimization_level" and value not in [0, 1, 2, 99]:
                 raise ValueError(
-                    f"Value for key {key} in onnx_session_options should be 0, 1, 2, or 99, "
-                    "not {value}"
+                    f"Value for key {key} in onnx_session_options should be 0, 1, 2, or 99, " "not {value}"
                 )
             elif key in ["intra_op_num_threads", "intra_op_num_threads"] and value < 0:
-                raise ValueError(
-                    f"Value for key {key} in onnx_session_options should be >= 0, not {value}"
-                )
+                raise ValueError(f"Value for key {key} in onnx_session_options should be >= 0, not {value}")
