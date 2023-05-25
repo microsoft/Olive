@@ -30,7 +30,7 @@ def check_output(footprints):
 @pytest.mark.parametrize("search_algorithm", ["tpe"])
 @pytest.mark.parametrize("execution_order", ["joint"])
 @pytest.mark.parametrize("system", ["local_system", "aml_system"])
-@pytest.mark.parametrize("olive_json", ["bert_config.json", "mlperf_bert_config.json"])
+@pytest.mark.parametrize("olive_json", ["bert_config.json", "mlflow_bert_config.json"])
 def test_bert(search_algorithm, execution_order, system, olive_json):
     # TODO: add gpu e2e test
     # if system == "docker_system" and platform.system() == "Windows":
