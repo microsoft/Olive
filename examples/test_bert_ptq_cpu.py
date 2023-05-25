@@ -30,7 +30,7 @@ def check_output(footprints):
 @pytest.mark.parametrize("search_algorithm", ["tpe"])
 @pytest.mark.parametrize("execution_order", ["joint"])
 @pytest.mark.parametrize("system", ["local_system", "aml_system"])
-@pytest.mark.parametrize("olive_json", ["bert_config.json"])
+@pytest.mark.parametrize("olive_json", ["bert_config.json", "mlperf_bert_config.json"])
 def test_bert(search_algorithm, execution_order, system, olive_json):
     # TODO: add gpu e2e test
     # if system == "docker_system" and platform.system() == "Windows":
@@ -41,6 +41,10 @@ def test_bert(search_algorithm, execution_order, system, olive_json):
     olive_config = None
     with open(olive_json, "r") as fin:
         olive_config = json.load(fin)
+
+    if olive_json == "mlflow_bert_config.json":
+        output_dir = Path(__file__).parent / "outputs"
+        olive_config["engine"]["output_dir"] = output_dir
 
     # update search strategy
     olive_config["engine"]["search_strategy"]["search_algorithm"] = search_algorithm
@@ -63,6 +67,10 @@ def test_bert(search_algorithm, execution_order, system, olive_json):
     footprint = olive_run(olive_config)
     check_output(footprint)
 
+    if olive_json == "mlflow_bert_config.json":
+        artifacts_path = output_dir / "OutputModels.zip"
+        check_mlflow_output(artifacts_path, output_dir)
+
 
 def update_azureml_config(olive_config):
     subscription_id = os.environ.get("WORKSPACE_SUBSCRIPTION_ID")
@@ -80,3 +88,15 @@ def update_azureml_config(olive_config):
     olive_config["azureml_client"]["subscription_id"] = subscription_id
     olive_config["azureml_client"]["resource_group"] = resource_group
     olive_config["azureml_client"]["workspace_name"] = workspace_name
+
+
+def check_mlflow_output(artifacts_path, output_dir):
+    import zipfile
+
+    import mlflow
+
+    assert artifacts_path.exists()
+    with zipfile.ZipFile(artifacts_path, "r") as zip_ref:
+        zip_ref.extractall(output_dir)
+    assert (output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1" / "model" / "MLmodel").exists()
+    assert mlflow.pyfunc.load_model(output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1" / "model")

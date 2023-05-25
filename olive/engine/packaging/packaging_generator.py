@@ -13,6 +13,7 @@ from pathlib import Path
 from string import Template
 from typing import Dict
 
+import onnx
 import pkg_resources
 
 from olive.common.utils import run_subprocess
@@ -51,7 +52,9 @@ def _generate_zipfile_output(
         _package_sample_code(cur_path, tempdir)
         for accelerator_spec, pf_footprint in pf_footprints.items():
             if pf_footprint.nodes and footprints[accelerator_spec].nodes:
-                _package_candidate_models(tempdir, footprints[accelerator_spec], pf_footprint, accelerator_spec)
+                _package_candidate_models(
+                    tempdir, footprints[accelerator_spec], pf_footprint, accelerator_spec, packaging_config
+                )
         _package_onnxruntime_packages(tempdir, next(iter(pf_footprints.values())))
         shutil.make_archive(packaging_config.name, "zip", tempdir)
         shutil.move(f"{packaging_config.name}.zip", output_dir / f"{packaging_config.name}.zip")
@@ -62,7 +65,11 @@ def _package_sample_code(cur_path, tempdir):
 
 
 def _package_candidate_models(
-    tempdir, footprint: Footprint, pf_footprint: Footprint, accelerator_spec: AcceleratorSpec
+    tempdir,
+    footprint: Footprint,
+    pf_footprint: Footprint,
+    accelerator_spec: AcceleratorSpec,
+    packaging_config: PackagingConfig,
 ) -> None:
     candidate_models_dir = tempdir / "CandidateModels"
     model_rank = 1
@@ -70,6 +77,20 @@ def _package_candidate_models(
         model_dir = candidate_models_dir / f"{accelerator_spec}" / f"BestCandidateModel_{model_rank}"
         model_dir.mkdir(parents=True, exist_ok=True)
         model_rank += 1
+
+        # Copy inference config
+        inference_config_path = str(model_dir / "inference_config.json")
+        inference_config = pf_footprint.get_model_inference_config(model_id)
+
+        # Add use_ort_extensions to inference config if needed
+        use_ort_extensions = pf_footprint.get_use_ort_extensions(model_id)
+        if use_ort_extensions:
+            inference_config = inference_config or {}
+            inference_config["use_ort_extensions"] = True
+
+        with open(inference_config_path, "w") as f:
+            json.dump(inference_config, f)
+
         # Copy model file
         model_path = pf_footprint.get_model_path(model_id)
         model_resource_path = create_resource_path(model_path) if model_path else None
@@ -80,8 +101,13 @@ def _package_candidate_models(
                 temp_resource_path = create_resource_path(model_resource_path.save_to_dir(tempdir, "model", True))
                 # save to model_dir
                 if temp_resource_path.type == ResourceType.LocalFile:
-                    # if model_path is a file, rename it to model_dir / model.onnx
-                    Path(temp_resource_path.get_path()).rename(model_dir / "model.onnx")
+                    if packaging_config.extra_config.get("export_model_in_mlflow_format"):
+                        _generate_onnx_mlflow_model(
+                            Path(temp_resource_path.get_path()), model_dir / "model", inference_config
+                        )
+                    else:
+                        # if model_path is a file, rename it to model_dir / model.onnx
+                        Path(temp_resource_path.get_path()).rename(model_dir / "model.onnx")
                 elif temp_resource_path.type == ResourceType.LocalFolder:
                     # if model_path is a folder, save all files in the folder to model_dir / file_name
                     # file_name for .onnx file is model.onnx, otherwise keep the original file name
@@ -98,19 +124,6 @@ def _package_candidate_models(
             model_resource_path.save_to_dir(model_dir, "model", True)
         else:
             raise ValueError(f"Unsupported model type: {model_type} for packaging")
-
-        # Copy inference config
-        inference_config_path = str(model_dir / "inference_config.json")
-        inference_config = pf_footprint.get_model_inference_config(model_id)
-
-        # Add use_ort_extensions to inference config if needed
-        use_ort_extensions = pf_footprint.get_use_ort_extensions(model_id)
-        if use_ort_extensions:
-            inference_config = inference_config or {}
-            inference_config["use_ort_extensions"] = True
-
-        with open(inference_config_path, "w") as f:
-            json.dump(inference_config, f)
 
         # Copy Passes configurations
         configuration_path = str(model_dir / "configurations.json")
@@ -276,3 +289,21 @@ def _download_c_packages(is_cpu: bool, is_nightly: bool, ort_version: str, downl
             urllib.request.urlretrieve(NIGHTLY_C_GPU_LINK.substitute(ort_version=ort_version), download_path)
         else:
             urllib.request.urlretrieve(STABLE_C_GPU_LINK.substitute(ort_version=ort_version), download_path)
+
+
+def _generate_onnx_mlflow_model(model_file, model_dir, inference_config):
+    execution_mode_mappping = {0: "SEQUENTIAL", 1: "PARALLEL"}
+    from olive.common.onnx_mlflow import save_model as mlflow_save_model
+
+    if inference_config.get("session_options"):
+        inference_config["session_options"]["execution_mode"] = execution_mode_mappping[
+            inference_config["session_options"]["execution_mode"]
+        ]
+
+    model_proto = onnx.load(model_file)
+    mlflow_save_model(
+        model_proto,
+        model_dir,
+        onnx_execution_providers=inference_config.get("execution_provider", ["CPUExecutionProvider", {}]),
+        onnx_session_options=inference_config.get("session_options"),
+    )

@@ -22,3 +22,4 @@ class PackagingConfig(ConfigBase):
 
     type: PackagingType = PackagingType.Zipfile
     name: str = "OutputModels"
+    extra_config: dict = {}
