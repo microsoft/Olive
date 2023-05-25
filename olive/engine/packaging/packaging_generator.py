@@ -295,6 +295,9 @@ def _generate_onnx_mlflow_model(model_file, model_dir, inference_config):
     execution_mode_mappping = {0: "SEQUENTIAL", 1: "PARALLEL"}
     from olive.common.onnx_mlflow import save_model as mlflow_save_model
 
+    if not inference_config:
+        inference_config = {}
+
     if inference_config.get("session_options"):
         inference_config["session_options"]["execution_mode"] = execution_mode_mappping[
             inference_config["session_options"]["execution_mode"]
