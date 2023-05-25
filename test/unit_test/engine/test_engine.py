@@ -13,7 +13,7 @@ from test.unit_test.utils import (
     get_pytorch_model,
     pytorch_model_loader,
 )
-from unittest.mock import Mock, PropertyMock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -409,7 +409,7 @@ class TestEngine:
         output_dir = Path(temp_dir.name)
 
         with patch(
-            "olive.passes.onnx.conversion.OnnxConversion.is_accelerator_agnostic", new_callable=PropertyMock
+            "olive.passes.onnx.conversion.OnnxConversion.is_accelerator_agnostic"
         ) as is_accelerator_agnostic_mock:
             is_accelerator_agnostic_mock.return_value = False
             _ = engine.run(pytorch_model, output_dir=output_dir)

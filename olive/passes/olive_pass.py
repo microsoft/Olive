@@ -74,7 +74,6 @@ class Pass(ABC):
         config_class, default_config = self.get_config_class(accelerator_spec, disable_search)
 
         self._accelerator_spec = accelerator_spec
-        self._is_accelerator_agnostic = True
 
         self._config_class = config_class
         self._config = config
@@ -100,17 +99,13 @@ class Pass(ABC):
 
         self._initialized = False
 
-    @property
-    def is_accelerator_agnostic(self) -> bool:
-        """Whether the pass is accelerator agnostic. If True, the pass will be reused for all accelerators."""
-        return self._is_accelerator_agnostic
-
-    @is_accelerator_agnostic.setter
-    def is_accelerator_agnostic(self, value: bool) -> None:
-        """The _run_for_config will be responsible for set the flag to True and
-        append the accelerator spec suffix to the output model path if the pass is accelerator dependent.
+    @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        """Whether the pass is accelerator agnostic. If True, the pass will be reused for all accelerators.
+        The default value is True. The subclass could choose to override this method to return False by using the
+        accelerator spec information.
         """
-        self._is_accelerator_agnostic = value
+        return True
 
     @classmethod
     def requires_data_config(cls):

@@ -18,7 +18,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
+from olive.hardware import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig, OliveModel
 from olive.passes.olive_pass import Pass
 from olive.strategy.search_strategy import SearchStrategy
@@ -844,6 +844,13 @@ class Engine:
             input_model_number,
             hash_dict(pass_config),
         ]
+
+        if p.is_accelerator_agnostic(accelerator_spec):
+            run_accel = None
+        else:
+            output_model_id_parts.append(f"{accelerator_spec}")
+            run_accel = accelerator_spec
+
         output_model_id = "-".join(map(str, output_model_id_parts))
         output_model_path = self._model_cache_path / f"{output_model_id}" / "output_model"
         output_model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -867,16 +874,6 @@ class Engine:
                 logger.error("Pass run failed.", exc_info=True)
                 if self.no_search:
                     raise  # rethrow the exception if no search is performed
-
-        # Do we need get the output_model_id from the output_model.model_path like the following?
-        # if output_model != PRUNED_CONFIG and output_model.model_path:
-        #     # get the updated output_model_id from the output model path
-        #     output_model_id = Path(output_model.model_path).name
-        if p.is_accelerator_agnostic:
-            run_accel = None
-        else:
-            output_model_id = f"{output_model_id}-{accelerator_spec}"
-            run_accel = accelerator_spec
 
         # cache model
         self._cache_model(output_model, output_model_id)
@@ -945,8 +942,15 @@ class Engine:
         Evaluate a model.
         """
         logger.debug("Evaluating model ...")
+        accelerator_suffix = f"-{accelerator_spec}" if accelerator_spec else ""
+        if not model_id.endswith(accelerator_suffix):
+            # append the suffix if the model is accelerator independent
+            model_id_with_accelerator = f"{model_id}{accelerator_suffix}"
+        else:
+            model_id_with_accelerator = model_id
+
         # load evaluation from cache if it exists
-        signal = self._load_evaluation(model_id)
+        signal = self._load_evaluation(model_id_with_accelerator)
         if signal is not None:
             logger.debug("Loading evaluation from cache ...")
             # footprint evaluation
@@ -966,7 +970,7 @@ class Engine:
         signal = self.target.evaluate_model(model, metrics, accelerator_spec)
 
         # cache evaluation
-        self._cache_evaluation(model_id, signal)
+        self._cache_evaluation(model_id_with_accelerator, signal)
 
         # footprint evaluation
         self.footprints[accelerator_spec].record(
