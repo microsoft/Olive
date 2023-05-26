@@ -25,7 +25,7 @@ On Linux:
 ```bash
 # Install requirements
 python -m pip install -r requirements.txt
-# Install onnxruntime-extensions
+# Install nightly version of onnxruntime-extensions
 python -m pip uninstall -y onnxruntime-extensions
 export OCOS_NO_OPENCV=1
 python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git
@@ -35,7 +35,7 @@ On Windows (cmd):
 ```cmd
 :: Install requirements
 python -m pip install -r requirements.txt
-:: Install nightly version onnxruntime-extensions
+:: Install nightly version of onnxruntime-extensions
 python -m pip uninstall -y onnxruntime-extensions
 python -m pip install onnxruntime-extensions==0.8.0.306180 ^
     --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
