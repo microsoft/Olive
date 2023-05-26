@@ -20,7 +20,6 @@ from olive.common.utils import run_subprocess
 from olive.engine.footprint import Footprint
 from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
 from olive.hardware import AcceleratorSpec
-from olive.model import ONNXModel
 from olive.resource_path import ResourceType, create_resource_path
 
 logger = logging.getLogger(__name__)
@@ -101,25 +100,17 @@ def _package_candidate_models(
                 temp_resource_path = create_resource_path(model_resource_path.save_to_dir(tempdir, "model", True))
                 # save to model_dir
                 if temp_resource_path.type == ResourceType.LocalFile:
-                    if packaging_config.extra_config.get("export_model_in_mlflow_format"):
-                        _generate_onnx_mlflow_model(
-                            Path(temp_resource_path.get_path()), model_dir / "model", inference_config
-                        )
-                    else:
-                        # if model_path is a file, rename it to model_dir / model.onnx
-                        Path(temp_resource_path.get_path()).rename(model_dir / "model.onnx")
+                    # if model_path is a file, rename it to model_dir / model.onnx
+                    Path(temp_resource_path.get_path()).rename(model_dir / "model.onnx")
                 elif temp_resource_path.type == ResourceType.LocalFolder:
                     # if model_path is a folder, save all files in the folder to model_dir / file_name
                     # file_name for .onnx file is model.onnx, otherwise keep the original file name
-                    model_config = pf_footprint.get_model_config(model_id)
-                    onnx_file_name = model_config.get("onnx_file_name")
-                    onnx_model = ONNXModel(temp_resource_path, onnx_file_name)
                     for file in Path(temp_resource_path.get_path()).iterdir():
-                        if file.name == Path(onnx_model.model_path).name:
-                            file_name = "model.onnx"
-                        else:
-                            file_name = file.name
-                        Path(file).rename(model_dir / file_name)
+                        Path(file).rename(model_dir / file.name)
+
+                if packaging_config.extra_config.get("export_model_in_mlflow_format"):
+                    _generate_onnx_mlflow_model(model_dir, inference_config)
+
         elif model_type == "OpenVINOModel":
             model_resource_path.save_to_dir(model_dir, "model", True)
         else:
@@ -291,7 +282,7 @@ def _download_c_packages(is_cpu: bool, is_nightly: bool, ort_version: str, downl
             urllib.request.urlretrieve(STABLE_C_GPU_LINK.substitute(ort_version=ort_version), download_path)
 
 
-def _generate_onnx_mlflow_model(model_file, model_dir, inference_config):
+def _generate_onnx_mlflow_model(model_dir, inference_config):
     execution_mode_mappping = {0: "SEQUENTIAL", 1: "PARALLEL"}
     from olive.common.onnx_mlflow import save_model as mlflow_save_model
 
@@ -303,10 +294,13 @@ def _generate_onnx_mlflow_model(model_file, model_dir, inference_config):
             inference_config["session_options"]["execution_mode"]
         ]
 
-    model_proto = onnx.load(model_file)
+    model_proto = onnx.load(str(model_dir / "model.onnx"))
+    shutil.rmtree(model_dir, ignore_errors=True)
+    model_dir.mkdir(parents=True)
+
     mlflow_save_model(
         model_proto,
-        model_dir,
+        model_dir / "model",
         onnx_execution_providers=inference_config.get("execution_provider", ["CPUExecutionProvider", {}]),
         onnx_session_options=inference_config.get("session_options"),
     )

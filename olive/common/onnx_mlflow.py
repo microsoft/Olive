@@ -153,6 +153,7 @@ def get_default_pip_requirements():
                 # inference engine. Therefore, the conda environment must
                 # include OnnxRuntime
                 "onnxruntime",
+                "olive-ai",
             ],
         )
     )

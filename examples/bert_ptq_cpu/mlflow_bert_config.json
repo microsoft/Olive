@@ -91,7 +91,8 @@
         "conversion": {
             "type": "OnnxConversion",
             "config": {
-                "target_opset": 13
+                "target_opset": 13,
+                "save_as_external_data": true
             }
         },
         "transformers_optimization": {
@@ -100,7 +101,8 @@
                 "model_type": "bert",
                 "num_heads": 12,
                 "hidden_size": 768,
-                "float16": false
+                "float16": false,
+                "save_as_external_data": true
             }
         },
         "perf_tuning": {

@@ -33,6 +33,9 @@ Olive packaging configuration is configured in `PackagingConfig` in Engine confi
       Olive packaging type. Olive will package different artifacts based on `type`.
     * `name [str]`:
       For `PackagingType.Zipfile` type, Olive will generate a ZIP file with `name` prefix: `<name>.zip`. By default, the output artifacts will be named as `OutputModels.zip`.
+    * `extra_config [dict]`:
+      This extra_config is for other configuration that might be added in the future. Currently it has:
+        * `export_model_in_mlflow_format [bool]`: Whether user wants to export output ONNX model in mlflow model format.
 
 You can add `PackagingConfig` to Engine configurations. e.g.:
 
@@ -51,7 +54,10 @@ You can add `PackagingConfig` to Engine configurations. e.g.:
     "target": "local_system",
     "packaging_config": {
         "type": "Zipfile",
-        "name": "OutputModels"
+        "name": "OutputModels",
+        "extra_config": {
+            "export_model_in_mlflow_format": false
+        }
     },
     "clean_cache": true,
     "cache_dir": "cache"

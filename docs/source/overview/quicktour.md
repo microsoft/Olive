@@ -183,7 +183,10 @@ Olive also can package output artifacts when user adds `PackagingConfig` to Engi
     ...
     "packaging_config": {
         "type": "Zipfile",
-        "name": "OutputModels"
+        "name": "OutputModels",
+        "extra_config": {
+            "export_model_in_mlflow_format": false
+        }
     },
     ...
 }
