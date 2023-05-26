@@ -13,9 +13,8 @@ import numpy as np
 import pytest
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult, MetricType, joint_metric_key
-
-# from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
+from olive.systems.local import LocalSystem
 from olive.systems.python_environment import PythonEnvironmentSystem
 from olive.systems.python_environment.available_eps import main as available_eps_main
 from olive.systems.python_environment.inference_runner import main as inference_runner_main
@@ -85,20 +84,25 @@ class TestPythonEnvironmentSystem:
                 }
             }
         )
-
         mock_compute_accuracy.return_value = mock_value
 
         # expected result
-        expected_res = 0.9
+        local_system = LocalSystem()
+        expected_res = local_system.evaluate_model(model, [metric], DEFAULT_CPU_ACCELERATOR)["accuracy-accuracy_score"]
 
         # execute
-        actual_res = self.system.evaluate_accuracy(model, metric)
+        actual_res = self.system.evaluate_accuracy(model, metric)[AccuracySubType.ACCURACY_SCORE]
 
         # assert
-        assert actual_res[AccuracySubType.ACCURACY_SCORE].value == expected_res
-        # assert mock_compute_accuracy.call_once_with(model, metric)
-        print(mock_compute_accuracy.call_args.args[1])
-        # assert mock_compute_accuracy1.call_args.args[1] == mock_compute_accuracy2.call_args.args[1]
+        assert actual_res == expected_res
+        assert mock_compute_accuracy.call_count == 2
+        # local system call
+        expected_call = mock_compute_accuracy.mock_calls[0]
+        # python environment call
+        actual_call = mock_compute_accuracy.mock_calls[1]
+        assert actual_call.args[0] == expected_call.args[0]
+        assert actual_call.args[1] == expected_call.args[1]
+        assert actual_call.args[2] == expected_call.args[2]
 
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_latency")
     def test_evaluate_latency(self, mock_compute_latency):
