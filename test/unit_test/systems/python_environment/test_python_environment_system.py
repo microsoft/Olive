@@ -151,9 +151,13 @@ class TestPythonEnvironmentSystem:
         with open(output_path, "rb") as f:
             assert pickle.load(f) == ["CPUExecutionProvider"]
 
+    @pytest.mark.parametrize("valid", [True, False])
     @patch("olive.systems.python_environment.is_valid_ep.get_ort_inference_session")
-    def test_is_valid_ep_script_success(self, mock_get_session, tmp_path):
-        mock_get_session.return_value = None
+    def test_is_valid_ep_script(self, mock_get_session, tmp_path, valid):
+        if valid:
+            mock_get_session.return_value = None
+        else:
+            mock_get_session.side_effect = Exception("Mock Failure")
         output_path = tmp_path / "is_valid_ep.pkl"
 
         # command
@@ -166,24 +170,10 @@ class TestPythonEnvironmentSystem:
         assert output_path.exists()
         mock_get_session.assert_called_once_with("model.onnx", {"execution_provider": "CPUExecutionProvider"})
         with open(output_path, "rb") as f:
-            assert pickle.load(f) == {"valid": True}
-
-    @patch("olive.systems.python_environment.is_valid_ep.get_ort_inference_session")
-    def test_is_valid_ep_script_fail(self, mock_get_session, tmp_path):
-        mock_get_session.side_effect = Exception("Mock Failure")
-        output_path = tmp_path / "is_valid_ep.pkl"
-
-        # command
-        args = ["--model_path", "model.onnx", "--ep", "CPUExecutionProvider", "--output_path", str(output_path)]
-
-        # execute
-        is_valid_ep_main(args)
-
-        # assert
-        assert output_path.exists()
-        mock_get_session.assert_called_once_with("model.onnx", {"execution_provider": "CPUExecutionProvider"})
-        with open(output_path, "rb") as f:
-            assert pickle.load(f) == {"valid": False, "error": "Mock Failure"}
+            if valid:
+                assert pickle.load(f) == {"valid": True}
+            else:
+                assert pickle.load(f) == {"valid": False, "error": "Mock Failure"}
 
     @patch("olive.systems.python_environment.inference_runner.get_ort_inference_session")
     def test_inference_runner_script_accuracy(self, mock_get_session, tmp_path):
