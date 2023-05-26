@@ -26,8 +26,7 @@ python -m pip install -r $ROOT_DIR/examples/$EXAMPLE/requirements.txt
 # TODO: need to remove later
 echo "Installing custom packages for whisper"
 if [[ "$EXAMPLE" == "whisper" ]]; then
-    python -m pip uninstall -y onnxruntime onnxruntime-extensions
-    python -m pip install ort-nightly==1.15.0.dev20230429003 --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+    python -m pip uninstall -y onnxruntime-extensions
     export OCOS_NO_OPENCV=1
     python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git
 fi
