@@ -182,9 +182,10 @@ class PythonEnvironmentSystem(OliveSystem):
                 f"python {self.inference_path} --type {metric.type} --model_path"
                 f" {model.model_path} --inference_settings_path {inference_settings_path} --input_dir"
                 f" {input_dir} --output_dir  {output_dir} --warmup_num {warmup_num} --repeat_test_num"
-                f" {repeat_test_num} --sleep_num {sleep_num} --io_bind {metric.user_config.io_bind} --device"
-                f" {self.device}"
+                f" {repeat_test_num} --sleep_num {sleep_num}"
             )
+            if metric.user_config.io_bind:
+                command += f" --io_bind --device {self.device}"
             run_subprocess(command, env=self.environ, check=True)
 
             # load output

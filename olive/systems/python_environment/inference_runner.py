@@ -34,7 +34,7 @@ def get_args(raw_args):
     )
     parser.add_argument("--repeat_test_num", type=int, default=20, help="Number of iterations. Only for latency metric")
     parser.add_argument("--sleep_num", type=int, default=0, help="Number of sleep iterations. Only for latency metric")
-    parser.add_argument("--io_bind", type=bool, default=False, help="Use IO binding. Only for latency metric")
+    parser.add_argument("--io_bind", action="store_true", help="Use IO binding. Only for latency metric")
     parser.add_argument("--device", type=str, default="cpu", help="Device to io bind on")
 
     return parser.parse_args(raw_args)

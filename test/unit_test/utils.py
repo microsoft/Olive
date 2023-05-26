@@ -47,9 +47,10 @@ class FixedDummyDataset(Dataset):
         self.size = size
         self.rng = np.random.default_rng(0)
         self.data = torch.tensor(self.rng.random((size, 1)))
+        self.labels = torch.tensor(self.rng.random(1))
 
     def __getitem__(self, idx):
-        return self.data[idx], torch.rand(10)
+        return self.data[idx], self.labels[idx]
 
     def __len__(self):
         return self.size
