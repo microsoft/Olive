@@ -1,5 +1,4 @@
-coloredlogs
-flatbuffers
 onnx==1.13.1
+onnxruntime==1.15.0
 torch>=1.13.1
 transformers>=4.23.1
