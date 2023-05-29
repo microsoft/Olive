@@ -13,6 +13,7 @@ import torch
 from pydantic import validator
 from torch.utils.data import Dataset
 
+import olive.data.template as data_config_template
 from olive.common.config_utils import ConfigBase
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
@@ -32,6 +33,8 @@ from olive.hardware import Device
 from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
 
 logger = logging.getLogger(__name__)
+
+# TODO: remove
 
 
 class DummyDataloader(Dataset):
@@ -183,8 +186,14 @@ class OliveEvaluator(ABC):
         eval_func = user_module.load_object(evaluate_func)
 
         if metric.user_config.input_names and metric.user_config.input_shapes and not dataloader and not eval_func:
-            dataloader = DummyDataloader(
-                metric.user_config.input_names, metric.user_config.input_shapes, metric.user_config.input_types
+            dataloader = (
+                data_config_template.dummy_data_config_template(
+                    input_names=metric.user_config.input_names,
+                    input_shapes=metric.user_config.input_shapes,
+                    input_types=metric.user_config.input_types,
+                )
+                .to_data_container()
+                .create_dataloader()
             )
 
         if not dataloader or not post_func:

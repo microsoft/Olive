@@ -20,6 +20,7 @@ from pydantic import validator
 if TYPE_CHECKING:
     from azure.ai.ml import MLClient  # noqa: F401
 
+import olive.data.template as data_config_template
 from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
 from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
@@ -632,8 +633,6 @@ class PyTorchModel(OliveModel):
     ):
         return self.load_model().eval()
 
-    # TODO: remove this method once we have olive datasets implemented.
-    # The dataset should be able to provide the dummy inputs.
     def get_dummy_inputs(self):
         """
         Return a dummy input for the model.
@@ -648,22 +647,24 @@ class PyTorchModel(OliveModel):
         if self.dummy_inputs_func is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
-        else:
-            str_to_type = {
-                "float32": torch.float32,
-                "float16": torch.float16,
-                "int32": torch.int32,
-                "int64": torch.int64,
-                "int8": torch.int8,
-                "bool": torch.bool,
-            }
-            input_types = self.io_config.input_types or ["float32"] * len(self.io_config.input_shapes)
-            dummy_inputs = []
-            for shape, dtype in zip(self.io_config.input_shapes, input_types):
-                dummy_inputs.append(torch.zeros(shape, dtype=str_to_type[dtype]))
-            dummy_inputs = tuple(dummy_inputs) if len(dummy_inputs) > 1 else dummy_inputs[0]
-
-        self.dummy_inputs = dummy_inputs
+        elif self.io_config and self.io_config.input_shapes:
+            dummy_inputs, _ = (
+                data_config_template.dummy_data_config_template(
+                    input_shapes=self.io_config.input_shapes,
+                    input_types=self.io_config.input_types,
+                )
+                .to_data_container()
+                .get_first_batch()
+            )
+        elif self.hf_config and self.hf_config.model_name:
+            dummy_inputs, _ = (
+                data_config_template.huggingface_data_config_template(
+                    self.hf_config.model_name,
+                    self.hf_config.dataset,
+                )
+                .to_data_container()
+                .get_first_batch()
+            )
 
         return dummy_inputs
 
