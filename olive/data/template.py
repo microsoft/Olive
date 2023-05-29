@@ -43,7 +43,7 @@ def huggingface_data_config_template(model_name, task, **kwargs) -> DataConfig:
         - `label_cols`: list, label columns of data
         - `batch_size`: int, batch size of data
         and other arguments in
-            - olive.data.component.pre_process_data.huggingface_pre_process
+            - olive.data.component.load_dataset.huggingface_dataset
             - olive.data.component.pre_process_data.huggingface_pre_process
     """
     return DataConfig(

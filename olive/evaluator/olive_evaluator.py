@@ -34,36 +34,6 @@ from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOMod
 
 logger = logging.getLogger(__name__)
 
-# TODO: remove
-
-
-class DummyDataloader(Dataset):
-    def __init__(self, input_names, input_shapes, input_types):
-        self.input_names = input_names
-        self.input_shapes = input_shapes
-        self.input_types = input_types
-
-    def __len__(self):
-        return 100
-
-    def __getitem__(self, index):
-        str_to_type = {"float32": torch.float32, "float16": torch.float16, "int32": torch.int32, "int64": torch.int64}
-        input_types = []
-        if self.input_types:
-            for input_type in self.input_types:
-                input_types.append(str_to_type[input_type])
-        else:
-            for _ in range(len(self.input_names)):
-                input_types.append(torch.float32)
-        if len(self.input_names) == 1:
-            dummy_inputs = torch.ones(self.input_shapes[0], dtype=input_types[0])
-        else:
-            dummy_inputs = {}
-            for input_name, input_shape, input_type in zip(self.input_names, self.input_shapes, input_types):
-                dummy_inputs.update({input_name: torch.ones(input_shape, dtype=input_type)})
-        label = 0
-        return dummy_inputs, label
-
 
 class OliveEvaluator(ABC):
     registry: Dict[str, "OliveEvaluator"] = {}
