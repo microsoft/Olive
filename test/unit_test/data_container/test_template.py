@@ -3,9 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-import olive.data.template as data_config_template
 from unittest.mock import patch
+
 import pytest
+
+import olive.data.template as data_config_template
 
 
 class TestDataConfigTemplate:
