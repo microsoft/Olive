@@ -20,7 +20,7 @@ The options are organized into following sections:
 - `workspace_name: [str]` Azure ML workspace name.
 - `aml_config_path: [str]` The path to Azure config file.
 - `read_timeout: [int]` read timeout in seconds for HTTP requests, user can increase if they find the default value too small. The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to sometimes hang for a long time between retries of job stream and download steps.
-- `max_operation_retries: [int]` The maximum number of retries for Azure ML operations like resource creation and downlaod.
+- `max_operation_retries: [int]` The maximum number of retries for Azure ML operations like resource creation and download.
 The default value is 3. User can increase if there are network issues and the operations fail.
 - `operation_retry_interval: [int]` The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.
 

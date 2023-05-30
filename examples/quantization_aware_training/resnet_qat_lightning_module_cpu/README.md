@@ -1,5 +1,5 @@
 # ResNet optimization with QAT PyTorch Lightning Module on CPU
-This folder contains a sample usecase of Olive using quantizaiton aware traning, onnx conversion, ONNX Runtime performance tuning.
+This folder contains a sample use case of Olive using quantization aware training, onnx conversion, ONNX Runtime performance tuning.
 
 Performs optimization pipeline:
 - *PyTorch Model -> PyTorch Model after QAT -> Onnx Model -> ONNX Runtime performance tuning*

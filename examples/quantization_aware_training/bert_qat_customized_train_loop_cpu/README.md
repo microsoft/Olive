@@ -1,5 +1,5 @@
 # BERT optimization with QAT Customized Training Loop on CPU
-This folder contains a sample usecase of Olive using quantizaiton aware traning, Onnx conversion, ONNX Runtime transformers optimization,
+This folder contains a sample use case of Olive using quantization aware training, Onnx conversion, ONNX Runtime transformers optimization,
 ONNX Runtime performance tuning.
 
 Performs optimization pipeline:
