@@ -142,7 +142,7 @@
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_script.py</span>
 
 <span class="k">class</span> <span class="nc">MyDataLoader</span><span class="p">:</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_dir</span><span class="p">,</span> <span class="n">batchsize</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_dir</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
         <span class="o">...</span>
 
     <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -151,8 +151,8 @@
     <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="o">...</span>
 
-<span class="k">def</span> <span class="nf">create_dataloader</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">batchsize</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">MyDataloader</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">batchsize</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">create_dataloader</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">MyDataloader</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">)</span>
 
 <span class="k">def</span> <span class="nf">post_process</span><span class="p">(</span><span class="n">output</span><span class="p">):</span>
     <span class="c1"># your post processing logic here</span>

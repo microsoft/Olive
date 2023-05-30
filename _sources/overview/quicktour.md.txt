@@ -199,7 +199,7 @@ Olive packaging will generate a ZIP file which includes 3 folders: `CandidateMod
     * Python
 * `ONNXRuntimePackages`: ONNXRuntime package files with the same version that were used by Olive Engine in this workflow run.
 
-Please refer to [Packaing Olive artifacts](../tutorials/packaging_output_models.md) for more details.
+Please refer to [Packaging Olive artifacts](../tutorials/packaging_output_models.md) for more details.
 
 ## Azure ML Client
 
@@ -219,7 +219,7 @@ You can either add configurations to the Olive json config file:
     "workspace_name": "<workspace_name>"
 },
 ```
-or you can also have your config file in a seprate json file in the following format:
+or you can also have your config file in a separate json file in the following format:
 ```json
 {
     "subscription_id": "<subscription_id>",
