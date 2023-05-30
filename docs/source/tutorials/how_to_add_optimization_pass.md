@@ -15,7 +15,7 @@ from olive.passes import Pass
 
 class NewOptimizationTrick(Pass):
 
-    # set this to True if the pass has paremeters that are functions or objects and the user script is required
+    # set this to True if the pass has parameters that are functions or objects and the user script is required
     # to import the module containing the function or object
     _requires_user_script: bool = False
 ```

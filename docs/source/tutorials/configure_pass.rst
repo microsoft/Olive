@@ -15,7 +15,7 @@ To fully configure a Pass, we require three things: :code:`type`, :code:`disable
 * :code:`disable_search`: This decides whether to use the default value (:code:`disable_search=True`) or the default searchable values,
   if any, (:code:`disable_search=False`) for the optional parameters. This is :code:`False` by default.
 * :code:`config`: This is a dictionary of the config parameters and values. It must contain all required parameters. For optional parameters
-  the default value or default searchable values (dependending on whether :code:`disable_search` is :code:`True` or :code:`False`) can be
+  the default value or default searchable values (depending on whether :code:`disable_search` is :code:`True` or :code:`False`) can be
   overridden by providing user defined values. You can also assign the value for a specific parameter as :code:`"DEFAULT_VALUE"` to use the default
   value or :code:`"SEARCHABLE_VALUES"` to use the default searchable values (if available).
 

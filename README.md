@@ -2,7 +2,7 @@
 
 Olive is an easy-to-use hardware-aware model optimization tool that composes industry-leading techniques
 across model compression, optimization, and compilation. Given a model and targeted hardware, Olive composes the best
-suitable optimization techniques to output the most efficient model(s) for inferencing on cloud or edge, while taking
+suitable optimization techniques to output the most efficient model(s) for inferring on cloud or edge, while taking
 a set of constraints such as accuracy and latency into consideration.
 
 Since every ML accelerator vendor implements their own acceleration tool chains to make the most of their hardware, hardware-aware
@@ -70,7 +70,7 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-Everytime you make a git commit, the hooks will automatically point out issues in code for changed files and fix them if possible.
+Every time you make a git commit, the hooks will automatically point out issues in code for changed files and fix them if possible.
 
 ## License
 Copyright (c) Microsoft Corporation. All rights reserved.

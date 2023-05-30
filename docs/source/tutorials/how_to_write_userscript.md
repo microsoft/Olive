@@ -24,7 +24,7 @@ You can create your own `my_script.py` with `dataloader_func` and `post_processi
 # my_script.py
 
 class MyDataLoader:
-    def __init__(self, data_dir, batchsize):
+    def __init__(self, data_dir, batch_size):
         ...
 
     def __len__(self):
@@ -33,8 +33,8 @@ class MyDataLoader:
     def __getitem__(self):
         ...
 
-def create_dataloader(data_dir, batchsize):
-    return MyDataloader(data_dir, batchsize)
+def create_dataloader(data_dir, batch_size):
+    return MyDataloader(data_dir, batch_size)
 
 def post_process(output):
     # your post processing logic here
