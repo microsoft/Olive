@@ -52,7 +52,9 @@ def get_ort_inference_session(
         if ep == "QNNExecutionProvider":
             # add backend_path for QNNExecutionProvider
             execution_provider[idx] = ("QNNExecutionProvider", {"backend_path": "QnnHtp.dll"})
-            break
+        if isinstance(ep, list) and len(ep) == 2 and isinstance(ep[1], dict):
+            # convert list (created by json serialization) to tuple
+            execution_provider[idx] = tuple(ep)
 
     # dml specific settings
     if len(execution_provider) >= 1 and execution_provider[0] == "DmlExecutionProvider":

@@ -1,0 +1,106 @@
+{
+    "azureml_client": {
+        "subscription_id": "<place_holder>",
+        "resource_group": "<place_holder>",
+        "workspace_name": "<place_holder>"
+    },
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_path": {
+                "type": "azureml_model",
+                "config": {
+                    "name": "bert-hf",
+                    "version": "3"
+                }
+            },
+            "hf_config": {
+                "model_name": "Intel/bert-base-uncased-mrpc",
+                "task": "text-classification",
+                "dataset": {
+                    "data_name":"glue",
+                    "subset": "mrpc",
+                    "split": "validation",
+                    "input_cols": ["sentence1", "sentence2"],
+                    "label_cols": ["label"],
+                    "batch_size": 1
+                }
+            },
+            "io_config" : {
+                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                "input_shapes": [[1, 128], [1, 128], [1, 128]],
+                "input_types": ["int64", "int64", "int64"],
+                "output_names": ["output"],
+                "dynamic_axes": {
+                    "input_ids": {"0": "batch_size", "1": "seq_length"},
+                    "attention_mask": {"0": "batch_size", "1": "seq_length"},
+                    "token_type_ids": {"0": "batch_size", "1": "seq_length"}
+                }
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["CPU"]
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "sub_types": [
+                        {"name": "accuracy_score", "priority": 1}
+                    ]
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {"name": "avg", "priority": 2}
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 13
+            }
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "bert",
+                "num_heads": 12,
+                "hidden_size": 768,
+                "float16": false
+            }
+        },
+        "quantization": {
+            "type": "OnnxQuantization"
+        },
+        "perf_tuning": {
+            "type": "OrtPerfTuning",
+            "config": {
+                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                "input_shapes": [[1, 128], [1, 128], [1, 128]],
+                "input_types": ["int64", "int64", "int64"]
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": false,
+        "evaluator": "common_evaluator",
+        "host": "local_system",
+        "target": "local_system",
+        "cache_dir": "cache",
+        "output_dir": "models/bert_hf_cpu_aml"
+    }
+}

@@ -16,6 +16,7 @@ from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
+from olive.resource_path import LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
 
 logger = logging.getLogger(__name__)
@@ -335,7 +336,7 @@ class OnnxQuantization(Pass):
                 model = self._quant_preprocess(model, preprocessed_temp_model_path)
             else:
                 logger.info("Already processed model for quantization, skipping preprocessing")
-                model = ONNXModel(preprocessed_temp_model_path)
+                model = ONNXModel(LocalFile({"path": preprocessed_temp_model_path}))
 
         # keys not needed for quantization
         to_delete = ["quant_mode", "script_dir", "user_script", "quant_preprocess", "data_config"]
@@ -428,7 +429,7 @@ class OnnxQuantization(Pass):
             )
 
         # since this is only used internally, we will just treat it as a model file
-        return ONNXModel(output_model_path)
+        return ONNXModel(LocalFile({"path": output_model_path}))
 
 
 class OnnxDynamicQuantization(OnnxQuantization):

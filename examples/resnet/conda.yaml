@@ -1,0 +1,11 @@
+name: project_environment
+channels:
+  - defaults
+dependencies:
+  - python=3.8.13
+  - pip=20.2
+  - pip:
+      - onnxruntime
+      - scipy
+      - torchvision
+      - git+https://github.com/microsoft/Olive.git

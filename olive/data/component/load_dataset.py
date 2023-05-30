@@ -27,9 +27,10 @@ def huggingface_dataset(data_name=None, subset=None, split="validation", **kwarg
     """
     This function is used to create a dataset from huggingface datasets
     """
-    from datasets.utils.logging import disable_progress_bar
+    from datasets.utils.logging import disable_progress_bar, set_verbosity_error
 
     disable_progress_bar()
+    set_verbosity_error()
     from datasets import load_dataset
 
     assert data_name is not None, "Please specify the data name"

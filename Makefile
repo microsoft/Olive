@@ -1,7 +1,8 @@
 WINDOWS                    ?= False
 PIPELINE                   ?= False
 INSTALL_DEV_MODE           ?= False
-EXAMPLE                    ?=
+EXAMPLE_FOLDER             ?=
+EXAMPLE_NAME               ?=
 INSTALL_EXTRAS             ?=
 VERSION                    ?=
 ifeq ($(WINDOWS), True)
@@ -42,7 +43,7 @@ test:
 .PHONY: test-examples
 test-examples: logs/
 test-examples:
-	$(TEST_EXAMPLES_CMD) $(PIPELINE) $(CURRENT_DIR) $(EXAMPLE)
+	$(TEST_EXAMPLES_CMD) $(PIPELINE) $(CURRENT_DIR) $(EXAMPLE_FOLDER) $(EXAMPLE_NAME)
 
 .PHONY: clean
 clean:
