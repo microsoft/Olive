@@ -39,7 +39,9 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [{"name": "avg", "priority": 2}],
+                    "sub_types": [
+                        {"name": "avg", "priority": 2}
+                    ],
                     "user_config":{
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",

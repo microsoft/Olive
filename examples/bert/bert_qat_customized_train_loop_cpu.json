@@ -26,7 +26,9 @@
                 {
                     "name": "accuracy",
                     "type": "accuracy",
-                    "sub_types": [{"name": "accuracy_score", "priority": 1}],
+                    "sub_types": [
+                        {"name": "accuracy_score", "priority": 1}
+                    ],
                     "user_config":{
                         "post_processing_func": "qat_post_process",
                         "user_script": "user_script.py",
@@ -37,7 +39,9 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [{"name": "avg", "priority": 2}],
+                    "sub_types": [
+                        {"name": "avg", "priority": 2}
+                    ],
                     "user_config":{
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
