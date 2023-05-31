@@ -36,17 +36,16 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
         olive_config["engine"]["search_strategy"]["search_algorithm_config"] = {"num_samples": 3, "seed": 0}
     olive_config["engine"]["search_strategy"]["execution_order"] = execution_order
 
-    # set aml_system
     if system == "aml_system":
+        # set aml_system
         set_aml_system(olive_config)
         update_azureml_config(olive_config)
-    # set docker_system
+        olive_config["engine"]["host"] = system
+        olive_config["engine"]["target"] = system
     elif system == "docker_system":
+        # set docker_system
         set_docker_system(olive_config)
-
-    # update host and target
-    olive_config["engine"]["host"] = system if system != "docker_system" else "local_system"
-    olive_config["engine"]["target"] = system
+        olive_config["engine"]["target"] = system
 
     return olive_config
 
@@ -74,6 +73,9 @@ def update_azureml_config(olive_config):
 
 def set_aml_system(olive_config):
     """Set the aml_system in the olive config."""
+    if "systems" not in olive_config:
+        olive_config["systems"] = {}
+
     olive_config["systems"]["aml_system"] = {
         "type": "AzureML",
         "config": {
@@ -90,6 +92,9 @@ def set_aml_system(olive_config):
 
 def set_docker_system(olive_config):
     """Set the docker_system in the olive config."""
+    if "systems" not in olive_config:
+        olive_config["systems"] = {}
+
     olive_config["systems"]["docker_system"] = {
         "type": "Docker",
         "config": {
