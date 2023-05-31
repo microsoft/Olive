@@ -9,7 +9,7 @@ This workflow performs ResNet optimization on CPU with ONNX Runtime PTQ. It perf
 Config file: [resnet_ptq_cpu.json](resnet_ptq_cpu.json)
 
 
-### ResNet optimization with PTQ using Vitis-AI
+### ResNet optimization with Vitis-AI PTQ on CPU
 This workflow performs ResNet optimization on CPU with AMD Vitis-AI Quantization. It performs the optimization pipeline:
 - *PyTorch Model -> Onnx Model -> AMD Vitis-AI Quantized Onnx Model*
 
