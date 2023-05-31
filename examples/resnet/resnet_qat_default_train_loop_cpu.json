@@ -14,14 +14,6 @@
             }
         }
     },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": ["CPU"]
-            }
-        }
-    },
     "evaluators": {
         "common_evaluator": {
             "metrics":[
@@ -81,8 +73,6 @@
             "execution_order": "pass-by-pass",
             "search_algorithm": "exhaustive"
         },
-        "host": "local_system",
-        "target": "local_system",
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_dir": "models/resnet_qat_default_train_loop_cpu"

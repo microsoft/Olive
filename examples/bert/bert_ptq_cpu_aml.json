@@ -39,14 +39,6 @@
             }
         }
     },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": ["CPU"]
-            }
-        }
-    },
     "evaluators": {
         "common_evaluator": {
             "metrics":[
@@ -98,8 +90,6 @@
     "engine": {
         "search_strategy": false,
         "evaluator": "common_evaluator",
-        "host": "local_system",
-        "target": "local_system",
         "cache_dir": "cache",
         "output_dir": "models/bert_hf_cpu_aml"
     }

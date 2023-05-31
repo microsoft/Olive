@@ -65,7 +65,7 @@ class Engine:
         elif self._config.host is not None:
             self.host = self._config.host.create_system()
         else:
-            self.host = LocalSystem()
+            self.host = LocalSystem([Device.CPU])
 
         # engine target
         if target is not None:
@@ -73,7 +73,7 @@ class Engine:
         elif self._config.target is not None:
             self.target = self._config.target.create_system()
         else:
-            self.target = LocalSystem()
+            self.target = LocalSystem([Device.CPU])
 
         if execution_providers is None:
             execution_providers = self._config.execution_providers
