@@ -3,15 +3,15 @@ This folder contains examples of ResNet optimization using different workflows.
 
 ## Optimization Workflows
 ### ResNet optimization with PTQ on CPU
-This workflow performs ResNet optimization on CPU with PTQ. It performs the optimization pipeline:
+This workflow performs ResNet optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
 - *PyTorch Model -> Onnx Model -> Quantized Onnx Model -> ONNX Runtime performance tuning*
 
 Config file: [resnet_ptq_cpu.json](resnet_ptq_cpu.json)
 
 
-### ResNet optimization with AMD Vitis AI PTQ on CPU
-This workflow performs ResNet optimization on CPU with AMD Vitis AI Quantization. It performs the optimization pipeline:
-- *PyTorch Model -> Onnx Model -> AMD Vitis AI Quantized Onnx Model*
+### ResNet optimization with PTQ using Vitis-AI
+This workflow performs ResNet optimization on CPU with AMD Vitis-AI Quantization. It performs the optimization pipeline:
+- *PyTorch Model -> Onnx Model -> AMD Vitis-AI Quantized Onnx Model*
 
 Config file: [resnet_vitis_ai_ptq_cpu.json](resnet_vitis_ai_ptq_cpu.json)
 
@@ -58,3 +58,6 @@ or run simply with python code:
 from olive.workflows import run as olive_run
 olive_run("<config_file>.json")
 ```
+
+After running the above command, the model candidates and corresponding config will be saved in the output directory.
+You can then select the best model and config from the candidates and run the model with the selected config.

@@ -3,13 +3,13 @@ This folder contains examples of BERT optimization using different workflows.
 
 ## Optimization Workflows
 ### BERT optimization with PTQ on CPU
-This workflow performs BERT optimization on CPU with PTQ. It performs the optimization pipeline:
+This workflow performs BERT optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
 - *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Quantized Onnx Model -> ONNX Runtime performance tuning*
 
 Config file: [bert_ptq_cpu.json](bert_ptq_cpu.json)
 
 #### AzureML Model Source and No Auto-tuning
-The workflow in [bert_hf_cpu_aml.json](bert_hf_cpu_aml.json) is similar to the above workflow, but uses AzureML Model Source to load the model and does not perform auto-tuning. Without auto-tuning, the passes will be run with the default parameters (no search space) and the final model and metrics will be saved in the output directory.
+The workflow in [bert_ptq_cpu_aml.json](bert_ptq_cpu_aml.json) is similar to the above workflow, but uses AzureML Model Source to load the model and does not perform auto-tuning. Without auto-tuning, the passes will be run with the default parameters (no search space) and the final model and metrics will be saved in the output directory.
 
 In order to use this example, `<place_holder>` in the `azureml_client` section must be replaced with the appropriate values for your
 AzureML workspace.
@@ -52,3 +52,6 @@ or run simply with python code:
 from olive.workflows import run as olive_run
 olive_run("<config_file>.json")
 ```
+
+After running the above command, the model candidates and corresponding config will be saved in the output directory.
+You can then select the best model and config from the candidates and run the model with the selected config.
