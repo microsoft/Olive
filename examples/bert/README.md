@@ -20,6 +20,12 @@ This workflow performs BERT optimization on CPU with Intel® Neural Compressor q
 
 Config file: [bert_inc_ptq_cpu.json](bert_inc_ptq_cpu.json)
 
+#### Static Quantization
+The workflow in [bert_inc_static_ptq_cpu.json](bert_inc_static_ptq_cpu.json) is similar to the above workflow, but specifically uses static quantization instead of static/dynamic quantization.
+
+#### Dynamic Quantization
+The workflow in [bert_inc_dynamic_ptq_cpu.json](bert_inc_dynamic_ptq_cpu.json) is similar to the above workflow, but specifically uses dynamic quantization instead of static/dynamic quantization.
+
 ### BERT optimization with QAT Customized Training Loop on CPU
 This workflow performs BERT optimization on CPU with QAT Customized Training Loop. It performs the optimization pipeline:
 - *PyTorch Model -> PyTorch Model after QAT -> Onnx Model -> Transformers Optimized Onnx Model -> ONNX Runtime performance tuning*

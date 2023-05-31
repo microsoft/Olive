@@ -8,6 +8,12 @@ This workflow performs ResNet optimization on CPU with ONNX Runtime PTQ. It perf
 
 Config file: [resnet_ptq_cpu.json](resnet_ptq_cpu.json)
 
+#### Static Quantization
+The workflow in [resnet_static_ptq_cpu.json](resnet_static_ptq_cpu.json) is similar to the above workflow, but specifically uses static quantization instead of static/dynamic quantization.
+
+#### Dynamic Quantization
+The workflow in [resnet_dynamic_ptq_cpu.json](resnet_dynamic_ptq_cpu.json) is similar to the above workflow, but specifically uses dynamic quantization instead of static/dynamic quantization.
+
 
 ### ResNet optimization with Vitis-AI PTQ on CPU
 This workflow performs ResNet optimization on CPU with AMD Vitis-AI Quantization. It performs the optimization pipeline:
