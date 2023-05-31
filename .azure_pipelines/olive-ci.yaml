@@ -48,9 +48,9 @@ jobs:
       resnet_vitis_ai_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_vitis_ai_ptq_cpu
-      bert_hf_cpu_aml:
+      bert_ptq_cpu_aml:
         exampleFolder: bert
-        exampleName: bert_hf_cpu_aml
+        exampleName: bert_ptq_cpu_aml
 
 - template: job_templates/olive-build-template.yaml
   parameters:
@@ -70,9 +70,9 @@ jobs:
       whisper:
         exampleFolder: whisper
         exampleName: whisper
-      bert_hf_cpu_aml:
+      bert_ptq_cpu_aml:
         exampleFolder: bert
-        exampleName: bert_hf_cpu_aml
+        exampleName: bert_ptq_cpu_aml
 
 - template: job_templates/olive-build-doc-template.yaml
   parameters:
