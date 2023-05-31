@@ -3,13 +3,16 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Dict
+from typing import TYPE_CHECKING, Dict
 
 from olive.common.config_utils import ConfigBase
 from olive.data.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
 from olive.data.registry import Registry
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from olive.data.container.data_container import DataContainer
 
 
 class DataComponentConfig(ConfigBase):
@@ -184,7 +187,7 @@ class DataConfig(ConfigBase):
         """
         return self.components[DataComponentType.DATALOADER.value].params
 
-    def to_data_container(self):
+    def to_data_container(self) -> "DataContainer":
         """
         Convert the data config to the data container.
         """

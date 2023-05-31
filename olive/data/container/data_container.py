@@ -32,13 +32,6 @@ class DataContainer(BaseModel):
         "batch_size",
     ]
 
-    # def __init__(self, **kwargs):
-    #     super().__init__(**kwargs)
-    #     self.config = DataConfig(
-    #         type=self.__class__.__name__,
-    #         default_components_type=self.default_components_type,
-    #     )
-
     def load_dataset(self):
         """
         Run load dataset
@@ -78,6 +71,13 @@ class DataContainer(BaseModel):
         """
         dataloader = self.create_dataloader()
         return default_calibration_dataloader(dataloader)
+
+    def get_first_batch(self, dataloader=None):
+        """
+        Get first batch of dataloader
+        """
+        dataloader = dataloader or self.create_dataloader()
+        return next(iter(dataloader))
 
     def update_component(self):
         return None
