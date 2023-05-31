@@ -130,6 +130,7 @@
 <span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">validator</span>
 <span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">Dataset</span>
 
+<span class="kn">import</span> <span class="nn">olive.data.template</span> <span class="k">as</span> <span class="nn">data_config_template</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span>
 <span class="kn">from</span> <span class="nn">olive.common.user_module_loader</span> <span class="kn">import</span> <span class="n">UserModuleLoader</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">tensor_data_to_device</span>
@@ -149,34 +150,6 @@
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">DistributedOnnxModel</span><span class="p">,</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">ONNXModel</span><span class="p">,</span> <span class="n">OpenVINOModel</span><span class="p">,</span> <span class="n">PyTorchModel</span><span class="p">,</span> <span class="n">SNPEModel</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
-
-
-<span class="k">class</span> <span class="nc">DummyDataloader</span><span class="p">(</span><span class="n">Dataset</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_names</span><span class="p">,</span> <span class="n">input_shapes</span><span class="p">,</span> <span class="n">input_types</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">input_names</span> <span class="o">=</span> <span class="n">input_names</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">input_shapes</span> <span class="o">=</span> <span class="n">input_shapes</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">input_types</span> <span class="o">=</span> <span class="n">input_types</span>
-
-    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="mi">100</span>
-
-    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
-        <span class="n">str_to_type</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;float32&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="s2">&quot;float16&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">float16</span><span class="p">,</span> <span class="s2">&quot;int32&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">int32</span><span class="p">,</span> <span class="s2">&quot;int64&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">int64</span><span class="p">}</span>
-        <span class="n">input_types</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_types</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">input_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_types</span><span class="p">:</span>
-                <span class="n">input_types</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">str_to_type</span><span class="p">[</span><span class="n">input_type</span><span class="p">])</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_names</span><span class="p">)):</span>
-                <span class="n">input_types</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_shapes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">input_types</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="k">for</span> <span class="n">input_name</span><span class="p">,</span> <span class="n">input_shape</span><span class="p">,</span> <span class="n">input_type</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_names</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_shapes</span><span class="p">,</span> <span class="n">input_types</span><span class="p">):</span>
-                <span class="n">dummy_inputs</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">input_name</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">input_shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">input_type</span><span class="p">)})</span>
-        <span class="n">label</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="k">return</span> <span class="n">dummy_inputs</span><span class="p">,</span> <span class="n">label</span>
 
 
 <div class="viewcode-block" id="OliveEvaluator"><a class="viewcode-back" href="../../../api/evaluator.html#olive.evaluator.olive_evaluator.OliveEvaluator">[docs]</a><span class="k">class</span> <span class="nc">OliveEvaluator</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
@@ -300,8 +273,14 @@
         <span class="n">eval_func</span> <span class="o">=</span> <span class="n">user_module</span><span class="o">.</span><span class="n">load_object</span><span class="p">(</span><span class="n">evaluate_func</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_names</span> <span class="ow">and</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_shapes</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">dataloader</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">eval_func</span><span class="p">:</span>
-            <span class="n">dataloader</span> <span class="o">=</span> <span class="n">DummyDataloader</span><span class="p">(</span>
-                <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_names</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_shapes</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_types</span>
+            <span class="n">dataloader</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">data_config_template</span><span class="o">.</span><span class="n">dummy_data_config_template</span><span class="p">(</span>
+                    <span class="n">input_names</span><span class="o">=</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_names</span><span class="p">,</span>
+                    <span class="n">input_shapes</span><span class="o">=</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_shapes</span><span class="p">,</span>
+                    <span class="n">input_types</span><span class="o">=</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_types</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
+                <span class="o">.</span><span class="n">create_dataloader</span><span class="p">()</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">dataloader</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">post_func</span><span class="p">:</span>
