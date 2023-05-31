@@ -24,7 +24,7 @@ def test_bert():
     from olive.workflows import run as olive_run
 
     olive_config = None
-    with open("bert_hf_cpu_aml.json", "r") as fin:
+    with open("bert_ptq_cpu_aml.json", "r") as fin:
         olive_config = json.load(fin)
 
     # set log severity to debug
