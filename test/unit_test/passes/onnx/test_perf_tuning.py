@@ -22,3 +22,16 @@ def test_ort_perf_tuning_pass():
 
         # execute
         local_system.run_pass(p, input_model, output_folder)
+
+
+def test_ort_perf_tuning_pass_with_model_io_config():
+    # setup
+    local_system = LocalSystem()
+    input_model = get_onnx_model()
+    config = {}
+    p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True)
+    with tempfile.TemporaryDirectory() as tempdir:
+        output_folder = str(Path(tempdir) / "onnx")
+
+        # execute
+        local_system.run_pass(p, input_model, output_folder)
