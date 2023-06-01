@@ -44,10 +44,7 @@ def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config):
     with tempfile.TemporaryDirectory() as tempdir:
         output_folder = str(Path(tempdir) / "onnx")
 
-        try:
+        with pytest.raises(TypeError) as e:
             # execute
             local_system.run_pass(p, input_model, output_folder)
-            raise Exception()
-        except Exception as e:
-            assert isinstance(e, TypeError)
-            assert "ones() received an invalid combination of arguments" in str(e)
+            assert "ones() received an invalid combination of arguments" in str(e.value)
