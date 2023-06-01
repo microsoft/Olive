@@ -6,29 +6,18 @@ import tempfile
 from pathlib import Path
 from test.unit_test.utils import get_onnx_model
 
+import pytest
+
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OrtPerfTuning
 from olive.systems.local import LocalSystem
 
 
-def test_ort_perf_tuning_pass():
+@pytest.mark.parametrize("config", [{"input_names": ["input"], "input_shapes": [[1, 1]]}, {}])
+def test_ort_perf_tuning_pass(config):
     # setup
     local_system = LocalSystem()
     input_model = get_onnx_model()
-    config = {"input_names": ["input"], "input_shapes": [[1, 1]]}
-    p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True)
-    with tempfile.TemporaryDirectory() as tempdir:
-        output_folder = str(Path(tempdir) / "onnx")
-
-        # execute
-        local_system.run_pass(p, input_model, output_folder)
-
-
-def test_ort_perf_tuning_pass_with_model_io_config():
-    # setup
-    local_system = LocalSystem()
-    input_model = get_onnx_model()
-    config = {}
     p = create_pass_from_dict(OrtPerfTuning, config, disable_search=True)
     with tempfile.TemporaryDirectory() as tempdir:
         output_folder = str(Path(tempdir) / "onnx")
