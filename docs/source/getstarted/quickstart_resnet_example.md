@@ -1,13 +1,8 @@
 # ResNet optimization with PTQ on CPU
-This is a sample use case of Olive to optimize a ResNet model using onnx conversion and onnx dynamic/static quantization tuner.
+This is a sample use case of Olive to optimize a ResNet model using onnx conversion and onnx quantization tuner.
 
 ## Prerequisites
-Please go to example repository [Quickstart ResNet Example](https://github.com/microsoft/Olive/tree/main/examples/resnet_ptq_cpu)
-### Prepare data and model
-To Prepare the model and necessary data:
-```
-python prepare_model_data.py --num_epochs 5
-```
+Please go to example repository [Quickstart ResNet Example](https://github.com/microsoft/Olive/tree/main/examples/resnet)
 
 ### Pip requirements
 Install the necessary python packages:
@@ -15,20 +10,25 @@ Install the necessary python packages:
 python -m pip install -r requirements.txt
 ```
 
+### Prepare data and model
+To Prepare the model and necessary data:
+```
+python prepare_model_data.py --num_epochs 5
+```
+
 ## Run sample using config
 First, install required packages according to passes.
 ```
-python -m olive.workflows.run --config resnet_{dynamic,static}_config.json --setup
+python -m olive.workflows.run --config resnet_ptq_cpu.json --setup
 ```
 Then, optimize the model
 ```
-python -m olive.workflows.run --config resnet_{dynamic,static}_config.json
+python -m olive.workflows.run --config resnet_ptq_cpu.json
 ```
 or run simply with python code:
 ```python
 from olive.workflows import run as olive_run
-olive_run("resnet_dynamic_config.json")
-olive_run("resnet_static_config.json")
+olive_run("resnet_ptq_cpu.json")
 ```
 
 After running the above command, the model candidates and corresponding config will be saved in the output directory.

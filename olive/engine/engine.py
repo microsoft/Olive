@@ -65,6 +65,7 @@ class Engine:
         elif self._config.host is not None:
             self.host = self._config.host.create_system()
         else:
+            # host accelerator is not used, so no need to specify it
             self.host = LocalSystem()
 
         # engine target
@@ -73,7 +74,8 @@ class Engine:
         elif self._config.target is not None:
             self.target = self._config.target.create_system()
         else:
-            self.target = LocalSystem()
+            # set default accelerator to CPU
+            self.target = LocalSystem([Device.CPU])
 
         if execution_providers is None:
             execution_providers = self._config.execution_providers

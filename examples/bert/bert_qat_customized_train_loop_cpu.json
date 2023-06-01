@@ -1,0 +1,85 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_loader": "load_pytorch_origin_model",
+            "model_script": "user_script.py",
+            "io_config": {
+                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                "input_shapes": [[1, 128], [1, 128], [1, 128]],
+                "input_types": ["int64", "int64", "int64"],
+                "output_names": ["output"]
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "sub_types": [
+                        {"name": "accuracy_score", "priority": 1}
+                    ],
+                    "user_config":{
+                        "post_processing_func": "qat_post_process",
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 1
+                    }
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {"name": "avg", "priority": 2}
+                    ],
+                    "user_config":{
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 1
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "quantization_aware_training":{
+            "type": "QuantizationAwareTraining",
+            "config":{
+                "user_script": "user_script.py",
+                "training_loop_func": "training_loop_func"
+            }
+        },
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 17
+            }
+        },
+        "model_optimizer": {
+            "type": "ONNXModelOptimizer"
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "config": {"model_type": "bert"}
+        },
+        "perf_tuning": {
+            "type": "OrtPerfTuning",
+            "config": {
+                "user_script": "user_script.py",
+                "dataloader_func": "create_dataloader",
+                "batch_size": 1
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "pass-by-pass",
+            "search_algorithm": "exhaustive"
+        },
+        "evaluator": "common_evaluator",
+        "cache_dir": "cache",
+        "output_dir": "models/bert_qat_customized_train_loop_cpu"
+    }
+}
