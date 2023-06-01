@@ -6,6 +6,7 @@ dependencies:
   - pip=20.2
   - pip:
       - onnxruntime
+      - pytorch-lightning
       - scipy
       - torchvision
       - git+https://github.com/microsoft/Olive.git
