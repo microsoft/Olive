@@ -182,6 +182,7 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">host</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">host</span><span class="o">.</span><span class="n">create_system</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># host accelerator is not used, so no need to specify it</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">host</span> <span class="o">=</span> <span class="n">LocalSystem</span><span class="p">()</span>
 
         <span class="c1"># engine target</span>
@@ -190,7 +191,8 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">target</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">create_system</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">LocalSystem</span><span class="p">()</span>
+            <span class="c1"># set default accelerator to CPU</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">LocalSystem</span><span class="p">([</span><span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">])</span>
 
         <span class="k">if</span> <span class="n">execution_providers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">execution_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_providers</span>
