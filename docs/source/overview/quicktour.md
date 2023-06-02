@@ -10,7 +10,6 @@ You can install olive using pip install.
 ```bash
 pip install olive-ai
 ```
-Refer to the [Installation](Installation) section for more details.
 
 2. **Describe your model and your needs in a json configuration file. This will be the input to the Olive.**
 
@@ -60,7 +59,7 @@ It is possible to provide additional information such as dataset you want to use
 
 ### Performance Requirement
 
-Let's assume you want to optimize and provide the following information to the Olive evaluator, which is responsible to measure the performance metric.
+Let's assume you want to optimize for latency and provide the following information to the Olive evaluator, which is responsible to measure the performance metric.
 
 ```json
     "evaluators": {
@@ -100,17 +99,18 @@ Let's apply ONNX conversation and use dynamic quantization technique to quantize
 
 ### Olive Engine
 
-Finally, you can select Olive features such as which performance metrics you want to use, verbosity level etc.
+Finally, you can select Olive features such as which performance metrics you want to use in this run, verbosity level etc.
 
 ```json
     "engine": {
         "log_severity_level": 0,
-        "evaluator": "common_evaluator"
+        "evaluator": "my_evaluator"
     }
 ```
 
 Now you have a complete json file that you can use to accelerate the resnet model. For more detailed information about all the features supported by Olive, please refer to the [Olive Options](../overview/options.md) and Tutorials.
 
+------
 
 ```json
 {
