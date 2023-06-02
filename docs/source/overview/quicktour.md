@@ -15,7 +15,7 @@ pip install olive-ai
 
 Olive needs information about your model. For example, how to load the model, name and shape of input tensors. You can also select the target hardware and list of optimizations you want to perform on the model. You can provide this information in a json file as an input to the Olive.
 
-3. **Accelerate the model using Olive.** 
+3. **Accelerate the model using Olive.**
 
 The last step is the simplest one. You just need to run following simple command.
 ```
@@ -35,7 +35,7 @@ You can use setup mode `python -m olive.workflows.run --config my_model_accelera
 
 ## Information needed to accelerate a model
 
-Typically, you need to have input model information such as model type, input names and shapes, where the model is stored.  You would also know your desired performance requirements in terms of Latency, Accuracy etc. Along with this information you need to provide Olive list of model transformations and optimizations you want to apply. Optionally you can also select target hardware and select additional Olive features. Now, let's take a look at how you can include this information in the json configuration file you will use as an Olive input. 
+Typically, you need to have input model information such as model type, input names and shapes, where the model is stored.  You would also know your desired performance requirements in terms of Latency, Accuracy etc. Along with this information you need to provide Olive list of model transformations and optimizations you want to apply. Optionally you can also select target hardware and select additional Olive features. Now, let's take a look at how you can include this information in the json configuration file you will use as an Olive input.
 
 ### Input Model
 
@@ -77,7 +77,7 @@ Let's assume you want to optimize for latency and provide the following informat
 
 You can also specify accuracy requirements. See [Evaluator](../overview/options.md/#evaluators-information) for more information.
 
-### Passes to apply 
+### Passes to apply
 
 Olive can apply various transformations and optimizations, also known as passes, on the input model to produce the accelerated output model. See [Passes](../overview/options.md/#passes-information) for the full list of passes supported by Olive.
 
