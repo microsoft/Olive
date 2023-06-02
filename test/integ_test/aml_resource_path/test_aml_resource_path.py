@@ -4,9 +4,9 @@
 # --------------------------------------------------------------------------
 import tempfile
 from pathlib import Path
+from test.integ_test.utils import get_olive_workspace_config
 
 import pytest
-from test.integ_test.utils import get_olive_workspace_config
 
 from olive.resource_path import ResourceType, create_resource_path
 
