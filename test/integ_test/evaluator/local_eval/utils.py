@@ -2,13 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import os
 import shutil
 from pathlib import Path
+from test.integ_test.utils import download_azure_blob
 from zipfile import ZipFile
 
 import torch
-from azure.storage.blob import BlobClient
 from torchvision import datasets
 from torchvision.transforms import ToTensor
 
@@ -158,19 +157,6 @@ def get_openvino_model():
     with ZipFile(download_path) as zip_ref:
         zip_ref.extractall(models_dir)
     return {"model_path": str(models_dir / "openvino")}
-
-
-def download_azure_blob(container, blob, download_path):
-    try:
-        conn_str = os.environ["OLIVEWHEELS_STORAGE_CONNECTION_STRING"]
-    except KeyError:
-        raise Exception("Please set the environment variable OLIVEWHEELS_STORAGE_CONNECTION_STRING")
-
-    blob = BlobClient.from_connection_string(conn_str=conn_str, container_name=container, blob_name=blob)
-
-    with open(download_path, "wb") as my_blob:
-        blob_data = blob.download_blob()
-        blob_data.readinto(my_blob)
 
 
 def delete_directories():
