@@ -197,7 +197,7 @@
         <span class="k">if</span> <span class="n">execution_providers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">execution_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_providers</span>
 
-        <span class="c1"># verfiy the AzureML system have specified the execution providers</span>
+        <span class="c1"># verify the AzureML system have specified the execution providers</span>
         <span class="c1"># Please note we could not use isinstance(target, AzureMLSystem) since it would import AzureML packages.</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">system_type</span> <span class="o">==</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span> <span class="ow">and</span> <span class="n">execution_providers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;AzureMLSystem requires execution providers to be specified.&quot;</span><span class="p">)</span>
