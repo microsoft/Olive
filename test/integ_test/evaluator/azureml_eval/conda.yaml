@@ -7,7 +7,7 @@ dependencies:
   - pip:
       - azureml-defaults
       - azureml-dataprep==4.8.4
-      - onnxruntime==1.13.1
+      - onnxruntime
       - datasets
       - transformers
       - torchvision
