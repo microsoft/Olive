@@ -44,8 +44,6 @@ def post_process(output):
 Use `my_script.py` with Olive workflow configuration json file(sub_types name should be the returned dict key of your custom function):
 
 ```
-
-```
 "metrics":[
     {
         "name": "accuracy",
