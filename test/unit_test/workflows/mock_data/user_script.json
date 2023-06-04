@@ -1,4 +1,9 @@
 {
+    "azureml_client": {
+        "subscription_id": "my_subscription_id",
+        "resource_group": "my_resource_group",
+        "workspace_name": "my_workspace"
+    },
     "input_model":{
         "type": "PyTorchModel",
         "config": {
@@ -15,7 +20,19 @@
         }
     },
     "systems": {
-        "local_system": {"type": "LocalSystem"}
+        "local_system": {"type": "LocalSystem"},
+        "azureml_system": {
+            "type": "AzureML",
+            "config": {
+                "accelerators": ["CPU"],
+                "aml_compute": "cpu-cluster",
+                "aml_docker_config": {
+                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                    "conda_file_path": "conda.yaml"
+                },
+                "is_dev": true
+            }
+        }
     },
     "evaluators": {
         "common_evaluator":{
@@ -97,8 +114,8 @@
             "search_algorithm": "exhaustive"
         },
         "evaluator": "common_evaluator",
-        "host": "local_system",
-        "target": "local_system",
+        "host": "azureml_system",
+        "target": "azureml_system",
         "clean_cache": true,
         "cache_dir": "cache"
     }
