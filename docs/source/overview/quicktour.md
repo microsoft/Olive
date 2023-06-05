@@ -35,7 +35,7 @@ You can use setup mode `python -m olive.workflows.run --config my_model_accelera
 
 ## Information needed to accelerate a model
 
-Typically, you need to have input model information such as model type, input names and shapes, where the model is stored.  You would also know your desired performance requirements in terms of Latency, Accuracy etc. Along with this information you need to provide Olive list of model transformations and optimizations you want to apply. Optionally you can also select target hardware and select additional Olive features. Now, let's take a look at how you can include this information in the json configuration file you will use as an Olive input.
+Typically, you need to have input model information such as model type, input names and shapes, where the model is stored. You would also know your desired performance requirements in terms of Latency, Accuracy etc. Along with this information you need to provide Olive list of model transformations and optimizations you want to apply. Optionally you can also select target hardware and select additional Olive features. Now, let's take a look at how you can include this information in the json configuration file you will use as an Olive input.
 
 ### Input Model
 
