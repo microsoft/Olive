@@ -53,9 +53,8 @@ Let's use a PyTorch resnet model as an example which you can describe in the jso
             }
         }
     }
-```
 
-It is possible to provide additional information such as dataset you want to use. You could also directly select HuggingFace model and task. See [Input Model configutation](../overview/options.md/#input-model-information) for more information.
+It is possible to provide additional information such as dataset you want to use. You could also directly select HuggingFace model and task. See [Input Model configuration](../overview/options.md/#input-model-information) for more information.
 
 ### Performance Requirement
 
