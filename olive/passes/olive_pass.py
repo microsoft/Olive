@@ -386,13 +386,13 @@ class Pass(ABC):
         else:
             return self._run_for_config(model, config, output_model_path)
 
-    def serialize_config(self, config: Dict[str, Any], check_objects: bool = False) -> str:
+    def serialize_config(self, config: Dict[str, Any], check_object: bool = False) -> str:
         """
         Serialize the configuration.
         """
-        return self._config_class(**config).to_json(check_objects)
+        return self._config_class(**config).to_json(check_object)
 
-    def to_json(self, check_objects: bool = False) -> Dict[str, Any]:
+    def to_json(self, check_object: bool = False) -> Dict[str, Any]:
         """
         Convert the pass to json.
         """
@@ -400,7 +400,7 @@ class Pass(ABC):
             "type": self.__class__.__name__,
             "disable_search": True,
             "accelerator": self._accelerator_spec.to_json(),
-            "config": self.serialize_config(self._config, check_objects),
+            "config": self.serialize_config(self._config, check_object),
         }
 
 

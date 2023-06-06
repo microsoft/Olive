@@ -632,7 +632,7 @@ class Engine:
         """
         return self._model_cache_path / f"{model_id}.json"
 
-    def _cache_model(self, model: Union[OliveModel, str], model_id: str, check_objects: bool = True):
+    def _cache_model(self, model: Union[OliveModel, str], model_id: str, check_object: bool = True):
         """
         Cache the model in the cache directory.
         """
@@ -640,7 +640,7 @@ class Engine:
         if model == PRUNED_CONFIG:
             model_json = {}
         else:
-            model_json = model.to_json(check_object=check_objects)
+            model_json = model.to_json(check_object=check_object)
         model_json_path = self.get_model_json_path(model_id)
         try:
             with open(model_json_path, "w") as f:
@@ -695,7 +695,7 @@ class Engine:
         model_hash = hash_dict(input_model.to_json())
 
         # cache the model
-        self._cache_model(input_model, model_hash, check_objects=False)
+        self._cache_model(input_model, model_hash, check_object=False)
 
         return model_hash
 
