@@ -25,7 +25,7 @@ class TestAMLResourcePath:
                 "config": {"azureml_client": workspace_config, "name": "olive_model", "version": 1},
             },
             ResourceType.AzureMLDatastore: {
-                "type": ResourceType.AzureMLDatastore,
+                "type": ResourceType.AzureMLModelDatastore,
                 "config": {
                     "azureml_client": workspace_config,
                     "datastore_name": "workspaceblobstore",

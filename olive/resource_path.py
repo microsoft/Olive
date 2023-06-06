@@ -3,12 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import re
 import shutil
 import tempfile
 from abc import abstractmethod
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 from pydantic import Field, validator
 
@@ -26,6 +27,7 @@ class ResourceType(str, Enum):
     StringName = "string_name"
     AzureMLModel = "azureml_model"
     AzureMLDatastore = "azureml_datastore"
+    AzureMLModelDatastore = "azureml_model_datastore"
     AzureMLJobOutput = "azureml_job_output"
 
     def __str__(self) -> str:
@@ -316,9 +318,7 @@ class AzureMLModel(ResourcePath):
         return str(new_path)
 
 
-class AzureMLDatastore(ResourcePath):
-    """AzureML datastore resource path"""
-
+class AzureMLDataStore(ResourcePath):
     name = ResourceType.AzureMLDatastore
 
     @staticmethod
@@ -329,51 +329,105 @@ class AzureMLDatastore(ResourcePath):
             ),
             "datastore_name": ConfigParam(type_=str, required=True, description="Name of the datastore."),
             "relative_path": ConfigParam(type_=str, required=True, description="Relative path to the resource."),
+            "is_folder": ConfigParam(type_=bool, default_value=True, description="Whether the resource is a folder."),
+            # TODO add validation for datastore_url where user can specify one of datastore_url without above params
+            "datastore_url": ConfigParam(type_=str, default_value=None, description="URL of the datastore."),
         }
 
     def get_path(self) -> str:
-        workspace_config = self.config.azureml_client.get_workspace_config()
-        return (
-            f"{_get_azureml_resource_prefix(workspace_config)}"
-            f"/datastores/{self.config.datastore_name}/paths/{self.config.relative_path}"
-        )
+        if not self.config.datastore_url:
+            workspace_config = self.config.azureml_client.get_workspace_config()
+            return (
+                f"{_get_azureml_resource_prefix(workspace_config)}"
+                f"/datastores/{self.config.datastore_name}/paths/{self.config.relative_path}"
+            )
+        return self.config.datastore_url
+
+    def get_relative_path(self) -> str:
+        if not self.config.relative_path:
+            assert self.config.datastore_url
+            return re.split("/datastores/.*/paths/", self.config.datastore_url)[-1]
+        return self.config.relative_path
+
+    def get_aml_client_config(self) -> AzureMLClientConfig:
+        if not self.config.azureml_client:
+            subscription_id = re.split("/subscriptions/", self.config.datastore_url)[-1].split("/")[0]
+            resource_group = re.split("/resourcegroups/", self.config.datastore_url)[-1].split("/")[0]
+            workspace_name = re.split("/workspaces/", self.config.datastore_url)[-1].split("/")[0]
+            self.config.azureml_client = AzureMLClientConfig(
+                subscription_id=subscription_id,
+                resource_group=resource_group,
+                workspace_name=workspace_name,
+            )
+        return self.config.azureml_client
 
     def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
         # there is no direct way to download a file from a datastore
         # so we will use a workaround to download the file by creating a aml model
         # that references the file and downloading the model
-        from azure.ai.ml.constants import AssetTypes
-        from azure.ai.ml.entities import Model
-        from azure.core.exceptions import ServiceResponseError
+        try:
+            from azureml.fsspec import AzureMachineLearningFileSystem
+        except ImportError:
+            raise ImportError(
+                "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDataStore resource path."
+            )
 
-        # azureml client
-        ml_client = self.config.azureml_client.create_client()
+        dir_path = Path(dir_path).resolve()
+        dir_path.mkdir(parents=True, exist_ok=True)
+        self.get_aml_client_config().create_client()
+        # azureml file system
+        fs = AzureMachineLearningFileSystem(self.get_path())
+        relative_path = Path(self.get_relative_path())
+        # path to save the resource to
+        if name:
+            new_path_name = Path(name).with_suffix("" if self.config.is_folder else relative_path.suffix).name
+        else:
+            new_path_name = relative_path.name
 
-        # create aml model
-        logger.debug(f"Creating aml model for datastore {self.config.datastore_name} path {self.config.relative_path}.")
-        aml_model = retry_func(
-            ml_client.models.create_or_update,
-            [
-                Model(
-                    path=self.get_path(),
-                    name="olive-backend-model",
-                    description="Model created by Olive backend. Ignore this model.",
-                    type=AssetTypes.CUSTOM_MODEL,
-                )
-            ],
-            max_tries=self.config.azureml_client.max_operation_retries,
-            delay=self.config.azureml_client.operation_retry_interval,
-            exceptions=ServiceResponseError,
-        )
+        new_path = dir_path / new_path_name
+        _overwrite_helper(dir_path / new_path_name, overwrite)
 
-        # use the AzureMLModel to download the model
+        # download artifacts to a temporary directory
         logger.debug(
-            f"Downloading aml model for datastore {self.config.datastore_name} path {self.config.relative_path}."
+            f"Downloading aml resource for datastore {self.config.datastore_name} path {self.config.relative_path}."
         )
-        azureml_model_resource = AzureMLModel(
-            {"azureml_client": self.config.azureml_client, "name": aml_model.name, "version": aml_model.version}
+
+        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
+            retry_func(
+                fs.download,
+                kwargs={
+                    "rpath": self.get_relative_path(),
+                    "lpath": temp_dir,
+                    "recursive": self.config.is_folder,
+                },
+                max_tries=self.config.azureml_client.max_operation_retries,
+                delay=self.config.azureml_client.operation_retry_interval,
+            )
+            downloaded_resource = Path(temp_dir) / relative_path.name
+            if downloaded_resource.is_file():
+                shutil.move(downloaded_resource, new_path)
+            else:
+                shutil.copytree(temp_dir, new_path)
+
+        return str(Path(new_path).resolve())
+
+
+class AzureMLModelDatastore(AzureMLDataStore):
+    """AzureML datastore resource path"""
+
+    name = ResourceType.AzureMLModelDatastore
+
+    @staticmethod
+    def _default_config() -> Dict[str, Any]:
+        default_config = super(AzureMLModelDatastore, AzureMLModelDatastore)._default_config()
+        default_config.update(
+            {
+                "is_folder": ConfigParam(
+                    type_=bool, default_value=False, description="Whether the resource is a folder."
+                ),
+            }
         )
-        return azureml_model_resource.save_to_dir(dir_path, name, overwrite)
+        return default_config
 
 
 class AzureMLJobOutput(ResourcePath):
@@ -429,3 +483,6 @@ class AzureMLJobOutput(ResourcePath):
             shutil.move(temp_dir / "named-outputs" / self.config.output_name / self.config.relative_path, new_path)
 
         return str(new_path)
+
+
+OLIVE_RESOURCE_ANNOTATIONS = Optional[Union[Path, str, ResourcePath, ResourcePathConfig]]
