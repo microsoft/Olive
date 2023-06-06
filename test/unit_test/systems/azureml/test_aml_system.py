@@ -331,7 +331,7 @@ class TestAzureMLSystem:
                     "model_class": None,
                     "model_name": "Intel/bert-base-uncased-mrpc",
                     "task": "text-classification",
-                    "use_ort_implementation": False,
+                    "use_custom_implementation": False,
                 },
                 "io_config": {
                     "dynamic_axes": {
@@ -484,7 +484,7 @@ class TestAzureMLSystem:
                     "model_class": None,
                     "model_name": "Intel/bert-base-uncased-mrpc",
                     "task": "text-classification",
-                    "use_ort_implementation": False,
+                    "use_custom_implementation": False,
                 },
                 "io_config": {
                     "dynamic_axes": {

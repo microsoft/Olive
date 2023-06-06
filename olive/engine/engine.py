@@ -812,6 +812,7 @@ class Engine:
         # pass
         p: Pass = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
+        logger.info(f"Running pass {pass_name}")
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)
 

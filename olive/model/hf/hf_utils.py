@@ -2,9 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Callable
+from itertools import chain
+from pathlib import Path
+from typing import Callable, Optional, Union
 
-import torch
+from olive.common.user_module_loader import UserModuleLoader
+from olive.model.hf.hf_model import HFConfig, HFModelBase
 
 
 def load_huggingface_model_from_task(task: str, name: str):
@@ -36,42 +39,6 @@ def load_huggingface_model_from_task(task: str, name: str):
     return model
 
 
-class ORTWhisperModel(torch.nn.Module):
-    """ORT implementation of whisper model"""
-
-    def __init__(self, encoder_decoder_init: torch.nn.Module, decoder: torch.nn.Module, config):
-        super().__init__()
-        self.encoder_decoder_init = encoder_decoder_init
-        self.decoder = decoder
-        self.config = config
-
-
-def get_ort_whisper_for_conditional_generation(name: str):
-    """Load ORT implementation of whisper model"""
-    from onnxruntime.transformers.models.whisper.whisper_decoder import WhisperDecoder
-    from onnxruntime.transformers.models.whisper.whisper_encoder_decoder_init import WhisperEncoderDecoderInit
-    from transformers import WhisperForConditionalGeneration
-
-    # get the original model
-    model = WhisperForConditionalGeneration.from_pretrained(name)
-
-    # ort implementation
-    decoder = WhisperDecoder(model, None, model.config)
-    encoder_decoder_init = WhisperEncoderDecoderInit(
-        model,
-        model,
-        None,
-        model.config,
-        decoder_start_token_id=None,
-    )
-
-    return ORTWhisperModel(encoder_decoder_init, decoder, model.config)
-
-
-# TODO: change keys to task and model_name once model_class is removed
-MODEL_CLASS_TO_ORT_IMPLEMENTATION = {"WhisperForConditionalGeneration": get_ort_whisper_for_conditional_generation}
-
-
 def huggingface_model_loader(model_loader):
     import transformers
 
@@ -97,16 +64,47 @@ def get_hf_model_config(model_name: str):
     return AutoConfig.from_pretrained(model_name)
 
 
-def load_huggingface_model_from_model_class(model_class: str, name: str, use_ort_implementation: bool = False):
+def load_huggingface_model_from_model_class(hf_config: HFConfig, name: str):
     """
     Load huggingface model from model_loader and name
-
-    If use_ort_implementation is True, then return ORT implementation of the model.
     """
+    return huggingface_model_loader(hf_config.model_class)(name)
 
-    if not use_ort_implementation:
-        return huggingface_model_loader(model_class)(name)
 
-    if model_class not in MODEL_CLASS_TO_ORT_IMPLEMENTATION:
-        raise ValueError(f"There is no ORT implementation for {model_class}")
-    return MODEL_CLASS_TO_ORT_IMPLEMENTATION[model_class](name)
+def load_huggingface_model_from_custom_implementation(
+    hf_config: HFConfig, model_script: Optional[Union[str, Path]] = None, script_dir: Optional[Union[str, Path]] = None
+):
+    user_module_loader = UserModuleLoader(model_script, script_dir)
+
+    component_dict = {}
+    for component in hf_config.components:
+        component_dict[component.name] = user_module_loader.load_object(component.component_func)
+
+    return HFModelBase(components=component_dict, config=hf_config.config)
+
+
+def get_onnx_config(model_name: str, task: str, feature: str):
+    from transformers.onnx import FeaturesManager
+
+    model = load_huggingface_model_from_task(task, model_name)
+    _, model_onnx_config = FeaturesManager.check_supported_model_or_raise(model, feature=feature)
+    return model_onnx_config(model.config)
+
+
+def get_hf_model_io_config(model_name: str, task: str, feature: str):
+    model_config = get_onnx_config(model_name, task, feature)
+    inputs = model_config.inputs
+    outputs = model_config.outputs
+    io_config = {}
+    io_config["input_names"] = list(inputs.keys())
+    io_config["output_names"] = list(outputs.keys())
+    io_config["dynamic_axes"] = dict(chain(inputs.items(), outputs.items()))
+    return io_config
+
+
+def get_hf_model_dummy_input(model_name: str, task: str, feature: str):
+    from transformers import AutoTokenizer
+
+    model_config = get_onnx_config(model_name, task, feature)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    return model_config.generate_dummy_inputs(tokenizer, framework="pt")

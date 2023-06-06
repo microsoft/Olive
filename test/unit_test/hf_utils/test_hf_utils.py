@@ -4,7 +4,8 @@
 # --------------------------------------------------------------------------
 import torch
 
-from olive.hf_utils import load_huggingface_model_from_model_class, load_huggingface_model_from_task
+from olive.model.hf.hf_model import HFConfig
+from olive.model.hf.hf_utils import load_huggingface_model_from_model_class, load_huggingface_model_from_task
 
 
 def test_load_huggingface_model_from_task():
@@ -20,6 +21,6 @@ def test_load_huggingface_model_from_task():
 def test_load_huggingface_model_from_model_class():
     model_class = "Wav2Vec2ForCTC"
     model_name = "facebook/wav2vec2-base-960h"
-
-    model = load_huggingface_model_from_model_class(model_class, model_name)
+    hf_config = HFConfig(model_class=model_class)
+    model = load_huggingface_model_from_model_class(hf_config, model_name)
     assert isinstance(model, torch.nn.Module)
