@@ -9,7 +9,7 @@ import os
 def check_search_output(footprints):
     """Check if the search output is valid."""
     for footprint in footprints.values():
-        assert footprint.nodes is not None
+        assert footprint.nodes
         for v in footprint.nodes.values():
             assert all([metric_result.value > 0 for metric_result in v.metrics.value.values()])
 
