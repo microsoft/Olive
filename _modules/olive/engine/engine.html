@@ -747,7 +747,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model_cache_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">model_id</span><span class="si">}</span><span class="s2">.json&quot;</span>
 
-    <span class="k">def</span> <span class="nf">_cache_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">OliveModel</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">check_objects</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_cache_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">OliveModel</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Cache the model in the cache directory.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -755,7 +755,7 @@
         <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="n">PRUNED_CONFIG</span><span class="p">:</span>
             <span class="n">model_json</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">model_json</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="n">check_objects</span><span class="p">)</span>
+            <span class="n">model_json</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="n">check_object</span><span class="p">)</span>
         <span class="n">model_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_model_json_path</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">model_json_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
@@ -810,7 +810,7 @@
         <span class="n">model_hash</span> <span class="o">=</span> <span class="n">hash_dict</span><span class="p">(</span><span class="n">input_model</span><span class="o">.</span><span class="n">to_json</span><span class="p">())</span>
 
         <span class="c1"># cache the model</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">,</span> <span class="n">model_hash</span><span class="p">,</span> <span class="n">check_objects</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">,</span> <span class="n">model_hash</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">model_hash</span>
 
