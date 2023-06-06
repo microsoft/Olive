@@ -15,6 +15,7 @@ from typing import Dict
 
 import onnx
 import pkg_resources
+from packaging import version
 
 from olive.common.utils import run_subprocess
 from olive.engine.footprint import Footprint
@@ -109,7 +110,12 @@ def _package_candidate_models(
                         Path(file).rename(model_dir / file.name)
 
                 if packaging_config.export_model_in_mlflow_format:
-                    _generate_onnx_mlflow_model(model_dir, inference_config)
+                    import mlflow
+
+                    if version.parse(mlflow.__version__) < version.parse("2.4.0"):
+                        logger.warning("Exporting model in MLflow format requires mlflow>=2.4.0")
+                    else:
+                        _generate_onnx_mlflow_model(model_dir, inference_config)
 
         elif model_type == "OpenVINOModel":
             model_resource_path.save_to_dir(model_dir, "model", True)
@@ -283,24 +289,26 @@ def _download_c_packages(is_cpu: bool, is_nightly: bool, ort_version: str, downl
 
 
 def _generate_onnx_mlflow_model(model_dir, inference_config):
+    import mlflow
+
     execution_mode_mappping = {0: "SEQUENTIAL", 1: "PARALLEL"}
-    from olive.common.onnx_mlflow import save_model as mlflow_save_model
 
     if not inference_config:
         inference_config = {}
 
+    session_dict = {}
     if inference_config.get("session_options"):
-        inference_config["session_options"]["execution_mode"] = execution_mode_mappping[
-            inference_config["session_options"]["execution_mode"]
-        ]
+        session_dict = {k: v for k, v in inference_config.get("session_options").items() if v is not None}
+        if "execution_mode" in session_dict:
+            session_dict["execution_mode"] = execution_mode_mappping[session_dict["execution_mode"]]
 
     model_proto = onnx.load(str(model_dir / "model.onnx"))
     shutil.rmtree(model_dir, ignore_errors=True)
     model_dir.mkdir(parents=True)
 
-    mlflow_save_model(
+    mlflow.onnx.save_model(
         model_proto,
         model_dir / "model",
         onnx_execution_providers=inference_config.get("execution_provider", ["CPUExecutionProvider", {}]),
-        onnx_session_options=inference_config.get("session_options"),
+        onnx_session_options=session_dict,
     )

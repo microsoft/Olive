@@ -9,8 +9,6 @@ from test.unit_test.utils import get_onnx_model
 import mlflow
 import onnxruntime as ort
 
-from olive.common.onnx_mlflow import save_model as mlflow_save_model
-
 
 def test_model_save_load_onnx_mlflow_format():
     input_model = get_onnx_model()
@@ -21,7 +19,7 @@ def test_model_save_load_onnx_mlflow_format():
     with tempfile.TemporaryDirectory() as tempdir:
         output_dir = str(Path(tempdir) / "onnx_mlflow")
 
-        mlflow_save_model(model_proto, output_dir, onnx_session_options=onnx_session_options)
+        mlflow.onnx.save_model(model_proto, output_dir, onnx_session_options=onnx_session_options)
 
         # Loading pyfunc model
         pyfunc_loaded = mlflow.pyfunc.load_model(output_dir)
