@@ -58,10 +58,19 @@ def tune_onnx_model(model, config):
     config_dict = config.dict()
 
     # use model io_config if user does not specify input_names and input_shapes
-    if not config_dict.get("input_names") or not config_dict.get("input_shapes"):
+    # only do this if data_config is not provided
+    # priority: input_names/input_shapes > data_config > model io_config
+    if not config_dict.get("data_config") and not (config_dict.get("input_names") or config_dict.get("input_shapes")):
+        logger.debug("data_config and input_names/input_shapes are not provided. Use model io_config instead.")
         io_config = model.get_io_config()
         config_dict["input_names"] = io_config["input_names"]
-        config_dict["input_shapes"] = io_config["input_shapes"]
+        # check if inferred input shapes are static
+        input_shapes = io_config["input_shapes"]
+        is_static = all(all(isinstance(dim, int) for dim in shape) for shape in input_shapes)
+        if not is_static:
+            logger.debug("Model input shapes are not static. Cannot use infered input shapes for creating dummy data")
+        else:
+            config_dict["input_shapes"] = io_config["input_shapes"]
         config_dict["input_types"] = io_config["input_types"]
 
     for eval_config in get_properties_from_metric_type(MetricType.LATENCY):
@@ -69,7 +78,11 @@ def tune_onnx_model(model, config):
             latency_user_config[eval_config] = config_dict.get(eval_config)
     latency_sub_types = [{"name": LatencySubType.AVG}]
     latency_metric = Metric(
-        name="latency", type=MetricType.LATENCY, sub_types=latency_sub_types, user_config=latency_user_config
+        name="latency",
+        type=MetricType.LATENCY,
+        sub_types=latency_sub_types,
+        user_config=latency_user_config,
+        data_config=config_dict.get("data_config"),
     )
 
     pretuning_inference_result = get_benchmark(model, latency_metric, config)

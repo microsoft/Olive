@@ -121,7 +121,7 @@ class Engine:
         if not_supported_ep:
             logger.warning(
                 f"The following execution provider is not supported: {','.join(not_supported_ep)}. "
-                "Please consider install the onnxruntime contains the appropriated execution providers. "
+                "Please consider installing an onnxruntime build that contains the relevant execution providers. "
             )
 
         # default evaluator
