@@ -29,8 +29,13 @@ class DockerSystem(OliveSystem):
 
     BASE_DOCKERFILE = "Dockerfile"
 
-    def __init__(self, local_docker_config: Union[Dict[str, Any], LocalDockerConfig], is_dev: bool = False):
-        super().__init__(accelerators=None)
+    def __init__(
+        self,
+        local_docker_config: Union[Dict[str, Any], LocalDockerConfig],
+        is_dev: bool = False,
+        accelerators: List[str] = None,
+    ):
+        super().__init__(accelerators)
         logger.info("Initializing Docker System...")
         local_docker_config = validate_config(local_docker_config, LocalDockerConfig)
         self.is_dev = is_dev
