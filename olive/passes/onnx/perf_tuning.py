@@ -56,6 +56,14 @@ def tune_onnx_model(model, config):
     latency_user_config = {}
     # which should be the same as the config in the metric
     config_dict = config.dict()
+
+    # use model io_config if user does not specify input_names and input_shapes
+    if not config_dict.get("input_names") or not config_dict.get("input_shapes"):
+        io_config = model.get_io_config()
+        config_dict["input_names"] = io_config["input_names"]
+        config_dict["input_shapes"] = io_config["input_shapes"]
+        config_dict["input_types"] = io_config["input_types"]
+
     for eval_config in get_properties_from_metric_type(MetricType.LATENCY):
         if eval_config in config_dict:
             latency_user_config[eval_config] = config_dict.get(eval_config)
@@ -122,7 +130,7 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
                 test_params["session_options"]["intra_op_num_threads"] = intra
                 threads_num_binary_search(model, latency_metric, config, test_params, tuning_results)
     except Exception:
-        logging.error("Optimization failed for tuning combo {}".format(tuning_combo))
+        logging.error("Optimization failed for tuning combo {}".format(tuning_combo), exc_info=True)
         pass
 
     return tuning_results

@@ -3,8 +3,6 @@ omit =
     olive/logging.py
     olive/passes/pytorch/pytorch_lightning_utils.py
     olive/passes/pytorch/qat_utils.py
-    olive/systems/azureml/aml_evaluation_runner.py
-    olive/systems/azureml/aml_pass_runner.py
     olive/systems/docker/eval.py
 
 [report]

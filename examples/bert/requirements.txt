@@ -1,0 +1,11 @@
+azure-ai-ml
+azure-identity
+azureml-evaluate-mlflow
+datasets
+docker
+mlflow
+onnxruntime
+neural-compressor
+scipy
+scikit-learn
+transformers

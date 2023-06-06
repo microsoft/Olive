@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+import json
 from pathlib import Path
 
 import pytest
@@ -32,5 +33,20 @@ class TestRunConfig:
         for dc in run_config.data_config.values():
             dc.to_data_container().create_dataloader()
 
-    def test_user_script_config_file(self):
-        assert RunConfig.parse_file(self.user_script_config_file)
+    @pytest.mark.parametrize("system", ["local_system", "azureml_system"])
+    def test_user_script_config(self, system):
+        with open(self.user_script_config_file, "r") as f:
+            user_script_config = json.load(f)
+
+        user_script_config["engine"]["host"] = system
+        user_script_config["engine"]["target"] = system
+        assert RunConfig.parse_obj(user_script_config)
+
+    def test_config_without_azureml_config(self):
+        with open(self.user_script_config_file, "r") as f:
+            user_script_config = json.load(f)
+
+        user_script_config.pop("azureml_client")
+        with pytest.raises(ValueError) as e:
+            RunConfig.parse_obj(user_script_config)
+            assert str(e.value) == "AzureML client config is required for AzureML system"

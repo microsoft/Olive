@@ -2,9 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import os
 import tempfile
 from pathlib import Path
+from test.integ_test.utils import get_olive_workspace_config
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.model import PyTorchModel
@@ -78,25 +78,3 @@ def get_pytorch_model():
         },
     )
     return pytorch_model
-
-
-def get_olive_workspace_config():
-    subscription_id = os.environ.get("WORKSPACE_SUBSCRIPTION_ID")
-    if subscription_id is None:
-        raise Exception("Please set the environment variable WORKSPACE_SUBSCRIPTION_ID")
-
-    resource_group = os.environ.get("WORKSPACE_RESOURCE_GROUP")
-    if resource_group is None:
-        raise Exception("Please set the environment variable WORKSPACE_RESOURCE_GROUP")
-
-    workspace_name = os.environ.get("WORKSPACE_NAME")
-    if workspace_name is None:
-        raise Exception("Please set the environment variable WORKSPACE_NAME")
-
-    workspace_config = {
-        "subscription_id": subscription_id,
-        "resource_group": resource_group,
-        "workspace_name": workspace_name,
-    }
-
-    return workspace_config

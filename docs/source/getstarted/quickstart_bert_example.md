@@ -3,46 +3,44 @@ This is a sample use case of Olive to optimize a [Bert](https://huggingface.co/I
 onnx quantization tuner and performance tuning.
 
 Performs optimization pipeline:
-- *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Quantized Onnx Model -> Tune performance*
-
-Outputs the best metrics, model, and corresponding Olive config.
+- *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Quantized Onnx Model ->  ONNX Runtime performance tuning*
 
 ## Prerequisites
-Please go to example repository [Quickstart Bert Example](https://github.com/microsoft/Olive/tree/main/examples/bert_ptq_cpu)
+Please go to example repository [Quickstart Bert Example](https://github.com/microsoft/Olive/tree/main/examples/bert)
 ### Pip requirements
 Install the necessary python packages:
 ```
 python -m pip install -r requirements.txt
 ```
 
-## Run sample using config. The optimization techniques to run are specified in bert_config.json
+## Run sample using config. The optimization techniques to run are specified in bert_ptq_cpu.json
 First, install required packages according to passes.
 ```
-python -m olive.workflows.run --config bert_config.json --setup
+python -m olive.workflows.run --config bert_ptq_cpu.json --setup
 ```
 Then, optimize the model
 ```
-python -m olive.workflows.run --config bert_config.json
+python -m olive.workflows.run --config bert_ptq_cpu.json
 ```
 or run simply with python code:
 ```python
 from olive.workflows import run as olive_run
-olive_run("bert_config.json")
+olive_run("bert_ptq_cpu.json")
 ```
 
 ## Optimize model automatically without selecting any optimization technique.
 First, install required packages according to passes.
 ```
-python -m olive.workflows.run --config auto_bert_config.json --setup
+python -m olive.workflows.run --config bert_auto.json --setup
 ```
 Then, optimize the model
 ```
-python -m olive.workflows.run --config auto_bert_config.json
+python -m olive.workflows.run --config bert_auto.json
 ```
 or run simply with python code:
 ```python
 from olive.workflows import run as olive_run
-olive_run("auto_bert_config.json")
+olive_run("bert_auto.json")
 ```
 
 After running the above command, the model candidates and corresponding config will be saved in the output directory.

@@ -74,6 +74,7 @@ class Pass(ABC):
         config_class, default_config = self.get_config_class(accelerator_spec, disable_search)
 
         self._accelerator_spec = accelerator_spec
+
         self._config_class = config_class
         self._config = config
         if self._requires_user_script:
@@ -97,6 +98,14 @@ class Pass(ABC):
                 self.path_params.append((param, param_config.required))
 
         self._initialized = False
+
+    @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        """Whether the pass is accelerator agnostic. If True, the pass will be reused for all accelerators.
+        The default value is True. The subclass could choose to override this method to return False by using the
+        accelerator spec information.
+        """
+        return True
 
     @classmethod
     def requires_data_config(cls):
@@ -377,13 +386,13 @@ class Pass(ABC):
         else:
             return self._run_for_config(model, config, output_model_path)
 
-    def serialize_config(self, config: Dict[str, Any], check_objects: bool = False) -> str:
+    def serialize_config(self, config: Dict[str, Any], check_object: bool = False) -> str:
         """
         Serialize the configuration.
         """
-        return self._config_class(**config).to_json(check_objects)
+        return self._config_class(**config).to_json(check_object)
 
-    def to_json(self, check_objects: bool = False) -> Dict[str, Any]:
+    def to_json(self, check_object: bool = False) -> Dict[str, Any]:
         """
         Convert the pass to json.
         """
@@ -391,7 +400,7 @@ class Pass(ABC):
             "type": self.__class__.__name__,
             "disable_search": True,
             "accelerator": self._accelerator_spec.to_json(),
-            "config": self.serialize_config(self._config, check_objects),
+            "config": self.serialize_config(self._config, check_object),
         }
 
 

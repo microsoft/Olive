@@ -108,7 +108,7 @@ def _package_candidate_models(
                     for file in Path(temp_resource_path.get_path()).iterdir():
                         Path(file).rename(model_dir / file.name)
 
-                if packaging_config.extra_config.get("export_model_in_mlflow_format"):
+                if packaging_config.export_model_in_mlflow_format:
                     _generate_onnx_mlflow_model(model_dir, inference_config)
 
         elif model_type == "OpenVINOModel":

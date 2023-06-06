@@ -130,7 +130,7 @@ Search space combines search parameters from one or more passes and provides met
 
 The search parameters are passed to SearchSpace and saved in the format
 ```python
-{“pass_id/space_name”: {“param_name”: SearchParamter}}
+{“pass_id/space_name”: {“param_name”: SearchParameter}}
 ```
 
 This hierarchical structure that indexes the search parameter dictionaries by `pass_id` allows us to take advantage of the chronological order of pass execution if wanted.

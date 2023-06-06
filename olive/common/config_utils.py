@@ -80,7 +80,7 @@ def config_json_loads(s: Union[str, bytes, bytearray], *, object_hook: Callable[
     return json.loads(s, object_hook=object_hook, **kwargs)
 
 
-def serialize_to_json(obj: Any, check_objects: bool = False) -> dict:
+def serialize_to_json(obj: Any, check_object: bool = False) -> dict:
     """
     Serialize a Python object into a JSON dict. Also serializes functions and objects.
     """
@@ -88,7 +88,7 @@ def serialize_to_json(obj: Any, check_objects: bool = False) -> dict:
         raw_json = obj.json()
     else:
         raw_json = config_json_dumps(obj)
-    if check_objects:
+    if check_object:
         try:
             config_json_loads(raw_json)
         except ValueError as e:
@@ -107,8 +107,8 @@ class ConfigBase(BaseModel):
         json_dumps = config_json_dumps
         json_encoders = {Path: lambda x: str(x.resolve())}
 
-    def to_json(self, check_objects: bool = False) -> dict:
-        return serialize_to_json(self, check_objects)
+    def to_json(self, check_object: bool = False) -> dict:
+        return serialize_to_json(self, check_object)
 
     @classmethod
     def from_json(cls, json_dict: dict) -> "ConfigBase":

@@ -75,11 +75,11 @@ class AzureMLSystem(OliveSystem):
             )
         if docker_config.base_image:
             return Environment(image=docker_config.base_image, conda_file=docker_config.conda_file_path)
-        raise Exception("Please specify DockerConfig.")
+        raise ValueError("Please specify DockerConfig.")
 
     def _assert_not_none(self, object):
         if object is None:
-            raise Exception(f"{object.__class__.__name__} is missing in the inputs!")
+            raise ValueError(f"{object.__class__.__name__} is missing in the inputs!")
 
     def run_pass(
         self,
@@ -94,8 +94,8 @@ class AzureMLSystem(OliveSystem):
         ml_client = self.azureml_client_config.create_client()
         point = point or {}
         config = the_pass.config_at_search_point(point)
-        pass_config = the_pass.to_json(check_objects=True)
-        pass_config["config"].update(the_pass.serialize_config(config, check_objects=True))
+        pass_config = the_pass.to_json(check_object=True)
+        pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
 
         with tempfile.TemporaryDirectory() as tempdir:
             pipeline_job = self._create_pipeline_for_pass(tempdir, model, pass_config, the_pass.path_params)
@@ -498,7 +498,7 @@ class AzureMLSystem(OliveSystem):
         model_resource_type: ResourceType,
         accelerator_config_path: str,
     ):
-        metric_json = metric.to_json(check_objects=True)
+        metric_json = metric.to_json(check_object=True)
 
         # prepare code
         script_name = "aml_evaluation_runner.py"

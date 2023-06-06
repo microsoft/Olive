@@ -24,7 +24,7 @@ You can create your own `my_script.py` with `dataloader_func` and `post_processi
 # my_script.py
 
 class MyDataLoader:
-    def __init__(self, data_dir, batchsize):
+    def __init__(self, data_dir, batch_size):
         ...
 
     def __len__(self):
@@ -33,8 +33,8 @@ class MyDataLoader:
     def __getitem__(self):
         ...
 
-def create_dataloader(data_dir, batchsize):
-    return MyDataloader(data_dir, batchsize)
+def create_dataloader(data_dir, batch_size):
+    return MyDataloader(data_dir, batch_size)
 
 def post_process(output):
     # your post processing logic here
@@ -44,15 +44,13 @@ def post_process(output):
 Use `my_script.py` with Olive workflow configuration json file(sub_types name should be the returned dict key of your custom function):
 
 ```
-
-```
 "metrics":[
     {
         "name": "accuracy",
         "type": "accuracy",
         "sub_types": [
             {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-            {"name": "f1_score"},
+            {"name": "f1_score", "metric_config": {"multiclass": false}},
             {"name": "auc", "metric_config": {"reorder": true}}
         ],
         "user_config":{
@@ -104,7 +102,7 @@ Use `script_dir` and `my_script.py` with Olive workflow configuration json file:
         "type": "accuracy",
         "sub_types": [
             {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-            {"name": "f1_score"},
+            {"name": "f1_score", "metric_config": {"multiclass": false}},
             {"name": "auc", "metric_config": {"reorder": true}}
         ]
         "user_config":{

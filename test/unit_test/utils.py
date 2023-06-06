@@ -47,9 +47,10 @@ class FixedDummyDataset(Dataset):
         self.size = size
         self.rng = np.random.default_rng(0)
         self.data = torch.tensor(self.rng.random((size, 1)))
+        self.labels = torch.tensor(self.rng.random(1))
 
     def __getitem__(self, idx):
-        return self.data[idx], torch.rand(10)
+        return self.data[idx], self.labels[idx]
 
     def __len__(self):
         return self.size
@@ -100,7 +101,15 @@ def create_fixed_dataloader(datadir, batchsize):
 
 def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None, backend="torch_metrics"):
     accuracy_metric_config = {"dataloader_func": create_dataloader if random_dataloader else create_fixed_dataloader}
-    sub_types = [{"name": sub, "goal": MetricGoal(type="threshold", value=0.99)} for sub in acc_subtype]
+    accuracy_score_metric_config = {"mdmc_average": "global"}
+    sub_types = [
+        {
+            "name": sub,
+            "metric_config": accuracy_score_metric_config if sub == "accuracy_score" else {},
+            "goal": MetricGoal(type="threshold", value=0.99),
+        }
+        for sub in acc_subtype
+    ]
     sub_types[0]["priority"] = 1
     accuracy_metric = Metric(
         name="accuracy",

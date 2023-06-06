@@ -32,13 +32,54 @@ jobs:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
-    exampleName: ["cifar10_openvino_intel_hw", "bert_ptq_cpu", "resnet_ptq_cpu", "whisper", "resnet_vitis_ai_ptq_cpu"]
+    examples:
+      cifar10_openvino_intel_hw:
+        exampleFolder: cifar10_openvino_intel_hw
+        exampleName: cifar10_openvino_intel_hw
+      bert_ptq_cpu:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu
+      resnet_ptq_cpu:
+        exampleFolder: resnet
+        exampleName: resnet_ptq_cpu
+      whisper:
+        exampleFolder: whisper
+        exampleName: whisper
+      resnet_vitis_ai_ptq_cpu:
+        exampleFolder: resnet
+        exampleName: resnet_vitis_ai_ptq_cpu
+      bert_ptq_cpu_aml:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu_aml
+      bert_mlflow_cpu:
+        exampleFolder: bert
+        exampleName: bert_mlflow_cpu
+
 - template: job_templates/olive-build-template.yaml
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
-    exampleName: ["cifar10_openvino_intel_hw", "bert_ptq_cpu", "resnet_ptq_cpu", "whisper"]
+    examples:
+      cifar10_openvino_intel_hw:
+        exampleFolder: cifar10_openvino_intel_hw
+        exampleName: cifar10_openvino_intel_hw
+      bert_ptq_cpu:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu
+      resnet_ptq_cpu:
+        exampleFolder: resnet
+        exampleName: resnet_ptq_cpu
+      whisper:
+        exampleFolder: whisper
+        exampleName: whisper
+      bert_ptq_cpu_aml:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu_aml
+      bert_mlflow_cpu:
+        exampleFolder: bert
+        exampleName: bert_mlflow_cpu
+
 - template: job_templates/olive-build-doc-template.yaml
   parameters:
     job_name: Test_BuildDocs

@@ -335,5 +335,5 @@ def _validate_onnx_session_options(onnx_session_options):
                 raise ValueError(
                     f"Value for key {key} in onnx_session_options should be 0, 1, 2, or 99, " "not {value}"
                 )
-            elif key in ["intra_op_num_threads", "intra_op_num_threads"] and value < 0:
+            elif key in ["intra_op_num_threads", "intra_op_num_threads"] and value and value < 0:
                 raise ValueError(f"Value for key {key} in onnx_session_options should be >= 0, not {value}")

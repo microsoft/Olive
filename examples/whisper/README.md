@@ -18,17 +18,15 @@ Outputs the final model and latency results.
 Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive.
 
 ### Pip requirements
-This example requires the latest code from onnxruntime and onnxruntime-extensions which are not available in the stable releases yet.
-So, we will install the nightly versions.
+This example requires the latest code from onnxruntime-extensions which are not available in the stable releases yet.
+So, we will install the nightly version.
 
 On Linux:
 ```bash
 # Install requirements
 python -m pip install -r requirements.txt
-# Install nightly versions of onnxruntime and onnxruntime-extensions
-python -m pip uninstall -y onnxruntime onnxruntime-extensions
-python -m pip install ort-nightly==1.15.0.dev20230429003 \
-    --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+# Install nightly version of onnxruntime-extensions
+python -m pip uninstall -y onnxruntime-extensions
 export OCOS_NO_OPENCV=1
 python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git
 ```
@@ -37,9 +35,9 @@ On Windows (cmd):
 ```cmd
 :: Install requirements
 python -m pip install -r requirements.txt
-:: Install nightly versions of onnxruntime and onnxruntime-extensions
-python -m pip uninstall -y onnxruntime onnxruntime-extensions
-python -m pip install ort-nightly==1.15.0.dev20230429003 onnxruntime-extensions==0.8.0.306180 ^
+:: Install nightly version of onnxruntime-extensions
+python -m pip uninstall -y onnxruntime-extensions
+python -m pip install onnxruntime-extensions==0.8.0.306180 ^
     --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
@@ -47,9 +45,9 @@ On Windows (PowerShell):
 ```powershell
 # Install requirements
 python -m pip install -r requirements.txt
-# Install nightly versions of onnxruntime and onnxruntime-extensions
-python -m pip uninstall -y onnxruntime onnxruntime-extensions
-python -m pip install ort-nightly==1.15.0.dev20230429003 onnxruntime-extensions==0.8.0.306180 `
+# Install nightly version of onnxruntime-extensions
+python -m pip uninstall -y onnxruntime-extensions
+python -m pip install onnxruntime-extensions==0.8.0.306180 `
     --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 

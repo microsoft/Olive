@@ -24,6 +24,7 @@ from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import PyTorchModel
 from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization
+from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 
 
@@ -89,7 +90,7 @@ class TestEngine:
 
         assert str(exc_info.value) == f"Search strategy is None but pass {name} has search space"
 
-    @patch("olive.engine.engine.LocalSystem")
+    @patch("olive.systems.local.LocalSystem")
     def test_run(self, mock_local_system):
         # setup
         pytorch_model = get_pytorch_model()
@@ -123,7 +124,7 @@ class TestEngine:
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, clean_run_cache=True)
-        model_id = f"0_{p.__class__.__name__}-{input_model_id}-{hash_dict(pass_config)}-{DEFAULT_CPU_ACCELERATOR}"
+        model_id = f"0_{p.__class__.__name__}-{input_model_id}-{hash_dict(pass_config)}"
         expected_res = {
             model_id: {
                 "model_id": model_id,
@@ -162,7 +163,7 @@ class TestEngine:
         mock_local_system.run_pass.assert_called_once()
         mock_local_system.evaluate_model.assert_called_once_with(onnx_model, [metric], accelerator_spec)
 
-    @patch("olive.engine.engine.LocalSystem")
+    @patch("olive.systems.local.LocalSystem")
     def test_run_no_search(self, mock_local_system):
         # setup
         pytorch_model = get_pytorch_model()
@@ -248,7 +249,7 @@ class TestEngine:
 
             # clean up: tempfile will be deleted automatically
 
-    @patch("olive.engine.engine.LocalSystem")
+    @patch("olive.systems.local.LocalSystem")
     def test_run_evaluation_only(self, mock_local_system):
         # setup
         pytorch_model = get_pytorch_model()
@@ -331,3 +332,85 @@ class TestEngine:
             with pytest.raises(ValueError) as exc_info:
                 engine.initialize()
                 assert str(exc_info.value) == "ValueError: invalid literal for int() with base 10: '435d'"
+
+    @patch("olive.systems.local.LocalSystem")
+    @patch("onnxruntime.get_available_providers")
+    def test_pass_cache_reuse(self, mock_get_available_providers, mock_local_system, caplog):
+        logger = logging.getLogger("olive")
+        logger.propagate = True
+
+        # setup
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+        options = {
+            "cache_dir": "./cache",
+            "clean_cache": True,
+            "search_strategy": {
+                "execution_order": "joint",
+                "search_algorithm": "random",
+            },
+            "clean_evaluation_cache": True,
+        }
+        mock_local_system.system_type = SystemType.Local
+        mock_local_system.accelerators = ["GPU", "CPU"]
+        mock_local_system.get_supported_execution_providers.return_value = [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider",
+            "QNNExecutionProvider",
+        ]
+        mock_get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        mock_local_system.run_pass.return_value = get_onnx_model()
+        mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
+
+        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
+        assert len(engine.accelerator_specs) == 2
+        assert "QNNExecutionProvider" in caplog.text
+        engine.register(OnnxConversion, clean_run_cache=True)
+
+        pytorch_model = get_pytorch_model()
+
+        temp_dir = tempfile.TemporaryDirectory()
+        output_dir = Path(temp_dir.name)
+        _ = engine.run(pytorch_model, output_dir=output_dir)
+
+        mock_local_system.run_pass.assert_called_once()
+
+    @patch("olive.systems.local.LocalSystem")
+    @patch("onnxruntime.get_available_providers")
+    def test_pass_cache(self, mock_get_available_providers, mock_local_system):
+        # setup
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+        options = {
+            "cache_dir": "./cache",
+            "clean_cache": True,
+            "search_strategy": {
+                "execution_order": "joint",
+                "search_algorithm": "random",
+            },
+            "clean_evaluation_cache": True,
+        }
+        mock_local_system.system_type = SystemType.Local
+        mock_local_system.accelerators = ["GPU", "CPU"]
+        mock_local_system.get_supported_execution_providers.return_value = [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider",
+        ]
+        mock_get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        mock_local_system.run_pass.return_value = get_onnx_model()
+        mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
+
+        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
+        engine.register(OnnxConversion, clean_run_cache=True)
+
+        pytorch_model = get_pytorch_model()
+
+        temp_dir = tempfile.TemporaryDirectory()
+        output_dir = Path(temp_dir.name)
+
+        with patch(
+            "olive.passes.onnx.conversion.OnnxConversion.is_accelerator_agnostic"
+        ) as is_accelerator_agnostic_mock:
+            is_accelerator_agnostic_mock.return_value = False
+            _ = engine.run(pytorch_model, output_dir=output_dir)
+            mock_local_system.run_pass.call_count == 2

@@ -6,8 +6,8 @@ docker
 neural-compressor
 onnxconverter_common
 onnxruntime-extensions
-openvino
-openvino-dev
+openvino==2022.3.0
+openvino-dev==2022.3.0
 pandas
 plotly
 psutil

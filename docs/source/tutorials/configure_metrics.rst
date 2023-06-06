@@ -19,7 +19,7 @@ Accuracy Metric
                 "type": "accuracy",
                 "sub_types": [
                     {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                    {"name": "f1_score"},
+                    {"name": "f1_score", "metric_config": {"multiclass": false}},
                     {"name": "auc", "metric_config": {"reorder": true}}
                 ],
                 "user_config": {
@@ -177,7 +177,7 @@ If you have multiple metrics to evaluate, you can configure them in the followin
                     "type": "accuracy",
                     "sub_types": [
                         {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                        {"name": "f1_score"},
+                        {"name": "f1_score", "metric_config": {"multiclass": false}},
                         {"name": "auc", "metric_config": {"reorder": true}}
                     ]
                 },
