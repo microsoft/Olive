@@ -3,7 +3,7 @@ azure-identity
 azureml-evaluate-mlflow
 datasets
 docker
-mlflow
+mlflow==2.4.0
 onnxruntime
 neural-compressor
 scipy
