@@ -53,25 +53,28 @@
 <li class="toctree-l1"><a class="reference internal" href="olive.html">Olive</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quicktour.html">Quick Tour</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Olive Options</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#azure-ml-client">Azure ML Client</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#input-model-information">Input Model Information</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#azure-ml-client">Azure ML Client</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#example">Example</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#systems-information">Systems Information</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#input-model-information">Input Model Information</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#id1">Example</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#evaluators-information">Evaluators Information</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#systems-information">Systems Information</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#id2">Example</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#passes-information">Passes Information</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#evaluators-information">Evaluators Information</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#id3">Example</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#engine-information">Engine Information</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#passes-information">Passes Information</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#id4">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#engine-information">Engine Information</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id5">Example</a></li>
 </ul>
 </li>
 </ul>
@@ -153,17 +156,38 @@ to apply from user in the form of a json dictionary. In this document, we docume
 </ul>
 <section id="azure-ml-client">
 <h2>Azure ML Client<a class="headerlink" href="#azure-ml-client" title="Permalink to this heading">¶</a></h2>
+<p>If you will use Azure ML resources and assets, you need to provide your Azure ML client configurations. For example:</p>
+<ul class="simple">
+<li><p>You have AzureML system for targets or hosts.</p></li>
+<li><p>You have Azure ML model as input model.</p></li>
+</ul>
+<p>AzureML authentication credentials is needed. Refer to
+<a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?tabs=sdk">this</a>  for
+more details.</p>
 <p><code class="docutils literal notranslate"><span class="pre">azureml_client:</span> <span class="pre">[Dict]</span></code></p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">subscription_id:</span> <span class="pre">[str]</span></code> Azure account subscription id.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">resource_group:</span> <span class="pre">[str]</span></code> Azure account resource group name.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">workspace_name:</span> <span class="pre">[str]</span></code> Azure ML workspace name.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">aml_config_path:</span> <span class="pre">[str]</span></code> The path to Azure config file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">aml_config_path:</span> <span class="pre">[str]</span></code> The path to Azure config file, if Azure ML client config is in a separate file.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">read_timeout:</span> <span class="pre">[int]</span></code> read timeout in seconds for HTTP requests, user can increase if they find the default value too small. The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to sometimes hang for a long time between retries of job stream and download steps.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_operation_retries:</span> <span class="pre">[int]</span></code> The maximum number of retries for Azure ML operations like resource creation and download.
 The default value is 3. User can increase if there are network issues and the operations fail.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">operation_retry_interval:</span> <span class="pre">[int]</span></code> The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.</p></li>
 </ul>
+<section id="example">
+<h3>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;subscription_id&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;resource_group&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;workspace_name&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;read_timeout&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">4000</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;max_operation_retries&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;operation_retry_interval&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
+<span class="p">},</span>
+</pre></div>
+</div>
+</section>
 </section>
 <section id="input-model-information">
 <h2>Input Model Information<a class="headerlink" href="#input-model-information" title="Permalink to this heading">¶</a></h2>
@@ -231,8 +255,8 @@ at <a class="reference external" href="https://huggingface.co/docs/transformers/
 </tr>
 </tbody>
 </table>
-<section id="example">
-<h3>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h3>
+<section id="id1">
+<h3>Example<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -264,8 +288,8 @@ information of the system contains following items:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The system config dictionary that contains the system specific information.</p></li>
 </ul>
 <p>Please refer to <a class="reference internal" href="../tutorials/configure_systems.html#configuring-olivesystem"><span class="std std-ref">Configuring OliveSystem</span></a> for the more information of the system config dictionary.</p>
-<section id="id1">
-<h3>Example<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
+<section id="id2">
+<h3>Example<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;systems&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;local_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LocalSystem&quot;</span><span class="p">},</span>
 <span class="w">    </span><span class="nt">&quot;aml_system&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -345,8 +369,8 @@ model, <code class="docutils literal notranslate"><span class="pre">data_dir</sp
 </ul>
 </li>
 </ul>
-<section id="id2">
-<h3>Example<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<section id="id3">
+<h3>Example<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;evaluators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;common_evaluator&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;metrics&quot;</span><span class="p">:[</span>
@@ -488,8 +512,8 @@ will be used.</p></li>
 </tr>
 </tbody>
 </table>
-<section id="id3">
-<h3>Example<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h3>
+<section id="id4">
+<h3>Example<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;onnx_conversion&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxConversion&quot;</span><span class="p">,</span>
@@ -581,8 +605,8 @@ prefix.</p></li>
 </tr>
 </tbody>
 </table>
-<section id="id4">
-<h3>Example<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h3>
+<section id="id5">
+<h3>Example<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;search_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;execution_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;joint&quot;</span><span class="p">,</span>
