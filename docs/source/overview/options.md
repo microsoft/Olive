@@ -198,9 +198,7 @@ information of the evaluator contains following items:
 
         - `script_dir: [str]` The directory that contains dependencies for the user script.
 
-        - `data_dir: [str]` [!Deprecated Soon] he directory that contains the data for the metric evaluation.
-
-        - `data_path: [ResourcePath]` The path to the data for the metric evaluation which can be a local file, local folder, or data hosted on AML Datastore.
+        - `data_dir: [str]` The directory that contains the data for the metric evaluation.
 
         - `batch_size: [int]` The batch size for the metric evaluation.
 

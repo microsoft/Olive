@@ -8,7 +8,6 @@ from typing import Callable, List, Union
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, ConfigParam, create_config_class
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 WARMUP_NUM = 10
 REPEAT_TEST_NUM = 20
@@ -19,7 +18,6 @@ _common_user_config = {
     "script_dir": ConfigParam(type_=Union[Path, str]),
     "user_script": ConfigParam(type_=Union[Path, str]),
     "data_dir": ConfigParam(type_=Union[Path, str]),
-    "data_path": ConfigParam(type_=OLIVE_RESOURCE_ANNOTATIONS),
     "batch_size": ConfigParam(type_=int, default_value=1),
     "input_names": ConfigParam(type_=List),
     "input_shapes": ConfigParam(type_=List),

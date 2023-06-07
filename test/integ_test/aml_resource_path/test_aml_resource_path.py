@@ -24,12 +24,20 @@ class TestAMLResourcePath:
                 "type": ResourceType.AzureMLModel,
                 "config": {"azureml_client": workspace_config, "name": "olive_model", "version": 1},
             },
-            ResourceType.AzureMLDatastore: {
-                "type": ResourceType.AzureMLModelDatastore,
+            f"{ResourceType.AzureMLDatastore}_file": {
+                "type": ResourceType.AzureMLDatastore,
                 "config": {
                     "azureml_client": workspace_config,
                     "datastore_name": "workspaceblobstore",
                     "relative_path": "LocalUpload/91c260865404c817f0fb43e321137c32/model.onnx",
+                },
+            },
+            f"{ResourceType.AzureMLDatastore}_folder": {
+                "type": ResourceType.AzureMLDatastore,
+                "config": {
+                    "azureml_client": workspace_config,
+                    "datastore_name": "workspaceblobstore",
+                    "relative_path": "LocalUpload/db47b57f5cb1f9da097f8d6e540eaab0/local_folder/",
                 },
             },
             ResourceType.AzureMLJobOutput: {
@@ -45,29 +53,40 @@ class TestAMLResourcePath:
 
     @pytest.mark.parametrize(
         "resource_path_type",
-        [ResourceType.AzureMLModel, ResourceType.AzureMLDatastore, ResourceType.AzureMLJobOutput],
+        [
+            ResourceType.AzureMLModel,
+            f"{ResourceType.AzureMLDatastore}_file",
+            f"{ResourceType.AzureMLDatastore}_folder",
+            ResourceType.AzureMLJobOutput,
+        ],
     )
     def test_create_resource_path(self, resource_path_type):
         resource_path = create_resource_path(self.resource_path_configs[resource_path_type])
-        assert resource_path.type == resource_path_type
         assert "azureml" in resource_path.get_path()
 
     @pytest.mark.parametrize(
         "resource_path_type",
-        [ResourceType.AzureMLModel, ResourceType.AzureMLDatastore, ResourceType.AzureMLJobOutput],
+        [
+            ResourceType.AzureMLModel,
+            f"{ResourceType.AzureMLDatastore}_file",
+            f"{ResourceType.AzureMLDatastore}_folder",
+            ResourceType.AzureMLJobOutput,
+        ],
     )
     def test_save_to_dir(self, resource_path_type):
         resource_path = create_resource_path(self.resource_path_configs[resource_path_type])
 
+        save_result = "local_folder" if resource_path_type.endswith("folder") else "model.onnx"
         # test save to dir
         saved_resource = resource_path.save_to_dir(self.tmp_dir_path / "save_to_dir")
         assert Path(saved_resource).exists()
-        assert Path(saved_resource).name == "model.onnx"
+        assert Path(saved_resource).name == save_result
 
         # test save to dir with new name
-        saved_resource = resource_path.save_to_dir(self.tmp_dir_path / "save_to_dir", "new_name")
+        new_name = "new_name"
+        saved_resource = resource_path.save_to_dir(self.tmp_dir_path / "save_to_dir", new_name)
         assert Path(saved_resource).exists()
-        assert Path(saved_resource).stem == "new_name"
+        assert Path(saved_resource).stem == new_name
 
         # test fail to save to dir with existing name
         with pytest.raises(FileExistsError):
@@ -76,4 +95,4 @@ class TestAMLResourcePath:
         # test save to dir with overwrite
         saved_resource = resource_path.save_to_dir(self.tmp_dir_path / "save_to_dir", overwrite=True)
         assert Path(saved_resource).exists()
-        assert Path(saved_resource).name == "model.onnx"
+        assert Path(saved_resource).name == save_result

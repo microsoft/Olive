@@ -27,7 +27,6 @@ class ResourceType(str, Enum):
     StringName = "string_name"
     AzureMLModel = "azureml_model"
     AzureMLDatastore = "azureml_datastore"
-    AzureMLModelDatastore = "azureml_model_datastore"
     AzureMLJobOutput = "azureml_job_output"
 
     def __str__(self) -> str:
@@ -318,20 +317,41 @@ class AzureMLModel(ResourcePath):
         return str(new_path)
 
 
+def _datastore_url_validator(v, values, **kwargs):
+    aml_info_ready = all([values.get("azureml_client"), values.get("datastore_name"), values.get("relative_path")])
+    if not v and not aml_info_ready:
+        raise ValueError(
+            "If datastore_url is not specified, then azureml_client, datastore_name, and relative_path "
+            "must be specified."
+        )
+    elif v and aml_info_ready:
+        logger.warning("datastore_url is specified. azureml_client, datastore_name, and relative_path are ignored.")
+
+    if v and not v.startswith("azureml:"):
+        raise ValueError(f"Datastore URL {v} is not a valid AzureML datastore URL.")
+    return v
+
+
 class AzureMLDataStore(ResourcePath):
     name = ResourceType.AzureMLDatastore
 
     @staticmethod
+    def _validators() -> Dict[str, Callable[..., Any]]:
+        validators = ResourcePath._validators()
+        validators.update(
+            {
+                "validate_datastore_url": validator("datastore_url", allow_reuse=True)(_datastore_url_validator),
+            }
+        )
+        return validators
+
+    @staticmethod
     def _default_config() -> Dict[str, Any]:
         return {
-            "azureml_client": ConfigParam(
-                type_=AzureMLClientConfig, required=True, description="AzureML client config."
-            ),
-            "datastore_name": ConfigParam(type_=str, required=True, description="Name of the datastore."),
-            "relative_path": ConfigParam(type_=str, required=True, description="Relative path to the resource."),
-            "is_folder": ConfigParam(type_=bool, default_value=True, description="Whether the resource is a folder."),
-            # TODO add validation for datastore_url where user can specify one of datastore_url without above params
-            "datastore_url": ConfigParam(type_=str, default_value=None, description="URL of the datastore."),
+            "azureml_client": ConfigParam(type_=AzureMLClientConfig, description="AzureML client config."),
+            "datastore_name": ConfigParam(type_=str, description="Name of the datastore."),
+            "relative_path": ConfigParam(type_=str, description="Relative path to the resource."),
+            "datastore_url": ConfigParam(type_=str, description="URL of the datastore."),
         }
 
     def get_path(self) -> str:
@@ -343,10 +363,13 @@ class AzureMLDataStore(ResourcePath):
             )
         return self.config.datastore_url
 
+    def is_file(self, fsspec) -> bool:
+        return fsspec.info(self.get_relative_path()).get("type") == "file"
+
     def get_relative_path(self) -> str:
         if not self.config.relative_path:
             assert self.config.datastore_url
-            return re.split("/datastores/.*/paths/", self.config.datastore_url)[-1]
+            self.config.relative_path = re.split("/datastores/.*/paths/", self.config.datastore_url)[-1]
         return self.config.relative_path
 
     def get_aml_client_config(self) -> AzureMLClientConfig:
@@ -374,13 +397,16 @@ class AzureMLDataStore(ResourcePath):
 
         dir_path = Path(dir_path).resolve()
         dir_path.mkdir(parents=True, exist_ok=True)
-        self.get_aml_client_config().create_client()
+
+        self.get_aml_client_config()
+
         # azureml file system
         fs = AzureMachineLearningFileSystem(self.get_path())
         relative_path = Path(self.get_relative_path())
+        is_file = self.is_file(fs)
         # path to save the resource to
         if name:
-            new_path_name = Path(name).with_suffix("" if self.config.is_folder else relative_path.suffix).name
+            new_path_name = Path(name).with_suffix("" if not is_file else relative_path.suffix).name
         else:
             new_path_name = relative_path.name
 
@@ -398,36 +424,19 @@ class AzureMLDataStore(ResourcePath):
                 kwargs={
                     "rpath": self.get_relative_path(),
                     "lpath": temp_dir,
-                    "recursive": self.config.is_folder,
+                    "recursive": not is_file,
                 },
                 max_tries=self.config.azureml_client.max_operation_retries,
                 delay=self.config.azureml_client.operation_retry_interval,
             )
             downloaded_resource = Path(temp_dir) / relative_path.name
             if downloaded_resource.is_file():
+                # only if the resource is a existed file we will move it to the new path
                 shutil.move(downloaded_resource, new_path)
             else:
                 shutil.copytree(temp_dir, new_path)
 
         return str(Path(new_path).resolve())
-
-
-class AzureMLModelDatastore(AzureMLDataStore):
-    """AzureML datastore resource path"""
-
-    name = ResourceType.AzureMLModelDatastore
-
-    @staticmethod
-    def _default_config() -> Dict[str, Any]:
-        default_config = super(AzureMLModelDatastore, AzureMLModelDatastore)._default_config()
-        default_config.update(
-            {
-                "is_folder": ConfigParam(
-                    type_=bool, default_value=False, description="Whether the resource is a folder."
-                ),
-            }
-        )
-        return default_config
 
 
 class AzureMLJobOutput(ResourcePath):

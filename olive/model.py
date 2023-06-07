@@ -32,7 +32,13 @@ from olive.hf_utils import (
     load_huggingface_model_from_model_class,
     load_huggingface_model_from_task,
 )
-from olive.resource_path import ResourcePath, ResourcePathConfig, ResourceType, create_resource_path
+from olive.resource_path import (
+    OLIVE_RESOURCE_ANNOTATIONS,
+    ResourcePath,
+    ResourcePathConfig,
+    ResourceType,
+    create_resource_path,
+)
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
 
@@ -56,7 +62,7 @@ class OliveModel(ABC):
         self,
         framework: Framework,
         model_file_format: ModelFileFormat,
-        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
     ):
         self.framework = framework
         self.model_file_format = model_file_format
@@ -259,7 +265,7 @@ class ONNXModelBase(OliveModel):
 
     def __init__(
         self,
-        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
     ):
@@ -300,7 +306,7 @@ class ONNXModelBase(OliveModel):
 class ONNXModel(ONNXModelBase):
     def __init__(
         self,
-        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         onnx_file_name: Optional[str] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
@@ -539,7 +545,7 @@ class ONNXModel(ONNXModelBase):
 class PyTorchModel(OliveModel):
     def __init__(
         self,
-        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
@@ -725,9 +731,7 @@ class PyTorchModel(OliveModel):
 
 
 class OptimumModel(OliveModel):
-    def __init__(
-        self, model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]], model_components: List[str]
-    ):
+    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS, model_components: List[str]):
         super().__init__(
             framework=Framework.PYTORCH,
             model_file_format=ModelFileFormat.OPTIMUM,
@@ -754,7 +758,7 @@ class SNPEModel(OliveModel):
         input_shapes: List[List[int]],
         output_names: List[str],
         output_shapes: List[List[int]],
-        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
     ):
         super().__init__(framework=Framework.SNPE, model_file_format=ModelFileFormat.SNPE_DLC, model_path=model_path)
         self.io_config = {
@@ -792,7 +796,7 @@ class SNPEModel(OliveModel):
 class TensorFlowModel(OliveModel):
     def __init__(
         self,
-        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_file_format: ModelFileFormat = ModelFileFormat.TENSORFLOW_SAVED_MODEL,
     ):
         super().__init__(model_path=model_path, framework=Framework.TENSORFLOW, model_file_format=model_file_format)
@@ -811,7 +815,7 @@ class TensorFlowModel(OliveModel):
 
 
 class OpenVINOModel(OliveModel):
-    def __init__(self, model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]]):
+    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS):
         super().__init__(
             model_path=model_path, framework=Framework.OPENVINO, model_file_format=ModelFileFormat.OPENVINO_IR
         )
