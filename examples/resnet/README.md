@@ -2,8 +2,8 @@
 This folder contains examples of ResNet optimization using different workflows.
 
 ## Optimization Workflows
-### ResNet optimization with PTQ on CPU
-This workflow performs ResNet optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
+### ResNet optimization with PTQ on DPU
+This workflow performs ResNet optimization on DPU with ONNX Runtime PTQ. It performs the optimization pipeline:
 - *PyTorch Model -> Onnx Model -> Quantized Onnx Model -> ONNX Runtime performance tuning*
 
 Config file: [resnet_ptq_cpu.json](resnet_ptq_cpu.json)
@@ -15,20 +15,20 @@ The workflow in [resnet_static_ptq_cpu.json](resnet_static_ptq_cpu.json) is simi
 The workflow in [resnet_dynamic_ptq_cpu.json](resnet_dynamic_ptq_cpu.json) is similar to the above workflow, but specifically uses dynamic quantization instead of static/dynamic quantization.
 
 
-### ResNet optimization with Vitis-AI PTQ on CPU
-This workflow performs ResNet optimization on CPU with AMD Vitis-AI Quantization. It performs the optimization pipeline:
+### ResNet optimization with Vitis-AI PTQ on DPU
+This workflow performs ResNet optimization on DPU with AMD Vitis-AI Quantization. It performs the optimization pipeline:
 - *PyTorch Model -> Onnx Model -> AMD Vitis-AI Quantized Onnx Model*
 
 Config file: [resnet_vitis_ai_ptq_cpu.json](resnet_vitis_ai_ptq_cpu.json)
 
-### ResNet optimization with QAT Default Training Loop on CPU
-This workflow performs ResNet optimization on CPU with QAT Default Training Loop. It performs the optimization pipeline:
+### ResNet optimization with QAT Default Training Loop on DPU
+This workflow performs ResNet optimization on DPU with QAT Default Training Loop. It performs the optimization pipeline:
 - *PyTorch Model -> PyTorch Model after QAT -> Onnx Model -> ONNX Runtime performance tuning*
 
 Config file: [resnet_qat_default_train_loop_cpu.json](resnet_qat_default_train_loop_cpu.json)
 
-### ResNet optimization with QAT PyTorch Lightning Module on CPU
-This workflow performs ResNet optimization on CPU with QAT PyTorch Lightning Module. It performs the optimization pipeline:
+### ResNet optimization with QAT PyTorch Lightning Module on DPU
+This workflow performs ResNet optimization on DPU with QAT PyTorch Lightning Module. It performs the optimization pipeline:
 - *PyTorch Model -> PyTorch Model after QAT -> Onnx Model -> ONNX Runtime performance tuning*
 
 Config file: [resnet_qat_lightning_module_cpu.json](resnet_qat_lightning_module_cpu.json)
