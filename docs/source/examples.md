@@ -14,6 +14,8 @@
 [Cifar10 optimization with OpenVINO for Intel HW](https://github.com/microsoft/Olive/tree/main/examples/cifar10_openvino_intel_hw)
 
 # Acceleration on GPU
+[Bert optimization with CUDA/TensorRT](https://github.com/microsoft/Olive/tree/main/examples/bert/#bert-optimization-with-cudatensorrt)
+
 [SqueezeNet latency optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet)
 
 [Stable Diffusion optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion)

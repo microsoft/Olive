@@ -32,11 +32,22 @@ This workflow performs BERT optimization on CPU with QAT Customized Training Loo
 
 Config file: [bert_qat_customized_train_loop_cpu.json](bert_qat_customized_train_loop_cpu.json)
 
+### BERT optimization with CUDA/TensorRT
+This workflow performs BERT optimization on GPU with CUDA/TensorRT. It performs the optimization pipeline:
+1. CUDA: `CUDAExecutionProvider`
+    - *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model with fp16 -> ONNX Runtime performance tuning*
+    Config file: [bert_cuda.json](bert_cuda.json)
+2. TensorRT: `TensorrtExecutionProvider`
+    - *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> ONNX Runtime performance tuning with trt_fp16_enable*
+    Config file: [bert_trt.json](bert_trt.json)
 ## How to run
 ### Pip requirements
 Install the necessary python packages:
 ```
+[CPU]
 python -m pip install -r requirements.txt
+[GPU]
+python -m pip install -r requirements-gpu.txt
 ```
 
 ### Run sample using config
