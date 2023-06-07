@@ -369,7 +369,7 @@ class AzureMLDataStore(ResourcePath):
     def get_relative_path(self) -> str:
         if not self.config.relative_path:
             assert self.config.datastore_url
-            self.config.relative_path = re.split("/datastores/.*/paths/", self.config.datastore_url)[-1]
+            return re.split("/datastores/.*/paths/", self.config.datastore_url)[-1]
         return self.config.relative_path
 
     def get_aml_client_config(self) -> AzureMLClientConfig:
@@ -377,7 +377,7 @@ class AzureMLDataStore(ResourcePath):
             subscription_id = re.split("/subscriptions/", self.config.datastore_url)[-1].split("/")[0]
             resource_group = re.split("/resourcegroups/", self.config.datastore_url)[-1].split("/")[0]
             workspace_name = re.split("/workspaces/", self.config.datastore_url)[-1].split("/")[0]
-            self.config.azureml_client = AzureMLClientConfig(
+            return AzureMLClientConfig(
                 subscription_id=subscription_id,
                 resource_group=resource_group,
                 workspace_name=workspace_name,
@@ -398,7 +398,7 @@ class AzureMLDataStore(ResourcePath):
         dir_path = Path(dir_path).resolve()
         dir_path.mkdir(parents=True, exist_ok=True)
 
-        self.get_aml_client_config()
+        azureml_client_config = self.get_aml_client_config()
 
         # azureml file system
         fs = AzureMachineLearningFileSystem(self.get_path())
@@ -426,15 +426,13 @@ class AzureMLDataStore(ResourcePath):
                     "lpath": temp_dir,
                     "recursive": not is_file,
                 },
-                max_tries=self.config.azureml_client.max_operation_retries,
-                delay=self.config.azureml_client.operation_retry_interval,
+                max_tries=azureml_client_config.max_operation_retries,
+                delay=azureml_client_config.operation_retry_interval,
             )
             downloaded_resource = Path(temp_dir) / relative_path.name
-            if downloaded_resource.is_file():
-                # only if the resource is a existed file we will move it to the new path
-                shutil.move(downloaded_resource, new_path)
-            else:
-                shutil.copytree(temp_dir, new_path)
+            # only if the resource is a existed file we will move it to the new path
+            source_path = downloaded_resource if downloaded_resource.is_file() else temp_dir
+            shutil.move(source_path, new_path)
 
         return str(Path(new_path).resolve())
 
