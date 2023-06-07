@@ -117,7 +117,7 @@ class Engine:
                     self.accelerator_specs.append(AcceleratorSpec(device, ep))
                     processed_ep.add(ep)
 
-        assert self.accelerator_specs, "No valid accelerator specified for target system."
+        assert self.accelerator_specs, f"{accelerator} is not valid for target system."
         if not_supported_ep:
             logger.warning(
                 f"The following execution provider is not supported: {','.join(not_supported_ep)}. "
