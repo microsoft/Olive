@@ -332,7 +332,9 @@ def _datastore_url_validator(v, values, **kwargs):
     return v
 
 
-class AzureMLDataStore(ResourcePath):
+class AzureMLDatastore(ResourcePath):
+    """AzureML DataStore resource path"""
+
     name = ResourceType.AzureMLDatastore
 
     @staticmethod
@@ -392,7 +394,7 @@ class AzureMLDataStore(ResourcePath):
             from azureml.fsspec import AzureMachineLearningFileSystem
         except ImportError:
             raise ImportError(
-                "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDataStore resource path."
+                "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
             )
 
         dir_path = Path(dir_path).resolve()
