@@ -15,5 +15,5 @@ pytorch_lightning
 torchvision
 datasets
 azureml-evaluate-mlflow
-mlflow
+mlflow==2.3.2
 evaluate
