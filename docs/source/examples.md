@@ -22,4 +22,4 @@
 [Inception model optimization on Qualcomm NPU](https://github.com/microsoft/Olive/tree/main/examples/snpe/inception_snpe_qualcomm_npu)
 
 # Acceleration on DPU
-[ResNet optimization with Vitis-AI Post Training Quantization](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-vitis-ai-ptq-on-cpu)
+[ResNet optimization with Vitis-AI Post Training Quantization](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-vitis-ai-ptq-on-dpu)
