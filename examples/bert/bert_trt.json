@@ -73,7 +73,7 @@
                 "trt_fp16_enable": true,
                 "io_bind": true
             }
-            
+
         }
     },
     "systems": {
