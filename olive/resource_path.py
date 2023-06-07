@@ -431,7 +431,7 @@ class AzureMLDataStore(ResourcePath):
             )
             downloaded_resource = Path(temp_dir) / relative_path.name
             # only if the resource is a existed file we will move it to the new path
-            source_path = downloaded_resource if downloaded_resource.is_file() else temp_dir
+            source_path = downloaded_resource if is_file else temp_dir
             shutil.move(source_path, new_path)
 
         return str(Path(new_path).resolve())
