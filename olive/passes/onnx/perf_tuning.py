@@ -85,13 +85,16 @@ def tune_onnx_model(model, config):
         if eval_config in config_dict:
             latency_user_config[eval_config] = config_dict.get(eval_config)
     latency_sub_types = [{"name": LatencySubType.AVG}]
-    latency_metric = Metric(
-        name="latency",
-        type=MetricType.LATENCY,
-        sub_types=latency_sub_types,
-        user_config=latency_user_config,
-        data_config=config_dict.get("data_config"),
-    )
+    latency_metric_config = {
+        "name": "latency",
+        "type": MetricType.LATENCY,
+        "sub_types": latency_sub_types,
+        "user_config": latency_user_config,
+    }
+    if config_dict.get("data_config"):
+        # we have to do this condition since data_config cannot be None
+        latency_metric_config["data_config"] = config_dict.get("data_config")
+    latency_metric = Metric(**latency_metric_config)
 
     pretuning_inference_result = get_benchmark(model, latency_metric, config)
 
