@@ -58,19 +58,27 @@ def tune_onnx_model(model, config):
     config_dict = config.dict()
 
     # use model io_config if user does not specify input_names and input_shapes
-    # only do this if data_config is not provided
-    # priority: input_names/input_shapes > data_config > model io_config
-    if not config_dict.get("data_config") and not (config_dict.get("input_names") or config_dict.get("input_shapes")):
-        logger.debug("data_config and input_names/input_shapes are not provided. Use model io_config instead.")
+    # only do this if data_config or dataloader is not provided
+    # priority: dataloader_func > input_names/input_shapes > data_config > model io_config
+    if not (
+        config_dict.get("dataloader_func")
+        or config_dict.get("data_config")
+        or (config_dict.get("input_names") and config_dict.get("input_shapes"))
+    ):
+        logger.debug(
+            "dataloader_func, data_config and input_names/input_shapes are not provided. Use model io_config instead."
+        )
         io_config = model.get_io_config()
         config_dict["input_names"] = io_config["input_names"]
         # check if inferred input shapes are static
         input_shapes = io_config["input_shapes"]
         is_static = all(all(isinstance(dim, int) for dim in shape) for shape in input_shapes)
         if not is_static:
-            logger.debug("Model input shapes are not static. Cannot use infered input shapes for creating dummy data")
-        else:
-            config_dict["input_shapes"] = io_config["input_shapes"]
+            logger.debug(
+                "Model input shapes are not static. Cannot use infered input shapes for creating dummy data. This will"
+                " cause an error when creating dummy data for tuning."
+            )
+        config_dict["input_shapes"] = io_config["input_shapes"]
         config_dict["input_types"] = io_config["input_types"]
 
     for eval_config in get_properties_from_metric_type(MetricType.LATENCY):
