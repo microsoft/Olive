@@ -14,8 +14,7 @@ psutil
 pytorch_lightning
 torchvision
 datasets
-# pip dependency resolver is stuck if we don't specify the version
-azureml-evaluate-mlflow==0.0.12
-# test breaks with newer version
-mlflow==2.3.2
+azureml-evaluate-mlflow
+mlflow
+mlflow-skinny==2.3.2
 evaluate
