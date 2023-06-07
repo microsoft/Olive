@@ -78,7 +78,7 @@ case insensitive.
         [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
 
         - `dataset: [dict]`: Ff you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading_datasets.html). Olive exposes the following configs(which will be extend in the future):
-            ```json
+            ```python
             "dataset": {
                 "model_name": "distilbert-base-uncased",  # the model name of the huggingface model, if not provided, it will use the model_name in hf_config
                 "task": "text-classification",  # the task type for the model, if not provided, it will use the task in hf_config
@@ -316,8 +316,8 @@ Please also find the detailed options from following table for each pass:
 | [SNPEQuantization](snpe_quantization) | Quantize SNPE model. Uses snpe-dlc-quantize tool from the SNPE SDK. |
 | [SNPEtoONNXConversion](snpe_to_onnx_conversion) | Convert a SNPE DLC to ONNX to use with SNPE Execution Provider. Creates a ONNX graph with the SNPE DLC as a node. |
 | [VitisAIQuantization](vitis_ai_quantization) | AMD-Xilinx Vitis-AI Quantization Pass.  |
-| [OptimumConversion](optimum_conversion) | Convert huggingface models to ONNX via the Optimum library.  |
-| [OptimumMerging](optimum_merging) | Merge 2 models together with an `if` node via the Optimum library.  |
+| [OptimumConversion](optimum_conversion) | Convert huggingface models to ONNX via the Optimum library. |
+| [OptimumMerging](optimum_merging) | Merge 2 models together with an `if` node via the Optimum library. |
 
 ### Example
 ```json
