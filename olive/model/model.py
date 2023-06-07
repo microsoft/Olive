@@ -513,7 +513,7 @@ class PyTorchModel(OliveModel):
             elif self.hf_config.task:
                 model = load_huggingface_model_from_task(self.hf_config.task, input_model)
             else:
-                model = load_huggingface_model_from_model_class(self.hf_config, input_model)
+                model = load_huggingface_model_from_model_class(self.hf_config.model_class, input_model)
         else:
             if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
                 model = torch.load(self.model_path)

@@ -64,11 +64,11 @@ def get_hf_model_config(model_name: str):
     return AutoConfig.from_pretrained(model_name)
 
 
-def load_huggingface_model_from_model_class(hf_config: HFConfig, name: str):
+def load_huggingface_model_from_model_class(model_class: str, name: str):
     """
     Load huggingface model from model_loader and name
     """
-    return huggingface_model_loader(hf_config.model_class)(name)
+    return huggingface_model_loader(model_class)(name)
 
 
 def load_huggingface_model_from_custom_implementation(
