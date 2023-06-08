@@ -36,7 +36,7 @@ The default value is 3. User can increase if there are network issues and the op
 ### Example
 ```json
 "azureml_client": {
-   "subscription_id": "<subscription_id>",
+    "subscription_id": "<subscription_id>",
     "resource_group": "<resource_group>",
     "workspace_name": "<workspace_name>",
     "read_timeout" : 4000,
