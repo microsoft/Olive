@@ -3,12 +3,37 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from itertools import chain
-from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Callable
+from typing import Any, Callable, Dict, List, Union
 
-from olive.common.user_module_loader import UserModuleLoader
-from olive.model.hf.hf_model import HFConfig, HFModelBase
+from pydantic import validator
 
+from olive.common.config_utils import ConfigBase
+from olive.model.model_config import IOConfig
+
+class HFComponent(ConfigBase):
+    name: str
+    io_config: Union[IOConfig, str, Dict[str, Any]]
+    component_func: Union[str, Callable]
+    dummy_inputs_func: Union[str, Callable]
+
+
+class HFConfig(ConfigBase):
+    model_name: str = None
+    task: str = None
+    feature: str = "default"
+    # TODO: remove model_class and only use task
+    model_class: str = None
+    components: List[HFComponent] = None
+    config: Dict[str, Any] = None
+    dataset: Dict[str, Any] = None
+
+    @validator("model_class", always=True)
+    def task_or_model_class_required(cls, v, values):
+        if values["model_name"]:
+            if not v and not values.get("task", None):
+                raise ValueError("Either task or model_class must be specified")
+            return v
 
 def load_huggingface_model_from_task(task: str, name: str):
     """Load huggingface model from task and name"""
@@ -69,18 +94,6 @@ def load_huggingface_model_from_model_class(model_class: str, name: str):
     Load huggingface model from model_loader and name
     """
     return huggingface_model_loader(model_class)(name)
-
-
-def load_huggingface_model_from_custom_implementation(
-    hf_config: HFConfig, model_script: Optional[Union[str, Path]] = None, script_dir: Optional[Union[str, Path]] = None
-):
-    user_module_loader = UserModuleLoader(model_script, script_dir)
-
-    component_dict = {}
-    for component in hf_config.components:
-        component_dict[component.name] = user_module_loader.load_object(component.component_func)
-
-    return HFModelBase(components=component_dict, config=hf_config.config)
 
 
 def get_onnx_config(model_name: str, task: str, feature: str):

@@ -76,8 +76,6 @@ case insensitive.
 
         - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
 
-        - `use_custom_implementation: [bool]`: If components is implemented by the user. If `False`, Olive will load model from Huggingface hub from `model_name` and `task` or `model_class`. If `True`, user will need to provide detailed components implementation.
-
         - `components: [List[HFComponent]]`: HFComponent list:
             - `HFComponent`:
                 - `name: [str]`: Component name. Olive will generate a model class with this str as attribute name.

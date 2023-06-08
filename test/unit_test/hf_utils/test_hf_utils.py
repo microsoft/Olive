@@ -20,5 +20,6 @@ def test_load_huggingface_model_from_task():
 def test_load_huggingface_model_from_model_class():
     model_class = "Wav2Vec2ForCTC"
     model_name = "facebook/wav2vec2-base-960h"
+
     model = load_huggingface_model_from_model_class(model_class, model_name)
     assert isinstance(model, torch.nn.Module)

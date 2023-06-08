@@ -6,7 +6,6 @@
             "hf_config": {
                 "model_class" : "WhisperForConditionalGeneration",
                 "model_name" : "openai/whisper-tiny.en",
-                "use_custom_implementation": true,
                 "components" : [
                     {
                         "name": "encoder_decoder_init",

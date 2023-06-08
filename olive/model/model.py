@@ -23,12 +23,11 @@ from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware import AcceleratorLookup, Device
-from olive.model.hf.hf_model import HFConfig
-from olive.model.hf.hf_utils import (
+from olive.model.hf_utils import (
+    HFConfig,
     get_hf_model_config,
     get_hf_model_dummy_input,
     huggingface_model_loader,
-    load_huggingface_model_from_custom_implementation,
     load_huggingface_model_from_model_class,
     load_huggingface_model_from_task,
 )
@@ -506,11 +505,7 @@ class PyTorchModel(OliveModel):
             model = user_module_loader.call_object(self.model_loader, self.model_path)
         elif self.hf_config and (self.hf_config.model_class or self.hf_config.task):
             input_model = self.model_path or self.hf_config.model_name
-            if self.hf_config.use_custom_implementation:
-                model = load_huggingface_model_from_custom_implementation(
-                    self.hf_config, self.model_script, self.script_dir
-                )
-            elif self.hf_config.task:
+            if self.hf_config.task:
                 model = load_huggingface_model_from_task(self.hf_config.task, input_model)
             else:
                 model = load_huggingface_model_from_model_class(self.hf_config.model_class, input_model)
@@ -566,7 +561,7 @@ class PyTorchModel(OliveModel):
         if self.dummy_inputs is not None:
             return self.dummy_inputs
 
-        if self.hf_config and not self.hf_config.use_custom_implementation:
+        if self.hf_config and not self.hf_config.components:
             assert self.hf_config.task, "task must be provided for huggingface model"
             return get_hf_model_dummy_input(self.hf_config.model_name, self.hf_config.task, self.hf_config.feature)
 
@@ -620,12 +615,12 @@ class PyTorchModel(OliveModel):
         assert self.components, "hf_config.components must be provided to get component"
         assert component_name in self.components, f"component {component_name} not found in hf_config"
 
-        model = self.load_model()
-        model_component = getattr(model, component_name)
-
         # get the component from hf_config
         components_dict = {component.name: component for component in self.hf_config.components}
         hf_component = components_dict[component_name]
+
+        user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+        model_component = user_module_loader.load_object(hf_component.component_func)
 
         io_config = hf_component.io_config
         if isinstance(io_config, str):
