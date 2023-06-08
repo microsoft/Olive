@@ -357,25 +357,25 @@ class AzureMLDatastore(ResourcePath):
         }
 
     def get_path(self) -> str:
-        if not self.config.datastore_url:
-            workspace_config = self.config.azureml_client.get_workspace_config()
-            return (
-                f"{_get_azureml_resource_prefix(workspace_config)}"
-                f"/datastores/{self.config.datastore_name}/paths/{self.config.relative_path}"
-            )
-        return self.config.datastore_url
+        if self.config.datastore_url:
+            return self.config.datastore_url
+
+        workspace_config = self.config.azureml_client.get_workspace_config()
+        return (
+            f"{_get_azureml_resource_prefix(workspace_config)}"
+            f"/datastores/{self.config.datastore_name}/paths/{self.config.relative_path}"
+        )
 
     def is_file(self, fsspec) -> bool:
         return fsspec.info(self.get_relative_path()).get("type") == "file"
 
     def get_relative_path(self) -> str:
-        if not self.config.relative_path:
-            assert self.config.datastore_url
+        if self.config.datastore_url:
             return re.split("/datastores/.*/paths/", self.config.datastore_url)[-1]
         return self.config.relative_path
 
     def get_aml_client_config(self) -> AzureMLClientConfig:
-        if not self.config.azureml_client:
+        if self.config.datastore_url:
             subscription_id = re.split("/subscriptions/", self.config.datastore_url)[-1].split("/")[0]
             resource_group = re.split("/resourcegroups/", self.config.datastore_url)[-1].split("/")[0]
             workspace_name = re.split("/workspaces/", self.config.datastore_url)[-1].split("/")[0]
