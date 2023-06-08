@@ -59,7 +59,7 @@
             "type": "PythonEnvironment",
             "config": {
                 "python_environment_path": "<python-environment-path>",
-                "device": "npu",
+                "accelerators": ["npu"],
                 "prepend_to_path": ["<qnn-lib-path>"]
             }
         }

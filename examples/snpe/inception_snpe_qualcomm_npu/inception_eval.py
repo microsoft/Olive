@@ -109,7 +109,7 @@ def main():
     metrics_dict = {}
     for model_name in models_dict:
         device = devices_dict[model_name]
-        system = LocalSystem(device=device)
+        system = LocalSystem(accelerators=[device])
         print(f"   {model_name} on {device}...")
         metrics = system.evaluate_model(
             models_dict[model_name], [accuracy_metrics, latency_metrics], accelerator=DEFAULT_CPU_ACCELERATOR
