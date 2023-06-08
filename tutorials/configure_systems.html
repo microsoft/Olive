@@ -139,7 +139,7 @@
 <div aria-label="Tabbed content" class="closeable" role="tablist"><button aria-controls="panel-0-0-0" aria-selected="true" class="sphinx-tabs-tab" id="tab-0-0-0" name="0-0" role="tab" tabindex="0">Config JSON</button><button aria-controls="panel-0-0-1" aria-selected="false" class="sphinx-tabs-tab" id="tab-0-0-1" name="0-1" role="tab" tabindex="-1">Python Class</button></div><div aria-labelledby="tab-0-0-0" class="sphinx-tabs-panel" id="panel-0-0-0" name="0-0" role="tabpanel" tabindex="0"><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;LocalSystem&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;cpu&quot;</span><span class="p">]</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
@@ -147,7 +147,9 @@
 </div><div aria-labelledby="tab-0-0-1" class="sphinx-tabs-panel" hidden="true" id="panel-0-0-1" name="0-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.systems.local</span> <span class="kn">import</span> <span class="n">LocalSystem</span>
 <span class="kn">from</span> <span class="nn">olive.system.common</span> <span class="kn">import</span> <span class="n">Device</span>
 
-<span class="n">local_system</span> <span class="o">=</span> <span class="n">LocalSystem</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">)</span>
+<span class="n">local_system</span> <span class="o">=</span> <span class="n">LocalSystem</span><span class="p">(</span>
+    <span class="n">accelerators</span><span class="o">=</span><span class="p">[</span><span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">]</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 </div></div>
@@ -275,7 +277,7 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;dock
 <span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PythonEnvironment&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;python_environment_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;/home/user/.virtualenvs/myenv&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cpu&quot;</span>
+<span class="w">        </span><span class="nt">&quot;accelerators&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;cpu&quot;</span><span class="p">]</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="p">}</span>
 </pre></div>

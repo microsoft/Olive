@@ -16,7 +16,7 @@ Local System
             {
                 "type": "LocalSystem",
                 "config": {
-                    "device": "cpu"
+                    "accelerators": ["cpu"]
                 }
             }
 
@@ -27,7 +27,9 @@ Local System
             from olive.systems.local import LocalSystem
             from olive.system.common import Device
 
-            local_system = LocalSystem(device=Device.CPU)
+            local_system = LocalSystem(
+                accelerators=[Device.CPU]
+            )
 
 Please refer to :ref:`local_system_config` for more details on the config options.
 
@@ -172,7 +174,7 @@ Python Environment System
                 "type": "PythonEnvironment",
                 "config": {
                     "python_environment_path": "/home/user/.virtualenvs/myenv",
-                    "device": "cpu"
+                    "accelerators": ["cpu"]
                 }
             }
 

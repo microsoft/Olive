@@ -119,7 +119,7 @@ specify its name in :code:`"evaluate_func"` field, and Olive will call your func
                 "name": "accuracy",
                 "type": "custom",
                 "sub_types": [
-                    {"name": "accuracy_custom", "priority": 1, "higher_is_better": True, "goal": {"type": "max-degradation", "value": 0.01}}
+                    {"name": "accuracy_custom", "priority": 1, "higher_is_better": true, "goal": {"type": "max-degradation", "value": 0.01}}
                 ],
                 "user_config": {
                     "user_script": "user_script.py",

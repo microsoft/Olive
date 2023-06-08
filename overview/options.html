@@ -215,16 +215,16 @@ at <a class="reference external" href="https://huggingface.co/docs/transformers/
 <li><p><code class="docutils literal notranslate"><span class="pre">model_config:</span> <span class="pre">[str]</span></code>: The config of the model can be provided as well. Such as <code class="docutils literal notranslate"><span class="pre">WhisperConfig</span></code>. See
 <a class="reference external" href="https://huggingface.co/docs/transformers/main_classes/configuration">huggingface configurations</a></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">dataset:</span> <span class="pre">[dict]</span></code>: Ff you want to use the huggingface dataset, you need to provide the dataset config. See <a class="reference external" href="https://huggingface.co/docs/datasets/loading_datasets.html">huggingface datasets</a>. Olive exposes the following configs(which will be extend in the future):</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span>&quot;dataset&quot;: {
-    &quot;model_name&quot;: &quot;distilbert-base-uncased&quot;,  # the model name of the huggingface model, if not provided, it will use the model_name in hf_config
-    &quot;task&quot;: &quot;text-classification&quot;,  # the task type for the model, if not provided, it will use the task in hf_config
-    &quot;data_name&quot;:&quot;glue&quot;,  # the name of the dataset
-    &quot;subset&quot;: &quot;mrpc&quot;,  # the subset of the dataset, could be &quot;mrpc&quot;, &quot;mnli&quot; and etc. You can find the available subsets in the dataset page.
-    &quot;split&quot;: &quot;validation&quot;,  # the split of the dataset, could be &quot;train&quot;, &quot;validation&quot;, &quot;test&quot; and etc. You can find the available splits in the dataset page.
-    &quot;input_cols&quot;: [&quot;sentence1&quot;, &quot;sentence2&quot;],  # the input columns of the dataset
-    &quot;label_cols&quot;: [&quot;label&quot;],  # the label columns of the dataset
-    &quot;batch_size&quot;: 1  # the batch size of the dataloader
-}
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;distilbert-base-uncased&quot;</span><span class="p">,</span>  <span class="c1"># the model name of the huggingface model, if not provided, it will use the model_name in hf_config</span>
+    <span class="s2">&quot;task&quot;</span><span class="p">:</span> <span class="s2">&quot;text-classification&quot;</span><span class="p">,</span>  <span class="c1"># the task type for the model, if not provided, it will use the task in hf_config</span>
+    <span class="s2">&quot;data_name&quot;</span><span class="p">:</span><span class="s2">&quot;glue&quot;</span><span class="p">,</span>  <span class="c1"># the name of the dataset</span>
+    <span class="s2">&quot;subset&quot;</span><span class="p">:</span> <span class="s2">&quot;mrpc&quot;</span><span class="p">,</span>  <span class="c1"># the subset of the dataset, could be &quot;mrpc&quot;, &quot;mnli&quot; and etc. You can find the available subsets in the dataset page.</span>
+    <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="s2">&quot;validation&quot;</span><span class="p">,</span>  <span class="c1"># the split of the dataset, could be &quot;train&quot;, &quot;validation&quot;, &quot;test&quot; and etc. You can find the available splits in the dataset page.</span>
+    <span class="s2">&quot;input_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span> <span class="s2">&quot;sentence2&quot;</span><span class="p">],</span>  <span class="c1"># the input columns of the dataset</span>
+    <span class="s2">&quot;label_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">],</span>  <span class="c1"># the label columns of the dataset</span>
+    <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span>  <span class="c1"># the batch size of the dataloader</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide <code class="docutils literal notranslate"><span class="pre">dataset</span></code> config only like above.</p>
