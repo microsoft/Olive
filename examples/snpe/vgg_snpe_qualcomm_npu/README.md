@@ -2,7 +2,7 @@
 This folder contains a sample use case of Olive to convert an Onnx model to SNPE DLC, quantize it and convert it to Onnx.
 
 Performs optimization pipeline:
-- *Onnx Model -> SNPE Model -> Quantized SNPE Model -> Onnx Model (for SNPE EP)*
+- *Onnx Model -> SNPE Model -> Quantized SNPE Model*
 
 ## Prerequisites
 ### Download and unzip SNPE SDK
@@ -28,7 +28,7 @@ python download_files.py
 ```
 
 ## Run sample
-Run the conversions locally. Only supports `x64-Linux`.
+Run the conversion and quantization locally. Only supports `x64-Linux`.
 ```
-python vgg.py
+python -m olive.workflows.run --config vgg_config.json
 ```

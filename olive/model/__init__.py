@@ -705,7 +705,8 @@ class SNPEModel(OliveModel):
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ) -> SNPEInferenceSession:
-        session_options = SNPESessionOptions(**inference_settings) if inference_settings else None
+        inference_settings = inference_settings or {}
+        session_options = SNPESessionOptions(**inference_settings)
         if device == Device.NPU:
             device = SNPEDevice.DSP
         session_options.device = device

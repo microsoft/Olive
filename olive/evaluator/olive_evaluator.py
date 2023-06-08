@@ -122,7 +122,7 @@ class OliveEvaluator(ABC):
     ) -> MetricResult:
         metrics_res = {}
         for metric in metrics:
-            dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric)
+            dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric, model)
 
             if metric.type == MetricType.ACCURACY:
                 metrics_res[metric.name] = self._evaluate_accuracy(
@@ -141,7 +141,7 @@ class OliveEvaluator(ABC):
         return flatten_metric_result(metrics_res)
 
     @staticmethod
-    def get_user_config(metric: Metric):
+    def get_user_config(metric: Metric, model: OliveModel):
         user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
 
         post_processing_func = getattr(metric.user_config, "post_processing_func", None)
@@ -156,14 +156,13 @@ class OliveEvaluator(ABC):
         eval_func = user_module.load_object(evaluate_func)
 
         if metric.user_config.input_names and metric.user_config.input_shapes and not dataloader and not eval_func:
+            dummy_dc = data_config_template.dummy_data_config_template(
+                input_names=metric.user_config.input_names,
+                input_shapes=metric.user_config.input_shapes,
+                input_types=metric.user_config.input_types,
+            ).to_data_container()
             dataloader = (
-                data_config_template.dummy_data_config_template(
-                    input_names=metric.user_config.input_names,
-                    input_shapes=metric.user_config.input_shapes,
-                    input_types=metric.user_config.input_types,
-                )
-                .to_data_container()
-                .create_dataloader()
+                dummy_dc.create_snpe_dataloader(model) if isinstance(model, SNPEModel) else dummy_dc.create_dataloader()
             )
 
         if not dataloader or not post_func:
@@ -171,7 +170,9 @@ class OliveEvaluator(ABC):
 
             # TODO remove user_scripts dataloader: we should respect user scripts
             # dataloder to meet back compatibility for time being.
-            dataloader = dataloader or dc.create_dataloader()
+            dataloader = dataloader or (
+                dc.create_snpe_dataloader(model) if isinstance(model, SNPEModel) else dc.create_dataloader()
+            )
             post_func = post_func or dc.config.post_process
 
         return dataloader, eval_func, post_func
@@ -606,7 +607,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         data_dir, input_data, _ = next(iter(dataloader))
         total_runs = warmup_num + repeat_test_num
         results = session(input_data, data_dir, runs=total_runs, sleep=sleep_num)
-        latencies = results["latencies"]["total_inference_time"][warmup_num]
+        latencies = results["latencies"]["total_inference_time"][warmup_num:]
 
         return OliveEvaluator.compute_latency(metric, latencies)
 

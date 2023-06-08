@@ -42,7 +42,7 @@ class SNPEDataLoader(ABC):
             return
 
         if self.tmp_dir is None:
-            self.tmp_dir = tempfile.TemporaryDirectory(dir=str(Path.cwd()), prefix="olive_tmp_")
+            self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")
         self.batch_dir = str(Path(self.tmp_dir.name) / "batch")
 
         batch_input_list = input_list_utils.resolve_input_list(
@@ -59,9 +59,9 @@ class SNPEDataLoader(ABC):
                     self.batch_input_list_contents.append((line.strip(), line_batch.strip()))
 
         self.batch_input_list_metadata = []
-        for (line, line_batch) in self.batch_input_list_contents:
+        for line, line_batch in self.batch_input_list_contents:
             to_copy = []
-            for (input, input_batch) in zip(line.split(), line_batch.split()):
+            for input, input_batch in zip(line.split(), line_batch.split()):
                 if ":=" in input:
                     to_copy.append((input.split(":=")[1], input_batch.split(":=")[1]))
                 else:
@@ -88,8 +88,8 @@ class SNPEDataLoader(ABC):
             batch = self.batches[batch_id]
 
             shutil.rmtree(self.batch_dir, ignore_errors=True)
-            for (_, to_copy) in batch:
-                for (input, input_batch) in to_copy:
+            for _, to_copy in batch:
+                for input, input_batch in to_copy:
                     Path(input_batch).parent.mkdir(parents=True, exist_ok=True)
                     # Path(input_batch).symlink_to(input)
                     shutil.copy(input, input_batch)
@@ -98,7 +98,7 @@ class SNPEDataLoader(ABC):
             with open(batch_input_list, "w") as f:
                 for header in self.batch_input_list_headers:
                     f.write(f"{header}\n")
-                for (line_batch, _) in batch:
+                for line_batch, _ in batch:
                     f.write(f"{line_batch}\n")
 
             return self.batch_dir, batch_input_list, annotation
@@ -137,7 +137,7 @@ class SNPEProcessedDataLoader(SNPEDataLoader):
         super().__init__(config, batch_size)
 
     def load_data(self) -> Tuple[str, str, np.ndarray]:
-        self.tmp_dir = tempfile.TemporaryDirectory(dir=str(Path.cwd()), prefix="olive_tmp_")
+        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")
         input_list = input_list_utils.get_input_list(
             self.config["data_dir"], self.config["input_list_file"], self.tmp_dir.name
         )
@@ -177,7 +177,7 @@ class SNPERandomDataLoader(SNPEDataLoader):
         super().__init__(config, batch_size)
 
     def load_data(self) -> Tuple[str, str, np.ndarray]:
-        self.tmp_dir = tempfile.TemporaryDirectory(dir=str(Path.cwd()), prefix="olive_tmp_")
+        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")
 
         # get data_dir
         if self.config["data_dir"] is None:

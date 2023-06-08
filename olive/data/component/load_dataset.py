@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from olive.data.component.dataset import DummyDataset
+from olive.data.component.dataset import DummyDataset, RawDataset
 from olive.data.registry import Registry
 
 
@@ -40,3 +40,26 @@ def huggingface_dataset(data_name=None, subset=None, split="validation", **kwarg
 @Registry.register_dataset()
 def dummy_dataset(input_names, input_shapes, input_types):
     return DummyDataset(input_names, input_shapes, input_types)
+
+
+@Registry.register_dataset()
+def raw_dataset(
+    data_dir,
+    input_names,
+    input_shapes,
+    input_types=None,
+    input_dirs=None,
+    input_suffix=None,
+    input_order_file=None,
+    annotations_file=None,
+):
+    return RawDataset(
+        data_dir=data_dir,
+        input_names=input_names,
+        input_shapes=input_shapes,
+        input_types=input_types,
+        input_dirs=input_dirs,
+        input_suffix=input_suffix,
+        input_order_file=input_order_file,
+        annotations_file=annotations_file,
+    )

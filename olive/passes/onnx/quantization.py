@@ -145,14 +145,14 @@ _static_dataloader_config = {
         is_path=True,
         description="""
             Path to the directory containing the dataset.
-            For local data, it is required if quant_mode is 'static'.
+            For local data, it is required if quant_mode is 'static' and data_config is None.
         """,
     ),
     "batch_size": PassConfigParam(
         type_=int,
         default_value=1,
         description="""
-            Batch size for calibration, required if quant_mode is 'static'.
+            Batch size for calibration, required if quant_mode is 'static' and data_config is None.
         """,
     ),
     # TODO: remove this option once we have a data config ready
@@ -162,7 +162,7 @@ _static_dataloader_config = {
         is_object=True,
         description="""
             Function/function name to generate dataloader for calibration,
-            required if quant_mode is 'static'
+            required if quant_mode is 'static' and data_config is None.
         """,
     ),
 }
@@ -380,11 +380,11 @@ class OnnxQuantization(Pass):
         if is_static:
             # get the dataloader
             # TODO: only use data config
-            if self._user_module_loader.user_module:
+            if config["dataloader_func"]:
                 dataloader = self._user_module_loader.call_object(
-                    self._fixed_params["dataloader_func"],
-                    self._fixed_params["data_dir"],
-                    self._fixed_params["batch_size"],
+                    config["dataloader_func"],
+                    config["data_dir"],
+                    config["batch_size"],
                 )
             elif self._data_config:
                 dataloader = self._data_config.to_data_container().create_calibration_dataloader()

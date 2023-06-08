@@ -6,7 +6,7 @@ from typing import ClassVar
 
 from pydantic import BaseModel
 
-from olive.data.component.dataloader import default_calibration_dataloader
+from olive.data.component.dataloader import default_calibration_dataloader, default_snpe_dataloader
 from olive.data.config import DataConfig, DefaultDataComponentCombos
 from olive.data.constants import DataContainerType, DefaultDataContainer
 from olive.data.registry import Registry
@@ -64,6 +64,18 @@ class DataContainer(BaseModel):
         dataset = self.load_dataset()
         pre_process_dataset = self.pre_process(dataset)
         return self.dataloader(pre_process_dataset)
+
+    def create_snpe_dataloader(self, model, evaluation=True):
+        """
+        Create snpe dataloader
+        If evaluation is True, the dataloader will be used for evaluation and batch size will be used. Otherwise, the
+        dataloader will be used for calibration and batch size will be None.
+        dataset -> preprocess -> dataloader
+        """
+        dataset = self.load_dataset()
+        pre_process_dataset = self.pre_process(dataset)
+        batch_size = self.config.dataloader_params["batch_size"] if evaluation else None
+        return default_snpe_dataloader(pre_process_dataset, model, batch_size=batch_size)
 
     def create_calibration_dataloader(self):
         """

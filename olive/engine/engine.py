@@ -289,7 +289,7 @@ class Engine:
                     result_name = f"{prefix_output_name}metrics"
                     results_path = output_dir / f"{result_name}.json"
                     with open(results_path, "w") as f:
-                        f.write(results.json())
+                        json.dump(results.to_json(), f, indent=4)
                     outputs[accelerator_spec] = results
                 elif self.no_search:
                     output = self.run_no_search(
@@ -407,7 +407,7 @@ class Engine:
         results_path = output_dir / f"{result_name}.json"
         if signal is not None:
             with open(results_path, "w") as f:
-                f.write(signal.json())
+                json.dump(signal.to_json(), f, indent=4)
 
         output = {"model": output_model_json}
         if signal is not None:

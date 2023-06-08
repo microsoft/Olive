@@ -11,21 +11,23 @@ from olive.data.registry import Registry
 
 
 @Registry.register(DataContainerType.DATA_CONTAINER)
-class DummyDataContainer(DataContainer):
+class RawDataContainer(DataContainer):
     """
     The way to create a dummy data container:
         dummy_data_config = DataConfig(
-            name="dummy",
-            type="DummyDataContainer",
+            name="raw",
+            type="RawDataContainer",
             params_config={
-                "input_names": metric.user_config.input_names,
-                "input_shapes": metric.user_config.input_shapes,
-                "input_types": metric.user_config.input_types,
+                "data_dir": data_dir,
+                "input_names": input_names,
+                "input_shapes": input_shapes,
+                "input_types": input_types, # optional
+                "input_dirs": input_dirs, # optional
+                "input_suffix": input_suffix, # optional
+                "input_order_file": input_order_file, # optional
+                "annotations_file": annotations_file, # optional
             }
         )
     """
 
-    default_components_type: ClassVar[dict] = {
-        DataComponentType.LOAD_DATASET.value: "dummy_dataset",
-        DataComponentType.DATALOADER.value: "skip_dataloader",
-    }
+    default_components_type: ClassVar[dict] = {DataComponentType.LOAD_DATASET.value: "raw_dataset"}
