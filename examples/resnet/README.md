@@ -15,8 +15,8 @@ The workflow in [resnet_static_ptq_cpu.json](resnet_static_ptq_cpu.json) is simi
 The workflow in [resnet_dynamic_ptq_cpu.json](resnet_dynamic_ptq_cpu.json) is similar to the above workflow, but specifically uses dynamic quantization instead of static/dynamic quantization.
 
 
-### ResNet optimization with Vitis-AI PTQ on CPU
-This workflow performs ResNet optimization on CPU with AMD Vitis-AI Quantization. It performs the optimization pipeline:
+### ResNet optimization with Vitis-AI PTQ on AMD DPU
+This workflow performs ResNet optimization on AMD DPU with AMD Vitis-AI Quantization. It performs the optimization pipeline:
 - *PyTorch Model -> Onnx Model -> AMD Vitis-AI Quantized Onnx Model*
 
 Config file: [resnet_vitis_ai_ptq_cpu.json](resnet_vitis_ai_ptq_cpu.json)
