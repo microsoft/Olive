@@ -13,8 +13,8 @@ from olive.data.registry import Registry
 @Registry.register(DataContainerType.DATA_CONTAINER)
 class RawDataContainer(DataContainer):
     """
-    The way to create a dummy data container:
-        dummy_data_config = DataConfig(
+    The way to create a raw data container:
+        raw_data_config = DataConfig(
             name="raw",
             type="RawDataContainer",
             params_config={

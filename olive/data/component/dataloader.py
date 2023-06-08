@@ -131,19 +131,19 @@ def default_snpe_dataloader(_dataset, snpe_model, batch_size=None):
                 input_file_name = f"{i}.bin".zfill(sample_digits + 4)
                 input_order.append(input_file_name)
                 for input_name, input_spec in input_specs.items():
-                    input_data = input_data[input_spec["source_name"]]
+                    data = input_data[input_spec["source_name"]]
                     # snpe data loader only supports float32
-                    input_data = np.array(input_data, dtype=np.float32)
+                    data = np.array(data, dtype=np.float32)
 
                     # permute if necessary
                     if input_spec["permutation"] is not None:
-                        input_data = np.transpose(input_data, input_spec["permutation"])
+                        data = np.transpose(data, input_spec["permutation"])
 
                     # save input data
                     input_dir_path = data_dir / input_spec["source_name"]
                     input_dir_path.mkdir(exist_ok=True)
                     input_file_path = input_dir_path / input_file_name
-                    input_data.tofile(input_file_path)
+                    data.tofile(input_file_path)
 
                 annotations.append(annotation)
 

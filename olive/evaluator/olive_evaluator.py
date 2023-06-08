@@ -141,7 +141,7 @@ class OliveEvaluator(ABC):
         return flatten_metric_result(metrics_res)
 
     @staticmethod
-    def get_user_config(metric: Metric, model: OliveModel):
+    def get_user_config(metric: Metric, model: OliveModel = None):
         user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
 
         post_processing_func = getattr(metric.user_config, "post_processing_func", None)
@@ -320,7 +320,6 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         inference_settings = config.get("inference_settings", {}) or {}
         metric = Metric.from_json(config["metric"])
         dataloader, _, post_func = OnnxEvaluator.get_user_config(metric)
-
         import os
 
         os.environ["OMPI_COMM_WORLD_RANK"] = str(local_rank)
