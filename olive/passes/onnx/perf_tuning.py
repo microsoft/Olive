@@ -332,11 +332,11 @@ class OrtPerfTuning(Pass):
         }
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
-        if "providers_list" not in config:
+        if not config.get("providers_list"):
             # add the provider to the config if user doesn't provide the execution providers
             config["providers_list"] = [self._accelerator_spec.execution_provider]
 
-        if "device" not in config:
+        if not config.get("device"):
             config["device"] = self._accelerator_spec.accelerator_type
 
         config = self._config_class(**config)
