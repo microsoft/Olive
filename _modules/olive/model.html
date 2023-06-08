@@ -148,7 +148,13 @@
     <span class="n">load_huggingface_model_from_model_class</span><span class="p">,</span>
     <span class="n">load_huggingface_model_from_task</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">,</span> <span class="n">ResourceType</span><span class="p">,</span> <span class="n">create_resource_path</span>
+<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span>
+    <span class="n">ResourcePath</span><span class="p">,</span>
+    <span class="n">ResourcePathConfig</span><span class="p">,</span>
+    <span class="n">ResourceType</span><span class="p">,</span>
+    <span class="n">create_resource_path</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">olive.snpe</span> <span class="kn">import</span> <span class="n">SNPEDevice</span><span class="p">,</span> <span class="n">SNPEInferenceSession</span><span class="p">,</span> <span class="n">SNPESessionOptions</span>
 <span class="kn">from</span> <span class="nn">olive.snpe.tools.dev</span> <span class="kn">import</span> <span class="n">get_dlc_metrics</span>
 
@@ -172,7 +178,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">framework</span><span class="p">:</span> <span class="n">Framework</span><span class="p">,</span>
         <span class="n">model_file_format</span><span class="p">:</span> <span class="n">ModelFileFormat</span><span class="p">,</span>
-        <span class="n">model_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">framework</span> <span class="o">=</span> <span class="n">framework</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">=</span> <span class="n">model_file_format</span>
@@ -375,7 +381,7 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">use_ort_extensions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
@@ -416,7 +422,7 @@
 <div class="viewcode-block" id="ONNXModel"><a class="viewcode-back" href="../../api/models.html#olive.model.ONNXModel">[docs]</a><span class="k">class</span> <span class="nc">ONNXModel</span><span class="p">(</span><span class="n">ONNXModelBase</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">onnx_file_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">use_ort_extensions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
@@ -655,7 +661,7 @@
 <div class="viewcode-block" id="PyTorchModel"><a class="viewcode-back" href="../../api/models.html#olive.model.PyTorchModel">[docs]</a><span class="k">class</span> <span class="nc">PyTorchModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">model_file_format</span><span class="p">:</span> <span class="n">ModelFileFormat</span> <span class="o">=</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_ENTIRE_MODEL</span><span class="p">,</span>
         <span class="n">model_loader</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">model_script</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -841,9 +847,7 @@
 
 
 <span class="k">class</span> <span class="nc">OptimumModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">]],</span> <span class="n">model_components</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-    <span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span> <span class="n">model_components</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">PYTORCH</span><span class="p">,</span>
             <span class="n">model_file_format</span><span class="o">=</span><span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">OPTIMUM</span><span class="p">,</span>
@@ -870,7 +874,7 @@
         <span class="n">input_shapes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
         <span class="n">output_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
         <span class="n">output_shapes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
-        <span class="n">model_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">SNPE</span><span class="p">,</span> <span class="n">model_file_format</span><span class="o">=</span><span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">SNPE_DLC</span><span class="p">,</span> <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="p">{</span>
@@ -908,7 +912,7 @@
 <span class="k">class</span> <span class="nc">TensorFlowModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">model_file_format</span><span class="p">:</span> <span class="n">ModelFileFormat</span> <span class="o">=</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">TENSORFLOW_SAVED_MODEL</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span> <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">TENSORFLOW</span><span class="p">,</span> <span class="n">model_file_format</span><span class="o">=</span><span class="n">model_file_format</span><span class="p">)</span>
@@ -927,7 +931,7 @@
 
 
 <div class="viewcode-block" id="OpenVINOModel"><a class="viewcode-back" href="../../api/models.html#olive.model.OpenVINOModel">[docs]</a><span class="k">class</span> <span class="nc">OpenVINOModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">]]):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
             <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span> <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">OPENVINO</span><span class="p">,</span> <span class="n">model_file_format</span><span class="o">=</span><span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">OPENVINO_IR</span>
         <span class="p">)</span>

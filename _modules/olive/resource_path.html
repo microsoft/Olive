@@ -119,12 +119,13 @@
 <span class="c1"># Licensed under the MIT License.</span>
 <span class="c1"># --------------------------------------------------------------------------</span>
 <span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">import</span> <span class="nn">shutil</span>
 <span class="kn">import</span> <span class="nn">tempfile</span>
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
 
@@ -432,64 +433,126 @@
         <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">new_path</span><span class="p">)</span>
 
 
+<span class="k">def</span> <span class="nf">_datastore_url_validator</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">aml_info_ready</span> <span class="o">=</span> <span class="nb">all</span><span class="p">([</span><span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;azureml_client&quot;</span><span class="p">),</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;datastore_name&quot;</span><span class="p">),</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;relative_path&quot;</span><span class="p">)])</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">v</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">aml_info_ready</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;If datastore_url is not specified, then azureml_client, datastore_name, and relative_path &quot;</span>
+            <span class="s2">&quot;must be specified.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">elif</span> <span class="n">v</span> <span class="ow">and</span> <span class="n">aml_info_ready</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;datastore_url is specified. azureml_client, datastore_name, and relative_path are ignored.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">v</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">v</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;azureml:&quot;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Datastore URL </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> is not a valid AzureML datastore URL.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">v</span>
+
+
 <span class="k">class</span> <span class="nc">AzureMLDatastore</span><span class="p">(</span><span class="n">ResourcePath</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;AzureML datastore resource path&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;AzureML DataStore resource path&quot;&quot;&quot;</span>
 
     <span class="n">name</span> <span class="o">=</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLDatastore</span>
 
     <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_validators</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+        <span class="n">validators</span> <span class="o">=</span> <span class="n">ResourcePath</span><span class="o">.</span><span class="n">_validators</span><span class="p">()</span>
+        <span class="n">validators</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;validate_datastore_url&quot;</span><span class="p">:</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;datastore_url&quot;</span><span class="p">,</span> <span class="n">allow_reuse</span><span class="o">=</span><span class="kc">True</span><span class="p">)(</span><span class="n">_datastore_url_validator</span><span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">validators</span>
+
+    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_default_config</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
         <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;azureml_client&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span>
-                <span class="n">type_</span><span class="o">=</span><span class="n">AzureMLClientConfig</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;AzureML client config.&quot;</span>
-            <span class="p">),</span>
-            <span class="s2">&quot;datastore_name&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Name of the datastore.&quot;</span><span class="p">),</span>
-            <span class="s2">&quot;relative_path&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Relative path to the resource.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;azureml_client&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="n">AzureMLClientConfig</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;AzureML client config.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;datastore_name&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Name of the datastore.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;relative_path&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Relative path to the resource.&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;datastore_url&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;URL of the datastore.&quot;</span><span class="p">),</span>
         <span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">get_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_url</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_url</span>
+
         <span class="n">workspace_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azureml_client</span><span class="o">.</span><span class="n">get_workspace_config</span><span class="p">()</span>
         <span class="k">return</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">_get_azureml_resource_prefix</span><span class="p">(</span><span class="n">workspace_config</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;/datastores/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_name</span><span class="si">}</span><span class="s2">/paths/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">relative_path</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">is_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fsspec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_relative_path</span><span class="p">())</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;file&quot;</span>
+
+    <span class="k">def</span> <span class="nf">get_relative_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_url</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/datastores/.*/paths/&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_url</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">relative_path</span>
+
+    <span class="k">def</span> <span class="nf">get_aml_client_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AzureMLClientConfig</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_url</span><span class="p">:</span>
+            <span class="n">subscription_id</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/subscriptions/&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_url</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">resource_group</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/resourcegroups/&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_url</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">workspace_name</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/workspaces/&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_url</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">AzureMLClientConfig</span><span class="p">(</span>
+                <span class="n">subscription_id</span><span class="o">=</span><span class="n">subscription_id</span><span class="p">,</span>
+                <span class="n">resource_group</span><span class="o">=</span><span class="n">resource_group</span><span class="p">,</span>
+                <span class="n">workspace_name</span><span class="o">=</span><span class="n">workspace_name</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azureml_client</span>
+
     <span class="k">def</span> <span class="nf">save_to_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dir_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="c1"># there is no direct way to download a file from a datastore</span>
         <span class="c1"># so we will use a workaround to download the file by creating a aml model</span>
         <span class="c1"># that references the file and downloading the model</span>
-        <span class="kn">from</span> <span class="nn">azure.ai.ml.constants</span> <span class="kn">import</span> <span class="n">AssetTypes</span>
-        <span class="kn">from</span> <span class="nn">azure.ai.ml.entities</span> <span class="kn">import</span> <span class="n">Model</span>
-        <span class="kn">from</span> <span class="nn">azure.core.exceptions</span> <span class="kn">import</span> <span class="n">ServiceResponseError</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">azureml.fsspec</span> <span class="kn">import</span> <span class="n">AzureMachineLearningFileSystem</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">&quot;azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path.&quot;</span>
+            <span class="p">)</span>
 
-        <span class="c1"># azureml client</span>
-        <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azureml_client</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
+        <span class="n">dir_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">dir_path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+        <span class="n">dir_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-        <span class="c1"># create aml model</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Creating aml model for datastore </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_name</span><span class="si">}</span><span class="s2"> path </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">relative_path</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
-        <span class="n">aml_model</span> <span class="o">=</span> <span class="n">retry_func</span><span class="p">(</span>
-            <span class="n">ml_client</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">create_or_update</span><span class="p">,</span>
-            <span class="p">[</span>
-                <span class="n">Model</span><span class="p">(</span>
-                    <span class="n">path</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_path</span><span class="p">(),</span>
-                    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;olive-backend-model&quot;</span><span class="p">,</span>
-                    <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Model created by Olive backend. Ignore this model.&quot;</span><span class="p">,</span>
-                    <span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">CUSTOM_MODEL</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="p">],</span>
-            <span class="n">max_tries</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azureml_client</span><span class="o">.</span><span class="n">max_operation_retries</span><span class="p">,</span>
-            <span class="n">delay</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azureml_client</span><span class="o">.</span><span class="n">operation_retry_interval</span><span class="p">,</span>
-            <span class="n">exceptions</span><span class="o">=</span><span class="n">ServiceResponseError</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="n">azureml_client_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_aml_client_config</span><span class="p">()</span>
 
-        <span class="c1"># use the AzureMLModel to download the model</span>
+        <span class="c1"># azureml file system</span>
+        <span class="n">fs</span> <span class="o">=</span> <span class="n">AzureMachineLearningFileSystem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_path</span><span class="p">())</span>
+        <span class="n">relative_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_relative_path</span><span class="p">())</span>
+        <span class="n">is_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_file</span><span class="p">(</span><span class="n">fs</span><span class="p">)</span>
+        <span class="c1"># path to save the resource to</span>
+        <span class="k">if</span> <span class="n">name</span><span class="p">:</span>
+            <span class="n">new_path_name</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">&quot;&quot;</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">is_file</span> <span class="k">else</span> <span class="n">relative_path</span><span class="o">.</span><span class="n">suffix</span><span class="p">)</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_path_name</span> <span class="o">=</span> <span class="n">relative_path</span><span class="o">.</span><span class="n">name</span>
+
+        <span class="n">new_path</span> <span class="o">=</span> <span class="n">dir_path</span> <span class="o">/</span> <span class="n">new_path_name</span>
+        <span class="n">_overwrite_helper</span><span class="p">(</span><span class="n">dir_path</span> <span class="o">/</span> <span class="n">new_path_name</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">)</span>
+
+        <span class="c1"># download artifacts to a temporary directory</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Downloading aml model for datastore </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_name</span><span class="si">}</span><span class="s2"> path </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">relative_path</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Downloading aml resource for datastore </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_name</span><span class="si">}</span><span class="s2"> path </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">relative_path</span><span class="si">}</span><span class="s2">.&quot;</span>
         <span class="p">)</span>
-        <span class="n">azureml_model_resource</span> <span class="o">=</span> <span class="n">AzureMLModel</span><span class="p">(</span>
-            <span class="p">{</span><span class="s2">&quot;azureml_client&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azureml_client</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">aml_model</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="n">aml_model</span><span class="o">.</span><span class="n">version</span><span class="p">}</span>
-        <span class="p">)</span>
-        <span class="k">return</span> <span class="n">azureml_model_resource</span><span class="o">.</span><span class="n">save_to_dir</span><span class="p">(</span><span class="n">dir_path</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="nb">dir</span><span class="o">=</span><span class="n">dir_path</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;olive_tmp&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">temp_dir</span><span class="p">:</span>
+            <span class="n">retry_func</span><span class="p">(</span>
+                <span class="n">fs</span><span class="o">.</span><span class="n">download</span><span class="p">,</span>
+                <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span>
+                    <span class="s2">&quot;rpath&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_relative_path</span><span class="p">(),</span>
+                    <span class="s2">&quot;lpath&quot;</span><span class="p">:</span> <span class="n">temp_dir</span><span class="p">,</span>
+                    <span class="s2">&quot;recursive&quot;</span><span class="p">:</span> <span class="ow">not</span> <span class="n">is_file</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="n">max_tries</span><span class="o">=</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">max_operation_retries</span><span class="p">,</span>
+                <span class="n">delay</span><span class="o">=</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">operation_retry_interval</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">downloaded_resource</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">relative_path</span><span class="o">.</span><span class="n">name</span>
+            <span class="c1"># only if the resource is a existed file we will move it to the new path</span>
+            <span class="n">source_path</span> <span class="o">=</span> <span class="n">downloaded_resource</span> <span class="k">if</span> <span class="n">is_file</span> <span class="k">else</span> <span class="n">temp_dir</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">source_path</span><span class="p">,</span> <span class="n">new_path</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">new_path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
 
 
 <span class="k">class</span> <span class="nc">AzureMLJobOutput</span><span class="p">(</span><span class="n">ResourcePath</span><span class="p">):</span>
@@ -545,6 +608,9 @@
             <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">&quot;named-outputs&quot;</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">output_name</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">relative_path</span><span class="p">,</span> <span class="n">new_path</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">new_path</span><span class="p">)</span>
+
+
+<span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">]]</span>
 </pre></div>
 
            </div>
