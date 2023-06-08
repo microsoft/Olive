@@ -3,13 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from itertools import chain
-from typing import Callable
 from typing import Any, Callable, Dict, List, Union
 
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase
 from olive.model.model_config import IOConfig
+
 
 class HFComponent(ConfigBase):
     name: str
@@ -34,6 +34,7 @@ class HFConfig(ConfigBase):
             if not v and not values.get("task", None):
                 raise ValueError("Either task or model_class must be specified")
             return v
+
 
 def load_huggingface_model_from_task(task: str, name: str):
     """Load huggingface model from task and name"""

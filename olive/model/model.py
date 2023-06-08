@@ -571,6 +571,8 @@ class PyTorchModel(OliveModel):
 
         if self.dummy_inputs_func is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            print("----------------------------------")
+            print(self)
             dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
         elif self.io_config and self.io_config.input_shapes:
             dummy_inputs, _ = (
@@ -620,12 +622,12 @@ class PyTorchModel(OliveModel):
         hf_component = components_dict[component_name]
 
         user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-        model_component = user_module_loader.load_object(hf_component.component_func)
+        model_component = user_module_loader.call_object(hf_component.component_func)
 
         io_config = hf_component.io_config
         if isinstance(io_config, str):
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-            io_config = user_module_loader.call_object(self.dummy_inputs_func, self)
+            io_config = user_module_loader.call_object(hf_component.io_config)
         io_config = validate_config(io_config, IOConfig)
 
         def model_loader(_):

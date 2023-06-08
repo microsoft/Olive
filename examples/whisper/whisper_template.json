@@ -2,7 +2,8 @@
     "input_model":{
         "type": "PyTorchModel",
         "config": {
-            "model_script": "user_script.py",
+            "model_script": "code/user_script.py",
+            "script_dir": "code",
             "hf_config": {
                 "model_class" : "WhisperForConditionalGeneration",
                 "model_name" : "openai/whisper-tiny.en",
@@ -39,7 +40,8 @@
                         {"name": "avg", "priority": 1}
                     ],
                     "user_config": {
-                        "user_script": "user_script.py",
+                        "user_script": "code/user_script.py",
+                        "script_dir": "code",
                         "data_dir": "data",
                         "dataloader_func": "<place_holder>"
                     }
