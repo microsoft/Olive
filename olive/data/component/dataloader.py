@@ -26,6 +26,13 @@ def default_dataloader(_dataset, batch_size=1, **kwargs):
 
 
 @Registry.register_dataloader()
+def no_auto_batch_dataloader(_dataset, **kwargs):
+    # torch dataloader will automatically batch if batch_size is not None
+    # this dataloader will not batch. Assumes that the dataset already returns a batch
+    return DataLoader(_dataset, batch_size=None, **kwargs)
+
+
+@Registry.register_dataloader()
 def default_calibration_dataloader(_dataloader, **kwargs):
     # TODO: consider other quantization calibration interface in SNPE/INC/OpenVINO/Torch and etc.
     from onnxruntime.quantization import CalibrationDataReader
@@ -58,12 +65,12 @@ def default_calibration_dataloader(_dataloader, **kwargs):
 
 
 @Registry.register_dataloader()
-def default_snpe_dataloader(_dataset, model_io_config, batch_size=None):
+def default_snpe_dataloader(_dataset, model_io_config):
     from olive.snpe.data_loader import SNPEProcessedDataLoader
     from olive.snpe.utils.input_list import create_input_list
 
     class _SNPEProcessedDataLoader(SNPEProcessedDataLoader):
-        def __init__(self, dataset, model_io_config, batch_size=None):
+        def __init__(self, dataset, model_io_config):
             logger.debug("Creating SNPEProcessedDataLoader from dataset")
             input_specs = {}
             for input_name, input_shape in zip(model_io_config["input_names"], model_io_config["input_shapes"]):
@@ -163,11 +170,6 @@ def default_snpe_dataloader(_dataset, model_io_config, batch_size=None):
                 output_names=model_io_config["output_names"],
             )
 
-            super().__init__(
-                data_dir=str(data_dir),
-                input_list_file=input_list_file,
-                annotations_file=annotation_file,
-                batch_size=batch_size,
-            )
+            super().__init__(data_dir=str(data_dir), input_list_file=input_list_file, annotations_file=annotation_file)
 
-    return _SNPEProcessedDataLoader(_dataset, model_io_config, batch_size=batch_size)
+    return _SNPEProcessedDataLoader(_dataset, model_io_config)

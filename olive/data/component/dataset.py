@@ -115,7 +115,7 @@ class RawDataset(BaseDataset):
         input order file. Each input file is assumed to be a binary file containing a numpy array.
         :param input_names: List of input names.
         :param input_shapes: List of input shapes. Each element is a list of integers. Length of this list should be
-        equal to the number of inputs.
+        equal to the number of inputs. The batch dimension, if any, is assumed to be included in the input shapes.
         :param input_types: List of input types. Each element is a string. Length of this list should be equal to the
         number of inputs. Default is None, in which case all inputs are assumed to be of type float32.
         :param input_dirs: List of input directories. Each element is a string and corresponds to the sub-directory in

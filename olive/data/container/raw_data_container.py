@@ -30,4 +30,10 @@ class RawDataContainer(DataContainer):
         )
     """
 
-    default_components_type: ClassVar[dict] = {DataComponentType.LOAD_DATASET.value: "raw_dataset"}
+    default_components_type: ClassVar[dict] = {
+        DataComponentType.LOAD_DATASET.value: "raw_dataset",
+        # the input shapes already have the batch dimension, so we should not add the batch dimension again.
+        # TODO: Consider adding support for changing the batch size using the batch_size param.
+        # RawDataset could accept param that specifies which dimension is the batch dimension for each input.
+        DataComponentType.DATALOADER.value: "no_auto_batch_dataloader",
+    }
