@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import os
 from pathlib import Path
+import platform
 
 import pytest
 from utils import check_search_output, patch_config
@@ -22,12 +23,12 @@ def setup():
 # Skip docker_system test until bug is fixed: https://github.com/docker/docker-py/issues/3113
 @pytest.mark.parametrize("search_algorithm", ["tpe"])
 @pytest.mark.parametrize("execution_order", ["joint"])
-@pytest.mark.parametrize("system", ["local_system", "aml_system"])
+@pytest.mark.parametrize("system", ["local_system", "aml_system", "docker_system"])
 @pytest.mark.parametrize("olive_json", ["bert_ptq_cpu.json"])
 def test_bert(search_algorithm, execution_order, system, olive_json):
     # TODO: add gpu e2e test
-    # if system == "docker_system" and platform.system() == "Windows":
-    #     pytest.skip("Skip Linux containers on Windows host test case.")
+    if system == "docker_system" and platform.system() == "Windows":
+        pytest.skip("Skip Linux containers on Windows host test case.")
 
     from olive.workflows import run as olive_run
 
