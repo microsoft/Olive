@@ -3,8 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
-from pathlib import Path
 import platform
+from pathlib import Path
 
 import pytest
 from utils import check_search_output, patch_config
@@ -20,7 +20,6 @@ def setup():
     os.chdir(cur_dir)
 
 
-# Skip docker_system test until bug is fixed: https://github.com/docker/docker-py/issues/3113
 @pytest.mark.parametrize("search_algorithm", ["tpe"])
 @pytest.mark.parametrize("execution_order", ["joint"])
 @pytest.mark.parametrize("system", ["local_system", "aml_system", "docker_system"])
