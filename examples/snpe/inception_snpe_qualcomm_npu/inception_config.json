@@ -9,6 +9,12 @@
         "raw_data": {
             "name": "raw_data",
             "type": "RawDataContainer",
+            "user_script": "user_script.py",
+            "components": {
+                "post_process_data": {
+                    "type": "inception_post_process"
+                }
+            },
             "params_config": {
                 "data_dir": "data",
                 "input_names": ["input"],
@@ -29,8 +35,6 @@
                         {"name": "accuracy_score", "priority": 1}
                     ],
                     "user_config":{
-                        "user_script": "user_script.py",
-                        "post_processing_func": "post_process",
                         "inference_settings": {
                             "snpe": {
                                 "return_numpy_results": true
