@@ -3,11 +3,10 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from past_helper import PastKeyValuesHelper
+from transformers import WhisperForConditionalGeneration
 from whisper_dataset import WhisperDataset
 from whisper_decoder import WhisperDecoder, WhisperDecoderInputs
 from whisper_encoder_decoder_init import WhisperEncoderDecoderInit, WhisperEncoderDecoderInitInputs
-
-from transformers import WhisperForConditionalGeneration
 
 
 def get_encoder_decoder_init():

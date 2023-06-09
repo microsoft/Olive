@@ -31,6 +31,7 @@ from olive.model.hf_utils import (
     load_huggingface_model_from_model_class,
     load_huggingface_model_from_task,
 )
+from olive.model.model_config import IOConfig
 from olive.resource_path import (
     OLIVE_RESOURCE_ANNOTATIONS,
     ResourcePath,
@@ -38,7 +39,6 @@ from olive.resource_path import (
     ResourceType,
     create_resource_path,
 )
-from olive.model.model_config import IOConfig
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
 

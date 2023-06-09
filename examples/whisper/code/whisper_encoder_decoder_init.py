@@ -5,11 +5,11 @@
 from typing import List, Optional
 
 import torch
+from past_helper import PastKeyValuesHelper
 from transformers import WhisperConfig
 from whisper_decoder import WhisperDecoderInit
 from whisper_encoder import WhisperEncoder, WhisperEncoderInputs
 
-from past_helper import PastKeyValuesHelper
 
 class WhisperEncoderDecoderInit(torch.nn.Module):
     """A combination of WhisperEncoder and WhisperDecoderInit."""
@@ -39,7 +39,8 @@ class WhisperEncoderDecoderInit(torch.nn.Module):
         present_self, present_cross = PastKeyValuesHelper.group_by_self_and_cross(decinit_out[1])
         present = present_self + present_cross
         return decinit_out[0], encoder_hidden_states, present
-    
+
+
 class WhisperEncoderDecoderInitInputs:
     def __init__(self, encoder_input_ids, encoder_attention_mask, decoder_input_ids=None):
         self.encoder_input_ids: torch.LongTensor = encoder_input_ids

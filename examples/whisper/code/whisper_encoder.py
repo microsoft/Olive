@@ -18,7 +18,7 @@ class WhisperEncoder(torch.nn.Module):
 
     def forward(self, input_features, attention_mask):
         return self.encoder.model.encoder(input_features)[0]
-    
+
 
 class WhisperEncoderInputs:
     def __init__(self, input_features, attention_mask):

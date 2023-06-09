@@ -33,8 +33,10 @@ class PastKeyValuesHelper:
     @staticmethod
     def group_by_self_or_cross(present_key_values):
         """Split present state from grouped by layer to grouped by self/cross attention.
-        Before: (past_key_self_0, past_value_self_0, past_key_cross_0, past_value_cross_0), (past_key_self_1, past_value_self_1, past_key_cross_1, past_value_cross_1), ...
-        After: (past_key_self_0, past_value_self_0, past_key_self_1, past_value_self_1, ...), (past_key_cross_0, past_value_cross_0, past_key_cross_1, past_value_cross_1, ...)
+        Before: (past_key_self_0, past_value_self_0, past_key_cross_0, past_value_cross_0),
+                (past_key_self_1, past_value_self_1, past_key_cross_1, past_value_cross_1), ...
+        After: (past_key_self_0, past_value_self_0, past_key_self_1, past_value_self_1, ...),
+            (past_key_cross_0, past_value_cross_0, past_key_cross_1, past_value_cross_1, ...)
 
         """
         present_self = []
@@ -54,8 +56,10 @@ class PastKeyValuesHelper:
     @staticmethod
     def group_by_layer(past, num_layers):
         """Reorder past state from grouped by self/cross attention to grouped by layer.
-        Before: past_key_self_0, past_value_self_0, past_key_self_1, past_value_self_1, ..., past_key_cross_0, past_value_cross_0, past_key_cross_1, past_value_cross_1, ...
-        After: (past_key_self_0, past_value_self_0, past_key_cross_0, past_value_cross_0), (past_key_self_1, past_value_self_1, past_key_cross_1, past_value_cross_1),
+        Before: past_key_self_0, past_value_self_0, past_key_self_1, past_value_self_1, ...,
+                past_key_cross_0, past_value_cross_0, past_key_cross_1, past_value_cross_1, ...
+        After: (past_key_self_0, past_value_self_0, past_key_cross_0, past_value_cross_0),
+               (past_key_self_1, past_value_self_1, past_key_cross_1, past_value_cross_1),
         """
         assert len(past) == 4 * num_layers
         return tuple(

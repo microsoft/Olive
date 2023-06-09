@@ -5,11 +5,10 @@
 from typing import List, Union
 
 import torch
+from past_helper import PastKeyValuesHelper  # noqa: E402
 from transformers import WhisperConfig, file_utils
 from whisper_encoder import WhisperEncoderInputs
 
-
-from past_helper import PastKeyValuesHelper  # noqa: E402
 
 class WhisperDecoderInit(torch.nn.Module):
     """A Whisper decoder with LM head to create initial past key values.
@@ -87,6 +86,7 @@ class WhisperDecoder(torch.nn.Module):
         logits = decoder_out[0]
         present_self, _ = PastKeyValuesHelper.group_by_self_and_cross(decoder_out.past_key_values)
         return logits, present_self
+
 
 class WhisperDecoderInputs:
     def __init__(
