@@ -82,7 +82,17 @@ def create_metric_volumes_list(metrics: List[Metric], container_root_path: Path,
 
 
 def create_model_mount(model: OliveModel, container_root_path: Path):
-    model_mount_path = str(container_root_path / Path(model.model_path).name)
+    #model_mount_path = str(container_root_path / Path(model.model_path).name)
+    model_resource_path = None
+    if not model.model_resource_path:
+        model_resource_path = None
+    elif model.model_resource_path.is_local_resource() or model.model_resource_path.is_string_name():
+        model_resource_path =  model.model_resource_path
+    else:
+        assert model.local_model_path, "local model path not set"    
+        model_resource_path = model.local_model_path
+    model_path = model_resource_path.get_path()
+    model_mount_path = str(container_root_path/Path(model_path).name)
     model_mount_str = f"{str(Path(model.model_path).resolve())}:{model_mount_path}"
     model_mount_str_list = [model_mount_str]
 
