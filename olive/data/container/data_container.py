@@ -65,7 +65,7 @@ class DataContainer(BaseModel):
         pre_process_dataset = self.pre_process(dataset)
         return self.dataloader(pre_process_dataset)
 
-    def create_snpe_dataloader(self, model, evaluation=True):
+    def create_snpe_dataloader(self, model_io_config, evaluation=True):
         """
         Create snpe dataloader
         If evaluation is True, the dataloader will be used for evaluation and batch size will be used. Otherwise, the
@@ -75,7 +75,7 @@ class DataContainer(BaseModel):
         dataset = self.load_dataset()
         pre_process_dataset = self.pre_process(dataset)
         batch_size = self.config.dataloader_params["batch_size"] if evaluation else None
-        return default_snpe_dataloader(pre_process_dataset, model, batch_size=batch_size)
+        return default_snpe_dataloader(pre_process_dataset, model_io_config, batch_size=batch_size)
 
     def create_calibration_dataloader(self):
         """

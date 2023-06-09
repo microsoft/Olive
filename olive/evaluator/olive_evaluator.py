@@ -162,7 +162,9 @@ class OliveEvaluator(ABC):
                 input_types=metric.user_config.input_types,
             ).to_data_container()
             dataloader = (
-                dummy_dc.create_snpe_dataloader(model) if isinstance(model, SNPEModel) else dummy_dc.create_dataloader()
+                dummy_dc.create_snpe_dataloader(model.io_config)
+                if isinstance(model, SNPEModel)
+                else dummy_dc.create_dataloader()
             )
 
         if not dataloader or not post_func:
@@ -171,7 +173,7 @@ class OliveEvaluator(ABC):
             # TODO remove user_scripts dataloader: we should respect user scripts
             # dataloder to meet back compatibility for time being.
             dataloader = dataloader or (
-                dc.create_snpe_dataloader(model) if isinstance(model, SNPEModel) else dc.create_dataloader()
+                dc.create_snpe_dataloader(model.io_config) if isinstance(model, SNPEModel) else dc.create_dataloader()
             )
             post_func = post_func or dc.config.post_process
 

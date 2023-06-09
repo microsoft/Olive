@@ -15,7 +15,6 @@ import pytest
 
 from olive.data.config import DataConfig
 from olive.data.container.data_container import DataContainer
-from olive.model import SNPEModel
 
 
 class TestDataConfig:
@@ -82,10 +81,9 @@ class TestDataConfig:
 
         dc.create_dataloader()
         dc.create_calibration_dataloader()
-        dummy_snpe_model = SNPEModel(
-            input_names=input_names, input_shapes=input_shapes, output_names=["output"], output_shapes=[[1, 1]]
+        dc.create_snpe_dataloader(
+            {"input_names": input_names, "input_shapes": input_shapes, "output_names": ["output"]}
         )
-        dc.create_snpe_dataloader(dummy_snpe_model)
 
     def test_dc_runner(self):
         try:

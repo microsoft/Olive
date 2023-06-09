@@ -58,16 +58,15 @@ def default_calibration_dataloader(_dataloader, **kwargs):
 
 
 @Registry.register_dataloader()
-def default_snpe_dataloader(_dataset, snpe_model, batch_size=None):
+def default_snpe_dataloader(_dataset, model_io_config, batch_size=None):
     from olive.snpe.data_loader import SNPEProcessedDataLoader
     from olive.snpe.utils.input_list import create_input_list
 
     class _SNPEProcessedDataLoader(SNPEProcessedDataLoader):
-        def __init__(self, dataset, snpe_model, batch_size=None):
+        def __init__(self, dataset, model_io_config, batch_size=None):
             logger.debug("Creating SNPEProcessedDataLoader from dataset")
-            target_io_config = snpe_model.io_config
             input_specs = {}
-            for input_name, input_shape in zip(target_io_config["input_names"], target_io_config["input_shapes"]):
+            for input_name, input_shape in zip(model_io_config["input_names"], model_io_config["input_shapes"]):
                 input_specs[input_name] = {"target_shape": input_shape}
 
             # get single data sample
@@ -160,8 +159,8 @@ def default_snpe_dataloader(_dataset, snpe_model, batch_size=None):
                 input_names=list(input_specs.keys()),
                 input_dirs=[input_specs[input_name]["source_name"] for input_name in input_specs.keys()],
                 add_input_names=len(input_specs) > 1,
-                add_output_names=len(target_io_config["output_names"]) > 1,
-                output_names=target_io_config["output_names"],
+                add_output_names=len(model_io_config["output_names"]) > 1,
+                output_names=model_io_config["output_names"],
             )
 
             super().__init__(
@@ -171,4 +170,4 @@ def default_snpe_dataloader(_dataset, snpe_model, batch_size=None):
                 batch_size=batch_size,
             )
 
-    return _SNPEProcessedDataLoader(_dataset, snpe_model, batch_size=batch_size)
+    return _SNPEProcessedDataLoader(_dataset, model_io_config, batch_size=batch_size)

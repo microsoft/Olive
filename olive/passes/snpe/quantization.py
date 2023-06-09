@@ -80,7 +80,7 @@ class SNPEQuantization(Pass):
         if config["dataloader_func"]:
             dataloader = self._user_module_loader.call_object(config["dataloader_func"], config["data_dir"])
         elif self._data_config:
-            dataloader = self._data_config.to_data_container().create_snpe_dataloader(model, evaluation=False)
+            dataloader = self._data_config.to_data_container().create_snpe_dataloader(model.io_config, evaluation=False)
 
         quantize_dlc(model.model_path, dataloader.get_input_list(), config, output_model_path)
         return SNPEModel(model_path=LocalFile({"path": output_model_path}), **model.io_config)
