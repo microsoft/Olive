@@ -4,13 +4,13 @@
 
 
 ## Introduction
-This document describes how to configure a optimizations workflow for Huggingface models, where the user can specify the
+This document describes how to configure a optimization workflow for Huggingface models, where the user can specify the
 1. Model name in Huggingface model hub, e.g. `bert-base-uncased`.
 2. Task name which introduces the task specific head for the model, e.g. `text-classification`. More task names can be found [here](https://huggingface.co/tasks). Task name is used to:
     - Load model in which user can just provide the model name and task name. Olive will automatically load the model from Huggingface model hub for specific task.
     - Load specific tokenizer and data processor. Currently, we simplify the user experience only for `text-classification` task, which will be demonstrated in the following examples. *For other tasks, it is under development actively.*
 3. The task specific dataset hosted in [Huggingface datasets](https://huggingface.co/datasets), e.g. `glue` dataset for text classification task.
-4. Metric name supported by [Huggingface evaluate](https://huggingface.co/docs/evaluate/index).
+4. Metric name supported by [Huggingface evaluate](https://huggingface.co/docs/evaluate/index). User can refer to the [huggingface metrics](https://huggingface.co/metrics) for full metrics list.
     - *Note that, as Olive does not support the generative models very well, for metrics like `seqeval`, `rouge` and other generative measurements, we do not suggest to use them in Olive for time being.*
 
 
@@ -35,8 +35,6 @@ Take `bert-base-uncased` as an example, user can specify the task name as `text-
 Please refer [hf_config](../overview/options.md#hf_config) to for more details.
 
 ### Metric config
-Besides, user can also specify the any metric name which is supported in [huggingface metrics](https://huggingface.co/metrics) as follows:
-
 ```json
 {
     "name": "accuracy",
