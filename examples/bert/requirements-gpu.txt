@@ -1,0 +1,8 @@
+azure-ai-ml
+azure-identity
+datasets
+docker
+onnxruntime-gpu
+scipy
+scikit-learn
+transformers
