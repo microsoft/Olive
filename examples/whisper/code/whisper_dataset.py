@@ -5,34 +5,6 @@
 from pathlib import Path
 
 import numpy as np
-from onnxruntime.transformers.models.whisper.whisper_decoder import WhisperDecoderInputs
-from onnxruntime.transformers.models.whisper.whisper_encoder_decoder_init import WhisperEncoderDecoderInitInputs
-
-
-def encoder_decoder_init_dummy_inputs(model):
-    model = model.load_model()
-    inputs = WhisperEncoderDecoderInitInputs.create_dummy(
-        model.config,
-        batch_size=2,
-        encode_sequence_length=3000,
-        use_decoder_input_ids=True,
-        device="cpu",
-        use_int32_inputs=True,
-    )
-    return tuple(inputs.to_list())
-
-
-def decoder_dummy_inputs(model):
-    model = model.load_model()
-    inputs = WhisperDecoderInputs.create_dummy(
-        model.config,
-        batch_size=2,
-        encode_sequence_length=3000,
-        past_decode_sequence_length=5,
-        device="cpu",
-        use_int32_inputs=True,
-    )
-    return tuple(inputs.to_list())
 
 
 class WhisperDataset:
@@ -88,11 +60,3 @@ class WhisperDataset:
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
-
-
-def whisper_audio_decoder_dataloader(data_dir, batch_size=None):
-    return WhisperDataset(data_dir=data_dir, use_audio_decoder=True)
-
-
-def whisper_no_audio_decoder_dataloader(data_dir, batch_size=None):
-    return WhisperDataset(data_dir=data_dir, use_audio_decoder=False)

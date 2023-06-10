@@ -72,9 +72,18 @@ case insensitive.
         - `task: [str]`: This is the task type for the model such as `text-classification`. The complete list of supported task can be found
         at [huggingface-tasks](https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task).
 
+        - `feature: [str]`: The ONNX export features. This is only needed for HuggingFace hub model. Default to `default`. You can find more info at [Export to ONNX](https://huggingface.co/docs/transformers/serialization)
+
         - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
 
-        - `model_config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
+        - `components: [List[HFComponent]]`: HFComponent list:
+            - `HFComponent`:
+                - `name: [str]`: Component name. Olive will generate a model class with this str as attribute name.
+                - `io_config: [str | Dict]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
+                - `component_func: [str]`: The component function name will be loaded from `model_script`.
+                - `dummy_inputs_func: [str]`: The dummy input function name will be loaded from `model_script`.
+
+        - `config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
         [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
 
         - `dataset: [dict]`: Ff you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading_datasets.html). Olive exposes the following configs(which will be extend in the future):
