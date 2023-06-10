@@ -368,13 +368,23 @@ class Pass(ABC):
 
         # Optimization pass still works on individual graphs.
         if isinstance(model, DistributedOnnxModel):
-            output_filepaths = []
+            output_model_dir = Path(output_model_path).with_suffix("").resolve()
+            output_model_dir.mkdir(parents=True, exist_ok=True)
+            output_file_names = []
             for rank in range(0, model.ranks):
                 input_rank_model = model.load_model(rank)
-                rank_output_path = Path(output_model_path).with_suffix("") / str(rank)
-                output_rank_model = self._run_for_config(input_rank_model, config, rank_output_path)
-                output_filepaths.append(output_rank_model.model_path)
-            return DistributedOnnxModel(output_filepaths, inference_settings=model.inference_settings)
+                # the output path for each rank is output_model_dir/rank
+                rank_output_path = output_model_dir / str(rank)
+                output_rank_model = self._run_for_config(input_rank_model, config, str(rank_output_path))
+                # get the actual path of the model file
+                output_rank_model_path = Path(output_rank_model.model_path).resolve()
+                # the output file name is the relative path of the model file to the output_model_dir
+                output_file_names.append(str(output_rank_model_path.relative_to(output_model_dir)))
+            return DistributedOnnxModel(
+                model_path=output_model_dir,
+                model_file_names=output_file_names,
+                inference_settings=model.inference_settings,
+            )
         elif isinstance(model, CompositeOnnxModel) and not self._accepts_composite_model:
             components = []
             component_names = []

@@ -59,10 +59,7 @@ class OliveModel(ABC):
         REGISTRY[cls.__name__.lower()] = cls
 
     def __init__(
-        self,
-        framework: Framework,
-        model_file_format: ModelFileFormat,
-        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        self, framework: Framework, model_file_format: ModelFileFormat, model_path: OLIVE_RESOURCE_ANNOTATIONS = None
     ):
         self.framework = framework
         self.model_file_format = model_file_format
@@ -306,7 +303,7 @@ class ONNXModelBase(OliveModel):
 class ONNXModel(ONNXModelBase):
     def __init__(
         self,
-        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS,
         onnx_file_name: Optional[str] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
@@ -324,8 +321,10 @@ class ONNXModel(ONNXModelBase):
         # huggingface config
         self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
 
+        # model_path cannot be string name
+        assert not self.model_resource_path.is_string_name(), "model_path cannot be string name"
         # if model_path is local folder, check for onnx file name
-        if self.model_resource_path and self.model_resource_path.type == ResourceType.LocalFolder:
+        if self.model_resource_path.type == ResourceType.LocalFolder:
             self.get_onnx_file_path(self.model_resource_path.get_path(), self.onnx_file_name)
 
     @staticmethod
@@ -754,13 +753,19 @@ class OptimumModel(OliveModel):
 class SNPEModel(OliveModel):
     def __init__(
         self,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS,
         input_names: List[str],
         input_shapes: List[List[int]],
         output_names: List[str],
         output_shapes: List[List[int]],
-        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
     ):
         super().__init__(framework=Framework.SNPE, model_file_format=ModelFileFormat.SNPE_DLC, model_path=model_path)
+        # model_path must be a local or remote file
+        assert self.model_resource_path.type not in [
+            ResourceType.StringName,
+            ResourceType.LocalFolder,
+        ], "model_path must be a local or remote file"
+
         self.io_config = {
             "input_names": input_names,
             "input_shapes": input_shapes,
@@ -796,7 +801,7 @@ class SNPEModel(OliveModel):
 class TensorFlowModel(OliveModel):
     def __init__(
         self,
-        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS,
         model_file_format: ModelFileFormat = ModelFileFormat.TENSORFLOW_SAVED_MODEL,
     ):
         super().__init__(model_path=model_path, framework=Framework.TENSORFLOW, model_file_format=model_file_format)
@@ -819,9 +824,15 @@ class OpenVINOModel(OliveModel):
         super().__init__(
             model_path=model_path, framework=Framework.OPENVINO, model_file_format=ModelFileFormat.OPENVINO_IR
         )
+        # model_path must be a local or remote folder
+        assert self.model_resource_path.type not in [
+            ResourceType.StringName,
+            ResourceType.LocalFile,
+        ], "model_path must be a local or remote folder"
+
         # check if the model files (xml, bin) are in the same directory
-        if self.model_resource_path.is_local_resource():
-            _ = self.model_config
+        if self.model_resource_path.type == ResourceType.LocalFolder:
+            self.model_config
 
     @property
     def model_config(self) -> Dict[str, str]:
@@ -879,26 +890,46 @@ class DistributedOnnxModel(ONNXModelBase):
 
     def __init__(
         self,
-        model_filepaths: List[Union[Path, str]] = [],
+        model_path: OLIVE_RESOURCE_ANNOTATIONS,
+        model_file_names: List[str],
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
     ):
         super().__init__(
-            model_path=None,
+            model_path=model_path,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
         )
-        self.model_filepaths = model_filepaths
+        # model resource is a local or remote directory
+        assert self.model_resource_path.type not in [
+            ResourceType.StringName,
+            ResourceType.LocalFile,
+        ], "DistributedOnnxModel only supports local or remote directory as model_path"
+
+        # model_file_names must be a non empty list
+        assert (
+            isinstance(model_file_names, list) and len(model_file_names) > 0
+        ), "model_file_names must be a non empty list"
+        self.model_file_names = model_file_names
+
+        # if model_path is a local folder, check if the model files are in the same directory
+        if self.model_resource_path.type == ResourceType.LocalFolder:
+            for rank in range(self.ranks):
+                assert Path(
+                    self.ranked_model_path(rank)
+                ).is_file(), f"{model_file_names[rank]} is not a file in {self.model_path}"
 
     @property
     def ranks(self):
-        return len(self.model_filepaths)
+        return len(self.model_file_names)
 
-    def ranked_model_path(self, rank: int) -> Union[Path, str]:
-        return self.model_filepaths[rank]
+    def ranked_model_path(self, rank: int) -> str:
+        assert rank < self.ranks, f"rank {rank} is out of range (0, {self.ranks})"
+        model_dir = Path(self.model_path)
+        return str(model_dir / self.model_file_names[rank])
 
     def load_model(self, rank: int) -> ONNXModel:
-        return ONNXModel(self.model_filepaths[rank], inference_settings=self.inference_settings)
+        return ONNXModel(self.ranked_model_path(rank), inference_settings=self.inference_settings)
 
     def prepare_session(
         self,
