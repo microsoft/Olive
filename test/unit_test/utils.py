@@ -81,6 +81,8 @@ def create_onnx_model_file():
 
 
 def get_onnx_model():
+    if not os.path.exists(ONNX_MODEL_PATH):
+        create_onnx_model_file()
     return ONNXModel(model_path=str(ONNX_MODEL_PATH))
 
 
