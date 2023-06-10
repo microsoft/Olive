@@ -125,7 +125,7 @@
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">onnx</span>
 <span class="kn">import</span> <span class="nn">torch</span>
@@ -133,21 +133,21 @@
 <span class="kn">from</span> <span class="nn">onnx</span> <span class="kn">import</span> <span class="n">AttributeProto</span><span class="p">,</span> <span class="n">GraphProto</span>
 <span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">validator</span>
 
-<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
-    <span class="kn">from</span> <span class="nn">azure.ai.ml</span> <span class="kn">import</span> <span class="n">MLClient</span>  <span class="c1"># noqa: F401</span>
-
 <span class="kn">import</span> <span class="nn">olive.data.template</span> <span class="k">as</span> <span class="nn">data_config_template</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">serialize_to_json</span><span class="p">,</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.ort_inference</span> <span class="kn">import</span> <span class="n">get_ort_inference_session</span>
 <span class="kn">from</span> <span class="nn">olive.common.user_module_loader</span> <span class="kn">import</span> <span class="n">UserModuleLoader</span>
 <span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">ModelFileFormat</span>
 <span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">AcceleratorLookup</span><span class="p">,</span> <span class="n">Device</span>
-<span class="kn">from</span> <span class="nn">olive.hf_utils</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span> <span class="nn">olive.model.hf_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">HFConfig</span><span class="p">,</span>
     <span class="n">get_hf_model_config</span><span class="p">,</span>
+    <span class="n">get_hf_model_dummy_input</span><span class="p">,</span>
     <span class="n">huggingface_model_loader</span><span class="p">,</span>
     <span class="n">load_huggingface_model_from_model_class</span><span class="p">,</span>
     <span class="n">load_huggingface_model_from_task</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">olive.model.model_config</span> <span class="kn">import</span> <span class="n">IOConfig</span>
 <span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span>
     <span class="n">ResourcePath</span><span class="p">,</span>
@@ -289,89 +289,6 @@
 
     <span class="k">def</span> <span class="nf">create_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">REGISTRY</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()](</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
-
-
-<span class="k">class</span> <span class="nc">IOConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
-    <span class="c1"># TODO remove input names, shapes and types, turn to use olive dataset conifg.</span>
-    <span class="n">input_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-    <span class="n">input_shapes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">input_types</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">output_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-    <span class="n">output_shapes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">output_types</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">dynamic_axes</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="c1"># ONNX exporter might mark dimension like &#39;Transposepresent_value_self_1_dim_2&#39; in shape inference</span>
-    <span class="c1"># even though we want the dimension to be a constant int.</span>
-    <span class="c1"># We use a workaround here: first use dim_param like &quot;1&quot; to represent the dimension, and then</span>
-    <span class="c1"># convert it to int in the onnx model.</span>
-    <span class="n">string_to_int_dim_params</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-
-    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;input_shapes&quot;</span><span class="p">,</span> <span class="s2">&quot;input_types&quot;</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">check_input_shapes</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">v</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">v</span>
-
-        <span class="k">if</span> <span class="s2">&quot;input_names&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid input_names&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="s2">&quot;input_names&quot;</span><span class="p">]):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;input_names and input_shapes must have the same length&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">v</span>
-
-    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;output_shapes&quot;</span><span class="p">,</span> <span class="s2">&quot;output_types&quot;</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">check_output_shapes</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">v</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">v</span>
-
-        <span class="k">if</span> <span class="s2">&quot;output_names&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">values</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid output_names&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="s2">&quot;output_names&quot;</span><span class="p">]):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;output_names and output_shapes must have the same length&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">v</span>
-
-    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;dynamic_axes&quot;</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">convert_dynamic_axes</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">v</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">v</span>
-
-        <span class="n">dynamic_axes</span> <span class="o">=</span> <span class="n">v</span>
-        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">dynamic_axes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="n">dynamic_axes</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="nb">int</span><span class="p">(</span><span class="n">kk</span><span class="p">):</span> <span class="n">vv</span> <span class="k">for</span> <span class="n">kk</span><span class="p">,</span> <span class="n">vv</span> <span class="ow">in</span> <span class="n">v</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
-        <span class="k">return</span> <span class="n">dynamic_axes</span>
-
-    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;string_to_int_dim_params&quot;</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">check_string_to_int_dim_params</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">v</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">v</span>
-
-        <span class="k">for</span> <span class="n">dim_param</span> <span class="ow">in</span> <span class="n">v</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="nb">int</span><span class="p">(</span><span class="n">dim_param</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid string_to_int_dim_params: </span><span class="si">{</span><span class="n">dim_param</span><span class="si">}</span><span class="s2">. Must be castable to int.&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">v</span>
-
-
-<span class="k">class</span> <span class="nc">HFComponent</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">io_config</span><span class="p">:</span> <span class="n">IOConfig</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">dummy_inputs_func</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-
-
-<span class="k">class</span> <span class="nc">HFConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
-    <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">task</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="c1"># TODO: remove model_class and only use task</span>
-    <span class="n">model_class</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">use_ort_implementation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">components</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">HFComponent</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">dataset</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-
-    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;model_class&quot;</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">def</span> <span class="nf">task_or_model_class_required</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">values</span><span class="p">[</span><span class="s2">&quot;model_name&quot;</span><span class="p">]:</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">v</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">values</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;task&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Either task or model_class must be specified&quot;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">v</span>
 
 
 <span class="k">class</span> <span class="nc">ONNXModelBase</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
@@ -707,9 +624,7 @@
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">:</span>
                 <span class="n">model</span> <span class="o">=</span> <span class="n">load_huggingface_model_from_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">input_model</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">model</span> <span class="o">=</span> <span class="n">load_huggingface_model_from_model_class</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_class</span><span class="p">,</span> <span class="n">input_model</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">use_ort_implementation</span>
-                <span class="p">)</span>
+                <span class="n">model</span> <span class="o">=</span> <span class="n">load_huggingface_model_from_model_class</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_class</span><span class="p">,</span> <span class="n">input_model</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_ENTIRE_MODEL</span><span class="p">:</span>
                 <span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
@@ -762,12 +677,18 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span>
 
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">components</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="s2">&quot;task must be provided for huggingface model&quot;</span>
+            <span class="k">return</span> <span class="n">get_hf_model_dummy_input</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">feature</span><span class="p">)</span>
+
         <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span> <span class="ow">or</span> <span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="o">.</span><span class="n">input_shapes</span>
         <span class="p">),</span> <span class="s2">&quot;dummy_inputs_func or io_config.input_shapes must be provided to get dummy input&quot;</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">user_module_loader</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;----------------------------------&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
             <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">user_module_loader</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="o">.</span><span class="n">input_shapes</span><span class="p">:</span>
             <span class="n">dummy_inputs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="p">(</span>
@@ -812,19 +733,25 @@
         <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">,</span> <span class="s2">&quot;hf_config.components must be provided to get component&quot;</span>
         <span class="k">assert</span> <span class="n">component_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;component </span><span class="si">{</span><span class="n">component_name</span><span class="si">}</span><span class="s2"> not found in hf_config&quot;</span>
 
-        <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_model</span><span class="p">()</span>
-        <span class="n">model_component</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">component_name</span><span class="p">)</span>
-
         <span class="c1"># get the component from hf_config</span>
         <span class="n">components_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">component</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">component</span> <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">components</span><span class="p">}</span>
         <span class="n">hf_component</span> <span class="o">=</span> <span class="n">components_dict</span><span class="p">[</span><span class="n">component_name</span><span class="p">]</span>
+
+        <span class="n">user_module_loader</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
+        <span class="n">model_component</span> <span class="o">=</span> <span class="n">user_module_loader</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span><span class="n">hf_component</span><span class="o">.</span><span class="n">component_func</span><span class="p">)</span>
+
+        <span class="n">io_config</span> <span class="o">=</span> <span class="n">hf_component</span><span class="o">.</span><span class="n">io_config</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">io_config</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">user_module_loader</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
+            <span class="n">io_config</span> <span class="o">=</span> <span class="n">user_module_loader</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span><span class="n">hf_component</span><span class="o">.</span><span class="n">io_config</span><span class="p">)</span>
+        <span class="n">io_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">io_config</span><span class="p">,</span> <span class="n">IOConfig</span><span class="p">)</span>
 
         <span class="k">def</span> <span class="nf">model_loader</span><span class="p">(</span><span class="n">_</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">model_component</span>
 
         <span class="k">return</span> <span class="n">PyTorchModel</span><span class="p">(</span>
             <span class="n">model_loader</span><span class="o">=</span><span class="n">model_loader</span><span class="p">,</span>
-            <span class="n">io_config</span><span class="o">=</span><span class="n">hf_component</span><span class="o">.</span><span class="n">io_config</span><span class="p">,</span>
+            <span class="n">io_config</span><span class="o">=</span><span class="n">io_config</span><span class="p">,</span>
             <span class="n">dummy_inputs_func</span><span class="o">=</span><span class="n">hf_component</span><span class="o">.</span><span class="n">dummy_inputs_func</span><span class="p">,</span>
             <span class="n">model_script</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span>
             <span class="n">script_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">,</span>
