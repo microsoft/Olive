@@ -11,8 +11,6 @@ This document describes how to configure a optimization workflow for Huggingface
     - Load specific tokenizer and data processor. Currently, we simplify the user experience only for `text-classification` task, which will be demonstrated in the following examples. *For other tasks, it is under development actively.*
 3. The task specific dataset: is hosted in [Huggingface datasets](https://huggingface.co/datasets), e.g. `glue` dataset for text classification task.
 4. Metric name: is supported by [Huggingface evaluate](https://huggingface.co/docs/evaluate/index). User can refer to [huggingface metrics](https://huggingface.co/metrics) for full metrics list.
-    - *Note that, as Olive does not support the generative models very well, for metrics like `seqeval`, `rouge` and other generative measurements, we do not suggest to use them in Olive for time being.*
-
 
 ## Example
 
