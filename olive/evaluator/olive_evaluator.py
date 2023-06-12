@@ -31,6 +31,7 @@ from olive.evaluator.metric import (
 from olive.evaluator.metric_backend import MetricBackend
 from olive.hardware import Device
 from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
+from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +123,7 @@ class OliveEvaluator(ABC):
     ) -> MetricResult:
         metrics_res = {}
         for metric in metrics:
-            dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric, model)
+            dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric)
 
             if metric.type == MetricType.ACCURACY:
                 metrics_res[metric.name] = self._evaluate_accuracy(
@@ -141,7 +142,7 @@ class OliveEvaluator(ABC):
         return flatten_metric_result(metrics_res)
 
     @staticmethod
-    def get_user_config(metric: Metric, model: OliveModel = None):
+    def get_user_config(metric: Metric):
         user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
 
         post_processing_func = getattr(metric.user_config, "post_processing_func", None)
@@ -156,15 +157,14 @@ class OliveEvaluator(ABC):
         eval_func = user_module.load_object(evaluate_func)
 
         if metric.user_config.input_names and metric.user_config.input_shapes and not dataloader and not eval_func:
-            dummy_dc = data_config_template.dummy_data_config_template(
-                input_names=metric.user_config.input_names,
-                input_shapes=metric.user_config.input_shapes,
-                input_types=metric.user_config.input_types,
-            ).to_data_container()
             dataloader = (
-                dummy_dc.create_snpe_dataloader(model.io_config)
-                if isinstance(model, SNPEModel)
-                else dummy_dc.create_dataloader()
+                data_config_template.dummy_data_config_template(
+                    input_names=metric.user_config.input_names,
+                    input_shapes=metric.user_config.input_shapes,
+                    input_types=metric.user_config.input_types,
+                )
+                .to_data_container()
+                .create_dataloader()
             )
 
         if not dataloader or not post_func:
@@ -172,9 +172,7 @@ class OliveEvaluator(ABC):
 
             # TODO remove user_scripts dataloader: we should respect user scripts
             # dataloder to meet back compatibility for time being.
-            dataloader = dataloader or (
-                dc.create_snpe_dataloader(model.io_config) if isinstance(model, SNPEModel) else dc.create_dataloader()
-            )
+            dataloader = dataloader or dc.create_dataloader()
             post_func = post_func or dc.config.post_process
 
         return dataloader, eval_func, post_func
@@ -322,6 +320,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         inference_settings = config.get("inference_settings", {}) or {}
         metric = Metric.from_json(config["metric"])
         dataloader, _, post_func = OnnxEvaluator.get_user_config(metric)
+
         import os
 
         os.environ["OMPI_COMM_WORLD_RANK"] = str(local_rank)
@@ -578,6 +577,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
+        dataloader = self._prepare_dataloader(dataloader, model)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         preds = []
@@ -602,6 +602,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
+        dataloader = self._prepare_dataloader(dataloader, model)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
@@ -611,6 +612,11 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         latencies = results["latencies"]["total_inference_time"][warmup_num:]
 
         return OliveEvaluator.compute_latency(metric, latencies)
+
+    def _prepare_dataloader(self, dataloader: Dataset, model: SNPEModel) -> SNPEDataLoader:
+        if isinstance(dataloader, SNPEDataLoader):
+            return dataloader
+        return SNPECommonDataLoader(dataloader, model.io_config)
 
 
 class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):

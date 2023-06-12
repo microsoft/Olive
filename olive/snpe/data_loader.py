@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 import shutil
 import tempfile
 from abc import ABC, abstractmethod
@@ -11,6 +12,8 @@ from typing import Any, Tuple
 import numpy as np
 
 import olive.snpe.utils.input_list as input_list_utils
+
+logger = logging.getLogger(__name__)
 
 
 class SNPEDataLoader(ABC):
@@ -213,3 +216,120 @@ class SNPERandomDataLoader(SNPEDataLoader):
         input_list = input_list_utils.get_input_list(data_dir, self.config["input_list_file"], self.tmp_dir.name)
 
         return str(data_dir), input_list, None
+
+
+class SNPECommonDataLoader(SNPEDataLoader):
+    """
+    SNPE dataloader created from a common dataloader such as torch.data.DataLoader
+    """
+
+    def __init__(self, dataloader: Any, io_config: dict, batch_size: int = None):
+        """
+        :param dataloader: dataloader object. Dataloader must be iterable and return a tuple of (input, target).
+        input is a dictionary of input names and input tensors.
+        :param io_config: dictionary containing input and output names and shapes of the model.
+        :param batch_size: batch size for the SNPE dataloader. This is not the same as the batch size of the common
+        dataloader.
+        """
+        config = {"dataloader": dataloader, "io_config": io_config}
+        super().__init__(config, batch_size)
+
+    def load_data(self) -> Tuple[str, str, np.ndarray]:
+        logger.debug(f"Converting dataloader of type {type(self.config['dataloader'])} to SNPE dataloader")
+        input_specs = {}
+        for input_name, input_shape in zip(
+            self.config["io_config"]["input_names"], self.config["io_config"]["input_shapes"]
+        ):
+            input_specs[input_name] = {"target_shape": input_shape}
+
+        # get single data sample
+        input_data, _ = next(iter(self.config["dataloader"]))
+        # source input names
+        for input_name in input_specs:
+            if input_name in input_data:
+                source_name = input_name
+            elif input_name.strip(":0") in input_data:
+                source_name = input_name.strip(":0")
+            else:
+                raise ValueError(f"Input name {input_name} not found in dataset")
+            input_specs[input_name]["source_name"] = source_name
+
+        # source input_shapes and permutations
+        for input_name, input_spec in input_specs.items():
+            # get source shape
+            source_shape = list(input_data[input_spec["source_name"]].shape)
+            input_specs[input_name]["source_shape"] = source_shape
+
+            # get permutation from source shape to target shape
+            target_shape = input_spec["target_shape"]
+            assert len(source_shape) == len(
+                target_shape
+            ), f"Source shape {source_shape} and target shape {target_shape} must have the same length"
+
+            # find the permutation of the source shape that matches the target shape
+            # e.g. source_shape = [1, 3, 224, 224], target_shape = [1, 224, 224, 3]
+            #      -> permutation = [0, 2, 3, 1]
+            # NCDHW -> NDHWC, NCHW -> NHWC, NFC -> NCF
+            channel_permutation = [0] + list(range(2, len(source_shape))) + [1]
+            # NTF -> TNF
+            # TODO: confirm if it is NTF -> TNF or TNF -> NTF. Doesn't really matter since the first two
+            # dimensions are transposed anyway
+            time_permutation = [1, 0] + list(range(2, len(source_shape)))
+            if source_shape == target_shape:
+                permutation = None  # no permutation needed
+            elif target_shape == [source_shape[idx] for idx in channel_permutation]:
+                permutation = channel_permutation
+            elif target_shape == [source_shape[idx] for idx in time_permutation]:
+                permutation = time_permutation
+            else:
+                raise ValueError(
+                    f"Cannot find a valid permutation of the source shape {source_shape} that matches the target"
+                    f" shape {target_shape}"
+                )
+
+            input_specs[input_name]["permutation"] = permutation
+        logger.debug(f"Input specs: {input_specs}")
+
+        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp_")
+        data_dir = Path(self.tmp_dir.name) / "data"
+        data_dir.mkdir()  # create data dir
+
+        input_order = []
+        annotations = []
+        num_samples = len(self.config["dataloader"])
+        sample_digits = len(str(num_samples))
+        for i, (input_data, annotation) in enumerate(self.config["dataloader"]):
+            input_file_name = f"{i}.bin".zfill(sample_digits + 4)
+            input_order.append(input_file_name)
+            for input_name, input_spec in input_specs.items():
+                data = input_data[input_spec["source_name"]]
+                # snpe data loader only supports float32
+                data = np.array(data, dtype=np.float32)
+
+                # permute if necessary
+                if input_spec["permutation"] is not None:
+                    data = np.transpose(data, input_spec["permutation"])
+
+                # save input data
+                input_dir_path = data_dir / input_spec["source_name"]
+                input_dir_path.mkdir(exist_ok=True)
+                input_file_path = input_dir_path / input_file_name
+                data.tofile(input_file_path)
+
+            annotations.append(annotation)
+
+        annotations = None if annotations[0] is None else np.array(annotations)
+
+        # create input_list
+        input_list_file = input_list_utils.create_input_list(
+            data_dir=str(data_dir),
+            input_names=list(input_specs.keys()),
+            input_dirs=[input_specs[input_name]["source_name"] for input_name in input_specs.keys()],
+            add_input_names=len(input_specs) > 1,
+            add_output_names=len(self.config["io_config"]["output_names"]) > 1,
+            output_names=self.config["io_config"]["output_names"],
+        )
+
+        input_list = input_list_utils.get_input_list(str(data_dir), input_list_file, self.tmp_dir.name)
+
+        return str(data_dir), input_list, annotations

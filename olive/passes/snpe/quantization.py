@@ -10,7 +10,7 @@ from olive.model import SNPEModel
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
 from olive.resource_path import LocalFile
-from olive.snpe import SNPEDataLoader
+from olive.snpe import SNPECommonDataLoader, SNPEDataLoader
 from olive.snpe.tools.dev import quantize_dlc
 from olive.strategy.search_parameter import Boolean
 
@@ -34,13 +34,13 @@ class SNPEQuantization(Pass):
                 description="Path to the data directory. Required is data_config is None.",
             ),
             "dataloader_func": PassConfigParam(
-                type_=Union[Callable[[str], SNPEDataLoader], str],
+                type_=Union[Callable, str],
                 required=False,
                 is_object=True,
                 description=(
                     "Function or function name to create dataloader for quantization. Function should take data"
-                    " directory as an argument and return a olive.snpe.SNPEDataLoader object. Required if data_config"
-                    " is None."
+                    " directory as an argument and return a olive.snpe.SNPEDataLoader or torch.data.DataLoader-like"
+                    " object. Required if data_config is None."
                 ),
             ),
             "use_enhanced_quantizer": PassConfigParam(
@@ -80,7 +80,11 @@ class SNPEQuantization(Pass):
         if config["dataloader_func"]:
             dataloader = self._user_module_loader.call_object(config["dataloader_func"], config["data_dir"])
         elif self._data_config:
-            dataloader = self._data_config.to_data_container().create_snpe_dataloader(model.io_config, evaluation=False)
+            dataloader = self._data_config.to_data_container().create_dataloader()
+
+        # convert dataloader to SNPEDataLoader if it is not already
+        if not isinstance(dataloader, SNPEDataLoader):
+            dataloader = SNPECommonDataLoader(dataloader, model.io_config)
 
         quantize_dlc(model.model_path, dataloader.get_input_list(), config, output_model_path)
         return SNPEModel(model_path=LocalFile({"path": output_model_path}), **model.io_config)

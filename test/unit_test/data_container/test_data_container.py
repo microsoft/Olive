@@ -81,9 +81,6 @@ class TestDataConfig:
 
         dc.create_dataloader()
         dc.create_calibration_dataloader()
-        dc.create_snpe_dataloader(
-            {"input_names": input_names, "input_shapes": input_shapes, "output_names": ["output"]}
-        )
 
     def test_dc_runner(self):
         try:
