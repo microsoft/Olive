@@ -98,6 +98,7 @@ class Pass(ABC):
                 self.path_params.append((param, param_config.required))
 
         self._initialized = False
+        self._evaluator = None
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
@@ -313,6 +314,9 @@ class Pass(ABC):
             user_module_loader = UserModuleLoader(config["user_script"], config["script_dir"])
             config = cls._validate_user_script(config, user_module_loader, default_config)
         return config
+
+    def set_evaluator(self, evaluator):
+        self._evaluator = evaluator
 
     def _initialize(self):
         """

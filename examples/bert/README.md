@@ -20,8 +20,34 @@ This workflow performs BERT optimization on CPU with Intel® Neural Compressor q
 
 Config file: [bert_inc_ptq_cpu.json](bert_inc_ptq_cpu.json)
 
+#### Run Intel® Neural Compressor quantization with or without accuracy aware tuning
+
+Accuracy aware tuning is one of unique features provided by Intel® Neural Compressor quantization. This feature can be used to solve accuracy loss pain points brought by applying low precision quantization and other lossy optimization methods. Intel® Neural Compressor also supports to quantize all quantizable ops without accuracy tuning, user can decide whether to tune the model accuracy or not. Please check the [doc](https://github.com/intel/neural-compressor/blob/master/docs/source/quantization.md) for more details.
+
+User can decide to tune the model accuracy by setting accuracy metric with goal in `evaluator`, and then setting `evaluator` in Intel® Neural Compressor quantization pass. If not set, accuracy of the model will not be tuned.
+
+```json
+"evaluators": {
+    "common_evaluator": {
+        "metrics":[
+            "name": "accuracy",
+            "sub_types": [
+                {"name": "accuracy_score", "priority": 1, "goal": {"type": "percent-max-degradation", "value": 2}}],
+        ]
+    }
+},
+"passes": {
+    "quantization": {
+        "type": "IncQuantization",
+        "evaluator": "common_evaluator",
+}
+}
+
+```
+
 #### Static Quantization
 The workflow in [bert_inc_static_ptq_cpu.json](bert_inc_static_ptq_cpu.json) is similar to the above workflow, but specifically uses static quantization instead of static/dynamic quantization.
+> **Note**: Custom accuracy metric is used in [bert_inc_static_ptq_cpu.json](bert_inc_static_ptq_cpu.json).
 
 #### Dynamic Quantization
 The workflow in [bert_inc_dynamic_ptq_cpu.json](bert_inc_dynamic_ptq_cpu.json) is similar to the above workflow, but specifically uses dynamic quantization instead of static/dynamic quantization.

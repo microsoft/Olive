@@ -816,6 +816,10 @@ class Engine:
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)
 
+        # set evaluator to pass
+        if self.passes[pass_id]["evaluator"] is not None:
+            p.set_evaluator(self.passes[pass_id]["evaluator"])
+
         # load run from cache if it exists
         run_accel = None if p.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
         output_model_id = self._load_run(input_model_id, pass_name, pass_config, run_accel)

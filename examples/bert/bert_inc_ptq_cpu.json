@@ -19,7 +19,7 @@
                     "name": "accuracy",
                     "type": "accuracy",
                     "sub_types": [
-                        {"name": "accuracy_score", "priority": 1}
+                        {"name": "accuracy_score", "priority": 1, "goal": {"type": "percent-max-degradation", "value": 2}}
                     ],
                     "user_config":{
                         "post_processing_func": "post_process",
@@ -57,6 +57,7 @@
         "quantization": {
             "type": "IncQuantization",
             "disable_search": true,
+            "evaluator": "common_evaluator",
             "config": {
                 "approach": "SEARCHABLE_VALUES",
                 "user_script": "user_script.py",
