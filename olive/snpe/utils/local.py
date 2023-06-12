@@ -61,7 +61,7 @@ def get_snpe_arm_win_arch_name(snpe_root: str) -> str:
 
     arm_windows_archs = list(Path(snpe_root).glob("lib/aarch64-windows-*"))
     if len(arm_windows_archs) == 0:
-        raise FileNotFoundError(f"SNPE_ANDROID_ROOT {snpe_root} missing aarch64-windows-*")
+        raise FileNotFoundError(f"SNPE_ROOT {snpe_root} missing aarch64-windows-*")
 
     arm_windows_arch = arm_windows_archs[0].name
     logger.debug(f"SNPE ARM64-Windows arch name: {arm_windows_arch}")
