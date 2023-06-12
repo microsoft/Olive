@@ -190,7 +190,10 @@ def _resolve_evaluator(v, values):
         return v
 
     evaluator = v.get("evaluator")
-    if not isinstance(evaluator, str):
+    if isinstance(evaluator, dict):
+        for idx, metric in enumerate(evaluator.get("metrics", [])):
+            evaluator["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
+    elif not isinstance(evaluator, str):
         return v
 
     # resolve evaluator name to evaluators member config
