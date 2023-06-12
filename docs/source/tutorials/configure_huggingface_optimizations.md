@@ -1,6 +1,6 @@
-(Configuring-Huggingface-Optimizations)=
+(Huggingface-Model-Optimization)=
 
-# Configuring Huggingface Optimizations
+# Huggingface Model Optimization
 
 
 ## Introduction
@@ -47,4 +47,4 @@ Please refer to [hf_config](../overview/options.md#hf_config) for more details.
 Please refer to [metrics](../overview/options.md#metrics) for more details.
 
 ### Full example
-For the complete example, please refer to [Bert Optimization](https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization).
+For the complete example, please refer to [Bert Optimization](https://github.com/microsoft/Olive/tree/main/examples/bert#huggingface-model-optimization).

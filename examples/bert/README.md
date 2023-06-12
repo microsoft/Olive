@@ -14,6 +14,12 @@ The workflow in [bert_ptq_cpu_aml.json](bert_ptq_cpu_aml.json) is similar to the
 In order to use this example, `<place_holder>` in the `azureml_client` section must be replaced with the appropriate values for your
 AzureML workspace.
 
+#### Huggingface Model Optimization
+The workflow in [hf_bert_ptq_cpu.json](hf_bert_ptq_cpu.json) is similar to the above workflow, but uses
+    - Huggingface transformers to load the model.
+    - Huggingface datasets to load the dataset.
+    - Huggingface evaluate to evaluate the model.
+
 ### BERT optimization with Intel® Neural Compressor PTQ on CPU
 This workflow performs BERT optimization on CPU with Intel® Neural Compressor quantization tuner. It performs the optimization pipeline:
 - *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Intel® Neural Compressor Quantized Onnx Model*
