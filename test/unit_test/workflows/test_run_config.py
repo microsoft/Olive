@@ -50,3 +50,11 @@ class TestRunConfig:
         with pytest.raises(ValueError) as e:
             RunConfig.parse_obj(user_script_config)
             assert str(e.value) == "AzureML client config is required for AzureML system"
+
+    def test_readymade_system(self):
+        readymade_config_file = Path(__file__).parent / "mock_data" / "readymade_system.json"
+        with open(readymade_config_file, "r") as f:
+            user_script_config = json.load(f)
+
+        cfg = RunConfig.parse_obj(user_script_config)
+        assert cfg.engine.target.config.accelerators == ["GPU"]

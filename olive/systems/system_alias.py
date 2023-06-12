@@ -1,0 +1,93 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+from olive.systems.common import SystemType
+
+
+class AzureMLSystemAlias:
+    system_type = SystemType.AzureML
+    accelerators = ["GPU"]
+
+
+class AzureND12SSystem(AzureMLSystemAlias):
+    sku = "STANDARD_ND12S"
+    # TODO: add other attributes when needed
+
+
+class AzureND24RSSystem(AzureMLSystemAlias):
+    sku = "STANDARD_ND24RS"
+
+
+class AzureND24SSystem(AzureMLSystemAlias):
+    sku = "STANDARD_ND24S"
+
+
+class AzureNDV2System(AzureMLSystemAlias):
+    sku = "STANDARD_ND40RS_V2"
+
+
+class AzureND6SSystem(AzureMLSystemAlias):
+    sku = "STANDARD_ND6S"
+
+
+class AzureND96A100System(AzureMLSystemAlias):
+    sku = "STANDARD_ND96AMSR_A100_V4"
+
+
+class AzureND96ASystem(AzureMLSystemAlias):
+    sku = "STANDARD_ND96ASR_V4"
+
+
+# TODO: add the following alias system
+# STANDARD_DS2_V2
+# STANDARD_DS3_V2
+# STANDARD_NC12
+# STANDARD_NC12S_V2
+# STANDARD_NC12S_V3
+# STANDARD_NC16AS_T4_V3
+# STANDARD_NC24
+# STANDARD_NC24ADS_A100_V4
+# STANDARD_NC24R
+# STANDARD_NC24RS_V2
+# STANDARD_NC24RS_V3
+# STANDARD_NC24S_V2
+# STANDARD_NC24S_V3
+# STANDARD_NC48ADS_A100_V4
+# STANDARD_NC4AS_T4_V3
+# STANDARD_NC6
+# STANDARD_NC64AS_T4_V3
+# STANDARD_NC6S_V2
+# STANDARD_NC6S_V3
+# STANDARD_NC8AS_T4_V3
+# STANDARD_NC96ADS_A100_V4
+# STANDARD_NV12
+# STANDARD_NV12ADS_A10_V5
+# STANDARD_NV12S_V3
+# STANDARD_NV16AS_V4
+# STANDARD_NV18ADS_A10_V5
+# STANDARD_NV24
+# STANDARD_NV24S_V3
+# STANDARD_NV32AS_V4
+# STANDARD_NV36ADMS_A10_V5
+# STANDARD_NV36ADS_A10_V5
+# STANDARD_NV48S_V3
+# STANDARD_NV4AS_V4
+# STANDARD_NV6
+# STANDARD_NV6ADS_A10_V5
+# STANDARD_NV72ADS_A10_V5
+# STANDARD_NV8AS_V4
+
+
+# Please add surface readymade system alias from https://learn.microsoft.com/en-us/surface/surface-system-sku-reference
+class SurfaceSystemAlias:
+    system_type = SystemType.Local
+    accelerators = ["GPU"]
+
+
+class SurfaceProSystem1796(SurfaceSystemAlias):
+    sku = "Surface_Pro_1796"
+
+
+class SurfaceProSystem1807(SurfaceSystemAlias):
+    sku = "Surface_Pro_1807"

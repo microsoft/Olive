@@ -7,8 +7,9 @@ import shutil
 from pathlib import Path
 from typing import Dict, List, Union
 
-from pydantic import validator
+from pydantic import root_validator, validator
 
+import olive.systems.system_alias as system_alias
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.systems.common import AzureMLDockerConfig, LocalDockerConfig, SystemType
@@ -84,6 +85,15 @@ def import_system_from_type(system_type: SystemType):
 class SystemConfig(ConfigBase):
     type: SystemType
     config: TargetUserConfig = None
+
+    @root_validator(pre=True)
+    def validate_config_type(cls, values):
+        type_name = values.get("type")
+        system_alias_class = getattr(system_alias, type_name, None)
+        if system_alias_class:
+            values["type"] = system_alias_class.system_type
+            values["config"]["accelerators"] = system_alias_class.accelerators
+        return values
 
     @validator("config", pre=True, always=True)
     def validate_config(cls, v, values):
