@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
@@ -320,3 +321,351 @@ class OrtPerfTuning(Pass):
         # if we want to ignore it, we can just return the model
         # otherwise save or symlink the original model to the output_model_path
         return tune_onnx_model(model, config)
+=======
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+import copy
+import itertools
+import logging
+from pathlib import Path
+from typing import Any, Callable, Dict, Union
+
+from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_metric_key
+from olive.evaluator.metric_config import get_properties_from_metric_type
+from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
+from olive.model import ONNXModel
+from olive.passes import Pass
+from olive.passes.pass_config import PassConfigParam
+
+logger = logging.getLogger(__name__)
+
+
+def generate_tuning_combos(model, config):
+    import onnxruntime as ort
+
+    providers_list = (
+        config.providers_list
+        if config.providers_list
+        else AcceleratorLookup.get_execution_providers_for_device(config.device)
+    )
+    execution_mode_list = (
+        config.execution_mode_list
+        if config.execution_mode_list
+        else [ort.ExecutionMode.ORT_SEQUENTIAL.value, ort.ExecutionMode.ORT_PARALLEL.value]
+    )
+    opt_level_list = config.opt_level_list if config.opt_level_list else [99]
+
+    io_bind_list = [True, False] if config.io_bind else [False]
+
+    tuning_combos = itertools.product(providers_list, execution_mode_list, opt_level_list, io_bind_list)
+    yield from tuning_combos
+
+
+def valid_config(tuning_combos):
+    # the order of combos: "provider", "execution_mode", "ort_opt_level", "io_bind"
+
+    # Parallel execution mode does not support the CUDA Execution Provider.
+    # So ORT will make the execution mode sequential when it uses the CUDA Execution Provider.
+
+    # if the first combo is CPUExecutionProvider, then the io_bind should not be True
+    if tuning_combos[0] == "CPUExecutionProvider" and tuning_combos[3]:
+        logger.info("[Skipped] Because EPs is CPUExecutionProvider, the io_bind should not be True")
+        return False
+    return True
+
+
+def tune_onnx_model(model, config):
+    latency_user_config = {}
+    # which should be the same as the config in the metric
+    config_dict = config.dict()
+
+    # use model io_config if user does not specify input_names and input_shapes
+    # only do this if data_config or dataloader is not provided
+    # priority: dataloader_func > input_names/input_shapes > data_config > model io_config
+    if not (
+        config_dict.get("dataloader_func")
+        or config_dict.get("data_config")
+        or (config_dict.get("input_names") and config_dict.get("input_shapes"))
+    ):
+        logger.debug(
+            "dataloader_func, data_config and input_names/input_shapes are not provided. Use model io_config instead."
+        )
+        io_config = model.get_io_config()
+        config_dict["input_names"] = io_config["input_names"]
+        # check if inferred input shapes are static
+        input_shapes = io_config["input_shapes"]
+        is_static = all(all(isinstance(dim, int) for dim in shape) for shape in input_shapes)
+        if not is_static:
+            logger.debug(
+                "Model input shapes are not static. Cannot use infered input shapes for creating dummy data. This will"
+                " cause an error when creating dummy data for tuning."
+            )
+        config_dict["input_shapes"] = io_config["input_shapes"]
+        config_dict["input_types"] = io_config["input_types"]
+
+    for eval_config in get_properties_from_metric_type(MetricType.LATENCY):
+        if eval_config in config_dict:
+            latency_user_config[eval_config] = config_dict.get(eval_config)
+    latency_sub_types = [{"name": LatencySubType.AVG}]
+    latency_metric_config = {
+        "name": "latency",
+        "type": MetricType.LATENCY,
+        "sub_types": latency_sub_types,
+        "user_config": latency_user_config,
+    }
+    if config_dict.get("data_config"):
+        # we have to do this condition since data_config cannot be None
+        latency_metric_config["data_config"] = config_dict.get("data_config")
+    latency_metric = Metric(**latency_metric_config)
+
+    pretuning_inference_result = get_benchmark(model, latency_metric, config)
+
+    tuning_results = []
+    for tuning_combo in generate_tuning_combos(model, config):
+        tuning_item = ["provider", "execution_mode", "ort_opt_level", "io_bind"]
+        logger.info("Run tuning for: {}".format(list(zip(tuning_item, tuning_combo))))
+        if not valid_config(tuning_combo):
+            continue
+        tuning_results.extend(threads_num_tuning(model, latency_metric, config, tuning_combo))
+
+    for tuning_result in tuning_results:
+        logger.debug("Tuning result: {}".format(tuning_result["latency_ms"]))
+
+    best_result = parse_tuning_result(*tuning_results, pretuning_inference_result)
+    logger.info("Best result: {}".format(best_result))
+    if best_result.get("test_name") != "pretuning":
+        optimized_model = copy.copy(model)
+        optimized_model.inference_settings = {
+            "execution_provider": best_result.get("execution_provider"),
+            "session_options": best_result.get("session_options"),
+        }
+
+        return optimized_model
+    else:
+        return model
+
+
+def threads_num_tuning(model, latency_metric, config, tuning_combo):
+    tuning_results = []
+    provider = tuning_combo[0]
+    execution_mode = tuning_combo[1]
+    ort_opt_level = tuning_combo[2]
+    io_bind = tuning_combo[3]
+
+    test_params = dict()
+    if provider == "TensorrtExecutionProvider":
+        test_params["execution_provider"] = [
+            (
+                "TensorrtExecutionProvider",
+                {"trt_fp16_enable": config.trt_fp16_enable},
+            )
+        ]
+    else:
+        test_params["execution_provider"] = [(provider, dict())]
+    test_params["session_options"] = {
+        "execution_mode": execution_mode,
+        "graph_optimization_level": ort_opt_level,
+        "extra_session_config": config.extra_session_config,
+    }
+    # params starts with _ are not used in inference setting, we need add special handling for io_bind
+    test_params["_io_bind"] = io_bind
+    try:
+        for inter in config.inter_thread_num_list:
+            test_params["session_options"]["inter_op_num_threads"] = inter
+            for intra in config.intra_thread_num_list:
+                test_params["session_options"]["intra_op_num_threads"] = intra
+                threads_num_binary_search(model, latency_metric, config, test_params, tuning_results)
+    except Exception:
+        logging.error("Optimization failed for tuning combo {}".format(tuning_combo), exc_info=True)
+        pass
+
+    return tuning_results
+
+
+def threads_num_binary_search(model, latency_metric, config, test_params, tuning_results):
+    import onnxruntime as ort
+    import psutil
+
+    if test_params["session_options"].get("extra_session_config"):
+        extra_session_config = test_params["session_options"].get("extra_session_config")
+        if extra_session_config.get("session.intra_op_thread_affinities"):
+            affinity_str = extra_session_config.get("session.intra_op_thread_affinities")
+            test_params["session_options"]["intra_op_num_threads"] = get_thread_affinity_nums(affinity_str) + 1
+            threads_names = ["inter_op_num_threads"]
+    elif test_params["session_options"].get("execution_mode") == ort.ExecutionMode.ORT_SEQUENTIAL:
+        threads_names = ["intra_op_num_threads"]
+    else:
+        threads_names = ["inter_op_num_threads", "intra_op_num_threads"]
+    best_latency = None
+
+    if test_params["session_options"].get("inter_op_num_threads") and test_params["session_options"].get(
+        "intra_op_num_threads"
+    ):
+        test_result = get_benchmark(model, latency_metric, config, test_params)
+        tuning_results.append(test_result)
+        best_latency = test_result["latency_ms"]
+    else:
+        for threads_name in threads_names:
+            thread_num = test_params["session_options"].get(threads_name)
+            if thread_num:
+                upper_threads_num = thread_num
+                lower_threads_num = thread_num
+            else:
+                upper_threads_num = config.cpu_cores or psutil.cpu_count(logical=False)
+                lower_threads_num = 1
+
+            best_threads_num = lower_threads_num
+            current_threads_num = lower_threads_num
+            test_params["session_options"][threads_name] = current_threads_num
+
+            test_result = get_benchmark(model, latency_metric, config, test_params)
+            tuning_results.append(test_result)
+
+            best_latency = test_result["latency_ms"]
+
+            current_threads_num = upper_threads_num
+
+            while lower_threads_num < upper_threads_num:
+                test_params["session_options"][threads_name] = current_threads_num
+
+                test_result = get_benchmark(model, latency_metric, config, test_params)
+                tuning_results.append(test_result)
+
+                mid_threads_num = lower_threads_num + (upper_threads_num - lower_threads_num) // 2
+                if best_latency and best_latency < test_result["latency_ms"]:
+                    upper_threads_num = mid_threads_num
+                    current_threads_num = upper_threads_num
+                else:
+                    lower_threads_num = mid_threads_num + 1
+                    best_threads_num = current_threads_num
+                    current_threads_num = lower_threads_num
+
+            test_params["session_options"][threads_name] = best_threads_num
+
+
+def generate_test_name(test_params):
+    if test_params:
+        test_name = "_".join(["_".join([str(v) for v in i]) for i in test_params.items()])
+    else:
+        test_name = "pretuning"
+    return test_name
+
+
+def get_benchmark(model, latency_metric, config, test_params=None):
+    from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
+
+    test_result = {}
+    session_name = generate_test_name(test_params)
+    test_result["test_name"] = session_name
+
+    if test_params:
+        # params starts with _ are not used in inference setting, we need add special handling for io_bind
+        io_bind = test_params.pop("_io_bind", False)
+        latency_metric.user_config.io_bind = io_bind
+
+        latency_metric.user_config.inference_settings = {"onnx": test_params}
+        test_result["execution_provider"] = test_params.get("execution_provider")
+        test_result["session_options"] = test_params.get("session_options").copy()
+        test_result["io_bind"] = io_bind
+
+        # add the io_bind back to test_params
+        test_params["_io_bind"] = io_bind
+    evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
+    joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
+    test_result["latency_ms"] = evaluator.evaluate(model, [latency_metric], config.device, config.providers_list)[
+        joint_key
+    ].value
+    return test_result
+
+
+def parse_tuning_result(*tuning_results):
+    best_result = min(tuning_results, key=lambda x: x["latency_ms"])
+    return best_result
+
+
+def get_thread_affinity_nums(affinity_str):
+    affinities = affinity_str.split(";")
+    return len(affinities)
+
+
+class OrtPerfTuning(Pass):
+    """Optimize ONNX Runtime inference settings."""
+
+    _requires_user_script = True
+    _requires_data_config = True
+
+    @staticmethod
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        return {
+            "data_dir": PassConfigParam(
+                type_=Union[Path, str], is_path=True, description="Directory of sample inference data."
+            ),
+            "dataloader_func": PassConfigParam(
+                type_=Union[Callable, str],
+                is_object=True,
+                description="Dataloader function to load data from given data_dir with given batch size.",
+            ),
+            "batch_size": PassConfigParam(type_=int, description="Batch size for inference."),
+            "input_names": PassConfigParam(
+                type_=list, default_value=None, description="Input names list for ONNX model."
+            ),
+            "input_shapes": PassConfigParam(
+                type_=list, default_value=None, description="Input shapes list for ONNX model."
+            ),
+            "input_types": PassConfigParam(
+                type_=list, default_value=None, description="Input types list for ONNX model."
+            ),
+            "device": PassConfigParam(
+                type_=str, default_value="cpu", description="Device selected for tuning process."
+            ),
+            "cpu_cores": PassConfigParam(
+                type_=int, default_value=None, description="CPU cores used for thread tuning."
+            ),
+            "io_bind": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether enable IOBinding Search for ONNX Runtime inference.",
+            ),
+            "providers_list": PassConfigParam(
+                type_=list,
+                default_value=None,
+                description="Execution providers framework list to execute the ONNX models.",
+            ),
+            "execution_mode_list": PassConfigParam(
+                type_=list, default_value=None, description="Parallelism list between operators."
+            ),
+            "opt_level_list": PassConfigParam(
+                type_=list, default_value=None, description="Optimization level list for ONNX model."
+            ),
+            "trt_fp16_enable": PassConfigParam(
+                type_=bool, default_value=False, description="Whether enable FP16 mode for TensorRT execution provider."
+            ),
+            "intra_thread_num_list": PassConfigParam(
+                type_=list, default_value=[None], description="List of intra thread number for test."
+            ),
+            "inter_thread_num_list": PassConfigParam(
+                type_=list, default_value=[None], description="List of inter thread number for test."
+            ),
+            "extra_session_config": PassConfigParam(
+                type_=Dict[str, Any],
+                default_value=None,
+                description="Extra customized session options during tuning process.",
+            ),
+        }
+
+    def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+        if not config.get("providers_list"):
+            # add the provider to the config if user doesn't provide the execution providers
+            config["providers_list"] = [self._accelerator_spec.execution_provider]
+
+        if not config.get("device"):
+            config["device"] = self._accelerator_spec.accelerator_type
+
+        config = self._config_class(**config)
+        # TODO: decide on whether to ignore the output_model_path
+        # if we want to ignore it, we can just return the model
+        # otherwise save or symlink the original model to the output_model_path
+        return tune_onnx_model(model, config)
+>>>>>>> 5ec0a52c973f1addd2a0491e2fdf38d5e2b56224

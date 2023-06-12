@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
     "input_model":{
         "type": "PyTorchModel",
@@ -107,3 +108,117 @@
         }
     }
 }
+=======
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_script": "code/user_script.py",
+            "script_dir": "code",
+            "hf_config": {
+                "model_class" : "WhisperForConditionalGeneration",
+                "model_name" : "openai/whisper-tiny.en",
+                "components" : [
+                    {
+                        "name": "encoder_decoder_init",
+                        "io_config": "get_encdec_io_config",
+                        "component_func": "get_encoder_decoder_init",
+                        "dummy_inputs_func": "encoder_decoder_init_dummy_inputs"
+                    },
+                    {
+                        "name": "decoder",
+                        "io_config": "get_dec_io_config",
+                        "component_func": "get_decoder",
+                        "dummy_inputs_func": "decoder_dummy_inputs"
+                    }
+                ]
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {"accelerators": ["<place_holder>"]}
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {"name": "avg", "priority": 1}
+                    ],
+                    "user_config": {
+                        "user_script": "code/user_script.py",
+                        "script_dir": "code",
+                        "data_dir": "data",
+                        "dataloader_func": "<place_holder>"
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 17
+            }
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "bart",
+                "num_heads": "<place_holder>",
+                "hidden_size": "<place_holder>",
+                "optimization_options": {"use_multi_head_attention": true},
+                "use_gpu": "<place_holder>"
+            }
+        },
+        "mixed_precision": {
+            "type": "OrtMixedPrecision"
+        },
+        "onnx_dynamic_quantization": {
+            "type": "OnnxDynamicQuantization",
+            "disable_search": true,
+            "config": {
+                "per_channel": false,
+                "reduce_range": false,
+                "op_types_to_quantize": ["MatMul", "Gemm", "Gather"],
+                "MatMulConstBOnly": false
+            }
+        },
+        "insert_beam_search" : {
+            "type" : "InsertBeamSearch"
+        },
+        "prepost": {
+            "type": "AppendPrePostProcessingOps",
+            "config": {
+                "tool_command": "whisper",
+                "tool_command_args": {
+                    "model_name": "openai/whisper-tiny.en",
+                    "testdata_filepath": "<place_holder>",
+                    "use_audio_decoder" : "<place_holder>"
+                }
+            }
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "search_strategy": false,
+        "host": "local_system",
+        "target": "local_system",
+        "evaluator": "common_evaluator",
+        "clean_cache": false,
+        "cache_dir": "cache",
+        "output_dir": "models",
+        "output_name": "<place_holder>",
+        "packaging_config": {
+            "type": "Zipfile",
+            "name": "<place_holder>"
+        }
+    }
+}
+>>>>>>> 5ec0a52c973f1addd2a0491e2fdf38d5e2b56224

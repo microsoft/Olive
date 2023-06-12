@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 autodoc_pydantic
 azure-ai-ml>=0.1.0b6
 azure-identity
@@ -10,3 +11,18 @@ sphinx>=6.1.3
 sphinx-rtd-theme
 sphinx-tabs
 sphinxcontrib-jquery
+=======
+autodoc_pydantic
+azure-ai-ml>=0.1.0b6
+azure-identity
+azureml-fsspec
+docker
+myst_parser
+onnxconverter_common
+psutil
+pytorch_lightning
+sphinx>=6.1.3
+sphinx-rtd-theme
+sphinx-tabs
+sphinxcontrib-jquery
+>>>>>>> 5ec0a52c973f1addd2a0491e2fdf38d5e2b56224
