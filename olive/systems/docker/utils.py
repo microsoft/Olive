@@ -82,7 +82,6 @@ def create_metric_volumes_list(metrics: List[Metric], container_root_path: Path,
 
 
 def create_model_mount(model: OliveModel, container_root_path: Path):
-    #model_mount_path = str(container_root_path / Path(model.model_path).name)
     model_resource_path = None
     if not model.model_resource_path:
         model_resource_path = None
