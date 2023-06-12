@@ -124,6 +124,7 @@ class RunConfig(ConfigBase):
 
     @validator("passes", pre=True, each_item=True)
     def validate_pass_host_evaluator(cls, v, values):
+        v = _resolve_system(v, values, "host")
         return _resolve_evaluator(v, values)
 
     @validator("passes", pre=True, each_item=True)
