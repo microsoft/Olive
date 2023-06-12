@@ -93,7 +93,7 @@ def create_model_mount(model: OliveModel, container_root_path: Path):
         model_resource_path = model.local_model_path
     model_path = model_resource_path.get_path()
     model_mount_path = str(container_root_path/Path(model_path).name)
-    model_mount_str = f"{str(Path(model.model_path).resolve())}:{model_mount_path}"
+    model_mount_str = f"{str(Path(model_path).resolve())}:{model_mount_path}"
     model_mount_str_list = [model_mount_str]
 
     if model.framework == Framework.PYTORCH:
