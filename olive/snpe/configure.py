@@ -35,7 +35,7 @@ def eval():
         return
 
     snpe_root = get_snpe_root()
-    target_arch_name = "aarch64-windows-vc19"
+    target_arch_name = "aarch64-windows-msvc"
 
     logger.info(f"Configuring SNPE for {snpe_arch}...")
 
