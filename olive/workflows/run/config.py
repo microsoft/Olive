@@ -106,7 +106,6 @@ class RunConfig(ConfigBase):
 
     @validator("evaluators", pre=True, each_item=True)
     def validate_evaluators(cls, v, values):
-        v = _resolve_system(v, values, "target")
         for idx, metric in enumerate(v.get("metrics", [])):
             v["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
         return v
@@ -193,10 +192,8 @@ def _resolve_evaluator(v, values):
 
     evaluator = v.get("evaluator")
     if isinstance(evaluator, dict):
-        v["evaluator"] = _resolve_system(evaluator, values, "target")
-        for metrics in v["evaluator"].get("metrics", []):
-            metrics = _resolve_data_config(metrics, values, "data_config")
-        return v
+        for idx, metric in enumerate(evaluator.get("metrics", [])):
+            evaluator["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
     elif not isinstance(evaluator, str):
         return v
 
