@@ -54,7 +54,7 @@ class RunConfig(ConfigBase):
     azureml_client: AzureMLClientConfig = None
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
-    data_config: Dict[str, DataConfig] = {
+    data_configs: Dict[str, DataConfig] = {
         DefaultDataContainer.DATA_CONTAINER.value: DataConfig(),
         DEFAULT_HF_DATA_CONTAINER_NAME: DataConfig(
             name=DEFAULT_HF_DATA_CONTAINER_NAME,
@@ -85,8 +85,8 @@ class RunConfig(ConfigBase):
                 v["config"]["model_path"]["config"]["azureml_client"] = values["azureml_client"]
         return v
 
-    @validator("data_config", pre=True, each_item=True, always=True)
-    def validate_data_config(cls, v, values):
+    @validator("data_configs", pre=True, each_item=True, always=True)
+    def validate_data_configs(cls, v, values):
         if "input_model" not in values:
             raise ValueError("Invalid input model")
 
@@ -175,7 +175,7 @@ def _resolve_system(v, values, system_alias, component_name="systems"):
     return v
 
 
-def _resolve_data_config(v, values, system_alias, component_name="data_config"):
+def _resolve_data_config(v, values, data_config_alias, component_name="data_configs"):
     data_container_config = v.get("data_config", None)
     if "input_model" not in values:
         raise ValueError("Invalid input model")
@@ -183,7 +183,7 @@ def _resolve_data_config(v, values, system_alias, component_name="data_config"):
     if not data_container_config and hf_data_config:
         # if data_container is None, we need to update the config to use HuggingfaceContainer
         v["data_config"] = DEFAULT_HF_DATA_CONTAINER_NAME
-    return _resolve_config_str(v, values, system_alias, component_name=component_name)
+    return _resolve_config_str(v, values, data_config_alias, component_name=component_name)
 
 
 def _resolve_evaluator(v, values):

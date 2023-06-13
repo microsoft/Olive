@@ -291,8 +291,7 @@ class TestEngine:
         assert expected_res == actual_res
         result_json_path = Path(output_dir / f"{accelerator_spec}_metrics.json")
         assert result_json_path.is_file()
-        with open(result_json_path, "r") as f:
-            assert f.read() == actual_res.json()
+        assert MetricResult.parse_file(result_json_path) == actual_res
 
     @patch.object(Path, "glob", return_value=[Path("cache") / "output" / "100_model.json"])
     @patch.object(Path, "unlink")

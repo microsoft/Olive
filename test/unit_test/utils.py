@@ -223,3 +223,24 @@ def get_dc_params_config():
             )
         },
     )
+
+
+def create_raw_data(dir, input_names, input_shapes, input_types=None, num_samples=1):
+    data_dir = Path(dir)
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    input_types = input_types or ["float32"] * len(input_names)
+
+    num_samples_digits = len(str(num_samples))
+
+    data = {}
+    for input_name, input_shape, input_type in zip(input_names, input_shapes, input_types):
+        data[input_name] = []
+        input_dir = data_dir / input_name
+        input_dir.mkdir(parents=True, exist_ok=True)
+        for i in range(num_samples):
+            data_i = np.random.rand(*input_shape).astype(input_type)
+            data_i.tofile(input_dir / f"{i}.bin".zfill(num_samples_digits + 4))
+            data[input_name].append(data_i)
+
+    return data
