@@ -38,7 +38,7 @@ This document introduces Olive and provides some examples to get you started.
    tutorials/configure_pass
    tutorials/configure_model_path
    tutorials/configure_hardware_optimizations
-   tutorials/configure_huggingface_optimizations
+   tutorials/huggingface_model_optimization
    tutorials/advanced_users
    tutorials/how_to_write_userscript
    tutorials/packaging_output_models
