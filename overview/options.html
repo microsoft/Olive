@@ -100,6 +100,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_pass.html">Configuring Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_model_path.html">Configuring Model Path</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_hardware_optimizations.html">Configuring HW-dependent optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/packaging_output_models.html">Packaging Olive artifacts</a></li>
@@ -205,7 +206,7 @@ Please refer to <a class="reference internal" href="../tutorials/configure_model
 <li><p><code class="docutils literal notranslate"><span class="pre">model_loader:</span> <span class="pre">[str]</span></code> The name of the function provided by the user to load the model. The function should take the model path as
 input and return the loaded model.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">model_script:</span> <span class="pre">[str]</span></code> The name of the script provided by the user to assist with model loading.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">hf_config:</span> <span class="pre">[Dict]</span></code> Instead of <code class="docutils literal notranslate"><span class="pre">model_path</span></code> or <code class="docutils literal notranslate"><span class="pre">model_loader</span></code>, the model can be specified using a dictionary describing a huggingface
+<li><p><a name="hf_config"></a> <code class="docutils literal notranslate"><span class="pre">hf_config:</span> <span class="pre">[Dict]</span></code> Instead of <code class="docutils literal notranslate"><span class="pre">model_path</span></code> or <code class="docutils literal notranslate"><span class="pre">model_loader</span></code>, the model can be specified using a dictionary describing a huggingface
 model. This dictionary specifies the following items:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">model_name:</span> <span class="pre">[str]</span></code>: This the model name of the huggingface model such as <code class="docutils literal notranslate"><span class="pre">distilbert-base-uncased</span></code> which will be used to load the model with huggingface <code class="docutils literal notranslate"><span class="pre">from_pretrained</span></code> method.</p></li>
@@ -227,7 +228,7 @@ at <a class="reference external" href="https://huggingface.co/docs/transformers/
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[str]</span></code>: The config of the model can be provided as well. Such as <code class="docutils literal notranslate"><span class="pre">WhisperConfig</span></code>. See
 <a class="reference external" href="https://huggingface.co/docs/transformers/main_classes/configuration">huggingface configurations</a></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">dataset:</span> <span class="pre">[dict]</span></code>: Ff you want to use the huggingface dataset, you need to provide the dataset config. See <a class="reference external" href="https://huggingface.co/docs/datasets/loading_datasets.html">huggingface datasets</a>. Olive exposes the following configs(which will be extend in the future):</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">dataset:</span> <span class="pre">[dict]</span></code>: If you want to use the huggingface dataset, you need to provide the dataset config. See <a class="reference external" href="https://huggingface.co/docs/datasets/loading">huggingface datasets</a>. Olive exposes the following configs(which will be extended in the future):</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="p">{</span>
     <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;distilbert-base-uncased&quot;</span><span class="p">,</span>  <span class="c1"># the model name of the huggingface model, if not provided, it will use the model_name in hf_config</span>
     <span class="s2">&quot;task&quot;</span><span class="p">:</span> <span class="s2">&quot;text-classification&quot;</span><span class="p">,</span>  <span class="c1"># the task type for the model, if not provided, it will use the task in hf_config</span>
@@ -328,7 +329,7 @@ information of the system contains following items:</p>
 is the name of the evaluator. The value of the dictionary is another dictionary that contains the information of the evaluator. The
 information of the evaluator contains following items:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">metrics:</span> <span class="pre">[List]</span></code> This is a list of metrics that the evaluator will use to evaluate the model. Each metric is a dictionary that
+<li><p><a name="metrics"></a> <code class="docutils literal notranslate"><span class="pre">metrics:</span> <span class="pre">[List]</span></code> This is a list of metrics that the evaluator will use to evaluate the model. Each metric is a dictionary that
 contains following items:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">[str]</span></code> The name of the metric. This must be a unique name among all metrics in the evaluator.</p></li>
