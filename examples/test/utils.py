@@ -21,6 +21,13 @@ def check_no_search_output(outputs):
             assert item.value > 0
 
 
+def check_no_eval_output(outputs):
+    for output in outputs.values():
+        for model_config in output.values():
+            output_model = model_config["config"]["model_path"]
+            assert output_model is not None
+
+
 def patch_config(config_json_path: str, search_algorithm: str, execution_order: str, system: str):
     """Load the config json file and patch it with the given search algorithm, execution order and system."""
     with open(config_json_path, "r") as fin:

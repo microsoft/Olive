@@ -117,8 +117,8 @@ def get_hf_model_io_config(model_name: str, task: str, feature: str):
 
 
 def get_hf_model_dummy_input(model_name: str, task: str, feature: str):
-    from transformers import AutoTokenizer
+    from transformers import AutoProcessor
 
     model_config = get_onnx_config(model_name, task, feature)
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    return model_config.generate_dummy_inputs(tokenizer, framework="pt")
+    processor = AutoProcessor.from_pretrained(model_name)
+    return model_config.generate_dummy_inputs(processor, framework="pt")

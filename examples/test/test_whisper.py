@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 import pytest
-from utils import check_no_search_output
+from utils import check_no_eval_output, check_no_search_output
 
 from olive.common.utils import retry_func, run_subprocess
 
@@ -27,12 +27,18 @@ def setup():
     os.chdir(cur_dir)
 
 
-@pytest.mark.parametrize("device_precision", [("cpu", "fp32"), ("cpu", "int8")])
-def test_whisper(device_precision):
+@pytest.mark.parametrize("custom_device_precision", [(True, "cpu", "fp32"), (True, "cpu", "int8"), (False, None, None)])
+def test_whisper(custom_device_precision):
     from olive.workflows import run as olive_run
 
-    device, precision = device_precision
-    olive_config = json.load(open(f"whisper_{device}_{precision}.json", "r"))
+    is_custom, device, precision = custom_device_precision
+    if is_custom:
+        olive_config = json.load(open(f"whisper_{device}_{precision}.json", "r"))
+    else:
+        olive_config = json.load(open("whisper.json", "r"))
 
     result = olive_run(olive_config)
-    check_no_search_output(result)
+    if is_custom:
+        check_no_search_output(result)
+    else:
+        check_no_eval_output(result)
