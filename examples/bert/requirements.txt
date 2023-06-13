@@ -1,6 +1,7 @@
 azure-ai-ml
 azure-identity
 datasets
+evaluate
 docker
 onnxruntime
 neural-compressor

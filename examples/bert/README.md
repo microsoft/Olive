@@ -6,6 +6,11 @@ This folder contains examples of BERT optimization using different workflows.
 This workflow performs BERT optimization on CPU with ONNX Runtime PTQ. It performs the optimization pipeline:
 - *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Quantized Onnx Model -> ONNX Runtime performance tuning*
 
+This workflow also demonstrates how to use:
+- Huggingface `transformers` to load model from [model hub](https://huggingface.co/models).
+- Huggingface `datasets` to load data from [dataset hub](https://huggingface.co/datasets).
+- Huggingface `evaluate` to load multi metrics from [metric hub](https://huggingface.co/evaluate-metric).
+
 Config file: [bert_ptq_cpu.json](bert_ptq_cpu.json)
 
 #### AzureML Model Source and No Auto-tuning
@@ -13,6 +18,7 @@ The workflow in [bert_ptq_cpu_aml.json](bert_ptq_cpu_aml.json) is similar to the
 
 In order to use this example, `<place_holder>` in the `azureml_client` section must be replaced with the appropriate values for your
 AzureML workspace.
+
 
 ### BERT optimization with Intel® Neural Compressor PTQ on CPU
 This workflow performs BERT optimization on CPU with Intel® Neural Compressor quantization tuner. It performs the optimization pipeline:
