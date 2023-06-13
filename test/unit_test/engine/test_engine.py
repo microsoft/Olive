@@ -413,3 +413,31 @@ class TestEngine:
             is_accelerator_agnostic_mock.return_value = False
             _ = engine.run(pytorch_model, output_dir=output_dir)
             mock_local_system.run_pass.call_count == 2
+
+    def test_pass_value_error(self, caplog):
+        # Need explicitly set the propagate to allow the message to be logged into caplog
+        # setup
+        logger = logging.getLogger("olive")
+        logger.propagate = True
+
+        with patch("olive.passes.onnx.conversion.OnnxConversion.run") as mock_run:
+            mock_run.side_effect = ValueError("test")
+            system = LocalSystem()
+            evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
+            options = {
+                "cache_dir": "./cache",
+                "clean_cache": True,
+                "search_strategy": {
+                    "execution_order": "joint",
+                    "search_algorithm": "random",
+                },
+            }
+            engine = Engine(options, evaluator_config=evaluator_config, host=system, target=system)
+            engine.register(OnnxConversion, clean_run_cache=True)
+            model = PyTorchModel(model_loader=pytorch_model_loader, model_path=None)
+
+            # execute
+            temp_dir = tempfile.TemporaryDirectory()
+            output_dir = Path(temp_dir.name)
+            with pytest.raises(ValueError):
+                engine.run(model, output_dir=output_dir)

@@ -110,7 +110,7 @@ def create_resource_path(
         return resource_path_config.create_resource_path()
 
     if isinstance(resource_path, Path) and not resource_path.exists():
-        ValueError(f"Resource path {resource_path} of type Path is not a file or folder.")
+        raise ValueError(f"Resource path {resource_path} of type Path is not a file or folder.")
 
     # check if the resource path is a file, folder, or a string name
     type: ResourceType = None

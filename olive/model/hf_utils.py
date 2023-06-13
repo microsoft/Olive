@@ -60,6 +60,7 @@ def load_huggingface_model_from_task(task: str, name: str):
             model = model_class.from_pretrained(name)
             return model
         except (OSError, ValueError):
+            # TODO: should we ignore ValueError?
             continue
 
     return model
