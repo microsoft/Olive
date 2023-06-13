@@ -1,9 +1,3 @@
-parameters:
-- name: is_publish_build
-  displayName: 'Whether publish package to pypi.'
-  type: boolean
-  default: false
-
 trigger: none
 
 pool:
@@ -38,8 +32,3 @@ steps:
   displayName: 'Publish artifacts'
   inputs:
     ArtifactName: olive
-
-- script: |
-    python -m twine upload --repository-url https://upload.pypi.org/legacy/ -u $(PYPI_USERNAME) -p $(PYPI_PASSWORD) dist/*.whl
-  displayName: 'Upload to PyPI'
-  condition: eq('${{ parameters.is_publish_build }}', true)
