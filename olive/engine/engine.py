@@ -121,7 +121,7 @@ class Engine:
         if not_supported_ep:
             logger.warning(
                 f"The following execution provider is not supported: {','.join(not_supported_ep)}. "
-                "Please consider install the onnxruntime contains the appropriated execution providers. "
+                "Please consider installing an onnxruntime build that contains the relevant execution providers. "
             )
 
         # default evaluator
@@ -812,6 +812,7 @@ class Engine:
         # pass
         p: Pass = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
+        logger.info(f"Running pass {pass_name}")
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)
 

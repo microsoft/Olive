@@ -9,7 +9,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import onnx
 import torch
@@ -17,22 +17,28 @@ import yaml
 from onnx import AttributeProto, GraphProto
 from pydantic import validator
 
-if TYPE_CHECKING:
-    from azure.ai.ml import MLClient  # noqa: F401
-
 import olive.data.template as data_config_template
 from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
 from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware import AcceleratorLookup, Device
-from olive.hf_utils import (
+from olive.model.hf_utils import (
+    HFConfig,
     get_hf_model_config,
+    get_hf_model_dummy_input,
     huggingface_model_loader,
     load_huggingface_model_from_model_class,
     load_huggingface_model_from_task,
 )
-from olive.resource_path import ResourcePath, ResourcePathConfig, ResourceType, create_resource_path
+from olive.model.model_config import IOConfig
+from olive.resource_path import (
+    OLIVE_RESOURCE_ANNOTATIONS,
+    ResourcePath,
+    ResourcePathConfig,
+    ResourceType,
+    create_resource_path,
+)
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
 
@@ -56,7 +62,7 @@ class OliveModel(ABC):
         self,
         framework: Framework,
         model_file_format: ModelFileFormat,
-        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
     ):
         self.framework = framework
         self.model_file_format = model_file_format
@@ -169,89 +175,6 @@ class ModelConfig(ConfigBase):
         return REGISTRY[self.type.lower()](**self.config)
 
 
-class IOConfig(ConfigBase):
-    # TODO remove input names, shapes and types, turn to use olive dataset conifg.
-    input_names: List[str]
-    input_shapes: List[List[int]] = None
-    input_types: List[str] = None
-    output_names: List[str]
-    output_shapes: List[List[int]] = None
-    output_types: List[str] = None
-    dynamic_axes: Dict[str, Dict[int, str]] = None
-    # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference
-    # even though we want the dimension to be a constant int.
-    # We use a workaround here: first use dim_param like "1" to represent the dimension, and then
-    # convert it to int in the onnx model.
-    string_to_int_dim_params: List[str] = None
-
-    @validator("input_shapes", "input_types")
-    def check_input_shapes(cls, v, values):
-        if not v:
-            return v
-
-        if "input_names" not in values:
-            raise ValueError("Invalid input_names")
-        if len(v) != len(values["input_names"]):
-            raise ValueError("input_names and input_shapes must have the same length")
-        return v
-
-    @validator("output_shapes", "output_types")
-    def check_output_shapes(cls, v, values):
-        if not v:
-            return v
-
-        if "output_names" not in values:
-            raise ValueError("Invalid output_names")
-        if len(v) != len(values["output_names"]):
-            raise ValueError("output_names and output_shapes must have the same length")
-        return v
-
-    @validator("dynamic_axes")
-    def convert_dynamic_axes(cls, v):
-        if not v:
-            return v
-
-        dynamic_axes = v
-        for k, v in dynamic_axes.items():
-            dynamic_axes[k] = {int(kk): vv for kk, vv in v.items()}
-        return dynamic_axes
-
-    @validator("string_to_int_dim_params")
-    def check_string_to_int_dim_params(cls, v):
-        if not v:
-            return v
-
-        for dim_param in v:
-            try:
-                int(dim_param)
-            except ValueError:
-                raise ValueError(f"Invalid string_to_int_dim_params: {dim_param}. Must be castable to int.")
-        return v
-
-
-class HFComponent(ConfigBase):
-    name: str
-    io_config: IOConfig = None
-    dummy_inputs_func: Union[str, Callable] = None
-
-
-class HFConfig(ConfigBase):
-    model_name: str = None
-    task: str = None
-    # TODO: remove model_class and only use task
-    model_class: str = None
-    use_ort_implementation: bool = False
-    components: List[HFComponent] = None
-    dataset: Dict[str, Any] = None
-
-    @validator("model_class", always=True)
-    def task_or_model_class_required(cls, v, values):
-        if values["model_name"]:
-            if not v and not values.get("task", None):
-                raise ValueError("Either task or model_class must be specified")
-            return v
-
-
 class ONNXModelBase(OliveModel):
     """
     Abstract class to manage ONNX models
@@ -259,7 +182,7 @@ class ONNXModelBase(OliveModel):
 
     def __init__(
         self,
-        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
     ):
@@ -300,7 +223,7 @@ class ONNXModelBase(OliveModel):
 class ONNXModel(ONNXModelBase):
     def __init__(
         self,
-        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         onnx_file_name: Optional[str] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
@@ -539,7 +462,7 @@ class ONNXModel(ONNXModelBase):
 class PyTorchModel(OliveModel):
     def __init__(
         self,
-        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
@@ -585,9 +508,7 @@ class PyTorchModel(OliveModel):
             if self.hf_config.task:
                 model = load_huggingface_model_from_task(self.hf_config.task, input_model)
             else:
-                model = load_huggingface_model_from_model_class(
-                    self.hf_config.model_class, input_model, self.hf_config.use_ort_implementation
-                )
+                model = load_huggingface_model_from_model_class(self.hf_config.model_class, input_model)
         else:
             if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
                 model = torch.load(self.model_path)
@@ -640,12 +561,18 @@ class PyTorchModel(OliveModel):
         if self.dummy_inputs is not None:
             return self.dummy_inputs
 
+        if self.hf_config and not self.hf_config.components:
+            assert self.hf_config.task, "task must be provided for huggingface model"
+            return get_hf_model_dummy_input(self.hf_config.model_name, self.hf_config.task, self.hf_config.feature)
+
         assert self.dummy_inputs_func or (
             self.io_config and self.io_config.input_shapes
         ), "dummy_inputs_func or io_config.input_shapes must be provided to get dummy input"
 
         if self.dummy_inputs_func is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            print("----------------------------------")
+            print(self)
             dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
         elif self.io_config and self.io_config.input_shapes:
             dummy_inputs, _ = (
@@ -690,19 +617,25 @@ class PyTorchModel(OliveModel):
         assert self.components, "hf_config.components must be provided to get component"
         assert component_name in self.components, f"component {component_name} not found in hf_config"
 
-        model = self.load_model()
-        model_component = getattr(model, component_name)
-
         # get the component from hf_config
         components_dict = {component.name: component for component in self.hf_config.components}
         hf_component = components_dict[component_name]
+
+        user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+        model_component = user_module_loader.call_object(hf_component.component_func)
+
+        io_config = hf_component.io_config
+        if isinstance(io_config, str):
+            user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
+            io_config = user_module_loader.call_object(hf_component.io_config)
+        io_config = validate_config(io_config, IOConfig)
 
         def model_loader(_):
             return model_component
 
         return PyTorchModel(
             model_loader=model_loader,
-            io_config=hf_component.io_config,
+            io_config=io_config,
             dummy_inputs_func=hf_component.dummy_inputs_func,
             model_script=self.model_script,
             script_dir=self.script_dir,
@@ -725,9 +658,7 @@ class PyTorchModel(OliveModel):
 
 
 class OptimumModel(OliveModel):
-    def __init__(
-        self, model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]], model_components: List[str]
-    ):
+    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS, model_components: List[str]):
         super().__init__(
             framework=Framework.PYTORCH,
             model_file_format=ModelFileFormat.OPTIMUM,
@@ -754,7 +685,7 @@ class SNPEModel(OliveModel):
         input_shapes: List[List[int]],
         output_names: List[str],
         output_shapes: List[List[int]],
-        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
     ):
         super().__init__(framework=Framework.SNPE, model_file_format=ModelFileFormat.SNPE_DLC, model_path=model_path)
         self.io_config = {
@@ -792,7 +723,7 @@ class SNPEModel(OliveModel):
 class TensorFlowModel(OliveModel):
     def __init__(
         self,
-        model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]] = None,
+        model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_file_format: ModelFileFormat = ModelFileFormat.TENSORFLOW_SAVED_MODEL,
     ):
         super().__init__(model_path=model_path, framework=Framework.TENSORFLOW, model_file_format=model_file_format)
@@ -811,7 +742,7 @@ class TensorFlowModel(OliveModel):
 
 
 class OpenVINOModel(OliveModel):
-    def __init__(self, model_path: Optional[Union[Path, str, ResourcePath, ResourcePathConfig]]):
+    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS):
         super().__init__(
             model_path=model_path, framework=Framework.OPENVINO, model_file_format=ModelFileFormat.OPENVINO_IR
         )

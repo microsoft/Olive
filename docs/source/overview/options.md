@@ -36,7 +36,7 @@ The default value is 3. User can increase if there are network issues and the op
 ### Example
 ```json
 "azureml_client": {
-   "subscription_id": "<subscription_id>",
+    "subscription_id": "<subscription_id>",
     "resource_group": "<resource_group>",
     "workspace_name": "<workspace_name>",
     "read_timeout" : 4000,
@@ -72,13 +72,22 @@ case insensitive.
         - `task: [str]`: This is the task type for the model such as `text-classification`. The complete list of supported task can be found
         at [huggingface-tasks](https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task).
 
+        - `feature: [str]`: The ONNX export features. This is only needed for HuggingFace hub model. Default to `default`. You can find more info at [Export to ONNX](https://huggingface.co/docs/transformers/serialization)
+
         - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
 
-        - `model_config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
+        - `components: [List[HFComponent]]`: HFComponent list:
+            - `HFComponent`:
+                - `name: [str]`: Component name. Olive will generate a model class with this str as attribute name.
+                - `io_config: [str | Dict]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
+                - `component_func: [str]`: The component function name will be loaded from `model_script`.
+                - `dummy_inputs_func: [str]`: The dummy input function name will be loaded from `model_script`.
+
+        - `config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
         [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
 
         - `dataset: [dict]`: Ff you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading_datasets.html). Olive exposes the following configs(which will be extend in the future):
-            ```json
+            ```python
             "dataset": {
                 "model_name": "distilbert-base-uncased",  # the model name of the huggingface model, if not provided, it will use the model_name in hf_config
                 "task": "text-classification",  # the task type for the model, if not provided, it will use the task in hf_config
@@ -316,8 +325,8 @@ Please also find the detailed options from following table for each pass:
 | [SNPEQuantization](snpe_quantization) | Quantize SNPE model. Uses snpe-dlc-quantize tool from the SNPE SDK. |
 | [SNPEtoONNXConversion](snpe_to_onnx_conversion) | Convert a SNPE DLC to ONNX to use with SNPE Execution Provider. Creates a ONNX graph with the SNPE DLC as a node. |
 | [VitisAIQuantization](vitis_ai_quantization) | AMD-Xilinx Vitis-AI Quantization Pass.  |
-| [OptimumConversion](optimum_conversion) | Convert huggingface models to ONNX via the Optimum library.  |
-| [OptimumMerging](optimum_merging) | Merge 2 models together with an `if` node via the Optimum library.  |
+| [OptimumConversion](optimum_conversion) | Convert huggingface models to ONNX via the Optimum library. |
+| [OptimumMerging](optimum_merging) | Merge 2 models together with an `if` node via the Optimum library. |
 
 ### Example
 ```json

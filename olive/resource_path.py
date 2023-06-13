@@ -3,12 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import re
 import shutil
 import tempfile
 from abc import abstractmethod
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 from pydantic import Field, validator
 
@@ -316,64 +317,126 @@ class AzureMLModel(ResourcePath):
         return str(new_path)
 
 
+def _datastore_url_validator(v, values, **kwargs):
+    aml_info_ready = all([values.get("azureml_client"), values.get("datastore_name"), values.get("relative_path")])
+    if not v and not aml_info_ready:
+        raise ValueError(
+            "If datastore_url is not specified, then azureml_client, datastore_name, and relative_path "
+            "must be specified."
+        )
+    elif v and aml_info_ready:
+        logger.warning("datastore_url is specified. azureml_client, datastore_name, and relative_path are ignored.")
+
+    if v and not v.startswith("azureml:"):
+        raise ValueError(f"Datastore URL {v} is not a valid AzureML datastore URL.")
+    return v
+
+
 class AzureMLDatastore(ResourcePath):
-    """AzureML datastore resource path"""
+    """AzureML DataStore resource path"""
 
     name = ResourceType.AzureMLDatastore
 
     @staticmethod
+    def _validators() -> Dict[str, Callable[..., Any]]:
+        validators = ResourcePath._validators()
+        validators.update(
+            {
+                "validate_datastore_url": validator("datastore_url", allow_reuse=True)(_datastore_url_validator),
+            }
+        )
+        return validators
+
+    @staticmethod
     def _default_config() -> Dict[str, Any]:
         return {
-            "azureml_client": ConfigParam(
-                type_=AzureMLClientConfig, required=True, description="AzureML client config."
-            ),
-            "datastore_name": ConfigParam(type_=str, required=True, description="Name of the datastore."),
-            "relative_path": ConfigParam(type_=str, required=True, description="Relative path to the resource."),
+            "azureml_client": ConfigParam(type_=AzureMLClientConfig, description="AzureML client config."),
+            "datastore_name": ConfigParam(type_=str, description="Name of the datastore."),
+            "relative_path": ConfigParam(type_=str, description="Relative path to the resource."),
+            "datastore_url": ConfigParam(type_=str, description="URL of the datastore."),
         }
 
     def get_path(self) -> str:
+        if self.config.datastore_url:
+            return self.config.datastore_url
+
         workspace_config = self.config.azureml_client.get_workspace_config()
         return (
             f"{_get_azureml_resource_prefix(workspace_config)}"
             f"/datastores/{self.config.datastore_name}/paths/{self.config.relative_path}"
         )
 
+    def is_file(self, fsspec) -> bool:
+        return fsspec.info(self.get_relative_path()).get("type") == "file"
+
+    def get_relative_path(self) -> str:
+        if self.config.datastore_url:
+            return re.split("/datastores/.*/paths/", self.config.datastore_url)[-1]
+        return self.config.relative_path
+
+    def get_aml_client_config(self) -> AzureMLClientConfig:
+        if self.config.datastore_url:
+            subscription_id = re.split("/subscriptions/", self.config.datastore_url)[-1].split("/")[0]
+            resource_group = re.split("/resourcegroups/", self.config.datastore_url)[-1].split("/")[0]
+            workspace_name = re.split("/workspaces/", self.config.datastore_url)[-1].split("/")[0]
+            return AzureMLClientConfig(
+                subscription_id=subscription_id,
+                resource_group=resource_group,
+                workspace_name=workspace_name,
+            )
+        return self.config.azureml_client
+
     def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
         # there is no direct way to download a file from a datastore
         # so we will use a workaround to download the file by creating a aml model
         # that references the file and downloading the model
-        from azure.ai.ml.constants import AssetTypes
-        from azure.ai.ml.entities import Model
-        from azure.core.exceptions import ServiceResponseError
+        try:
+            from azureml.fsspec import AzureMachineLearningFileSystem
+        except ImportError:
+            raise ImportError(
+                "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
+            )
 
-        # azureml client
-        ml_client = self.config.azureml_client.create_client()
+        dir_path = Path(dir_path).resolve()
+        dir_path.mkdir(parents=True, exist_ok=True)
 
-        # create aml model
-        logger.debug(f"Creating aml model for datastore {self.config.datastore_name} path {self.config.relative_path}.")
-        aml_model = retry_func(
-            ml_client.models.create_or_update,
-            [
-                Model(
-                    path=self.get_path(),
-                    name="olive-backend-model",
-                    description="Model created by Olive backend. Ignore this model.",
-                    type=AssetTypes.CUSTOM_MODEL,
-                )
-            ],
-            max_tries=self.config.azureml_client.max_operation_retries,
-            delay=self.config.azureml_client.operation_retry_interval,
-            exceptions=ServiceResponseError,
-        )
+        azureml_client_config = self.get_aml_client_config()
 
-        # use the AzureMLModel to download the model
+        # azureml file system
+        fs = AzureMachineLearningFileSystem(self.get_path())
+        relative_path = Path(self.get_relative_path())
+        is_file = self.is_file(fs)
+        # path to save the resource to
+        if name:
+            new_path_name = Path(name).with_suffix("" if not is_file else relative_path.suffix).name
+        else:
+            new_path_name = relative_path.name
+
+        new_path = dir_path / new_path_name
+        _overwrite_helper(dir_path / new_path_name, overwrite)
+
+        # download artifacts to a temporary directory
         logger.debug(
-            f"Downloading aml model for datastore {self.config.datastore_name} path {self.config.relative_path}."
+            f"Downloading aml resource for datastore {self.config.datastore_name} path {self.config.relative_path}."
         )
-        azureml_model_resource = AzureMLModel(
-            {"azureml_client": self.config.azureml_client, "name": aml_model.name, "version": aml_model.version}
-        )
-        return azureml_model_resource.save_to_dir(dir_path, name, overwrite)
+
+        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
+            retry_func(
+                fs.download,
+                kwargs={
+                    "rpath": self.get_relative_path(),
+                    "lpath": temp_dir,
+                    "recursive": not is_file,
+                },
+                max_tries=azureml_client_config.max_operation_retries,
+                delay=azureml_client_config.operation_retry_interval,
+            )
+            downloaded_resource = Path(temp_dir) / relative_path.name
+            # only if the resource is a existed file we will move it to the new path
+            source_path = downloaded_resource if is_file else temp_dir
+            shutil.move(source_path, new_path)
+
+        return str(Path(new_path).resolve())
 
 
 class AzureMLJobOutput(ResourcePath):
@@ -429,3 +492,6 @@ class AzureMLJobOutput(ResourcePath):
             shutil.move(temp_dir / "named-outputs" / self.config.output_name / self.config.relative_path, new_path)
 
         return str(new_path)
+
+
+OLIVE_RESOURCE_ANNOTATIONS = Optional[Union[Path, str, ResourcePath, ResourcePathConfig]]

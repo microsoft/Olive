@@ -53,13 +53,8 @@ python -m pip install onnxruntime-extensions==0.8.0.306180 `
 
 ### Prepare workflow config json
 ```
-python prepare_whisper_configs.py [--model_name MODEL_NAME] [--no_audio_decoder]
-
-# For example, using whisper tiny model
-python prepare_whisper_configs.py --model_name openai/whisper-tiny.en
+python prepare_whisper_configs.py [--no_audio_decoder]
 ```
-
-`--model_name MODEL_NAME` is the name or path of the whisper model. The default value is `openai/whisper-tiny.en`.
 
 `--no_audio_decoder` is optional. If not provided, will use audio decoder in the preprocessing ops.
 

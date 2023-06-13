@@ -9,11 +9,11 @@
 
 [ResNet optimization with QAT PyTorch Lightning Module](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-qat-pytorch-lightning-module-on-cpu)
 
-[ResNet optimization with Vitis-AI Post Training Quantization](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-vitis-ai-ptq-on-cpu)
-
 [Cifar10 optimization with OpenVINO for Intel HW](https://github.com/microsoft/Olive/tree/main/examples/cifar10_openvino_intel_hw)
 
 # Acceleration on GPU
+[Bert optimization with CUDA/TensorRT](https://github.com/microsoft/Olive/tree/main/examples/bert/#bert-optimization-with-cudatensorrt)
+
 [SqueezeNet latency optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/squeezenet)
 
 [Stable Diffusion optimization with DirectML](https://github.com/microsoft/Olive/tree/main/examples/directml/stable_diffusion)
@@ -22,3 +22,6 @@
 
 # Acceleration on NPU
 [Inception model optimization on Qualcomm NPU](https://github.com/microsoft/Olive/tree/main/examples/snpe/inception_snpe_qualcomm_npu)
+
+# Acceleration on DPU
+[ResNet optimization with Vitis-AI Post Training Quantization for AMD DPU](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-vitis-ai-ptq-on-amd-dpu)

@@ -1,6 +1,7 @@
 azure-ai-ml
 azure-identity
 azure-storage-blob
+azureml-fsspec
 coverage
 docker
 neural-compressor
@@ -16,4 +17,7 @@ torchvision
 datasets
 azureml-evaluate-mlflow
 mlflow
+# newest version mlflow-skinny==2.4.0 is not compatible with the test
+# issue: https://github.com/mlflow/mlflow/issues/8629
+mlflow-skinny==2.3.2
 evaluate
