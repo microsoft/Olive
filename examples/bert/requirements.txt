@@ -7,7 +7,6 @@ neural-compressor
 scipy
 scikit-learn
 transformers
-azureml-evaluate-mlflow
 mlflow
 # newest version mlflow-skinny==2.4.0 is not compatible with the test
 # issue: https://github.com/mlflow/mlflow/issues/8629
