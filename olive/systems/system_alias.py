@@ -105,7 +105,8 @@ class SurfaceSystemAlias:
 
 class SurfaceProSystem1796(SurfaceSystemAlias):
     sku = "Surface_Pro_1796"
-    # we need the cpus and gpus info for local system since we could query the info.
+    # we could add the num_cpus and num_gpus if we don't want query locally and
+    # could find the appropriated spec definition.
 
 
 class SurfaceProSystem1807(SurfaceSystemAlias):
