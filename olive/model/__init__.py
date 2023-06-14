@@ -561,20 +561,14 @@ class PyTorchModel(OliveModel):
         if self.dummy_inputs is not None:
             return self.dummy_inputs
 
-        if self.hf_config and not self.hf_config.components:
-            assert self.hf_config.task, "task must be provided for huggingface model"
-            return get_hf_model_dummy_input(self.hf_config.model_name, self.hf_config.task, self.hf_config.feature)
-
-        assert self.dummy_inputs_func or (
-            self.io_config and self.io_config.input_shapes
-        ), "dummy_inputs_func or io_config.input_shapes must be provided to get dummy input"
-
+        # Priority: dummy_inputs_func > io_config.input_shapes > hf_config.dataset > onnx_config
+        dummy_inputs = None
         if self.dummy_inputs_func is not None:
+            logger.debug("Using dummy_inputs_func to get dummy inputs")
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-            print("----------------------------------")
-            print(self)
             dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
         elif self.io_config and self.io_config.input_shapes:
+            logger.debug("Using io_config.input_shapes to get dummy inputs")
             dummy_inputs, _ = (
                 data_config_template.dummy_data_config_template(
                     input_shapes=self.io_config.input_shapes,
@@ -583,14 +577,28 @@ class PyTorchModel(OliveModel):
                 .to_data_container()
                 .get_first_batch()
             )
-        elif self.hf_config and self.hf_config.model_name:
-            dummy_inputs, _ = (
-                data_config_template.huggingface_data_config_template(
-                    self.hf_config.model_name,
-                    self.hf_config.dataset,
+        elif self.hf_config and self.hf_config.model_name and self.hf_config.task:
+            if self.hf_config.dataset:
+                logger.debug("Using hf_config.dataset to get dummy inputs")
+                dummy_inputs, _ = (
+                    data_config_template.huggingface_data_config_template(
+                        self.hf_config.model_name,
+                        self.hf_config.task,
+                        **self.hf_config.dataset,
+                    )
+                    .to_data_container()
+                    .get_first_batch()
                 )
-                .to_data_container()
-                .get_first_batch()
+            elif not self.hf_config.components:
+                logger.debug("Using hf onnx_config to get dummy inputs")
+                dummy_inputs = get_hf_model_dummy_input(
+                    self.hf_config.model_name, self.hf_config.task, self.hf_config.feature
+                )
+
+        if dummy_inputs is None:
+            raise ValueError(
+                "Unable to get dummy inputs. Please provide dummy_inputs_func, io_config.input_shapes,"
+                " hf_config.dataset, or hf_config."
             )
 
         return dummy_inputs

@@ -6,9 +6,12 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from types import FunctionType
+from unittest.mock import MagicMock, patch
 
 import mlflow
 import pandas as pd
+import pytest
 import transformers
 from azureml.evaluate import mlflow as aml_mlflow
 
@@ -88,3 +91,85 @@ class TestPyTorchHFModel(unittest.TestCase):
 
         pytorch_model = olive_model.load_model()
         assert isinstance(pytorch_model, transformers.DistilBertForSequenceClassification)
+
+
+class TestPytorchDummyInput:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        # hf config values
+        self.task = "text-classification"
+        self.model_class = "DistilBertForSequenceClassification"
+        self.model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+        self.io_config = {
+            "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+            "input_shapes": [[1, 128], [1, 128], [1, 128]],
+            "input_types": ["int64", "int64", "int64"],
+            "output_names": ["output"],
+            "dynamic_axes": {
+                "input_ids": {"0": "batch_size", "1": "seq_length"},
+                "attention_mask": {"0": "batch_size", "1": "seq_length"},
+                "token_type_ids": {"0": "batch_size", "1": "seq_length"},
+            },
+        }
+        self.dataset = {
+            "data_name": "glue",
+            "subset": "mrpc",
+            "split": "validation",
+            "input_cols": ["sentence1", "sentence2"],
+            "label_cols": ["label"],
+            "batch_size": 1,
+        }
+
+    def common_data_config_test(self, olive_model, data_config_template):
+        # mock data config
+        data_config = MagicMock()
+        # mock data container
+        data_container = MagicMock()
+        data_container.get_first_batch.return_value = 1, 0
+        data_config.to_data_container.return_value = data_container
+        # mock data config template
+        data_config_template.return_value = data_config
+
+        # get dummy inputs
+        dummy_inputs = olive_model.get_dummy_inputs()
+
+        data_config_template.assert_called_once()
+        data_config.to_data_container.assert_called_once()
+        data_container.get_first_batch.assert_called_once()
+        assert dummy_inputs == 1
+
+    def test_custom_dummy_inputs(self):
+        dummy_inputs_func = MagicMock(spec=FunctionType)
+        dummy_inputs_func.return_value = 1
+        olive_model = PyTorchModel(
+            hf_config={"task": self.task, "model_name": self.model_name}, dummy_inputs_func=dummy_inputs_func
+        )
+        # get dummy inputs
+        dummy_inputs = olive_model.get_dummy_inputs()
+
+        dummy_inputs_func.assert_called_once_with(olive_model)
+        assert dummy_inputs == 1
+
+    @patch("olive.data.template.dummy_data_config_template")
+    def test_input_shapes_dummy_inputs(self, dummy_data_config_template):
+        olive_model = PyTorchModel(
+            hf_config={"task": self.task, "model_name": self.model_name}, io_config=self.io_config
+        )
+        self.common_data_config_test(olive_model, dummy_data_config_template)
+
+    @patch("olive.data.template.huggingface_data_config_template")
+    def test_hf_config_dataset_dummy_inputs(self, hf_data_config_template):
+        olive_model = PyTorchModel(
+            hf_config={"task": self.task, "model_name": self.model_name, "dataset": self.dataset}
+        )
+        self.common_data_config_test(olive_model, hf_data_config_template)
+
+    @patch("olive.model.get_hf_model_dummy_input")
+    def test_hf_onnx_config_dummy_inputs(self, get_hf_model_dummy_input):
+        get_hf_model_dummy_input.return_value = 1
+        olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.model_name})
+        # get dummy inputs
+        dummy_inputs = olive_model.get_dummy_inputs()
+
+        get_hf_model_dummy_input.assert_called_once_with(self.model_name, self.task, "default")
+        assert dummy_inputs == 1
