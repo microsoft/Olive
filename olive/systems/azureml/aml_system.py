@@ -50,6 +50,9 @@ RESOURCE_TYPE_TO_ASSET_TYPE = {
 
 
 def get_asset_type_from_resource_path(resource_path: ResourcePath) -> AssetTypes:
+    if not resource_path:
+        return AssetTypes.URI_FILE
+
     if RESOURCE_TYPE_TO_ASSET_TYPE.get(resource_path.type):
         return RESOURCE_TYPE_TO_ASSET_TYPE[resource_path.type]
 
