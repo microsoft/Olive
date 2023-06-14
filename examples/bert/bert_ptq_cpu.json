@@ -13,17 +13,6 @@
                     "label_cols": ["label"],
                     "batch_size": 1
                 }
-            },
-            "io_config" : {
-                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
-                "input_shapes": [[1, 128], [1, 128], [1, 128]],
-                "input_types": ["int64", "int64", "int64"],
-                "output_names": ["output"],
-                "dynamic_axes": {
-                    "input_ids": {"0": "batch_size", "1": "seq_length"},
-                    "attention_mask": {"0": "batch_size", "1": "seq_length"},
-                    "token_type_ids": {"0": "batch_size", "1": "seq_length"}
-                }
             }
         }
     },
@@ -75,6 +64,7 @@
         }
     },
     "engine": {
+        "log_severity_level": 0,
         "search_strategy": {
             "execution_order": "joint",
             "search_algorithm": "tpe",
