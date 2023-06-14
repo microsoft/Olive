@@ -5,6 +5,7 @@ dependencies:
   - python=3.8.13
   - pip=20.2
   - pip:
+      - azureml-fsspec
       - onnxruntime
       - pytorch-lightning
       - scipy

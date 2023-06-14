@@ -13,7 +13,7 @@ WARMUP_NUM = 10
 REPEAT_TEST_NUM = 20
 SLEEP_NUM = 0
 
-
+user_path_config = ["script_dir", "data_dir", "user_script"]
 _common_user_config = {
     "script_dir": ConfigParam(type_=OLIVE_RESOURCE_ANNOTATIONS, is_path=True),
     "user_script": ConfigParam(type_=OLIVE_RESOURCE_ANNOTATIONS, is_path=True),

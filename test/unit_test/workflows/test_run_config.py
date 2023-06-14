@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from olive.resource_path import ResourcePath
 from olive.workflows.run.config import RunConfig
 
 
@@ -40,7 +41,10 @@ class TestRunConfig:
 
         user_script_config["engine"]["host"] = system
         user_script_config["engine"]["target"] = system
-        assert RunConfig.parse_obj(user_script_config)
+        config = RunConfig.parse_obj(user_script_config)
+        for metric in config.evaluators["common_evaluator"].metrics:
+            assert metric.user_config.data_dir.get_path().startswith("azureml://")
+            assert isinstance(metric.user_config.user_script, ResourcePath)
 
     def test_config_without_azureml_config(self):
         with open(self.user_script_config_file, "r") as f:

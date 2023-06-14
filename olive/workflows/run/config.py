@@ -14,6 +14,7 @@ from olive.data.constants import DEFAULT_HF_DATA_CONTAINER_NAME, DefaultDataCont
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
+from olive.evaluator.metric_config import user_path_config
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
 from olive.passes import FullPassConfig, Pass
@@ -108,6 +109,19 @@ class RunConfig(ConfigBase):
     def validate_evaluators(cls, v, values):
         for idx, metric in enumerate(v.get("metrics", [])):
             v["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
+
+            metric = v["metrics"][idx]
+            for user_key, user_value in metric.get("user_config", {}).items():
+                if user_key in user_path_config and isinstance(user_value, dict):
+                    rp_type = user_value.get("type")
+                    if rp_type in AZUREML_RESOURCE_TYPES:
+                        rp_aml_client = user_value.get("config", {}).get("azureml_client")
+                        if not rp_aml_client:
+                            raise ValueError(
+                                "azureml_client is required for azureml resource path in user_config of metrics"
+                            )
+                        user_value["config"]["azureml_client"] = values["azureml_client"]
+                    v["metrics"][idx]["user_config"][user_key] = user_value
         return v
 
     @validator("engine", pre=True)
@@ -143,6 +157,16 @@ class RunConfig(ConfigBase):
         pass_cls = Pass.registry.get(v["type"].lower(), None)
         if pass_cls and pass_cls.requires_data_config():
             v["config"] = _resolve_data_config(v.get("config", {}), values, "data_config")
+
+            for config_key, config_value in v["config"].items():
+                if config_key in user_path_config and isinstance(config_value, dict):
+                    rp_type = config_value.get("type")
+                    if rp_type in AZUREML_RESOURCE_TYPES:
+                        rp_aml_client = config_value.get("config", {}).get("azureml_client")
+                        if not rp_aml_client:
+                            raise ValueError("azureml_client is required for azureml resource path in config")
+                        config_value["config"]["azureml_client"] = values["azureml_client"]
+                    v["config"][config_key] = config_value
         return v
 
 
