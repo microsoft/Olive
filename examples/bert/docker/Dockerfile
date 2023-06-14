@@ -5,7 +5,6 @@ RUN pip install onnxruntime \
             evaluate \
             scikit-learn \
             transformers \
-            onnxconverter_common \
             git+https://github.com/microsoft/Olive.git
 
 WORKDIR /olive
