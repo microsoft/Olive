@@ -312,7 +312,7 @@ class Engine:
                     outputs[accelerator_spec] = footprint
                     pf_footprints[accelerator_spec] = footprint
 
-            except ValueError:
+            except (ValueError, ImportError, TypeError, AttributeError):
                 raise
             except Exception as e:
                 logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
@@ -863,8 +863,8 @@ class Engine:
                 input_model = self._prepare_non_local_model(input_model)
             try:
                 output_model = host.run_pass(p, input_model, output_model_path, pass_search_point)
-            except ValueError:
-                # Don't catch the ValueError since most of time, it is caused by the user errors.
+            except (ValueError, ImportError, TypeError, AttributeError):
+                # Don't catch these errors since most of time, it is caused by the user errors and need not be retry.
                 raise
             except Exception:
                 output_model = PRUNED_CONFIG
