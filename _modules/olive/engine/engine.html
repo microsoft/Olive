@@ -429,6 +429,8 @@
                     <span class="n">outputs</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">footprint</span>
                     <span class="n">pf_footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">footprint</span>
 
+            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+                <span class="k">raise</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to run Olive on </span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
@@ -978,6 +980,9 @@
                 <span class="n">input_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_non_local_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">output_model</span> <span class="o">=</span> <span class="n">host</span><span class="o">.</span><span class="n">run_pass</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">input_model</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">)</span>
+            <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">AttributeError</span><span class="p">):</span>
+                <span class="c1"># Don&#39;t catch these errors since most of time, it is caused by the user errors and need not retry.</span>
+                <span class="k">raise</span>
             <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
                 <span class="n">output_model</span> <span class="o">=</span> <span class="n">PRUNED_CONFIG</span>
                 <span class="c1"># TODO: from the time being, we need to catch all exceptions to make the</span>
