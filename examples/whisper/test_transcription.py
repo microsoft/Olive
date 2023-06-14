@@ -46,7 +46,9 @@ def main(raw_args=None):
     config = json.load(open(args.config, "r"))
 
     # load output model json
-    output_model_json_path = Path(config["engine"]["output_dir"]) / f"{config['engine']['output_name']}_model.json"
+    output_model_json_path = (
+        Path(config["engine"]["output_dir"]) / f"{config['engine']['output_name']}_cpu-cpu_model.json"
+    )
     output_model_json = json.load(open(output_model_json_path, "r"))
 
     # load output model onnx
@@ -77,8 +79,9 @@ def main(raw_args=None):
         np.asarray([1.0], dtype=np.float32),
         np.zeros((1, N_MELS, N_FRAMES)).astype(np.int32),
     )
-    print(output_text)
+    return output_text[0]
 
 
 if __name__ == "__main__":
-    main()
+    output_text = main()
+    print(output_text)
