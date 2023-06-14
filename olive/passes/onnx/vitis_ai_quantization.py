@@ -18,7 +18,7 @@ from olive.passes import Pass
 from olive.passes.onnx.vitis_ai import quantize_static
 from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
 from olive.passes.pass_config import PassConfigParam
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, get_local_path
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
@@ -291,7 +291,7 @@ class VitisAIQuantization(Pass):
         if config["dataloader_func"]:
             dataloader = self._user_module_loader.call_object(
                 config["dataloader_func"],
-                config["data_dir"],
+                get_local_path(config["data_dir"]),
                 config["batch_size"],
             )
         elif self._data_config:
