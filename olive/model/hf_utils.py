@@ -60,6 +60,9 @@ def load_huggingface_model_from_task(task: str, name: str):
             model = model_class.from_pretrained(name)
             return model
         except (OSError, ValueError):
+            # the ValueError need to be caught since there will be multiple model_class for single task.
+            # if the model_class is not the one for the task, it will raise ValueError and
+            # next model_class will be tried.
             continue
 
     return model
