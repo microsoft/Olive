@@ -2,11 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from pathlib import Path
 from types import FunctionType, MethodType
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Union
 
 from olive.common.import_lib import import_user_module
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, create_resource_path, get_local_path
 
 
 class UserModuleLoader:
@@ -16,11 +16,11 @@ class UserModuleLoader:
     Only used for objects that are not json serializable.
     """
 
-    def __init__(self, user_script: Optional[Union[Path, str]], script_dir: Optional[Union[Path, str]] = None):
-        self.user_script = user_script
-        self.script_dir = script_dir
+    def __init__(self, user_script: OLIVE_RESOURCE_ANNOTATIONS, script_dir: OLIVE_RESOURCE_ANNOTATIONS = None):
+        self.user_script = get_local_path(create_resource_path(user_script))
+        self.script_dir = get_local_path(create_resource_path(script_dir))
         if self.user_script:
-            self.user_module = import_user_module(user_script, script_dir)
+            self.user_module = import_user_module(self.user_script, self.script_dir)
         else:
             self.user_module = None
 

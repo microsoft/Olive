@@ -1,5 +1,5 @@
-# -------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
+# -------------------------------------------------------------------------
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
@@ -31,6 +31,7 @@ from olive.evaluator.metric import (
 from olive.evaluator.metric_backend import MetricBackend
 from olive.hardware import Device
 from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
+from olive.resource_path import get_local_path
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,11 @@ class OliveEvaluator(ABC):
         # breaking it into multiple arguments
         # return eval_func(model, metric, dataloader, device, post_func)
         raw_res = eval_func(
-            model, metric.user_config.data_dir, metric.user_config.batch_size, device, execution_providers
+            model,
+            get_local_path(metric.user_config.data_dir),
+            metric.user_config.batch_size,
+            device,
+            execution_providers,
         )
         metric_res = {}
         for sub_type in metric.sub_types:
@@ -149,7 +154,7 @@ class OliveEvaluator(ABC):
 
         dataloader_func = getattr(metric.user_config, "dataloader_func", None)
         dataloader = user_module.call_object(
-            dataloader_func, metric.user_config.data_dir, metric.user_config.batch_size
+            dataloader_func, get_local_path(metric.user_config.data_dir), metric.user_config.batch_size
         )
 
         evaluate_func = getattr(metric.user_config, "evaluate_func", None)

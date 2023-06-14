@@ -16,7 +16,7 @@ from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-from olive.resource_path import LocalFile
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile, get_local_path
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
 
 logger = logging.getLogger(__name__)
@@ -141,7 +141,7 @@ _extra_options_config = {
 # static quantization specific config
 _static_dataloader_config = {
     "data_dir": PassConfigParam(
-        type_=Union[Path, str],
+        type_=OLIVE_RESOURCE_ANNOTATIONS,
         is_path=True,
         description="""
             Path to the directory containing the dataset.
@@ -294,7 +294,7 @@ class OnnxQuantization(Pass):
                 logger.info("Weight type and activation type must be the same.")
                 return False
             if config["EnableSubgraph"] is True:
-                logger.info("EnabaleSubgraph is not supported for static quantization.")
+                logger.info("Enable Subgraph is not supported for static quantization.")
                 return False
         return True
 
@@ -383,7 +383,7 @@ class OnnxQuantization(Pass):
             if self._user_module_loader.user_module:
                 dataloader = self._user_module_loader.call_object(
                     self._fixed_params["dataloader_func"],
-                    self._fixed_params["data_dir"],
+                    get_local_path(self._fixed_params["data_dir"]),
                     self._fixed_params["batch_size"],
                 )
             elif self._data_config:

@@ -10,7 +10,7 @@ from pathlib import Path
 from types import FunctionType, MethodType
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from pydantic import BaseModel, create_model, validator
+from pydantic import BaseModel, ValidationError, create_model, validator
 
 from olive.common.utils import hash_function, hash_object
 
@@ -159,6 +159,7 @@ class ConfigParam(ConfigBase):
     required: bool = False
     default_value: Any = None
     is_object: bool = False
+    is_path: bool = False
     description: str = None
 
     def __repr__(self):
@@ -191,6 +192,16 @@ def validate_object(v, values, field):
     return v
 
 
+def validate_resource_path(v, values, field):
+    from olive.resource_path import create_resource_path
+
+    try:
+        v = create_resource_path(v)
+    except (ValueError, ValidationError) as e:
+        raise ValueError(f"Invalid resource path '{v}': {e}")
+    return v
+
+
 def create_config_class(
     class_name: str,
     default_config: Dict[str, ConfigParam],
@@ -203,6 +214,9 @@ def create_config_class(
     config = {}
     validators = validators.copy() if validators else {}
     for param, param_config in default_config.items():
+        if param_config.is_path:
+            validator_name = f"validate_{param}_resource_path"
+            validators[validator_name] = validator(param, allow_reuse=True)(validate_resource_path)
         # automatically add validator for object params
         if param_config.is_object:
             validator_name = f"validate_{param}_object"

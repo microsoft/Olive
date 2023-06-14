@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from copy import deepcopy
 from enum import Enum
 from typing import ClassVar, Dict, List, Optional, Union
 
@@ -11,7 +12,7 @@ from pydantic import validator
 from olive.common.config_utils import ConfigBase, ConfigDictBase, validate_config
 from olive.data.config import DataConfig
 from olive.evaluator.accuracy import AccuracyBase
-from olive.evaluator.metric_config import LatencyMetricConfig, MetricGoal, get_user_config_class
+from olive.evaluator.metric_config import LatencyMetricConfig, MetricGoal, get_user_config_class, localize_user_config
 
 logger = logging.getLogger(__name__)
 
@@ -202,3 +203,11 @@ def get_latency_config_from_metric(metric: Metric):
             sleep_num = sub_type.metric_config.sleep_num
             break
     return warmup_num, repeat_test_num, sleep_num
+
+
+def localize_metrics_user_config(metrics: List[Metric]) -> List[Metric]:
+    new_metrics = deepcopy(metrics)
+    localized_config = dict()
+    for metric in new_metrics:
+        metric.user_config, localized_config = localize_user_config(metric.user_config, localized_config)
+    return new_metrics

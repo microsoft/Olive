@@ -3,13 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from enum import Enum
-from pathlib import Path
 from typing import Callable, Dict, Optional, Type, Union
 
 from pydantic import create_model, validator
 
-from olive.common.config_utils import ConfigBase, ConfigParam, validate_object
+from olive.common.config_utils import ConfigBase, ConfigParam, validate_object, validate_resource_path
 from olive.data.config import DataConfig
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 from olive.strategy.search_parameter import SearchParameter, json_to_search_parameter
 
 
@@ -32,7 +32,6 @@ class PassConfigParam(ConfigParam):
     required : whether the parameter is required
     is_object : whether the parameter is an object/function. If so, this parameter accepts the object or a string with
         the name of the object/function in the user script. The type must include str.
-    is_path : whether the parameter is a path. If so, this file/folder will be uploaded to the host system.
     description : description of the parameter
     default_value: default value for the parameter. This value is used if search is disabled or there are no searchable
         values. Must be the same type as the parameter or a ConditionalDefault SearchParameter.
@@ -41,7 +40,6 @@ class PassConfigParam(ConfigParam):
     """
 
     searchable_values: SearchParameter = None
-    is_path: bool = False
 
     def __repr__(self):
         repr_list = []
@@ -61,7 +59,7 @@ def get_user_script_config(
 ) -> Dict[str, PassConfigParam]:
     type_ = str
     if allow_path:
-        type_ = Union[Path, str]
+        type_ = OLIVE_RESOURCE_ANNOTATIONS
 
     user_script_config = {
         "script_dir": PassConfigParam(
@@ -125,6 +123,8 @@ def create_config_class(
     for param, param_config in default_config.items():
         if param_config.is_object:
             validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_object)
+        if param_config.is_path:
+            validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_resource_path)
 
         type_ = param_config.type_
         if param_config.required:

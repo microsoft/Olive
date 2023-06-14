@@ -20,7 +20,7 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
-from olive.resource_path import ResourceType
+from olive.resource_path import AzureMLModel, ResourceType, create_resource_path
 from olive.systems.azureml.aml_evaluation_runner import main as aml_evaluation_runner_main
 from olive.systems.azureml.aml_pass_runner import main as aml_pass_runner_main
 from olive.systems.azureml.aml_system import AzureMLSystem
@@ -163,23 +163,24 @@ class TestAzureMLSystem:
             },
             ResourceType.LocalFile: temp_model.name,
         }
+        tem_dir = tempfile.TemporaryDirectory()
+        dummy_model_script = tempfile.NamedTemporaryFile()
         model_json = {
             "type": "onnxmodel",
             "config": {
-                "model_script": "model_script",
-                "script_dir": "script_dir",
+                "model_script": dummy_model_script.name,
+                "script_dir": tem_dir.name,
                 "model_path": resource_paths[model_resource_type],
             },
         }
-        tem_dir = tempfile.TemporaryDirectory()
         tem_dir_path = Path(tem_dir.name)
         model_config_path = tem_dir_path / "model_config.json"
         if model_resource_type == ResourceType.AzureMLModel:
             expected_model_path = Input(type=AssetTypes.CUSTOM_MODEL, path="azureml:model_name:version")
         else:
             expected_model_path = Input(type=AssetTypes.URI_FILE, path=Path(temp_model.name).resolve())
-        expected_model_script = Input(type=AssetTypes.URI_FILE, path="model_script")
-        expected_model_script_dir = Input(type=AssetTypes.URI_FOLDER, path="script_dir")
+        expected_model_script = Input(type=AssetTypes.URI_FILE, path=dummy_model_script.name)
+        expected_model_script_dir = Input(type=AssetTypes.URI_FOLDER, path=tem_dir.name)
         expected_model_config = Input(type=AssetTypes.URI_FILE, path=model_config_path)
         expected_res = {
             "model_config": expected_model_config,
@@ -200,19 +201,20 @@ class TestAzureMLSystem:
     def test__create_metric_args(self):
         # setup
         tem_dir = Path(__file__).absolute().parent
+        dummy_user_script = tem_dir / "__init__.py"
         metric_config = {
             "user_config": {
-                "user_script": "user_script",
-                "script_dir": "script_dir",
-                "data_dir": "data_dir",
+                "user_script": dummy_user_script,
+                "script_dir": tem_dir,
+                "data_dir": tem_dir,
             }
         }
         metric_config_path = tem_dir / "metric_config.json"
 
         expected_metric_config = Input(type=AssetTypes.URI_FILE, path=metric_config_path)
-        expected_metric_user_script = Input(type=AssetTypes.URI_FILE, path="user_script")
-        expected_metric_script_dir = Input(type=AssetTypes.URI_FOLDER, path="script_dir")
-        expected_metric_data_dir = Input(type=AssetTypes.URI_FOLDER, path="data_dir")
+        expected_metric_user_script = Input(type=AssetTypes.URI_FILE, path=str(dummy_user_script))
+        expected_metric_script_dir = Input(type=AssetTypes.URI_FOLDER, path=str(tem_dir))
+        expected_metric_data_dir = Input(type=AssetTypes.URI_FOLDER, path=str(tem_dir))
         expected_res = {
             "metric_config": expected_metric_config,
             "metric_user_script": expected_metric_user_script,
@@ -225,6 +227,7 @@ class TestAzureMLSystem:
 
         # assert
         assert actual_res == expected_res
+        # user_script, script_dir, data_dir will be set as resource_path.StringName
         assert metric_config["user_config"]["user_script"] is None
         assert metric_config["user_config"]["script_dir"] is None
         assert metric_config["user_config"]["data_dir"] is None
@@ -273,8 +276,23 @@ class TestAzureMLSystem:
         mock_command.return_value.return_value = expected_res
 
         # execute
+        model_resource_path = None
+        if model_resource_type == ResourceType.AzureMLModel:
+            model_resource_path = AzureMLModel(
+                {
+                    "azureml_client": {
+                        "subscription_id": "subscription_id",
+                        "resource_group": "resource_group",
+                        "workspace_name": "workspace_name",
+                    },
+                    "name": "test",
+                    "version": "1",
+                }
+            )
+        else:
+            model_resource_path = create_resource_path(ONNX_MODEL_PATH)
         actual_res = self.system._create_metric_component(
-            tem_dir, metric, model_args, model_resource_type, accelerator_config_path
+            tem_dir, metric, model_args, model_resource_path, accelerator_config_path
         )
 
         # assert

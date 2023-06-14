@@ -9,6 +9,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import SNPEModel
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 from olive.snpe import SNPEDataLoader
 from olive.snpe.tools.dev import quantize_dlc
 from olive.strategy.search_parameter import Boolean
@@ -26,7 +27,7 @@ class SNPEQuantization(Pass):
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
-                type_=str, required=True, is_path=True, description="Path to the data directory."
+                type_=OLIVE_RESOURCE_ANNOTATIONS, required=True, is_path=True, description="Path to the data directory."
             ),
             "dataloader_func": PassConfigParam(
                 type_=Union[Callable[[str], SNPEDataLoader], str],

@@ -14,7 +14,7 @@ import docker
 
 import olive.systems.docker.utils as docker_utils
 from olive.common.config_utils import validate_config
-from olive.evaluator.metric import Metric, MetricResult
+from olive.evaluator.metric import Metric, MetricResult, localize_metrics_user_config
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OliveModel
 from olive.passes import Pass
@@ -85,7 +85,8 @@ class DockerSystem(OliveSystem):
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
             metrics_res = None
-            metric_json = self._run_container(tempdir, model, metrics, container_root_path)
+            new_metrics = localize_metrics_user_config(metrics)
+            metric_json = self._run_container(tempdir, model, new_metrics, container_root_path)
             if metric_json.is_file():
                 with metric_json.open() as f:
                     metrics_res = json.load(f)

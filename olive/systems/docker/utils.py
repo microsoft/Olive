@@ -11,6 +11,7 @@ from typing import List
 from olive.constants import Framework
 from olive.evaluator.metric import Metric
 from olive.model import OliveModel
+from olive.resource_path import get_local_path
 
 logger = logging.getLogger(__name__)
 
@@ -58,15 +59,15 @@ def create_metric_volumes_list(metrics: List[Metric], container_root_path: Path,
     for metric in metrics:
         metric_path = container_root_path / "metrics" / metric.name
         if metric.user_config.user_script:
-            user_script_path = str(Path(metric.user_config.user_script).resolve())
-            user_script_name = Path(metric.user_config.user_script).name
+            user_script_path = get_local_path(metric.user_config.user_script)
+            user_script_name = Path(user_script_path).name
             user_script_mount_path = str(metric_path / user_script_name)
 
             mount_list.append(f"{user_script_path}:{user_script_mount_path}")
             metric.user_config.user_script = user_script_mount_path
 
         if metric.user_config.script_dir:
-            script_dir_path = str(Path(metric.user_config.script_dir).resolve())
+            script_dir_path = get_local_path(metric.user_config.script_dir)
             script_dir_name = Path(metric.user_config.script_dir).name
             script_dir_mount_path = str(metric_path / script_dir_name)
 
@@ -74,7 +75,7 @@ def create_metric_volumes_list(metrics: List[Metric], container_root_path: Path,
             metric.user_config.script_dir = script_dir_mount_path
 
         if metric.user_config.data_dir:
-            data_dir = str(Path(metric.user_config.data_dir).resolve())
+            data_dir = get_local_path(metric.user_config.data_dir)
             mount_list.append(f"{data_dir}:{str(metric_path / 'data_dir')}")
             metric.user_config.data_dir = str(metric_path / "data_dir")
 

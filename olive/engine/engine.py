@@ -776,7 +776,7 @@ class Engine:
         # run all the passes in the step
         model_ids = []
         for pass_id, pass_search_point in passes:
-            logger.debug(f"Running pass {pass_id}")
+            logger.info(f"Running pass {pass_id}")
 
             model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec)
             if model == PRUNED_CONFIG:

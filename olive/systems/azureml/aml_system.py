@@ -27,9 +27,12 @@ from olive.passes.olive_pass import Pass
 from olive.resource_path import (
     AZUREML_RESOURCE_TYPES,
     LOCAL_RESOURCE_TYPES,
+    OLIVE_RESOURCE_ANNOTATIONS,
     AzureMLModel,
+    ResourcePath,
     ResourceType,
     create_resource_path,
+    get_local_path,
 )
 from olive.systems.common import AzureMLDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
@@ -39,11 +42,21 @@ logger = logging.getLogger(__name__)
 RESOURCE_TYPE_TO_ASSET_TYPE = {
     ResourceType.LocalFile: AssetTypes.URI_FILE,
     ResourceType.LocalFolder: AssetTypes.URI_FOLDER,
-    ResourceType.StringName: AssetTypes.URI_FILE,  # this is a place holder since we won't upload a string as input
+    ResourceType.StringName: None,
     ResourceType.AzureMLModel: AssetTypes.CUSTOM_MODEL,
-    ResourceType.AzureMLDatastore: AssetTypes.CUSTOM_MODEL,
+    ResourceType.AzureMLDatastore: None,
     ResourceType.AzureMLJobOutput: AssetTypes.CUSTOM_MODEL,
 }
+
+
+def get_asset_type_from_resource_path(resource_path: ResourcePath) -> AssetTypes:
+    if RESOURCE_TYPE_TO_ASSET_TYPE.get(resource_path.type):
+        return RESOURCE_TYPE_TO_ASSET_TYPE[resource_path.type]
+
+    if resource_path.type == ResourceType.AzureMLDatastore:
+        return AssetTypes.URI_FILE if resource_path.is_file() else AssetTypes.URI_FOLDER
+
+    return AssetTypes.URI_FILE
 
 
 class AzureMLSystem(OliveSystem):
@@ -130,79 +143,79 @@ class AzureMLSystem(OliveSystem):
 
             return self._load_model(model, output_model_path, pipeline_output_path)
 
-    def _create_model_inputs(self, model_path_type: ResourceType):
-        # model_path_type can be None if the model_path is None
-        # we create a placeholder input for model_path in this case
-        model_path_asset_type = RESOURCE_TYPE_TO_ASSET_TYPE[model_path_type] if model_path_type else AssetTypes.URI_FILE
+    def _create_model_inputs(self, model_path_type: AssetTypes):
         return {
             "model_config": Input(type=AssetTypes.URI_FILE),
-            "model_path": Input(type=model_path_asset_type, optional=True),
+            "model_path": Input(type=model_path_type, optional=True),
             "model_script": Input(type=AssetTypes.URI_FILE, optional=True),
             "model_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
 
-    def _create_model_args(self, model_json: dict, tmp_dir: Path):
-        model_script = None
-        if model_json["config"].get("model_script"):
-            model_script = Input(type=AssetTypes.URI_FILE, path=model_json["config"]["model_script"])
-            model_json["config"]["model_script"] = None
+    def _get_path_from_resource_path(self, rp: OLIVE_RESOURCE_ANNOTATIONS):
+        model_resource_path = create_resource_path(rp)
+        asset_type = get_asset_type_from_resource_path(model_resource_path)
 
-        model_script_dir = None
-        if model_json["config"].get("script_dir"):
-            model_script_dir = Input(type=AssetTypes.URI_FOLDER, path=model_json["config"]["script_dir"])
-            model_json["config"]["script_dir"] = None
+        if model_resource_path.type == ResourceType.AzureMLDatastore:
+            asset_type = AssetTypes.URI_FILE if model_resource_path.is_file() else AssetTypes.URI_FOLDER
 
-        model_path = None
-        if model_json["config"].get("model_path"):
-            model_resource_path = create_resource_path(model_json["config"]["model_path"])
-            asset_type = RESOURCE_TYPE_TO_ASSET_TYPE[model_resource_path.type]
-
-            if model_resource_path.type in AZUREML_RESOURCE_TYPES:
-                # ensure that the model is in the same workspace as the system
-                model_workspace_config = model_resource_path.config.azureml_client.get_workspace_config()
-                system_workspace_config = self.azureml_client_config.get_workspace_config()
-                for key in model_workspace_config:
-                    if model_workspace_config[key] != system_workspace_config[key]:
-                        raise ValueError(
-                            f"Model workspace {model_workspace_config} is different from system workspace"
-                            f" {system_workspace_config}."
-                        )
-
-            if model_resource_path.type == ResourceType.AzureMLJobOutput:
-                # there is no direct way to use the output of a job as input to another job
-                # so we create a dummy aml model and use it as input
-                ml_client = self.azureml_client_config.create_client()
-
-                # create aml model
-                logger.debug(f"Creating aml model for job output {model_resource_path}")
-                aml_model = retry_func(
-                    ml_client.models.create_or_update,
-                    [
-                        Model(
-                            path=model_resource_path.get_path(),
-                            name="olive-backend-model",
-                            description="Model created by Olive backend. Ignore this model.",
-                            type=AssetTypes.CUSTOM_MODEL,
-                        )
-                    ],
-                    max_tries=self.azureml_client_config.max_operation_retries,
-                    delay=self.azureml_client_config.operation_retry_interval,
-                    exceptions=ServiceResponseError,
-                )
-                model_resource_path = create_resource_path(
-                    AzureMLModel(
-                        {
-                            "azureml_client": self.azureml_client_config,
-                            "name": aml_model.name,
-                            "version": aml_model.version,
-                        }
+        if model_resource_path.type in AZUREML_RESOURCE_TYPES:
+            # ensure that the model is in the same workspace as the system
+            model_workspace_config = model_resource_path.get_aml_client_config().get_workspace_config()
+            system_workspace_config = self.azureml_client_config.get_workspace_config()
+            for key in model_workspace_config:
+                if model_workspace_config[key] != system_workspace_config[key]:
+                    logger.warning(
+                        f"Model workspace {model_workspace_config} is different from system workspace"
+                        f" {system_workspace_config}. Olive will download the model to local storage, then upload it to"
+                        "the system workspace."
                     )
-                )
+                    return Input(type=asset_type, path=get_local_path(model_resource_path))
 
-            # we keep the model path as a string in the config file
-            if model_resource_path.type != ResourceType.StringName:
-                model_path = Input(type=asset_type, path=model_resource_path.get_path())
-                model_json["config"]["model_path"] = None
+        if model_resource_path.type == ResourceType.AzureMLJobOutput:
+            # there is no direct way to use the output of a job as input to another job
+            # so we create a dummy aml model and use it as input
+            ml_client = self.azureml_client_config.create_client()
+
+            # create aml model
+            logger.debug(f"Creating aml model for job output {model_resource_path}")
+            aml_model = retry_func(
+                ml_client.models.create_or_update,
+                [
+                    Model(
+                        path=model_resource_path.get_path(),
+                        name="olive-backend-model",
+                        description="Model created by Olive backend. Ignore this model.",
+                        type=AssetTypes.CUSTOM_MODEL,
+                    )
+                ],
+                max_tries=self.azureml_client_config.max_operation_retries,
+                delay=self.azureml_client_config.operation_retry_interval,
+                exceptions=ServiceResponseError,
+            )
+            model_resource_path = create_resource_path(
+                AzureMLModel(
+                    {
+                        "azureml_client": self.azureml_client_config,
+                        "name": aml_model.name,
+                        "version": aml_model.version,
+                    }
+                )
+            )
+        # we keep the model path as a string in the config file
+        if model_resource_path.type != ResourceType.StringName:
+            return Input(type=asset_type, path=model_resource_path.get_path())
+
+        return None
+
+    def _create_model_args(self, model_json: dict, tmp_dir: Path):
+        args = {}
+        for item in ["model_script", "script_dir", "model_path"]:
+            args[item] = None
+            item_value = model_json["config"].get(item)
+            if item_value:
+                args[item] = self._get_path_from_resource_path(item_value)
+                if args[item]:
+                    model_json["config"][item] = None
 
         model_config_path = tmp_dir / "model_config.json"
         with model_config_path.open("w") as f:
@@ -211,9 +224,9 @@ class AzureMLSystem(OliveSystem):
 
         return {
             "model_config": model_config,
-            "model_path": model_path,
-            "model_script": model_script,
-            "model_script_dir": model_script_dir,
+            "model_path": args["model_path"],
+            "model_script": args["model_script"],
+            "model_script_dir": args["script_dir"],
         }
 
     def _create_pass_inputs(self, pass_path_params: List[Tuple[str, bool]]):
@@ -227,12 +240,10 @@ class AzureMLSystem(OliveSystem):
     def _create_pass_args(self, pass_config: dict, pass_path_params: List[Tuple[str, bool]], tmp_dir: Path):
         pass_args = {}
         for param, _ in pass_path_params:
-            if pass_config["config"].get(param) is None:
+            param_val = pass_config["config"].get(param, None)
+            if not param_val:
                 continue
-            pass_args[f"pass_{param}"] = Input(
-                type=AssetTypes.URI_FILE if Path(pass_config["config"][param]).is_file() else AssetTypes.URI_FOLDER,
-                path=pass_config["config"][param],
-            )
+            pass_args[f"pass_{param}"] = self._get_path_from_resource_path(param_val)
             pass_config["config"][param] = None
 
         pass_config_path = tmp_dir / "pass_config.json"
@@ -299,7 +310,7 @@ class AzureMLSystem(OliveSystem):
         }
         # prepare inputs
         inputs = {
-            **self._create_model_inputs(model.model_resource_path.type if model.model_resource_path else None),
+            **self._create_model_inputs(get_asset_type_from_resource_path(model.model_resource_path)),
             **self._create_pass_inputs(pass_path_params),
             **accelerator_info,
         }
@@ -384,20 +395,14 @@ class AzureMLSystem(OliveSystem):
         }
 
     def _create_metric_args(self, metric_config: dict, tmp_dir: Path) -> Tuple[List[str], dict]:
-        metric_user_script = metric_config["user_config"]["user_script"]
-        if metric_user_script:
-            metric_user_script = Input(type=AssetTypes.URI_FILE, path=metric_user_script)
-            metric_config["user_config"]["user_script"] = None
-
-        metric_script_dir = metric_config["user_config"]["script_dir"]
-        if metric_script_dir:
-            metric_script_dir = Input(type=AssetTypes.URI_FOLDER, path=metric_script_dir)
-            metric_config["user_config"]["script_dir"] = None
-
-        metric_data_dir = metric_config["user_config"]["data_dir"]
-        if metric_data_dir:
-            metric_data_dir = Input(type=AssetTypes.URI_FOLDER, path=metric_data_dir)
-            metric_config["user_config"]["data_dir"] = None
+        args = {}
+        for item in ["user_script", "script_dir", "data_dir"]:
+            args[item] = None
+            item_val = metric_config["user_config"].get(item)
+            if item_val:
+                args[item] = self._get_path_from_resource_path(item_val)
+                if args[item]:
+                    metric_config["user_config"][item] = None
 
         metric_config_path = tmp_dir / "metric_config.json"
         with metric_config_path.open("w") as f:
@@ -406,9 +411,9 @@ class AzureMLSystem(OliveSystem):
 
         return {
             "metric_config": metric_config,
-            "metric_user_script": metric_user_script,
-            "metric_script_dir": metric_script_dir,
-            "metric_data_dir": metric_data_dir,
+            "metric_user_script": args["user_script"],
+            "metric_script_dir": args["script_dir"],
+            "metric_data_dir": args["data_dir"],
         }
 
     def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> MetricResult:
@@ -479,7 +484,7 @@ class AzureMLSystem(OliveSystem):
                     metric_tmp_dir,
                     metric,
                     model_args,
-                    model.model_resource_path.type if model.model_resource_path else None,
+                    model.model_resource_path,
                     accelerator_config_path,
                 )
                 outputs[metric.name] = metric_component.outputs.pipeline_output
@@ -495,7 +500,7 @@ class AzureMLSystem(OliveSystem):
         tmp_dir: Path,
         metric: Metric,
         model_args: Dict[str, Input],
-        model_resource_type: ResourceType,
+        model_resource_path: ResourcePath,
         accelerator_config_path: str,
     ):
         metric_json = metric.to_json(check_object=True)
@@ -517,7 +522,7 @@ class AzureMLSystem(OliveSystem):
 
         # prepare inputs
         inputs = {
-            **self._create_model_inputs(model_resource_type),
+            **self._create_model_inputs(get_asset_type_from_resource_path(model_resource_path)),
             **self._create_metric_inputs(),
             **{"accelerator_config": Input(type=AssetTypes.URI_FILE)},
         }

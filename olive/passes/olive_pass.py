@@ -23,6 +23,7 @@ from olive.passes.pass_config import (
     get_data_config,
     get_user_script_config,
 )
+from olive.resource_path import get_local_path
 from olive.strategy.search_parameter import (
     Categorical,
     Conditional,
@@ -80,7 +81,7 @@ class Pass(ABC):
         if self._requires_user_script:
             self._user_module_loader = UserModuleLoader(self._config["user_script"], self._config["script_dir"])
         if self._requires_data_config:
-            data_config = self._config["data_config"] or {}
+            data_config = self._config.get("data_config") or {}
             self._data_config = DataConfig(**data_config)
 
         self._fixed_params = {}
@@ -150,7 +151,7 @@ class Pass(ABC):
         """
         config = {}
         if cls._requires_user_script:
-            config.update(get_user_script_config())
+            config.update(get_user_script_config(allow_path=True))
         if cls.requires_data_config():
             config.update(get_data_config())
         return {**config, **cls._default_config(accelerator_spec)}
@@ -239,10 +240,6 @@ class Pass(ABC):
                 assert user_module_loader.user_script, f"'user_script' must be specified if a {key} is a string."
         # TODO: once convention for user_script and script dir is finalized, let config class handle
         # the resolution during serialization
-        if config["user_script"] is not None:
-            config["user_script"] = str(Path(config["user_script"]).resolve())
-        if config["script_dir"] is not None:
-            config["script_dir"] = str(Path(config["script_dir"]).resolve())
         return config
 
     @classmethod
@@ -271,8 +268,6 @@ class Pass(ABC):
             if isinstance(value, SearchParameter):
                 search_space[key] = value
             else:
-                if default_config[key].is_path and value is not None:
-                    value = str(Path(value).resolve())
                 fixed_params[key] = value
         assert not cyclic_search_space(search_space), "Search space is cyclic."
         # TODO: better error message, e.g. which parameters are invalid, how they are invalid
@@ -310,7 +305,9 @@ class Pass(ABC):
         config = input_config.dict()
         config = cls._resolve_defaults(config, default_config)
         if cls._requires_user_script:
-            user_module_loader = UserModuleLoader(config["user_script"], config["script_dir"])
+            user_script_path = get_local_path(config["user_script"])
+            script_dir_path = get_local_path(config["script_dir"])
+            user_module_loader = UserModuleLoader(user_script_path, script_dir_path)
             config = cls._validate_user_script(config, user_module_loader, default_config)
         return config
 
@@ -423,7 +420,7 @@ class FullPassConfig(ConfigBase):
         return pass_cls(accelerator_spec, self.config, self.disable_search)
 
 
-# TODO: deprecate or remove this method by explicitly specify the accelerator_spec in the arguement instead of using
+# TODO: deprecate or remove this method by explicitly specify the accelerator_spec in the arguments instead of using
 # the default argument.
 def create_pass_from_dict(
     pass_cls: Type[Pass], config: Dict[str, Any] = None, disable_search=False, accelerator_spec: AcceleratorSpec = None
