@@ -12,31 +12,49 @@ class AzureMLSystemAlias:
 
 class AzureND12SSystem(AzureMLSystemAlias):
     sku = "STANDARD_ND12S"
-    # TODO: add other attributes when needed
+    num_cpus = 12
+    num_gpus = 2
+    # TODO: add other attributes when needed from https://learn.microsoft.com/en-us/azure/virtual-machines/nd-series
 
 
 class AzureND24RSSystem(AzureMLSystemAlias):
     sku = "STANDARD_ND24RS"
+    num_cpus = 24
+    num_gpus = 4
 
 
 class AzureND24SSystem(AzureMLSystemAlias):
     sku = "STANDARD_ND24S"
+    num_cpus = 24
+    num_gpus = 4
 
 
 class AzureNDV2System(AzureMLSystemAlias):
     sku = "STANDARD_ND40RS_V2"
+    num_cpus = 40
+    num_gpus = 8
+    # add other attributes when needed from https://learn.microsoft.com/en-us/azure/virtual-machines/ndv2-series
 
 
 class AzureND6SSystem(AzureMLSystemAlias):
     sku = "STANDARD_ND6S"
+    num_cpus = 6
+    num_gpus = 1
+    # add other attributes when needed from https://learn.microsoft.com/en-us/azure/virtual-machines/nd-series
 
 
 class AzureND96A100System(AzureMLSystemAlias):
     sku = "STANDARD_ND96AMSR_A100_V4"
+    num_cpus = 96
+    num_gpus = 8
+    # add other attributes when needed from https://learn.microsoft.com/en-us/azure/virtual-machines/ndm-a100-v4-series
 
 
 class AzureND96ASystem(AzureMLSystemAlias):
     sku = "STANDARD_ND96ASR_V4"
+    num_cpus = 96
+    num_gpus = 8
+    # add other attributes when needed from https://learn.microsoft.com/en-us/azure/virtual-machines/nda100-v4-series
 
 
 # TODO: add the following alias system
@@ -87,6 +105,7 @@ class SurfaceSystemAlias:
 
 class SurfaceProSystem1796(SurfaceSystemAlias):
     sku = "Surface_Pro_1796"
+    # we need the cpus and gpus info for local system since we could query the info.
 
 
 class SurfaceProSystem1807(SurfaceSystemAlias):

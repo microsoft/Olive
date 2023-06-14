@@ -93,6 +93,7 @@ class SystemConfig(ConfigBase):
         if system_alias_class:
             values["type"] = system_alias_class.system_type
             values["config"]["accelerators"] = system_alias_class.accelerators
+            # TODO: consider how to use num_cpus and num_gpus in distributed inference.
         return values
 
     @validator("config", pre=True, always=True)
