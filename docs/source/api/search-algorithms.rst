@@ -1,4 +1,5 @@
 .. _search_algorithms:
+
 SearchAlgorithms
 =================================
 The following search algorithms are available in Olive.
@@ -6,6 +7,7 @@ The following search algorithms are available in Olive.
 Each algorithm is followed by a description of the algorithm and a list of the its configuration options.
 
 .. _exhaustive_search_algorithm:
+
 ExhaustiveSearchAlgorithm
 -------------------------
 **Name:** :code:`"exhaustive"`
@@ -13,6 +15,7 @@ ExhaustiveSearchAlgorithm
 .. autoconfigclass:: olive.strategy.search_algorithm.ExhaustiveSearchAlgorithm
 
 .. _random_search_algorithm:
+
 RandomSearchAlgorithm
 ---------------------
 **Name:** :code:`"random"`
@@ -20,6 +23,7 @@ RandomSearchAlgorithm
 .. autoconfigclass:: olive.strategy.search_algorithm.RandomSearchAlgorithm
 
 .. _tpe_search_algorithm:
+
 TPESearchAlgorithm
 ------------------
 **Name:** :code:`"tpe"`
