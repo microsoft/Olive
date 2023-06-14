@@ -678,20 +678,14 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">components</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="s2">&quot;task must be provided for huggingface model&quot;</span>
-            <span class="k">return</span> <span class="n">get_hf_model_dummy_input</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">feature</span><span class="p">)</span>
-
-        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span> <span class="ow">or</span> <span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="o">.</span><span class="n">input_shapes</span>
-        <span class="p">),</span> <span class="s2">&quot;dummy_inputs_func or io_config.input_shapes must be provided to get dummy input&quot;</span>
-
+        <span class="c1"># Priority: dummy_inputs_func &gt; io_config.input_shapes &gt; hf_config.dataset &gt; onnx_config</span>
+        <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using dummy_inputs_func to get dummy inputs&quot;</span><span class="p">)</span>
             <span class="n">user_module_loader</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;----------------------------------&quot;</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
             <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">user_module_loader</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="o">.</span><span class="n">input_shapes</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using io_config.input_shapes to get dummy inputs&quot;</span><span class="p">)</span>
             <span class="n">dummy_inputs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">data_config_template</span><span class="o">.</span><span class="n">dummy_data_config_template</span><span class="p">(</span>
                     <span class="n">input_shapes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="o">.</span><span class="n">input_shapes</span><span class="p">,</span>
@@ -700,14 +694,28 @@
                 <span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
                 <span class="o">.</span><span class="n">get_first_batch</span><span class="p">()</span>
             <span class="p">)</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">:</span>
-            <span class="n">dummy_inputs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">data_config_template</span><span class="o">.</span><span class="n">huggingface_data_config_template</span><span class="p">(</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">dataset</span><span class="p">,</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">dataset</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using hf_config.dataset to get dummy inputs&quot;</span><span class="p">)</span>
+                <span class="n">dummy_inputs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">data_config_template</span><span class="o">.</span><span class="n">huggingface_data_config_template</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">,</span>
+                        <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">dataset</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
+                    <span class="o">.</span><span class="n">get_first_batch</span><span class="p">()</span>
                 <span class="p">)</span>
-                <span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
-                <span class="o">.</span><span class="n">get_first_batch</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">components</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using hf onnx_config to get dummy inputs&quot;</span><span class="p">)</span>
+                <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">get_hf_model_dummy_input</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">feature</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">dummy_inputs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Unable to get dummy inputs. Please provide dummy_inputs_func, io_config.input_shapes,&quot;</span>
+                <span class="s2">&quot; hf_config.dataset, or hf_config.&quot;</span>
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">dummy_inputs</span>
