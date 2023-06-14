@@ -37,7 +37,6 @@ def parse_pass_args(pass_type, accelerator_spec, raw_args):
     # parse pass args
     for param, param_config in pass_class.default_config(accelerator_spec).items():
         if param_config.is_path:
-            # TODO jiapli
             parser.add_argument(f"--pass_{param}", type=str, help=f"pass {param}", required=param_config.required)
 
     return parser.parse_args(raw_args)

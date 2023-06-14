@@ -115,7 +115,6 @@ class ResourcePathConfig(ConfigBase):
 def create_resource_path(
     resource_path: Union[str, Path, Dict[str, Any], ResourcePathConfig, ResourcePath]
 ) -> ResourcePath:
-    # TODO: jiapli to see if we can change the given resource path with given olive systems
     """
     Create a resource path from a string or a dict.
     If a string is provided, it is inferred to be a file, folder, or string name.

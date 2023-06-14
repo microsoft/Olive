@@ -294,7 +294,7 @@ class OnnxQuantization(Pass):
                 logger.info("Weight type and activation type must be the same.")
                 return False
             if config["EnableSubgraph"] is True:
-                logger.info("Enable Subgraph is not supported for static quantization.")
+                logger.info("EnableSubgraph is not supported for static quantization.")
                 return False
         return True
 

@@ -238,8 +238,6 @@ class Pass(ABC):
         for key, value in config.items():
             if default_config[key].is_object and isinstance(value, str):
                 assert user_module_loader.user_script, f"'user_script' must be specified if a {key} is a string."
-        # TODO: once convention for user_script and script dir is finalized, let config class handle
-        # the resolution during serialization
         return config
 
     @classmethod

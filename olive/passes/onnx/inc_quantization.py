@@ -12,7 +12,7 @@ from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, get_local_path
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
@@ -238,7 +238,7 @@ class IncQuantization(Pass):
             if self._user_module_loader:
                 inc_calib_dataloader = self._user_module_loader.call_object(
                     self._fixed_params["dataloader_func"],
-                    self._fixed_params["data_dir"],
+                    get_local_path(self._fixed_params["data_dir"]),
                     self._fixed_params["batch_size"],
                 )
             elif self._data_config:
