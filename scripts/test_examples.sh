@@ -7,7 +7,8 @@ set -eoux pipefail
 
 PIPELINE=$1
 ROOT_DIR=$2
-EXAMPLE=$3
+EXAMPLE_FOLDER=$3
+EXAMPLE_NAME=$4
 
 echo $PIPELINE
 if [[ "$PIPELINE" == "True" ]]; then
