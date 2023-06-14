@@ -19,6 +19,13 @@ def default_dataloader(_dataset, batch_size=1, **kwargs):
 
 
 @Registry.register_dataloader()
+def no_auto_batch_dataloader(_dataset, **kwargs):
+    # torch dataloader will automatically batch if batch_size is not None
+    # this dataloader will not batch. Assumes that the dataset already returns a batch
+    return DataLoader(_dataset, batch_size=None, **kwargs)
+
+
+@Registry.register_dataloader()
 def default_calibration_dataloader(_dataloader, **kwargs):
     # TODO: consider other quantization calibration interface in SNPE/INC/OpenVINO/Torch and etc.
     from onnxruntime.quantization import CalibrationDataReader

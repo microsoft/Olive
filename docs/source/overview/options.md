@@ -64,7 +64,7 @@ case insensitive.
 
     - `model_script: [str]` The name of the script provided by the user to assist with model loading.
 
-    - `hf_config: [Dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
+    - <a name="hf_config"></a> `hf_config: [Dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
     model. This dictionary specifies the following items:
 
         - `model_name: [str]`: This the model name of the huggingface model such as `distilbert-base-uncased` which will be used to load the model with huggingface `from_pretrained` method.
@@ -72,12 +72,21 @@ case insensitive.
         - `task: [str]`: This is the task type for the model such as `text-classification`. The complete list of supported task can be found
         at [huggingface-tasks](https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task).
 
+        - `feature: [str]`: The ONNX export features. This is only needed for HuggingFace hub model. Default to `default`. You can find more info at [Export to ONNX](https://huggingface.co/docs/transformers/serialization)
+
         - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
 
-        - `model_config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
+        - `components: [List[HFComponent]]`: HFComponent list:
+            - `HFComponent`:
+                - `name: [str]`: Component name. Olive will generate a model class with this str as attribute name.
+                - `io_config: [str | Dict]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
+                - `component_func: [str]`: The component function name will be loaded from `model_script`.
+                - `dummy_inputs_func: [str]`: The dummy input function name will be loaded from `model_script`.
+
+        - `config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
         [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
 
-        - `dataset: [dict]`: Ff you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading_datasets.html). Olive exposes the following configs(which will be extend in the future):
+        - `dataset: [dict]`: If you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading). Olive exposes the following configs(which will be extended in the future):
             ```python
             "dataset": {
                 "model_name": "distilbert-base-uncased",  # the model name of the huggingface model, if not provided, it will use the model_name in hf_config
@@ -129,6 +138,7 @@ dictionary is the name of the system. The value of the dictionary is another dic
 information of the system contains following items:
 
 - `type: [str]` The type of the system. The supported types are `LocalSystem`, `AzureML` and `Docker`.
+  There are some built-in system alias which could also be used as type. For exmaple, `AzureNDV2System`. Please refer to [System Alias](system_alias) for the complete list of system alias.
 
 - `config: [Dict]` The system config dictionary that contains the system specific information.
 
@@ -157,7 +167,7 @@ This is a dictionary that contains the information of evaluators that are refere
 is the name of the evaluator. The value of the dictionary is another dictionary that contains the information of the evaluator. The
 information of the evaluator contains following items:
 
-- `metrics: [List]` This is a list of metrics that the evaluator will use to evaluate the model. Each metric is a dictionary that
+- <a name="metrics"></a> `metrics: [List]` This is a list of metrics that the evaluator will use to evaluate the model. Each metric is a dictionary that
     contains following items:
 
     - `name: [str]` The name of the metric. This must be a unique name among all metrics in the evaluator.

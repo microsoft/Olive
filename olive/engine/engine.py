@@ -28,6 +28,8 @@ from olive.systems.olive_system import OliveSystem
 
 logger = logging.getLogger(__name__)
 
+EXCEPTIONS_TO_RAISE = (AttributeError, ImportError, TypeError, ValueError)
+
 
 class Engine:
     """
@@ -289,7 +291,7 @@ class Engine:
                     result_name = f"{prefix_output_name}metrics"
                     results_path = output_dir / f"{result_name}.json"
                     with open(results_path, "w") as f:
-                        f.write(results.json())
+                        json.dump(results.to_json(), f, indent=4)
                     outputs[accelerator_spec] = results
                 elif self.no_search:
                     output = self.run_no_search(
@@ -312,6 +314,8 @@ class Engine:
                     outputs[accelerator_spec] = footprint
                     pf_footprints[accelerator_spec] = footprint
 
+            except EXCEPTIONS_TO_RAISE:
+                raise
             except Exception as e:
                 logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
 
@@ -407,7 +411,7 @@ class Engine:
         results_path = output_dir / f"{result_name}.json"
         if signal is not None:
             with open(results_path, "w") as f:
-                f.write(signal.json())
+                json.dump(signal.to_json(), f, indent=4)
 
         output = {"model": output_model_json}
         if signal is not None:
@@ -812,6 +816,7 @@ class Engine:
         # pass
         p: Pass = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
+        logger.info(f"Running pass {pass_name}")
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)
 
@@ -860,6 +865,9 @@ class Engine:
                 input_model = self._prepare_non_local_model(input_model)
             try:
                 output_model = host.run_pass(p, input_model, output_model_path, pass_search_point)
+            except EXCEPTIONS_TO_RAISE:
+                # Don't catch these errors since most of time, it is caused by the user errors and need not retry.
+                raise
             except Exception:
                 output_model = PRUNED_CONFIG
                 # TODO: from the time being, we need to catch all exceptions to make the

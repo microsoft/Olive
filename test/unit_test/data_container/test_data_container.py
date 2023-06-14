@@ -3,8 +3,14 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-from test.unit_test.utils import get_data_config, get_dc_params_config, get_glue_huggingface_data_config
+from test.unit_test.utils import (
+    create_raw_data,
+    get_data_config,
+    get_dc_params_config,
+    get_glue_huggingface_data_config,
+)
 
+import numpy as np
 import pytest
 
 from olive.data.config import DataConfig
@@ -38,6 +44,41 @@ class TestDataConfig:
         # override the default components from task_type
         assert dc_config.components["post_process_data"].type == "text_classification_post_process"
         dc = dc_config.to_data_container()
+        dc.create_dataloader()
+        dc.create_calibration_dataloader()
+
+    def test_raw_data_constructor(self):
+        dc_config = DataConfig(type="RawDataContainer")
+        dc = dc_config.to_data_container()
+        assert dc.config.load_dataset.__name__.startswith("raw_dataset")
+
+    def test_raw_data_runner(self, tmpdir):
+        input_names = ["float_input", "int_input"]
+        input_shapes = [[1, 3], [1, 2]]
+        input_types = ["float32", "int32"]
+        data = create_raw_data(tmpdir, input_names, input_shapes, input_types)
+
+        dc_config = DataConfig(
+            type="RawDataContainer",
+            params_config={
+                "data_dir": str(tmpdir),
+                "input_names": input_names,
+                "input_shapes": input_shapes,
+                "input_types": input_types,
+            },
+        )
+        dc = dc_config.to_data_container()
+
+        # check the dataset
+        dataset = dc.load_dataset()
+        assert len(dataset) == 1
+        for input_name in input_names:
+            input_data, _ = dataset[0]
+            assert input_name in input_data
+            assert input_data[input_name].shape == tuple(input_shapes[input_names.index(input_name)])
+            assert input_data[input_name].dtype == input_types[input_names.index(input_name)]
+            assert np.array_equal(input_data[input_name], data[input_name][0])
+
         dc.create_dataloader()
         dc.create_calibration_dataloader()
 

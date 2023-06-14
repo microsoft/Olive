@@ -24,13 +24,13 @@ class TestRunConfig:
 
     def test_transformer_dataset_config_file(self):
         run_config = RunConfig.parse_file(self.transformer_dataset_config_file)
-        for dc in run_config.data_config.values():
+        for dc in run_config.data_configs.values():
             dc.to_data_container().create_dataloader()
 
     def test_only_transformer_dataset_config_file(self):
         # test for the case where user want to use the hf dataset but not huggingface models
         run_config = RunConfig.parse_file(self.only_transformer_dataset_config_file)
-        for dc in run_config.data_config.values():
+        for dc in run_config.data_configs.values():
             dc.to_data_container().create_dataloader()
 
     @pytest.mark.parametrize("system", ["local_system", "azureml_system"])
@@ -50,3 +50,11 @@ class TestRunConfig:
         with pytest.raises(ValueError) as e:
             RunConfig.parse_obj(user_script_config)
             assert str(e.value) == "AzureML client config is required for AzureML system"
+
+    def test_readymade_system(self):
+        readymade_config_file = Path(__file__).parent / "mock_data" / "readymade_system.json"
+        with open(readymade_config_file, "r") as f:
+            user_script_config = json.load(f)
+
+        cfg = RunConfig.parse_obj(user_script_config)
+        assert cfg.engine.target.config.accelerators == ["GPU"]

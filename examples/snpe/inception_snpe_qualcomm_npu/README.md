@@ -29,22 +29,8 @@ To download the necessary data and model files:
 python download_files.py
 ```
 
-## Run conversion and quantization
-### Run locally
-Run the conversions locally. Only supports `x86_64 Linux`.
+## Run sample
+Run the conversion and quantization locally. Only supports `x64-Linux`.
 ```
-python inception_dev.py
+python -m olive.workflows.run --config inception_config.json
 ```
-
-## Run evaluation of SNPE models (Can be run without the conversion and quantization step)
-### Download data and model
-If running evaluation on a Windows device, please ensure the snpe models from the conversion and quantization step
-are saved in the models folder.
-
-### Run locally
-Evaluate the SNPE models locally. Supports `x86_64 Linux`, `x86_64 Windows` and `aarch64 Windows`.
-```
-python inception_eval.py [--use_dsp]
-```
-
-Note: `--use_dsp` only works on `aarch64 Windows`.

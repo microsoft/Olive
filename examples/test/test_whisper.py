@@ -4,27 +4,29 @@
 # --------------------------------------------------------------------------
 import json
 import os
+import sys
 from pathlib import Path
 
 import pytest
 from utils import check_no_search_output
-
-from olive.common.utils import retry_func, run_subprocess
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """setup any state specific to the execution of the given module."""
     cur_dir = Path(__file__).resolve().parent.parent
-    example_dir = cur_dir / "whisper"
+    example_dir = str(cur_dir / "whisper")
     os.chdir(example_dir)
+    sys.path.append(example_dir)
 
     # prepare configs
-    # retry since it fails randomly on windows
-    retry_func(run_subprocess, kwargs={"cmd": "python prepare_whisper_configs.py", "check": True})
+    from prepare_whisper_configs import main as prepare_whisper_configs
+
+    prepare_whisper_configs([])
 
     yield
     os.chdir(cur_dir)
+    sys.path.remove(example_dir)
 
 
 @pytest.mark.parametrize("device_precision", [("cpu", "fp32"), ("cpu", "int8")])
@@ -32,7 +34,16 @@ def test_whisper(device_precision):
     from olive.workflows import run as olive_run
 
     device, precision = device_precision
-    olive_config = json.load(open(f"whisper_{device}_{precision}.json", "r"))
+    config_file = f"whisper_{device}_{precision}.json"
+    olive_config = json.load(open(config_file, "r"))
 
+    # test workflow
     result = olive_run(olive_config)
     check_no_search_output(result)
+
+    # test transcription
+    from test_transcription import main as test_transcription
+
+    transcription = test_transcription(["--config", config_file])
+    print(transcription)
+    assert len(transcription) > 0

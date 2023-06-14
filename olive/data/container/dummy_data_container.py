@@ -18,11 +18,9 @@ class DummyDataContainer(DataContainer):
             name="dummy",
             type="DummyDataContainer",
             params_config={
-                "dummy_dataset": {
-                    "input_names": metric.user_config.input_names,
-                    "input_shapes": metric.user_config.input_shapes,
-                    "input_types": metric.user_config.input_types,
-                }
+                "input_names": metric.user_config.input_names,
+                "input_shapes": metric.user_config.input_shapes,
+                "input_types": metric.user_config.input_types,
             }
         )
     """

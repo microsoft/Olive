@@ -9,6 +9,6 @@ dependencies:
       - datasets
       - evaluate
       - scipy
+      - scikit-learn
       - transformers
-      - onnxconverter_common
       - git+https://github.com/microsoft/Olive.git

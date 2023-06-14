@@ -11,6 +11,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel, SNPEModel, TensorFlowModel
 from olive.passes.olive_pass import Pass
 from olive.passes.pass_config import PassConfigParam
+from olive.resource_path import LocalFile
 from olive.snpe.constants import InputLayout, InputType
 from olive.snpe.tools.dev import get_dlc_io_config, to_dlc
 
@@ -54,11 +55,6 @@ class SNPEConversion(Pass):
                 description="List of input shapes. Must be the same length as input_names.",
             ),
             "output_names": PassConfigParam(type_=List[str], required=True, description="List of output names."),
-            "output_shapes": PassConfigParam(
-                type_=List[List[int]],
-                required=True,
-                description="List of output shapes. Must be the same length as output_names.",
-            ),
             "input_types": PassConfigParam(
                 type_=List[Union[str, None]],
                 default_value=None,
@@ -106,4 +102,4 @@ class SNPEConversion(Pass):
 
         to_dlc(model.model_path, model.framework, config.dict(), output_model_path)
         io_config = get_dlc_io_config(output_model_path, config.input_names, config.output_names)
-        return SNPEModel(model_path=output_model_path, **io_config)
+        return SNPEModel(model_path=LocalFile({"path": output_model_path}), **io_config)

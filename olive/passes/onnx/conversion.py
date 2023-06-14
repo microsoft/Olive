@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, Union
@@ -9,12 +10,17 @@ from typing import Any, Dict, Union
 import onnx
 import torch
 
+from olive.common.config_utils import validate_config
 from olive.common.utils import tensor_data_to_device
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeOnnxModel, ONNXModel, PyTorchModel
+from olive.model.hf_utils import get_hf_model_io_config
+from olive.model.model_config import IOConfig
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
+
+logger = logging.getLogger(__name__)
 
 
 class TraceModelWrapper(torch.nn.Module):
@@ -61,10 +67,18 @@ class OnnxConversion(Pass):
         dummy_inputs = model.get_dummy_inputs()
 
         # get input and output names, and dynamic axes
-        assert model.io_config, "Model IO config is not set."
-        input_names = model.io_config.input_names
-        output_names = model.io_config.output_names
-        dynamic_axes = model.io_config.dynamic_axes
+        # priority: model.io_config > auto-generated io_config for HF models
+        io_config = model.io_config
+        if not io_config and (model.hf_config and not model.hf_config.components):
+            logger.debug("Using hf config to get io_config for the model.")
+            io_config = get_hf_model_io_config(
+                model.hf_config.model_name, model.hf_config.task, model.hf_config.feature
+            )
+            io_config = validate_config(io_config, IOConfig)
+        assert io_config, "Cannot get io_config for the model. Please specify io_config or hf_config for the model."
+        input_names = io_config.input_names
+        output_names = io_config.output_names
+        dynamic_axes = io_config.dynamic_axes
 
         # convert the model
         pytorch_model = model.load_model()
@@ -103,13 +117,10 @@ class OnnxConversion(Pass):
         tmp_dir.cleanup()
 
         # Workaround as described under IOConfig.string_to_int_dim_params: change numeric dim_param to dim_value
-        if model.io_config.string_to_int_dim_params:
+        if io_config.string_to_int_dim_params:
             for tensor in onnx_model.graph.output:
                 for dim_proto in tensor.type.tensor_type.shape.dim:
-                    if (
-                        dim_proto.HasField("dim_param")
-                        and dim_proto.dim_param in model.io_config.string_to_int_dim_params
-                    ):
+                    if dim_proto.HasField("dim_param") and dim_proto.dim_param in io_config.string_to_int_dim_params:
                         dim_value = int(dim_proto.dim_param)
                         dim_proto.Clear()
                         dim_proto.dim_value = dim_value

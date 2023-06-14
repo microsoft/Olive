@@ -2,12 +2,26 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from pathlib import Path
 from urllib import request
 
 import numpy as np
 from PIL import Image
 from torchvision import transforms
-from vgg_utils import get_directories
+
+
+def get_directories():
+    current_dir = Path(__file__).resolve().parent
+
+    # models directory for resnet sample
+    models_dir = current_dir / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    # data directory for resnet sample
+    data_dir = current_dir / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    return current_dir, models_dir, data_dir
 
 
 def preprocess_image(image):
@@ -30,7 +44,7 @@ def preprocess_image(image):
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         ]
     )
-    transformed_img = transformations(src_img).numpy().astype(np.float32).transpose(1, 2, 0)
+    transformed_img = transformations(src_img).numpy().astype(np.float32)
     return transformed_img
 
 
@@ -50,8 +64,8 @@ def main():
     kitten_raw = preprocess_image(kitten_jpg)
     kitten_raw.tofile(data_dir / "kitten.raw")
 
-    # create input list
-    with open(data_dir / "input_list.txt", "w") as f:
+    # create input order file
+    with open(data_dir / "input_order.txt", "w") as f:
         f.write("kitten.raw\n")
 
 

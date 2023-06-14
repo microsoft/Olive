@@ -79,6 +79,7 @@ def model_proto_to_file(
         try:
             # save model
             onnx.save_model(model, str(output_path))
+            return False
         except ValueError as e:
             # there are different types of error message for large model (>2GB) based on onnx version
             # just try to save as external data
@@ -93,7 +94,6 @@ def model_proto_to_file(
                 return True
             except Exception:
                 raise e
-        return False
 
     # location for external data
     external_data_path = output_dir / (external_data_name if external_data_name else f"{output_path.name}.data")

@@ -288,11 +288,11 @@ class VitisAIQuantization(Pass):
                 del run_config[key]
 
         # get the dataloader
-        if self._user_module_loader.user_module:
+        if config["dataloader_func"]:
             dataloader = self._user_module_loader.call_object(
-                self._fixed_params["dataloader_func"],
-                self._fixed_params["data_dir"],
-                self._fixed_params["batch_size"],
+                config["dataloader_func"],
+                config["data_dir"],
+                config["batch_size"],
             )
         elif self._data_config:
             dataloader = self._data_config.to_data_container().create_calibration_dataloader()

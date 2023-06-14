@@ -8,6 +8,7 @@ import os
 
 def check_search_output(footprints):
     """Check if the search output is valid."""
+    assert footprints, "footprints is empty. The search must have failed for all accelerator specs."
     for footprint in footprints.values():
         assert footprint.nodes
         for v in footprint.nodes.values():
@@ -15,6 +16,7 @@ def check_search_output(footprints):
 
 
 def check_no_search_output(outputs):
+    assert outputs, "outputs is empty. The run must have failed for all accelerator specs."
     for output in outputs.values():
         output_metrics = output["metrics"]
         for item in output_metrics.values():

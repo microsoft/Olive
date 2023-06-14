@@ -55,3 +55,33 @@ def huggingface_data_config_template(model_name, task, **kwargs) -> DataConfig:
             **kwargs,
         },
     )
+
+
+def raw_data_config_template(
+    data_dir,
+    input_names,
+    input_shapes,
+    input_types=None,
+    input_dirs=None,
+    input_suffix=None,
+    input_order_file=None,
+    annotations_file=None,
+) -> DataConfig:
+    """
+    Convert the raw data config to the data container.
+    Refer to olive.data.component.dataset.RawDataset for more details.
+    """
+    return DataConfig(
+        name="raw_data_config_template",
+        type="RawDataContainer",
+        params_config={
+            "data_dir": data_dir,
+            "input_names": input_names,
+            "input_shapes": input_shapes,
+            "input_types": input_types,
+            "input_dirs": input_dirs,
+            "input_suffix": input_suffix,
+            "input_order_file": input_order_file,
+            "annotations_file": annotations_file,
+        },
+    )
