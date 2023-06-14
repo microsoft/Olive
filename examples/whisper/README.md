@@ -18,37 +18,9 @@ Outputs the final model and latency results.
 Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive.
 
 ### Pip requirements
-This example requires the latest code from onnxruntime-extensions which are not available in the stable releases yet.
-So, we will install the nightly version.
-
-On Linux:
-```bash
-# Install requirements
-python -m pip install -r requirements.txt
-# Install nightly version of onnxruntime-extensions
-python -m pip uninstall -y onnxruntime-extensions
-export OCOS_NO_OPENCV=1
-python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git
+Install the necessary python packages:
 ```
-
-On Windows (cmd):
-```cmd
-:: Install requirements
 python -m pip install -r requirements.txt
-:: Install nightly version of onnxruntime-extensions
-python -m pip uninstall -y onnxruntime-extensions
-python -m pip install onnxruntime-extensions==0.8.0.306180 ^
-    --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-```
-
-On Windows (PowerShell):
-```powershell
-# Install requirements
-python -m pip install -r requirements.txt
-# Install nightly version of onnxruntime-extensions
-python -m pip uninstall -y onnxruntime-extensions
-python -m pip install onnxruntime-extensions==0.8.0.306180 `
-    --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
 ### Prepare workflow config json

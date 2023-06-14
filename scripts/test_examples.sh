@@ -23,12 +23,4 @@ python -m pip install pytest
 echo "Testing examples"
 python -m pip install -r $ROOT_DIR/examples/$EXAMPLE_FOLDER/requirements.txt
 
-# TODO: need to remove later
-echo "Installing custom packages for whisper"
-if [[ "$EXAMPLE" == "whisper" ]]; then
-    python -m pip uninstall -y onnxruntime-extensions
-    export OCOS_NO_OPENCV=1
-    python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git
-fi
-
 python -m pytest -v -s --log-cli-level=WARNING --junitxml=$ROOT_DIR/logs/test_examples-TestOlive.xml $ROOT_DIR/examples/test/test_$EXAMPLE_NAME.py
