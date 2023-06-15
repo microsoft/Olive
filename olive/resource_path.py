@@ -421,7 +421,6 @@ class AzureMLDatastore(ResourcePath):
             )
 
         azureml_client_config = self.get_aml_client_config()
-        azureml_client_config.create_client()
 
         # azureml file system
         fs = AzureMachineLearningFileSystem(self.get_path())
