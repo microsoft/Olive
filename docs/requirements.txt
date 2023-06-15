@@ -1,7 +1,6 @@
 autodoc_pydantic
 azure-ai-ml>=0.1.0b6
 azure-identity
-azureml-fsspec
 docker
 myst_parser
 onnxconverter_common

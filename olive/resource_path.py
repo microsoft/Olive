@@ -366,9 +366,6 @@ class AzureMLDatastore(ResourcePath):
             f"/datastores/{self.config.datastore_name}/paths/{self.config.relative_path}"
         )
 
-    def is_file(self, fsspec) -> bool:
-        return fsspec.info(self.get_relative_path()).get("type") == "file"
-
     def get_relative_path(self) -> str:
         if self.config.datastore_url:
             return re.split("/datastores/.*/paths/", self.config.datastore_url)[-1]
@@ -390,25 +387,18 @@ class AzureMLDatastore(ResourcePath):
         # there is no direct way to download a file from a datastore
         # so we will use a workaround to download the file by creating a aml model
         # that references the file and downloading the model
-        try:
-            from azureml.fsspec import AzureMachineLearningFileSystem
-        except ImportError:
-            raise ImportError(
-                "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
-            )
-
         dir_path = Path(dir_path).resolve()
         dir_path.mkdir(parents=True, exist_ok=True)
 
         azureml_client_config = self.get_aml_client_config()
+        ml_client = azureml_client_config.create_client()
 
-        # azureml file system
-        fs = AzureMachineLearningFileSystem(self.get_path())
+        # relative path to the resource
         relative_path = Path(self.get_relative_path())
-        is_file = self.is_file(fs)
+
         # path to save the resource to
         if name:
-            new_path_name = Path(name).with_suffix("" if not is_file else relative_path.suffix).name
+            new_path_name = Path(name).with_suffix(relative_path.suffix).name
         else:
             new_path_name = relative_path.name
 
@@ -416,24 +406,24 @@ class AzureMLDatastore(ResourcePath):
         _overwrite_helper(dir_path / new_path_name, overwrite)
 
         # download artifacts to a temporary directory
-        logger.debug(
-            f"Downloading aml resource for datastore {self.config.datastore_name} path {self.config.relative_path}."
-        )
-
+        logger.debug(f"Downloading aml resource {self.get_path()} to {new_path}")
         with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
+            from azure.ai.ml._artifacts._artifact_utilities import download_artifact_from_aml_uri
+
             retry_func(
-                fs.download,
-                kwargs={
-                    "rpath": self.get_relative_path(),
-                    "lpath": temp_dir,
-                    "recursive": not is_file,
-                },
+                download_artifact_from_aml_uri,
+                kwargs={"uri": self.get_path(), "destination": temp_dir, "datastore_operation": ml_client.datastores},
                 max_tries=azureml_client_config.max_operation_retries,
                 delay=azureml_client_config.operation_retry_interval,
             )
-            downloaded_resource = Path(temp_dir) / relative_path.name
-            # only if the resource is a existed file we will move it to the new path
-            source_path = downloaded_resource if is_file else temp_dir
+            # check to see if the downloaded resource is a file
+            # condition: single file in the temp directory with the same name as the resource
+            downloaded_glob = list(Path(temp_dir).glob("**/*"))
+            is_file = len(downloaded_glob) == 1 and downloaded_glob[0].name == relative_path.name
+            # move the downloaded resource to the new path
+            # if file, move the file to the new path
+            # if directory, move the tmp directory to the new path
+            source_path = Path(temp_dir) / relative_path.name if is_file else temp_dir
             shutil.move(source_path, new_path)
 
         return str(Path(new_path).resolve())
