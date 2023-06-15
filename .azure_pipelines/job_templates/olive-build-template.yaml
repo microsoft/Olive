@@ -22,11 +22,7 @@ jobs:
   - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
     displayName: Install Olive
 
-  - task: AzureCLI@1
-    inputs:
-      azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
-      scriptLocation: 'inlineScript'
-      inlineScript: make test
+  - script: make test
     displayName: Test Olive
     env:
       OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
@@ -88,11 +84,7 @@ jobs:
   - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
     displayName: Install Olive
 
-  - task: AzureCLI@1
-    inputs:
-      azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
-      scriptLocation: 'inlineScript'
-      inlineScript: make test-examples
+  - script: make test-examples
     displayName: Test Examples
     env:
       OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
