@@ -288,10 +288,7 @@ class OnnxQuantization(Pass):
                 and config["activation_type"] == "QInt8"
                 and config["quant_format"] == "QOperator"
             ):
-                logger.info("QOperator is not supported for QInt8 activation and weight.")
-                return False
-            if config["weight_type"] != config["activation_type"]:
-                logger.info("Weight type and activation type must be the same.")
+                logger.info("S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general")
                 return False
             if config["EnableSubgraph"] is True:
                 logger.info("EnabaleSubgraph is not supported for static quantization.")
