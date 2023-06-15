@@ -173,14 +173,14 @@ class TestAzureMLSystem:
                 "model_path": resource_paths[model_resource_type],
             },
         }
-        tem_dir_path = Path(tem_dir.name)
+        tem_dir_path = Path(tem_dir.name).resolve()
         model_config_path = tem_dir_path / "model_config.json"
         if model_resource_type == ResourceType.AzureMLModel:
             expected_model_path = Input(type=AssetTypes.CUSTOM_MODEL, path="azureml:model_name:version")
         else:
             expected_model_path = Input(type=AssetTypes.URI_FILE, path=Path(temp_model.name).resolve())
-        expected_model_script = Input(type=AssetTypes.URI_FILE, path=dummy_model_script.name)
-        expected_model_script_dir = Input(type=AssetTypes.URI_FOLDER, path=tem_dir.name)
+        expected_model_script = Input(type=AssetTypes.URI_FILE, path=Path(dummy_model_script.name).resolve())
+        expected_model_script_dir = Input(type=AssetTypes.URI_FOLDER, path=Path(tem_dir.name).resolve())
         expected_model_config = Input(type=AssetTypes.URI_FILE, path=model_config_path)
         expected_res = {
             "model_config": expected_model_config,

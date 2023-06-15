@@ -313,7 +313,7 @@ class AzureMLSystem(OliveSystem):
         }
         # prepare inputs
         inputs = {
-            **self._create_model_inputs(get_asset_type_from_resource_path(model.model_resource_path)),
+            **self._create_model_inputs(AssetTypes.CUSTOM_MODEL),
             **self._create_pass_inputs(pass_path_params),
             **accelerator_info,
         }
