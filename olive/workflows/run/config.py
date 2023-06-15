@@ -25,6 +25,7 @@ class RunPassConfig(FullPassConfig):
     host: SystemConfig = None
     evaluator: OliveEvaluatorConfig = None
     clean_run_cache: bool = False
+    output_name: str = None
 
 
 class RunEngineConfig(EngineConfig):

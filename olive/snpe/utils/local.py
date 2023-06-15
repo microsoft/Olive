@@ -80,13 +80,11 @@ def get_snpe_env(dev: bool = False) -> dict:
     dev: Whether to use the SNPE development environment. Only supported on x64-Linux
     """
     snpe_root = get_snpe_root()
-    target_arch_mapping = {
-        "x64-Linux": "x86_64-linux-clang",
-        "x64-Windows": get_snpe_win_arch_name(snpe_root, "x64-Windows"),
-        "ARM64-Windows": get_snpe_win_arch_name(snpe_root, "ARM64-Windows"),
-    }
     target_arch = get_snpe_target_arch()
-    target_arch_name = target_arch_mapping[target_arch]
+    if "Linux" in target_arch:
+        target_arch_name = "x86_64-linux-clang"
+    else:
+        target_arch_name = get_snpe_win_arch_name(snpe_root, target_arch)
 
     if dev and target_arch != "x64-Linux":
         raise ValueError("SNPE development environment is only supported on x64-Linux")
