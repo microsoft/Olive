@@ -51,7 +51,7 @@
                             "config": {
                                 "azureml_client": "azureml_client",
                                 "datastore_name": "workspaceblobstore",
-                                "relative_path": "UI/2023-06-13_060737_UTC/cifar10-data/cifar-10-batches-py"
+                                "relative_path": "LocalUpload/cifar-10"
                             }
                         },
                         "dataloader_func": "create_dataloader",
@@ -90,7 +90,7 @@
                     "config": {
                         "azureml_client": "azureml_client",
                         "datastore_name": "workspaceblobstore",
-                        "relative_path": "UI/2023-06-13_060737_UTC/cifar10-data/cifar-10-batches-py"
+                        "relative_path": "LocalUpload/cifar-10"
                     }
                 }
             }
@@ -104,6 +104,7 @@
         "evaluator": "common_evaluator",
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
+        "clean_cache": true,
         "output_dir": "models/resnet_ptq_cpu"
     }
 }

@@ -81,7 +81,7 @@ class Pass(ABC):
         if self._requires_user_script:
             self._user_module_loader = UserModuleLoader(self._config["user_script"], self._config["script_dir"])
         if self._requires_data_config:
-            data_config = self._config.get("data_config") or {}
+            data_config = self._config.get("data_config", {})
             self._data_config = DataConfig(**data_config)
 
         self._fixed_params = {}

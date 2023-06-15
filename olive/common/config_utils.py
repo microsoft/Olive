@@ -10,7 +10,7 @@ from pathlib import Path
 from types import FunctionType, MethodType
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from pydantic import BaseModel, ValidationError, create_model, validator
+from pydantic import BaseModel, create_model, validator
 
 from olive.common.utils import hash_function, hash_object
 
@@ -197,7 +197,7 @@ def validate_resource_path(v, values, field):
 
     try:
         v = create_resource_path(v)
-    except (ValueError, ValidationError) as e:
+    except ValueError as e:
         raise ValueError(f"Invalid resource path '{v}': {e}")
     return v
 
