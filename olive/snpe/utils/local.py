@@ -58,8 +58,8 @@ def get_snpe_env(dev: bool = False) -> dict:
     """
     target_arch_mapping = {
         "x64-Linux": "x86_64-linux-clang",
-        "x64-Windows": "x86_64-windows-vc19",
-        "ARM64-Windows": "aarch64-windows-vc19",
+        "x64-Windows": "x86_64-windows-msvc",
+        "ARM64-Windows": "aarch64-windows-msvc",
     }
     target_arch = get_snpe_target_arch()
     target_arch_name = target_arch_mapping[target_arch]
