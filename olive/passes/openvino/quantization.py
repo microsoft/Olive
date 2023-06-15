@@ -5,12 +5,13 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
+from olive.cache import get_local_path
 from olive.common.user_module_loader import UserModuleLoader
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OpenVINOModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, get_local_path
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 
 class OpenVINOQuantization(Pass):

@@ -7,12 +7,13 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
+from olive.cache import get_local_path
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, get_local_path
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)

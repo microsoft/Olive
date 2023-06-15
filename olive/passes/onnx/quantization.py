@@ -10,13 +10,14 @@ from typing import Any, Callable, Dict, Union
 
 import onnx
 
+from olive.cache import get_local_path
 from olive.common.utils import hash_string
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile, get_local_path
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
 
 logger = logging.getLogger(__name__)

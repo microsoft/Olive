@@ -5,8 +5,9 @@
 from types import FunctionType, MethodType
 from typing import Any, Callable, Union
 
+from olive.cache import get_local_path
 from olive.common.import_lib import import_user_module
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, create_resource_path, get_local_path
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, create_resource_path
 
 
 class UserModuleLoader:

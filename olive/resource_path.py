@@ -48,27 +48,6 @@ class ResourcePath(AutoConfigClass):
     def type(self) -> ResourceType:
         return self.name
 
-    def get_flag_file(self, data_path) -> Path:
-        flag_dir = Path(data_path) / f".{self.name.value}"
-        flag_dir.mkdir(parents=True, exist_ok=True)
-        return flag_dir / OLIVE_DOWNLOAD_SUCCESSFUL_FLAG
-
-    def write_flag_file(self, data_path, new_path):
-        flag_file = self.get_flag_file(data_path)
-        with open(flag_file, "w") as f:
-            f.write(str(new_path))
-
-    def read_flag_file(self, data_path) -> str:
-        flag_file = self.get_flag_file(data_path)
-        if not flag_file.exists():
-            return None
-        with open(flag_file, "r") as f:
-            return f.read()
-
-    def remove_flag_file(self, data_path):
-        flag_file = self.get_flag_file(data_path)
-        flag_file.unlink()
-
     @abstractmethod
     def get_path(self) -> str:
         """Return the resource path as a string."""
@@ -350,7 +329,6 @@ class AzureMLModel(ResourcePath):
             )
             new_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(temp_dir / self.config.name / model_path.name, new_path)
-            self.write_flag_file(dir_path, new_path)
         return str(new_path)
 
 
@@ -479,7 +457,6 @@ class AzureMLDatastore(ResourcePath):
             # only if the resource is a existed file we will move it to the new path
             source_path = downloaded_resource if is_file else temp_dir
             shutil.move(source_path, new_path)
-            self.write_flag_file(dir_path, new_path)
 
         return str(Path(new_path).resolve())
 
@@ -535,25 +512,7 @@ class AzureMLJobOutput(ResourcePath):
             )
             new_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(temp_dir / "named-outputs" / self.config.output_name / self.config.relative_path, new_path)
-            self.write_flag_file(dir_path, new_path)
         return str(new_path)
 
 
 OLIVE_RESOURCE_ANNOTATIONS = Optional[Union[str, Path, ResourcePath, ResourcePathConfig]]
-OLIVE_DOWNLOAD_SUCCESSFUL_FLAG = ".olive_resource_flag"
-LOCAL_CACHE_DIR = "./cache/aml_datastore_data"
-
-
-def get_local_path(resource_path: OLIVE_RESOURCE_ANNOTATIONS) -> str:
-    """Return the local path of the resource."""
-    if resource_path is None:
-        return None
-
-    if resource_path.is_local_resource() or resource_path.is_string_name():
-        return resource_path.get_path()
-    elif resource_path.is_azureml_resource():
-        cache_data_path = Path(LOCAL_CACHE_DIR).resolve()
-        new_path = resource_path.read_flag_file(cache_data_path)
-        if new_path and Path(new_path).exists():
-            return new_path
-        return resource_path.save_to_dir(cache_data_path, overwrite=True)

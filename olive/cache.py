@@ -10,7 +10,6 @@ from typing import Union
 
 from olive.common.config_utils import serialize_to_json
 from olive.common.utils import hash_dict
-from olive.passes import REGISTRY as PASS_REGISTRY
 from olive.resource_path import ResourcePath, create_resource_path
 
 logger = logging.getLogger(__name__)
@@ -100,8 +99,6 @@ def clean_pass_run_cache(pass_type: str, cache_dir: Union[str, Path] = ".olive-c
 
     This function deletes all runs for a given pass type as well as all child models and evaluations.
     """
-    assert pass_type.lower() in PASS_REGISTRY, f"Invalid pass type {pass_type}"
-
     run_cache_dir = get_cache_sub_dirs(cache_dir)[1]
 
     # cached runs for pass
@@ -146,6 +143,21 @@ def get_non_local_resource(resource_path: ResourcePath, cache_dir: Union[str, Pa
         json.dump(data, f, indent=4)
 
     return local_resource_path
+
+
+def get_local_path(resource_path: ResourcePath, cache_dir: Union[str, Path] = ".olive-cache"):
+    """
+    Return the local path of the any resource path.
+    If the resource path is a local resource, the path is returned.
+    If the resource path is an AzureML resource, the resource is downloaded to the cache and the path is returned.
+    """
+    if resource_path is None:
+        return None
+
+    if resource_path.is_local_resource() or resource_path.is_string_name():
+        return resource_path.get_path()
+    elif resource_path.is_azureml_resource():
+        return get_non_local_resource(resource_path).get_path()
 
 
 def save_model(

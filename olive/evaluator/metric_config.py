@@ -6,8 +6,9 @@ from typing import Callable, Dict, List, Union
 
 from pydantic import validator
 
+from olive.cache import get_local_path
 from olive.common.config_utils import ConfigBase, ConfigParam, create_config_class
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, create_resource_path, get_local_path
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, create_resource_path
 
 WARMUP_NUM = 10
 REPEAT_TEST_NUM = 20

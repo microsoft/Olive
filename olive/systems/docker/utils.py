@@ -8,10 +8,10 @@ import shutil
 from pathlib import Path
 from typing import List
 
+from olive.cache import get_local_path
 from olive.constants import Framework
 from olive.evaluator.metric import Metric
 from olive.model import OliveModel
-from olive.resource_path import get_local_path
 
 logger = logging.getLogger(__name__)
 

@@ -17,6 +17,7 @@ from azure.ai.ml.entities import BuildContext, Environment, Model
 from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
+from olive.cache import get_local_path
 from olive.common.config_utils import validate_config
 from olive.common.utils import retry_func
 from olive.constants import Framework
@@ -32,7 +33,6 @@ from olive.resource_path import (
     ResourcePath,
     ResourceType,
     create_resource_path,
-    get_local_path,
 )
 from olive.systems.common import AzureMLDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem

@@ -14,6 +14,7 @@ from pydantic import validator
 from torch.utils.data import Dataset
 
 import olive.data.template as data_config_template
+from olive.cache import get_local_path
 from olive.common.config_utils import ConfigBase
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
@@ -31,7 +32,6 @@ from olive.evaluator.metric import (
 from olive.evaluator.metric_backend import MetricBackend
 from olive.hardware import Device
 from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
-from olive.resource_path import get_local_path
 from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
