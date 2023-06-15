@@ -50,21 +50,25 @@ def get_snpe_target_arch(fail_on_unsupported: bool = True) -> str:
     return snpe_target_arch
 
 
-def get_snpe_arm_win_arch_name(snpe_root: str) -> str:
+def get_snpe_win_arch_name(snpe_root: str, snpe_target_arch: str) -> str:
     """
     Get the SNPE ARM64-Windows architecture name from the SNPE root directory.
 
     snpe_root: The unzipped SNPE SDK directory
+    snpe_target_arch: The SNPE target architecture
     """
     if not Path(snpe_root).exists():
         raise FileNotFoundError(f"Path {snpe_root} does not exist")
 
-    arm_windows_archs = list(Path(snpe_root).glob("lib/aarch64-windows-*"))
+    prefix_map = {"x64-Windows": "x86_64-windows-", "ARM64-Windows": "aarch64-windows-"}
+    prefix = prefix_map[snpe_target_arch]
+
+    arm_windows_archs = list(Path(snpe_root).glob(f"lib/{prefix}*"))
     if len(arm_windows_archs) == 0:
-        raise FileNotFoundError(f"SNPE_ROOT {snpe_root} missing aarch64-windows-*")
+        raise FileNotFoundError(f"SNPE_ROOT {snpe_root} missing {prefix}*")
 
     arm_windows_arch = arm_windows_archs[0].name
-    logger.debug(f"SNPE ARM64-Windows arch name: {arm_windows_arch}")
+    logger.debug(f"SNPE {snpe_target_arch} arch name: {arm_windows_arch}")
 
     return arm_windows_arch
 
@@ -78,8 +82,8 @@ def get_snpe_env(dev: bool = False) -> dict:
     snpe_root = get_snpe_root()
     target_arch_mapping = {
         "x64-Linux": "x86_64-linux-clang",
-        "x64-Windows": "x86_64-windows-vc19",
-        "ARM64-Windows": get_snpe_arm_win_arch_name(snpe_root),
+        "x64-Windows": get_snpe_win_arch_name(snpe_root, "x64-Windows"),
+        "ARM64-Windows": get_snpe_win_arch_name(snpe_root, "ARM64-Windows"),
     }
     target_arch = get_snpe_target_arch()
     target_arch_name = target_arch_mapping[target_arch]
