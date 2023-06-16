@@ -25,7 +25,7 @@ a. Run QAT training with customized training loop.
 }
 ```
 
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/quantization_aware_training/bert_qat_customized_train_loop_cpu/user_script.py)
+Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py)
 for an example implementation of `"user_script.py"` and `"training_loop_func"`.
 
 b. Run QAT training with PyTorch Lightning.
@@ -41,7 +41,7 @@ b. Run QAT training with PyTorch Lightning.
 }
 ```
 
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/quantization_aware_training/resnet_qat_lightning_module_cpu/user_script.py)
+Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py)
 for an example implementation of `"user_script.py"`, `"PTLDataModule"` and `"PTLModule"`.
 
 
@@ -57,5 +57,5 @@ c. Run QAT training with default training loop.
 }
 ```
 
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/quantization_aware_training/resnet_qat_default_train_loop_cpu/user_script.py)
+Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py)
 for an example implementation of `"user_script.py"` and `"create_train_dataloader"`.
