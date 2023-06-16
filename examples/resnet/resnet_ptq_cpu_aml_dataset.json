@@ -1,4 +1,9 @@
 {
+    "azureml_client": {
+        "subscription_id": "subscription_id",
+        "resource_group": "resource_group",
+        "workspace_name": "workspace_name"
+    },
     "input_model":{
         "type": "PyTorchModel",
         "config": {
@@ -29,7 +34,13 @@
                     ],
                     "user_config":{
                         "user_script": "user_script.py",
-                        "data_dir": "data",
+                        "data_dir": {
+                            "type": "azureml_datastore",
+                            "config": {
+                                "datastore_name": "workspaceblobstore",
+                                "relative_path": "LocalUpload/cifar-10"
+                            }
+                        },
                         "evaluate_func": "eval_accuracy",
                         "batch_size": 16
                     }
@@ -46,7 +57,13 @@
                     ],
                     "user_config":{
                         "user_script": "user_script.py",
-                        "data_dir": "data",
+                        "data_dir": {
+                            "type": "azureml_datastore",
+                            "config": {
+                                "datastore_name": "workspaceblobstore",
+                                "relative_path": "LocalUpload/cifar-10"
+                            }
+                        },
                         "dataloader_func": "create_dataloader",
                         "batch_size": 16
                     }
@@ -65,7 +82,13 @@
             "type": "OnnxQuantization",
             "config": {
                 "user_script": "user_script.py",
-                "data_dir": "data",
+                "data_dir": {
+                    "type": "azureml_datastore",
+                    "config": {
+                        "datastore_name": "workspaceblobstore",
+                        "relative_path": "LocalUpload/cifar-10"
+                    }
+                },
                 "dataloader_func": "resnet_calibration_reader",
                 "weight_type": "QUInt8",
                 "activation_type": "QUInt8",
@@ -78,7 +101,13 @@
                 "user_script": "user_script.py",
                 "dataloader_func": "create_dataloader",
                 "batch_size": 16,
-                "data_dir": "data"
+                "data_dir": {
+                    "type": "azureml_datastore",
+                    "config": {
+                        "datastore_name": "workspaceblobstore",
+                        "relative_path": "LocalUpload/cifar-10"
+                    }
+                }
             }
         }
     },

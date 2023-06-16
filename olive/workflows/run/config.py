@@ -117,10 +117,11 @@ class RunConfig(ConfigBase):
                     if rp_type in AZUREML_RESOURCE_TYPES:
                         rp_aml_client = user_value.get("config", {}).get("azureml_client")
                         if not rp_aml_client:
-                            raise ValueError(
-                                "azureml_client is required for azureml resource path in user_config of metrics"
-                            )
-                        user_value["config"]["azureml_client"] = values["azureml_client"]
+                            if "azureml_client" not in values:
+                                raise ValueError(
+                                    "azureml_client is required for azureml resource path in user_config of metrics"
+                                )
+                            user_value["config"]["azureml_client"] = values["azureml_client"]
                     v["metrics"][idx]["user_config"][user_key] = user_value
         return v
 
@@ -164,8 +165,9 @@ class RunConfig(ConfigBase):
                     if rp_type in AZUREML_RESOURCE_TYPES:
                         rp_aml_client = config_value.get("config", {}).get("azureml_client")
                         if not rp_aml_client:
-                            raise ValueError("azureml_client is required for azureml resource path in config")
-                        config_value["config"]["azureml_client"] = values["azureml_client"]
+                            if "azureml_client" not in values:
+                                raise ValueError("azureml_client is required for azureml resource path in config")
+                            config_value["config"]["azureml_client"] = values["azureml_client"]
                     v["config"][config_key] = config_value
         return v
 

@@ -48,6 +48,7 @@ def create_cache(cache_dir: Union[str, Path] = ".olive-cache"):
     """
     Creates the cache directory and all subdirectories.
     """
+    # TODO: to add propagation of cache_dir to all functions
     cache_sub_dirs = get_cache_sub_dirs(cache_dir)
     for sub_dir in cache_sub_dirs:
         sub_dir.mkdir(parents=True, exist_ok=True)
@@ -99,6 +100,10 @@ def clean_pass_run_cache(pass_type: str, cache_dir: Union[str, Path] = ".olive-c
 
     This function deletes all runs for a given pass type as well as all child models and evaluations.
     """
+    from olive.passes import REGISTRY as PASS_REGISTRY
+
+    assert pass_type.lower() in PASS_REGISTRY, f"Invalid pass type {pass_type}"
+
     run_cache_dir = get_cache_sub_dirs(cache_dir)[1]
 
     # cached runs for pass
@@ -157,7 +162,7 @@ def get_local_path(resource_path: ResourcePath, cache_dir: Union[str, Path] = ".
     if resource_path.is_local_resource() or resource_path.is_string_name():
         return resource_path.get_path()
     elif resource_path.is_azureml_resource():
-        return get_non_local_resource(resource_path).get_path()
+        return get_non_local_resource(resource_path, cache_dir).get_path()
 
 
 def save_model(

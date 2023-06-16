@@ -20,7 +20,6 @@ from olive.evaluator.metric import (
     MetricType,
     flatten_metric_result,
     get_latency_config_from_metric,
-    localize_metrics_user_config,
 )
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
@@ -87,9 +86,8 @@ class PythonEnvironmentSystem(OliveSystem):
         # check if custom metric is present
         if any(metric.type == MetricType.CUSTOM for metric in metrics):
             raise ValueError("PythonEnvironmentSystem does not support custom metrics.")
-        new_metrics = localize_metrics_user_config(metrics)
         metrics_res = {}
-        for metric in new_metrics:
+        for metric in metrics:
             if metric.type == MetricType.ACCURACY:
                 metrics_res[metric.name] = self.evaluate_accuracy(model, metric)
             elif metric.type == MetricType.LATENCY:

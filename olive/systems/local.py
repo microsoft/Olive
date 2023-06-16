@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from typing import Any, Dict, List, Optional
 
-from olive.evaluator.metric import Metric, MetricResult, localize_metrics_user_config
+from olive.evaluator.metric import Metric, MetricResult
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import CompositeOnnxModel, OliveModel
@@ -42,8 +42,7 @@ class LocalSystem(OliveSystem):
         execution_providers = accelerator.execution_provider if accelerator else None
 
         evaluator: OliveEvaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
-        new_metrics = localize_metrics_user_config(metrics)
-        return evaluator.evaluate(model, new_metrics, device=device, execution_providers=execution_providers)
+        return evaluator.evaluate(model, metrics, device=device, execution_providers=execution_providers)
 
     @staticmethod
     def get_supported_execution_providers():

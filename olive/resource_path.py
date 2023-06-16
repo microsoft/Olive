@@ -432,10 +432,10 @@ class AzureMLDatastore(ResourcePath):
         else:
             new_path_name = relative_path.name
 
+        dir_path = Path(dir_path).resolve()
         new_path = dir_path / new_path_name
         _overwrite_helper(new_path, overwrite)
 
-        dir_path = Path(dir_path).resolve()
         dir_path.mkdir(parents=True, exist_ok=True)
 
         # download artifacts to a temporary directory
