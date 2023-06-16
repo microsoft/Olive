@@ -75,7 +75,7 @@ class QuantizationAwareTraining(Pass):
                 is_object=True,
                 description=(
                     "Customized function to create a QConfig for QAT. Please refer to "
-                    "https://pytorch.org/docs/stable/generated/torch.quantization.qconfig.QConfig.html for details."
+                    "https://pytorch.org/docs/stable/generated/torch.ao.quantization.qconfig.QConfig.html for details."
                 ),
             ),
             "logger": PassConfigParam(

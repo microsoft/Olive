@@ -92,7 +92,7 @@ System Configuration
                     }
             )
 
-Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert_ptq_cpu/conda.yaml>`_
+Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert/conda.yaml>`_
 for :code:`"conda.yaml"`.
 
 .. important::
@@ -153,7 +153,7 @@ System Configuration
             )
             docker_system = DockerSystem(local_docker_config=local_docker_config)
 
-Please refer to this `example <https://github.com/microsoft/Olive/tree/main/examples/bert_ptq_cpu/docker>`_
+Please refer to this `example <https://github.com/microsoft/Olive/tree/main/examples/bert/docker>`_
 for :code:`"docker"` and :code:`"Dockerfile"`.
 
 .. important::
