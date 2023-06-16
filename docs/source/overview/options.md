@@ -204,11 +204,11 @@ information of the evaluator contains following items:
     - `user_config: [Dict]` The user config dictionary that contains the user specific information for the metric. The
        dictionary contains following items:
 
-        - `user_script: [str|Path|ResourcePath]` The name of the script provided by the user to assist with metric evaluation.
+        - `user_script: [str]` The name of the script provided by the user to assist with metric evaluation.
 
-        - `script_dir: [str|Path|ResourcePath]` The directory that contains dependencies for the user script.
+        - `script_dir: [str]` The directory that contains dependencies for the user script.
 
-        - `data_dir: [str|Path|ResourcePath]` The directory that contains the data for the metric evaluation.
+        - `data_dir: [str|ResourcePathConfig]` The directory that contains the data for the metric evaluation.
 
         - `batch_size: [int]` The batch size for the metric evaluation.
 
@@ -224,7 +224,7 @@ information of the evaluator contains following items:
         - `evaluate_func: [str]` The name of the function provided by the user to evaluate the model. The function should take the
         model, `data_dir` and `batch_size` as input and return the evaluation result. Only valid for `custom` type.
 
-    Note that for above configs which are related to resource path which includes `user_script`, `script_dir` and `data_dir`, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from `config dict`, `path` or `url`. Please refer to our [Resnet](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu) example for more details.
+    Note that for above `data_dir` config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from `config dict`, or `url`. Please refer to our [Resnet](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu) example for more details.
     ```json
     "data_dir": {
         "type": "azureml_datastore",

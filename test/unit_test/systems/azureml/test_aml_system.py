@@ -163,24 +163,23 @@ class TestAzureMLSystem:
             },
             ResourceType.LocalFile: temp_model.name,
         }
-        tem_dir = tempfile.TemporaryDirectory()
-        dummy_model_script = tempfile.NamedTemporaryFile()
         model_json = {
             "type": "onnxmodel",
             "config": {
-                "model_script": dummy_model_script.name,
-                "script_dir": tem_dir.name,
+                "model_script": "model_script",
+                "script_dir": "script_dir",
                 "model_path": resource_paths[model_resource_type],
             },
         }
-        tem_dir_path = Path(tem_dir.name).resolve()
+        tem_dir = tempfile.TemporaryDirectory()
+        tem_dir_path = Path(tem_dir.name)
         model_config_path = tem_dir_path / "model_config.json"
         if model_resource_type == ResourceType.AzureMLModel:
             expected_model_path = Input(type=AssetTypes.CUSTOM_MODEL, path="azureml:model_name:version")
         else:
             expected_model_path = Input(type=AssetTypes.URI_FILE, path=Path(temp_model.name).resolve())
-        expected_model_script = Input(type=AssetTypes.URI_FILE, path=Path(dummy_model_script.name).resolve())
-        expected_model_script_dir = Input(type=AssetTypes.URI_FOLDER, path=Path(tem_dir.name).resolve())
+        expected_model_script = Input(type=AssetTypes.URI_FILE, path="model_script")
+        expected_model_script_dir = Input(type=AssetTypes.URI_FOLDER, path="script_dir")
         expected_model_config = Input(type=AssetTypes.URI_FILE, path=model_config_path)
         expected_res = {
             "model_config": expected_model_config,
@@ -201,19 +200,18 @@ class TestAzureMLSystem:
     def test__create_metric_args(self):
         # setup
         tem_dir = Path(__file__).absolute().parent
-        dummy_user_script = tem_dir / "__init__.py"
         metric_config = {
             "user_config": {
-                "user_script": dummy_user_script,
-                "script_dir": tem_dir,
+                "user_script": "user_script",
+                "script_dir": "script_dir",
                 "data_dir": tem_dir,
             }
         }
         metric_config_path = tem_dir / "metric_config.json"
 
         expected_metric_config = Input(type=AssetTypes.URI_FILE, path=metric_config_path)
-        expected_metric_user_script = Input(type=AssetTypes.URI_FILE, path=str(dummy_user_script))
-        expected_metric_script_dir = Input(type=AssetTypes.URI_FOLDER, path=str(tem_dir))
+        expected_metric_user_script = Input(type=AssetTypes.URI_FILE, path="user_script")
+        expected_metric_script_dir = Input(type=AssetTypes.URI_FOLDER, path="script_dir")
         expected_metric_data_dir = Input(type=AssetTypes.URI_FOLDER, path=str(tem_dir))
         expected_res = {
             "metric_config": expected_metric_config,
@@ -227,7 +225,6 @@ class TestAzureMLSystem:
 
         # assert
         assert actual_res == expected_res
-        # user_script, script_dir, data_dir will be set as resource_path.StringName
         assert metric_config["user_config"]["user_script"] is None
         assert metric_config["user_config"]["script_dir"] is None
         assert metric_config["user_config"]["data_dir"] is None

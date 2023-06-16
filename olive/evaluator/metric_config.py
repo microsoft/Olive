@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from pathlib import Path
 from typing import Callable, List, Union
 
 from pydantic import validator
@@ -13,10 +14,10 @@ WARMUP_NUM = 10
 REPEAT_TEST_NUM = 20
 SLEEP_NUM = 0
 
-user_path_config = ["script_dir", "data_dir", "user_script"]
+user_path_config = ["data_dir"]
 _common_user_config = {
-    "script_dir": ConfigParam(type_=OLIVE_RESOURCE_ANNOTATIONS, is_path=True),
-    "user_script": ConfigParam(type_=OLIVE_RESOURCE_ANNOTATIONS, is_path=True),
+    "script_dir": ConfigParam(type_=Union[Path, str]),
+    "user_script": ConfigParam(type_=Union[Path, str]),
     "data_dir": ConfigParam(type_=OLIVE_RESOURCE_ANNOTATIONS, is_path=True),
     "batch_size": ConfigParam(type_=int, default_value=1),
     "input_names": ConfigParam(type_=List),

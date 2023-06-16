@@ -237,6 +237,12 @@ class Pass(ABC):
         for key, value in config.items():
             if default_config[key].is_object and isinstance(value, str):
                 assert user_module_loader.user_script, f"'user_script' must be specified if a {key} is a string."
+        # TODO: once convention for user_script and script dir is finalized, let config class handle
+        # the resolution during serialization
+        if config["user_script"] is not None:
+            config["user_script"] = str(Path(config["user_script"]).resolve())
+        if config["script_dir"] is not None:
+            config["script_dir"] = str(Path(config["script_dir"]).resolve())
         return config
 
     @classmethod
@@ -265,6 +271,8 @@ class Pass(ABC):
             if isinstance(value, SearchParameter):
                 search_space[key] = value
             else:
+                if default_config[key].is_path and value is not None:
+                    value = str(Path(value).resolve())
                 fixed_params[key] = value
         assert not cyclic_search_space(search_space), "Search space is cyclic."
         # TODO: better error message, e.g. which parameters are invalid, how they are invalid

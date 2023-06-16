@@ -14,7 +14,6 @@ from olive.data.constants import DEFAULT_HF_DATA_CONTAINER_NAME, DefaultDataCont
 from olive.data.container.huggingface_container import HuggingfaceContainer
 from olive.engine import Engine, EngineConfig
 from olive.engine.packaging.packaging_config import PackagingConfig
-from olive.evaluator.metric_config import user_path_config
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.model import ModelConfig
 from olive.passes import FullPassConfig, Pass
@@ -111,8 +110,9 @@ class RunConfig(ConfigBase):
             v["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
 
             metric = v["metrics"][idx]
+            data_dir_name = "data_dir"
             for user_key, user_value in metric.get("user_config", {}).items():
-                if user_key in user_path_config and isinstance(user_value, dict):
+                if user_key == data_dir_name and isinstance(user_value, dict):
                     rp_type = user_value.get("type")
                     if rp_type in AZUREML_RESOURCE_TYPES:
                         rp_aml_client = user_value.get("config", {}).get("azureml_client")
@@ -159,8 +159,9 @@ class RunConfig(ConfigBase):
         if pass_cls and pass_cls.requires_data_config():
             v["config"] = _resolve_data_config(v.get("config", {}), values, "data_config")
 
+            data_dir_name = "data_dir"
             for config_key, config_value in v["config"].items():
-                if config_key in user_path_config and isinstance(config_value, dict):
+                if config_key == data_dir_name and isinstance(config_value, dict):
                     rp_type = config_value.get("type")
                     if rp_type in AZUREML_RESOURCE_TYPES:
                         rp_aml_client = config_value.get("config", {}).get("azureml_client")

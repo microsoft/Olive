@@ -90,7 +90,6 @@
         "evaluator": "common_evaluator",
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
-        "clean_cache": true,
         "output_dir": "models/resnet_ptq_cpu"
     }
 }

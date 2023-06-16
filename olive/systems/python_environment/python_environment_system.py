@@ -86,6 +86,7 @@ class PythonEnvironmentSystem(OliveSystem):
         # check if custom metric is present
         if any(metric.type == MetricType.CUSTOM for metric in metrics):
             raise ValueError("PythonEnvironmentSystem does not support custom metrics.")
+
         metrics_res = {}
         for metric in metrics:
             if metric.type == MetricType.ACCURACY:

@@ -2,11 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from pathlib import Path
 from types import FunctionType, MethodType
 from typing import Any, Callable, Optional, Union
 
 from olive.common.import_lib import import_user_module
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, create_resource_path
 
 
 class UserModuleLoader:
@@ -16,21 +16,11 @@ class UserModuleLoader:
     Only used for objects that are not json serializable.
     """
 
-    def __init__(
-        self, user_script: Optional[OLIVE_RESOURCE_ANNOTATIONS], script_dir: Optional[OLIVE_RESOURCE_ANNOTATIONS] = None
-    ):
-        user_script_resource = create_resource_path(user_script)
-        script_dir_resource = create_resource_path(script_dir)
-        if user_script_resource and user_script_resource.is_azureml_resource():
-            raise ValueError("User script cannot be AzureML resource.")
-        if script_dir_resource and script_dir_resource.is_azureml_resource():
-            raise ValueError("Script dir cannot be AzureML resource.")
-
-        # script_dir can be None
-        if user_script_resource:
-            self.user_script = user_script_resource.get_path()
-            self.script_dir = script_dir_resource.get_path() if script_dir_resource else None
-            self.user_module = import_user_module(self.user_script, self.script_dir)
+    def __init__(self, user_script: Optional[Union[Path, str]], script_dir: Optional[Union[Path, str]] = None):
+        self.user_script = user_script
+        self.script_dir = script_dir
+        if self.user_script:
+            self.user_module = import_user_module(user_script, script_dir)
         else:
             self.user_module = None
 

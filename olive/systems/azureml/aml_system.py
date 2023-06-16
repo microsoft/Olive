@@ -49,7 +49,7 @@ RESOURCE_TYPE_TO_ASSET_TYPE = {
 }
 
 
-def get_asset_type_from_resource_path(resource_path: ResourcePath) -> AssetTypes:
+def get_asset_type_from_resource_path(resource_path: ResourcePath):
     if not resource_path:
         return AssetTypes.URI_FILE
 
@@ -154,7 +154,7 @@ class AzureMLSystem(OliveSystem):
             "model_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
 
-    def _get_path_from_resource_path(self, rp: OLIVE_RESOURCE_ANNOTATIONS):
+    def _create_args_from_resource_path(self, rp: OLIVE_RESOURCE_ANNOTATIONS):
         model_resource_path = create_resource_path(rp)
         asset_type = get_asset_type_from_resource_path(model_resource_path)
 
@@ -167,12 +167,11 @@ class AzureMLSystem(OliveSystem):
             system_workspace_config = self.azureml_client_config.get_workspace_config()
             for key in model_workspace_config:
                 if model_workspace_config[key] != system_workspace_config[key]:
-                    logger.warning(
+                    raise ValueError(
                         f"Model workspace {model_workspace_config} is different from system workspace"
                         f" {system_workspace_config}. Olive will download the model to local storage, then upload it to"
                         "the system workspace."
                     )
-                    return Input(type=asset_type, path=get_local_path(model_resource_path))
 
         if model_resource_path.type == ResourceType.AzureMLJobOutput:
             # there is no direct way to use the output of a job as input to another job
@@ -216,7 +215,7 @@ class AzureMLSystem(OliveSystem):
             args[item] = None
             item_value = model_json["config"].get(item)
             if item_value:
-                args[item] = self._get_path_from_resource_path(item_value)
+                args[item] = self._create_args_from_resource_path(item_value)
                 if args[item]:
                     model_json["config"][item] = None
 
@@ -246,7 +245,7 @@ class AzureMLSystem(OliveSystem):
             param_val = pass_config["config"].get(param, None)
             if not param_val:
                 continue
-            pass_args[f"pass_{param}"] = self._get_path_from_resource_path(param_val)
+            pass_args[f"pass_{param}"] = self._create_args_from_resource_path(param_val)
             pass_config["config"][param] = None
 
         pass_config_path = tmp_dir / "pass_config.json"
@@ -398,14 +397,21 @@ class AzureMLSystem(OliveSystem):
         }
 
     def _create_metric_args(self, metric_config: dict, tmp_dir: Path) -> Tuple[List[str], dict]:
-        args = {}
-        for item in ["user_script", "script_dir", "data_dir"]:
-            args[item] = None
-            item_val = metric_config["user_config"].get(item)
-            if item_val:
-                args[item] = self._get_path_from_resource_path(item_val)
-                if args[item]:
-                    metric_config["user_config"][item] = None
+        metric_user_script = metric_config["user_config"]["user_script"]
+        if metric_user_script:
+            metric_user_script = Input(type=AssetTypes.URI_FILE, path=metric_user_script)
+            metric_config["user_config"]["user_script"] = None
+
+        metric_script_dir = metric_config["user_config"]["script_dir"]
+        if metric_script_dir:
+            metric_script_dir = Input(type=AssetTypes.URI_FOLDER, path=metric_script_dir)
+            metric_config["user_config"]["script_dir"] = None
+
+        metric_data_dir = metric_config["user_config"]["data_dir"]
+        if metric_data_dir:
+            metric_data_dir = self._create_args_from_resource_path(metric_data_dir)
+            if metric_data_dir:
+                metric_config["user_config"]["data_dir"] = None
 
         metric_config_path = tmp_dir / "metric_config.json"
         with metric_config_path.open("w") as f:
@@ -414,9 +420,9 @@ class AzureMLSystem(OliveSystem):
 
         return {
             "metric_config": metric_config,
-            "metric_user_script": args["user_script"],
-            "metric_script_dir": args["script_dir"],
-            "metric_data_dir": args["data_dir"],
+            "metric_user_script": metric_user_script,
+            "metric_script_dir": metric_script_dir,
+            "metric_data_dir": metric_data_dir,
         }
 
     def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> MetricResult:
