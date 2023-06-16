@@ -247,7 +247,7 @@ def snpe_net_run(
                 # replace ":" with "_" in the file name.
                 output_file_name = output_file_name.replace(":", "_")
             raw_file = member / output_file_name
-            
+
             # copy the raw file to the workspace and rename it
             if output_dir is not None:
                 output_file = output_dir / f"{input_id}.{output_name}.raw"
