@@ -101,6 +101,25 @@ for :code:`"conda.yaml"`.
 
 Please refer to :ref:`azureml_system_config` for more details on the config options.
 
+AzureML Readymade Systems
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+There are some readymade systems available for AzureML. These systems are pre-configured with the necessary.
+    .. code-block:: json
+
+            {
+                "type": "AzureNDV2System",
+                "config": {
+                    "aml_compute": "gpu-cluster",
+                    "aml_docker_config": {
+                        "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                        "conda_file_path": "conda.yaml"
+                    }
+                }
+            }
+Please refer to :ref:`system_alias` for the list of supported AzureML readymade systems.
+
+
 Docker System
 --------------
 

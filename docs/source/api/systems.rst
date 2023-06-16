@@ -74,6 +74,8 @@ PythonEnvironmentSystem
 ^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: olive.systems.python_environment.PythonEnvironmentSystem
 
+.. _system_alias:
+
 System Alias
 ------------------------
 
