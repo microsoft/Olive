@@ -195,7 +195,7 @@ returns metrics values for each output model.</p>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">latency_metric</span></code> requires you to provide a function as value for <code class="docutils literal notranslate"><span class="pre">dataloader_func</span></code> that returns a dataloader object when called on <code class="docutils literal notranslate"><span class="pre">data_dir</span></code> and <code class="docutils literal notranslate"><span class="pre">batch_size</span></code>. You can provide the function object directly but here, let’s give it a function name <code class="docutils literal notranslate"><span class="pre">&quot;create_dataloader&quot;</span></code> that can be imported from <code class="docutils literal notranslate"><span class="pre">user_script</span></code>.</p>
-<p><a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/resnet_ptq_cpu/user_script.py">This file</a> for
+<p><a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py">This file</a> for
 has an example of how to write user scripts.</p>
 <!-- Refer to [User Scripts and Script Dir]() for more details on how Olive handles user scripts. -->
 <p>You can provide more than one metric to the evaluator <code class="docutils literal notranslate"><span class="pre">metrics</span></code> list.</p>
