@@ -22,6 +22,7 @@ At `docs`:
 
 ```bash
 make html
+make linkcheck
 ```
 
 ## Previewing the documentation

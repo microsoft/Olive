@@ -72,3 +72,5 @@ autodoc_pydantic_settings_show_validator_members = False
 autodoc_pydantic_settings_show_field_summary = False
 autodoc_pydantic_settings_show_json = False
 autodoc_pydantic_field_list_validators = False
+
+linkcheck_anchors = False
