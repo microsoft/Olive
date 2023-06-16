@@ -159,6 +159,7 @@ def run(config: Union[str, Path, dict], setup: bool = False):
                 host=host,
                 evaluator_config=pass_config.evaluator,
                 clean_run_cache=pass_config.clean_run_cache,
+                output_name=pass_config.output_name,
             )
 
         # run
