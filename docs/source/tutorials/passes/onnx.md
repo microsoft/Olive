@@ -196,10 +196,10 @@ d. Specify parameters with user defined values
 }
 ```
 
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert_ptq_cpu/user_script.py)
+Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py)
 for an example implementation of `"user_script.py"` and `"glue_calibration_reader"`.
 
-check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert_inc_ptq_cpu) for an example for Intel® Neural Compressor quantization.
+check out [this file](https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-intel-neural-compressor-ptq-on-cpu) for an example for Intel® Neural Compressor quantization.
 
 ## ORT Performance Tuning
 ONNX Runtime provides high performance across a range of hardware options through its Execution Providers interface for different execution
@@ -220,7 +220,7 @@ improve performance.
 }
 ```
 
-Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert_ptq_cpu/user_script.py)
+Check out [this file](https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py)
 for an example implementation of `"user_script.py"` and `"create_dataloader"`.
 
 [1]: <https://onnxruntime.ai/docs/performance/quantization.html> "ONNX Runtime Quantization"
