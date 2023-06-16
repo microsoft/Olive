@@ -214,7 +214,7 @@ def create_config_class(
     config = {}
     validators = validators.copy() if validators else {}
     for param, param_config in default_config.items():
-        if param_config.is_path:
+        if param == "data_dir":
             validator_name = f"validate_{param}_resource_path"
             validators[validator_name] = validator(param, allow_reuse=True)(validate_resource_path)
         # automatically add validator for object params

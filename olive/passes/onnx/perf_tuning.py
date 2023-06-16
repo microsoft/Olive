@@ -8,7 +8,7 @@ import logging
 from typing import Any, Callable, Dict, Union
 
 from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_metric_key
-from olive.evaluator.metric_config import get_properties_from_metric_type
+from olive.evaluator.metric_config import get_user_config_properties_from_metric_type
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -81,7 +81,9 @@ def tune_onnx_model(model, config):
         config_dict["input_shapes"] = io_config["input_shapes"]
         config_dict["input_types"] = io_config["input_types"]
 
-    for eval_config in get_properties_from_metric_type(MetricType.LATENCY):
+    # data_dir/dataloader_func will be passed to the metric as perf_tuning will leverage
+    # the latency metric to run tune
+    for eval_config in get_user_config_properties_from_metric_type(MetricType.LATENCY):
         if eval_config in config_dict:
             latency_user_config[eval_config] = config_dict.get(eval_config)
     latency_sub_types = [{"name": LatencySubType.AVG}]

@@ -32,6 +32,7 @@ from olive.strategy.search_parameter import (
 )
 from olive.strategy.search_space import SearchSpace
 from olive.strategy.utils import cyclic_search_space, order_search_parameters
+from olive.resource_path import ResourcePath
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,7 @@ class Pass(ABC):
         """
         config = {}
         if cls._requires_user_script:
-            config.update(get_user_script_config(allow_path=True))
+            config.update(get_user_script_config())
         if cls.requires_data_config():
             config.update(get_data_config())
         return {**config, **cls._default_config(accelerator_spec)}
@@ -272,7 +273,8 @@ class Pass(ABC):
                 search_space[key] = value
             else:
                 if default_config[key].is_path and value is not None:
-                    value = str(Path(value).resolve())
+                    if not isinstance(value, ResourcePath):
+                        value = str(Path(value).resolve())
                 fixed_params[key] = value
         assert not cyclic_search_space(search_space), "Search space is cyclic."
         # TODO: better error message, e.g. which parameters are invalid, how they are invalid

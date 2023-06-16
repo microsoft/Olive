@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-from olive.resource_path import ResourcePath
 from olive.workflows.run.config import RunConfig
 
 

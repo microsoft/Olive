@@ -17,7 +17,6 @@ from azure.ai.ml.entities import BuildContext, Environment, Model
 from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.cache import get_local_path
 from olive.common.config_utils import validate_config
 from olive.common.utils import retry_func
 from olive.constants import Framework
@@ -210,14 +209,21 @@ class AzureMLSystem(OliveSystem):
         return None
 
     def _create_model_args(self, model_json: dict, tmp_dir: Path):
-        args = {}
-        for item in ["model_script", "script_dir", "model_path"]:
-            args[item] = None
-            item_value = model_json["config"].get(item)
-            if item_value:
-                args[item] = self._create_args_from_resource_path(item_value)
-                if args[item]:
-                    model_json["config"][item] = None
+        model_script = None
+        if model_json["config"].get("model_script"):
+            model_script = Input(type=AssetTypes.URI_FILE, path=model_json["config"]["model_script"])
+            model_json["config"]["model_script"] = None
+
+        model_script_dir = None
+        if model_json["config"].get("script_dir"):
+            model_script_dir = Input(type=AssetTypes.URI_FOLDER, path=model_json["config"]["script_dir"])
+            model_json["config"]["script_dir"] = None
+
+        model_path = None
+        if model_json["config"].get("model_path"):
+            model_path = self._create_args_from_resource_path(model_json["config"]["model_path"])
+            if model_path:
+                model_json["config"]["model_path"] = None
 
         model_config_path = tmp_dir / "model_config.json"
         with model_config_path.open("w") as f:
@@ -226,9 +232,9 @@ class AzureMLSystem(OliveSystem):
 
         return {
             "model_config": model_config,
-            "model_path": args["model_path"],
-            "model_script": args["model_script"],
-            "model_script_dir": args["script_dir"],
+            "model_path": model_path,
+            "model_script": model_script,
+            "model_script_dir": model_script_dir,
         }
 
     def _create_pass_inputs(self, pass_path_params: List[Tuple[str, bool]]):

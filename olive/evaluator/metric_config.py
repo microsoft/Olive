@@ -54,7 +54,7 @@ def get_user_config_class(metric_type: str):
     return create_config_class(f"{metric_type.title()}UserConfig", default_config, ConfigBase, validators)
 
 
-def get_properties_from_metric_type(metric_type):
+def get_user_config_properties_from_metric_type(metric_type):
     user_config_class = get_user_config_class(metric_type)
     # avoid to use schema() to get the fields, because it will skip the ones with object type
     return list(user_config_class.__fields__)

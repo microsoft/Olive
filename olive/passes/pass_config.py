@@ -3,13 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from enum import Enum
+from pathlib import Path
 from typing import Callable, Dict, Optional, Type, Union
 
 from pydantic import create_model, validator
 
 from olive.common.config_utils import ConfigBase, ConfigParam, validate_object, validate_resource_path
 from olive.data.config import DataConfig
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 from olive.strategy.search_parameter import SearchParameter, json_to_search_parameter
 
 
@@ -59,7 +59,7 @@ def get_user_script_config(
 ) -> Dict[str, PassConfigParam]:
     type_ = str
     if allow_path:
-        type_ = OLIVE_RESOURCE_ANNOTATIONS
+        type_ = Union[Path, str]
 
     user_script_config = {
         "script_dir": PassConfigParam(
@@ -123,7 +123,7 @@ def create_config_class(
     for param, param_config in default_config.items():
         if param_config.is_object:
             validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_object)
-        if param_config.is_path:
+        if param == "data_dir":
             validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_resource_path)
 
         type_ = param_config.type_
