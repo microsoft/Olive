@@ -75,6 +75,7 @@
 <li class="toctree-l2"><a class="reference internal" href="#azureml-system">AzureML System</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#system-configuration">System Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#azureml-readymade-systems">AzureML Readymade Systems</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#docker-system">Docker System</a><ul>
@@ -215,6 +216,25 @@ for <code class="code docutils literal notranslate"><span class="pre">&quot;cond
 <p>The AzureML environment must have <code class="code docutils literal notranslate"><span class="pre">olive-ai</span></code> installed!</p>
 </div>
 <p>Please refer to <a class="reference internal" href="../api/systems.html#azureml-system-config"><span class="std std-ref">AzureMLTargetUserConfig</span></a> for more details on the config options.</p>
+</section>
+<section id="azureml-readymade-systems">
+<h3>AzureML Readymade Systems<a class="headerlink" href="#azureml-readymade-systems" title="Permalink to this heading">¶</a></h3>
+<dl>
+<dt>There are some readymade systems available for AzureML. These systems are pre-configured with the necessary.</dt><dd><div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AzureNDV2System&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;aml_compute&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;gpu-cluster&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;aml_docker_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;base_image&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;conda_file_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conda.yaml&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+<p>Please refer to <a class="reference internal" href="../api/systems.html#system-alias"><span class="std std-ref">System Alias</span></a> for the list of supported AzureML readymade systems.</p>
 </section>
 </section>
 <section id="docker-system">
