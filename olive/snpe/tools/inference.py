@@ -236,17 +236,24 @@ def snpe_net_run(
         inferences_per_duration = 0 if inferences_per_duration is None else inferences_per_duration
         input_id = f"result_{result_idx}" if inferences_per_duration > 0 else input_ids[result_idx]
         for output_name, output_shape in zip(output_names, output_shapes):
-            raw_file = member / f"{output_name}{delimiter}0.raw"
-            if not raw_file.exists():
-                raw_file = member / f"{output_name}.raw"
-
+            # output names for dlcs converted from tensorflow models contain ":"
+            # try adding `:0` or `_0` to output file name in case original model was tensorflow and
+            # user provided original output names
+            output_file_name = f"{output_name}{delimiter}0.raw"
+            if not (member / output_file_name).exists():
+                # `:0` is already in the output name or source model was not tensorflow
+                output_file_name = f"{output_name}.raw"
+            if platform.system() == "Windows":
+                # replace ":" with "_" in the file name.
+                output_file_name = output_file_name.replace(":", "_")
+            raw_file = member / output_file_name
+            
             # copy the raw file to the workspace and rename it
             if output_dir is not None:
                 output_file = output_dir / f"{input_id}.{output_name}.raw"
                 if platform.system() == "Windows":
                     # replace ":" with "_" in the file name.
-                    # output names for dlcs converted from tensorflow models contain ":"
-                    output_file = output_file.replace(":", "_")
+                    output_file = output_dir / f"{input_id}.{output_name}.raw".replace(":", "_")
                 if len(output_names) == 1:
                     # no need to encode the output name in the file name
                     output_file = output_dir / f"{input_id}.raw"
