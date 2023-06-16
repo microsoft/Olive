@@ -23,6 +23,7 @@ from olive.passes.pass_config import (
     get_data_config,
     get_user_script_config,
 )
+from olive.resource_path import ResourcePath
 from olive.strategy.search_parameter import (
     Categorical,
     Conditional,
@@ -32,7 +33,6 @@ from olive.strategy.search_parameter import (
 )
 from olive.strategy.search_space import SearchSpace
 from olive.strategy.utils import cyclic_search_space, order_search_parameters
-from olive.resource_path import ResourcePath
 
 logger = logging.getLogger(__name__)
 
