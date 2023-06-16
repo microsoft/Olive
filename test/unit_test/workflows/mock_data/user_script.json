@@ -54,7 +54,6 @@
                         "data_dir": {
                             "type": "azureml_datastore",
                             "config": {
-                                "azureml_client": "azureml_client",
                                 "datastore_name": "my_datastore",
                                 "relative_path": "data"
                             }
@@ -113,7 +112,6 @@
                 "data_dir": {
                     "type": "azureml_datastore",
                     "config": {
-                        "azureml_client": "azureml_client",
                         "datastore_name": "my_datastore",
                         "relative_path": "data"
                     }

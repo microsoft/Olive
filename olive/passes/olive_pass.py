@@ -10,7 +10,6 @@ from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 
 from pydantic import validator
 
-from olive.cache import get_local_path
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
@@ -303,9 +302,7 @@ class Pass(ABC):
         config = input_config.dict()
         config = cls._resolve_defaults(config, default_config)
         if cls._requires_user_script:
-            user_script_path = get_local_path(config["user_script"])
-            script_dir_path = get_local_path(config["script_dir"])
-            user_module_loader = UserModuleLoader(user_script_path, script_dir_path)
+            user_module_loader = UserModuleLoader(config["user_script"], config["script_dir"])
             config = cls._validate_user_script(config, user_module_loader, default_config)
         return config
 

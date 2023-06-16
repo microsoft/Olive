@@ -6,7 +6,7 @@ import json
 import logging
 import shutil
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 from olive.common.config_utils import serialize_to_json
 from olive.common.utils import hash_dict
@@ -112,7 +112,7 @@ def clean_pass_run_cache(pass_type: str, cache_dir: Union[str, Path] = ".olive-c
         _delete_run(run_json.stem, cache_dir)
 
 
-def get_non_local_resource(resource_path: ResourcePath, cache_dir: Union[str, Path] = ".olive-cache"):
+def download_resource(resource_path: ResourcePath, cache_dir: Union[str, Path] = ".olive-cache"):
     """
     Returns the path to a non-local resource.
 
@@ -150,7 +150,7 @@ def get_non_local_resource(resource_path: ResourcePath, cache_dir: Union[str, Pa
     return local_resource_path
 
 
-def get_local_path(resource_path: ResourcePath, cache_dir: Union[str, Path] = ".olive-cache"):
+def get_local_path(resource_path: Optional[ResourcePath], cache_dir: Union[str, Path] = ".olive-cache"):
     """
     Return the local path of the any resource path.
     If the resource path is a local resource, the path is returned.
@@ -162,7 +162,7 @@ def get_local_path(resource_path: ResourcePath, cache_dir: Union[str, Path] = ".
     if resource_path.is_local_resource() or resource_path.is_string_name():
         return resource_path.get_path()
     elif resource_path.is_azureml_resource():
-        return get_non_local_resource(resource_path, cache_dir).get_path()
+        return download_resource(resource_path, cache_dir).get_path()
 
 
 def save_model(
@@ -198,7 +198,7 @@ def save_model(
 
         # get cached resource path if not local or string name
         if not (model_resource_path.is_local_resource() or model_resource_path.is_string_name()):
-            model_resource_path = get_non_local_resource(model_resource_path, cache_dir)
+            model_resource_path = download_resource(model_resource_path, cache_dir)
 
         # save model to output directory
         model_path = model_resource_path.save_to_dir(output_dir, output_name, overwrite)

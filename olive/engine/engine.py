@@ -685,7 +685,7 @@ class Engine:
 
         # download and cache the model resource
         logger.debug("Downloading non local model resource to cache")
-        local_model_resource_path = cache_utils.get_non_local_resource(model_resource_path, self._config.cache_dir)
+        local_model_resource_path = cache_utils.download_resource(model_resource_path, self._config.cache_dir)
 
         # set local model resource path
         model.set_local_model_path(local_model_resource_path)

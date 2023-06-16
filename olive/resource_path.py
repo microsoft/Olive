@@ -92,8 +92,8 @@ class ResourcePathConfig(ConfigBase):
 
 
 def create_resource_path(
-    resource_path: Union[str, Path, Dict[str, Any], ResourcePathConfig, ResourcePath]
-) -> ResourcePath:
+    resource_path: Optional[Union[str, Path, Dict[str, Any], ResourcePathConfig, ResourcePath]]
+) -> Optional[ResourcePath]:
     """
     Create a resource path from a string or a dict.
     If a string is provided, it is inferred to be a file, folder, or string name.

@@ -5,7 +5,7 @@
 import importlib.util
 import sys
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 
 def import_module_from_file(module_path: Union[Path, str], module_name: str = None):
@@ -28,7 +28,7 @@ def import_module_from_file(module_path: Union[Path, str], module_name: str = No
     return new_module
 
 
-def import_user_module(user_script: Union[Path, str], script_dir: Union[Path, str] = None):
+def import_user_module(user_script: Union[Path, str], script_dir: Optional[Union[Path, str]] = None):
     if script_dir is not None:
         script_dir = Path(script_dir).resolve()
         if not script_dir.exists():
