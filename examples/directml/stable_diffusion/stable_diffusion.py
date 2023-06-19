@@ -95,6 +95,7 @@ def run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_st
     window_height = image_rows * image_size + (image_rows + 1) * padding + bar_height + button_height
 
     window = tk.Tk()
+    window.title("Stable Diffusion")
     window.resizable(width=False, height=False)
     window.geometry(f"{window_width}x{window_height}")
 
