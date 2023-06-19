@@ -28,9 +28,8 @@ class TestMetricBackend:
         }
 
     @patch("evaluate.load")
-    @patch("evaluate.module.EvaluationModule")
-    def test_huggingface_metric_config(self, loader, evaluator):
-        evaluator().compute.return_value = self.compute_res
+    def test_huggingface_metric_config(self, loader):
+        loader().compute.return_value = self.compute_res
         metric = get_accuracy_metric("seqeval", backend="huggingface_metrics")
         for idx, _ in enumerate(metric.sub_types):
             metric.sub_types[idx].metric_config.load_params = {"process_id": 0}

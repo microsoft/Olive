@@ -14,7 +14,7 @@ import olive.data.template as data_config_template
 class TestDataConfigTemplate:
     @patch("datasets.load_dataset")
     @patch("transformers.AutoTokenizer.from_pretrained")
-    def test_huggingface_template(self, mock_load_dataset, mock_from_pretrained):
+    def test_huggingface_template(self, mock_from_pretrained, mock_load_dataset):
         dataloader = data_config_template.huggingface_data_config_template(
             model_name="bert-base-uncased",
             task="text-classification",
