@@ -102,6 +102,7 @@ class AzureMLClientConfig(ConfigBase):
 
         logger.debug("Getting credentials for MLClient")
         try:
+            # TODO expose the interface to disable credential providers
             credential = DefaultAzureCredential()
             # Check if given credential can get token successfully.
             credential.get_token("https://management.azure.com/.default")
