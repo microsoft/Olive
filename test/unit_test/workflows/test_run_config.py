@@ -54,10 +54,33 @@ class TestRunConfig:
             RunConfig.parse_obj(user_script_config)
             assert str(e.value) == "AzureML client config is required for AzureML system"
 
+    @patch("azure.identity._credentials.default.InteractiveBrowserCredential")
+    @patch("azure.identity._credentials.default.AzurePowerShellCredential")
+    @patch("azure.identity._credentials.default.AzureCliCredential")
+    @patch("azure.identity._credentials.default.SharedTokenCacheCredential")
     @patch("azure.identity._credentials.default.ManagedIdentityCredential")
-    def test_config_with_azureml_default_auth_params(self, mocked_credential):
+    @patch("azure.identity._credentials.default.EnvironmentCredential")
+    def test_config_with_azureml_default_auth_params(
+        self,
+        mocked_env_credential,
+        mocked_managed_identity_credential,
+        mocked_shared_token_cache_credential,
+        mocked_azure_cli_credential,
+        mocked_azure_powershell_credential,
+        mocked_interactive_browser_credential,
+    ):
         with open(self.user_script_config_file, "r") as f:
             user_script_config = json.load(f)
+
+        user_script_config["azureml_client"]["default_auth_params"] = None
+        config = RunConfig.parse_obj(user_script_config)
+        config.azureml_client.create_client()
+        mocked_env_credential.assert_called_once()
+        mocked_shared_token_cache_credential.assert_called_once()
+        mocked_azure_cli_credential.assert_called_once()
+        mocked_azure_powershell_credential.assert_called_once()
+        mocked_managed_identity_credential.assert_called_once()
+        mocked_interactive_browser_credential.assert_not_called()
 
         user_script_config["azureml_client"]["default_auth_params"] = {
             "exclude_environment_credential": True,
@@ -65,7 +88,9 @@ class TestRunConfig:
         }
         config = RunConfig.parse_obj(user_script_config)
         config.azureml_client.create_client()
-        mocked_credential.assert_not_called()
+        assert mocked_env_credential.call_count == 1
+        assert mocked_managed_identity_credential.call_count == 1
+        assert mocked_azure_cli_credential.call_count == 2
 
         user_script_config["azureml_client"]["default_auth_params"] = {
             "exclude_environment_credential": True,
@@ -73,7 +98,9 @@ class TestRunConfig:
         }
         config = RunConfig.parse_obj(user_script_config)
         config.azureml_client.create_client()
-        mocked_credential.assert_called()
+        assert mocked_env_credential.call_count == 1
+        assert mocked_managed_identity_credential.call_count == 2
+        assert mocked_azure_cli_credential.call_count == 3
 
     def test_readymade_system(self):
         readymade_config_file = Path(__file__).parent / "mock_data" / "readymade_system.json"

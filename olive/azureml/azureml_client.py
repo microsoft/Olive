@@ -114,7 +114,8 @@ class AzureMLClientConfig(ConfigBase):
 
         logger.debug("Getting credentials for MLClient")
         try:
-            credential = DefaultAzureCredential(**self.default_auth_params)
+            default_auth_params = self.default_auth_params or {}
+            credential = DefaultAzureCredential(**default_auth_params)
             # Check if given credential can get token successfully.
             credential.get_token("https://management.azure.com/.default")
             logger.debug("Using DefaultAzureCredential")
