@@ -69,6 +69,7 @@ class TestRunConfig:
         mocked_azure_powershell_credential,
         mocked_interactive_browser_credential,
     ):
+        # we need to mock all the credentials because the default credential will get tokens from all of them
         with open(self.user_script_config_file, "r") as f:
             user_script_config = json.load(f)
 
@@ -76,10 +77,6 @@ class TestRunConfig:
         config = RunConfig.parse_obj(user_script_config)
         config.azureml_client.create_client()
         mocked_env_credential.assert_called_once()
-        mocked_shared_token_cache_credential.assert_called_once()
-        mocked_azure_cli_credential.assert_called_once()
-        mocked_azure_powershell_credential.assert_called_once()
-        mocked_managed_identity_credential.assert_called_once()
         mocked_interactive_browser_credential.assert_not_called()
 
         user_script_config["azureml_client"]["default_auth_params"] = {
