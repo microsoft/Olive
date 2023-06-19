@@ -5,6 +5,7 @@
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -52,6 +53,27 @@ class TestRunConfig:
         with pytest.raises(ValueError) as e:
             RunConfig.parse_obj(user_script_config)
             assert str(e.value) == "AzureML client config is required for AzureML system"
+
+    @patch("azure.identity._credentials.default.ManagedIdentityCredential")
+    def test_config_with_azureml_default_auth_params(self, mocked_credential):
+        with open(self.user_script_config_file, "r") as f:
+            user_script_config = json.load(f)
+
+        user_script_config["azureml_client"]["default_auth_params"] = {
+            "exclude_environment_credential": True,
+            "exclude_managed_identity_credential": True,
+        }
+        config = RunConfig.parse_obj(user_script_config)
+        config.azureml_client.create_client()
+        mocked_credential.assert_not_called()
+
+        user_script_config["azureml_client"]["default_auth_params"] = {
+            "exclude_environment_credential": True,
+            "exclude_managed_identity_credential": False,
+        }
+        config = RunConfig.parse_obj(user_script_config)
+        config.azureml_client.create_client()
+        mocked_credential.assert_called()
 
     def test_readymade_system(self):
         readymade_config_file = Path(__file__).parent / "mock_data" / "readymade_system.json"
