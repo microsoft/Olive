@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
+import platform
 from pathlib import Path
 from subprocess import CompletedProcess
 from unittest.mock import patch
@@ -44,10 +45,18 @@ def test_run_snpe_command():
             None, returncode=0, stdout="stdout".encode(), stderr="stderr".encode()
         )
         stdout, stderr = run_snpe_command("snpe-net-run --container xxxx")
+        if platform.system() == "Linux":
+            env = {
+                "LD_LIBRARY_PATH": "C:\\snpe/lib/x86_64-linux-clang",
+                "PATH": "C:\\snpe\\bin\\x86_64-windows-vc19;C:\\snpe\\lib\\x86_64-windows-vc19",
+            }
+        else:
+            env = {"PATH": "C:\\snpe\\bin\\x86_64-windows-vc19;C:\\snpe\\lib\\x86_64-windows-vc19"}
+
         mock_run_subprocess.assert_called_once_with(
             "snpe-net-run --container xxxx".split(),
             capture_output=True,
-            env={"PATH": "C:\\snpe\\bin\\x86_64-windows-vc19;C:\\snpe\\lib\\x86_64-windows-vc19"},
+            env=env,
             cwd=None,
         )
         assert stdout.strip() == "stdout"
