@@ -5,17 +5,17 @@
 import argparse
 import json
 import shutil
-import warnings
 import threading
+import tkinter as tk
+import tkinter.ttk as ttk
+import warnings
 from pathlib import Path
 
 import onnxruntime as ort
-import tkinter as tk
-import tkinter.ttk as ttk
-from PIL import ImageTk, Image
 import torch
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffusionPipeline
 from packaging import version
+from PIL import Image, ImageTk
 from user_script import get_base_model_name
 
 from olive.model import ONNXModel
@@ -56,27 +56,31 @@ def run_inference_loop(
 
 def run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_steps):
     def update_progress_bar(total_steps_completed):
-        progress_bar['value'] = total_steps_completed
+        progress_bar["value"] = total_steps_completed
 
     def image_completed(index, path):
         img = Image.open(path)
         photo = ImageTk.PhotoImage(img)
         gui_images[index].config(image=photo)
-        gui_images[index].image=photo
+        gui_images[index].image = photo
         if index == num_images - 1:
             generate_button["state"] = "normal"
 
     def on_generate_click():
         generate_button["state"] = "disabled"
-        progress_bar['value'] = 0
-        threading.Thread(target=run_inference_loop, args=(
-            pipeline, 
-            prompt_textbox.get(), 
-            num_images, 
-            batch_size, 
-            num_inference_steps, 
-            image_completed, 
-            update_progress_bar)).start()
+        progress_bar["value"] = 0
+        threading.Thread(
+            target=run_inference_loop,
+            args=(
+                pipeline,
+                prompt_textbox.get(),
+                num_images,
+                batch_size,
+                num_inference_steps,
+                image_completed,
+                update_progress_bar,
+            ),
+        ).start()
 
     if num_images > 9:
         print("WARNING: interactive UI only supports displaying up to 9 images")
@@ -104,9 +108,9 @@ def run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_st
         for col in range(image_cols):
             label = tk.Label(window, width=image_size, height=image_size, background="black")
             gui_images.append(label)
-            label.place(x=col*image_size, y=row*image_size)
+            label.place(x=col * image_size, y=row * image_size)
 
-    y = image_rows*image_size + (image_rows + 1) * padding
+    y = image_rows * image_size + (image_rows + 1) * padding
 
     progress_bar = ttk.Progressbar(window, value=0, maximum=num_inference_steps * min_batches_required)
     progress_bar.place(x=0, y=y, height=bar_height, width=window_width)
