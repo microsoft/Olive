@@ -23,6 +23,7 @@ def test_openvino_quantization():
         ov_model = get_openvino_model(tempdir)
         local_system = LocalSystem()
         data_dir = Path(tempdir) / "data"
+        data_dir.mkdir(exist_ok=True)
         config = {
             "engine_config": {"device": "CPU"},
             "dataloader_func": create_dataloader,

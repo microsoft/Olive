@@ -12,12 +12,14 @@ from typing import Any, Callable, Dict, Union
 from onnxruntime.quantization.preprocess import quant_pre_process
 from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
 
+from olive.cache import get_local_path
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.vitis_ai import quantize_static
 from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
 from olive.passes.pass_config import PassConfigParam
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
@@ -25,7 +27,7 @@ logger = logging.getLogger(__name__)
 # common config for vai_q_onnx quantization
 vai_q_onnx_quantization_config = {
     "data_dir": PassConfigParam(
-        type_=Union[Path, str],
+        type_=OLIVE_RESOURCE_ANNOTATIONS,
         is_path=True,
         description="""
             Path to the directory containing the dataset.
@@ -290,7 +292,7 @@ class VitisAIQuantization(Pass):
         if config["dataloader_func"]:
             dataloader = self._user_module_loader.call_object(
                 config["dataloader_func"],
-                config["data_dir"],
+                get_local_path(config["data_dir"]),
                 config["batch_size"],
             )
         elif self._data_config:

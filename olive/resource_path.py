@@ -41,6 +41,9 @@ class ResourcePath(AutoConfigClass):
     registry: Dict[str, "ResourcePath"] = {}
     name: ResourceType = None
 
+    def __repr__(self) -> str:
+        return self.get_path()
+
     @property
     def type(self) -> ResourceType:
         return self.name
@@ -89,8 +92,8 @@ class ResourcePathConfig(ConfigBase):
 
 
 def create_resource_path(
-    resource_path: Union[str, Path, Dict[str, Any], ResourcePathConfig, ResourcePath]
-) -> ResourcePath:
+    resource_path: Optional[Union[str, Path, Dict[str, Any], ResourcePathConfig, ResourcePath]]
+) -> Optional[ResourcePath]:
     """
     Create a resource path from a string or a dict.
     If a string is provided, it is inferred to be a file, folder, or string name.
@@ -102,6 +105,8 @@ def create_resource_path(
     :param resource_path: A string, a Path, or a dict.
     :return: A resource path.
     """
+    if resource_path is None:
+        return None
     if isinstance(resource_path, ResourcePath):
         return resource_path
 
@@ -109,19 +114,27 @@ def create_resource_path(
         resource_path_config = validate_config(resource_path, ResourcePathConfig)
         return resource_path_config.create_resource_path()
 
-    if isinstance(resource_path, Path) and not resource_path.exists():
-        raise ValueError(f"Resource path {resource_path} of type Path is not a file or folder.")
-
-    # check if the resource path is a file, folder, or a string name
+    # check if the resource path is a file, folder, azureml datastore, or a string name
+    is_local_file = True
     type: ResourceType = None
-    config_key = "path"
+    config_key = None
     if Path(resource_path).is_file():
         type = ResourceType.LocalFile
+        config_key = "path"
     elif Path(resource_path).is_dir():
         type = ResourceType.LocalFolder
+        config_key = "path"
+    elif str(resource_path).startswith("azureml://"):
+        type = ResourceType.AzureMLDatastore
+        config_key = "datastore_url"
+        is_local_file = False
     else:
         type = ResourceType.StringName
         config_key = "name"
+        is_local_file = False
+
+    if is_local_file and isinstance(resource_path, Path) and not resource_path.exists():
+        raise ValueError(f"Resource path {resource_path} of type Path does not exist.")
 
     logger.debug(f"Resource path {resource_path} is inferred to be of type {type}.")
     return ResourcePathConfig(type=type, config={config_key: resource_path}).create_resource_path()
@@ -277,6 +290,9 @@ class AzureMLModel(ResourcePath):
     def get_path(self) -> str:
         return f"azureml:{self.config.name}:{self.config.version}"
 
+    def get_aml_client_config(self) -> AzureMLClientConfig:
+        return self.config.azureml_client
+
     def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
         # directory to save the resource to
         dir_path = Path(dir_path).resolve()
@@ -313,7 +329,6 @@ class AzureMLModel(ResourcePath):
             )
             new_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(temp_dir / self.config.name / model_path.name, new_path)
-
         return str(new_path)
 
 
@@ -366,7 +381,15 @@ class AzureMLDatastore(ResourcePath):
             f"/datastores/{self.config.datastore_name}/paths/{self.config.relative_path}"
         )
 
-    def is_file(self, fsspec) -> bool:
+    def is_file(self, fsspec=None) -> bool:
+        try:
+            from azureml.fsspec import AzureMachineLearningFileSystem
+        except ImportError:
+            raise ImportError(
+                "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
+            )
+        if fsspec is None:
+            fsspec = AzureMachineLearningFileSystem(self.get_path())
         return fsspec.info(self.get_relative_path()).get("type") == "file"
 
     def get_relative_path(self) -> str:
@@ -397,9 +420,6 @@ class AzureMLDatastore(ResourcePath):
                 "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
             )
 
-        dir_path = Path(dir_path).resolve()
-        dir_path.mkdir(parents=True, exist_ok=True)
-
         azureml_client_config = self.get_aml_client_config()
 
         # azureml file system
@@ -412,13 +432,14 @@ class AzureMLDatastore(ResourcePath):
         else:
             new_path_name = relative_path.name
 
+        dir_path = Path(dir_path).resolve()
         new_path = dir_path / new_path_name
-        _overwrite_helper(dir_path / new_path_name, overwrite)
+        _overwrite_helper(new_path, overwrite)
+
+        dir_path.mkdir(parents=True, exist_ok=True)
 
         # download artifacts to a temporary directory
-        logger.debug(
-            f"Downloading aml resource for datastore {self.config.datastore_name} path {self.config.relative_path}."
-        )
+        logger.debug(f"Downloading aml resource for datastore {self.config.datastore_name} path {relative_path}.")
 
         with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
             retry_func(
@@ -490,8 +511,7 @@ class AzureMLJobOutput(ResourcePath):
             )
             new_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(temp_dir / "named-outputs" / self.config.output_name / self.config.relative_path, new_path)
-
         return str(new_path)
 
 
-OLIVE_RESOURCE_ANNOTATIONS = Optional[Union[Path, str, ResourcePath, ResourcePathConfig]]
+OLIVE_RESOURCE_ANNOTATIONS = Optional[Union[str, Path, ResourcePath, ResourcePathConfig]]

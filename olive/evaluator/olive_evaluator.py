@@ -14,6 +14,7 @@ from pydantic import validator
 from torch.utils.data import Dataset
 
 import olive.data.template as data_config_template
+from olive.cache import get_local_path
 from olive.common.config_utils import ConfigBase
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
@@ -96,7 +97,11 @@ class OliveEvaluator(ABC):
         # breaking it into multiple arguments
         # return eval_func(model, metric, dataloader, device, post_func)
         raw_res = eval_func(
-            model, metric.user_config.data_dir, metric.user_config.batch_size, device, execution_providers
+            model,
+            get_local_path(metric.user_config.data_dir),
+            metric.user_config.batch_size,
+            device,
+            execution_providers,
         )
         metric_res = {}
         for sub_type in metric.sub_types:
@@ -150,7 +155,7 @@ class OliveEvaluator(ABC):
 
         dataloader_func = getattr(metric.user_config, "dataloader_func", None)
         dataloader = user_module.call_object(
-            dataloader_func, metric.user_config.data_dir, metric.user_config.batch_size
+            dataloader_func, get_local_path(metric.user_config.data_dir), metric.user_config.batch_size
         )
 
         evaluate_func = getattr(metric.user_config, "evaluate_func", None)

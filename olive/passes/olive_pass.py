@@ -23,6 +23,7 @@ from olive.passes.pass_config import (
     get_data_config,
     get_user_script_config,
 )
+from olive.resource_path import ResourcePath
 from olive.strategy.search_parameter import (
     Categorical,
     Conditional,
@@ -80,7 +81,7 @@ class Pass(ABC):
         if self._requires_user_script:
             self._user_module_loader = UserModuleLoader(self._config["user_script"], self._config["script_dir"])
         if self._requires_data_config:
-            data_config = self._config["data_config"] or {}
+            data_config = self._config.get("data_config") or {}
             self._data_config = DataConfig(**data_config)
 
         self._fixed_params = {}
@@ -272,7 +273,8 @@ class Pass(ABC):
                 search_space[key] = value
             else:
                 if default_config[key].is_path and value is not None:
-                    value = str(Path(value).resolve())
+                    if not isinstance(value, ResourcePath):
+                        value = str(Path(value).resolve())
                 fixed_params[key] = value
         assert not cyclic_search_space(search_space), "Search space is cyclic."
         # TODO: better error message, e.g. which parameters are invalid, how they are invalid
@@ -423,7 +425,7 @@ class FullPassConfig(ConfigBase):
         return pass_cls(accelerator_spec, self.config, self.disable_search)
 
 
-# TODO: deprecate or remove this method by explicitly specify the accelerator_spec in the arguement instead of using
+# TODO: deprecate or remove this method by explicitly specify the accelerator_spec in the arguments instead of using
 # the default argument.
 def create_pass_from_dict(
     pass_cls: Type[Pass], config: Dict[str, Any] = None, disable_search=False, accelerator_spec: AcceleratorSpec = None

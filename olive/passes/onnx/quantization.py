@@ -10,13 +10,14 @@ from typing import Any, Callable, Dict, Union
 
 import onnx
 
+from olive.cache import get_local_path
 from olive.common.utils import hash_string
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-from olive.resource_path import LocalFile
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
 
 logger = logging.getLogger(__name__)
@@ -141,7 +142,7 @@ _extra_options_config = {
 # static quantization specific config
 _static_dataloader_config = {
     "data_dir": PassConfigParam(
-        type_=Union[Path, str],
+        type_=OLIVE_RESOURCE_ANNOTATIONS,
         is_path=True,
         description="""
             Path to the directory containing the dataset.
@@ -291,7 +292,7 @@ class OnnxQuantization(Pass):
                 logger.info("S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general")
                 return False
             if config["EnableSubgraph"] is True:
-                logger.info("EnabaleSubgraph is not supported for static quantization.")
+                logger.info("EnableSubgraph is not supported for static quantization.")
                 return False
         return True
 
@@ -380,7 +381,7 @@ class OnnxQuantization(Pass):
             if config["dataloader_func"]:
                 dataloader = self._user_module_loader.call_object(
                     config["dataloader_func"],
-                    config["data_dir"],
+                    get_local_path(config["data_dir"]),
                     config["batch_size"],
                 )
             elif self._data_config:

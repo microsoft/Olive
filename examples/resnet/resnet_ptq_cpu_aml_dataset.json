@@ -1,8 +1,8 @@
 {
     "azureml_client": {
-        "subscription_id": "my_subscription_id",
-        "resource_group": "my_resource_group",
-        "workspace_name": "my_workspace"
+        "subscription_id": "subscription_id",
+        "resource_group": "resource_group",
+        "workspace_name": "workspace_name"
     },
     "input_model":{
         "type": "PyTorchModel",
@@ -19,21 +19,6 @@
             }
         }
     },
-    "systems": {
-        "local_system": {"type": "LocalSystem"},
-        "azureml_system": {
-            "type": "AzureML",
-            "config": {
-                "accelerators": ["CPU"],
-                "aml_compute": "cpu-cluster",
-                "aml_docker_config": {
-                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-                    "conda_file_path": "conda.yaml"
-                },
-                "is_dev": true
-            }
-        }
-    },
     "evaluators": {
         "common_evaluator":{
             "metrics":[
@@ -42,20 +27,18 @@
                     "type": "custom",
                     "sub_types": [
                         {
-                            "name": "top1",
-                            "priority": 1,
-                            "higher_is_better": true,
+                            "name": "accuracy_custom",
+                            "priority": 1, "higher_is_better": true,
                             "goal": {"type": "max-degradation", "value": 0.01}
-                    },
-                        {"name": "top5", "goal": {"type": "max-degradation", "value": 0.01}}
+                        }
                     ],
                     "user_config":{
                         "user_script": "user_script.py",
                         "data_dir": {
                             "type": "azureml_datastore",
                             "config": {
-                                "datastore_name": "my_datastore",
-                                "relative_path": "data"
+                                "datastore_name": "workspaceblobstore",
+                                "relative_path": "LocalUpload/cifar-10"
                             }
                         },
                         "evaluate_func": "eval_accuracy",
@@ -69,15 +52,18 @@
                         {
                             "name": "avg",
                             "priority": 2,
-                            "higher_is_better": true,
                             "goal": {"type": "percent-min-improvement", "value": 20}
-                        },
-                        {"name": "max"},
-                        {"name": "min"}
+                        }
                     ],
                     "user_config":{
                         "user_script": "user_script.py",
-                        "data_dir": "azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/test/cifar-10-batches-py",
+                        "data_dir": {
+                            "type": "azureml_datastore",
+                            "config": {
+                                "datastore_name": "workspaceblobstore",
+                                "relative_path": "LocalUpload/cifar-10"
+                            }
+                        },
                         "dataloader_func": "create_dataloader",
                         "batch_size": 16
                     }
@@ -96,7 +82,13 @@
             "type": "OnnxQuantization",
             "config": {
                 "user_script": "user_script.py",
-                "data_dir": "data",
+                "data_dir": {
+                    "type": "azureml_datastore",
+                    "config": {
+                        "datastore_name": "workspaceblobstore",
+                        "relative_path": "LocalUpload/cifar-10"
+                    }
+                },
                 "dataloader_func": "resnet_calibration_reader",
                 "weight_type": "QUInt8",
                 "activation_type": "QUInt8",
@@ -112,23 +104,22 @@
                 "data_dir": {
                     "type": "azureml_datastore",
                     "config": {
-                        "datastore_name": "my_datastore",
-                        "relative_path": "data"
+                        "datastore_name": "workspaceblobstore",
+                        "relative_path": "LocalUpload/cifar-10"
                     }
                 }
             }
         }
     },
     "engine": {
-        "log_severity_level": 0,
         "search_strategy": {
             "execution_order": "joint",
             "search_algorithm": "exhaustive"
         },
         "evaluator": "common_evaluator",
-        "host": "azureml_system",
-        "target": "azureml_system",
+        "execution_providers": ["CPUExecutionProvider"],
+        "cache_dir": "cache",
         "clean_cache": true,
-        "cache_dir": "cache"
+        "output_dir": "models/resnet_ptq_cpu"
     }
 }

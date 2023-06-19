@@ -705,7 +705,7 @@ class Engine:
 
         # download and cache the model resource
         logger.debug("Downloading non local model resource to cache")
-        local_model_resource_path = cache_utils.get_non_local_resource(model_resource_path, self._config.cache_dir)
+        local_model_resource_path = cache_utils.download_resource(model_resource_path, self._config.cache_dir)
 
         # set local model resource path
         model.set_local_model_path(local_model_resource_path)
@@ -800,8 +800,6 @@ class Engine:
         # run all the passes in the step
         model_ids = []
         for pass_id, pass_search_point in passes:
-            logger.debug(f"Running pass {pass_id}")
-
             model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec)
             if model == PRUNED_CONFIG:
                 should_prune = True

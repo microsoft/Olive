@@ -76,14 +76,8 @@ class RunConfig(ConfigBase):
         if not input_model_path or not isinstance(input_model_path, dict):
             return v
 
-        resource_path_type = input_model_path.get("type")
-        # insert aml_client if resource_path_type is azureml and not already set
-        if resource_path_type in AZUREML_RESOURCE_TYPES:
-            model_aml_client = input_model_path.get("config", {}).get("azureml_client")
-            if not model_aml_client:
-                if "azureml_client" not in values:
-                    raise ValueError("azureml_client is required for azureml resource path")
-                v["config"]["model_path"]["config"]["azureml_client"] = values["azureml_client"]
+        if _have_aml_client(input_model_path, values):
+            v["config"]["model_path"]["config"]["azureml_client"] = values["azureml_client"]
         return v
 
     @validator("data_configs", pre=True, each_item=True, always=True)
@@ -109,6 +103,12 @@ class RunConfig(ConfigBase):
     def validate_evaluators(cls, v, values):
         for idx, metric in enumerate(v.get("metrics", [])):
             v["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
+
+            data_dir_config = v["metrics"][idx].get("user_config", {}).get("data_dir", None)
+            if isinstance(data_dir_config, dict):
+                if _have_aml_client(data_dir_config, values):
+                    data_dir_config["config"]["azureml_client"] = values["azureml_client"]
+                v["metrics"][idx]["user_config"]["data_dir"] = data_dir_config
         return v
 
     @validator("engine", pre=True)
@@ -144,6 +144,14 @@ class RunConfig(ConfigBase):
         pass_cls = Pass.registry.get(v["type"].lower(), None)
         if pass_cls and pass_cls.requires_data_config():
             v["config"] = _resolve_data_config(v.get("config", {}), values, "data_config")
+
+            if not v["config"]:
+                return v
+            data_dir_config = v["config"].get("data_dir", None)
+            if isinstance(data_dir_config, dict):
+                if _have_aml_client(data_dir_config, values):
+                    data_dir_config["config"]["azureml_client"] = values["azureml_client"]
+                v["config"]["data_dir"] = data_dir_config
         return v
 
 
@@ -206,3 +214,14 @@ def _resolve_evaluator(v, values):
         raise ValueError(f"Evaluator {evaluator} not found in evaluators")
     v["evaluator"] = evaluators[evaluator]
     return v
+
+
+def _have_aml_client(config_item, values):
+    resource_path_type = config_item.get("type")
+    if resource_path_type in AZUREML_RESOURCE_TYPES:
+        rp_aml_client = config_item.get("config", {}).get("azureml_client")
+        if not rp_aml_client:
+            if "azureml_client" not in values:
+                raise ValueError(f"azureml_client is required for azureml resource path in config if {config_item}")
+            return True
+    return False

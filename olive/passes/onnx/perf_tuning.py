@@ -5,15 +5,15 @@
 import copy
 import itertools
 import logging
-from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
 from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_metric_key
-from olive.evaluator.metric_config import get_properties_from_metric_type
+from olive.evaluator.metric_config import get_user_config_properties_from_metric_type
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
 
@@ -75,13 +75,15 @@ def tune_onnx_model(model, config):
         is_static = all(all(isinstance(dim, int) for dim in shape) for shape in input_shapes)
         if not is_static:
             logger.debug(
-                "Model input shapes are not static. Cannot use infered input shapes for creating dummy data. This will"
+                "Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. This will"
                 " cause an error when creating dummy data for tuning."
             )
         config_dict["input_shapes"] = io_config["input_shapes"]
         config_dict["input_types"] = io_config["input_types"]
 
-    for eval_config in get_properties_from_metric_type(MetricType.LATENCY):
+    # data_dir/dataloader_func will be passed to the metric as perf_tuning will leverage
+    # the latency metric to run tune
+    for eval_config in get_user_config_properties_from_metric_type(MetricType.LATENCY):
         if eval_config in config_dict:
             latency_user_config[eval_config] = config_dict.get(eval_config)
     latency_sub_types = [{"name": LatencySubType.AVG}]
@@ -276,7 +278,7 @@ class OrtPerfTuning(Pass):
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
-                type_=Union[Path, str], is_path=True, description="Directory of sample inference data."
+                type_=OLIVE_RESOURCE_ANNOTATIONS, is_path=True, description="Directory of sample inference data."
             ),
             "dataloader_func": PassConfigParam(
                 type_=Union[Callable, str],

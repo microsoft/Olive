@@ -8,7 +8,7 @@ from typing import Callable, Dict, Optional, Type, Union
 
 from pydantic import create_model, validator
 
-from olive.common.config_utils import ConfigBase, ConfigParam, validate_object
+from olive.common.config_utils import ConfigBase, ConfigParam, validate_object, validate_resource_path
 from olive.data.config import DataConfig
 from olive.strategy.search_parameter import SearchParameter, json_to_search_parameter
 
@@ -41,7 +41,6 @@ class PassConfigParam(ConfigParam):
     """
 
     searchable_values: SearchParameter = None
-    is_path: bool = False
 
     def __repr__(self):
         repr_list = []
@@ -125,6 +124,8 @@ def create_config_class(
     for param, param_config in default_config.items():
         if param_config.is_object:
             validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_object)
+        if param == "data_dir":
+            validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_resource_path)
 
         type_ = param_config.type_
         if param_config.required:

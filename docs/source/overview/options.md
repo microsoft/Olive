@@ -208,7 +208,7 @@ information of the evaluator contains following items:
 
         - `script_dir: [str]` The directory that contains dependencies for the user script.
 
-        - `data_dir: [str]` The directory that contains the data for the metric evaluation.
+        - `data_dir: [str|ResourcePathConfig]` The directory that contains the data for the metric evaluation.
 
         - `batch_size: [int]` The batch size for the metric evaluation.
 
@@ -223,6 +223,20 @@ information of the evaluator contains following items:
 
         - `evaluate_func: [str]` The name of the function provided by the user to evaluate the model. The function should take the
         model, `data_dir` and `batch_size` as input and return the evaluation result. Only valid for `custom` type.
+
+    Note that for above `data_dir` config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from `config dict`, or `url`. Please refer to our [Resnet](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu) example for more details.
+    ```json
+    "data_dir": {
+        "type": "azureml_datastore",
+        "config": {
+            "azureml_client": "azureml_client",
+            "datastore_name": "test",
+            "relative_path": "cifar-10-batches-py"
+        }
+    }
+    // provide azureml datastore url
+    "data_dir": "azureml://azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py"
+    ```
 
 ### Example
 ```json
