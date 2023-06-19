@@ -215,23 +215,19 @@
 <span class="sd">        2. DefaultAzureCredential</span>
 <span class="sd">        3. InteractiveBrowserCredential</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">azure.identity</span> <span class="kn">import</span> <span class="n">AzureCliCredential</span><span class="p">,</span> <span class="n">DefaultAzureCredential</span><span class="p">,</span> <span class="n">InteractiveBrowserCredential</span>
+        <span class="kn">from</span> <span class="nn">azure.identity</span> <span class="kn">import</span> <span class="n">DefaultAzureCredential</span><span class="p">,</span> <span class="n">InteractiveBrowserCredential</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Getting credentials for MLClient&quot;</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">credential</span> <span class="o">=</span> <span class="n">AzureCliCredential</span><span class="p">()</span>
+            <span class="c1"># TODO expose the interface to disable credential providers</span>
+            <span class="n">credential</span> <span class="o">=</span> <span class="n">DefaultAzureCredential</span><span class="p">()</span>
+            <span class="c1"># Check if given credential can get token successfully.</span>
             <span class="n">credential</span><span class="o">.</span><span class="n">get_token</span><span class="p">(</span><span class="s2">&quot;https://management.azure.com/.default&quot;</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using AzureCliCredential&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using DefaultAzureCredential&quot;</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">credential</span> <span class="o">=</span> <span class="n">DefaultAzureCredential</span><span class="p">()</span>
-                <span class="c1"># Check if given credential can get token successfully.</span>
-                <span class="n">credential</span><span class="o">.</span><span class="n">get_token</span><span class="p">(</span><span class="s2">&quot;https://management.azure.com/.default&quot;</span><span class="p">)</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using DefaultAzureCredential&quot;</span><span class="p">)</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                <span class="c1"># Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work</span>
-                <span class="n">credential</span> <span class="o">=</span> <span class="n">InteractiveBrowserCredential</span><span class="p">()</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using InteractiveBrowserCredential&quot;</span><span class="p">)</span>
+            <span class="c1"># Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work</span>
+            <span class="n">credential</span> <span class="o">=</span> <span class="n">InteractiveBrowserCredential</span><span class="p">()</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using InteractiveBrowserCredential&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">credential</span></div>
 </pre></div>

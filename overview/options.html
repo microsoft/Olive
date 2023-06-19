@@ -329,10 +329,10 @@ There are some built-in system alias which could also be used as type. For exmap
 <p>This is a dictionary that contains the information of evaluators that are reference by the engine and passes. The key of the dictionary
 is the name of the evaluator. The value of the dictionary is another dictionary that contains the information of the evaluator. The
 information of the evaluator contains following items:</p>
-<ul class="simple">
+<ul>
 <li><p><a name="metrics"></a> <code class="docutils literal notranslate"><span class="pre">metrics:</span> <span class="pre">[List]</span></code> This is a list of metrics that the evaluator will use to evaluate the model. Each metric is a dictionary that
 contains following items:</p>
-<ul>
+<ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">name:</span> <span class="pre">[str]</span></code> The name of the metric. This must be a unique name among all metrics in the evaluator.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> The type of the metric. The supported types are <code class="docutils literal notranslate"><span class="pre">accuracy</span></code>, <code class="docutils literal notranslate"><span class="pre">latency</span></code> and <code class="docutils literal notranslate"><span class="pre">custom</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">backend:</span> <span class="pre">[str]</span></code> The type of metrics’ backend. Olive implement <code class="docutils literal notranslate"><span class="pre">torch_metrics</span></code> and <code class="docutils literal notranslate"><span class="pre">huggingface_metrics</span></code> backends. The default value is <code class="docutils literal notranslate"><span class="pre">torch_metrics</span></code>.</p>
@@ -370,7 +370,7 @@ dictionary contains following items:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">user_script:</span> <span class="pre">[str]</span></code> The name of the script provided by the user to assist with metric evaluation.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">script_dir:</span> <span class="pre">[str]</span></code> The directory that contains dependencies for the user script.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">data_dir:</span> <span class="pre">[str]</span></code> The directory that contains the data for the metric evaluation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data_dir:</span> <span class="pre">[str|ResourcePathConfig]</span></code> The directory that contains the data for the metric evaluation.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">batch_size:</span> <span class="pre">[int]</span></code> The batch size for the metric evaluation.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">dataloader_func:</span> <span class="pre">[str]</span></code> The name of the function provided by the user to load the data for the metric evaluation. The
 function should take the <code class="docutils literal notranslate"><span class="pre">data_dir</span></code> and <code class="docutils literal notranslate"><span class="pre">batch_size</span></code> as input and return the data loader. Only valid for <code class="docutils literal notranslate"><span class="pre">accuracy</span></code> and <code class="docutils literal notranslate"><span class="pre">latency</span></code>
@@ -383,6 +383,19 @@ model, <code class="docutils literal notranslate"><span class="pre">data_dir</sp
 </ul>
 </li>
 </ul>
+<p>Note that for above <code class="docutils literal notranslate"><span class="pre">data_dir</span></code> config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from <code class="docutils literal notranslate"><span class="pre">config</span> <span class="pre">dict</span></code>, or <code class="docutils literal notranslate"><span class="pre">url</span></code>. Please refer to our <a class="reference external" href="https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu">Resnet</a> example for more details.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_datastore&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_client&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;datastore_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;test&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;relative_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;cifar-10-batches-py&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+<span class="c1">// provide azureml datastore url</span>
+<span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml://azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py&quot;</span>
+</pre></div>
+</div>
 </li>
 </ul>
 <section id="id3">

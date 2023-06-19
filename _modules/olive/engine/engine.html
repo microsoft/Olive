@@ -822,7 +822,7 @@
 
         <span class="c1"># download and cache the model resource</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Downloading non local model resource to cache&quot;</span><span class="p">)</span>
-        <span class="n">local_model_resource_path</span> <span class="o">=</span> <span class="n">cache_utils</span><span class="o">.</span><span class="n">get_non_local_resource</span><span class="p">(</span><span class="n">model_resource_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
+        <span class="n">local_model_resource_path</span> <span class="o">=</span> <span class="n">cache_utils</span><span class="o">.</span><span class="n">download_resource</span><span class="p">(</span><span class="n">model_resource_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
 
         <span class="c1"># set local model resource path</span>
         <span class="n">model</span><span class="o">.</span><span class="n">set_local_model_path</span><span class="p">(</span><span class="n">local_model_resource_path</span><span class="p">)</span>
@@ -917,8 +917,6 @@
         <span class="c1"># run all the passes in the step</span>
         <span class="n">model_ids</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_search_point</span> <span class="ow">in</span> <span class="n">passes</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running pass </span><span class="si">{</span><span class="n">pass_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
             <span class="n">model</span><span class="p">,</span> <span class="n">model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="n">PRUNED_CONFIG</span><span class="p">:</span>
                 <span class="n">should_prune</span> <span class="o">=</span> <span class="kc">True</span>

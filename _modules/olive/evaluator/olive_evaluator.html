@@ -131,6 +131,7 @@
 <span class="kn">from</span> <span class="nn">torch.utils.data</span> <span class="kn">import</span> <span class="n">Dataset</span>
 
 <span class="kn">import</span> <span class="nn">olive.data.template</span> <span class="k">as</span> <span class="nn">data_config_template</span>
+<span class="kn">from</span> <span class="nn">olive.cache</span> <span class="kn">import</span> <span class="n">get_local_path</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span>
 <span class="kn">from</span> <span class="nn">olive.common.user_module_loader</span> <span class="kn">import</span> <span class="n">UserModuleLoader</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">tensor_data_to_device</span>
@@ -213,7 +214,11 @@
         <span class="c1"># breaking it into multiple arguments</span>
         <span class="c1"># return eval_func(model, metric, dataloader, device, post_func)</span>
         <span class="n">raw_res</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span>
-            <span class="n">model</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">execution_providers</span>
+            <span class="n">model</span><span class="p">,</span>
+            <span class="n">get_local_path</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">data_dir</span><span class="p">),</span>
+            <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
+            <span class="n">device</span><span class="p">,</span>
+            <span class="n">execution_providers</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="n">metric_res</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">sub_type</span> <span class="ow">in</span> <span class="n">metric</span><span class="o">.</span><span class="n">sub_types</span><span class="p">:</span>
@@ -267,7 +272,7 @@
 
         <span class="n">dataloader_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;dataloader_func&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">dataloader</span> <span class="o">=</span> <span class="n">user_module</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span>
-            <span class="n">dataloader_func</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">batch_size</span>
+            <span class="n">dataloader_func</span><span class="p">,</span> <span class="n">get_local_path</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">data_dir</span><span class="p">),</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">batch_size</span>
         <span class="p">)</span>
 
         <span class="n">evaluate_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;evaluate_func&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>

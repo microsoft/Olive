@@ -125,16 +125,17 @@
 <span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">validator</span>
 
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">ConfigParam</span><span class="p">,</span> <span class="n">create_config_class</span>
+<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span>
 
 <span class="n">WARMUP_NUM</span> <span class="o">=</span> <span class="mi">10</span>
 <span class="n">REPEAT_TEST_NUM</span> <span class="o">=</span> <span class="mi">20</span>
 <span class="n">SLEEP_NUM</span> <span class="o">=</span> <span class="mi">0</span>
 
-
+<span class="n">user_path_config</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;data_dir&quot;</span><span class="p">]</span>
 <span class="n">_common_user_config</span> <span class="o">=</span> <span class="p">{</span>
     <span class="s2">&quot;script_dir&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]),</span>
     <span class="s2">&quot;user_script&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]),</span>
-    <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]),</span>
+    <span class="s2">&quot;data_dir&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span> <span class="n">is_path</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
     <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
     <span class="s2">&quot;input_names&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="n">List</span><span class="p">),</span>
     <span class="s2">&quot;input_shapes&quot;</span><span class="p">:</span> <span class="n">ConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="n">List</span><span class="p">),</span>
@@ -170,7 +171,7 @@
     <span class="k">return</span> <span class="n">create_config_class</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">metric_type</span><span class="o">.</span><span class="n">title</span><span class="p">()</span><span class="si">}</span><span class="s2">UserConfig&quot;</span><span class="p">,</span> <span class="n">default_config</span><span class="p">,</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validators</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">get_properties_from_metric_type</span><span class="p">(</span><span class="n">metric_type</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">get_user_config_properties_from_metric_type</span><span class="p">(</span><span class="n">metric_type</span><span class="p">):</span>
     <span class="n">user_config_class</span> <span class="o">=</span> <span class="n">get_user_config_class</span><span class="p">(</span><span class="n">metric_type</span><span class="p">)</span>
     <span class="c1"># avoid to use schema() to get the fields, because it will skip the ones with object type</span>
     <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">user_config_class</span><span class="o">.</span><span class="n">__fields__</span><span class="p">)</span>

@@ -158,6 +158,9 @@
     <span class="n">registry</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="s2">&quot;ResourcePath&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">name</span><span class="p">:</span> <span class="n">ResourceType</span> <span class="o">=</span> <span class="kc">None</span>
 
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_path</span><span class="p">()</span>
+
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ResourceType</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
@@ -206,8 +209,8 @@
 
 
 <span class="k">def</span> <span class="nf">create_resource_path</span><span class="p">(</span>
-    <span class="n">resource_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">ResourcePathConfig</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">]</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ResourcePath</span><span class="p">:</span>
+    <span class="n">resource_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">ResourcePathConfig</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">]]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ResourcePath</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create a resource path from a string or a dict.</span>
 <span class="sd">    If a string is provided, it is inferred to be a file, folder, or string name.</span>
@@ -219,6 +222,8 @@
 <span class="sd">    :param resource_path: A string, a Path, or a dict.</span>
 <span class="sd">    :return: A resource path.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">resource_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resource_path</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">resource_path</span>
 
@@ -226,19 +231,27 @@
         <span class="n">resource_path_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">resource_path</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">resource_path_config</span><span class="o">.</span><span class="n">create_resource_path</span><span class="p">()</span>
 
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resource_path</span><span class="p">,</span> <span class="n">Path</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Resource path </span><span class="si">{</span><span class="n">resource_path</span><span class="si">}</span><span class="s2"> of type Path is not a file or folder.&quot;</span><span class="p">)</span>
-
-    <span class="c1"># check if the resource path is a file, folder, or a string name</span>
+    <span class="c1"># check if the resource path is a file, folder, azureml datastore, or a string name</span>
+    <span class="n">is_local_file</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="nb">type</span><span class="p">:</span> <span class="n">ResourceType</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">config_key</span> <span class="o">=</span> <span class="s2">&quot;path&quot;</span>
+    <span class="n">config_key</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">Path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
         <span class="nb">type</span> <span class="o">=</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFile</span>
+        <span class="n">config_key</span> <span class="o">=</span> <span class="s2">&quot;path&quot;</span>
     <span class="k">elif</span> <span class="n">Path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
         <span class="nb">type</span> <span class="o">=</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFolder</span>
+        <span class="n">config_key</span> <span class="o">=</span> <span class="s2">&quot;path&quot;</span>
+    <span class="k">elif</span> <span class="nb">str</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;azureml://&quot;</span><span class="p">):</span>
+        <span class="nb">type</span> <span class="o">=</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLDatastore</span>
+        <span class="n">config_key</span> <span class="o">=</span> <span class="s2">&quot;datastore_url&quot;</span>
+        <span class="n">is_local_file</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="nb">type</span> <span class="o">=</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">StringName</span>
         <span class="n">config_key</span> <span class="o">=</span> <span class="s2">&quot;name&quot;</span>
+        <span class="n">is_local_file</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">if</span> <span class="n">is_local_file</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resource_path</span><span class="p">,</span> <span class="n">Path</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Resource path </span><span class="si">{</span><span class="n">resource_path</span><span class="si">}</span><span class="s2"> of type Path does not exist.&quot;</span><span class="p">)</span>
 
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Resource path </span><span class="si">{</span><span class="n">resource_path</span><span class="si">}</span><span class="s2"> is inferred to be of type </span><span class="si">{</span><span class="nb">type</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">ResourcePathConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">type</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="n">config_key</span><span class="p">:</span> <span class="n">resource_path</span><span class="p">})</span><span class="o">.</span><span class="n">create_resource_path</span><span class="p">()</span>
@@ -394,6 +407,9 @@
     <span class="k">def</span> <span class="nf">get_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;azureml:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">version</span><span class="si">}</span><span class="s2">&quot;</span>
 
+    <span class="k">def</span> <span class="nf">get_aml_client_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AzureMLClientConfig</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">azureml_client</span>
+
     <span class="k">def</span> <span class="nf">save_to_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dir_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="c1"># directory to save the resource to</span>
         <span class="n">dir_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">dir_path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
@@ -430,7 +446,6 @@
             <span class="p">)</span>
             <span class="n">new_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">temp_dir</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">name</span> <span class="o">/</span> <span class="n">model_path</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">new_path</span><span class="p">)</span>
-
         <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">new_path</span><span class="p">)</span>
 
 
@@ -483,7 +498,15 @@
             <span class="sa">f</span><span class="s2">&quot;/datastores/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_name</span><span class="si">}</span><span class="s2">/paths/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">relative_path</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">is_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fsspec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">is_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fsspec</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">azureml.fsspec</span> <span class="kn">import</span> <span class="n">AzureMachineLearningFileSystem</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">&quot;azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">fsspec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">fsspec</span> <span class="o">=</span> <span class="n">AzureMachineLearningFileSystem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_path</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">fsspec</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_relative_path</span><span class="p">())</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;file&quot;</span>
 
     <span class="k">def</span> <span class="nf">get_relative_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -514,9 +537,6 @@
                 <span class="s2">&quot;azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path.&quot;</span>
             <span class="p">)</span>
 
-        <span class="n">dir_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">dir_path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
-        <span class="n">dir_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
         <span class="n">azureml_client_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_aml_client_config</span><span class="p">()</span>
 
         <span class="c1"># azureml file system</span>
@@ -529,13 +549,14 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">new_path_name</span> <span class="o">=</span> <span class="n">relative_path</span><span class="o">.</span><span class="n">name</span>
 
+        <span class="n">dir_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">dir_path</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
         <span class="n">new_path</span> <span class="o">=</span> <span class="n">dir_path</span> <span class="o">/</span> <span class="n">new_path_name</span>
-        <span class="n">_overwrite_helper</span><span class="p">(</span><span class="n">dir_path</span> <span class="o">/</span> <span class="n">new_path_name</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">)</span>
+        <span class="n">_overwrite_helper</span><span class="p">(</span><span class="n">new_path</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">)</span>
+
+        <span class="n">dir_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># download artifacts to a temporary directory</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Downloading aml resource for datastore </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_name</span><span class="si">}</span><span class="s2"> path </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">relative_path</span><span class="si">}</span><span class="s2">.&quot;</span>
-        <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Downloading aml resource for datastore </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">datastore_name</span><span class="si">}</span><span class="s2"> path </span><span class="si">{</span><span class="n">relative_path</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
 
         <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="nb">dir</span><span class="o">=</span><span class="n">dir_path</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;olive_tmp&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">temp_dir</span><span class="p">:</span>
             <span class="n">retry_func</span><span class="p">(</span>
@@ -607,11 +628,10 @@
             <span class="p">)</span>
             <span class="n">new_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">&quot;named-outputs&quot;</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">output_name</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">relative_path</span><span class="p">,</span> <span class="n">new_path</span><span class="p">)</span>
-
         <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">new_path</span><span class="p">)</span>
 
 
-<span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">]]</span>
+<span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">]]</span>
 </pre></div>
 
            </div>
