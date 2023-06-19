@@ -48,7 +48,7 @@ def test_run_snpe_command():
         if platform.system() == "Linux":
             env = {
                 "LD_LIBRARY_PATH": "C:\\snpe/lib/x86_64-linux-clang",
-                "PATH": "C:\\snpe\\bin\\x86_64-windows-vc19;C:\\snpe\\lib\\x86_64-windows-vc19",
+                "PATH": "C:\\snpe/bin/x86_64-linux-clang:/usr/bin",
             }
         else:
             env = {"PATH": "C:\\snpe\\bin\\x86_64-windows-vc19;C:\\snpe\\lib\\x86_64-windows-vc19"}
