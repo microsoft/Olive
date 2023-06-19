@@ -6,10 +6,13 @@ import argparse
 import json
 import shutil
 import warnings
+import threading
 from pathlib import Path
 
 import onnxruntime as ort
-import PySimpleGUI as sg
+import tkinter as tk
+import tkinter.ttk as ttk
+from PIL import ImageTk, Image
 import torch
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffusionPipeline
 from packaging import version
@@ -51,6 +54,74 @@ def run_inference_loop(
         print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
 
 
+def run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_steps):
+    def update_progress_bar(total_steps_completed):
+        progress_bar['value'] = total_steps_completed
+
+    def image_completed(index, path):
+        img = Image.open(path)
+        photo = ImageTk.PhotoImage(img)
+        gui_images[index].config(image=photo)
+        gui_images[index].image=photo
+        if index == num_images - 1:
+            generate_button["state"] = "normal"
+
+    def on_generate_click():
+        generate_button["state"] = "disabled"
+        progress_bar['value'] = 0
+        threading.Thread(target=run_inference_loop, args=(
+            pipeline, 
+            prompt_textbox.get(), 
+            num_images, 
+            batch_size, 
+            num_inference_steps, 
+            image_completed, 
+            update_progress_bar)).start()
+
+    if num_images > 9:
+        print("WARNING: interactive UI only supports displaying up to 9 images")
+        num_images = 9
+
+    image_size = 512
+    image_rows = 1 + (num_images - 1) // 3
+    image_cols = 2 if num_images == 4 else min(num_images, 3)
+    min_batches_required = 1 + (num_images - 1) // batch_size
+
+    bar_height = 10
+    button_width = 80
+    button_height = 30
+    padding = 2
+    window_width = image_cols * image_size + (image_cols + 1) * padding
+    window_height = image_rows * image_size + (image_rows + 1) * padding + bar_height + button_height
+
+    window = tk.Tk()
+    window.resizable(width=False, height=False)
+    window.geometry(f"{window_width}x{window_height}")
+
+    gui_images = []
+    for row in range(image_rows):
+        for col in range(image_cols):
+            label = tk.Label(window, width=image_size, height=image_size, background="black")
+            gui_images.append(label)
+            label.place(x=col*image_size, y=row*image_size)
+
+    y = image_rows*image_size + (image_rows + 1) * padding
+
+    progress_bar = ttk.Progressbar(window, value=0, maximum=num_inference_steps * min_batches_required)
+    progress_bar.place(x=0, y=y, height=bar_height, width=window_width)
+
+    y += bar_height
+
+    prompt_textbox = tk.Entry(window)
+    prompt_textbox.insert(tk.END, prompt)
+    prompt_textbox.place(x=0, y=y, width=window_width - button_width, height=button_height)
+
+    generate_button = tk.Button(window, text="Generate", command=on_generate_click)
+    generate_button.place(x=window_width - button_width, y=y, width=button_width, height=button_height)
+
+    window.mainloop()
+
+
 def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_inference_steps, static_dims, interactive):
     ort.set_default_logger_severity(3)
 
@@ -75,61 +146,7 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
     )
 
     if interactive:
-        sg.theme("SystemDefault")
-
-        if num_images > 9:
-            print("WARNING: interactive UI only supports displaying up to 9 images")
-            num_images = 9
-
-        image_size = (512, 512)
-        image_rows = 1 + (num_images - 1) // 3
-        image_cols = 2 if num_images == 4 else min(num_images, 3)
-        image_index = 0
-        min_batches_required = 1 + (num_images - 1) // batch_size
-
-        layout = []
-        for _ in range(image_rows):
-            ui_row = []
-            for _ in range(image_cols):
-                ui_row.append(sg.Image(key=f"sd_output{image_index}", size=image_size, background_color="black"))
-                image_index += 1
-            layout.append(ui_row)
-
-        layout.append(
-            [sg.ProgressBar(num_inference_steps * min_batches_required, key="sb_progress", expand_x=True, size=(8, 8))]
-        )
-        layout.append([sg.InputText(key="sd_prompt", default_text=prompt, expand_x=True), sg.Button("Generate")])
-
-        window = sg.Window("Stable Diffusion", layout)
-
-        while True:
-            event, values = window.read()
-            if event == sg.WIN_CLOSED:
-                break
-            elif event == "Generate":
-
-                def update_progress_bar(total_steps_completed):
-                    window["sb_progress"].update_bar(total_steps_completed)
-
-                def image_completed(index, path):
-                    window[f"sd_output{index}"].update(filename=path)
-
-                def generate_image():
-                    run_inference_loop(
-                        pipeline,
-                        values["sd_prompt"],
-                        num_images,
-                        batch_size,
-                        num_inference_steps,
-                        image_completed,
-                        update_progress_bar,
-                    )
-
-                window["Generate"].update(disabled=True)
-                window.start_thread(generate_image, "image_generation_done")
-            elif event == "image_generation_done":
-                window["Generate"].update(disabled=False)
-
+        run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_steps)
     else:
         run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps)
 
