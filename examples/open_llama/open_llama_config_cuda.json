@@ -10,7 +10,7 @@
         "local_system": {
             "type": "LocalSystem",
             "config": {
-                "accelerators": ["cpu"]
+                "accelerators": ["gpu"]
             }
         }
     },
@@ -63,6 +63,8 @@
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
         "output_name": "ollama",
+        "target": "local_system",
+        "host": "local_system",
         "output_dir": "footprints"
     }
 }
