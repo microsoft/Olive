@@ -122,7 +122,7 @@
 <span class="kn">import</span> <span class="nn">json</span>
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
 
 <span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
 
@@ -152,6 +152,18 @@
         <span class="n">description</span><span class="o">=</span><span class="p">(</span>
             <span class="s2">&quot;Initial interval in seconds between retries for AzureML operations like resource creation or download. The&quot;</span>
             <span class="s2">&quot; interval doubles after each retry.&quot;</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="c1"># as the DefaultAzureCredential is used by default, we need to provide the default auth config for it.</span>
+    <span class="c1"># but DefaultAzureCredential accept kwargs as parameters, it is hard to validate the config.</span>
+    <span class="c1"># so we just provide a dict here and let the user to provide the correct config following the doc.</span>
+    <span class="n">default_auth_params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">None</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Default auth config for AzureML client. Please refer to&quot;</span>
+            <span class="s2">&quot; https://learn.microsoft.com/en-us/python/api/azure-identity/&quot;</span>
+            <span class="s2">&quot;azure.identity.defaultazurecredential?view=azure-python#parameters&quot;</span>
+            <span class="s2">&quot; for more details.&quot;</span>
         <span class="p">),</span>
     <span class="p">)</span>
 
@@ -219,8 +231,8 @@
 
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Getting credentials for MLClient&quot;</span><span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="c1"># TODO expose the interface to disable credential providers</span>
-            <span class="n">credential</span> <span class="o">=</span> <span class="n">DefaultAzureCredential</span><span class="p">()</span>
+            <span class="n">default_auth_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_auth_params</span> <span class="ow">or</span> <span class="p">{}</span>
+            <span class="n">credential</span> <span class="o">=</span> <span class="n">DefaultAzureCredential</span><span class="p">(</span><span class="o">**</span><span class="n">default_auth_params</span><span class="p">)</span>
             <span class="c1"># Check if given credential can get token successfully.</span>
             <span class="n">credential</span><span class="o">.</span><span class="n">get_token</span><span class="p">(</span><span class="s2">&quot;https://management.azure.com/.default&quot;</span><span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using DefaultAzureCredential&quot;</span><span class="p">)</span>

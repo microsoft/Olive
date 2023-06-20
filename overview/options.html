@@ -176,7 +176,18 @@ more details.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_operation_retries:</span> <span class="pre">[int]</span></code> The maximum number of retries for Azure ML operations like resource creation and download.
 The default value is 3. User can increase if there are network issues and the operations fail.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">operation_retry_interval:</span> <span class="pre">[int]</span></code> The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">default_auth_params:</span> <span class="pre">Dict[str,</span> <span class="pre">Any]</span></code> Default auth parameters for AzureML client. Please refer to <a class="reference external" href="https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters">azure DefaultAzureCredential</a> for more details. For example, if you want to exclude managed identity credential, you can set the following:</p></li>
 </ul>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_workspace&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;default_auth_params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;exclude_managed_identity_credential&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 <section id="example">
 <h3>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
