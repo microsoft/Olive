@@ -38,13 +38,13 @@ def get_encdec_io_config():
         use_int32_inputs=True,
     )
 
-    out = model(inputs.encoder_input_ids, inputs.encoder_attention_mask, inputs.decoder_input_ids)
+    out = model(inputs.encoder_input_ids, inputs.decoder_input_ids)
     present = out[2]
     present_names = PastKeyValuesHelper.get_input_names(present, encoder=True)
 
     output_names = ["logits", "encoder_hidden_states", *present_names]
 
-    input_names = ["encoder_input_ids", "encoder_attention_mask"]
+    input_names = ["encoder_input_ids"]
 
     # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference.
     # We use a workaround here: first use dim_param "1" for sequence_length, and later change to dim_value.
@@ -54,7 +54,6 @@ def get_encdec_io_config():
     head_size = str(model.config.d_model // model.config.encoder_attention_heads)
     dynamic_axes = {
         "encoder_input_ids": {0: "batch_size", 1: "encode_sequence_length"},
-        "encoder_attention_mask": {0: "batch_size", 1: "encode_sequence_length"},
         "encoder_hidden_states": {
             0: "batch_size",
             1: "encode_sequence_length",
@@ -111,12 +110,10 @@ def get_dec_io_config():
     output_names = ["logits", *output_present_names]
 
     input_names = ["input_ids"]
-    input_names.append("encoder_attention_mask")
     input_names.extend(input_past_names)
 
     dynamic_axes = {
         "input_ids": {0: "batch_size"},
-        "encoder_attention_mask": {0: "batch_size", 1: "encode_sequence_length"},
         "encoder_hidden_states": {0: "batch_size", 1: "encode_sequence_length / 2"},
         "logits": {0: "batch_size", 1: "sequence_length"},
     }
