@@ -120,7 +120,10 @@ def model_proto_to_file(
 
 
 def model_proto_to_olive_model(
-    model_proto: onnx.ModelProto, output_model_path: Union[str, Path], external_data_config: dict
+    model_proto: onnx.ModelProto,
+    output_model_path: Union[str, Path],
+    external_data_config: dict,
+    check_model: bool = False,
 ) -> ONNXModel:
     """
     Save the ONNX model to the specified path and return the ONNXModel.
@@ -148,4 +151,9 @@ def model_proto_to_olive_model(
         model_path = LocalFile({"path": output_model_path})
         onnx_file_name = None
 
-    return ONNXModel(model_path=model_path, onnx_file_name=onnx_file_name)
+    olive_model = ONNXModel(model_path=model_path, onnx_file_name=onnx_file_name)
+
+    if check_model:
+        onnx.checker.check_model(olive_model.model_path)
+
+    return olive_model
