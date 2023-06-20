@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Tuple
 
 import numpy as np
+import torch
 
 import olive.snpe.utils.input_list as input_list_utils
 
@@ -299,6 +300,15 @@ class SNPECommonDataLoader(SNPEDataLoader):
         num_samples = len(self.config["dataloader"])
         sample_digits = len(str(num_samples))
         for i, (input_data, annotation) in enumerate(self.config["dataloader"]):
+            if isinstance(input_data, tuple):
+                input_data = dict(zip(input_specs.keys(), input_data))
+            elif isinstance(input_data, torch.Tensor) or isinstance(input_data, np.ndarray):
+                input_data = dict(zip(input_specs.keys(), [input_data]))
+            else:
+                assert isinstance(
+                    input_data, dict
+                ), f"Input data must be a tuple, torch.Tensor, np.ndarray, or dict. Got {type(input_data)}"
+
             input_file_name = f"{i}.bin".zfill(sample_digits + 4)
             input_order.append(input_file_name)
             for input_name, input_spec in input_specs.items():
