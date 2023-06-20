@@ -133,6 +133,7 @@ def model_proto_to_olive_model(
     :param external_data_config: The external data configuration. Must be a dictionary with keys
         "save_as_external_data", "all_tensors_to_one_file", and "external_data_name".
     :param name: The name of the model.
+    :check_model: If True, run onnx.checker.check_model on the model before returning.
 
     :return: The ONNXModel.
     """
