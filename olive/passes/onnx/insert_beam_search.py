@@ -160,5 +160,4 @@ class InsertBeamSearch(Pass):
 
         # save the model to the output path and return the model
         output_model_path = ONNXModel.resolve_path(output_model_path)
-
         return model_proto_to_olive_model(combined_model, output_model_path, config, True)
