@@ -36,13 +36,15 @@ python prepare_whisper_configs.py [--no_audio_decoder] [--multiligual]
 python -m pip install librosa
 ```
 
-`--multiligual` is optional. If provided, the model produced will support multiple languages that are controlled using `forced_decoder_ids` input.
+`--multiligual` is optional. If provided, the model produced will support multiple languages that are controlled using `decoder_input_ids` input.
 
 **Note:** Only supported in ONNXRuntime 1.16.0+ which is not released yet. Must be built from or after commit https://github.com/microsoft/onnxruntime/commit/3f7f90aed02a0d8d99c48fa89201759477794b8d.
 
-**Example of forced_decoder_ids:**
+**Example of decoder_input_ids:**
 ```python
+import numpy as np
 from transformers import AutoConfig, AutoProcessor
+
 
 model = "openai/whisper-tiny"
 config = AutoConfig.from_pretrained(model)
@@ -57,6 +59,10 @@ forced_decoder_ids = [config.decoder_start_token_id] + list(map(lambda token: to
 # If you don't want to provide specific decoder input ids or you want
 # Whisper to predict the output language and task, you can set
 # forced_decoder_ids = [config.decoder_start_token_id]
+# [50258]
+
+# decoder input ids
+decoder_input_ids = np.array([forced_decoder_ids], dtype=np.int32)
 ```
 
 ## Run the config to optimize the model
