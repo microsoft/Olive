@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from typing import Any, Dict
 
 from onnx import ModelProto, TensorProto, helper
@@ -12,6 +13,8 @@ from olive.model import CompositeOnnxModel, OliveModel, ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
+
+logger = logging.getLogger(__name__)
 
 
 class InsertBeamSearch(Pass):
@@ -111,7 +114,16 @@ class InsertBeamSearch(Pass):
         ]
 
         beam_graph = helper.make_graph([node], "beam-search-test", graph_inputs, graph_outputs, initializers)
-        beam_model = helper.make_model(beam_graph, producer_name="pytorch", opset_imports=opset_import)
+        assert model_A.ir_version == model_B.ir_version
+        logger.debug(f"Using IR version {model_A.ir_version} for chained model")
+
+        # Set IR version of chained model to IR version of subgraphs in order to generate a working E2E model
+        beam_model = helper.make_model_gen_version(
+            beam_graph,
+            producer_name="Olive",
+            opset_imports=opset_import,
+            ir_version=model_A.ir_version,
+        )
 
         return beam_model
 
@@ -148,4 +160,4 @@ class InsertBeamSearch(Pass):
 
         # save the model to the output path and return the model
         output_model_path = ONNXModel.resolve_path(output_model_path)
-        return model_proto_to_olive_model(combined_model, output_model_path, config)
+        return model_proto_to_olive_model(combined_model, output_model_path, config, True)

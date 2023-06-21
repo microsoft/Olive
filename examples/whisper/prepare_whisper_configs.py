@@ -35,7 +35,7 @@ def main(raw_args=None):
     # load template
     template_json = json.load(open("whisper_template.json", "r"))
 
-    whisper_config = WhisperConfig(template_json["input_model"]["config"]["hf_config"]["model_name"])
+    whisper_config = WhisperConfig.from_pretrained(template_json["input_model"]["config"]["hf_config"]["model_name"])
 
     # set dataloader
     template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"]["dataloader_func"] = (
