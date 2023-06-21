@@ -1,4 +1,4 @@
-# BERT Optimization
+# Open LLaMa Optimization
 This folder contains examples of Open LLaMA workflow.
 
 This workflow also demonstrates how to use:
