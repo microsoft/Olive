@@ -1,0 +1,10 @@
+azure-ai-ml
+azure-identity
+datasets
+evaluate
+docker
+onnxruntime
+neural-compressor
+scipy
+scikit-learn
+transformers

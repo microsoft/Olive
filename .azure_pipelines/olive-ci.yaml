@@ -80,3 +80,12 @@ jobs:
     display_name: Test Build Docs
     pool: $(OLIVE_POOL_UBUNTU2004)
     publish_docs: false
+
+- template: job_templates/olive-perf-monitoring-template.yaml
+  parameters:
+    name: Windows_CI
+    pool: $(OLIVE_POOL_WIN2019)
+    windows: True
+    examples:
+      bert:
+        perfMonitoringScriptName: perf_monitoring_bert_cpu.py
