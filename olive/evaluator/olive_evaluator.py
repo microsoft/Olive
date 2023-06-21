@@ -158,7 +158,7 @@ class OliveEvaluator(ABC):
             return metric
 
         if not io_config.is_input_shape_static():
-            logger.warning(
+            logger.debug(
                 "Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. This will"
                 " cause an error when creating dummy data for tuning."
             )
@@ -183,7 +183,7 @@ class OliveEvaluator(ABC):
         evaluate_func = getattr(metric.user_config, "evaluate_func", None)
         eval_func = user_module.load_object(evaluate_func)
 
-        if not dataloader or not post_func and metric.data_config:
+        if (not dataloader or not post_func) and metric.data_config:
             dc = metric.data_config.to_data_container()
 
             # TODO remove user_scripts dataloader: we should respect user scripts
