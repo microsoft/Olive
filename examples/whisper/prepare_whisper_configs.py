@@ -12,7 +12,13 @@ from transformers import WhisperConfig
 
 SUPPORTED_WORKFLOWS = {
     ("cpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
-    ("cpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search", "prepost"],
+    ("cpu", "int8"): [
+        "conversion",
+        "transformers_optimization",
+        "onnx_dynamic_quantization",
+        "insert_beam_search",
+        "prepost",
+    ],
     ("gpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
     ("gpu", "fp16"): ["conversion", "transformers_optimization", "mixed_precision", "insert_beam_search", "prepost"],
     ("gpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search", "prepost"],
