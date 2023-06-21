@@ -26,13 +26,17 @@ jobs:
     inputs:
       azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
       scriptLocation: 'inlineScript'
-      inlineScript: make test PIPELINE=True
+      inlineScript: make test
     displayName: Test Olive
     env:
       OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
       WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
       WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
       WORKSPACE_NAME: $(workspace-name)
+      AZURE_TENANT_ID: $(azure-tenant-id)
+      AZURE_CLIENT_ID: $(olive-rg-sp-id)
+      AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
+      PIPELINE: True
 
   - task: CredScan@3
     displayName: 'Run CredScan'
@@ -88,13 +92,19 @@ jobs:
     inputs:
       azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
       scriptLocation: 'inlineScript'
-      inlineScript: make test-examples PIPELINE=True WINDOWS=$(WINDOWS) EXAMPLE_FOLDER=$(exampleFolder) EXAMPLE_NAME=$(exampleName)
+      inlineScript: make test-examples
     displayName: Test Examples
     env:
       OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
       WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
       WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
       WORKSPACE_NAME: $(workspace-name)
+      AZURE_TENANT_ID: $(azure-tenant-id)
+      AZURE_CLIENT_ID: $(olive-rg-sp-id)
+      AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
+      PIPELINE: True
+      EXAMPLE_FOLDER: $(exampleFolder)
+      EXAMPLE_NAME: $(exampleName)
 
   - task: ComponentGovernanceComponentDetection@0
     inputs:

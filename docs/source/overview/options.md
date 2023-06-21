@@ -32,6 +32,17 @@ more details.
 - `max_operation_retries: [int]` The maximum number of retries for Azure ML operations like resource creation and download.
 The default value is 3. User can increase if there are network issues and the operations fail.
 - `operation_retry_interval: [int]` The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.
+- `default_auth_params: Dict[str, Any]` Default auth parameters for AzureML client. Please refer to [azure DefaultAzureCredential](https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters) for more details. For example, if you want to exclude managed identity credential, you can set the following:
+```json
+"azureml_client": {
+    "subscription_id": "my_subscription_id",
+    "resource_group": "my_resource_group",
+    "workspace_name": "my_workspace",
+    "default_auth_params": {
+        "exclude_managed_identity_credential": true
+    }
+}
+```
 
 ### Example
 ```json
@@ -208,7 +219,7 @@ information of the evaluator contains following items:
 
         - `script_dir: [str]` The directory that contains dependencies for the user script.
 
-        - `data_dir: [str]` The directory that contains the data for the metric evaluation.
+        - `data_dir: [str|ResourcePathConfig]` The directory that contains the data for the metric evaluation.
 
         - `batch_size: [int]` The batch size for the metric evaluation.
 
@@ -223,6 +234,20 @@ information of the evaluator contains following items:
 
         - `evaluate_func: [str]` The name of the function provided by the user to evaluate the model. The function should take the
         model, `data_dir` and `batch_size` as input and return the evaluation result. Only valid for `custom` type.
+
+    Note that for above `data_dir` config which is related to resource path, Olive supports local file, local folder or AML Datastore. Take AML Datastore as an example, Olive can parse the resource type automatically from `config dict`, or `url`. Please refer to our [Resnet](https://github.com/microsoft/Olive/tree/main/examples/resnet#resnet-optimization-with-ptq-on-cpu) example for more details.
+    ```json
+    "data_dir": {
+        "type": "azureml_datastore",
+        "config": {
+            "azureml_client": "azureml_client",
+            "datastore_name": "test",
+            "relative_path": "cifar-10-batches-py"
+        }
+    }
+    // provide azureml datastore url
+    "data_dir": "azureml://azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py"
+    ```
 
 ### Example
 ```json
@@ -302,6 +327,10 @@ evaluator in `evaluators`. If it is a dictionary, it contains the evaluator info
 will be used.
 
 - `clean_run_cache: [Boolean]` This decides whether to clean the run cache of the pass before running the pass. This is `false` by default.
+
+- `output_name: str` In no-search mode (i.e., `search_strategy` is `null`), if `output_name` is provided, the output model of the pass will be
+saved to the engine's `output_dir` with the prefix of `output_name`. For the final pass, the engine's `output_name`, if provided, overrides the
+`output_name` of the pass.
 
 Please refer to [Configuring Pass](configuring_pass) for more details on `type`, `disable_search` and `config`.
 

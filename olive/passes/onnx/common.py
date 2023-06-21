@@ -120,7 +120,10 @@ def model_proto_to_file(
 
 
 def model_proto_to_olive_model(
-    model_proto: onnx.ModelProto, output_model_path: Union[str, Path], external_data_config: dict
+    model_proto: onnx.ModelProto,
+    output_model_path: Union[str, Path],
+    external_data_config: dict,
+    check_model: bool = False,
 ) -> ONNXModel:
     """
     Save the ONNX model to the specified path and return the ONNXModel.
@@ -130,6 +133,7 @@ def model_proto_to_olive_model(
     :param external_data_config: The external data configuration. Must be a dictionary with keys
         "save_as_external_data", "all_tensors_to_one_file", and "external_data_name".
     :param name: The name of the model.
+    :check_model: If True, run onnx.checker.check_model on the model before returning.
 
     :return: The ONNXModel.
     """
@@ -148,4 +152,9 @@ def model_proto_to_olive_model(
         model_path = LocalFile({"path": output_model_path})
         onnx_file_name = None
 
-    return ONNXModel(model_path=model_path, onnx_file_name=onnx_file_name)
+    olive_model = ONNXModel(model_path=model_path, onnx_file_name=onnx_file_name)
+
+    if check_model:
+        onnx.checker.check_model(olive_model.model_path)
+
+    return olive_model

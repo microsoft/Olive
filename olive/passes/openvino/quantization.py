@@ -5,11 +5,13 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
+from olive.cache import get_local_path
 from olive.common.user_module_loader import UserModuleLoader
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OpenVINOModel
 from olive.passes import Pass
 from olive.passes.pass_config import PassConfigParam
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 
 class OpenVINOQuantization(Pass):
@@ -41,7 +43,7 @@ class OpenVINOQuantization(Pass):
                 ),
             ),
             "data_dir": PassConfigParam(
-                type_=Union[Path, str],
+                type_=OLIVE_RESOURCE_ANNOTATIONS,
                 is_path=True,
                 description="Dataset path. 'data_dir' can be by a str or Pathlib.Path.",
             ),
@@ -77,7 +79,9 @@ class OpenVINOQuantization(Pass):
         model_name = "ov_model"
 
         loader = UserModuleLoader(user_script=config["user_script"], script_dir=config["script_dir"])
-        data_loader = loader.call_object(config["dataloader_func"], config["data_dir"], config["batch_size"])
+        data_loader = loader.call_object(
+            config["dataloader_func"], get_local_path(config["data_dir"]), config["batch_size"]
+        )
         metric = loader.load_object(config["metric_func"])
         engine = IEEngine(config=config["engine_config"], data_loader=data_loader, metric=metric)
         self.pipeline = create_pipeline(config["algorithms"], engine)

@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from olive.cache import clean_pass_run_cache, create_cache, get_cache_sub_dirs, get_non_local_resource, save_model
+from olive.cache import clean_pass_run_cache, create_cache, download_resource, get_cache_sub_dirs, save_model
 from olive.resource_path import AzureMLModel
 
 
@@ -112,7 +112,7 @@ class TestCache:
         shutil.rmtree(cache_dir)
 
     @patch("olive.resource_path.AzureMLModel.save_to_dir")
-    def test_get_non_local_resource(self, mock_save_to_dir):
+    def test_download_resource(self, mock_save_to_dir):
         # setup
         tmp_dir = tempfile.TemporaryDirectory()
         cache_dir = Path(tmp_dir.name) / "cache_dir"
@@ -135,17 +135,17 @@ class TestCache:
 
         # execute
         # first time
-        cached_path = get_non_local_resource(resource_path, cache_dir)
+        cached_path = download_resource(resource_path, cache_dir)
         assert cached_path.get_path() == "dummy_string_name"
         assert mock_save_to_dir.call_count == 1
 
         # second time
-        cached_path = get_non_local_resource(resource_path, cache_dir)
+        cached_path = download_resource(resource_path, cache_dir)
         assert cached_path.get_path() == "dummy_string_name"
         # uses cached value so save_to_dir is not called again
         assert mock_save_to_dir.call_count == 1
 
         # change cache_dir
-        cached_path = get_non_local_resource(resource_path, cache_dir2)
+        cached_path = download_resource(resource_path, cache_dir2)
         assert cached_path.get_path() == "dummy_string_name"
         assert mock_save_to_dir.call_count == 2

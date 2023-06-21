@@ -3,6 +3,7 @@ settings.json
 models/
 logs/
 cache/
+.olive_cache/
 olive_tmp_*/
 /olive-venv
 augmented_model.onnx

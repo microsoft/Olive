@@ -27,6 +27,7 @@ def test_inc_quantization():
         ov_model = get_onnx_model(tempdir)
         local_system = LocalSystem()
         data_dir = Path(tempdir) / "data"
+        data_dir.mkdir(exist_ok=True)
         config = {"data_dir": data_dir, "dataloader_func": create_dataloader}
         output_folder = str(Path(tempdir) / "quantized")
 

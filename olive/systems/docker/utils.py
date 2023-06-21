@@ -8,6 +8,7 @@ import shutil
 from pathlib import Path
 from typing import List
 
+from olive.cache import get_local_path
 from olive.constants import Framework
 from olive.evaluator.metric import Metric
 from olive.model import OliveModel
@@ -74,7 +75,7 @@ def create_metric_volumes_list(metrics: List[Metric], container_root_path: Path,
             metric.user_config.script_dir = script_dir_mount_path
 
         if metric.user_config.data_dir:
-            data_dir = str(Path(metric.user_config.data_dir).resolve())
+            data_dir = get_local_path(metric.user_config.data_dir)
             mount_list.append(f"{data_dir}:{str(metric_path / 'data_dir')}")
             metric.user_config.data_dir = str(metric_path / "data_dir")
 

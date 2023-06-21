@@ -7,7 +7,6 @@ from typing import List, Union
 import torch
 from past_helper import PastKeyValuesHelper  # noqa: E402
 from transformers import WhisperConfig, file_utils
-from whisper_encoder import WhisperEncoderInputs
 
 
 class WhisperDecoderInit(torch.nn.Module):
@@ -33,7 +32,6 @@ class WhisperDecoderInit(torch.nn.Module):
     def forward(
         self,
         decoder_input_ids: torch.Tensor,
-        encoder_attention_mask: torch.Tensor,
         encoder_hidden_states: torch.FloatTensor,
     ):
         encoder_outputs = file_utils.ModelOutput()
@@ -45,7 +43,6 @@ class WhisperDecoderInit(torch.nn.Module):
             None,
             encoder_outputs=encoder_outputs,
             decoder_input_ids=decoder_input_ids,
-            head_mask=encoder_attention_mask,
             past_key_values=None,
             use_cache=True,
             return_dict=True,
@@ -63,7 +60,7 @@ class WhisperDecoder(torch.nn.Module):
         self.lm_head = lm_head
         self.config = config
 
-    def forward(self, decoder_input_ids, encoder_attention_mask, *past):
+    def forward(self, decoder_input_ids, *past):
         encoder_outputs = file_utils.ModelOutput()
         dummy_encoder_hidden_states = torch.randn((decoder_input_ids.shape[0], 3000, int(self.config.d_model)))
         encoder_outputs["last_hidden_state"] = dummy_encoder_hidden_states
@@ -78,7 +75,6 @@ class WhisperDecoder(torch.nn.Module):
             None,
             encoder_outputs=encoder_outputs,
             decoder_input_ids=decoder_input_ids,
-            # decoder_attention_mask=encoder_attention_mask,
             past_key_values=past_key_values,
             use_cache=True,
             return_dict=True,
@@ -92,11 +88,9 @@ class WhisperDecoderInputs:
     def __init__(
         self,
         decoder_input_ids,
-        encoder_attention_mask=None,
         past_key_values=None,
     ):
         self.decoder_input_ids: torch.LongTensor = decoder_input_ids
-        self.encoder_attention_mask: torch.LongTensor = encoder_attention_mask
         self.past_key_values: Union[List[torch.FloatTensor], List[torch.HalfTensor], None] = past_key_values
 
     @staticmethod
@@ -140,14 +134,6 @@ class WhisperDecoderInputs:
             device=device,
         )
 
-        encoder_inputs = WhisperEncoderInputs.create_dummy(
-            batch_size,
-            encode_sequence_length,
-            vocab_size,
-            device,
-            use_int32_inputs=use_int32_inputs,
-        )
-
         float_type = torch.float16 if float16 else torch.float32
 
         if past_decode_sequence_length > 0:
@@ -173,16 +159,10 @@ class WhisperDecoderInputs:
         else:
             past = None
 
-        encoder_attention_mask = torch.zeros(
-            (encoder_inputs.input_ids.shape[0], 1, encoder_inputs.input_ids.shape[1], encoder_inputs.input_ids.shape[1])
-        ).type(torch.int8)
-        return WhisperDecoderInputs(decoder_input_ids, encoder_attention_mask, past)
+        return WhisperDecoderInputs(decoder_input_ids, past)
 
     def to_list(self) -> List:
-        input_list = [
-            self.decoder_input_ids,
-            self.encoder_attention_mask,
-        ]
+        input_list = [self.decoder_input_ids]
         if self.past_key_values:
             input_list.extend(self.past_key_values)
         return input_list
@@ -191,6 +171,5 @@ class WhisperDecoderInputs:
         past = [p.to(dtype=torch.float32) for p in self.past_key_values] if self.past_key_values else None
         return WhisperDecoderInputs(
             self.decoder_input_ids.clone(),
-            self.encoder_attention_mask.clone(),
             past,
         )

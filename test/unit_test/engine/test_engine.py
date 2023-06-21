@@ -13,7 +13,7 @@ from test.unit_test.utils import (
     get_pytorch_model,
     pytorch_model_loader,
 )
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -295,7 +295,7 @@ class TestEngine:
 
     @patch.object(Path, "glob", return_value=[Path("cache") / "output" / "100_model.json"])
     @patch.object(Path, "unlink")
-    def test_model_path_suffix(self, mock_glob, mock_unlink: Mock):
+    def test_model_path_suffix(self, mock_unlink, mock_glob):
         # setup
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
@@ -311,7 +311,8 @@ class TestEngine:
         engine.initialize()
 
         assert engine._new_model_number == 101
-        assert mock_unlink.called
+        assert mock_unlink.call_count == 1
+        assert mock_glob.call_count == 2
 
     def test_model_path_suffix_with_exception(self):
         # setup

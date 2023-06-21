@@ -20,7 +20,7 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
-from olive.resource_path import ResourceType
+from olive.resource_path import AzureMLModel, ResourceType, create_resource_path
 from olive.systems.azureml.aml_evaluation_runner import main as aml_evaluation_runner_main
 from olive.systems.azureml.aml_pass_runner import main as aml_pass_runner_main
 from olive.systems.azureml.aml_system import AzureMLSystem
@@ -204,7 +204,7 @@ class TestAzureMLSystem:
             "user_config": {
                 "user_script": "user_script",
                 "script_dir": "script_dir",
-                "data_dir": "data_dir",
+                "data_dir": tem_dir,
             }
         }
         metric_config_path = tem_dir / "metric_config.json"
@@ -212,7 +212,7 @@ class TestAzureMLSystem:
         expected_metric_config = Input(type=AssetTypes.URI_FILE, path=metric_config_path)
         expected_metric_user_script = Input(type=AssetTypes.URI_FILE, path="user_script")
         expected_metric_script_dir = Input(type=AssetTypes.URI_FOLDER, path="script_dir")
-        expected_metric_data_dir = Input(type=AssetTypes.URI_FOLDER, path="data_dir")
+        expected_metric_data_dir = Input(type=AssetTypes.URI_FOLDER, path=str(tem_dir))
         expected_res = {
             "metric_config": expected_metric_config,
             "metric_user_script": expected_metric_user_script,
@@ -273,8 +273,23 @@ class TestAzureMLSystem:
         mock_command.return_value.return_value = expected_res
 
         # execute
+        model_resource_path = None
+        if model_resource_type == ResourceType.AzureMLModel:
+            model_resource_path = AzureMLModel(
+                {
+                    "azureml_client": {
+                        "subscription_id": "subscription_id",
+                        "resource_group": "resource_group",
+                        "workspace_name": "workspace_name",
+                    },
+                    "name": "test",
+                    "version": "1",
+                }
+            )
+        else:
+            model_resource_path = create_resource_path(ONNX_MODEL_PATH)
         actual_res = self.system._create_metric_component(
-            tem_dir, metric, model_args, model_resource_type, accelerator_config_path
+            tem_dir, metric, model_args, model_resource_path, accelerator_config_path
         )
 
         # assert
