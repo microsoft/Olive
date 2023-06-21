@@ -1,5 +1,5 @@
 # BERT Optimization
-This folder contains examples of Open LLaMA workflow. 
+This folder contains examples of Open LLaMA workflow.
 
 This workflow also demonstrates how to use:
 - Huggingface `transformers` to load model from [model hub](https://huggingface.co/models).
