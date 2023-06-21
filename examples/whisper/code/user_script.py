@@ -14,7 +14,6 @@ def get_encoder_decoder_init():
     return WhisperEncoderDecoderInit(
         model,
         model,
-        None,
         model.config,
         decoder_start_token_id=None,
     )
@@ -22,7 +21,7 @@ def get_encoder_decoder_init():
 
 def get_decoder():
     model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny.en")
-    return WhisperDecoder(model, None, model.config)
+    return WhisperDecoder(model, model.config)
 
 
 def get_encdec_io_config():

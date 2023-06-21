@@ -17,13 +17,11 @@ class WhisperDecoderInit(torch.nn.Module):
     def __init__(
         self,
         decoder: torch.nn.Module,
-        lm_head: torch.nn.Module,
         config: WhisperConfig,
         decoder_start_token_id: int = None,
     ):
         super().__init__()
         self.decoder = decoder
-        self.lm_head = lm_head
         self.config = config
         self.decoder_start_token_id = (
             decoder_start_token_id if decoder_start_token_id is not None else self.config.decoder_start_token_id
@@ -54,10 +52,9 @@ class WhisperDecoderInit(torch.nn.Module):
 class WhisperDecoder(torch.nn.Module):
     """A Whisper decoder with LM head and past key values"""
 
-    def __init__(self, decoder, lm_head, config):
+    def __init__(self, decoder, config):
         super().__init__()
         self.decoder = decoder
-        self.lm_head = lm_head
         self.config = config
 
     def forward(self, decoder_input_ids, *past):
