@@ -10,7 +10,7 @@ from transformers import WhisperConfig, file_utils
 
 
 class WhisperDecoderInit(torch.nn.Module):
-    """A Whisper decoder with LM head to create initial past key values.
+    """A Whisper decoder to create initial past key values.
     This model is only called once during starting decoding.
     """
 
@@ -50,7 +50,7 @@ class WhisperDecoderInit(torch.nn.Module):
 
 
 class WhisperDecoder(torch.nn.Module):
-    """A Whisper decoder with LM head and past key values"""
+    """A Whisper decoder and past key values"""
 
     def __init__(self, decoder, config):
         super().__init__()

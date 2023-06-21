@@ -44,7 +44,9 @@ class WhisperDataset:
                 "length_penalty": np.asarray([1.0], dtype=np.float32),
                 "repetition_penalty": np.asarray([1.0], dtype=np.float32),
                 "attention_mask": np.zeros((1, self.N_MELS, self.N_FRAMES)).astype(np.int32),
+                # auto detect language and task
                 "decoder_input_ids": np.asarray([[50258]], dtype=np.int32),
+                # English, transcription
                 # "decoder_input_ids": np.asarray([[50258, 50259, 50359, 50363]], dtype=np.int32),
             }
             self.data.append(inputs)
