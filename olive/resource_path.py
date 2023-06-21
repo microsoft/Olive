@@ -9,7 +9,7 @@ import tempfile
 from abc import abstractmethod
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional, Type, Union
 
 from pydantic import Field, validator
 
@@ -38,7 +38,7 @@ AZUREML_RESOURCE_TYPES = [ResourceType.AzureMLModel, ResourceType.AzureMLDatasto
 
 
 class ResourcePath(AutoConfigClass):
-    registry: Dict[str, "ResourcePath"] = {}
+    registry: Dict[str, Type["ResourcePath"]] = {}
     name: ResourceType = None
 
     def __repr__(self) -> str:

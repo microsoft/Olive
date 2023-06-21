@@ -43,7 +43,7 @@ class Pass(ABC):
     Each pass should derive its own configuration class that contains all information it needs to execute.
     """
 
-    registry: Dict[str, "Pass"] = {}
+    registry: Dict[str, Type["Pass"]] = {}
     # True if pass configuration requires user script for non-local host support
     _requires_user_script: bool = False
     # True if pass configuration requires data configuration which will leverage data container for pass execution
