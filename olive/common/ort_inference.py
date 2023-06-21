@@ -44,7 +44,7 @@ def get_ort_inference_session(
 
     if isinstance(execution_provider, list):
         # execution_provider may be a list of tuples/lists where the first item in each tuple is the EP name
-        execution_provider = [i[0] if isinstance(i, tuple) or isinstance(i, list) else i for i in execution_provider]
+        execution_provider = [i[0] if isinstance(i, (tuple, list)) else i for i in execution_provider]
     elif isinstance(execution_provider, str):
         execution_provider = [execution_provider]
 
