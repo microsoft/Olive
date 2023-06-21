@@ -8,6 +8,8 @@ from copy import deepcopy
 from pathlib import Path
 from urllib import request
 
+from onnxruntime import __version__ as OrtVersion
+from packaging import version
 from transformers import WhisperConfig
 
 SUPPORTED_WORKFLOWS = {
@@ -32,11 +34,23 @@ def get_args(raw_args):
         action="store_true",
         help="Don't use audio decoder in the model. Default: False",
     )
+    parser.add_argument(
+        "--multilingual",
+        action="store_true",
+        help="Support using model for multiple languages. Only supported in ORT >= 1.16.0. Default: False",
+    )
     return parser.parse_args(raw_args)
 
 
 def main(raw_args=None):
     args = get_args(raw_args)
+
+    # version check
+    version_1_16 = version.parse(OrtVersion) >= version.parse("1.16.0")
+
+    # multi-lingual support check
+    if args.multilingual and not version_1_16:
+        raise ValueError("Multi-lingual support is only supported in ORT >= 1.16.0")
 
     # load template
     template_json = json.load(open("whisper_template.json", "r"))
@@ -51,6 +65,9 @@ def main(raw_args=None):
     # update model specific values for transformer optimization pass
     template_json["passes"]["transformers_optimization"]["config"]["num_heads"] = whisper_config.encoder_attention_heads
     template_json["passes"]["transformers_optimization"]["config"]["hidden_size"] = whisper_config.d_model
+
+    # update multi-lingual support
+    template_json["passes"]["insert_beam_search"]["config"]["use_forced_decoder_ids"] = args.multilingual
 
     # download audio test data
     test_audio_path = download_audio_test_data()

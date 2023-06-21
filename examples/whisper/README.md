@@ -1,5 +1,5 @@
 # Whisper optimization using ORT toolchain
-This folder contains a sample use case of Olive to optimize a [Whisper](https://huggingface.co/openai/whisper-base) model using ONNXRuntime tools.
+This folder contains a sample use case of Olive to optimize a [Whisper](https://huggingface.co/openai/whisper-tiny) model using ONNXRuntime tools.
 
 Performs optimization pipeline:
 - CPU, FP32: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
@@ -25,7 +25,7 @@ python -m pip install -r requirements.txt
 
 ### Prepare workflow config json
 ```
-python prepare_whisper_configs.py [--no_audio_decoder]
+python prepare_whisper_configs.py [--no_audio_decoder] [--multiligual]
 ```
 
 `--no_audio_decoder` is optional. If not provided, will use audio decoder in the preprocessing ops.
@@ -34,6 +34,29 @@ python prepare_whisper_configs.py [--no_audio_decoder]
 
 ```bash
 python -m pip install librosa
+```
+
+`--multiligual` is optional. If provided, the model produced will support multiple languages that are controlled using `forced_decoder_ids` input.
+
+**Note:** Only supported in ONNXRuntime 1.16.0+ which is not released yet. Must be built from or after commit https://github.com/microsoft/onnxruntime/commit/3f7f90aed02a0d8d99c48fa89201759477794b8d.
+
+**Example of forced_decoder_ids:**
+```python
+from transformers import AutoConfig, AutoProcessor
+
+model = "openai/whisper-tiny"
+config = AutoConfig.from_pretrained(model)
+processor = AutoProcessor.from_pretrained(model)
+
+# English transcription
+forced_decoder_ids = processor.get_decoder_prompt_ids(language="english", task="transcribe")
+# forced_decoder_ids is of the format [(1, 50259), (2, 50359), (3, 50363)] and needs to be
+# of the format [50258, 50259, 50359, 50363] where 50258 is the start token id
+forced_decoder_ids = [config.decoder_start_token_id] + list(map(lambda token: token[1], forced_decoder_ids))
+
+# If you don't want to provide specific decoder input ids or you want
+# Whisper to predict the output language and task, you can set
+# forced_decoder_ids = [config.decoder_start_token_id]
 ```
 
 ## Run the config to optimize the model
