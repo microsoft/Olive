@@ -107,7 +107,7 @@ def get_onnx_config(model_name: str, task: str, feature: str):
     return model_onnx_config(model.config)
 
 
-def get_hf_model_io_config(model_name: str, task: str, feature: str):
+def get_hf_model_io_config(model_name: str, task: str, feature: str) -> IOConfig:
     model_config = get_onnx_config(model_name, task, feature)
     inputs = model_config.inputs
     outputs = model_config.outputs
@@ -115,6 +115,7 @@ def get_hf_model_io_config(model_name: str, task: str, feature: str):
     io_config["input_names"] = list(inputs.keys())
     io_config["output_names"] = list(outputs.keys())
     io_config["dynamic_axes"] = dict(inputs.items())  # dynamic axes for inputs
+    io_config = IOConfig.parse_obj(io_config)
     return io_config
 
 

@@ -137,7 +137,7 @@ class PythonEnvironmentSystem(OliveSystem):
             run_subprocess(command, env=self.environ, check=True)
 
             # load output
-            output_names = io_config["output_names"]
+            output_names = io_config.output_names
             for idx in range(num_batches):
                 output_path = output_dir / f"output_{idx}.npy"
                 output = np.load(output_path)

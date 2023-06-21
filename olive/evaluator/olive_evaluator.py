@@ -128,6 +128,7 @@ class OliveEvaluator(ABC):
     ) -> MetricResult:
         metrics_res = {}
         for metric in metrics:
+            metric = OliveEvaluator.enhance_user_config_with_model_config(metric, model)
             dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric)
 
             if metric.type == MetricType.ACCURACY:
@@ -147,6 +148,27 @@ class OliveEvaluator(ABC):
         return flatten_metric_result(metrics_res)
 
     @staticmethod
+    def enhance_user_config_with_model_config(metric: Metric, model: OliveModel):
+        # if the io_config is not specified in the metrics, use the one in the model
+        if metric.data_config:
+            return metric
+
+        io_config = model.get_io_config()
+        if not io_config:
+            return metric
+
+        if not io_config.is_input_shape_static():
+            logger.warning(
+                "Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. This will"
+                " cause an error when creating dummy data for tuning."
+            )
+        if io_config and not metric.user_config.input_names and not metric.user_config.input_shapes:
+            metric.user_config.input_names = io_config.input_names
+            metric.user_config.input_shapes = io_config.input_shapes
+            metric.user_config.input_types = io_config.input_types
+        return metric
+
+    @staticmethod
     def get_user_config(metric: Metric):
         user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
 
@@ -161,6 +183,14 @@ class OliveEvaluator(ABC):
         evaluate_func = getattr(metric.user_config, "evaluate_func", None)
         eval_func = user_module.load_object(evaluate_func)
 
+        if not dataloader or not post_func and metric.data_config:
+            dc = metric.data_config.to_data_container()
+
+            # TODO remove user_scripts dataloader: we should respect user scripts
+            # dataloder to meet back compatibility for time being.
+            dataloader = dataloader or dc.create_dataloader()
+            post_func = post_func or dc.config.post_process
+
         if metric.user_config.input_names and metric.user_config.input_shapes and not dataloader and not eval_func:
             dataloader = (
                 data_config_template.dummy_data_config_template(
@@ -171,14 +201,6 @@ class OliveEvaluator(ABC):
                 .to_data_container()
                 .create_dataloader()
             )
-
-        if not dataloader or not post_func:
-            dc = metric.data_config.to_data_container()
-
-            # TODO remove user_scripts dataloader: we should respect user scripts
-            # dataloder to meet back compatibility for time being.
-            dataloader = dataloader or dc.create_dataloader()
-            post_func = post_func or dc.config.post_process
 
         return dataloader, eval_func, post_func
 
@@ -225,8 +247,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         """
         Format input data to ONNX input format.
         """
-        input_names = io_config["input_names"]
-        name_to_type = {k: v for k, v in zip(io_config["input_names"], io_config["input_types"])}
+        input_names = io_config.input_names
+        name_to_type = {k: v for k, v in zip(io_config.input_names, io_config.input_types)}
         if not isinstance(input_data, dict):
             input_data = dict(zip(input_names, [input_data]))
         input_dict = {
@@ -257,7 +279,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         preds = []
         targets = []
-        output_names = io_config["output_names"]
+        output_names = io_config.output_names
         for input_data, labels in dataloader:
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             res = session.run(input_feed=input_dict, output_names=None)
@@ -345,7 +367,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         preds = []
         targets = []
-        output_names = io_config["output_names"]
+        output_names = io_config.output_names
         for _, (input_data, labels) in enumerate(dataloader):
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             MPI.COMM_WORLD.barrier()  # Synchronize before starting each run

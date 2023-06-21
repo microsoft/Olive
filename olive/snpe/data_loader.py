@@ -12,6 +12,7 @@ from typing import Any, Tuple
 import numpy as np
 
 import olive.snpe.utils.input_list as input_list_utils
+from olive.model.model_config import IOConfig
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +164,7 @@ class SNPEProcessedDataLoader(SNPEDataLoader):
 class SNPERandomDataLoader(SNPEDataLoader):
     def __init__(
         self,
-        io_config: dict,
+        io_config: IOConfig,
         num_samples: int,
         data_dir: str = None,
         input_list_file: str = "input_list.txt",
@@ -171,7 +172,7 @@ class SNPERandomDataLoader(SNPEDataLoader):
         batch_size: int = None,
     ):
         config = {
-            "io_config": io_config,
+            "io_config": io_config.dict(),
             "num_samples": num_samples,
             "data_dir": data_dir,
             "input_list_file": input_list_file,
@@ -223,15 +224,15 @@ class SNPECommonDataLoader(SNPEDataLoader):
     SNPE dataloader created from a common dataloader such as torch.data.DataLoader
     """
 
-    def __init__(self, dataloader: Any, io_config: dict, batch_size: int = None):
+    def __init__(self, dataloader: Any, io_config: IOConfig, batch_size: int = None):
         """
         :param dataloader: dataloader object. Dataloader must be iterable and return a tuple of (input, target).
         input is a dictionary of input names and input tensors.
-        :param io_config: dictionary containing input and output names and shapes of the model.
+        :param io_config: IOConfig containing input and output names and shapes of the model.
         :param batch_size: batch size for the SNPE dataloader. This is not the same as the batch size of the common
         dataloader.
         """
-        config = {"dataloader": dataloader, "io_config": io_config}
+        config = {"dataloader": dataloader, "io_config": io_config.dict()}
         super().__init__(config, batch_size)
 
     def load_data(self) -> Tuple[str, str, np.ndarray]:

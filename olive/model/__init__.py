@@ -69,6 +69,7 @@ class OliveModel(ABC):
         self.model_resource_path = create_resource_path(model_path) if model_path else None
         self.local_model_path = None
         self.composite_parent = None
+        self.io_config = None
 
     @property
     def model_path(self) -> str:
@@ -152,6 +153,9 @@ class OliveModel(ABC):
 
     def get_composite_parent(self):
         return self.composite_parent
+
+    def get_io_config(self) -> IOConfig:
+        return self.io_config
 
     def to_json(self, check_object: bool = False):
         config = {
@@ -454,9 +458,9 @@ class ONNXModel(ONNXModelBase):
                 io_config[f"{prefix}_shapes"].append(shape)
 
         # save io_config
-        self.io_config = io_config
+        self.io_config = IOConfig.parse_obj(io_config)
 
-        return io_config
+        return self.io_config
 
 
 class PyTorchModel(OliveModel):
@@ -696,12 +700,14 @@ class SNPEModel(OliveModel):
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
     ):
         super().__init__(framework=Framework.SNPE, model_file_format=ModelFileFormat.SNPE_DLC, model_path=model_path)
-        self.io_config = {
-            "input_names": input_names,
-            "input_shapes": input_shapes,
-            "output_names": output_names,
-            "output_shapes": output_shapes,
-        }
+        self.io_config = IOConfig.parse_obj(
+            {
+                "input_names": input_names,
+                "input_shapes": input_shapes,
+                "output_names": output_names,
+                "output_shapes": output_shapes,
+            }
+        )
 
     def load_model(self, rank: int = None):
         raise NotImplementedError()
@@ -718,11 +724,11 @@ class SNPEModel(OliveModel):
         if device == Device.NPU:
             device = SNPEDevice.DSP
         session_options.device = device
-        return SNPEInferenceSession(self.model_path, self.io_config, session_options)
+        return SNPEInferenceSession(self.model_path, self.io_config.dict(), session_options)
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
-        config["config"].update(self.io_config)
+        config["config"].update(self.io_config.dict())
         return serialize_to_json(config, check_object)
 
     def get_dlc_metrics(self) -> dict:
