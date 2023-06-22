@@ -38,7 +38,7 @@ python -m pip install librosa
 
 `--multiligual` is optional. If provided, the model produced will support multiple languages that are controlled using `decoder_input_ids` input.
 
-**Note:** Only supported in ONNXRuntime 1.16.0+ which is not released yet. Must be built from or after commit https://github.com/microsoft/onnxruntime/commit/3f7f90aed02a0d8d99c48fa89201759477794b8d.
+**Note:** Only supported in ONNXRuntime 1.16.0+ which is not released yet. Must be built from or after commit https://github.com/microsoft/onnxruntime/commit/4b69226fca914753844a3291818ce23ac2f00d8c.
 
 **Example of decoder_input_ids:**
 ```python
