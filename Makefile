@@ -52,5 +52,6 @@ clean:
 	git clean -dfX
 
 .PHONY: perf-monitoring
+perf-monitoring: logs/
 perf-monitoring:
 	$(PERFORMANCE_MONITORING_CMD) $(PIPELINE) $(CURRENT_DIR) $(PERF_MONITORING_SCRIPT_NAME)
