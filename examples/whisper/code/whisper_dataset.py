@@ -43,7 +43,9 @@ class WhisperDataset:
                 "num_return_sequences": np.asarray([1], dtype=np.int32),
                 "length_penalty": np.asarray([1.0], dtype=np.float32),
                 "repetition_penalty": np.asarray([1.0], dtype=np.float32),
+                # attention_mask only used when version < 1.16.0
                 "attention_mask": np.zeros((1, self.N_MELS, self.N_FRAMES)).astype(np.int32),
+                # decoder_input_ids only used when version >= 1.16.0 and multilingual is True
                 # auto detect language and task
                 "decoder_input_ids": np.asarray([[50258]], dtype=np.int32),
                 # English, transcription
