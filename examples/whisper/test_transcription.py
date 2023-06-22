@@ -4,19 +4,19 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
-from pathlib import Path
+import shutil
 import sys
+import tempfile
+from pathlib import Path
 
 import onnxruntime as ort
-import tempfile
-import shutil
 
-from olive.model import ONNXModel
 from olive.evaluator.olive_evaluator import OnnxEvaluator
+from olive.model import ONNXModel
 
 sys.path.append(str(Path(__file__).parent / "code"))
 
-from whisper_dataset import WhisperDataset
+from whisper_dataset import WhisperDataset  # noqa: E402
 
 # hard-coded audio hyperparameters
 # copied from https://github.com/openai/whisper/blob/main/whisper/audio.py#L12
