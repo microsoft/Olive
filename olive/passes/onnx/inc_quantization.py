@@ -95,15 +95,6 @@ _inc_quantization_config = {
             If you want to disable bf16 data type, you can specify excluded_precisions = ['bf16'].
         """,
     ),
-    "use_distributed_tuning": PassConfigParam(
-        type_=bool,
-        default_value=False,
-        description="""
-            Intel® Neural Compressor provides distributed tuning to speed up the tuning
-            process by leveraging the multi-node cluster. Prerequisites: A working MPI
-            implementation and installed mpi4py.
-        """,
-    ),
 }
 
 _inc_static_dataloader_config = {
