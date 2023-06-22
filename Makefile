@@ -11,6 +11,7 @@ ifeq ($(WINDOWS), True)
 	INSTALL_OLIVE_CMD       = "scripts\\install_olive.bat"
 	TEST_CMD                = "scripts\\test.bat"
 	TEST_EXAMPLES_CMD       = "scripts\\test_examples.bat"
+	PERFORMANCE_MONITORING_CMD = "scripts\\performance_monitoring.bat"
 	OVERWRITE_VERSION       = "python scripts\\overwrite_version.py --version $(VERSION)"
 else
 	CURRENT_DIR             = ${CURDIR}
@@ -18,6 +19,7 @@ else
 	INSTALL_OLIVE_CMD       = bash scripts/install_olive.sh
 	TEST_CMD                = bash scripts/test.sh
 	TEST_EXAMPLES_CMD       = bash scripts/test_examples.sh
+	PERFORMANCE_MONITORING_CMD = bash scripts/performance_monitoring.sh
 	OVERWRITE_VERSION       = python scripts/overwrite_version.py --version $(VERSION)
 endif
 
