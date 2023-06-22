@@ -63,7 +63,7 @@ class WhisperEncoderDecoderInitInputs:
         decoder_input_ids = None
         if use_decoder_input_ids:
             dtype = torch.int32 if use_int32_inputs else torch.int64
-            decoder_input_ids = torch.ones((batch_size, 1), dtype=dtype, device=device) * config.decoder_start_token_id
+            decoder_input_ids = torch.ones((batch_size, 2), dtype=dtype, device=device) * config.decoder_start_token_id
 
         return WhisperEncoderDecoderInitInputs(encoder_inputs.input_ids, decoder_input_ids)
 
