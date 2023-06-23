@@ -97,7 +97,10 @@ case insensitive.
         - `config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
         [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
 
-        - `dataset: [dict]`: If you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading). Olive exposes the following configs(which will be extended in the future):
+        <!-- TODO: Add the following after the link comes back online.  -->
+        <!-- See [huggingface datasets](https://huggingface.co/docs/datasets/loading).  -->
+        - `dataset: [dict]`: If you want to use the huggingface dataset, you need to provide the dataset config.
+        Olive exposes the following configs (which will be extended in the future):
             ```python
             "dataset": {
                 "model_name": "distilbert-base-uncased",  # the model name of the huggingface model, if not provided, it will use the model_name in hf_config
