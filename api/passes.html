@@ -2164,7 +2164,16 @@
 <div><p>If set to int &gt; 0, all ngrams of that size can only occur once.</p>
 </div></blockquote>
 <p><strong>type:</strong> int</p>
-<p><strong>default_value:</strong> 3</p>
+<p><strong>default_value:</strong> 0</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-use_forced_decoder_ids">
+<span id="cmdoption-arg-use-forced-decoder-ids"></span><span class="sig-name descname"><span class="pre">use_forced_decoder_ids</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-use_forced_decoder_ids" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use decoder_input_ids as an extra graph input to the beam search op. Only supported in ORT &gt;= 1.16.0</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> False</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
 
