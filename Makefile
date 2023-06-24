@@ -3,6 +3,7 @@ PIPELINE                   ?= False
 INSTALL_DEV_MODE           ?= False
 EXAMPLE_FOLDER             ?=
 EXAMPLE_NAME               ?=
+PERF_MONITORING_SCRIPT_NAME ?=
 INSTALL_EXTRAS             ?=
 VERSION                    ?=
 ifeq ($(WINDOWS), True)
