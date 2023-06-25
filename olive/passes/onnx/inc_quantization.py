@@ -8,6 +8,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
+from olive.cache import get_local_path
 from olive.evaluator.metric import joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 from olive.hardware.accelerator import AcceleratorSpec
@@ -15,6 +16,7 @@ from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
@@ -96,15 +98,6 @@ _inc_quantization_config = {
             If you want to disable bf16 data type, you can specify excluded_precisions = ['bf16'].
         """,
     ),
-    "use_distributed_tuning": PassConfigParam(
-        type_=bool,
-        default_value=False,
-        description="""
-            Intel® Neural Compressor provides distributed tuning to speed up the tuning
-            process by leveraging the multi-node cluster. Prerequisites: A working MPI
-            implementation and installed mpi4py.
-        """,
-    ),
     "tuning_criterion": PassConfigParam(
         type_=dict,
         default_value={},
@@ -117,7 +110,7 @@ _inc_quantization_config = {
 
 _inc_static_dataloader_config = {
     "data_dir": PassConfigParam(
-        type_=Union[Path, str],
+        type_=OLIVE_RESOURCE_ANNOTATIONS,
         is_path=True,
         description="""
             Path to the directory containing the dataset.
@@ -208,6 +201,7 @@ class IncQuantization(Pass):
 
     _requires_user_script = True
     _requires_data_config = True
+    _requires_eval_config = True
 
     def _initialize(self):
         super()._initialize()
@@ -349,8 +343,8 @@ class IncQuantization(Pass):
         eval_func = None
         accuracy_metric = None
 
-        if self._evaluator is not None:
-            metrics_name = [metric.name for metric in self._evaluator.metrics]
+        if self._eval_config is not None:
+            metrics_name = [metric.name for metric in self._eval_config.metrics]
             accuracy_metric_indexs = [index for index, name in enumerate(metrics_name) if name == "accuracy"]
             if len(accuracy_metric_indexs) == 0:
                 logger.warning(
@@ -360,7 +354,7 @@ class IncQuantization(Pass):
                     "quantization with accuracy aware tuning."
                 )
             else:
-                accuracy_metric = self._evaluator.metrics[accuracy_metric_indexs[0]]
+                accuracy_metric = self._eval_config.metrics[accuracy_metric_indexs[0]]
         else:
             logger.warning(
                 "'evaluator' is not set for INC Quantization Pass. "
@@ -419,6 +413,7 @@ class IncQuantization(Pass):
             "dataloader_func",
             "tuning_criterion",
             "data_config",
+            "evaluator",
         ]
         to_delete += list(get_external_data_config().keys())
         for key in to_delete:
@@ -434,7 +429,7 @@ class IncQuantization(Pass):
             if self._user_module_loader:
                 inc_calib_dataloader = self._user_module_loader.call_object(
                     self._fixed_params["dataloader_func"],
-                    self._fixed_params["data_dir"],
+                    get_local_path(self._fixed_params["data_dir"]),
                     self._fixed_params["batch_size"],
                 )
             elif self._data_config:

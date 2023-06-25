@@ -10,13 +10,14 @@ from typing import Any, Callable, Dict, Union
 
 import onnx
 
+from olive.cache import get_local_path
 from olive.common.utils import hash_string
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-from olive.resource_path import LocalFile
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
 
 logger = logging.getLogger(__name__)
@@ -141,18 +142,18 @@ _extra_options_config = {
 # static quantization specific config
 _static_dataloader_config = {
     "data_dir": PassConfigParam(
-        type_=Union[Path, str],
+        type_=OLIVE_RESOURCE_ANNOTATIONS,
         is_path=True,
         description="""
             Path to the directory containing the dataset.
-            For local data, it is required if quant_mode is 'static'.
+            For local data, it is required if quant_mode is 'static' and data_config is None.
         """,
     ),
     "batch_size": PassConfigParam(
         type_=int,
         default_value=1,
         description="""
-            Batch size for calibration, required if quant_mode is 'static'.
+            Batch size for calibration, required if quant_mode is 'static' and data_config is None.
         """,
     ),
     # TODO: remove this option once we have a data config ready
@@ -162,7 +163,7 @@ _static_dataloader_config = {
         is_object=True,
         description="""
             Function/function name to generate dataloader for calibration,
-            required if quant_mode is 'static'
+            required if quant_mode is 'static' and data_config is None.
         """,
     ),
 }
@@ -288,13 +289,10 @@ class OnnxQuantization(Pass):
                 and config["activation_type"] == "QInt8"
                 and config["quant_format"] == "QOperator"
             ):
-                logger.info("QOperator is not supported for QInt8 activation and weight.")
-                return False
-            if config["weight_type"] != config["activation_type"]:
-                logger.info("Weight type and activation type must be the same.")
+                logger.info("S8S8 with QOperator will be slow on x86-64 CPUs and should be avoided in general")
                 return False
             if config["EnableSubgraph"] is True:
-                logger.info("EnabaleSubgraph is not supported for static quantization.")
+                logger.info("EnableSubgraph is not supported for static quantization.")
                 return False
         return True
 
@@ -380,11 +378,11 @@ class OnnxQuantization(Pass):
         if is_static:
             # get the dataloader
             # TODO: only use data config
-            if self._user_module_loader.user_module:
+            if config["dataloader_func"]:
                 dataloader = self._user_module_loader.call_object(
-                    self._fixed_params["dataloader_func"],
-                    self._fixed_params["data_dir"],
-                    self._fixed_params["batch_size"],
+                    config["dataloader_func"],
+                    get_local_path(config["data_dir"]),
+                    config["batch_size"],
                 )
             elif self._data_config:
                 dataloader = self._data_config.to_data_container().create_calibration_dataloader()

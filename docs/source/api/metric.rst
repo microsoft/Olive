@@ -1,4 +1,5 @@
 .. _metric:
+
 Metric
 ======
 
@@ -13,6 +14,7 @@ MetricType
     :undoc-members:
 
 .. _accuracy_sub_type:
+
 AccuracySubType
 ^^^^^^^^^^^^^^^
 .. autoclass:: olive.evaluator.metric.AccuracySubType
@@ -20,6 +22,7 @@ AccuracySubType
     :undoc-members:
 
 .. _latency_sub_type:
+
 LatencySubType
 ^^^^^^^^^^^^^^
 .. autoclass:: olive.evaluator.metric.LatencySubType

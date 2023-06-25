@@ -4,13 +4,19 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+import shutil
+import sys
+import tempfile
 from pathlib import Path
 
-import numpy as np
 import onnxruntime as ort
-from onnxruntime_extensions import PyOrtFunction
 
+from olive.evaluator.olive_evaluator import OnnxEvaluator
 from olive.model import ONNXModel
+
+sys.path.append(str(Path(__file__).parent / "code"))
+
+from whisper_dataset import WhisperDataset  # noqa: E402
 
 # hard-coded audio hyperparameters
 # copied from https://github.com/openai/whisper/blob/main/whisper/audio.py#L12
@@ -46,39 +52,37 @@ def main(raw_args=None):
     config = json.load(open(args.config, "r"))
 
     # load output model json
-    output_model_json_path = Path(config["engine"]["output_dir"]) / f"{config['engine']['output_name']}_model.json"
+    output_model_json_path = (
+        Path(config["engine"]["output_dir"]) / f"{config['engine']['output_name']}_cpu-cpu_model.json"
+    )
     output_model_json = json.load(open(output_model_json_path, "r"))
 
     # load output model onnx
     olive_model = ONNXModel(**output_model_json["config"])
-    model = PyOrtFunction.from_model(olive_model.model_path)
 
     # load audio data
     if not args.audio_path:
         args.audio_path = Path(config["passes"]["prepost"]["config"]["tool_command_args"]["testdata_filepath"])
-    use_audio_decoder = config["passes"]["prepost"]["config"]["tool_command_args"]["use_audio_decoder"]
-    if use_audio_decoder:
-        with open(args.audio_path, "rb") as _f:
-            audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
-    else:
-        import librosa
 
-        audio_blob, _ = librosa.load(args.audio_path)
+    # temporary directory for storing audio file
+    temp_dir = tempfile.TemporaryDirectory()
+    temp_dir_path = Path(temp_dir.name)
+    temp_audio_path = temp_dir_path / Path(args.audio_path).name
+    shutil.copy(args.audio_path, temp_audio_path)
 
-    audio_blob = np.expand_dims(audio_blob, axis=0)
+    # dataset
+    dataset = WhisperDataset(temp_dir_path)
 
-    output_text = model(
-        audio_blob,
-        np.asarray([200], dtype=np.int32),
-        np.asarray([0], dtype=np.int32),
-        np.asarray([2], dtype=np.int32),
-        np.asarray([1], dtype=np.int32),
-        np.asarray([1.0], dtype=np.float32),
-        np.asarray([1.0], dtype=np.float32),
-        np.zeros((1, N_MELS, N_FRAMES)).astype(np.int32),
-    )
-    print(output_text)
+    # create inference session
+    session = olive_model.prepare_session(None, "cpu")
+
+    # get output
+    input, _ = dataset[0]
+    input = OnnxEvaluator.format_input(input, olive_model.get_io_config())
+    output = session.run(None, input)
+    return output[0][0]
 
 
 if __name__ == "__main__":
-    main()
+    output_text = main()
+    print(output_text)

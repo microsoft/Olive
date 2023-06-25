@@ -5,7 +5,7 @@
 import logging
 from abc import abstractmethod
 from inspect import isfunction, signature
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, Type, Union
 
 import numpy as np
 import torch
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class AccuracyBase(AutoConfigClass):
-    registry: Dict[str, "AccuracyBase"] = {}
+    registry: Dict[str, Type["AccuracyBase"]] = {}
     metric_cls_map: Dict[str, Union[torchmetrics.Metric, Callable]] = {
         "accuracy_score": torchmetrics.Accuracy,
         "f1_score": torchmetrics.F1Score,

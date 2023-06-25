@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from itertools import chain
 from typing import Any, Callable, Dict, List, Union
 
 from pydantic import validator
@@ -60,6 +59,9 @@ def load_huggingface_model_from_task(task: str, name: str):
             model = model_class.from_pretrained(name)
             return model
         except (OSError, ValueError):
+            # the ValueError need to be caught since there will be multiple model_class for single task.
+            # if the model_class is not the one for the task, it will raise ValueError and
+            # next model_class will be tried.
             continue
 
     return model
@@ -112,7 +114,7 @@ def get_hf_model_io_config(model_name: str, task: str, feature: str):
     io_config = {}
     io_config["input_names"] = list(inputs.keys())
     io_config["output_names"] = list(outputs.keys())
-    io_config["dynamic_axes"] = dict(chain(inputs.items(), outputs.items()))
+    io_config["dynamic_axes"] = dict(inputs.items())  # dynamic axes for inputs
     return io_config
 
 

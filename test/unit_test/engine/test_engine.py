@@ -13,7 +13,7 @@ from test.unit_test.utils import (
     get_pytorch_model,
     pytorch_model_loader,
 )
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -291,12 +291,11 @@ class TestEngine:
         assert expected_res == actual_res
         result_json_path = Path(output_dir / f"{accelerator_spec}_metrics.json")
         assert result_json_path.is_file()
-        with open(result_json_path, "r") as f:
-            assert f.read() == actual_res.json()
+        assert MetricResult.parse_file(result_json_path) == actual_res
 
     @patch.object(Path, "glob", return_value=[Path("cache") / "output" / "100_model.json"])
     @patch.object(Path, "unlink")
-    def test_model_path_suffix(self, mock_glob, mock_unlink: Mock):
+    def test_model_path_suffix(self, mock_unlink, mock_glob):
         # setup
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
@@ -312,7 +311,8 @@ class TestEngine:
         engine.initialize()
 
         assert engine._new_model_number == 101
-        assert mock_unlink.called
+        assert mock_unlink.call_count == 1
+        assert mock_glob.call_count == 2
 
     def test_model_path_suffix_with_exception(self):
         # setup
@@ -360,7 +360,15 @@ class TestEngine:
         ]
         mock_get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         mock_local_system.run_pass.return_value = get_onnx_model()
-        mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
+        metric_result_dict = {
+            joint_metric_key(metric.name, sub_metric.name): {
+                "value": 0.998,
+                "priority": sub_metric.priority,
+                "higher_is_better": sub_metric.higher_is_better,
+            }
+            for sub_metric in metric.sub_types
+        }
+        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         assert len(engine.accelerator_specs) == 2
@@ -398,7 +406,15 @@ class TestEngine:
         ]
         mock_get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         mock_local_system.run_pass.return_value = get_onnx_model()
-        mock_local_system.evaluate_model.return_value = {metric.name: 0.998}
+        metric_result_dict = {
+            joint_metric_key(metric.name, sub_metric.name): {
+                "value": 0.998,
+                "priority": sub_metric.priority,
+                "higher_is_better": sub_metric.higher_is_better,
+            }
+            for sub_metric in metric.sub_types
+        }
+        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, clean_run_cache=True)
@@ -414,3 +430,31 @@ class TestEngine:
             is_accelerator_agnostic_mock.return_value = False
             _ = engine.run(pytorch_model, output_dir=output_dir)
             mock_local_system.run_pass.call_count == 2
+
+    def test_pass_value_error(self, caplog):
+        # Need explicitly set the propagate to allow the message to be logged into caplog
+        # setup
+        logger = logging.getLogger("olive")
+        logger.propagate = True
+
+        with patch("olive.passes.onnx.conversion.OnnxConversion.run") as mock_run:
+            mock_run.side_effect = ValueError("test")
+            system = LocalSystem()
+            evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
+            options = {
+                "cache_dir": "./cache",
+                "clean_cache": True,
+                "search_strategy": {
+                    "execution_order": "joint",
+                    "search_algorithm": "random",
+                },
+            }
+            engine = Engine(options, evaluator_config=evaluator_config, host=system, target=system)
+            engine.register(OnnxConversion, clean_run_cache=True)
+            model = PyTorchModel(model_loader=pytorch_model_loader, model_path=None)
+
+            # execute
+            temp_dir = tempfile.TemporaryDirectory()
+            output_dir = Path(temp_dir.name)
+            with pytest.raises(ValueError):
+                engine.run(model, output_dir=output_dir)

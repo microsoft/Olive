@@ -29,7 +29,7 @@ def setup():
 @pytest.mark.parametrize("search_algorithm", ["random"])
 @pytest.mark.parametrize("execution_order", ["pass-by-pass"])
 @pytest.mark.parametrize("system", ["local_system", "aml_system"])
-@pytest.mark.parametrize("olive_json", ["resnet_ptq_cpu.json"])
+@pytest.mark.parametrize("olive_json", ["resnet_ptq_cpu.json", "resnet_ptq_cpu_aml_dataset.json"])
 def test_resnet(search_algorithm, execution_order, system, olive_json):
     # TODO: add gpu e2e test
     from olive.workflows import run as olive_run

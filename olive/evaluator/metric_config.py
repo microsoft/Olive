@@ -8,16 +8,17 @@ from typing import Callable, List, Union
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, ConfigParam, create_config_class
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 WARMUP_NUM = 10
 REPEAT_TEST_NUM = 20
 SLEEP_NUM = 0
 
-
+user_path_config = ["data_dir"]
 _common_user_config = {
     "script_dir": ConfigParam(type_=Union[Path, str]),
     "user_script": ConfigParam(type_=Union[Path, str]),
-    "data_dir": ConfigParam(type_=Union[Path, str]),
+    "data_dir": ConfigParam(type_=OLIVE_RESOURCE_ANNOTATIONS, is_path=True),
     "batch_size": ConfigParam(type_=int, default_value=1),
     "input_names": ConfigParam(type_=List),
     "input_shapes": ConfigParam(type_=List),
@@ -53,7 +54,7 @@ def get_user_config_class(metric_type: str):
     return create_config_class(f"{metric_type.title()}UserConfig", default_config, ConfigBase, validators)
 
 
-def get_properties_from_metric_type(metric_type):
+def get_user_config_properties_from_metric_type(metric_type):
     user_config_class = get_user_config_class(metric_type)
     # avoid to use schema() to get the fields, because it will skip the ones with object type
     return list(user_config_class.__fields__)

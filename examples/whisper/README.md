@@ -1,9 +1,9 @@
 # Whisper optimization using ORT toolchain
-This folder contains a sample use case of Olive to optimize a [Whisper](https://huggingface.co/openai/whisper-base) model using ONNXRuntime tools.
+This folder contains a sample use case of Olive to optimize a [Whisper](https://huggingface.co/openai/whisper-tiny) model using ONNXRuntime tools.
 
 Performs optimization pipeline:
 - CPU, FP32: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
-- CPU, INT8: *PyTorch Model -> Onnx Model -> Dynamic Quantized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
+- CPU, INT8: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Dynamic Quantized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
 - GPU, FP32: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
 - GPU, FP16: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Mixed Precision Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
 - GPU, INT8: *PyTorch Model -> Onnx Model -> Dynamic Quantized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
@@ -18,42 +18,14 @@ Outputs the final model and latency results.
 Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive.
 
 ### Pip requirements
-This example requires the latest code from onnxruntime-extensions which are not available in the stable releases yet.
-So, we will install the nightly version.
-
-On Linux:
-```bash
-# Install requirements
-python -m pip install -r requirements.txt
-# Install nightly version of onnxruntime-extensions
-python -m pip uninstall -y onnxruntime-extensions
-export OCOS_NO_OPENCV=1
-python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git
+Install the necessary python packages:
 ```
-
-On Windows (cmd):
-```cmd
-:: Install requirements
 python -m pip install -r requirements.txt
-:: Install nightly version of onnxruntime-extensions
-python -m pip uninstall -y onnxruntime-extensions
-python -m pip install onnxruntime-extensions==0.8.0.306180 ^
-    --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-```
-
-On Windows (PowerShell):
-```powershell
-# Install requirements
-python -m pip install -r requirements.txt
-# Install nightly version of onnxruntime-extensions
-python -m pip uninstall -y onnxruntime-extensions
-python -m pip install onnxruntime-extensions==0.8.0.306180 `
-    --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
 ### Prepare workflow config json
 ```
-python prepare_whisper_configs.py [--no_audio_decoder]
+python prepare_whisper_configs.py [--no_audio_decoder] [--multiligual]
 ```
 
 `--no_audio_decoder` is optional. If not provided, will use audio decoder in the preprocessing ops.
@@ -62,6 +34,35 @@ python prepare_whisper_configs.py [--no_audio_decoder]
 
 ```bash
 python -m pip install librosa
+```
+
+`--multiligual` is optional. If provided, the model produced will support multiple languages that are controlled using `decoder_input_ids` input.
+
+**Note:** Only supported in ONNXRuntime 1.16.0+ which is not released yet. Must be built from or after commit https://github.com/microsoft/onnxruntime/commit/4b69226fca914753844a3291818ce23ac2f00d8c.
+
+**Example of decoder_input_ids:**
+```python
+import numpy as np
+from transformers import AutoConfig, AutoProcessor
+
+
+model = "openai/whisper-tiny"
+config = AutoConfig.from_pretrained(model)
+processor = AutoProcessor.from_pretrained(model)
+
+# English transcription
+forced_decoder_ids = processor.get_decoder_prompt_ids(language="english", task="transcribe")
+# forced_decoder_ids is of the format [(1, 50259), (2, 50359), (3, 50363)] and needs to be
+# of the format [50258, 50259, 50359, 50363] where 50258 is the start token id
+forced_decoder_ids = [config.decoder_start_token_id] + list(map(lambda token: token[1], forced_decoder_ids))
+
+# If you don't want to provide specific decoder input ids or you want
+# Whisper to predict the output language and task, you can set
+# forced_decoder_ids = [config.decoder_start_token_id]
+# [50258]
+
+# decoder input ids
+decoder_input_ids = np.array([forced_decoder_ids], dtype=np.int32)
 ```
 
 ## Run the config to optimize the model

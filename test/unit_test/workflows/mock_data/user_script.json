@@ -51,7 +51,13 @@
                     ],
                     "user_config":{
                         "user_script": "user_script.py",
-                        "data_dir": "data",
+                        "data_dir": {
+                            "type": "azureml_datastore",
+                            "config": {
+                                "datastore_name": "my_datastore",
+                                "relative_path": "data"
+                            }
+                        },
                         "evaluate_func": "eval_accuracy",
                         "batch_size": 16
                     }
@@ -71,7 +77,7 @@
                     ],
                     "user_config":{
                         "user_script": "user_script.py",
-                        "data_dir": "data",
+                        "data_dir": "azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/test/cifar-10-batches-py",
                         "dataloader_func": "create_dataloader",
                         "batch_size": 16
                     }
@@ -103,7 +109,13 @@
                 "user_script": "user_script.py",
                 "dataloader_func": "create_dataloader",
                 "batch_size": 16,
-                "data_dir": "data"
+                "data_dir": {
+                    "type": "azureml_datastore",
+                    "config": {
+                        "datastore_name": "my_datastore",
+                        "relative_path": "data"
+                    }
+                }
             }
         }
     },

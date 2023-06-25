@@ -3,9 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import TYPE_CHECKING, Dict
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, Union
 
 from olive.common.config_utils import ConfigBase
+from olive.common.user_module_loader import UserModuleLoader
 from olive.data.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
 from olive.data.registry import Registry
 
@@ -36,6 +38,10 @@ class DataConfig(ConfigBase):
     # used to store the params for each component
     params_config: Dict = None
 
+    # user script to define and register the components
+    user_script: Union[Path, str] = None
+    script_dir: Union[Path, str] = None
+
     # use to update default components
     # 1. update default_components_type from DataContainer or DefaultDataComponentCombos
     # 2. update default_components from default_components_type
@@ -46,6 +52,8 @@ class DataConfig(ConfigBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # call UserModuleLoader to load the user script once and register the components
+        UserModuleLoader(self.user_script, self.script_dir)
         self.update_components()
         self.fill_in_params()
 

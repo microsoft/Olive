@@ -92,7 +92,7 @@ System Configuration
                     }
             )
 
-Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert_ptq_cpu/conda.yaml>`_
+Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert/conda.yaml>`_
 for :code:`"conda.yaml"`.
 
 .. important::
@@ -100,6 +100,25 @@ for :code:`"conda.yaml"`.
     The AzureML environment must have :code:`olive-ai` installed!
 
 Please refer to :ref:`azureml_system_config` for more details on the config options.
+
+AzureML Readymade Systems
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+There are some readymade systems available for AzureML. These systems are pre-configured with the necessary.
+    .. code-block:: json
+
+            {
+                "type": "AzureNDV2System",
+                "config": {
+                    "aml_compute": "gpu-cluster",
+                    "aml_docker_config": {
+                        "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                        "conda_file_path": "conda.yaml"
+                    }
+                }
+            }
+Please refer to :ref:`system_alias` for the list of supported AzureML readymade systems.
+
 
 Docker System
 --------------
@@ -153,7 +172,7 @@ System Configuration
             )
             docker_system = DockerSystem(local_docker_config=local_docker_config)
 
-Please refer to this `example <https://github.com/microsoft/Olive/tree/main/examples/bert_ptq_cpu/docker>`_
+Please refer to this `example <https://github.com/microsoft/Olive/tree/main/examples/bert/docker>`_
 for :code:`"docker"` and :code:`"Dockerfile"`.
 
 .. important::

@@ -8,6 +8,7 @@ import shutil
 from pathlib import Path
 from typing import List
 
+from olive.cache import get_local_path
 from olive.constants import Framework
 from olive.evaluator.metric import Metric
 from olive.model import OliveModel
@@ -74,7 +75,7 @@ def create_metric_volumes_list(metrics: List[Metric], container_root_path: Path,
             metric.user_config.script_dir = script_dir_mount_path
 
         if metric.user_config.data_dir:
-            data_dir = str(Path(metric.user_config.data_dir).resolve())
+            data_dir = get_local_path(metric.user_config.data_dir)
             mount_list.append(f"{data_dir}:{str(metric_path / 'data_dir')}")
             metric.user_config.data_dir = str(metric_path / "data_dir")
 
@@ -82,8 +83,17 @@ def create_metric_volumes_list(metrics: List[Metric], container_root_path: Path,
 
 
 def create_model_mount(model: OliveModel, container_root_path: Path):
-    model_mount_path = str(container_root_path / Path(model.model_path).name)
-    model_mount_str = f"{str(Path(model.model_path).resolve())}:{model_mount_path}"
+    model_resource_path = None
+    if not model.model_resource_path:
+        model_resource_path = None
+    elif model.model_resource_path.is_local_resource() or model.model_resource_path.is_string_name():
+        model_resource_path = model.model_resource_path
+    else:
+        assert model.local_model_path, "local model path not set"
+        model_resource_path = model.local_model_path
+    model_path = model_resource_path.get_path()
+    model_mount_path = str(container_root_path / Path(model_path).name)
+    model_mount_str = f"{str(Path(model_path).resolve())}:{model_mount_path}"
     model_mount_str_list = [model_mount_str]
 
     if model.framework == Framework.PYTORCH:

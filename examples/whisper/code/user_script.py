@@ -10,19 +10,18 @@ from whisper_encoder_decoder_init import WhisperEncoderDecoderInit, WhisperEncod
 
 
 def get_encoder_decoder_init():
-    model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny.en")
+    model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny")
     return WhisperEncoderDecoderInit(
         model,
         model,
-        None,
         model.config,
         decoder_start_token_id=None,
     )
 
 
 def get_decoder():
-    model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny.en")
-    return WhisperDecoder(model, None, model.config)
+    model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny")
+    return WhisperDecoder(model, model.config)
 
 
 def get_encdec_io_config():
@@ -38,23 +37,22 @@ def get_encdec_io_config():
         use_int32_inputs=True,
     )
 
-    out = model(inputs.encoder_input_ids, inputs.encoder_attention_mask, inputs.decoder_input_ids)
+    out = model(inputs.encoder_input_ids, inputs.decoder_input_ids)
     present = out[2]
     present_names = PastKeyValuesHelper.get_input_names(present, encoder=True)
 
     output_names = ["logits", "encoder_hidden_states", *present_names]
 
-    input_names = ["encoder_input_ids", "encoder_attention_mask"]
+    input_names = ["encoder_input_ids"]
 
     # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference.
-    # We use a workaround here: first use dim_param "1" for sequence_length, and later change to dim_value.
-    sequence_length = "1"
+    # We use a workaround here: first use dim_param str(model.config.encoder_attention_heads) for num_heads,
+    # and later change to dim_value.
     num_heads = str(model.config.encoder_attention_heads)
     hidden_size = str(model.config.d_model)
     head_size = str(model.config.d_model // model.config.encoder_attention_heads)
     dynamic_axes = {
         "encoder_input_ids": {0: "batch_size", 1: "encode_sequence_length"},
-        "encoder_attention_mask": {0: "batch_size", 1: "encode_sequence_length"},
         "encoder_hidden_states": {
             0: "batch_size",
             1: "encode_sequence_length",
@@ -62,7 +60,7 @@ def get_encdec_io_config():
         },
         "logits": {
             0: "batch_size",
-            1: sequence_length,
+            1: "decode_sequence_length",
         },
     }
 
@@ -70,7 +68,7 @@ def get_encdec_io_config():
         input_names.append("decoder_input_ids")
         dynamic_axes["decoder_input_ids"] = {
             0: "batch_size",
-            1: sequence_length,
+            1: "decode_sequence_length",
         }
 
     for name in present_names:
@@ -86,7 +84,7 @@ def get_encdec_io_config():
             dynamic_axes[name] = {
                 0: "batch_size",
                 1: num_heads,
-                2: sequence_length,
+                2: "decode_sequence_length",
                 3: head_size,
             }
 
@@ -94,7 +92,7 @@ def get_encdec_io_config():
         "input_names": input_names,
         "dynamic_axes": dynamic_axes,
         "output_names": output_names,
-        "string_to_int_dim_params": [sequence_length, num_heads, hidden_size, head_size],
+        "string_to_int_dim_params": [num_heads, hidden_size, head_size],
     }
 
 
@@ -111,13 +109,10 @@ def get_dec_io_config():
     output_names = ["logits", *output_present_names]
 
     input_names = ["input_ids"]
-    input_names.append("encoder_attention_mask")
     input_names.extend(input_past_names)
 
     dynamic_axes = {
         "input_ids": {0: "batch_size"},
-        "encoder_attention_mask": {0: "batch_size", 1: "encode_sequence_length"},
-        "encoder_hidden_states": {0: "batch_size", 1: "encode_sequence_length / 2"},
         "logits": {0: "batch_size", 1: "sequence_length"},
     }
 

@@ -28,6 +28,8 @@ from olive.systems.olive_system import OliveSystem
 
 logger = logging.getLogger(__name__)
 
+EXCEPTIONS_TO_RAISE = (AttributeError, ImportError, TypeError, ValueError)
+
 
 class Engine:
     """
@@ -188,6 +190,7 @@ class Engine:
         host: OliveSystem = None,
         evaluator_config: OliveEvaluatorConfig = None,
         clean_run_cache: bool = False,
+        output_name: str = None,
     ):
         """Register a pass configuration so that it could be instantiated and executed later."""
         if name is not None:
@@ -209,6 +212,7 @@ class Engine:
             "host": host,
             "evaluator": evaluator_config,
             "clean_run_cache": clean_run_cache,
+            "output_name": output_name,
         }
 
     def register_pass(
@@ -217,6 +221,7 @@ class Engine:
         name: str = None,
         host: OliveSystem = None,
         evaluator_config: OliveEvaluatorConfig = None,
+        output_name: str = None,
     ):
         """
         Register a pass
@@ -235,11 +240,14 @@ class Engine:
 
         if self.no_search and len(p.search_space()) > 0:
             raise ValueError(f"Search strategy is None but pass {name} has search space")
+        if output_name and not self.no_search:
+            logger.debug(f"output_name {output_name} for pass {name} is ignored because search strategy is not None")
 
         self.passes[name] = {
             "pass": p,
             "host": host,
             "evaluator": evaluator_config,
+            "output_name": output_name,
         }
 
     def run(
@@ -289,7 +297,7 @@ class Engine:
                     result_name = f"{prefix_output_name}metrics"
                     results_path = output_dir / f"{result_name}.json"
                     with open(results_path, "w") as f:
-                        f.write(results.json())
+                        json.dump(results.to_json(), f, indent=4)
                     outputs[accelerator_spec] = results
                 elif self.no_search:
                     output = self.run_no_search(
@@ -312,6 +320,8 @@ class Engine:
                     outputs[accelerator_spec] = footprint
                     pf_footprints[accelerator_spec] = footprint
 
+            except EXCEPTIONS_TO_RAISE:
+                raise
             except Exception as e:
                 logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
 
@@ -336,7 +346,9 @@ class Engine:
             pass_cfg = config["config"]
             pass_cfg = pass_cls.generate_search_space(accelerator_spec, pass_cfg, config["disable_search"])
             p = pass_cls(accelerator_spec, pass_cfg, config["disable_search"])
-            self.register_pass(p, host=config["host"], evaluator_config=config["evaluator"])
+            self.register_pass(
+                p, host=config["host"], evaluator_config=config["evaluator"], output_name=config["output_name"]
+            )
 
         # list of passes starting from the first pass with non-empty search space
         # These passes will be added to the search space
@@ -389,25 +401,37 @@ class Engine:
             signal,
             model_ids,
         ) = self._run_passes(next_step["passes"], model, model_id, accelerator_spec)
-        model_id = model_ids[-1]
+        # names of the output models of the passes
+        pass_output_names = [self.passes[pass_name]["output_name"] for pass_name, _ in next_step["passes"]]
+        pass_output_names = [f"{name}_{accelerator_spec}" if name else None for name in pass_output_names]
 
-        prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
-        # save the model to output_dir
-        output_model_name = f"{prefix_output_name}model"
-        output_model_json = cache_utils.save_model(
-            model_number=model_id,
-            output_dir=output_dir,
-            output_name=output_model_name,
-            overwrite=True,
-            cache_dir=self._config.cache_dir,
-        )
+        final_output_name = pass_output_names[-1]
+        if output_name:
+            # override the output name of the last pass
+            logger.debug("Engine output_name is provided. Will ignore output_name for final pass")
+            final_output_name = f"{output_name}_{accelerator_spec}"
+        elif not final_output_name:
+            # use the default output name
+            final_output_name = str(accelerator_spec)
+        pass_output_names[-1] = final_output_name
+
+        for pass_output_name, pass_output_model_id in zip(pass_output_names, model_ids):
+            if not pass_output_name:
+                continue
+            output_model_json = cache_utils.save_model(
+                model_number=pass_output_model_id,
+                output_dir=output_dir,
+                output_name=f"{pass_output_name}_model",
+                overwrite=True,
+                cache_dir=self._config.cache_dir,
+            )
 
         # save the evaluation results to output_dir
-        result_name = f"{prefix_output_name}metrics"
+        result_name = f"{final_output_name}_metrics"
         results_path = output_dir / f"{result_name}.json"
         if signal is not None:
             with open(results_path, "w") as f:
-                f.write(signal.json())
+                json.dump(signal.to_json(), f, indent=4)
 
         output = {"model": output_model_json}
         if signal is not None:
@@ -681,7 +705,7 @@ class Engine:
 
         # download and cache the model resource
         logger.debug("Downloading non local model resource to cache")
-        local_model_resource_path = cache_utils.get_non_local_resource(model_resource_path, self._config.cache_dir)
+        local_model_resource_path = cache_utils.download_resource(model_resource_path, self._config.cache_dir)
 
         # set local model resource path
         model.set_local_model_path(local_model_resource_path)
@@ -776,8 +800,6 @@ class Engine:
         # run all the passes in the step
         model_ids = []
         for pass_id, pass_search_point in passes:
-            logger.debug(f"Running pass {pass_id}")
-
             model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec)
             if model == PRUNED_CONFIG:
                 should_prune = True
@@ -815,10 +837,6 @@ class Engine:
         logger.info(f"Running pass {pass_name}")
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)
-
-        # set evaluator to pass
-        if self.passes[pass_id]["evaluator"] is not None:
-            p.set_evaluator(self.passes[pass_id]["evaluator"])
 
         # load run from cache if it exists
         run_accel = None if p.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
@@ -865,6 +883,9 @@ class Engine:
                 input_model = self._prepare_non_local_model(input_model)
             try:
                 output_model = host.run_pass(p, input_model, output_model_path, pass_search_point)
+            except EXCEPTIONS_TO_RAISE:
+                # Don't catch these errors since most of time, it is caused by the user errors and need not retry.
+                raise
             except Exception:
                 output_model = PRUNED_CONFIG
                 # TODO: from the time being, we need to catch all exceptions to make the

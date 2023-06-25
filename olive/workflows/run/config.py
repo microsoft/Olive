@@ -25,6 +25,7 @@ class RunPassConfig(FullPassConfig):
     host: SystemConfig = None
     evaluator: OliveEvaluatorConfig = None
     clean_run_cache: bool = False
+    output_name: str = None
 
 
 class RunEngineConfig(EngineConfig):
@@ -54,7 +55,7 @@ class RunConfig(ConfigBase):
     azureml_client: AzureMLClientConfig = None
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
-    data_config: Dict[str, DataConfig] = {
+    data_configs: Dict[str, DataConfig] = {
         DefaultDataContainer.DATA_CONTAINER.value: DataConfig(),
         DEFAULT_HF_DATA_CONTAINER_NAME: DataConfig(
             name=DEFAULT_HF_DATA_CONTAINER_NAME,
@@ -75,18 +76,12 @@ class RunConfig(ConfigBase):
         if not input_model_path or not isinstance(input_model_path, dict):
             return v
 
-        resource_path_type = input_model_path.get("type")
-        # insert aml_client if resource_path_type is azureml and not already set
-        if resource_path_type in AZUREML_RESOURCE_TYPES:
-            model_aml_client = input_model_path.get("config", {}).get("azureml_client")
-            if not model_aml_client:
-                if "azureml_client" not in values:
-                    raise ValueError("azureml_client is required for azureml resource path")
-                v["config"]["model_path"]["config"]["azureml_client"] = values["azureml_client"]
+        if _have_aml_client(input_model_path, values):
+            v["config"]["model_path"]["config"]["azureml_client"] = values["azureml_client"]
         return v
 
-    @validator("data_config", pre=True, each_item=True, always=True)
-    def validate_data_config(cls, v, values):
+    @validator("data_configs", pre=True, each_item=True, always=True)
+    def validate_data_configs(cls, v, values):
         if "input_model" not in values:
             raise ValueError("Invalid input model")
 
@@ -108,6 +103,12 @@ class RunConfig(ConfigBase):
     def validate_evaluators(cls, v, values):
         for idx, metric in enumerate(v.get("metrics", [])):
             v["metrics"][idx] = _resolve_data_config(metric, values, "data_config")
+
+            data_dir_config = v["metrics"][idx].get("user_config", {}).get("data_dir", None)
+            if isinstance(data_dir_config, dict):
+                if _have_aml_client(data_dir_config, values):
+                    data_dir_config["config"]["azureml_client"] = values["azureml_client"]
+                v["metrics"][idx]["user_config"]["data_dir"] = data_dir_config
         return v
 
     @validator("engine", pre=True)
@@ -143,6 +144,19 @@ class RunConfig(ConfigBase):
         pass_cls = Pass.registry.get(v["type"].lower(), None)
         if pass_cls and pass_cls.requires_data_config():
             v["config"] = _resolve_data_config(v.get("config", {}), values, "data_config")
+
+            if not v["config"]:
+                return v
+            data_dir_config = v["config"].get("data_dir", None)
+            if isinstance(data_dir_config, dict):
+                if _have_aml_client(data_dir_config, values):
+                    data_dir_config["config"]["azureml_client"] = values["azureml_client"]
+                v["config"]["data_dir"] = data_dir_config
+
+        if pass_cls and pass_cls.requires_eval_config():
+            v["config"] = _resolve_eval_config(v.get("config", {}), values, "evaluator")
+            if not v["config"]:
+                return v
         return v
 
 
@@ -175,7 +189,7 @@ def _resolve_system(v, values, system_alias, component_name="systems"):
     return v
 
 
-def _resolve_data_config(v, values, system_alias, component_name="data_config"):
+def _resolve_data_config(v, values, data_config_alias, component_name="data_configs"):
     data_container_config = v.get("data_config", None)
     if "input_model" not in values:
         raise ValueError("Invalid input model")
@@ -183,7 +197,13 @@ def _resolve_data_config(v, values, system_alias, component_name="data_config"):
     if not data_container_config and hf_data_config:
         # if data_container is None, we need to update the config to use HuggingfaceContainer
         v["data_config"] = DEFAULT_HF_DATA_CONTAINER_NAME
-    return _resolve_config_str(v, values, system_alias, component_name=component_name)
+    return _resolve_config_str(v, values, data_config_alias, component_name=component_name)
+
+
+def _resolve_eval_config(v, values, eval_config_alias, component_name="evaluators"):
+    if "input_model" not in values:
+        raise ValueError("Invalid input model")
+    return _resolve_config_str(v, values, eval_config_alias, component_name=component_name)
 
 
 def _resolve_evaluator(v, values):
@@ -205,3 +225,14 @@ def _resolve_evaluator(v, values):
         raise ValueError(f"Evaluator {evaluator} not found in evaluators")
     v["evaluator"] = evaluators[evaluator]
     return v
+
+
+def _have_aml_client(config_item, values):
+    resource_path_type = config_item.get("type")
+    if resource_path_type in AZUREML_RESOURCE_TYPES:
+        rp_aml_client = config_item.get("config", {}).get("azureml_client")
+        if not rp_aml_client:
+            if "azureml_client" not in values:
+                raise ValueError(f"azureml_client is required for azureml resource path in config if {config_item}")
+            return True
+    return False

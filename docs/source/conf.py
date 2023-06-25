@@ -48,6 +48,7 @@ source_suffix = {
 templates_path = ["_templates"]
 exclude_patterns = []
 
+suppress_warnings = ["myst.xref_missing"]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
@@ -71,3 +72,7 @@ autodoc_pydantic_settings_show_validator_members = False
 autodoc_pydantic_settings_show_field_summary = False
 autodoc_pydantic_settings_show_json = False
 autodoc_pydantic_field_list_validators = False
+
+# disable the anchor check since https://github.com/sphinx-doc/sphinx/issues/9016
+# we could enable it when the issue is fixed
+linkcheck_anchors = False

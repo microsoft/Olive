@@ -275,15 +275,13 @@ class Footprint:
         fig.update_layout(xaxis_title=metric_column[index[0]], yaxis_title=metric_column[index[1]], **size_params)
 
         if save_path:
-            try:
-                if save_format == "html":
-                    save_path = f"{save_path}.html" if not str(save_path).endswith(".html") else save_path
-                    fig.write_html(save_path)
-                elif save_format == "image":
-                    save_path = f"{save_path}.png" if not str(save_path).endswith(".png") else save_path
-                    fig.write_image(save_path)
-            except ValueError as e:
-                logger.error(f"Failed to save the pareto frontier chart to {save_path} with error {e}")
+            if save_format == "html":
+                save_path = f"{save_path}.html" if not str(save_path).endswith(".html") else save_path
+                fig.write_html(save_path)
+            elif save_format == "image":
+                save_path = f"{save_path}.png" if not str(save_path).endswith(".png") else save_path
+                fig.write_image(save_path)
+
         if is_show:
             fig.show()
 

@@ -48,8 +48,10 @@ User can decide to tune the model accuracy by setting accuracy metric with goal 
 "passes": {
     "quantization": {
         "type": "IncQuantization",
-        "evaluator": "common_evaluator",
-}
+        "config": {
+                "evaluator": "common_evaluator"
+            }
+    }
 }
 
 ```

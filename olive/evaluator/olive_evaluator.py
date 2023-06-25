@@ -6,7 +6,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from numbers import Number
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Type, Union
 
 import numpy as np
 import torch
@@ -14,6 +14,7 @@ from pydantic import validator
 from torch.utils.data import Dataset
 
 import olive.data.template as data_config_template
+from olive.cache import get_local_path
 from olive.common.config_utils import ConfigBase
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
@@ -31,12 +32,13 @@ from olive.evaluator.metric import (
 from olive.evaluator.metric_backend import MetricBackend
 from olive.hardware import Device
 from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
+from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
 
 
 class OliveEvaluator(ABC):
-    registry: Dict[str, "OliveEvaluator"] = {}
+    registry: Dict[str, Type["OliveEvaluator"]] = {}
 
     @classmethod
     def __init_subclass__(cls, framework: Framework, **kwargs) -> None:
@@ -95,7 +97,11 @@ class OliveEvaluator(ABC):
         # breaking it into multiple arguments
         # return eval_func(model, metric, dataloader, device, post_func)
         raw_res = eval_func(
-            model, metric.user_config.data_dir, metric.user_config.batch_size, device, execution_providers
+            model,
+            get_local_path(metric.user_config.data_dir),
+            metric.user_config.batch_size,
+            device,
+            execution_providers,
         )
         metric_res = {}
         for sub_type in metric.sub_types:
@@ -149,7 +155,7 @@ class OliveEvaluator(ABC):
 
         dataloader_func = getattr(metric.user_config, "dataloader_func", None)
         dataloader = user_module.call_object(
-            dataloader_func, metric.user_config.data_dir, metric.user_config.batch_size
+            dataloader_func, get_local_path(metric.user_config.data_dir), metric.user_config.batch_size
         )
 
         evaluate_func = getattr(metric.user_config, "evaluate_func", None)
@@ -576,6 +582,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
+        dataloader = self._prepare_dataloader(dataloader, model)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         preds = []
@@ -600,15 +607,21 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
+        dataloader = self._prepare_dataloader(dataloader, model)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         data_dir, input_data, _ = next(iter(dataloader))
         total_runs = warmup_num + repeat_test_num
         results = session(input_data, data_dir, runs=total_runs, sleep=sleep_num)
-        latencies = results["latencies"]["total_inference_time"][warmup_num]
+        latencies = results["latencies"]["total_inference_time"][warmup_num:]
 
         return OliveEvaluator.compute_latency(metric, latencies)
+
+    def _prepare_dataloader(self, dataloader: Dataset, model: SNPEModel) -> SNPEDataLoader:
+        if isinstance(dataloader, SNPEDataLoader):
+            return dataloader
+        return SNPECommonDataLoader(dataloader, model.io_config)
 
 
 class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):

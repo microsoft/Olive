@@ -5,7 +5,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict, Optional
 
 from pydantic import Field, validator
 
@@ -35,6 +35,18 @@ class AzureMLClientConfig(ConfigBase):
         description=(
             "Initial interval in seconds between retries for AzureML operations like resource creation or download. The"
             " interval doubles after each retry."
+        ),
+    )
+    # as the DefaultAzureCredential is used by default, we need to provide the default auth config for it.
+    # but DefaultAzureCredential accept kwargs as parameters, it is hard to validate the config.
+    # so we just provide a dict here and let the user to provide the correct config following the doc.
+    default_auth_params: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Default auth config for AzureML client. Please refer to"
+            " https://learn.microsoft.com/en-us/python/api/azure-identity/"
+            "azure.identity.defaultazurecredential?view=azure-python#parameters"
+            " for more details."
         ),
     )
 
@@ -98,22 +110,18 @@ class AzureMLClientConfig(ConfigBase):
         2. DefaultAzureCredential
         3. InteractiveBrowserCredential
         """
-        from azure.identity import AzureCliCredential, DefaultAzureCredential, InteractiveBrowserCredential
+        from azure.identity import DefaultAzureCredential, InteractiveBrowserCredential
 
         logger.debug("Getting credentials for MLClient")
         try:
-            credential = AzureCliCredential()
+            default_auth_params = self.default_auth_params or {}
+            credential = DefaultAzureCredential(**default_auth_params)
+            # Check if given credential can get token successfully.
             credential.get_token("https://management.azure.com/.default")
-            logger.debug("Using AzureCliCredential")
+            logger.debug("Using DefaultAzureCredential")
         except Exception:
-            try:
-                credential = DefaultAzureCredential()
-                # Check if given credential can get token successfully.
-                credential.get_token("https://management.azure.com/.default")
-                logger.debug("Using DefaultAzureCredential")
-            except Exception:
-                # Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work
-                credential = InteractiveBrowserCredential()
-                logger.debug("Using InteractiveBrowserCredential")
+            # Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work
+            credential = InteractiveBrowserCredential()
+            logger.debug("Using InteractiveBrowserCredential")
 
         return credential

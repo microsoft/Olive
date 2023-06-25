@@ -8,6 +8,7 @@ import os
 
 def check_search_output(footprints):
     """Check if the search output is valid."""
+    assert footprints, "footprints is empty. The search must have failed for all accelerator specs."
     for footprint in footprints.values():
         assert footprint.nodes
         for v in footprint.nodes.values():
@@ -15,6 +16,7 @@ def check_search_output(footprints):
 
 
 def check_no_search_output(outputs):
+    assert outputs, "outputs is empty. The run must have failed for all accelerator specs."
     for output in outputs.values():
         output_metrics = output["metrics"]
         for item in output_metrics.values():
@@ -36,10 +38,10 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
         olive_config["engine"]["search_strategy"]["search_algorithm_config"] = {"num_samples": 3, "seed": 0}
     olive_config["engine"]["search_strategy"]["execution_order"] = execution_order
 
+    update_azureml_config(olive_config)
     if system == "aml_system":
         # set aml_system
         set_aml_system(olive_config)
-        update_azureml_config(olive_config)
         olive_config["engine"]["host"] = system
         olive_config["engine"]["target"] = system
     elif system == "docker_system":

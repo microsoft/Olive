@@ -3,5 +3,5 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from olive.snpe.constants import SNPEDevice
-from olive.snpe.data_loader import SNPEDataLoader, SNPEProcessedDataLoader, SNPERandomDataLoader
+from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader, SNPEProcessedDataLoader, SNPERandomDataLoader
 from olive.snpe.snpe import *  # noqa: F403

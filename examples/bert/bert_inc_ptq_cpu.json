@@ -56,12 +56,11 @@
         },
         "quantization": {
             "type": "IncQuantization",
-            "disable_search": true,
-            "evaluator": "common_evaluator",
             "config": {
                 "approach": "SEARCHABLE_VALUES",
                 "user_script": "user_script.py",
-                "dataloader_func": "inc_glue_calibration_reader"
+                "dataloader_func": "inc_glue_calibration_reader",
+                "evaluator": "common_evaluator"
             }
         }
     },
