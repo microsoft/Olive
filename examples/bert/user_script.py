@@ -174,9 +174,9 @@ class IncBertDataset:
         sample = self.dataset[index]
         data = sample
         input_dict = {
-            "input_ids": np.array(data["input_ids"], dtype=np.long),
-            "attention_mask": np.array(data["attention_mask"], dtype=np.long),
-            "token_type_ids": np.array(data["token_type_ids"], dtype=np.long),
+            "input_ids": np.array(data["input_ids"]),
+            "attention_mask": np.array(data["attention_mask"]),
+            "token_type_ids": np.array(data["token_type_ids"]),
         }
         label = data["label"]
         return input_dict, label

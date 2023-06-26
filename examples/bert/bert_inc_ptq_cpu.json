@@ -60,7 +60,19 @@
                 "approach": "SEARCHABLE_VALUES",
                 "user_script": "user_script.py",
                 "dataloader_func": "inc_glue_calibration_reader",
-                "evaluator": "common_evaluator"
+                "metric": {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "sub_types": [
+                        {"name": "accuracy_score", "priority": 1, "goal": {"type": "percent-max-degradation", "value": 2}}
+                    ],
+                    "user_config":{
+                        "post_processing_func": "post_process",
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 1
+                    }
+                }
             }
         }
     },

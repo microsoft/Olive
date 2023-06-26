@@ -10,7 +10,6 @@ from pydantic import create_model, validator
 
 from olive.common.config_utils import ConfigBase, ConfigParam, validate_object, validate_resource_path
 from olive.data.config import DataConfig
-from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.strategy.search_parameter import SearchParameter, json_to_search_parameter
 
 
@@ -92,19 +91,6 @@ def get_data_config(required: Optional[bool] = False):
         )
     }
     return data_config
-
-
-def get_eval_config(required: Optional[bool] = False):
-    eval_config = {
-        "evaluator": PassConfigParam(
-            type_=Union[OliveEvaluatorConfig, str],
-            required=required,
-            description="""
-                Internal evaluator for pass.
-            """,
-        )
-    }
-    return eval_config
 
 
 class PassConfigBase(ConfigBase):

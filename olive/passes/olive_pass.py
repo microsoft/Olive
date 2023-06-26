@@ -13,7 +13,6 @@ from pydantic import validator
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
-from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
 from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel
 from olive.passes.pass_config import (
@@ -22,7 +21,6 @@ from olive.passes.pass_config import (
     PassParamDefault,
     create_config_class,
     get_data_config,
-    get_eval_config,
     get_user_script_config,
 )
 from olive.resource_path import ResourcePath
@@ -50,8 +48,6 @@ class Pass(ABC):
     _requires_user_script: bool = False
     # True if pass configuration requires data configuration which will leverage data container for pass execution
     _requires_data_config: bool = False
-    # True if pass configuration requires evaluation configuration
-    _requires_eval_config: bool = False
     # True if the pass processes a composite model at once. Otherwise, the components of the
     # composite model will be processed individually.
     _accepts_composite_model: bool = False
@@ -87,9 +83,6 @@ class Pass(ABC):
         if self._requires_data_config:
             data_config = self._config.get("data_config") or {}
             self._data_config = DataConfig(**data_config)
-        if self._requires_eval_config:
-            eval_config = self._config.get("evaluator") or {}
-            self._eval_config = OliveEvaluatorConfig(**eval_config)
 
         self._fixed_params = {}
         self._search_space = {}
@@ -118,10 +111,6 @@ class Pass(ABC):
     @classmethod
     def requires_data_config(cls):
         return cls._requires_data_config
-
-    @classmethod
-    def requires_eval_config(cls):
-        return cls._requires_eval_config
 
     @classmethod
     def generate_search_space(
@@ -165,8 +154,6 @@ class Pass(ABC):
             config.update(get_user_script_config())
         if cls.requires_data_config():
             config.update(get_data_config())
-        if cls.requires_eval_config():
-            config.update(get_eval_config())
         return {**config, **cls._default_config(accelerator_spec)}
 
     @staticmethod

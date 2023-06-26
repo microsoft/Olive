@@ -152,11 +152,6 @@ class RunConfig(ConfigBase):
                 if _have_aml_client(data_dir_config, values):
                     data_dir_config["config"]["azureml_client"] = values["azureml_client"]
                 v["config"]["data_dir"] = data_dir_config
-
-        if pass_cls and pass_cls.requires_eval_config():
-            v["config"] = _resolve_eval_config(v.get("config", {}), values, "evaluator")
-            if not v["config"]:
-                return v
         return v
 
 
@@ -198,12 +193,6 @@ def _resolve_data_config(v, values, data_config_alias, component_name="data_conf
         # if data_container is None, we need to update the config to use HuggingfaceContainer
         v["data_config"] = DEFAULT_HF_DATA_CONTAINER_NAME
     return _resolve_config_str(v, values, data_config_alias, component_name=component_name)
-
-
-def _resolve_eval_config(v, values, eval_config_alias, component_name="evaluators"):
-    if "input_model" not in values:
-        raise ValueError("Invalid input model")
-    return _resolve_config_str(v, values, eval_config_alias, component_name=component_name)
 
 
 def _resolve_evaluator(v, values):

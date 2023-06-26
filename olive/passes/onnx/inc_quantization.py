@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
 from olive.cache import get_local_path
-from olive.evaluator.metric import joint_metric_key
+from olive.evaluator.metric import Metric, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
@@ -104,6 +104,14 @@ _inc_quantization_config = {
         description="""
             Instance of TuningCriterion class. In this class you can set strategy, strategy_kwargs,
             timeout, max_trials and objective.
+        """,
+    ),
+    "metric": PassConfigParam(
+        type_=Metric,
+        default_value={},
+        description="""
+            Accuracy metric to generate an evaluation function for Intel® Neural Compressor
+            accuracy aware tuning.
         """,
     ),
 }
@@ -201,7 +209,6 @@ class IncQuantization(Pass):
 
     _requires_user_script = True
     _requires_data_config = True
-    _requires_eval_config = True
 
     def _initialize(self):
         super()._initialize()
@@ -324,11 +331,11 @@ class IncQuantization(Pass):
     def _set_tuning_config(self, run_config):
         # set criterion and eval func for INC
         # INC quantization without accuracy aware tuning situation:
-        #  1. without evaluator
-        #  2. with evaluator, without accuracy metric
-        #  3. with evaluator, with accuracy metric, without goal
+        #  1. 'metric' is not set
+        #  2. 'metric' is set, but it is not an accuracy metric
+        #  3. 'metric' is set, and it is an accuracy metric, but 'goal' is not set in the 'metric'
         # INC quantization with accuracy aware tuning situation:
-        #  1. with evaluator, with accuracy metric, with goal
+        #  1. 'metric' is set, and it is an accuracy metric, and 'goal' is set in the 'metric'
         try:
             from neural_compressor.config import AccuracyCriterion, TuningCriterion
         except ImportError:
@@ -336,30 +343,30 @@ class IncQuantization(Pass):
                 "Please install `olive-ai[inc]` or `neural-compressor` to use Intel® Neural Compressor quantization"
             )
 
-        _evaluator_config = deepcopy(run_config)
+        _inc_quantization_config = deepcopy(run_config)
 
         accuracy_criterion = AccuracyCriterion()
         tuning_criterion = TuningCriterion()
         eval_func = None
         accuracy_metric = None
 
-        if self._eval_config is not None:
-            metrics_name = [metric.name for metric in self._eval_config.metrics]
-            accuracy_metric_indexs = [index for index, name in enumerate(metrics_name) if name == "accuracy"]
-            if len(accuracy_metric_indexs) == 0:
-                logger.warning(
-                    "There is no accuracy metric in evaluator. "
-                    "Intel® Neural Compressor will quantize model without accuracy aware tuning. "
-                    "Please set accuracy metric to evaluator if you want to use Intel® Neural Compressor"
-                    "quantization with accuracy aware tuning."
-                )
-            else:
-                accuracy_metric = self._eval_config.metrics[accuracy_metric_indexs[0]]
+        if len(_inc_quantization_config["metric"]) != 0:
+            if "name" in _inc_quantization_config["metric"]:
+                metric_name = _inc_quantization_config["metric"]["name"]
+                if metric_name != "accuracy":
+                    logger.warning(
+                        "The 'metric' set in INC Quantization Pass is not an accuracy metric. "
+                        "Intel® Neural Compressor will quantize model without accuracy aware tuning. "
+                        "Please set an accuracy metric into 'metric' if you want to use Intel® Neural "
+                        "Compressor quantization with accuracy aware tuning."
+                    )
+                else:
+                    accuracy_metric = Metric(**_inc_quantization_config["metric"])
         else:
             logger.warning(
-                "'evaluator' is not set for INC Quantization Pass. "
+                "'metric' is not set for INC Quantization Pass. "
                 "Intel® Neural Compressor will quantize model without accuracy aware tuning. "
-                "Please set 'evaluator' if you want to use Intel® Neural Compressor"
+                "Please set 'metric' if you want to use Intel® Neural Compressor"
                 "quantization with accuracy aware tuning."
             )
 
@@ -376,12 +383,12 @@ class IncQuantization(Pass):
                     higher_is_better=higher_is_better, criterion=criterion, tolerable_loss=tolerable_loss
                 )
 
-                tuning_criterion = TuningCriterion(**_evaluator_config["tuning_criterion"])
+                tuning_criterion = TuningCriterion(**_inc_quantization_config["tuning_criterion"])
             else:
                 logger.warning(
-                    "'goal' is not set for accuracy metric in evaluator. "
+                    "'goal' is not set in 'metric'. "
                     "Intel® Neural Compressor will quantize model without accuracy aware tuning. "
-                    "Please set 'goal' for accuracy metric in evaluator if you want to use "
+                    "Please set 'goal' in 'metric' if you want to use "
                     "Intel® Neural Compressor quantization with accuracy aware tuning."
                 )
 
@@ -413,7 +420,7 @@ class IncQuantization(Pass):
             "dataloader_func",
             "tuning_criterion",
             "data_config",
-            "evaluator",
+            "metric",
         ]
         to_delete += list(get_external_data_config().keys())
         for key in to_delete:
