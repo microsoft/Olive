@@ -6,7 +6,7 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 from olive.cache import get_local_path
 from olive.evaluator.metric import Metric, joint_metric_key
@@ -107,8 +107,8 @@ _inc_quantization_config = {
         """,
     ),
     "metric": PassConfigParam(
-        type_=Metric,
-        default_value={},
+        type_=Optional[Metric],
+        default_value=None,
         description="""
             Accuracy metric to generate an evaluation function for Intel® Neural Compressor
             accuracy aware tuning.
