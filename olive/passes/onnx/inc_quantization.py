@@ -351,17 +351,21 @@ class IncQuantization(Pass):
         accuracy_metric = None
 
         if len(_inc_quantization_config["metric"]) != 0:
-            if "name" in _inc_quantization_config["metric"]:
-                metric_name = _inc_quantization_config["metric"]["name"]
-                if metric_name != "accuracy":
+            if "type" in _inc_quantization_config["metric"]:
+                metric_type = _inc_quantization_config["metric"]["type"]
+                if metric_type in ["accuracy", "custom"]:
+                    accuracy_metric = Metric(**_inc_quantization_config["metric"])
+                    logger.warning(
+                        "'metric' is set in INC Quantization Pass. Please make sure it is an accuracy metric, "
+                        "and then Intel® Neural Compressor will quantize model with accuracy aware tuning."
+                    )
+                else:
                     logger.warning(
                         "The 'metric' set in INC Quantization Pass is not an accuracy metric. "
                         "Intel® Neural Compressor will quantize model without accuracy aware tuning. "
                         "Please set an accuracy metric into 'metric' if you want to use Intel® Neural "
                         "Compressor quantization with accuracy aware tuning."
                     )
-                else:
-                    accuracy_metric = Metric(**_inc_quantization_config["metric"])
         else:
             logger.warning(
                 "'metric' is not set for INC Quantization Pass. "
