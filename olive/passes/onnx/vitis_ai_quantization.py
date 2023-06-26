@@ -224,6 +224,13 @@ class VitisAIQuantization(Pass):
         self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_vaiq_tmp")
 
     @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        """Override this method to return False by using the
+        accelerator spec information.
+        """
+        return False
+
+    @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(
@@ -246,14 +253,7 @@ class VitisAIQuantization(Pass):
 
         # external data config
         config.update(get_external_data_config())
-        config["execution_providers"] = PassConfigParam(
-            type_=list,
-            default_value=[accelerator_spec.execution_provider],
-        )
         return config
-
-    def validate_search_point(self, search_point: Dict[str, Any]) -> bool:
-        return True
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
 
@@ -340,10 +340,13 @@ class VitisAIQuantization(Pass):
         elif self._data_config:
             dataloader = self._data_config.to_data_container().create_calibration_dataloader()
 
+        execution_provider = self._accelerator_spec.execution_provider
+
         quantize_static(
             model_input=model.model_path,
             model_output=tmp_model_path,
             calibration_data_reader=dataloader,
+            execution_providers=[execution_provider],
             **run_config,  # use_external_data_format has been set to `True` by default in run_config
         )
         # load the model
