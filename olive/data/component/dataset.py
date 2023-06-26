@@ -49,9 +49,9 @@ class BaseDataset(Dataset):
         """
         pass
 
-    def to_snap_dataset(self):
+    def to_snpe_dataset(self):
         """
-        This function is used to convert the dataset to snap dataset
+        This function is used to convert the dataset to snpe dataset
         """
         pass
 

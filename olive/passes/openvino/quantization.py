@@ -30,7 +30,7 @@ class OpenVINOQuantization(Pass):
                 required=True,
                 description=(
                     "Specific config for openvino.tools.pot.IEEngine. 'engine_config' can be set"
-                    " by passing a dictonary, for example engine_config: {'device': 'CPU'}"
+                    " by passing a dictionary, for example engine_config: {'device': 'CPU'}"
                 ),
             ),
             "dataloader_func": PassConfigParam(
