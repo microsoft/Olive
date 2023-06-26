@@ -24,6 +24,7 @@ EngineConfig
 **SystemConfig**
 
 .. autopydantic_settings:: olive.systems.system_config.SystemConfig
+   :noindex:
 
 **OliveEvaluatorConfig**
 
