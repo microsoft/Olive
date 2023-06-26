@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import Any, Dict, Union
+from typing import Any, Dict, Type, Union
 
 from olive.common.auto_config import AutoConfigClass, ConfigBase
 from olive.common.config_utils import ConfigParam
@@ -12,7 +12,7 @@ from olive.evaluator.metric import Metric, MetricResult, SubMetric, SubMetricRes
 
 
 class MetricBackend(AutoConfigClass):
-    registry: Dict[str, "MetricBackend"] = {}
+    registry: Dict[str, Type["MetricBackend"]] = {}
 
     def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
         super().__init__(config)

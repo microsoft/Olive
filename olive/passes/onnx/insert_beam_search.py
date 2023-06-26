@@ -6,7 +6,9 @@ import logging
 from typing import Any, Dict
 
 from onnx import ModelProto, TensorProto, helper
+from onnxruntime import __version__ as OrtVersion
 from onnxruntime.transformers.convert_generation import get_shared_initializers
+from packaging import version
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeOnnxModel, OliveModel, ONNXModel
@@ -27,8 +29,16 @@ class InsertBeamSearch(Pass):
         config = {
             "no_repeat_ngram_size": PassConfigParam(
                 type_=int,
-                default_value=3,
+                default_value=0,
                 description=" If set to int > 0, all ngrams of that size can only occur once.",
+            ),
+            "use_forced_decoder_ids": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description=(
+                    "Use decoder_input_ids as an extra graph input to the beam search op. Only supported in ORT >="
+                    " 1.16.0"
+                ),
             ),
         }
         config.update(get_external_data_config())
@@ -37,6 +47,9 @@ class InsertBeamSearch(Pass):
     def chain_model(
         self, model_A: ModelProto, model_A_name: str, model_B: ModelProto, model_B_name: str, model_config, options
     ):
+        # version check
+        version_1_16 = version.parse(OrtVersion) >= version.parse("1.16.0")
+
         # Chain two models (model_A and model_B) by inserting beam search op in between.
         model_A.graph.name = f"{model_A_name} subgraph"
         model_B.graph.name = f"{model_B_name} subgraph"
@@ -51,8 +64,11 @@ class InsertBeamSearch(Pass):
             "repetition_penalty",
             "",
             "",
-            "attention_mask",
+            "" if version_1_16 else "attention_mask",
         ]
+        if version_1_16:
+            beam_inputs.extend(["decoder_input_ids" if options["use_forced_decoder_ids"] else "", ""])
+
         beam_outputs = ["sequences"]
 
         node = helper.make_node("BeamSearch", inputs=beam_inputs, outputs=beam_outputs, name="BeamSearch_node")
@@ -78,9 +94,6 @@ class InsertBeamSearch(Pass):
         num_return_sequences = helper.make_tensor_value_info("num_return_sequences", TensorProto.INT32, [1])
         length_penalty = helper.make_tensor_value_info("length_penalty", TensorProto.FLOAT, [1])
         repetition_penalty = helper.make_tensor_value_info("repetition_penalty", TensorProto.FLOAT, [1])
-        attention_mask = helper.make_tensor_value_info(
-            "attention_mask", TensorProto.INT32, ["batch_size", "feature_size", "sequence_length"]
-        )
 
         graph_inputs = [
             input_features,
@@ -90,8 +103,17 @@ class InsertBeamSearch(Pass):
             num_return_sequences,
             length_penalty,
             repetition_penalty,
-            attention_mask,
         ]
+        if not version_1_16:
+            attention_mask = helper.make_tensor_value_info(
+                "attention_mask", TensorProto.INT32, ["batch_size", "feature_size", "sequence_length"]
+            )
+            graph_inputs.append(attention_mask)
+        if version_1_16 and options["use_forced_decoder_ids"]:
+            decoder_input_ids = helper.make_tensor_value_info(
+                "decoder_input_ids", TensorProto.INT32, ["batch_size", "initial_sequence_length"]
+            )
+            graph_inputs.append(decoder_input_ids)
 
         # graph outputs
         sequences = helper.make_tensor_value_info(
@@ -144,6 +166,14 @@ class InsertBeamSearch(Pass):
         # will be inserted in between them to chain the components. We should add a config option to identify
         # the two components to chain together when there are more than 2 components in the composite model.
 
+        # version check
+        version_1_16 = version.parse(OrtVersion) >= version.parse("1.16.0")
+
+        if not version_1_16 and config["use_forced_decoder_ids"]:
+            logger.warning(
+                "use_forced_decoder_ids is not supported in ONNX Runtime versions < 1.16.0. Will be ignored."
+            )
+
         # Load encoder/decoder and insert necessary (but unused) graph inputs expected by BeamSearch op
         model_A = model.get_model_component(0)
         model_A_name = model.get_model_component_name(0)
@@ -151,8 +181,9 @@ class InsertBeamSearch(Pass):
         model_B_name = model.get_model_component_name(1)
         model_proto_A = model_A.load_model()
         model_proto_B = model_B.load_model()
-        self.add_attention_mask(model_proto_A)
-        self.add_attention_mask(model_proto_B)
+        if not version_1_16:
+            self.add_attention_mask(model_proto_A)
+            self.add_attention_mask(model_proto_B)
 
         combined_model = self.chain_model(
             model_proto_A, model_A_name, model_proto_B, model_B_name, model.get_model_config(), config
