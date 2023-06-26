@@ -6,7 +6,7 @@
 from olive.data.config import DataConfig
 
 
-def dummy_data_config_template(input_shapes, input_types, input_names=None) -> DataConfig:
+def dummy_data_config_template(input_shapes, input_names=None, input_types=None) -> DataConfig:
     """
     Convert the dummy data config to the data container.
     input_names: list

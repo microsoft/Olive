@@ -57,7 +57,7 @@ class BaseDataset(Dataset):
 
 
 class DummyDataset(BaseDataset):
-    def __init__(self, input_names, input_shapes, input_types):
+    def __init__(self, input_shapes, input_names=None, input_types=None):
         """
         This function is used to initialize the dummy dataset
         if input_names is None, the dummy dataset will return a tuple of tensors
