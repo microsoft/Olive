@@ -47,7 +47,7 @@ def load_huggingface_model_from_task(task: str, name: str):
     elif len(task_results) == 3:
         targeted_task = task_results[1]
     else:
-        raise ValueError("unsupported transfomers version")
+        raise ValueError("unsupported transformers version")
 
     model_class = {"pt": targeted_task["pt"]}
     class_tuple = ()
