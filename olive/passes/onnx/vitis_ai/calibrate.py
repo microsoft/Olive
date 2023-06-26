@@ -19,7 +19,7 @@ from onnxruntime.quantization.calibrate import (
     CalibrationDataReader,
     MinMaxCalibrater,
 )
-from onnxruntime.quantization.quant_utils import QuantType, clone_model_with_shape_infer
+from onnxruntime.quantization.quant_utils import QuantType
 
 from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod, quantize_data_pof2s
 
@@ -59,6 +59,10 @@ class PowOfTwoCalibrater(CalibraterBase):
         Make all quantization_candidates op type nodes as part of the graph output.
         :return: augmented ONNX model
         """
+        # not supported in ORT >= 1.16.0
+        # TODO: Update code to support different versions of ORT
+        from onnxruntime.quantization.quant_utils import clone_model_with_shape_infer
+
         model = clone_model_with_shape_infer(self.model)
 
         self.tensors_to_calibrate, value_infos = self.select_tensors_to_calibrate(model)
@@ -77,7 +81,6 @@ class PowOfTwoCalibrater(CalibraterBase):
         self.intermediate_outputs = []
 
     def collect_data(self, data_reader: CalibrationDataReader):
-
         while True:
             inputs = data_reader.get_next()
             if not inputs:
@@ -134,7 +137,6 @@ class PowOfTwoCollector(CalibrationDataCollector):
         )
 
     def collect(self, name_to_arr):
-
         self.name_to_arr = name_to_arr
 
         return
@@ -170,7 +172,6 @@ def create_calibrator_power_of_two(
     execution_providers=["CPUExecutionProvider"],
     extra_options={},
 ):
-
     calibrator = None
 
     # default settings for min-max algorithm
