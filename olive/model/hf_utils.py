@@ -107,7 +107,7 @@ def get_onnx_config(model_name: str, task: str, feature: str):
     return model_onnx_config(model.config)
 
 
-def get_hf_model_io_config(model_name: str, task: str, feature: str) -> IOConfig:
+def get_hf_model_io_config(model_name: str, task: str, feature: str):
     model_config = get_onnx_config(model_name, task, feature)
     inputs = model_config.inputs
     outputs = model_config.outputs
