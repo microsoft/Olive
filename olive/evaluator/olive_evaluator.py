@@ -6,7 +6,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from numbers import Number
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Type, Union
 
 import numpy as np
 import torch
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 
 class OliveEvaluator(ABC):
-    registry: Dict[str, "OliveEvaluator"] = {}
+    registry: Dict[str, Type["OliveEvaluator"]] = {}
 
     @classmethod
     def __init_subclass__(cls, framework: Framework, **kwargs) -> None:

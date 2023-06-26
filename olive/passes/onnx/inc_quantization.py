@@ -47,7 +47,7 @@ _inc_quantization_config = {
         type_=dict,
         default_value={},
         description="""
-            Recipes for Intel® Neural Compressor quantiztaion, support list is as below.
+            Recipes for Intel® Neural Compressor quantization, support list is as below.
                 'smooth_quant': whether do smooth quant
                 'smooth_quant_args': parameters for smooth_quant
                 'fast_bias_correction': whether do fast bias correction
@@ -57,10 +57,10 @@ _inc_quantization_config = {
                                         only valid for onnx models
                 'first_conv_or_matmul_quantization': whether quantize the first conv or matmul
                 'last_conv_or_matmul_quantization': whether quantize the last conv or matmul
-                'pre_post_process_quantization': whether quantize the ops in preprocess and postprocess
-                'add_qdq_pair_to_weight': whether add QDQ pair for weights, only vaild for onnxrt_trt_ep
+                'pre_post_process_quantization': whether quantize the ops in preprocessing and postprocessing
+                'add_qdq_pair_to_weight': whether add QDQ pair for weights, only valid for onnxrt_trt_ep
                 'optypes_to_exclude_output_quant': don't quantize output of specified optypes
-                'dedicated_qdq_pair': whether dedicate QDQ pair, only vaild for onnxrt_trt_ep
+                'dedicated_qdq_pair': whether dedicate QDQ pair, only valid for onnxrt_trt_ep
         """,
     ),
     "reduce_range": PassConfigParam(
@@ -93,15 +93,6 @@ _inc_quantization_config = {
             Intel® Neural Compressor enable the mixed precision with
             fp32 + bf16(only when device is 'gpu' and backend is 'onnxrt_cuda_ep') + int8 by default.
             If you want to disable bf16 data type, you can specify excluded_precisions = ['bf16'].
-        """,
-    ),
-    "use_distributed_tuning": PassConfigParam(
-        type_=bool,
-        default_value=False,
-        description="""
-            Intel® Neural Compressor provides distributed tuning to speed up the tuning
-            process by leveraging the multi-node cluster. Prerequisites: A working MPI
-            implementation and installed mpi4py.
         """,
     ),
 }

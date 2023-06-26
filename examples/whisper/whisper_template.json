@@ -6,7 +6,7 @@
             "script_dir": "code",
             "hf_config": {
                 "model_class" : "WhisperForConditionalGeneration",
-                "model_name" : "openai/whisper-tiny.en",
+                "model_name" : "openai/whisper-tiny",
                 "components" : [
                     {
                         "name": "encoder_decoder_init",
@@ -80,14 +80,17 @@
             }
         },
         "insert_beam_search" : {
-            "type" : "InsertBeamSearch"
+            "type" : "InsertBeamSearch",
+            "config": {
+                "use_forced_decoder_ids": "<place_holder>"
+            }
         },
         "prepost": {
             "type": "AppendPrePostProcessingOps",
             "config": {
                 "tool_command": "whisper",
                 "tool_command_args": {
-                    "model_name": "openai/whisper-tiny.en",
+                    "model_name": "openai/whisper-tiny",
                     "testdata_filepath": "<place_holder>",
                     "use_audio_decoder" : "<place_holder>"
                 }

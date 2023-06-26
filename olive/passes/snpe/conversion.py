@@ -69,7 +69,7 @@ class SNPEConversion(Pass):
                 default_value=None,
                 description=(
                     "List of input layouts. If not None, it must be a list of the same length as input_names. List"
-                    " members can be None to use infered value. Refer to olive.snpe.constants.InputLayout for valid"
+                    " members can be None to use inferred value. Refer to olive.snpe.constants.InputLayout for valid"
                     " values."
                 ),
             ),

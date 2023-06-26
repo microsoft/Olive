@@ -10,7 +10,7 @@ from olive.common.config_utils import ConfigBase
 
 
 class IOConfig(ConfigBase):
-    # TODO remove input names, shapes and types, turn to use olive dataset conifg.
+    # TODO remove input names, shapes and types, turn to use olive dataset config.
     input_names: List[str]
     input_shapes: List[List[Union[int, str]]] = None
     input_types: List[str] = None
