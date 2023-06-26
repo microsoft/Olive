@@ -1547,7 +1547,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-recipes">
 <span class="sig-name descname"><span class="pre">recipes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-recipes" title="Permalink to this definition">¶</a></dt>
 <dd><p>
-            Recipes for Intel® Neural Compressor quantiztaion, support list is as below.
+            Recipes for Intel® Neural Compressor quantization, support list is as below.
                 ‘smooth_quant’: whether do smooth quant
                 ‘smooth_quant_args’: parameters for smooth_quant
                 ‘fast_bias_correction’: whether do fast bias correction
@@ -1557,10 +1557,10 @@
                                         only valid for onnx models
                 ‘first_conv_or_matmul_quantization’: whether quantize the first conv or matmul
                 ‘last_conv_or_matmul_quantization’: whether quantize the last conv or matmul
-                ‘pre_post_process_quantization’: whether quantize the ops in preprocess and postprocess
-                ‘add_qdq_pair_to_weight’: whether add QDQ pair for weights, only vaild for onnxrt_trt_ep
+                ‘pre_post_process_quantization’: whether quantize the ops in preprocessing and postprocessing
+                ‘add_qdq_pair_to_weight’: whether add QDQ pair for weights, only valid for onnxrt_trt_ep
                 ‘optypes_to_exclude_output_quant’: don’t quantize output of specified optypes
-                ‘dedicated_qdq_pair’: whether dedicate QDQ pair, only vaild for onnxrt_trt_ep</p>
+                ‘dedicated_qdq_pair’: whether dedicate QDQ pair, only valid for onnxrt_trt_ep</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
 <p><strong>searchable_values:</strong> None</p>
@@ -1714,7 +1714,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-86">
 <span class="sig-name descname"><span class="pre">recipes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-86" title="Permalink to this definition">¶</a></dt>
 <dd><p>
-            Recipes for Intel® Neural Compressor quantiztaion, support list is as below.
+            Recipes for Intel® Neural Compressor quantization, support list is as below.
                 ‘smooth_quant’: whether do smooth quant
                 ‘smooth_quant_args’: parameters for smooth_quant
                 ‘fast_bias_correction’: whether do fast bias correction
@@ -1724,10 +1724,10 @@
                                         only valid for onnx models
                 ‘first_conv_or_matmul_quantization’: whether quantize the first conv or matmul
                 ‘last_conv_or_matmul_quantization’: whether quantize the last conv or matmul
-                ‘pre_post_process_quantization’: whether quantize the ops in preprocess and postprocess
-                ‘add_qdq_pair_to_weight’: whether add QDQ pair for weights, only vaild for onnxrt_trt_ep
+                ‘pre_post_process_quantization’: whether quantize the ops in preprocessing and postprocessing
+                ‘add_qdq_pair_to_weight’: whether add QDQ pair for weights, only valid for onnxrt_trt_ep
                 ‘optypes_to_exclude_output_quant’: don’t quantize output of specified optypes
-                ‘dedicated_qdq_pair’: whether dedicate QDQ pair, only vaild for onnxrt_trt_ep</p>
+                ‘dedicated_qdq_pair’: whether dedicate QDQ pair, only valid for onnxrt_trt_ep</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
 <p><strong>searchable_values:</strong> None</p>
@@ -1935,7 +1935,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-104">
 <span class="sig-name descname"><span class="pre">recipes</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-104" title="Permalink to this definition">¶</a></dt>
 <dd><p>
-            Recipes for Intel® Neural Compressor quantiztaion, support list is as below.
+            Recipes for Intel® Neural Compressor quantization, support list is as below.
                 ‘smooth_quant’: whether do smooth quant
                 ‘smooth_quant_args’: parameters for smooth_quant
                 ‘fast_bias_correction’: whether do fast bias correction
@@ -1945,10 +1945,10 @@
                                         only valid for onnx models
                 ‘first_conv_or_matmul_quantization’: whether quantize the first conv or matmul
                 ‘last_conv_or_matmul_quantization’: whether quantize the last conv or matmul
-                ‘pre_post_process_quantization’: whether quantize the ops in preprocess and postprocess
-                ‘add_qdq_pair_to_weight’: whether add QDQ pair for weights, only vaild for onnxrt_trt_ep
+                ‘pre_post_process_quantization’: whether quantize the ops in preprocessing and postprocessing
+                ‘add_qdq_pair_to_weight’: whether add QDQ pair for weights, only valid for onnxrt_trt_ep
                 ‘optypes_to_exclude_output_quant’: don’t quantize output of specified optypes
-                ‘dedicated_qdq_pair’: whether dedicate QDQ pair, only vaild for onnxrt_trt_ep</p>
+                ‘dedicated_qdq_pair’: whether dedicate QDQ pair, only valid for onnxrt_trt_ep</p>
 <p><strong>type:</strong> dict</p>
 <p><strong>default_value:</strong> {}</p>
 <p><strong>searchable_values:</strong> None</p>
@@ -2435,7 +2435,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-engine_config">
 <span id="cmdoption-arg-engine-config"></span><span class="sig-name descname"><span class="pre">engine_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-engine_config" title="Permalink to this definition">¶</a></dt>
-<dd><p>Specific config for openvino.tools.pot.IEEngine. ‘engine_config’ can be set by passing a dictonary, for example engine_config: {‘device’: ‘CPU’}</p>
+<dd><p>Specific config for openvino.tools.pot.IEEngine. ‘engine_config’ can be set by passing a dictionary, for example engine_config: {‘device’: ‘CPU’}</p>
 <p><strong>type:</strong> Dict</p>
 <p><strong>required:</strong> True</p>
 </dd></dl>
@@ -2528,7 +2528,7 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-input_layouts">
 <span id="cmdoption-arg-input-layouts"></span><span class="sig-name descname"><span class="pre">input_layouts</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-input_layouts" title="Permalink to this definition">¶</a></dt>
-<dd><p>List of input layouts. If not None, it must be a list of the same length as input_names. List members can be None to use infered value. Refer to olive.snpe.constants.InputLayout for valid values.</p>
+<dd><p>List of input layouts. If not None, it must be a list of the same length as input_names. List members can be None to use inferred value. Refer to olive.snpe.constants.InputLayout for valid values.</p>
 <p><strong>type:</strong> List[str | None]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
