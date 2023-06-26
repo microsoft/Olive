@@ -154,7 +154,7 @@ class OliveModel(ABC):
     def get_composite_parent(self):
         return self.composite_parent
 
-    def get_io_config(self) -> IOConfig:
+    def get_io_config(self) -> Dict[str, Any]:
         return self.io_config
 
     def to_json(self, check_object: bool = False):
@@ -458,7 +458,7 @@ class ONNXModel(ONNXModelBase):
                 io_config[f"{prefix}_shapes"].append(shape)
 
         # save io_config
-        self.io_config = IOConfig.parse_obj(io_config)
+        self.io_config = io_config
 
         return self.io_config
 
@@ -492,7 +492,7 @@ class PyTorchModel(OliveModel):
         super().__init__(framework=Framework.PYTORCH, model_file_format=model_file_format, model_path=model_path)
 
         # io config for conversion to onnx
-        self.io_config = validate_config(io_config, IOConfig) if io_config else None
+        self.io_config = io_config if io_config and validate_config(io_config, IOConfig) else None
         self.dummy_inputs_func = dummy_inputs_func
 
         self.dummy_inputs = None
@@ -571,12 +571,12 @@ class PyTorchModel(OliveModel):
             logger.debug("Using dummy_inputs_func to get dummy inputs")
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
-        elif self.io_config and self.io_config.input_shapes:
+        elif self.io_config and self.io_config.get("input_shapes"):
             logger.debug("Using io_config.input_shapes to get dummy inputs")
             dummy_inputs, _ = (
                 data_config_template.dummy_data_config_template(
-                    input_shapes=self.io_config.input_shapes,
-                    input_types=self.io_config.input_types,
+                    input_shapes=self.io_config.get("input_shapes"),
+                    input_types=self.io_config.get("input_types"),
                 )
                 .to_data_container()
                 .get_first_batch()
@@ -700,14 +700,12 @@ class SNPEModel(OliveModel):
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
     ):
         super().__init__(framework=Framework.SNPE, model_file_format=ModelFileFormat.SNPE_DLC, model_path=model_path)
-        self.io_config = IOConfig.parse_obj(
-            {
-                "input_names": input_names,
-                "input_shapes": input_shapes,
-                "output_names": output_names,
-                "output_shapes": output_shapes,
-            }
-        )
+        self.io_config = {
+            "input_names": input_names,
+            "input_shapes": input_shapes,
+            "output_names": output_names,
+            "output_shapes": output_shapes,
+        }
 
     def load_model(self, rank: int = None):
         raise NotImplementedError()
@@ -724,11 +722,11 @@ class SNPEModel(OliveModel):
         if device == Device.NPU:
             device = SNPEDevice.DSP
         session_options.device = device
-        return SNPEInferenceSession(self.model_path, self.io_config.dict(), session_options)
+        return SNPEInferenceSession(self.model_path, self.io_config, session_options)
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
-        config["config"].update(self.io_config.dict())
+        config["config"].update(self.io_config)
         return serialize_to_json(config, check_object)
 
     def get_dlc_metrics(self) -> dict:

@@ -5,7 +5,6 @@
 import logging
 
 from olive.common.config_utils import ConfigBase
-from olive.model.model_config import IOConfig
 from olive.snpe.constants import PerfProfile, ProfilingLevel, SNPEDevice
 from olive.snpe.tools.dev import get_dlc_metrics
 from olive.snpe.tools.inference import init_snpe_net_adb, snpe_net_run, snpe_throughput_net_run
@@ -54,7 +53,7 @@ class SNPESessionOptions(ConfigBase):
 
 
 class SNPEInferenceSession:
-    def __init__(self, model_path: str, io_config: IOConfig, session_options: SNPESessionOptions = None):
+    def __init__(self, model_path: str, io_config: dict, session_options: SNPESessionOptions = None):
         self.model_path = model_path
         self.io_config = io_config
         self.session_options = session_options or SNPESessionOptions()
@@ -74,8 +73,8 @@ class SNPEInferenceSession:
             self.model_path,
             input_list,
             data_dir,
-            self.io_config.output_names,
-            self.io_config.output_shapes,
+            self.io_config["output_names"],
+            self.io_config["output_shapes"],
             runs,
             sleep,
             android_persist_ws=True,

@@ -10,10 +10,12 @@ from typing import Any, Dict, Union
 import onnx
 import torch
 
+from olive.common.config_utils import validate_config
 from olive.common.utils import tensor_data_to_device
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeOnnxModel, ONNXModel, PyTorchModel
 from olive.model.hf_utils import get_hf_model_io_config
+from olive.model.model_config import IOConfig
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -73,6 +75,7 @@ class OnnxConversion(Pass):
                 model.hf_config.model_name, model.hf_config.task, model.hf_config.feature
             )
         assert io_config, "Cannot get io_config for the model. Please specify io_config or hf_config for the model."
+        io_config = validate_config(io_config, IOConfig)
         input_names = io_config.input_names
         output_names = io_config.output_names
         dynamic_axes = io_config.dynamic_axes

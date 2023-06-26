@@ -115,7 +115,6 @@ def get_hf_model_io_config(model_name: str, task: str, feature: str) -> IOConfig
     io_config["input_names"] = list(inputs.keys())
     io_config["output_names"] = list(outputs.keys())
     io_config["dynamic_axes"] = dict(inputs.items())  # dynamic axes for inputs
-    io_config = IOConfig.parse_obj(io_config)
     return io_config
 
 

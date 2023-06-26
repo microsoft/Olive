@@ -68,5 +68,8 @@ class IOConfig(ConfigBase):
                 raise ValueError(f"Invalid string_to_int_dim_params: {dim_param}. Must be castable to int.")
         return v
 
-    def is_input_shape_static(self):
-        return all(all(isinstance(dim, int) for dim in shape) for shape in self.input_shapes)
+
+def is_io_config_static(config: Union[IOConfig, Dict]):
+    if isinstance(config, IOConfig):
+        config = config.dict()
+    return all(all(isinstance(dim, int) for dim in shape) for shape in config.get("input_shapes"))

@@ -32,6 +32,7 @@ from olive.evaluator.metric import (
 from olive.evaluator.metric_backend import MetricBackend
 from olive.hardware import Device
 from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
+from olive.model.model_config import is_io_config_static
 from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
@@ -128,7 +129,7 @@ class OliveEvaluator(ABC):
     ) -> MetricResult:
         metrics_res = {}
         for metric in metrics:
-            metric = OliveEvaluator.enhance_user_config_with_model_config(metric, model)
+            metric = OliveEvaluator.fill_metric_user_config_with_model_io(metric, model)
             dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric)
 
             if metric.type == MetricType.ACCURACY:
@@ -148,7 +149,7 @@ class OliveEvaluator(ABC):
         return flatten_metric_result(metrics_res)
 
     @staticmethod
-    def enhance_user_config_with_model_config(metric: Metric, model: OliveModel):
+    def fill_metric_user_config_with_model_io(metric: Metric, model: OliveModel):
         # if the io_config is not specified in the metrics, use the one in the model
         if metric.data_config:
             return metric
@@ -157,15 +158,15 @@ class OliveEvaluator(ABC):
         if not io_config:
             return metric
 
-        if not io_config.is_input_shape_static():
+        if not is_io_config_static(io_config):
             logger.debug(
                 "Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. This will"
                 " cause an error when creating dummy data for tuning."
             )
         if io_config and not metric.user_config.input_names and not metric.user_config.input_shapes:
-            metric.user_config.input_names = io_config.input_names
-            metric.user_config.input_shapes = io_config.input_shapes
-            metric.user_config.input_types = io_config.input_types
+            metric.user_config.input_names = io_config.get("input_names")
+            metric.user_config.input_shapes = io_config.get("input_shapes")
+            metric.user_config.input_types = io_config.get("input_types")
         return metric
 
     @staticmethod
@@ -247,8 +248,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         """
         Format input data to ONNX input format.
         """
-        input_names = io_config.input_names
-        name_to_type = {k: v for k, v in zip(io_config.input_names, io_config.input_types)}
+        input_names = io_config["input_names"]
+        name_to_type = {k: v for k, v in zip(io_config["input_names"], io_config["input_types"])}
         if not isinstance(input_data, dict):
             input_data = dict(zip(input_names, [input_data]))
         input_dict = {
@@ -279,7 +280,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         preds = []
         targets = []
-        output_names = io_config.output_names
+        output_names = io_config.get("output_names")
         for input_data, labels in dataloader:
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             res = session.run(input_feed=input_dict, output_names=None)
@@ -367,7 +368,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         preds = []
         targets = []
-        output_names = io_config.output_names
+        output_names = io_config.get("output_names")
         for _, (input_data, labels) in enumerate(dataloader):
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
