@@ -167,9 +167,9 @@ class OliveEvaluator(ABC):
                 " cause an error when creating dummy data for tuning."
             )
         if io_config and not metric.user_config.input_names and not metric.user_config.input_shapes:
-            metric.user_config.input_names = io_config.get("input_names")
-            metric.user_config.input_shapes = io_config.get("input_shapes")
-            metric.user_config.input_types = io_config.get("input_types")
+            metric.user_config.input_names = io_config["input_names"]
+            metric.user_config.input_shapes = io_config["input_shapes"]
+            metric.user_config.input_types = io_config["input_types"]
         return metric
 
     @staticmethod
@@ -283,7 +283,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         preds = []
         targets = []
-        output_names = io_config.get("output_names")
+        output_names = io_config["output_names"]
         for input_data, labels in dataloader:
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             res = session.run(input_feed=input_dict, output_names=None)
@@ -371,7 +371,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         preds = []
         targets = []
-        output_names = io_config.get("output_names")
+        output_names = io_config["output_names"]
         for _, (input_data, labels) in enumerate(dataloader):
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             MPI.COMM_WORLD.barrier()  # Synchronize before starting each run

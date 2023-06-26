@@ -571,12 +571,12 @@ class PyTorchModel(OliveModel):
             logger.debug("Using dummy_inputs_func to get dummy inputs")
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
-        elif self.io_config and self.io_config.get("input_shapes"):
+        elif self.io_config and self.io_config["input_shapes"]:
             logger.debug("Using io_config.input_shapes to get dummy inputs")
             dummy_inputs, _ = (
                 data_config_template.dummy_data_config_template(
-                    input_shapes=self.io_config.get("input_shapes"),
-                    input_types=self.io_config.get("input_types"),
+                    input_shapes=self.io_config["input_shapes"],
+                    input_types=self.io_config["input_types"],
                 )
                 .to_data_container()
                 .get_first_batch()

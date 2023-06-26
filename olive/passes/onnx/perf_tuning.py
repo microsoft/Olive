@@ -68,7 +68,7 @@ def tune_onnx_model(model, config):
         "type": MetricType.LATENCY,
         "sub_types": latency_sub_types,
         "user_config": latency_user_config,
-        "data_config": config_dict.get("data_config", None),
+        "data_config": config_dict.get("data_config"),
     }
     latency_metric = Metric(**latency_metric_config)
 
