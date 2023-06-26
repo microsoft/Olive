@@ -6,25 +6,27 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from shutil import copyfile
 from typing import Any, Callable, Dict, Union
 
+import onnx
 from onnxruntime.quantization.preprocess import quant_pre_process
 from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
 
 from olive.cache import get_local_path
+from olive.common.utils import hash_string
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
+from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
 from olive.passes.onnx.vitis_ai import quantize_static
 from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
 from olive.passes.pass_config import PassConfigParam
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
 
-# common config for vai_q_onnx quantization
+# common config for Vitis-AI quantization
 vai_q_onnx_quantization_config = {
     "data_dir": PassConfigParam(
         type_=OLIVE_RESOURCE_ANNOTATIONS,
@@ -93,6 +95,14 @@ vai_q_onnx_quantization_config = {
             List of node names to exclude from quantization. If None, all quantizable.
         """,
     ),
+    "per_channel": PassConfigParam(
+        type_=bool,
+        default_value=False,
+        searchable_values=Boolean(),
+        description="""
+            Quantize weights per channel.
+        """,
+    ),
     "optimize_model": PassConfigParam(
         type_=bool,
         default_value=False,
@@ -105,9 +115,9 @@ vai_q_onnx_quantization_config = {
     # TODO: enable search if we support onnx external data format
     "use_external_data_format": PassConfigParam(
         type_=bool,
-        default_value=False,
+        default_value=True,
         description="""
-            option used for large size (>2GB) model. Set to False by default.
+            option used for large size (>2GB) model. Set to True by default.
         """,
     ),
     "quant_preprocess": PassConfigParam(
@@ -131,14 +141,22 @@ vai_q_onnx_quantization_config = {
     "quant_format": PassConfigParam(
         type_=str,
         default_value="QDQ",
-        searchable_values=Categorical(["QDQ"]),
+        searchable_values=Categorical(["QDQ", "QOperator"]),
         description="""
             QDQ format quantize the model by inserting QuantizeLinear/DeQuantizeLinear on the tensor.
         """,
     ),
+    "need_layer_fusing": PassConfigParam(
+        type_=bool,
+        default_value=False,
+        searchable_values=Boolean(),
+        description="""
+            Perform layer fusion for conv-relu type operations
+        """,
+    ),
     "activation_type": PassConfigParam(
         type_=str,
-        default_value="QInt8",
+        default_value="QUInt8",
         # the search space is conditional on quant_format and weight_type
         # the equivalent joint search space for (quant_format, weight_type, activation) is
         # {(QDQ, QInt8, QInt8), (QDQ, QUInt8, QUInt8), (QOperator, QUInt8, QUInt8)}
@@ -146,24 +164,36 @@ vai_q_onnx_quantization_config = {
             parents=("quant_format", "weight_type"),
             support={
                 ("QDQ", "QInt8"): Categorical(["QInt8"]),
+                ("QDQ", "QUInt8"): Categorical(["QUInt8"]),
+                ("QOperator", "QUInt8"): Categorical(["QUInt8"]),
+                # invalid choice for QOperator, QInt8
+                ("QOperator", "QInt8"): Conditional.get_invalid_choice(),
             },
         ),
         description="""
             Quantization data type of activation.
         """,
     ),
+    "enable_dpu": PassConfigParam(
+        type_=bool,
+        default_value=False,
+        searchable_values=Boolean(),
+        description="""
+            Use QDQ format optimized specifically for DPU.
+        """,
+    ),
 }
 
 _exposed_extra_options_config = {
     "ActivationSymmetric": PassConfigParam(
-        type_=bool, default_value=True, description="symmetrize calibration data for activations"
+        type_=bool, default_value=False, description="symmetrize calibration data for activations"
     ),
     "WeightSymmetric": PassConfigParam(
         type_=bool, default_value=True, description="symmetrize calibration data for weights"
     ),
     "AddQDQPairToWeight": PassConfigParam(
         type_=bool,
-        default_value=True,
+        default_value=False,
         description="remains floating-point weight and inserts both QuantizeLinear/DeQuantizeLinear nodes to weight",
     ),
 }
@@ -191,7 +221,14 @@ class VitisAIQuantization(Pass):
 
     def _initialize(self):
         super()._initialize()
-        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_vaiq_tmp")
+
+    @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        """Override this method to return False by using the
+        accelerator spec information.
+        """
+        return False
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -201,7 +238,7 @@ class VitisAIQuantization(Pass):
                 default_value="static",
                 searchable_values=Categorical(["static"]),
                 description="""
-                    Onnx Quantization mode. ,
+                    Onnx Quantization mode.
                     'static' for vitis ai quantization.
                 """,
             )
@@ -213,24 +250,13 @@ class VitisAIQuantization(Pass):
         # exposed extra options config
         config.update(deepcopy(_exposed_extra_options_config))
         config.update(deepcopy(_extra_options_config))
+
+        # external data config
+        config.update(get_external_data_config())
         return config
 
-    def validate_search_point(self, search_point: Dict[str, Any]) -> bool:
-        config = self.config_at_search_point(search_point)
-        if config["quant_mode"] == "static":
-            if (
-                config["weight_type"] == "QInt8"
-                and config["activation_type"] == "QInt8"
-                and config["quant_format"] == "QOperator"
-            ):
-                logger.info("QOperator is not supported for Vitis AI Quantization.")
-                return False
-            if config["weight_type"] != "QInt8" or config["activation_type"] != "QInt8":
-                logger.info("Weight type and activation type must be the QInt8.")
-                return False
-        return True
-
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+
         # start with a copy of the config
         run_config = deepcopy(config)
 
@@ -251,7 +277,12 @@ class VitisAIQuantization(Pass):
             del run_config[key]
 
         # preprocess the model
-        preprocessed_temp_model_path = Path(self.tmp_dir.name) / f"{Path(model.model_path).stem}_preprocessed.onnx"
+        # we hash the entire path of the input model to ensure we are not accidentally using a preprocessed model
+        # from a different model
+        preprocessed_temp_model_path = (
+            Path(self.tmp_dir.name) / f"{hash_string(str(Path(model.model_path).resolve()))}" / "preprocessed.onnx"
+        )
+        preprocessed_temp_model_path.parent.mkdir(exist_ok=True, parents=True)
         if run_config["quant_preprocess"]:
             if not preprocessed_temp_model_path.exists():
                 # overwrite the model path with the preprocessed model path
@@ -259,7 +290,7 @@ class VitisAIQuantization(Pass):
                 model = self._quant_preprocess(model, preprocessed_temp_model_path)
             else:
                 logger.info("Already processed model for quantization, skipping preprocessing")
-                model = ONNXModel(preprocessed_temp_model_path)
+                model = ONNXModel(LocalFile({"path": preprocessed_temp_model_path}))
 
         # keys not needed for quantization
         to_delete = [
@@ -271,6 +302,7 @@ class VitisAIQuantization(Pass):
             "batch_size",
             "dataloader_func",
         ]
+        to_delete += list(get_external_data_config().keys())
 
         # update string values to enum values
         run_config.update(
@@ -288,7 +320,17 @@ class VitisAIQuantization(Pass):
             if key in run_config:
                 del run_config[key]
 
+        # to be safe, run the quantizer with use_external_data_format set to `True` and
+        # `model_output` to a temporary directory
+        # reload the model and save to output_model_path using the external data config
+        # TODO: don't default to use_external_data_format=True if the loading and saving model makes
+        # the pass inefficient
+        tmp_dir = tempfile.TemporaryDirectory(prefix="olive_vaiq_tmp")
+        tmp_dir_path = Path(tmp_dir.name)
+        tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
+
         # get the dataloader
+        # TODO: only use data config
         if config["dataloader_func"]:
             dataloader = self._user_module_loader.call_object(
                 config["dataloader_func"],
@@ -297,20 +339,42 @@ class VitisAIQuantization(Pass):
             )
         elif self._data_config:
             dataloader = self._data_config.to_data_container().create_calibration_dataloader()
+
+        execution_provider = self._accelerator_spec.execution_provider
+
         quantize_static(
             model_input=model.model_path,
-            model_output=output_model_path,
+            model_output=tmp_model_path,
             calibration_data_reader=dataloader,
-            **run_config,
+            execution_providers=[execution_provider],
+            **run_config,  # use_external_data_format has been set to `True` by default in run_config
         )
+        # load the model
+        onnx_model = onnx.load(tmp_model_path)
+        # the model is loaded into memory, so it's safe to delete previously exported files
+        tmp_dir.cleanup()
 
-        return ONNXModel(output_model_path)
+        # save the model to the output path and return the model
+        return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
     def _quant_preprocess(self, model: ONNXModel, output_model_path: str) -> ONNXModel:
+
         try:
             quant_pre_process(input_model_path=model.model_path, output_model_path=output_model_path, auto_merge=True)
         except Exception as e:
-            logger.warning(f"failed to run quantization preprocessing with error of {e}")
-            copyfile(model.model_path, output_model_path)
+            # TODO: try with `skip_optimization = True`
+            # quantization preprocessing will fail if the model is too large and `skip_optimization = False`
+            # there are some problems with the path to where the external data is saved
+            # need to find out why before enabling this
 
-        return ONNXModel(output_model_path)
+            logger.warning(f"Failed to run quantization preprocessing with error of {e}. Using original model.")
+            # save original model to output path
+            onnx_model = onnx.load(model.model_path)
+            model_proto_to_file(
+                onnx_model,
+                output_model_path,
+                save_as_external_data=True,  # always save as external data to avoid failures due to large models
+            )
+
+        # since this is only used internally, we will just treat it as a model file
+        return ONNXModel(LocalFile({"path": output_model_path}))
