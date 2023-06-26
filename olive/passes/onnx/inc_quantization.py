@@ -350,7 +350,7 @@ class IncQuantization(Pass):
         eval_func = None
         accuracy_metric = None
 
-        if len(_inc_quantization_config["metric"]) != 0:
+        if _inc_quantization_config["metric"] is not None and len(_inc_quantization_config["metric"]) != 0:
             accuracy_metric = Metric(**_inc_quantization_config["metric"])
             logger.warning(
                 "'metric' is set in INC Quantization Pass. Please make sure it is an accuracy metric, "
