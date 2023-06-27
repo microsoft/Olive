@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 from onnxruntime.quantization.calibrate import CalibrationDataReader, CalibrationMethod
-from onnxruntime.quantization.quant_utils import QuantFormat, QuantizationMode, QuantType, load_model
+from onnxruntime.quantization.quant_utils import QuantFormat, QuantizationMode, QuantType
 from onnxruntime.quantization.quantize import quantize_static as ort_quantize_static
 from onnxruntime.quantization.registry import QLinearOpsRegistry
 
@@ -165,6 +165,10 @@ def quantize_static(
 
     if not op_types_to_quantize or len(op_types_to_quantize) == 0:
         op_types_to_quantize = list(QLinearOpsRegistry.keys())
+
+    # not supported in ORT >= 1.16.0
+    # TODO: Update code to support different versions of ORT
+    from onnxruntime.quantization.quant_utils import load_model
 
     model = load_model(Path(model_input), optimize_model)
 
