@@ -91,7 +91,7 @@ class TestPythonEnvironmentSystem:
         expected_res = local_system.evaluate_model(model, [metric], DEFAULT_CPU_ACCELERATOR)["accuracy-accuracy_score"]
 
         # execute
-        actual_res = self.system.evaluate_accuracy(model, metric)[AccuracySubType.ACCURACY_SCORE]
+        actual_res = self.system.evaluate_model(model, [metric], DEFAULT_CPU_ACCELERATOR)["accuracy-accuracy_score"]
 
         # assert
         assert actual_res == expected_res
@@ -100,7 +100,7 @@ class TestPythonEnvironmentSystem:
         expected_call = mock_compute_accuracy.mock_calls[0]
         # python environment call
         actual_call = mock_compute_accuracy.mock_calls[1]
-        assert actual_call.args[0] == metric
+        assert actual_call.args[0] == expected_call.args[0]
         assert actual_call.args[1] == expected_call.args[1]
         assert actual_call.args[2] == expected_call.args[2]
 
