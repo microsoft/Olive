@@ -100,7 +100,7 @@ class TestPythonEnvironmentSystem:
         expected_call = mock_compute_accuracy.mock_calls[0]
         # python environment call
         actual_call = mock_compute_accuracy.mock_calls[1]
-        assert actual_call.args[0] == expected_call.args[0]
+        assert actual_call.args[0] == metric
         assert actual_call.args[1] == expected_call.args[1]
         assert actual_call.args[2] == expected_call.args[2]
 
