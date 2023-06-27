@@ -133,7 +133,7 @@ class OliveEvaluator(ABC):
             # use model io_config if user does not specify input_names and input_shapes
             # only do this if data_config or dataloader is not provided
             # priority: dataloader_func > data_config > user_config.input_names/input_shapes > model io_config
-            metric = OliveEvaluator.fill_metric_user_config_with_model_io(original_metric, model)
+            metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)
             dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric)
 
             if metric.type == MetricType.ACCURACY:
@@ -153,7 +153,7 @@ class OliveEvaluator(ABC):
         return flatten_metric_result(metrics_res)
 
     @staticmethod
-    def fill_metric_user_config_with_model_io(metric: Metric, model: OliveModel):
+    def generate_metric_user_config_with_model_io(metric: Metric, model: OliveModel):
         # if the io_config is not specified in the metrics, use the one in the model
         # should not change the original metric object which is created from config jsons
         # otherwise, if affects hashing + caching of the olive restoring.
