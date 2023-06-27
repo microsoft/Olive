@@ -3,6 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import platform
+import tempfile
+from pathlib import Path
 from test.integ_test.evaluator.docker_eval.utils import (
     delete_directories,
     download_data,
@@ -16,6 +18,7 @@ from test.integ_test.evaluator.docker_eval.utils import (
     get_openvino_model,
     get_pytorch_model,
 )
+from unittest.mock import patch
 
 import pytest
 
@@ -56,3 +59,17 @@ class TestDockerEvaluation:
         for sub_type in metric.sub_types:
             joint_key = joint_metric_key(metric.name, sub_type.name)
             assert actual_res[joint_key].value >= expected_res
+
+    @patch("olive.systems.docker.docker_system.docker_utils.create_evaluate_command")
+    def test_docker_run_failure(self, mock_create_evaluate_command):
+        docker_target = get_docker_target()
+        model_cls, model_config, metric, _ = self.EVALUATION_TEST_CASE[0]
+        # mock a non-existing command
+        with tempfile.TemporaryDirectory() as temp_dir:
+            eval_command = Path(temp_dir) / "non_existing_command.py"
+            with open(eval_command, "w") as f:
+                f.write("raise Exception('docker run with failure')")
+            mock_create_evaluate_command.return_value = f"python {str(eval_command)}"
+            olive_model = model_cls(**model_config)
+            with pytest.raises(RuntimeError, match=r"Container exited with code \d+"):
+                docker_target.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
