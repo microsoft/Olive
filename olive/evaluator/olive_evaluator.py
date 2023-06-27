@@ -171,9 +171,9 @@ class OliveEvaluator(ABC):
                 " cause an error when creating dummy data for tuning."
             )
         if io_config and not metric.user_config.input_names and not metric.user_config.input_shapes:
-            # input_types is optional
             metric.user_config.input_names = io_config["input_names"]
             metric.user_config.input_shapes = io_config["input_shapes"]
+            # input_types is optional which can be None. If None, it will be replaced with float32 in DummyDataset
             metric.user_config.input_types = io_config.get("input_types")
         return metric
 
