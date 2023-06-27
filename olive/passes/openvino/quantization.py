@@ -115,10 +115,9 @@ class OpenVINOQuantization(Pass):
 
         class _OVDataloader(DataLoader):
             def __init__(self, dataloader):
-                self.dataloader = dataloader
                 self.data = []
                 self.labels = []
-                for data, label in self.dataloader:
+                for data, label in dataloader:
                     if isinstance(data, dict):
                         data = {k: np.array(v) for k, v in data.items()}
                     elif isinstance(data, tuple):
