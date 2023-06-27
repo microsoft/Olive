@@ -492,7 +492,7 @@ class PyTorchModel(OliveModel):
         super().__init__(framework=Framework.PYTORCH, model_file_format=model_file_format, model_path=model_path)
 
         # io config for conversion to onnx
-        self.io_config = io_config if io_config and validate_config(io_config, IOConfig) else None
+        self.io_config = validate_config(io_config, IOConfig).dict() if io_config else None
         self.dummy_inputs_func = dummy_inputs_func
 
         self.dummy_inputs = None

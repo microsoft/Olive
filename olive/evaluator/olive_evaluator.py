@@ -5,6 +5,7 @@
 import logging
 import time
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from numbers import Number
 from typing import Any, Dict, List, Tuple, Type, Union
 
@@ -128,11 +129,11 @@ class OliveEvaluator(ABC):
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
         metrics_res = {}
-        for metric in metrics:
+        for original_metric in metrics:
             # use model io_config if user does not specify input_names and input_shapes
             # only do this if data_config or dataloader is not provided
             # priority: dataloader_func > data_config > user_config.input_names/input_shapes > model io_config
-            metric = OliveEvaluator.fill_metric_user_config_with_model_io(metric, model)
+            metric = OliveEvaluator.fill_metric_user_config_with_model_io(original_metric, model)
             dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric)
 
             if metric.type == MetricType.ACCURACY:
@@ -154,6 +155,9 @@ class OliveEvaluator(ABC):
     @staticmethod
     def fill_metric_user_config_with_model_io(metric: Metric, model: OliveModel):
         # if the io_config is not specified in the metrics, use the one in the model
+        # should not change the original metric object which is created from config jsons
+        # otherwise, if affects hashing + caching of the olive restoring.
+        metric = deepcopy(metric)
         if metric.data_config:
             return metric
 

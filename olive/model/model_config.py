@@ -12,10 +12,10 @@ from olive.common.config_utils import ConfigBase
 class IOConfig(ConfigBase):
     # TODO remove input names, shapes and types, turn to use olive dataset config.
     input_names: List[str]
-    input_shapes: List[List[Union[int, str]]] = None
+    input_shapes: List[List[int]] = None
     input_types: List[str] = None
     output_names: List[str]
-    output_shapes: List[List[Union[int, str]]] = None
+    output_shapes: List[List[int]] = None
     output_types: List[str] = None
     dynamic_axes: Dict[str, Dict[int, str]] = None
     # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference
