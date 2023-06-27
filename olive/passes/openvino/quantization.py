@@ -5,8 +5,9 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
+import numpy as np
+
 from olive.cache import get_local_path
-from olive.common.user_module_loader import UserModuleLoader
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OpenVINOModel
 from olive.passes import Pass
@@ -21,6 +22,7 @@ class OpenVINOQuantization(Pass):
     """
 
     _requires_user_script = True
+    _requires_data_config = True
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -78,11 +80,15 @@ class OpenVINOQuantization(Pass):
         # output model always has ov_model name stem
         model_name = "ov_model"
 
-        loader = UserModuleLoader(user_script=config["user_script"], script_dir=config["script_dir"])
-        data_loader = loader.call_object(
-            config["dataloader_func"], get_local_path(config["data_dir"]), config["batch_size"]
-        )
-        metric = loader.load_object(config["metric_func"])
+        if config["dataloader_func"]:
+            data_loader = self._user_module_loader.call_object(
+                config["dataloader_func"], get_local_path(config["data_dir"]), config["batch_size"]
+            )
+        elif self._data_config:
+            common_dataloader = self._data_config.to_data_container().create_dataloader()
+            data_loader = self._create_dataloader(common_dataloader)
+
+        metric = self._user_module_loader.load_object(config["metric_func"])
         engine = IEEngine(config=config["engine_config"], data_loader=data_loader, metric=metric)
         self.pipeline = create_pipeline(config["algorithms"], engine)
 
@@ -97,3 +103,37 @@ class OpenVINOQuantization(Pass):
         openvino_model = OpenVINOModel(model_path)
 
         return openvino_model
+
+    def _create_dataloader(self, common_dataloader):
+        """
+        Create an openvino.tools.pot.api.DataLoader instance from a common dataloader.
+        """
+        try:
+            from openvino.tools.pot.api import DataLoader
+        except ImportError:
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO pass")
+
+        class _OVDataloader(DataLoader):
+            def __init__(self, dataloader):
+                self.data = []
+                self.labels = []
+                for data, label in dataloader:
+                    if isinstance(data, dict):
+                        data = {k: np.array(v) for k, v in data.items()}
+                    elif isinstance(data, tuple):
+                        data = tuple(np.array(v) for v in data)
+                    else:
+                        data = np.array(data)
+                    self.data.append(data)
+                    self.labels.append(label)
+
+            def __len__(self):
+                return len(self.data)
+
+            def __getitem__(self, index):
+                if index >= len(self):
+                    raise IndexError
+
+                return self.data[index], self.labels[index]
+
+        return _OVDataloader(common_dataloader)
