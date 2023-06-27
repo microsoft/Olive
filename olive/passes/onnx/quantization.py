@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
 import onnx
+from packaging import version
 
 from olive.cache import get_local_path
 from olive.common.utils import hash_string
@@ -74,15 +75,6 @@ _onnx_quantization_config = {
             some models running on non-VNNI machine, especially for per-channel mode.
             Tips: When to use reduce_range and per-channel quantization:
             https://onnxruntime.ai/docs/performance/quantization.html#when-to-use-reduce-range-and-per-channel-quantization
-        """,
-    ),
-    "optimize_model": PassConfigParam(
-        type_=bool,
-        default_value=False,
-        searchable_values=Boolean(),
-        description="""
-            Deprecating Soon in ONNX! Optimize model before quantization. NOT recommended, optimization will
-            change the computation graph, making debugging of quantization loss difficult.
         """,
     ),
     "quant_preprocess": PassConfigParam(
@@ -297,6 +289,7 @@ class OnnxQuantization(Pass):
         return True
 
     def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+        from onnxruntime import __version__ as OrtVersion
         from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
         from onnxruntime.quantization.calibrate import CalibrationMethod
 
@@ -365,6 +358,12 @@ class OnnxQuantization(Pass):
         for key in to_delete:
             if key in run_config:
                 del run_config[key]
+
+        # for ORT version < 1.16.0, set optimize_model to False
+        # always set it to False since it is not recommended and is removed in ORT 1.16.0
+        # user needs to call pre-process to optimize the model, we already have pre-process option
+        if version.parse(OrtVersion) < version.parse("1.16.0"):
+            run_config["optimize_model"] = False
 
         # to be safe, run the quantizer with use_external_data_format set to `True` and
         # `model_output` to a temporary directory

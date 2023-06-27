@@ -11,17 +11,17 @@
 # --------------------------------------------------------------------------
 from typing import Optional, Sequence
 
-import numpy as np
 import onnx
-from onnxruntime.quantization.calibrate import CalibraterBase, CalibrationDataCollector, CalibrationDataReader
-from onnxruntime.quantization.quant_utils import clone_model_with_shape_infer
-
-from olive.passes.onnx.vitis_ai.quant_utils import (
-    PowerOfTwoMethod,
-    get_bound_and_scale,
-    get_pos_min_mse,
-    get_pos_overflow,
+from onnx import onnx_pb as onnx_proto
+from onnxruntime.quantization.calibrate import (
+    CalibraterBase,
+    CalibrationDataCollector,
+    CalibrationDataReader,
+    MinMaxCalibrater,
 )
+from onnxruntime.quantization.quant_utils import QuantType
+
+from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod, quantize_data_pof2s
 
 
 class PowOfTwoCalibrater(CalibraterBase):
@@ -31,6 +31,7 @@ class PowOfTwoCalibrater(CalibraterBase):
         op_types_to_calibrate: Optional[Sequence[str]] = None,
         augmented_model_path="augmented_model.onnx",
         use_external_data_format=False,
+        activation_type=QuantType.QInt8,
         method=PowerOfTwoMethod.NonOverflow,
         symmetric=True,
     ):
@@ -50,12 +51,18 @@ class PowOfTwoCalibrater(CalibraterBase):
         self.method = method
         self.symmetric = symmetric
         self.tensors_to_calibrate = None
+        self.use_external_data_format = use_external_data_format
+        self.activation_type = activation_type
 
     def augment_graph(self):
         """
         Make all quantization_candidates op type nodes as part of the graph output.
         :return: augmented ONNX model
         """
+        # not supported in ORT >= 1.16.0
+        # TODO: Update code to support different versions of ORT
+        from onnxruntime.quantization.quant_utils import clone_model_with_shape_infer
+
         model = clone_model_with_shape_infer(self.model)
 
         self.tensors_to_calibrate, value_infos = self.select_tensors_to_calibrate(model)
@@ -74,7 +81,6 @@ class PowOfTwoCalibrater(CalibraterBase):
         self.intermediate_outputs = []
 
     def collect_data(self, data_reader: CalibrationDataReader):
-
         while True:
             inputs = data_reader.get_next()
             if not inputs:
@@ -119,14 +125,18 @@ class PowOfTwoCollector(CalibrationDataCollector):
 
     """
 
-    def __init__(self, method=PowerOfTwoMethod.NonOverflow, symmetric=True, bit_width=8):
+    def __init__(
+        self, activation_type=QuantType.QUInt8, method=PowerOfTwoMethod.NonOverflow, symmetric=True, bit_width=8
+    ):
         self.name_to_arr = {}
         self.method = method
         self.symmetric = symmetric
         self.bit_width = bit_width
+        self.activation_qType = (
+            onnx_proto.TensorProto.INT8 if activation_type == QuantType.QInt8 else onnx_proto.TensorProto.UINT8
+        )
 
     def collect(self, name_to_arr):
-
         self.name_to_arr = name_to_arr
 
         return
@@ -136,37 +146,19 @@ class PowOfTwoCollector(CalibrationDataCollector):
             raise ValueError("PowerOfTwoMethod has not been collected. Please run collect() first.")
         print("Finding optimal threshold for each tensor using {} algorithm ...".format(self.method))
 
-        if self.method == PowerOfTwoMethod.NonOverflow:
-            return self.compute_non_overflow()
-        elif self.method == PowerOfTwoMethod.MinMSE:
+        if self.method == PowerOfTwoMethod.MinMSE:
             return self.compute_min_mse()
         else:
             raise ValueError("Only 'NonOverflow' or 'MinMSE' method are supported")
 
-    def compute_non_overflow(self):
-        thresholds_dict = {}
-        for tensor, data_arr in self.name_to_arr.items():
-            pos_list = []
-            for d in data_arr:
-                cur_pos = get_pos_overflow(d, bit_width=self.bit_width)
-                pos_list.append(int(cur_pos))
-            u, indices = np.unique(pos_list, return_inverse=True)
-            pos = u[np.argmax(np.bincount(indices))]
-            scale, lower_bound, upper_bound = get_bound_and_scale(pos)
-            thresholds_dict[tensor] = (lower_bound, upper_bound)
-        return thresholds_dict
-
     def compute_min_mse(self):
         thresholds_dict = {}
         for tensor, data_arr in self.name_to_arr.items():
-            pos_list = []
-            for d in data_arr:
-                cur_pos = get_pos_min_mse(d, bit_width=self.bit_width)
-                pos_list.append(int(cur_pos))
-            u, indices = np.unique(pos_list, return_inverse=True)
-            pos = u[np.argmax(np.bincount(indices))]
-            scale, lower_bound, upper_bound = get_bound_and_scale(pos)
-            thresholds_dict[tensor] = (lower_bound, upper_bound)
+            d = data_arr[0]
+            rmin_mse, rmax_mse, _, _, _ = quantize_data_pof2s(
+                d, self.activation_qType, self.symmetric, method=self.method
+            )
+            thresholds_dict[tensor] = (rmin_mse, rmax_mse)
         return thresholds_dict
 
 
@@ -174,27 +166,39 @@ def create_calibrator_power_of_two(
     model,
     op_types_to_calibrate: Optional[Sequence[str]] = None,
     augmented_model_path="augmented_model.onnx",
+    activation_type=QuantType.QInt8,
     method=PowerOfTwoMethod.NonOverflow,
     use_external_data_format=False,
+    execution_providers=["CPUExecutionProvider"],
     extra_options={},
 ):
-
     calibrator = None
 
     # default settings for min-max algorithm
     method = method
-    symmetric = True
+    symmetric = False if "symmetric" not in extra_options else extra_options["symmetric"]
 
-    calibrator = PowOfTwoCalibrater(
-        model,
-        op_types_to_calibrate,
-        augmented_model_path,
-        use_external_data_format=use_external_data_format,
-        method=method,
-        symmetric=symmetric,
-    )
+    if method == PowerOfTwoMethod.NonOverflow:
+        calibrator = MinMaxCalibrater(
+            model,
+            op_types_to_calibrate,
+            augmented_model_path,
+            use_external_data_format=use_external_data_format,
+            symmetric=symmetric,
+        )
+    elif method == PowerOfTwoMethod.MinMSE:
+        calibrator = PowOfTwoCalibrater(
+            model,
+            op_types_to_calibrate,
+            augmented_model_path,
+            use_external_data_format=use_external_data_format,
+            activation_type=activation_type,
+            method=method,
+            symmetric=symmetric,
+        )
 
     if calibrator:
         calibrator.augment_graph()
+        calibrator.execution_providers = execution_providers
         calibrator.create_inference_session()
         return calibrator

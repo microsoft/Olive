@@ -38,8 +38,6 @@ python -m pip install librosa
 
 `--multiligual` is optional. If provided, the model produced will support multiple languages that are controlled using `decoder_input_ids` input.
 
-**Note:** Only supported in ONNXRuntime 1.16.0+ which is not released yet. Must be built from or after commit https://github.com/microsoft/onnxruntime/commit/4b69226fca914753844a3291818ce23ac2f00d8c.
-
 **Example of decoder_input_ids:**
 ```python
 import numpy as np
@@ -63,6 +61,14 @@ forced_decoder_ids = [config.decoder_start_token_id] + list(map(lambda token: to
 
 # decoder input ids
 decoder_input_ids = np.array([forced_decoder_ids], dtype=np.int32)
+```
+
+**Note:** `--multiligual` is only supported in ONNX Runtime 1.16.0+ which is not released yet. Must be built from or after commit https://github.com/microsoft/onnxruntime/commit/4b69226fca914753844a3291818ce23ac2f00d8c.
+
+Latest nightly build of ONNX Runtime can be installed using the following commands:
+```bash
+python -m pip uninstall -y onnxruntime
+python -m pip install ort-nightly --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
 ## Run the config to optimize the model

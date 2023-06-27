@@ -8,10 +8,9 @@ import numpy as np
 
 from olive.passes.onnx.vitis_ai.quant_utils import pos2scale, scale2pos
 
-logger = logging.getLogger(__name__)
-
 refine_op_type = ["DequantizeLinear", "QuantizeLinear"]
 postfix = "_Output"
+logger = logging.getLogger(__name__)
 
 
 class QuantPosManager(object):
@@ -58,12 +57,18 @@ class QuantPosManager(object):
                 return node.name
 
     def get_ipos_name(self, node, input_id=None):
-        i_name = node.input[0]
-        return self.find_node_name(i_name)
+        if len(node.input) > 0:
+            i_name = node.input[0]
+            return self.find_node_name(i_name)
+        else:
+            return None
 
     def get_ipos_name_by_id(self, node, input_id=0):
-        i_name = node.input[input_id]
-        return self.find_node_name(i_name)
+        if len(node.input) > input_id:
+            i_name = node.input[input_id]
+            return self.find_node_name(i_name)
+        else:
+            return None
 
     def get_node_by_name(self, node_name):
         for node in self.model.model.graph.node:
@@ -100,7 +105,9 @@ class QuantPosManager(object):
             return opos_name
         else:
             for node in self.model.model.graph.node:
-                if node.input[0] == o_name:
+                if len(node.input) == 0:
+                    continue
+                elif node.input[0] == o_name:
                     if node.op_type in refine_op_type:
                         return node.name
                     else:
@@ -111,8 +118,11 @@ class QuantPosManager(object):
         return None
 
     def get_wpos_name(self, node):
-        w_name = node.input[1]
-        return self.find_node_name(w_name)
+        if len(node.input) > 1:
+            w_name = node.input[1]
+            return self.find_node_name(w_name)
+        else:
+            return None
 
     def get_bpos_name(self, node):
         if len(node.input) > 2:
@@ -159,7 +169,8 @@ class QuantPosManager(object):
                 new_wpos = new_sc + opos - ipos
                 self.set_pos(wpos_node, new_wpos)
                 logger.info(
-                    "Shift cut of layer {} is {}. It exceeds range [{}, {}]. Modify wpos from {} to {}.".format(
+                    "Shift cut of layer {} is {}. It exceeds range [{}, {}]. "
+                    "Modify wpos from {} to {}.".format(
                         node.input[1], int(sc), int(min_sc), int(max_sc), int(wpos), int(new_wpos)
                     )
                 )
@@ -206,7 +217,8 @@ class QuantPosManager(object):
                     new_bpos = wpos + ipos - new_sb
                     self.set_pos(self.get_node_by_name(node.input[2].strip(postfix)), new_bpos)
                     logger.info(
-                        "Shift bias of layer {} is {}. It exceeds range [{}, {}]. Modify bpos from {} to {}.".format(
+                        "Shift bias of layer {} is {}. It exceeds range [{}, {}]. "
+                        "Modify bpos from {} to {}.".format(
                             node.input[2], int(shift_bias), int(min_sb), int(max_sb), int(bpos), int(new_bpos)
                         )
                     )
@@ -221,6 +233,7 @@ class QuantPosManager(object):
             shift_sigmoid = 14 + 'input pos' - ' output pos'
         """
         for i, node in enumerate(self.model.model.graph.node):
+
             if node.op_type not in ["Sigmoid"]:
                 continue
             ipos_name = self.get_ipos_name(node)
@@ -244,11 +257,10 @@ class QuantPosManager(object):
             new_opos = new_opos if shift_sigmoid > 0 else 14 + new_ipos
 
             if new_ipos != ipos:
-                self.set_pos(self.get_node_by_name(node.inpus[0].strip(postfix)), new_ipos)
+                self.set_pos(self.get_node_by_name(node.input[0].strip(postfix)), new_ipos)
             logger.info(
-                "Input quantize pos of VitisSimoid layer {} is {}, modify it to {} to meet the DPU constraints.".format(
-                    node.input[0], int(ipos), int(new_ipos)
-                )
+                "Input quantize pos of VitisSimoid layer {} is {}, modify it to {} "
+                "to meet the DPU constraints.".format(node.input[0], int(ipos), int(new_ipos))
             )
 
             if new_opos != opos:
@@ -267,6 +279,7 @@ class QuantPosManager(object):
         1. 0 <= shift_read <= 15
         """
         for i, node in enumerate(self.model.model.graph.node):
+
             if node.op_type not in ["Add"] or node.op_type not in ["Mul"]:
                 continue
             ipos_layers = []
@@ -280,9 +293,8 @@ class QuantPosManager(object):
                 ipos, _ = self.get_pos_by_name(i)
                 if ipos is None:
                     logger.info(
-                        "Fail to get quantize position for layer {}, skip adjust_shift_read for it.".format(
-                            ipos_layers[i]
-                        )
+                        "Fail to get quantize position for layer {}, "
+                        "skip adjust_shift_read for it.".format(ipos_layers[i])
                     )
                     skip = True
                 iposes.append(ipos)
@@ -303,7 +315,8 @@ class QuantPosManager(object):
                 new_ipos_max = iposes[id_min] + new_sr
                 self.set_pos(self.get_node_by_name(ipos_layers[id_max].strip(postfix)), new_ipos_max)
                 logger.info(
-                    "Shift read of layer {} is {}({}-{}). It exceeds range [{}, {}]. Modify ipos from {} to {}.".format(
+                    "Shift read of layer {} is {}({}-{}). It exceeds range [{}, {}]. "
+                    "Modify ipos from {} to {}.".format(
                         node.name,
                         int(sr),
                         int(iposes[id_max]),
@@ -324,6 +337,7 @@ class QuantPosManager(object):
         1. -15 <= shift_write <= 15
         """
         for i, node in enumerate(self.model.model.graph.node):
+
             if node.op_type not in ["Add"] or node.op_type not in ["Mul"]:
                 continue
             ipos_layers = []
@@ -346,9 +360,8 @@ class QuantPosManager(object):
             opos, _ = self.get_pos_by_name(opos_name)
             if opos is None:
                 logger.info(
-                    "Fail to get quantize position for layer {}(output:0), skip adjust_shift_write for it.".format(
-                        node.name
-                    )
+                    "Fail to get quantize position for layer {}(output:0), "
+                    "skip adjust_shift_write for it.".format(node.name)
                 )
             skip = True
             if skip:
@@ -402,8 +415,9 @@ class QuantPosManager(object):
             if opos != min_pos:
                 self.set_pos(self.get_node_by_name(self.find_o_name(node.output[0])), min_pos)
                 logger.info(
-                    "Output pos of concat node {} is {}, min_pos is {}. Modify opos from {} to {}.".format(
-                        node.name, int(opos), int(min_pos), int(opos), int(min_pos)
+                    (
+                        "Output pos of concat node {} is {}, min_pos is {}. "
+                        "Modify opos from {} to {}.".format(node.name, int(opos), int(min_pos), int(opos), int(min_pos))
                     )
                 )
             for name in ipos_layers:
@@ -411,9 +425,8 @@ class QuantPosManager(object):
                 if ipos is not None and ipos != min_pos:
                     self.set_pos(ipos_node, min_pos)
                     logger.info(
-                        "Input pos of concat node {} is {}, min_pos is {}. Modify ipos from {} to {}.".format(
-                            node.name, int(ipos), int(min_pos), int(ipos), int(min_pos)
-                        )
+                        "Input pos of concat node {} is {}, min_pos is {}. "
+                        "Modify ipos from {} to {}.".format(node.name, int(ipos), int(min_pos), int(ipos), int(min_pos))
                     )
 
     def align_pool(self):

@@ -55,7 +55,7 @@ Accuracy Metric
                 goal={"type": "max-degradation", "value": 0.01}
             )
 
-Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py>`_
+Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert/user_script.py>`__
 for :code:`"user_script.py"`.
 
 Latency Metric
@@ -154,7 +154,7 @@ specify its name in :code:`"evaluate_func"` field, and Olive will call your func
                 }
             )
 
-Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py>`_
+Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py>`__
 for :code:`"user_script.py"`.
 
 Here is an example of the :code:`"eval_accuracy"` function in :code:`"user_script.py"`:

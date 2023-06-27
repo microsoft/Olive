@@ -22,6 +22,10 @@ from transformers import (
     set_seed,
 )
 
+from olive.constants import Framework
+from olive.evaluator.accuracy import AccuracyScore
+from olive.model import OliveModel
+
 datasets_logging.disable_progress_bar()
 datasets_logging.set_verbosity_error()
 
@@ -170,9 +174,9 @@ class IncBertDataset:
         sample = self.dataset[index]
         data = sample
         input_dict = {
-            "input_ids": np.array(data["input_ids"], dtype=np.long),
-            "attention_mask": np.array(data["attention_mask"], dtype=np.long),
-            "token_type_ids": np.array(data["token_type_ids"], dtype=np.long),
+            "input_ids": np.array(data["input_ids"]),
+            "attention_mask": np.array(data["attention_mask"]),
+            "token_type_ids": np.array(data["token_type_ids"]),
         }
         label = data["label"]
         return input_dict, label
@@ -183,6 +187,45 @@ def inc_glue_calibration_reader(data_dir, batch_size=1):
     bert_dataset = IncBertDataset(bert_dataset.get_eval_dataset())
     calib_dataloader = DefaultDataLoader(dataset=bert_dataset, batch_size=batch_size)
     return calib_dataloader
+
+
+# -------------------------------------------------------------------------
+# Accuracy Calculation Function
+# -------------------------------------------------------------------------
+
+
+def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_providers):
+    dataloader = create_dataloader(data_dir, batch_size)
+    preds = []
+    target = []
+    sess = model.prepare_session(inference_settings=None, device=device, execution_providers=execution_providers)
+    if model.framework == Framework.ONNX:
+        input_names = [i.name for i in sess.get_inputs()]
+        output_names = [o.name for o in sess.get_outputs()]
+        for inputs, labels in dataloader:
+            if isinstance(inputs, dict):
+                input_dict = {k: inputs[k].tolist() for k in inputs.keys()}
+            else:
+                inputs = inputs.tolist()
+                input_dict = dict(zip(input_names, [inputs]))
+            res = sess.run(input_feed=input_dict, output_names=None)
+            if len(output_names) == 1:
+                result = torch.Tensor(res[0])
+            else:
+                result = torch.Tensor(res)
+            outputs = post_process(result)
+            preds.extend(outputs.tolist())
+            target.extend(labels.data.tolist())
+    elif model.framework == Framework.PYTORCH:
+        for inputs, labels in dataloader:
+            if isinstance(inputs, dict):
+                result = sess(**inputs)
+            else:
+                result = sess(inputs)
+            outputs = post_process(result)
+            preds.extend(outputs.tolist())
+            target.extend(labels.data.tolist())
+    return AccuracyScore().measure(preds, target)
 
 
 # -------------------------------------------------------------------------
