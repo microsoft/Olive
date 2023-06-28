@@ -693,7 +693,7 @@
         <span class="k">if</span> <span class="n">goals</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Resolving goals: </span><span class="si">{</span><span class="n">goals</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-        <span class="n">baseline</span> <span class="o">=</span> <span class="n">MetricResult</span><span class="p">()</span>
+        <span class="n">baseline</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">for</span> <span class="n">goal</span> <span class="ow">in</span> <span class="n">goals</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="n">_evaluated</span> <span class="o">=</span> <span class="kc">False</span>
             <span class="k">for</span> <span class="n">sub_goal</span> <span class="ow">in</span> <span class="n">goal</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
