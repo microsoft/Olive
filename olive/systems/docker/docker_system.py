@@ -158,6 +158,8 @@ class DockerSystem(OliveSystem):
             for line in container.logs(stream=True):
                 logger.info(line.strip().decode())
             exit_code = container.wait()["StatusCode"]
+            # ignore the remove in case user wants to debug
+            # container.remove()
             if exit_code != 0:
                 raise docker.errors.ContainerError(
                     container, exit_code, eval_command, self.image, "Docker container evaluation failed"
@@ -169,12 +171,21 @@ class DockerSystem(OliveSystem):
             if self.is_dev:
                 clean_up_mount_path, clean_up_mount_str = docker_utils.create_dev_cleanup_mount(container_root_path)
                 logger.debug("Cleaning up dev mount")
-                self.docker_client.containers.run(
-                    image=self.image,
-                    command=f"python {clean_up_mount_path} --dev_mount_path {dev_mount_path}",
-                    volumes=[dev_mount_str, clean_up_mount_str],
-                )
-                logger.debug("Dev mount cleaned up successfully")
+                try:
+                    self.docker_client.containers.run(
+                        image=self.image,
+                        command=f"python {clean_up_mount_path} --dev_mount_path {dev_mount_path}",
+                        volumes=[dev_mount_str, clean_up_mount_str],
+                        # remove the container as it is used to clean up the dev mount only
+                        remove=True,
+                    )
+                    logger.debug("Dev mount cleaned up successfully")
+                except (
+                    docker.errors.ContainerError,
+                    docker.errors.ImageNotFound,
+                    docker.errors.APIError,
+                ):
+                    logger.warning("Dev mount cleanup failed")
 
         metric_json = Path(output_local_path) / f"{eval_output_name}"
         return metric_json
