@@ -160,7 +160,7 @@ class SubMetricResult(ConfigBase):
 
 
 class MetricResult(ConfigDictBase):
-    __root__: Dict[str, SubMetricResult] = None
+    __root__: Dict[str, SubMetricResult]
     delimiter: ClassVar[str] = "-"
 
     def get_value(self, metric_name, sub_type_name):

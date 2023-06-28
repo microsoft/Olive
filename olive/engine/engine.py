@@ -576,7 +576,7 @@ class Engine:
         if goals:
             logger.debug(f"Resolving goals: {goals}")
 
-        baseline = MetricResult()
+        baseline = None
         for goal in goals.values():
             _evaluated = False
             for sub_goal in goal.values():
