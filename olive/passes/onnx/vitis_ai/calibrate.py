@@ -21,7 +21,7 @@ from onnxruntime.quantization.calibrate import (
 )
 from onnxruntime.quantization.quant_utils import QuantType
 
-from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod, quantize_data_pof2s
+from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod, is_ort_version_below_1_16, quantize_data_pof2s
 
 
 class PowOfTwoCalibrater(CalibraterBase):
@@ -36,14 +36,14 @@ class PowOfTwoCalibrater(CalibraterBase):
         symmetric=True,
     ):
         """
-        :param model: ONNX model to calibrate. It can be a ModelProto.
+        :param model: ONNX model to calibrate. it should be a model file path.
         :param op_types_to_calibrate: operator types to calibrate. By default, calibrate all the float32 tensors.
         :param augmented_model_path: save augmented model to this path.
         :param symmetric: make range of tensor symmetric (central point is 0).
         :param use_external_data_format: use external data format to store model which size is >= 2Gb
         """
         super(PowOfTwoCalibrater, self).__init__(
-            model, op_types_to_calibrate, augmented_model_path, use_external_data_format
+            model, op_types_to_calibrate, augmented_model_path, symmetric, use_external_data_format
         )
         self.intermediate_outputs = []
         self.model_original_outputs = set(output.name for output in self.model.graph.output)
@@ -59,11 +59,14 @@ class PowOfTwoCalibrater(CalibraterBase):
         Make all quantization_candidates op type nodes as part of the graph output.
         :return: augmented ONNX model
         """
-        # not supported in ORT >= 1.16.0
-        # TODO: Update code to support different versions of ORT
-        from onnxruntime.quantization.quant_utils import clone_model_with_shape_infer
+        # for ORT version >= 1.16.0, we need directly use the model without clone
+        # since clone_model_with_shape_infer is removed in ORT 1.16.0
+        if is_ort_version_below_1_16():
+            from onnxruntime.quantization.quant_utils import clone_model_with_shape_infer
 
-        model = clone_model_with_shape_infer(self.model)
+            model = clone_model_with_shape_infer(self.model)
+        else:
+            model = self.model
 
         self.tensors_to_calibrate, value_infos = self.select_tensors_to_calibrate(model)
         for tensor in self.tensors_to_calibrate:

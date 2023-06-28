@@ -13,10 +13,10 @@ from pathlib import Path
 from onnxruntime.quantization.calibrate import CalibrationDataReader, CalibrationMethod
 from onnxruntime.quantization.quant_utils import QuantFormat, QuantizationMode, QuantType
 from onnxruntime.quantization.quantize import quantize_static as ort_quantize_static
-from onnxruntime.quantization.registry import QLinearOpsRegistry
+from onnxruntime.quantization.registry import QDQRegistry, QLinearOpsRegistry
 
 from olive.passes.onnx.vitis_ai.calibrate import PowerOfTwoMethod, create_calibrator_power_of_two
-from olive.passes.onnx.vitis_ai.quant_utils import get_exclude_nodes
+from olive.passes.onnx.vitis_ai.quant_utils import get_exclude_nodes, is_ort_version_below_1_16
 from olive.passes.onnx.vitis_ai.quantizer import VitisDPUQuantizer, VitisQDQQuantizer, VitisQOpQuantizer
 
 
@@ -34,7 +34,7 @@ def quantize_static(
     weight_type=QuantType.QInt8,
     nodes_to_quantize=[],
     nodes_to_exclude=[],
-    optimize_model=True,
+    optimize_model=False,
     use_external_data_format=False,
     calibrate_method=PowerOfTwoMethod.MinMSE,
     need_layer_fusing=False,
@@ -143,34 +143,46 @@ def quantize_static(
     """
 
     if calibrate_method in CalibrationMethod:
-        return ort_quantize_static(
-            model_input,
-            model_output,
-            calibration_data_reader,
-            quant_format,
-            op_types_to_quantize,
-            per_channel,
-            reduce_range,
-            activation_type,
-            weight_type,
-            nodes_to_quantize,
-            nodes_to_exclude,
-            optimize_model,
-            use_external_data_format,
-            calibrate_method,
-            extra_options,
-        )
+        ort_quantize_args = {
+            "model_input": model_input,
+            "model_output": model_output,
+            "calibration_data_reader": calibration_data_reader,
+            "quant_format": quant_format,
+            "op_types_to_quantize": op_types_to_quantize,
+            "per_channel": per_channel,
+            "reduce_range": reduce_range,
+            "activation_type": activation_type,
+            "weight_type": weight_type,
+            "nodes_to_quantize": nodes_to_quantize,
+            "nodes_to_exclude": nodes_to_exclude,
+            "use_external_data_format": use_external_data_format,
+            "calibrate_method": calibrate_method,
+            "extra_options": extra_options,
+        }
+        # for ORT version < 1.16.0, set optimize_model to False
+        # always set it to False since it is not recommended and is removed in ORT 1.16.0
+        # user needs to call pre-process to optimize the model
+        if is_ort_version_below_1_16():
+            ort_quantize_args["optimize_model"] = False
+        return ort_quantize_static(**ort_quantize_args)
 
     mode = QuantizationMode.QLinearOps
 
     if not op_types_to_quantize or len(op_types_to_quantize) == 0:
-        op_types_to_quantize = list(QLinearOpsRegistry.keys())
+        q_linear_ops = list(QLinearOpsRegistry.keys())
+        qdq_ops = list(QDQRegistry.keys())
+        op_types_to_quantize = list(set(q_linear_ops + qdq_ops))
 
-    # not supported in ORT >= 1.16.0
-    # TODO: Update code to support different versions of ORT
-    from onnxruntime.quantization.quant_utils import load_model
+    # for ORT version >= 1.16.0, we should use load_model_with_shape_infer
+    # since load_model is already removed in ORT 1.16.
+    if is_ort_version_below_1_16():
+        from onnxruntime.quantization.quant_utils import load_model
 
-    model = load_model(Path(model_input), optimize_model)
+        model = load_model(Path(model_input), optimize_model)
+    else:
+        from onnxruntime.quantization.quant_utils import load_model_with_shape_infer
+
+        model = load_model_with_shape_infer(Path(model_input))
 
     calib_extra_options_keys = [
         ("ActivationSymmetric", "symmetric"),
@@ -182,7 +194,7 @@ def quantize_static(
 
     with tempfile.TemporaryDirectory(prefix="ort.quant.") as quant_tmp_dir:
         calibrator = create_calibrator_power_of_two(
-            model,
+            Path(model_input),
             op_types_to_quantize,
             augmented_model_path=Path(quant_tmp_dir).joinpath("augmented_model.onnx").as_posix(),
             activation_type=QuantType.QInt8,

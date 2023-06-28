@@ -7,7 +7,9 @@ from enum import Enum
 
 import numpy as np
 import onnx
+from onnxruntime import __version__ as OrtVersion
 from onnxruntime.quantization.quant_utils import get_qmin_qmax_for_qType, quantize_nparray
+from packaging import version
 
 
 class PowerOfTwoMethod(Enum):
@@ -352,3 +354,13 @@ def quantize_data_pof2s(data, qType, symmetric, reduce_range=False, method=Power
         rmax_mse = (qmax - zp_mse) * scale_mse
 
         return rmin_mse, rmax_mse, zp_mse, scale_mse, quantized_data_mse
+
+
+def is_ort_version_below_1_16():
+    """
+    This function checks whether the current version of ONNX Runtime (ORT) is below 1.16.0.
+
+    Returns:
+        True if the current ORT version is less than 1.16.0, False otherwise.
+    """
+    return version.parse(OrtVersion) < version.parse("1.16.0")
