@@ -157,7 +157,11 @@ class DockerSystem(OliveSystem):
             )
             for line in container.logs(stream=True):
                 logger.info(line.strip().decode())
-            exit_code = container.wait()
+            exit_code = container.wait()["StatusCode"]
+            if exit_code != 0:
+                raise docker.errors.ContainerError(
+                    container, exit_code, eval_command, self.image, "Docker container evaluation failed"
+                )
             logger.debug("Docker container evaluation completed successfully")
         finally:
             # clean up dev mount regardless of whether the run was successful or not
@@ -171,12 +175,6 @@ class DockerSystem(OliveSystem):
                     volumes=[dev_mount_str, clean_up_mount_str],
                 )
                 logger.debug("Dev mount cleaned up successfully")
-
-        exit_code = exit_code["StatusCode"]
-        if exit_code != 0:
-            raise docker.errors.ContainerError(
-                container, exit_code, eval_command, self.image, "Docker container evaluation failed"
-            )
 
         metric_json = Path(output_local_path) / f"{eval_output_name}"
         return metric_json
