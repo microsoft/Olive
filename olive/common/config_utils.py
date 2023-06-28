@@ -116,7 +116,7 @@ class ConfigBase(BaseModel):
 
 
 class ConfigListBase(ConfigBase):
-    __root__: List[Any] = None
+    __root__: List[Any]
 
     def __iter__(self):
         return iter(self.__root__)
