@@ -170,6 +170,7 @@ class DockerSystem(OliveSystem):
                     command=f"python {clean_up_mount_path} --dev_mount_path {dev_mount_path}",
                     volumes=[dev_mount_str, clean_up_mount_str],
                 )
+                logger.debug("Dev mount cleaned up successfully")
 
         exit_code = exit_code["StatusCode"]
         if exit_code != 0:
