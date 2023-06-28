@@ -24,17 +24,15 @@
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
                     "sub_types": [
-                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                        {"name": "f1"}
+                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}}
+
                     ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [
-                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
-                        {"name": "max"},
-                        {"name": "min"}
+                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}}
                     ]
                 }
             ]
@@ -66,11 +64,7 @@
     "engine": {
         "search_strategy": {
             "execution_order": "joint",
-            "search_algorithm": "tpe",
-            "search_algorithm_config": {
-                "num_samples": 3,
-                "seed": 0
-            }
+            "search_algorithm": "exhaustive"
         },
         "evaluator": "common_evaluator",
         "execution_providers": ["CPUExecutionProvider"],
