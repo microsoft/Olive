@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from pydantic import validator
 
@@ -67,3 +67,9 @@ class IOConfig(ConfigBase):
             except ValueError:
                 raise ValueError(f"Invalid string_to_int_dim_params: {dim_param}. Must be castable to int.")
         return v
+
+
+def is_io_config_static(config: Union[IOConfig, Dict]):
+    if isinstance(config, IOConfig):
+        config = config.dict()
+    return all(all(isinstance(dim, int) for dim in shape) for shape in config["input_shapes"])

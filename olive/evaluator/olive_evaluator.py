@@ -5,6 +5,7 @@
 import logging
 import time
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from numbers import Number
 from typing import Any, Dict, List, Tuple, Type, Union
 
@@ -32,6 +33,7 @@ from olive.evaluator.metric import (
 from olive.evaluator.metric_backend import MetricBackend
 from olive.hardware import Device
 from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
+from olive.model.model_config import is_io_config_static
 from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
@@ -127,7 +129,11 @@ class OliveEvaluator(ABC):
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
         metrics_res = {}
-        for metric in metrics:
+        for original_metric in metrics:
+            # use model io_config if user does not specify input_names and input_shapes
+            # only do this if data_config or dataloader is not provided
+            # priority: dataloader_func > data_config > user_config.input_names/input_shapes > model io_config
+            metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)
             dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric)
 
             if metric.type == MetricType.ACCURACY:
@@ -147,6 +153,31 @@ class OliveEvaluator(ABC):
         return flatten_metric_result(metrics_res)
 
     @staticmethod
+    def generate_metric_user_config_with_model_io(metric: Metric, model: OliveModel):
+        # if the io_config is not specified in the metrics, use the one in the model
+        # should not change the original metric object which is created from config jsons
+        # otherwise, if affects hashing + caching of the olive restoring.
+        metric = deepcopy(metric)
+        if metric.data_config:
+            return metric
+
+        io_config = model.get_io_config()
+        if not io_config:
+            return metric
+
+        if not is_io_config_static(io_config):
+            logger.debug(
+                "Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. This will"
+                " cause an error when creating dummy data for tuning."
+            )
+        if io_config and not metric.user_config.input_names and not metric.user_config.input_shapes:
+            metric.user_config.input_names = io_config["input_names"]
+            metric.user_config.input_shapes = io_config["input_shapes"]
+            # input_types is optional which can be None. If None, it will be replaced with float32 in DummyDataset
+            metric.user_config.input_types = io_config.get("input_types")
+        return metric
+
+    @staticmethod
     def get_user_config(metric: Metric):
         user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
 
@@ -161,6 +192,14 @@ class OliveEvaluator(ABC):
         evaluate_func = getattr(metric.user_config, "evaluate_func", None)
         eval_func = user_module.load_object(evaluate_func)
 
+        if (not dataloader or not post_func) and metric.data_config:
+            dc = metric.data_config.to_data_container()
+
+            # TODO remove user_scripts dataloader: we should respect user scripts
+            # dataloder to meet back compatibility for time being.
+            dataloader = dataloader or dc.create_dataloader()
+            post_func = post_func or dc.config.post_process
+
         if metric.user_config.input_names and metric.user_config.input_shapes and not dataloader and not eval_func:
             dataloader = (
                 data_config_template.dummy_data_config_template(
@@ -171,14 +210,6 @@ class OliveEvaluator(ABC):
                 .to_data_container()
                 .create_dataloader()
             )
-
-        if not dataloader or not post_func:
-            dc = metric.data_config.to_data_container()
-
-            # TODO remove user_scripts dataloader: we should respect user scripts
-            # dataloder to meet back compatibility for time being.
-            dataloader = dataloader or dc.create_dataloader()
-            post_func = post_func or dc.config.post_process
 
         return dataloader, eval_func, post_func
 

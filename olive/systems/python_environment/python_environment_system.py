@@ -88,7 +88,8 @@ class PythonEnvironmentSystem(OliveSystem):
             raise ValueError("PythonEnvironmentSystem does not support custom metrics.")
 
         metrics_res = {}
-        for metric in metrics:
+        for original_metric in metrics:
+            metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)
             if metric.type == MetricType.ACCURACY:
                 metrics_res[metric.name] = self.evaluate_accuracy(model, metric)
             elif metric.type == MetricType.LATENCY:

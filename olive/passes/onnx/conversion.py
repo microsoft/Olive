@@ -74,8 +74,8 @@ class OnnxConversion(Pass):
             io_config = get_hf_model_io_config(
                 model.hf_config.model_name, model.hf_config.task, model.hf_config.feature
             )
-            io_config = validate_config(io_config, IOConfig)
         assert io_config, "Cannot get io_config for the model. Please specify io_config or hf_config for the model."
+        io_config = validate_config(io_config, IOConfig)
         input_names = io_config.input_names
         output_names = io_config.output_names
         dynamic_axes = io_config.dynamic_axes
