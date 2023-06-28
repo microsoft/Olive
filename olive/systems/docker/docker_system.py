@@ -171,11 +171,11 @@ class DockerSystem(OliveSystem):
                     volumes=[dev_mount_str, clean_up_mount_str],
                 )
 
-        if docker.version_info[0] >= 3:
-            exit_code = exit_code["StatusCode"]
-
+        exit_code = exit_code["StatusCode"]
         if exit_code != 0:
-            raise RuntimeError(f"Container exited with code {exit_code}")
+            raise docker.errors.ContainerError(
+                container, exit_code, eval_command, self.image, "Docker container evaluation failed"
+            )
 
         metric_json = Path(output_local_path) / f"{eval_output_name}"
         return metric_json
