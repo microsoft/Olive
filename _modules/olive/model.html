@@ -186,6 +186,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">model_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span> <span class="k">if</span> <span class="n">model_path</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">local_model_path</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">composite_parent</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">model_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -269,6 +270,9 @@
 
     <span class="k">def</span> <span class="nf">get_composite_parent</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">composite_parent</span>
+
+    <span class="k">def</span> <span class="nf">get_io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span>
 
     <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
@@ -573,7 +577,7 @@
         <span class="c1"># save io_config</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="n">io_config</span>
 
-        <span class="k">return</span> <span class="n">io_config</span></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span></div>
 
 
 <div class="viewcode-block" id="PyTorchModel"><a class="viewcode-back" href="../../api/models.html#olive.model.PyTorchModel">[docs]</a><span class="k">class</span> <span class="nc">PyTorchModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
@@ -605,7 +609,7 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">PYTORCH</span><span class="p">,</span> <span class="n">model_file_format</span><span class="o">=</span><span class="n">model_file_format</span><span class="p">,</span> <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">)</span>
 
         <span class="c1"># io config for conversion to onnx</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">io_config</span><span class="p">,</span> <span class="n">IOConfig</span><span class="p">)</span> <span class="k">if</span> <span class="n">io_config</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">io_config</span><span class="p">,</span> <span class="n">IOConfig</span><span class="p">)</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">if</span> <span class="n">io_config</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span> <span class="o">=</span> <span class="n">dummy_inputs_func</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span> <span class="o">=</span> <span class="kc">None</span>
@@ -684,12 +688,13 @@
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using dummy_inputs_func to get dummy inputs&quot;</span><span class="p">)</span>
             <span class="n">user_module_loader</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
             <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">user_module_loader</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="o">.</span><span class="n">input_shapes</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_shapes&quot;</span><span class="p">]:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using io_config.input_shapes to get dummy inputs&quot;</span><span class="p">)</span>
             <span class="n">dummy_inputs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="c1"># input_types is optional</span>
                 <span class="n">data_config_template</span><span class="o">.</span><span class="n">dummy_data_config_template</span><span class="p">(</span>
-                    <span class="n">input_shapes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="o">.</span><span class="n">input_shapes</span><span class="p">,</span>
-                    <span class="n">input_types</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="o">.</span><span class="n">input_types</span><span class="p">,</span>
+                    <span class="n">input_shapes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_shapes&quot;</span><span class="p">],</span>
+                    <span class="n">input_types</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;input_types&quot;</span><span class="p">),</span>
                 <span class="p">)</span>
                 <span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
                 <span class="o">.</span><span class="n">get_first_batch</span><span class="p">()</span>

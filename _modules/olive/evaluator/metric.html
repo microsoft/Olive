@@ -199,7 +199,7 @@
     <span class="n">backend</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;torch_metrics&quot;</span>
     <span class="n">sub_types</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">SubMetric</span><span class="p">]</span>
     <span class="n">user_config</span><span class="p">:</span> <span class="n">ConfigBase</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">data_config</span><span class="p">:</span> <span class="n">DataConfig</span> <span class="o">=</span> <span class="n">DataConfig</span><span class="p">()</span>
+    <span class="n">data_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
 <div class="viewcode-block" id="Metric.get_sub_type_info"><a class="viewcode-back" href="../../../api/metric.html#olive.evaluator.metric.Metric.get_sub_type_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_sub_type_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">info_name</span><span class="p">,</span> <span class="n">no_priority_filter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">):</span>
         <span class="n">sub_type_info</span> <span class="o">=</span> <span class="p">{}</span>

@@ -122,6 +122,7 @@
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Number</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
 
@@ -149,6 +150,7 @@
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric_backend</span> <span class="kn">import</span> <span class="n">MetricBackend</span>
 <span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">Device</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">DistributedOnnxModel</span><span class="p">,</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">ONNXModel</span><span class="p">,</span> <span class="n">OpenVINOModel</span><span class="p">,</span> <span class="n">PyTorchModel</span><span class="p">,</span> <span class="n">SNPEModel</span>
+<span class="kn">from</span> <span class="nn">olive.model.model_config</span> <span class="kn">import</span> <span class="n">is_io_config_static</span>
 <span class="kn">from</span> <span class="nn">olive.snpe.data_loader</span> <span class="kn">import</span> <span class="n">SNPECommonDataLoader</span><span class="p">,</span> <span class="n">SNPEDataLoader</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -244,7 +246,11 @@
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
         <span class="n">metrics_res</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">original_metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
+            <span class="c1"># use model io_config if user does not specify input_names and input_shapes</span>
+            <span class="c1"># only do this if data_config or dataloader is not provided</span>
+            <span class="c1"># priority: dataloader_func &gt; data_config &gt; user_config.input_names/input_shapes &gt; model io_config</span>
+            <span class="n">metric</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">generate_metric_user_config_with_model_io</span><span class="p">(</span><span class="n">original_metric</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
             <span class="n">dataloader</span><span class="p">,</span> <span class="n">eval_func</span><span class="p">,</span> <span class="n">post_func</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">ACCURACY</span><span class="p">:</span>
@@ -264,6 +270,31 @@
         <span class="k">return</span> <span class="n">flatten_metric_result</span><span class="p">(</span><span class="n">metrics_res</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">generate_metric_user_config_with_model_io</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">):</span>
+        <span class="c1"># if the io_config is not specified in the metrics, use the one in the model</span>
+        <span class="c1"># should not change the original metric object which is created from config jsons</span>
+        <span class="c1"># otherwise, if affects hashing + caching of the olive restoring.</span>
+        <span class="n">metric</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">data_config</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">metric</span>
+
+        <span class="n">io_config</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_io_config</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">io_config</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">metric</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_io_config_static</span><span class="p">(</span><span class="n">io_config</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. This will&quot;</span>
+                <span class="s2">&quot; cause an error when creating dummy data for tuning.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">io_config</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_names</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_shapes</span><span class="p">:</span>
+            <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_names</span> <span class="o">=</span> <span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_names&quot;</span><span class="p">]</span>
+            <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_shapes</span> <span class="o">=</span> <span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_shapes&quot;</span><span class="p">]</span>
+            <span class="c1"># input_types is optional which can be None. If None, it will be replaced with float32 in DummyDataset</span>
+            <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_types</span> <span class="o">=</span> <span class="n">io_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;input_types&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">metric</span>
+
+    <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">):</span>
         <span class="n">user_module</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">user_script</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
 
@@ -278,6 +309,14 @@
         <span class="n">evaluate_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;evaluate_func&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">eval_func</span> <span class="o">=</span> <span class="n">user_module</span><span class="o">.</span><span class="n">load_object</span><span class="p">(</span><span class="n">evaluate_func</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">dataloader</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">post_func</span><span class="p">)</span> <span class="ow">and</span> <span class="n">metric</span><span class="o">.</span><span class="n">data_config</span><span class="p">:</span>
+            <span class="n">dc</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">data_config</span><span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
+
+            <span class="c1"># TODO remove user_scripts dataloader: we should respect user scripts</span>
+            <span class="c1"># dataloder to meet back compatibility for time being.</span>
+            <span class="n">dataloader</span> <span class="o">=</span> <span class="n">dataloader</span> <span class="ow">or</span> <span class="n">dc</span><span class="o">.</span><span class="n">create_dataloader</span><span class="p">()</span>
+            <span class="n">post_func</span> <span class="o">=</span> <span class="n">post_func</span> <span class="ow">or</span> <span class="n">dc</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">post_process</span>
+
         <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_names</span> <span class="ow">and</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">input_shapes</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">dataloader</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">eval_func</span><span class="p">:</span>
             <span class="n">dataloader</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">data_config_template</span><span class="o">.</span><span class="n">dummy_data_config_template</span><span class="p">(</span>
@@ -288,14 +327,6 @@
                 <span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
                 <span class="o">.</span><span class="n">create_dataloader</span><span class="p">()</span>
             <span class="p">)</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">dataloader</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">post_func</span><span class="p">:</span>
-            <span class="n">dc</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">data_config</span><span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
-
-            <span class="c1"># TODO remove user_scripts dataloader: we should respect user scripts</span>
-            <span class="c1"># dataloder to meet back compatibility for time being.</span>
-            <span class="n">dataloader</span> <span class="o">=</span> <span class="n">dataloader</span> <span class="ow">or</span> <span class="n">dc</span><span class="o">.</span><span class="n">create_dataloader</span><span class="p">()</span>
-            <span class="n">post_func</span> <span class="o">=</span> <span class="n">post_func</span> <span class="ow">or</span> <span class="n">dc</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">post_process</span>
 
         <span class="k">return</span> <span class="n">dataloader</span><span class="p">,</span> <span class="n">eval_func</span><span class="p">,</span> <span class="n">post_func</span>
 
