@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 import pytest
-from utils import check_search_output, patch_config
+from utils import extract_best_models, patch_config
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -25,4 +25,4 @@ def test_bert(olive_json):
 
     olive_config = patch_config(olive_json)
     footprint = olive_run(olive_config)
-    check_search_output(footprint)
+    extract_best_models(footprint)
