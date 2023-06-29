@@ -127,13 +127,6 @@ def create_dev_mount(tempdir: Path, container_root_path: Path):
     return project_folder_mount_path, project_folder_mount_str
 
 
-def create_dev_cleanup_mount(container_root_path: Path):
-    mount_path = str(container_root_path / "dev_mount_cleanup.py")
-    current_dir = Path(__file__).resolve().parent
-    mount_str = f"{str(current_dir / 'dev_mount_cleanup.py')}:{mount_path}"
-    return mount_path, mount_str
-
-
 def create_output_mount(tempdir, docker_eval_output_path: str, container_root_path: Path):
     output_local_path = Path(tempdir) / docker_eval_output_path
     output_local_path.mkdir(parents=True, exist_ok=True)
