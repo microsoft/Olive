@@ -484,7 +484,7 @@ class TestEngine:
             engine = Engine(options, evaluator_config=evaluator_config)
             engine.register(OnnxStaticQuantization)
             with patch("onnxruntime.quantization.quantize_static") as mock_quantize_static:
-                mock_quantize_static.side_effect = ValueError("test")
+                mock_quantize_static.side_effect = AttributeError("test")
                 actual_res = engine.run(onnx_model, output_dir=output_dir)
                 pf = actual_res[DEFAULT_CPU_ACCELERATOR]
                 assert not pf.nodes, "Expect empty dict when quantization fails"
@@ -495,6 +495,6 @@ class TestEngine:
             engine = Engine(options)
             engine.register(OnnxDynamicQuantization, disable_search=True)
             with patch("onnxruntime.quantization.quantize_dynamic") as mock_quantize_dynamic:
-                mock_quantize_dynamic.side_effect = ValueError("test")
+                mock_quantize_dynamic.side_effect = AttributeError("test")
                 actual_res = engine.run(onnx_model, output_dir=output_dir)
                 assert actual_res == {}, "Expect empty dict when quantization fails"

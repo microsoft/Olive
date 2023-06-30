@@ -394,7 +394,7 @@ class OnnxQuantization(Pass):
                     use_external_data_format=True,
                     **run_config,
                 )
-            except ValueError as e:
+            except AttributeError as e:
                 raise OlivePassException("quantize_static failed.") from e
         else:
             try:
@@ -404,7 +404,7 @@ class OnnxQuantization(Pass):
                     use_external_data_format=True,
                     **run_config,
                 )
-            except ValueError as e:
+            except AttributeError as e:
                 raise OlivePassException("quantize_dynamic failed.") from e
 
         # load the model
