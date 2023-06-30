@@ -1,0 +1,43 @@
+{
+    "model": "models/inception_v3.pb",
+    "io_config": {
+        "input_names": ["input"],
+        "input_shapes": [[1, 299, 299, 3]],
+        "output_names": ["InceptionV3/Predictions/Reshape_1"]
+    },
+    "quant_data": "data",
+    "input_dirs": ["input"],
+    "input_order_file": "input_order.txt",
+    "tools": {
+        "snpe": {
+            "quantize_options": {
+                "enable_htp": true,
+                "use_enhanced_quantizer": true
+            }
+        },
+        "openvino": {
+            "quantize_options": {
+                "engine_config": {
+                    "device": "CPU",
+                    "type": "simplified",
+                    "std": 1,
+                    "scale_factor": 1,
+                    "meanR": 0,
+                    "meanG": 0,
+                    "meanB": 0
+                },
+                "algorithms": [
+                    {
+                        "name": "DefaultQuantization",
+                        "params": {
+                            "target_device": "CPU",
+                            "preset": "performance",
+                            "stat_subset_size": 500
+                        }
+                    }
+                ]
+            }
+        }
+    },
+    "output_dir": "outputs"
+}

@@ -1,0 +1,5 @@
+onnxruntime
+openvino==2022.3.0
+openvino-dev[tensorflow,onnx]==2022.3.0
+pillow
+torchvision

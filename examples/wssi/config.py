@@ -14,7 +14,7 @@ class IOConfig(ConfigBase):
     input_names: List[str]
     input_shapes: List[List[int]]
     output_names: List[str]
-    output_shapes: List[List[int]]
+    output_shapes: List[List[int]] = None
 
     @validator("input_shapes")
     def check_input_shapes(cls, v, values):
