@@ -18,6 +18,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
+from olive.exception import OliveException
 from olive.hardware import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig, OliveModel
 from olive.passes.olive_pass import Pass
@@ -307,8 +308,9 @@ class Engine:
                         output_dir,
                         output_name,
                     )
-                    outputs[accelerator_spec] = output
-                    pf_footprints[accelerator_spec] = self.footprints[accelerator_spec].get_last_node()
+                    if output:
+                        outputs[accelerator_spec] = output
+                        pf_footprints[accelerator_spec] = self.footprints[accelerator_spec].get_last_node()
                 else:
                     footprint = self.run_search(
                         input_model,
@@ -319,7 +321,6 @@ class Engine:
                     )
                     outputs[accelerator_spec] = footprint
                     pf_footprints[accelerator_spec] = footprint
-
             except EXCEPTIONS_TO_RAISE:
                 raise
             except Exception as e:
@@ -415,6 +416,7 @@ class Engine:
             final_output_name = str(accelerator_spec)
         pass_output_names[-1] = final_output_name
 
+        output_model_json = None
         for pass_output_name, pass_output_model_id in zip(pass_output_names, model_ids):
             if not pass_output_name:
                 continue
@@ -427,15 +429,18 @@ class Engine:
             )
 
         # save the evaluation results to output_dir
-        result_name = f"{final_output_name}_metrics"
-        results_path = output_dir / f"{result_name}.json"
         if signal is not None:
+            result_name = f"{final_output_name}_metrics"
+            results_path = output_dir / f"{result_name}.json"
             with open(results_path, "w") as f:
                 json.dump(signal.to_json(), f, indent=4)
 
-        output = {"model": output_model_json}
-        if signal is not None:
-            output["metrics"] = signal
+        if output_model_json:
+            output = {"model": output_model_json}
+            if signal is not None:
+                output["metrics"] = signal
+        else:
+            output = None
 
         return output
 
@@ -817,6 +822,9 @@ class Engine:
             else:
                 signal = self._evaluate_model(model, model_id, evaluator_config, accelerator_spec)
             logger.debug(f"Signal: {signal}")
+        else:
+            signal = None
+            logger.warning("Skipping evaluation as model was pruned")
 
         return should_prune, signal, model_ids
 
@@ -883,6 +891,9 @@ class Engine:
                 input_model = self._prepare_non_local_model(input_model)
             try:
                 output_model = host.run_pass(p, input_model, output_model_path, pass_search_point)
+            except OliveException as e:
+                logger.error(f"Pass run_pass failed: {e}", exc_info=True)
+                output_model = PRUNED_CONFIG
             except EXCEPTIONS_TO_RAISE:
                 # Don't catch these errors since most of time, it is caused by the user errors and need not retry.
                 raise

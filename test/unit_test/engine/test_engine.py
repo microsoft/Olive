@@ -23,7 +23,7 @@ from olive.evaluator.metric import AccuracySubType, MetricResult, joint_metric_k
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import PyTorchModel
-from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization
+from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization, OnnxStaticQuantization
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 
@@ -458,3 +458,43 @@ class TestEngine:
             output_dir = Path(temp_dir.name)
             with pytest.raises(ValueError):
                 engine.run(model, output_dir=output_dir)
+
+    @pytest.mark.parametrize("is_search", [True, False])
+    def test_pass_quantization_error(self, is_search, caplog):
+        # Need explicitly set the propagate to allow the message to be logged into caplog
+        # setup
+        logger = logging.getLogger("olive")
+        logger.propagate = True
+
+        onnx_model = get_onnx_model()
+        # output model to output_dir
+        temp_dir = tempfile.TemporaryDirectory()
+        output_dir = Path(temp_dir.name)
+
+        # setup
+        if is_search:
+            options = {
+                "search_strategy": {
+                    "execution_order": "joint",
+                    "search_algorithm": "random",
+                },
+            }
+            metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+            evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+            engine = Engine(options, evaluator_config=evaluator_config)
+            engine.register(OnnxStaticQuantization)
+            with patch("onnxruntime.quantization.quantize_static") as mock_quantize_static:
+                mock_quantize_static.side_effect = ValueError("test")
+                actual_res = engine.run(onnx_model, output_dir=output_dir)
+                pf = actual_res[DEFAULT_CPU_ACCELERATOR]
+                assert not pf.nodes, "Expect empty dict when quantization fails"
+        else:
+            options = {
+                "search_strategy": None,
+            }
+            engine = Engine(options)
+            engine.register(OnnxDynamicQuantization, disable_search=True)
+            with patch("onnxruntime.quantization.quantize_dynamic") as mock_quantize_dynamic:
+                mock_quantize_dynamic.side_effect = ValueError("test")
+                actual_res = engine.run(onnx_model, output_dir=output_dir)
+                assert actual_res == {}, "Expect empty dict when quantization fails"

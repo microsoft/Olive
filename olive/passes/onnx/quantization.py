@@ -13,6 +13,7 @@ from packaging import version
 
 from olive.cache import get_local_path
 from olive.common.utils import hash_string
+from olive.exception import OlivePassException
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -385,17 +386,26 @@ class OnnxQuantization(Pass):
                 )
             elif self._data_config:
                 dataloader = self._data_config.to_data_container().create_calibration_dataloader()
-            quantize_static(
-                model_input=model.model_path,
-                model_output=tmp_model_path,
-                calibration_data_reader=dataloader,
-                use_external_data_format=True,
-                **run_config,
-            )
+            try:
+                quantize_static(
+                    model_input=model.model_path,
+                    model_output=tmp_model_path,
+                    calibration_data_reader=dataloader,
+                    use_external_data_format=True,
+                    **run_config,
+                )
+            except ValueError as e:
+                raise OlivePassException("quantize_static failed.") from e
         else:
-            quantize_dynamic(
-                model_input=model.model_path, model_output=tmp_model_path, use_external_data_format=True, **run_config
-            )
+            try:
+                quantize_dynamic(
+                    model_input=model.model_path,
+                    model_output=tmp_model_path,
+                    use_external_data_format=True,
+                    **run_config,
+                )
+            except ValueError as e:
+                raise OlivePassException("quantize_dynamic failed.") from e
 
         # load the model
         onnx_model = onnx.load(tmp_model_path)
