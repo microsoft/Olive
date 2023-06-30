@@ -11,7 +11,6 @@ RUN pip install onnxruntime \
             openvino \
             openvino-dev \
             onnxconverter_common \
-            # TODO: remove this once the main branch requirements.txt is updated
             pydantic<2.0.0 \
             git+https://github.com/microsoft/Olive.git
 
