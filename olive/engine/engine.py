@@ -18,7 +18,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.exception import OliveException
+from olive.exception import OlivePassException
 from olive.hardware import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig, OliveModel
 from olive.passes.olive_pass import Pass
@@ -812,7 +812,6 @@ class Engine:
                 break
             model_ids.append(model_id)
 
-        signal = {}
         if not should_prune:
             # evaluate the model
             evaluator_config = self.evaluator_for_pass(pass_id)
@@ -891,7 +890,7 @@ class Engine:
                 input_model = self._prepare_non_local_model(input_model)
             try:
                 output_model = host.run_pass(p, input_model, output_model_path, pass_search_point)
-            except OliveException as e:
+            except OlivePassException as e:
                 logger.error(f"Pass run_pass failed: {e}", exc_info=True)
                 output_model = PRUNED_CONFIG
             except EXCEPTIONS_TO_RAISE:
