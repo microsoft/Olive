@@ -135,6 +135,7 @@
 <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_generator</span> <span class="kn">import</span> <span class="n">generate_output_artifacts</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricResult</span><span class="p">,</span> <span class="n">joint_metric_key</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
+<span class="kn">from</span> <span class="nn">olive.exception</span> <span class="kn">import</span> <span class="n">OlivePassException</span>
 <span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">AcceleratorLookup</span><span class="p">,</span> <span class="n">AcceleratorSpec</span><span class="p">,</span> <span class="n">Device</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">OliveModel</span>
 <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
@@ -424,8 +425,9 @@
                         <span class="n">output_dir</span><span class="p">,</span>
                         <span class="n">output_name</span><span class="p">,</span>
                     <span class="p">)</span>
-                    <span class="n">outputs</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">output</span>
-                    <span class="n">pf_footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">get_last_node</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">output</span><span class="p">:</span>
+                        <span class="n">outputs</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">output</span>
+                        <span class="n">pf_footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">get_last_node</span><span class="p">()</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">footprint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_search</span><span class="p">(</span>
                         <span class="n">input_model</span><span class="p">,</span>
@@ -436,7 +438,6 @@
                     <span class="p">)</span>
                     <span class="n">outputs</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">footprint</span>
                     <span class="n">pf_footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">footprint</span>
-
             <span class="k">except</span> <span class="n">EXCEPTIONS_TO_RAISE</span><span class="p">:</span>
                 <span class="k">raise</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
@@ -532,6 +533,7 @@
             <span class="n">final_output_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">)</span>
         <span class="n">pass_output_names</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">final_output_name</span>
 
+        <span class="n">output_model_json</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">for</span> <span class="n">pass_output_name</span><span class="p">,</span> <span class="n">pass_output_model_id</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pass_output_names</span><span class="p">,</span> <span class="n">model_ids</span><span class="p">):</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">pass_output_name</span><span class="p">:</span>
                 <span class="k">continue</span>
@@ -544,15 +546,18 @@
             <span class="p">)</span>
 
         <span class="c1"># save the evaluation results to output_dir</span>
-        <span class="n">result_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">final_output_name</span><span class="si">}</span><span class="s2">_metrics&quot;</span>
-        <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">result_name</span><span class="si">}</span><span class="s2">.json&quot;</span>
         <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">result_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">final_output_name</span><span class="si">}</span><span class="s2">_metrics&quot;</span>
+            <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">result_name</span><span class="si">}</span><span class="s2">.json&quot;</span>
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
-        <span class="n">output</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">output_model_json</span><span class="p">}</span>
-        <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">output</span><span class="p">[</span><span class="s2">&quot;metrics&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">signal</span>
+        <span class="k">if</span> <span class="n">output_model_json</span><span class="p">:</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">output_model_json</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">output</span><span class="p">[</span><span class="s2">&quot;metrics&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">signal</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="kc">None</span>
 
         <span class="k">return</span> <span class="n">output</span>
 
@@ -924,7 +929,6 @@
                 <span class="k">break</span>
             <span class="n">model_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
 
-        <span class="n">signal</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">should_prune</span><span class="p">:</span>
             <span class="c1"># evaluate the model</span>
             <span class="n">evaluator_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_for_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">)</span>
@@ -934,6 +938,9 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">signal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Signal: </span><span class="si">{</span><span class="n">signal</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">signal</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Skipping evaluation as model was pruned&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">should_prune</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="n">model_ids</span>
 
@@ -1000,6 +1007,9 @@
                 <span class="n">input_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_non_local_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">)</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">output_model</span> <span class="o">=</span> <span class="n">host</span><span class="o">.</span><span class="n">run_pass</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">input_model</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">OlivePassException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pass run_pass failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">output_model</span> <span class="o">=</span> <span class="n">PRUNED_CONFIG</span>
             <span class="k">except</span> <span class="n">EXCEPTIONS_TO_RAISE</span><span class="p">:</span>
                 <span class="c1"># Don&#39;t catch these errors since most of time, it is caused by the user errors and need not retry.</span>
                 <span class="k">raise</span>
