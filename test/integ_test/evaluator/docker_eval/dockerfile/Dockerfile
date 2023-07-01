@@ -11,7 +11,6 @@ RUN pip install onnxruntime \
             openvino \
             openvino-dev \
             onnxconverter_common \
-            "pydantic<2.0.0" \
             git+https://github.com/microsoft/Olive.git
 
 WORKDIR /olive
