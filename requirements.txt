@@ -2,7 +2,7 @@ numpy
 onnx
 optuna
 pandas
-pydantic
+pydantic<2.0.0
 protobuf !=3.20.0, !=3.20.1
 pyyaml
 torch
