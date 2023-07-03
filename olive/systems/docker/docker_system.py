@@ -167,13 +167,20 @@ class DockerSystem(OliveSystem):
             environment=environment,
             **run_command,
         )
+        docker_logs = []
         for line in container.logs(stream=True):
-            logger.info(line.strip().decode())
+            # containers.logs can accept stdout/stderr as arguments, but it doesn't work
+            # as we cannot ensure that all the logs will be printed in the correct channel(out/err)
+            # so, we collect all the logs and print them in the end if there is an error.
+            log = line.decode().strip()
+            logger.debug(log)
+            docker_logs.append(log)
         exit_code = container.wait()["StatusCode"]
         container.remove()
         if exit_code != 0:
+            error_msg = "\n".join(docker_logs)
             raise docker.errors.ContainerError(
-                container, exit_code, eval_command, self.image, "Docker container evaluation failed"
+                container, exit_code, eval_command, self.image, f"Docker container evaluation failed with: {error_msg}"
             )
         logger.debug("Docker container evaluation completed successfully")
 
