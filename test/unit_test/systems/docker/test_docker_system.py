@@ -129,6 +129,8 @@ class TestDockerSystem:
         mock_docker_client = MagicMock()
         self.mock_from_env.return_value = mock_docker_client
         self.mock_from_env.return_value.containers.run.return_value.wait.return_value = {"StatusCode": exit_code}
+        if exit_code != 0:
+            self.mock_from_env.return_value.containers.run.return_value.logs.return_value = [b"mock_error"]
         tempdir = self.tmp_dir.name
         self.mock_tempdir.return_value.__enter__.return_value = tempdir
         olive_model = get_pytorch_model()
@@ -172,7 +174,7 @@ class TestDockerSystem:
         if exit_code != 0:
             with pytest.raises(
                 docker.errors.ContainerError,
-                match=r".*returned non-zero exit status 1: Docker container evaluation failed",
+                match=r".*returned non-zero exit status 1: Docker container evaluation failed with: mock_error",
             ):
                 actual_res = docker_system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
         else:
