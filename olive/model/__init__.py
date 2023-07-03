@@ -194,35 +194,6 @@ class ONNXModelBase(OliveModel):
         self.inference_settings = inference_settings
         self.use_ort_extensions = use_ort_extensions
 
-    def _is_valid_ep(self, filepath: str, ep: str = None):
-        # TODO: should be remove if future accelerators is implemented
-        # It should be a bug for onnxruntime where the execution provider is not be fallback.
-        import onnxruntime as ort
-
-        try:
-            sess_options = ort.SessionOptions()
-            if self.use_ort_extensions:
-                # register custom ops for onnxruntime-extensions
-                from onnxruntime_extensions import get_library_path
-
-                sess_options.register_custom_ops_library(get_library_path())
-
-            ort.InferenceSession(filepath, sess_options, providers=[ep])
-        except Exception as e:
-            logger.warning(
-                f"Error: {e}Olive will ignore this {ep}."
-                + f"Please make sure the environment with {ep} has the required dependencies."
-            )
-            return False
-        return True
-
-    @abstractmethod
-    def get_default_execution_providers(self, device: Device):
-        """
-        Returns a list of supported default execution providers
-        """
-        return ["CPUExecutionProvider"]
-
 
 class ONNXModel(ONNXModelBase):
     def __init__(
@@ -331,7 +302,7 @@ class ONNXModel(ONNXModelBase):
         # user provided ep list > eps given by arguments > default eps
         execution_providers = inference_settings.get("execution_provider") or execution_providers
         if not execution_providers:
-            execution_providers = self.get_default_execution_providers(device)
+            execution_providers = AcceleratorLookup.get_execution_providers_for_device(device)
         elif isinstance(execution_providers, str):
             execution_providers = [execution_providers]
         else:
@@ -402,14 +373,6 @@ class ONNXModel(ONNXModelBase):
             }
         )
         return serialize_to_json(config, check_object)
-
-    def get_default_execution_providers(self, device: Device):
-        # return firstly available ep as ort default ep
-        available_providers = AcceleratorLookup.get_execution_providers_for_device(device)
-        for ep in available_providers:
-            if self._is_valid_ep(self.model_path, ep):
-                return [ep]
-        return super().get_default_execution_providers(device)
 
     def get_io_config(self):
         """
@@ -850,15 +813,6 @@ class DistributedOnnxModel(ONNXModelBase):
     ):
         raise RuntimeError("DistributedOnnxModel doesn't have a session of its own")
 
-    def get_default_execution_providers(self, filepath: str, device: Device):
-        # return firstly available ep as ort default ep
-        available_providers = DistributedOnnxModel.get_execution_providers(device)
-        for ep in available_providers:
-            if self._is_valid_ep(filepath, ep):
-                return [ep]
-
-        return ["CUDAExecutionProvider", "CPUExecutionProvider"]
-
     @staticmethod
     def get_execution_providers(device: Device):
         import onnxruntime as ort
@@ -921,9 +875,6 @@ class CompositeOnnxModel(ONNXModelBase):
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
-        raise NotImplementedError()
-
-    def get_default_execution_providers(self, device: Device):
         raise NotImplementedError()
 
     def get_model_components(self):
