@@ -284,13 +284,20 @@
             <span class="n">environment</span><span class="o">=</span><span class="n">environment</span><span class="p">,</span>
             <span class="o">**</span><span class="n">run_command</span><span class="p">,</span>
         <span class="p">)</span>
+        <span class="n">docker_logs</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">container</span><span class="o">.</span><span class="n">logs</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">())</span>
+            <span class="c1"># containers.logs can accept stdout/stderr as arguments, but it doesn&#39;t work</span>
+            <span class="c1"># as we cannot ensure that all the logs will be printed in the correct channel(out/err)</span>
+            <span class="c1"># so, we collect all the logs and print them in the end if there is an error.</span>
+            <span class="n">log</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">log</span><span class="p">)</span>
+            <span class="n">docker_logs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">log</span><span class="p">)</span>
         <span class="n">exit_code</span> <span class="o">=</span> <span class="n">container</span><span class="o">.</span><span class="n">wait</span><span class="p">()[</span><span class="s2">&quot;StatusCode&quot;</span><span class="p">]</span>
         <span class="n">container</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">exit_code</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">error_msg</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">docker_logs</span><span class="p">)</span>
             <span class="k">raise</span> <span class="n">docker</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">ContainerError</span><span class="p">(</span>
-                <span class="n">container</span><span class="p">,</span> <span class="n">exit_code</span><span class="p">,</span> <span class="n">eval_command</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="s2">&quot;Docker container evaluation failed&quot;</span>
+                <span class="n">container</span><span class="p">,</span> <span class="n">exit_code</span><span class="p">,</span> <span class="n">eval_command</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Docker container evaluation failed with: </span><span class="si">{</span><span class="n">error_msg</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Docker container evaluation completed successfully&quot;</span><span class="p">)</span>
 
