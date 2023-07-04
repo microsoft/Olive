@@ -118,7 +118,7 @@ There are some readymade systems available for AzureML. These systems are pre-co
                 }
             }
 
-Please refer to :ref:`system_alias` for the list of supported AzureML readymade systems.
+Please refer to :ref:`olive_system_alias` for the list of supported AzureML readymade systems.
 
 
 Docker System
