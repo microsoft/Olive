@@ -1,4 +1,3 @@
-(How-to-add-optimization-pass)=
 # How to add new optimization Pass
 
 Olive provides simple interface to introduce new model optimization techniques. Each optimization technique is

@@ -1,4 +1,3 @@
-(Installation)=
 # Installation
 
 We recommend installing Olive in a [virtual environment](https://docs.python.org/3/library/venv.html) or a

@@ -1,7 +1,6 @@
-(Advanced-user-tour)=
 # Advanced User Tour
 
-Olive provides simple  Python and command line interface to optimize the input model. See [Quick Tour](Quick-tour) for more information.
+Olive provides simple  Python and command line interface to optimize the input model. See [Quick Tour](../overview/quicktour.md) for more information.
 ```bash
 python -m olive.workflows.run --config user_provided_info.json
 ```

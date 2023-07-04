@@ -1,5 +1,3 @@
-(Huggingface-Model-Optimization)=
-
 # Huggingface Model Optimization
 
 
