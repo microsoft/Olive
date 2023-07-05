@@ -149,7 +149,7 @@ dictionary is the name of the system. The value of the dictionary is another dic
 information of the system contains following items:
 
 - `type: [str]` The type of the system. The supported types are `LocalSystem`, `AzureML` and `Docker`.
-  There are some built-in system alias which could also be used as type. For exmaple, `AzureNDV2System`. Please refer to [System Alias](system_alias) for the complete list of system alias.
+  There are some built-in system alias which could also be used as type. For example, `AzureNDV2System`. Please refer to [Olive System Alias](olive_system_alias) for the complete list of system alias.
 
 - `config: [Dict]` The system config dictionary that contains the system specific information.
 
