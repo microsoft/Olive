@@ -25,7 +25,7 @@ python -m pip install -r requirements.txt
 
 ### Prepare workflow config json
 ```
-python prepare_whisper_configs.py [--no_audio_decoder] [--multiligual]
+python prepare_whisper_configs.py [--no_audio_decoder] [--multilingual]
 ```
 
 `--no_audio_decoder` is optional. If not provided, will use audio decoder in the preprocessing ops.
