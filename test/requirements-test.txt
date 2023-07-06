@@ -22,3 +22,4 @@ mlflow
 mlflow-skinny==2.3.2
 evaluate
 sentencepiece
+protobuf==3.20.3
