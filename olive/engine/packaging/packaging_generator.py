@@ -34,8 +34,11 @@ def generate_output_artifacts(
     if sum([len(f.nodes) if f.nodes else 0 for f in pf_footprints.values()]) == 0:
         logger.warning("No model is selected. Skip packaging output artifacts.")
         return
-    if packaging_config.type == PackagingType.Zipfile:
-        _generate_zipfile_output(packaging_config, footprints, pf_footprints, output_dir)
+    try:
+        if packaging_config.type == PackagingType.Zipfile:
+            _generate_zipfile_output(packaging_config, footprints, pf_footprints, output_dir)
+    except Exception as e:
+        logger.exception(f"Failed to generate zipfile output artifacts: {e}")
 
 
 def _generate_zipfile_output(
@@ -119,9 +122,10 @@ def _package_candidate_models(
 
         # Copy metrics
         # TODO: Add target info to metrics file
-        metric_path = str(model_dir / "metrics.json")
-        with open(metric_path, "w") as f:
-            f.write(node.json())
+        if node.metrics:
+            metric_path = str(model_dir / "metrics.json")
+            with open(metric_path, "w") as f:
+                f.write(str(node.metrics.value))
 
 
 def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
