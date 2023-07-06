@@ -8,3 +8,6 @@ neural-compressor
 scipy
 scikit-learn
 transformers
+sentencepiece
+evaluate
+seqeval

@@ -25,11 +25,11 @@ def patch_config(config_json_path: str):
     # set default logger severity
     olive_config["engine"]["log_severity_level"] = 0
     # set clean cache
-    olive_config["engine"]["clean_cache"] = False
+    olive_config["engine"]["clean_cache"] = True
     return olive_config
 
 
-def extract_best_models(footprint):
+def extract_best_models(footprint, model_name):
     footprint = list(footprint.values())[0]
     metrics_of_interest = ["accuracy-accuracy", "latency-avg"]
     # gather the metrics from all pareto frontier nodes
@@ -49,17 +49,28 @@ def extract_best_models(footprint):
     # get best metrics
     # last one is the best
     best_metrics = sorted_metrics[0]
-    save_best_metrics(best_metrics)
+    print("Best metrics: ", best_metrics)
+    compared_metric = compare_metrics(best_metrics, model_name)
+    print("Compared metrics: ", compared_metric)
 
 
-def save_best_metrics(best_metrics):
+def no_regression(actual, expected, rel_tol):
+    if actual > expected:
+        return True
+    return abs(actual - expected) <= rel_tol * abs(expected)
+
+
+def compare_metrics(best_metrics, model_name):
     # open best metrics json
     with open("best_metrics.json") as f:
         data = json.load(f)
-        print(data[0], data[1])
+        model_data = data[model_name]
+        if len(model_data) == 0:
+            print("No data in best_metrics.json")
+            return {"accuracy": True, "latency": True}
+        print(model_data[0], model_data[1])
         print(best_metrics[0], best_metrics[1])
-        if best_metrics[0] > data[0] and best_metrics[1] < data[1]:
-            best_metrics = data
-    # save best metrics to json
-    with open("best_metrics.json", "w") as f:
-        json.dump(best_metrics, f)
+        return {
+            "accuracy": no_regression(best_metrics[0], model_data[0], 0.05),
+            "latency": no_regression(best_metrics[1], model_data[1], 0.05),
+        }
