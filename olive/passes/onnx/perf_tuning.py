@@ -33,7 +33,12 @@ def generate_tuning_combos(model, config):
     )
     opt_level_list = config.opt_level_list if config.opt_level_list else [99]
 
-    io_bind_list = [True, False] if config.io_bind else [False]
+    if config.enable_cuda_graph:
+        io_bind_list = [True]
+    elif config.io_bind:
+        io_bind_list = [True, False]
+    else:
+        io_bind_list = [False]
 
     tuning_combos = itertools.product(providers_list, execution_mode_list, opt_level_list, io_bind_list)
     yield from tuning_combos
@@ -112,6 +117,13 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
             (
                 "TensorrtExecutionProvider",
                 {"trt_fp16_enable": config.trt_fp16_enable},
+            )
+        ]
+    elif provider == "CUDAExecutionProvider":
+        test_params["execution_provider"] = [
+            (
+                "CUDAExecutionProvider",
+                {"enable_cuda_graph": config.enable_cuda_graph},
             )
         ]
     else:
@@ -279,6 +291,11 @@ class OrtPerfTuning(Pass):
                 type_=bool,
                 default_value=False,
                 description="Whether enable IOBinding Search for ONNX Runtime inference.",
+            ),
+            "enable_cuda_graph": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether enable CUDA Graph for CUDA execution provider.",
             ),
             "providers_list": PassConfigParam(
                 type_=list,
