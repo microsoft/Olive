@@ -1,0 +1,112 @@
+{
+    "verbose": true,
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "Jean-Baptiste/camembert-ner",
+                "task": "text-classification",
+                "dataset": {
+                    "data_name":"Jean-Baptiste/wikiner_fr",
+                    "split": "test",
+                    "input_cols": ["input_ids", "attention_mask"],
+                    "label_cols": ["label"],
+                    "batch_size": 1
+                }
+            }
+
+        }
+    },
+
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "backend": "huggingface_metrics",
+                    "sub_types": [
+                        {"name": "accuracy", "priority": 1}
+
+                    ]
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {"name": "avg", "priority": 2}
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "input_names": [
+                    "input_ids",
+                    "attention_mask"
+                ],
+                "input_shapes": [
+                    [
+                        1,
+                        128
+                    ],
+                    [
+                        1,
+                        128
+                    ]
+                ],
+                "input_types": [
+                    "int64",
+                    "int64"
+                ],
+                "output_names": [
+                    "output"
+                ],
+                "dynamic_axes": {
+                    "input_ids": {
+                        "0": "batch_size",
+                        "1": "seq_length"
+                    },
+                    "attention_mask": {
+                        "0": "batch_size",
+                        "1": "seq_length"
+                    }
+                },
+                "target_opset": 17
+            }
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "bert",
+                "num_heads": 12,
+                "hidden_size": 768,
+                "float16": false
+            }
+        },
+        "quantization": {
+            "type": "OnnxDynamicQuantization"
+        },
+        "perf_tuning": {
+            "type": "OrtPerfTuning"
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "tpe",
+            "search_algorithm_config": {
+                "num_samples": 5,
+                "seed": 0
+            }
+        },
+        "evaluator": "common_evaluator",
+        "execution_providers": ["CPUExecutionProvider"],
+        "clean_cache": false,
+        "cache_dir": "cache",
+        "output_dir" : "models/CamemBERT_workflow_cpu.json"
+    }
+}
