@@ -8,6 +8,7 @@ dependencies:
       - onnxruntime-gpu
       - datasets
       - evaluate
+      - psutil
       - scipy
       - scikit-learn
       - transformers

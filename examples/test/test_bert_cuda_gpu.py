@@ -31,7 +31,5 @@ def test_bert(search_algorithm, execution_order, system, olive_json, enable_cuda
     olive_config = patch_config(olive_json, search_algorithm, execution_order, system, is_gpu=True)
     olive_config["passes"]["perf_tuning"]["config"]["enable_cuda_graph"] = enable_cuda_graph
 
-    update_azureml_config(olive_config)
-
     footprint = olive_run(olive_config)
     check_search_output(footprint)
