@@ -20,7 +20,7 @@ jobs:
       versionSpec: 3.8
     displayName: Use Python 3.8
 
-  - script: make install-olive PIPELINE=True
+  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
     displayName: Install Olive
 
   - task: AzureCLI@1
@@ -87,19 +87,14 @@ jobs:
       versionSpec: 3.8
     displayName: Use Python 3.8
 
-  - script: make install-olive PIPELINE=True IS_GPU=variables.GPU
-    condition: eq(variables.GPU, False)
-    displayName: Install Olive
-
-  - script: make install-olive PIPELINE=True IS_GPU=variables.GPU
-    condition: eq(variables.GPU, True)
+  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
     displayName: Install Olive
 
   - task: AzureCLI@1
     inputs:
       azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
       scriptLocation: 'inlineScript'
-      inlineScript: make test-examples
+      inlineScript: make test-examples IS_GPU=variables.GPU
     displayName: Test Examples
     env:
       OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)

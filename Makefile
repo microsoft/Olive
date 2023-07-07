@@ -3,6 +3,7 @@ PIPELINE                   ?= False
 INSTALL_DEV_MODE           ?= False
 EXAMPLE_FOLDER             ?=
 EXAMPLE_NAME               ?=
+INSTALL_EXTRAS             ?=
 VERSION                    ?=
 IS_GPU                     ?= False
 ifeq ($(WINDOWS), True)

@@ -19,10 +19,10 @@ if "%PIPELINE%"=="True" (
 rem Install olive
 if "%INSTALL_DEV_MODE%"=="True" (
     call echo "Installing olive in dev mode"
-    call python -m pip install -e . || goto :error
+    call python -m pip install -e ".%INSTALL_EXTRAS%" || goto :error
 ) else (
     call echo "Installing olive"
-    call python -m pip install . || goto :error
+    call python -m pip install ".%INSTALL_EXTRAS%" || goto :error
 )
 
 goto :EOF

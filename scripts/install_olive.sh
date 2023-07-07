@@ -23,11 +23,11 @@ fi
 if [[ "$INSTALL_DEV_MODE" == "True" ]]; then
     echo "Installing olive in dev mode"
     set +u
-    python -m pip install -e .
+    python -m pip install -e .$INSTALL_EXTRAS
     set -u
 else
     echo "Installing olive"
     set +u
-    python -m pip install .
+    python -m pip install .$INSTALL_EXTRAS
     set -u
 fi
