@@ -61,7 +61,7 @@ def main(raw_args=None):
 
     # update model name
     template_json["input_model"]["config"]["hf_config"]["model_name"] = model_name
-    
+
     # set dataloader
     template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"]["dataloader_func"] = (
         "whisper_audio_decoder_dataloader" if not args.no_audio_decoder else "whisper_no_audio_decoder_dataloader"
@@ -104,7 +104,7 @@ def main(raw_args=None):
 
         # dump config
         json.dump(config, open(f"whisper_{device}_{precision}.json", "w"), indent=4)
-        
+
     # update user script
     user_script_path = Path(__file__).parent / "code" / "user_script.py"
     update_user_script(user_script_path, model_name)
@@ -124,8 +124,9 @@ def download_audio_test_data():
 
     return test_audio_path.relative_to(cur_dir)
 
+
 def update_user_script(file_path, model_name):
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         lines = file.readlines()
 
     new_lines = []
@@ -134,8 +135,9 @@ def update_user_script(file_path, model_name):
             line = line.replace("<model_name>", model_name)
         new_lines.append(line)
 
-    with open(file_path, 'w') as file:
+    with open(file_path, "w") as file:
         file.writelines(new_lines)
+
 
 if __name__ == "__main__":
     main()
