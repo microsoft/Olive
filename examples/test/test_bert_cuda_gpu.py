@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 import pytest
-from utils import check_search_output, patch_config, update_azureml_config
+from utils import check_search_output, patch_config
 
 
 @pytest.fixture(scope="module", autouse=True)
