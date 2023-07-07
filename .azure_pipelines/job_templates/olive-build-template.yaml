@@ -8,7 +8,7 @@ parameters:
 jobs:
 - job: ${{parameters.name}}_Test_Olive
   timeoutInMinutes: 300
-  condition: eq('${{ parameters.gpu }}', 'False'))
+  condition: eq('${{ parameters.gpu }}', 'False')
   pool:
     name: ${{ parameters.pool}}
   variables:
