@@ -141,7 +141,7 @@ def run(config: Union[str, Path, dict], setup: bool = False):
     # engine
     engine = config.engine.create_engine()
 
-    if (config.passes is None or not config.passes) and (not config.engine.evaluation_only):
+    if (config.passes is None or not config.passes) and (not config.engine.evaluate_input_model):
         # TODO enhance this logic for more passes templates
         engine, config = automatically_insert_passes(config)
 
@@ -168,6 +168,6 @@ def run(config: Union[str, Path, dict], setup: bool = False):
             config.engine.packaging_config,
             config.engine.output_dir,
             config.engine.output_name,
-            config.engine.evaluation_only,
+            config.engine.evaluate_input_model,
         )
         return best_execution
