@@ -10,7 +10,7 @@ from whisper_encoder_decoder_init import WhisperEncoderDecoderInit, WhisperEncod
 
 
 def get_encoder_decoder_init():
-    model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny")
+    model = WhisperForConditionalGeneration.from_pretrained("<model_name>")
     return WhisperEncoderDecoderInit(
         model,
         model,

@@ -29,6 +29,7 @@ SUPPORTED_WORKFLOWS = {
 
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Prepare config file for Whisper")
+    parser.add_argument("--model_name", type=str, default="openai/whisper-tiny.en", help="Model name")
     parser.add_argument(
         "--no_audio_decoder",
         action="store_true",
@@ -54,9 +55,13 @@ def main(raw_args=None):
 
     # load template
     template_json = json.load(open("whisper_template.json", "r"))
+    model_name = args.model_name
 
-    whisper_config = WhisperConfig.from_pretrained(template_json["input_model"]["config"]["hf_config"]["model_name"])
+    whisper_config = WhisperConfig.from_pretrained(model_name)
 
+    # update model name
+    template_json["input_model"]["config"]["hf_config"]["model_name"] = model_name
+    
     # set dataloader
     template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"]["dataloader_func"] = (
         "whisper_audio_decoder_dataloader" if not args.no_audio_decoder else "whisper_no_audio_decoder_dataloader"
@@ -68,6 +73,9 @@ def main(raw_args=None):
 
     # update multi-lingual support
     template_json["passes"]["insert_beam_search"]["config"]["use_forced_decoder_ids"] = args.multilingual
+
+    # set model name in prepost
+    template_json["passes"]["prepost"]["config"]["tool_command_args"]["model_name"] = model_name
 
     # download audio test data
     test_audio_path = download_audio_test_data()
@@ -96,6 +104,10 @@ def main(raw_args=None):
 
         # dump config
         json.dump(config, open(f"whisper_{device}_{precision}.json", "w"), indent=4)
+        
+    # update user script
+    user_script_path = Path(__file__).parent / "code" / "user_script.py"
+    update_user_script(user_script_path, model_name)
 
 
 def download_audio_test_data():
@@ -112,6 +124,18 @@ def download_audio_test_data():
 
     return test_audio_path.relative_to(cur_dir)
 
+def update_user_script(file_path, model_name):
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+    new_lines = []
+    for line in lines:
+        if "<model_name>" in line:
+            line = line.replace("<model_name>", model_name)
+        new_lines.append(line)
+
+    with open(file_path, 'w') as file:
+        file.writelines(new_lines)
 
 if __name__ == "__main__":
     main()
