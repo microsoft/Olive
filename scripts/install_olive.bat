@@ -6,6 +6,7 @@ REM --------------------------------------------------------------------------
 
 set PIPELINE=%1
 set INSTALL_DEV_MODE=%2
+set INSTALL_EXTRAS=%3
 
 rem Create virtual environment
 if "%PIPELINE%"=="True" (

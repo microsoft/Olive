@@ -7,6 +7,7 @@ set -eoux pipefail
 
 PIPELINE=$1
 INSTALL_DEV_MODE=$2
+INSTALL_EXTRAS=$3
 
 # Create virtual environment
 if [[ "$PIPELINE" == "True" ]]; then

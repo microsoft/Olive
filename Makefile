@@ -34,7 +34,7 @@ overwrite-version:
 
 .PHONY: install-olive
 install-olive:
-	$(INSTALL_OLIVE_CMD) $(PIPELINE) $(INSTALL_DEV_MODE)
+	$(INSTALL_OLIVE_CMD) $(PIPELINE) $(INSTALL_DEV_MODE) $(INSTALL_EXTRAS)
 
 .PHONY: test
 test:
