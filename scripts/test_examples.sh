@@ -9,6 +9,7 @@ PIPELINE=$1
 ROOT_DIR=$2
 EXAMPLE_FOLDER=$3
 EXAMPLE_NAME=$4
+IS_GPU=$5
 
 echo $PIPELINE
 if [[ "$PIPELINE" == "True" ]]; then
@@ -23,5 +24,11 @@ python -m pip install pytest
 # test samples
 echo "Testing examples"
 python -m pip install -r $ROOT_DIR/examples/$EXAMPLE_FOLDER/requirements.txt
+
+echo $IS_GPU
+if [[ "$IS_GPU" == "True" ]]; then
+    python -m pip uninstall onnxruntime -y
+    python -m pip install onnxruntime-gpu
+fi
 
 python -m pytest -v -s --log-cli-level=WARNING --junitxml=$ROOT_DIR/logs/test_examples-TestOlive.xml $ROOT_DIR/examples/test/test_$EXAMPLE_NAME.py

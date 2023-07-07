@@ -3,8 +3,8 @@ PIPELINE                   ?= False
 INSTALL_DEV_MODE           ?= False
 EXAMPLE_FOLDER             ?=
 EXAMPLE_NAME               ?=
-INSTALL_EXTRAS             ?=
 VERSION                    ?=
+IS_GPU                     ?= False
 ifeq ($(WINDOWS), True)
 	CURRENT_DIR             = "$(subst /,\\,${CURDIR})"
 	MKDIR_LOG_CMD           = mkdir logs | exit 0
@@ -34,7 +34,7 @@ overwrite-version:
 
 .PHONY: install-olive
 install-olive:
-	$(INSTALL_OLIVE_CMD) $(PIPELINE) $(INSTALL_DEV_MODE) $(INSTALL_EXTRAS)
+	$(INSTALL_OLIVE_CMD) $(PIPELINE) $(INSTALL_DEV_MODE)
 
 .PHONY: test
 test:
@@ -43,7 +43,7 @@ test:
 .PHONY: test-examples
 test-examples: logs/
 test-examples:
-	$(TEST_EXAMPLES_CMD) $(PIPELINE) $(CURRENT_DIR) $(EXAMPLE_FOLDER) $(EXAMPLE_NAME)
+	$(TEST_EXAMPLES_CMD) $(PIPELINE) $(CURRENT_DIR) $(EXAMPLE_FOLDER) $(EXAMPLE_NAME) $(IS_GPU)
 
 .PHONY: clean
 clean:

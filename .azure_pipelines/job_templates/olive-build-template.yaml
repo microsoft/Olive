@@ -3,7 +3,7 @@
 parameters:
   name: ''
   pool: ''
-  gpu: false
+  gpu: False
 
 jobs:
 - job: ${{parameters.name}}_Test_Olive
@@ -20,7 +20,7 @@ jobs:
       versionSpec: 3.8
     displayName: Use Python 3.8
 
-  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
+  - script: make install-olive PIPELINE=True
     displayName: Install Olive
 
   - task: AzureCLI@1
@@ -87,12 +87,12 @@ jobs:
       versionSpec: 3.8
     displayName: Use Python 3.8
 
-  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
-    condition: eq(variables.GPU, false)
+  - script: make install-olive PIPELINE=True IS_GPU=variables.GPU
+    condition: eq(variables.GPU, False)
     displayName: Install Olive
 
-  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[gpu]
-    condition: eq(variables.GPU, true)
+  - script: make install-olive PIPELINE=True IS_GPU=variables.GPU
+    condition: eq(variables.GPU, True)
     displayName: Install Olive
 
   - task: AzureCLI@1

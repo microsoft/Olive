@@ -8,6 +8,7 @@ set PIPELINE=%1
 set ROOT_DIR=%2
 set EXAMPLE_FOLDER=%3
 set EXAMPLE_NAME=%4
+set IS_GPU=%5
 
 if "%PIPELINE%"=="True" (
     call olive-venv\\Scripts\\activate.bat || goto :error
@@ -22,6 +23,11 @@ call python -m pip install -r %ROOT_DIR%\\examples\\%EXAMPLE_FOLDER%\\requiremen
 
 call python -m pytest -v -s --log-cli-level=WARNING --junitxml=%ROOT_DIR%\\logs\\test_examples-TestOlive.xml^
  %ROOT_DIR%\\examples\\test\\test_%EXAMPLE_NAME%.py || goto :error
+
+if "%IS_GPU%"=="True" (
+    call python -m pip uninstall onnxruntime -y || goto :error
+    call python -m pip install onnxruntime-gpu || goto :error
+)
 
 goto :EOF
 

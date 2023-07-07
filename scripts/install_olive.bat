@@ -6,7 +6,6 @@ REM --------------------------------------------------------------------------
 
 set PIPELINE=%1
 set INSTALL_DEV_MODE=%2
-set INSTALL_EXTRAS=%3
 
 rem Create virtual environment
 if "%PIPELINE%"=="True" (
@@ -20,10 +19,10 @@ if "%PIPELINE%"=="True" (
 rem Install olive
 if "%INSTALL_DEV_MODE%"=="True" (
     call echo "Installing olive in dev mode"
-    call python -m pip install -e ".%INSTALL_EXTRAS%" || goto :error
+    call python -m pip install -e . || goto :error
 ) else (
     call echo "Installing olive"
-    call python -m pip install ".%INSTALL_EXTRAS%" || goto :error
+    call python -m pip install . || goto :error
 )
 
 goto :EOF
