@@ -94,7 +94,7 @@ jobs:
     inputs:
       azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
       scriptLocation: 'inlineScript'
-      inlineScript: make test-examples IS_GPU=variables.GPU
+      inlineScript: make test-examples IS_GPU=$(GPU)
     displayName: Test Examples
     env:
       OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
