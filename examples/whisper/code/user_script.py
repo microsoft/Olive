@@ -20,7 +20,7 @@ def get_encoder_decoder_init():
 
 
 def get_decoder():
-    model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny")
+    model = WhisperForConditionalGeneration.from_pretrained("<model_name>")
     return WhisperDecoder(model, model.config)
 
 
