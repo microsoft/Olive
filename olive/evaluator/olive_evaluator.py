@@ -580,14 +580,6 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         input_data, _ = next(iter(dataloader))
-        # filter out the input data that is not used in the model
-        io_config = model.get_io_config()
-        if isinstance(input_data, dict) and io_config:
-            input_names = io_config.get("input_names", {})
-            for k in list(input_data.keys()):
-                if k not in input_names:
-                    del input_data[k]
-
         device = PyTorchEvaluator._device_string_to_torch_device(device)
         if device:
             session.to(device)

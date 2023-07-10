@@ -6,10 +6,6 @@
             "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
             "hf_config": {
                 "model_class": "LlamaForCausalLM"
-            },
-            "io_config" : {
-                "input_names": ["input_ids", "attention_mask"],
-                "output_names": ["output"]
             }
         }
     },
