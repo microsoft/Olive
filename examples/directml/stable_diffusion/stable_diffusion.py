@@ -41,7 +41,7 @@ def run_inference_loop(
         passed_safety_checker = 0
 
         for image_index in range(batch_size):
-            if not result.nsfw_content_detected[image_index]:
+            if result.nsfw_content_detected is None or not result.nsfw_content_detected[image_index]:
                 passed_safety_checker += 1
                 if images_saved < num_images:
                     output_path = f"result_{images_saved}.png"
@@ -188,7 +188,16 @@ def optimize(
 
     model_info = dict()
 
-    for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
+    models_without_safety_checker = [
+        "stabilityai/stable-diffusion-2",
+    ]
+
+    submodel_names = ["text_encoder", "vae_encoder", "vae_decoder", "unet"]
+
+    if model_id not in models_without_safety_checker:
+        submodel_names.append("safety_checker")
+
+    for submodel_name in submodel_names:
         print(f"\nOptimizing {submodel_name}")
 
         olive_config = None
@@ -239,6 +248,12 @@ def optimize(
     # Save the unoptimized models in a directory structure that the diffusers library can load and run.
     # This is optional, and the optimized models can be used directly in a custom pipeline if desired.
     print("\nCreating ONNX pipeline...")
+
+    safety_checker = None
+
+    if model_id not in models_without_safety_checker:
+        safety_checker = OnnxRuntimeModel.from_pretrained(model_info["safety_checker"]["unoptimized"]["path"].parent)
+
     onnx_pipeline = OnnxStableDiffusionPipeline(
         vae_encoder=OnnxRuntimeModel.from_pretrained(model_info["vae_encoder"]["unoptimized"]["path"].parent),
         vae_decoder=OnnxRuntimeModel.from_pretrained(model_info["vae_decoder"]["unoptimized"]["path"].parent),
@@ -246,7 +261,7 @@ def optimize(
         tokenizer=pipeline.tokenizer,
         unet=OnnxRuntimeModel.from_pretrained(model_info["unet"]["unoptimized"]["path"].parent),
         scheduler=pipeline.scheduler,
-        safety_checker=OnnxRuntimeModel.from_pretrained(model_info["safety_checker"]["unoptimized"]["path"].parent),
+        safety_checker=safety_checker,
         feature_extractor=pipeline.feature_extractor,
         requires_safety_checker=True,
     )
@@ -257,7 +272,7 @@ def optimize(
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
     print("Copying optimized models...")
     shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))
-    for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
+    for submodel_name in submodel_names:
         src_path = model_info[submodel_name]["optimized"]["path"]
         dst_path = optimized_model_dir / submodel_name / "model.onnx"
         shutil.copyfile(src_path, dst_path)
