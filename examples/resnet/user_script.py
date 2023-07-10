@@ -69,7 +69,7 @@ def post_process(output):
 # -------------------------------------------------------------------------
 
 
-def create_dataloader(data_dir, batch_size):
+def create_dataloader(data_dir, batch_size, *args, **kwargs):
     cifar10_dataset = CIFAR10DataSet(data_dir)
     _, val_set = torch.utils.data.random_split(cifar10_dataset.val_dataset, [49000, 1000])
     benchmark_dataloader = DataLoader(PytorchResNetDataset(val_set), batch_size=batch_size, drop_last=True)
@@ -93,7 +93,7 @@ class ResnetCalibrationDataReader(CalibrationDataReader):
             return None
 
 
-def resnet_calibration_reader(data_dir, batch_size=16):
+def resnet_calibration_reader(data_dir, batch_size=16, *args, **kwargs):
     return ResnetCalibrationDataReader(data_dir, batch_size=batch_size)
 
 
@@ -156,7 +156,7 @@ def create_qat_config():
 # -------------------------------------------------------------------------
 
 
-def create_train_dataloader(data_dir, batchsize):
+def create_train_dataloader(data_dir, batchsize, *args, **kwargs):
     cifar10_dataset = CIFAR10DataSet()
     train_dataset, _ = torch.utils.data.random_split(cifar10_dataset.train_dataset, [40000, 10000])
     train_dataloader = DataLoader(PytorchResNetDataset(train_dataset), batch_size=batchsize, drop_last=True)

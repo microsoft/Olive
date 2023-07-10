@@ -146,7 +146,7 @@ def post_process(output):
 # -------------------------------------------------------------------------
 
 
-def create_dataloader(data_dir, batchsize):
+def create_dataloader(data_dir, batchsize, *args, **kwargs):
     bert_dataset = BertDataset("Intel/bert-base-uncased-mrpc")
     eval_dataloader = torch.utils.data.DataLoader(
         BertDatasetWrapper(bert_dataset.get_eval_dataset()), batch_size=batchsize, drop_last=True
@@ -182,7 +182,7 @@ class IncBertDataset:
         return input_dict, label
 
 
-def inc_glue_calibration_reader(data_dir, batch_size=1):
+def inc_glue_calibration_reader(data_dir, batch_size=1, *args, **kwargs):
     bert_dataset = BertDataset("Intel/bert-base-uncased-mrpc")
     bert_dataset = IncBertDataset(bert_dataset.get_eval_dataset())
     calib_dataloader = DefaultDataLoader(dataset=bert_dataset, batch_size=batch_size)

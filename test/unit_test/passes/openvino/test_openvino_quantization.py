@@ -110,7 +110,7 @@ def cifar10_dataset(data_dir):
     return CIFAR10(root=data_dir, train=False, transform=transform, download=True)
 
 
-def create_dataloader(data_dir, batchsize):
+def create_dataloader(data_dir, batchsize, *args, **kwargs):
     from addict import Dict
     from openvino.tools.pot.api import DataLoader
 

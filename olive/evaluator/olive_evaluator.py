@@ -134,7 +134,7 @@ class OliveEvaluator(ABC):
             # only do this if data_config or dataloader is not provided
             # priority: dataloader_func > data_config > user_config.input_names/input_shapes > model io_config
             metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)
-            dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric)
+            dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric, model)
 
             if metric.type == MetricType.ACCURACY:
                 metrics_res[metric.name] = self._evaluate_accuracy(
@@ -178,7 +178,7 @@ class OliveEvaluator(ABC):
         return metric
 
     @staticmethod
-    def get_user_config(metric: Metric):
+    def get_user_config(metric: Metric, model: OliveModel):
         user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
 
         post_processing_func = getattr(metric.user_config, "post_processing_func", None)
@@ -186,7 +186,10 @@ class OliveEvaluator(ABC):
 
         dataloader_func = getattr(metric.user_config, "dataloader_func", None)
         dataloader = user_module.call_object(
-            dataloader_func, get_local_path(metric.user_config.data_dir), metric.user_config.batch_size
+            dataloader_func,
+            get_local_path(metric.user_config.data_dir),
+            metric.user_config.batch_size,
+            model_framework=model.framework,
         )
 
         evaluate_func = getattr(metric.user_config, "evaluate_func", None)
@@ -355,7 +358,6 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         world_size = config["world_size"]
         inference_settings = config.get("inference_settings", {}) or {}
         metric = Metric.from_json(config["metric"])
-        dataloader, _, post_func = OnnxEvaluator.get_user_config(metric)
 
         import os
 
@@ -371,6 +373,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
 
         model = ONNXModel(model_path, inference_settings=inference_settings)
+        dataloader, _, post_func = OnnxEvaluator.get_user_config(metric, model)
+
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
         io_config = model.get_io_config()
 
@@ -423,7 +427,6 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         world_size = config["world_size"]
         inference_settings = config.get("inference_settings", {}) or {}
         metric = Metric.from_json(config["metric"])
-        dataloader, _, _ = OnnxEvaluator.get_user_config(metric)
 
         import os
 
@@ -439,6 +442,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
 
         model = ONNXModel(model_path, inference_settings=inference_settings)
+        dataloader, _, _ = OnnxEvaluator.get_user_config(metric, model)
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
         io_config = model.get_io_config()
 

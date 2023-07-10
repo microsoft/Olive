@@ -19,5 +19,5 @@ class DataLoader:
         return input_data, label
 
 
-def create_dataloader(data_dir, batchsize):
+def create_dataloader(data_dir, batchsize, *args, **kwargs):
     return DataLoader(batchsize)
