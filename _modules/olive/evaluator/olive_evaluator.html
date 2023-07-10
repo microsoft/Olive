@@ -251,7 +251,7 @@
             <span class="c1"># only do this if data_config or dataloader is not provided</span>
             <span class="c1"># priority: dataloader_func &gt; data_config &gt; user_config.input_names/input_shapes &gt; model io_config</span>
             <span class="n">metric</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">generate_metric_user_config_with_model_io</span><span class="p">(</span><span class="n">original_metric</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
-            <span class="n">dataloader</span><span class="p">,</span> <span class="n">eval_func</span><span class="p">,</span> <span class="n">post_func</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
+            <span class="n">dataloader</span><span class="p">,</span> <span class="n">eval_func</span><span class="p">,</span> <span class="n">post_func</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">ACCURACY</span><span class="p">:</span>
                 <span class="n">metrics_res</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_accuracy</span><span class="p">(</span>
@@ -295,7 +295,7 @@
         <span class="k">return</span> <span class="n">metric</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">):</span>
         <span class="n">user_module</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">user_script</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
 
         <span class="n">post_processing_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;post_processing_func&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -303,7 +303,10 @@
 
         <span class="n">dataloader_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;dataloader_func&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">dataloader</span> <span class="o">=</span> <span class="n">user_module</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span>
-            <span class="n">dataloader_func</span><span class="p">,</span> <span class="n">get_local_path</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">data_dir</span><span class="p">),</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">batch_size</span>
+            <span class="n">dataloader_func</span><span class="p">,</span>
+            <span class="n">get_local_path</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">data_dir</span><span class="p">),</span>
+            <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">batch_size</span><span class="p">,</span>
+            <span class="n">model_framework</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">framework</span><span class="p">,</span>
         <span class="p">)</span>
 
         <span class="n">evaluate_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;evaluate_func&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -472,7 +475,6 @@
         <span class="n">world_size</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;world_size&quot;</span><span class="p">]</span>
         <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;inference_settings&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;metric&quot;</span><span class="p">])</span>
-        <span class="n">dataloader</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">post_func</span> <span class="o">=</span> <span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
 
         <span class="kn">import</span> <span class="nn">os</span>
 
@@ -488,6 +490,8 @@
         <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;provider_options&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;device_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">local_rank</span><span class="p">)},</span> <span class="p">{}]</span>
 
         <span class="n">model</span> <span class="o">=</span> <span class="n">ONNXModel</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">inference_settings</span><span class="o">=</span><span class="n">inference_settings</span><span class="p">)</span>
+        <span class="n">dataloader</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">post_func</span> <span class="o">=</span> <span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+
         <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span><span class="n">inference_settings</span><span class="o">=</span><span class="n">inference_settings</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">local_rank</span><span class="p">))</span>
         <span class="n">io_config</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_io_config</span><span class="p">()</span>
 
@@ -540,7 +544,6 @@
         <span class="n">world_size</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;world_size&quot;</span><span class="p">]</span>
         <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;inference_settings&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="n">metric</span> <span class="o">=</span> <span class="n">Metric</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;metric&quot;</span><span class="p">])</span>
-        <span class="n">dataloader</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
 
         <span class="kn">import</span> <span class="nn">os</span>
 
@@ -556,6 +559,7 @@
         <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;provider_options&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">&quot;device_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">local_rank</span><span class="p">)},</span> <span class="p">{}]</span>
 
         <span class="n">model</span> <span class="o">=</span> <span class="n">ONNXModel</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="n">inference_settings</span><span class="o">=</span><span class="n">inference_settings</span><span class="p">)</span>
+        <span class="n">dataloader</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">OnnxEvaluator</span><span class="o">.</span><span class="n">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
         <span class="n">session</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">prepare_session</span><span class="p">(</span><span class="n">inference_settings</span><span class="o">=</span><span class="n">inference_settings</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">local_rank</span><span class="p">))</span>
         <span class="n">io_config</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_io_config</span><span class="p">()</span>
 
