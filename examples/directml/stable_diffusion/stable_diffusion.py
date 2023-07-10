@@ -23,7 +23,7 @@ from olive.workflows import run as olive_run
 
 
 def run_inference_loop(
-    pipeline, prompt, num_images, batch_size, num_inference_steps, image_callback=None, step_callback=None
+    pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, image_callback=None, step_callback=None
 ):
     images_saved = 0
 
@@ -37,6 +37,8 @@ def run_inference_loop(
             [prompt] * batch_size,
             num_inference_steps=num_inference_steps,
             callback=update_steps if step_callback else None,
+            height=image_size,
+            width=image_size,
         )
         passed_safety_checker = 0
 
@@ -54,7 +56,7 @@ def run_inference_loop(
         print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
 
 
-def run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_steps):
+def run_inference_gui(pipeline, prompt, num_images, batch_size, image_size, num_inference_steps):
     def update_progress_bar(total_steps_completed):
         progress_bar["value"] = total_steps_completed
 
@@ -76,6 +78,7 @@ def run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_st
                 prompt_textbox.get(),
                 num_images,
                 batch_size,
+                image_size,
                 num_inference_steps,
                 image_completed,
                 update_progress_bar,
@@ -86,7 +89,6 @@ def run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_st
         print("WARNING: interactive UI only supports displaying up to 9 images")
         num_images = 9
 
-    image_size = 512
     image_rows = 1 + (num_images - 1) // 3
     image_cols = 2 if num_images == 4 else min(num_images, 3)
     min_batches_required = 1 + (num_images - 1) // batch_size
@@ -127,7 +129,9 @@ def run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_st
     window.mainloop()
 
 
-def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_inference_steps, static_dims, interactive):
+def run_inference(
+    optimized_model_dir, prompt, num_images, batch_size, image_size, num_inference_steps, static_dims, interactive
+):
     ort.set_default_logger_severity(3)
 
     print("Loading models into ORT session...")
@@ -140,8 +144,8 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
         # https://github.com/huggingface/diffusers/blob/46c52f9b9607e6ecb29c782c052aea313e6487b7/src/diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion.py#L672
         sess_options.add_free_dimension_override_by_name("unet_sample_batch", batch_size * 2)
         sess_options.add_free_dimension_override_by_name("unet_sample_channels", 4)
-        sess_options.add_free_dimension_override_by_name("unet_sample_height", 64)
-        sess_options.add_free_dimension_override_by_name("unet_sample_width", 64)
+        sess_options.add_free_dimension_override_by_name("unet_sample_height", image_size // 8)
+        sess_options.add_free_dimension_override_by_name("unet_sample_width", image_size // 8)
         sess_options.add_free_dimension_override_by_name("unet_time_batch", 1)
         sess_options.add_free_dimension_override_by_name("unet_hidden_batch", batch_size * 2)
         sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
@@ -151,13 +155,14 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
     )
 
     if interactive:
-        run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_steps)
+        run_inference_gui(pipeline, prompt, num_images, batch_size, image_size, num_inference_steps)
     else:
-        run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps)
+        run_inference_loop(pipeline, prompt, num_images, batch_size, image_size, num_inference_steps)
 
 
 def optimize(
     model_id: str,
+    image_size: int,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
 ):
@@ -196,8 +201,6 @@ def optimize(
 
     if model_id not in models_without_safety_checker:
         submodel_names.append("safety_checker")
-
-    image_size = 768 if model_id == "stabilityai/stable-diffusion-2" else 512
 
     for submodel_name in submodel_names:
         print(f"\nOptimizing {submodel_name}")
@@ -340,11 +343,13 @@ if __name__ == "__main__":
     if args.clean_cache:
         shutil.rmtree(script_dir / "cache", ignore_errors=True)
 
+    image_size = 768 if args.model_id == "stabilityai/stable-diffusion-2" else 512
+
     if args.optimize or not optimized_model_dir.exists():
         # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            optimize(args.model_id, unoptimized_model_dir, optimized_model_dir)
+            optimize(args.model_id, image_size, unoptimized_model_dir, optimized_model_dir)
 
     if not args.optimize:
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
@@ -357,6 +362,7 @@ if __name__ == "__main__":
                 args.prompt,
                 args.num_images,
                 args.batch_size,
+                image_size,
                 args.num_inference_steps,
                 use_static_dims,
                 args.interactive,
