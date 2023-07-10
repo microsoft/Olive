@@ -1,11 +1,11 @@
 WINDOWS                    ?= False
 PIPELINE                   ?= False
 INSTALL_DEV_MODE           ?= False
+IS_GPU                     ?= False
 EXAMPLE_FOLDER             ?=
 EXAMPLE_NAME               ?=
 INSTALL_EXTRAS             ?=
 VERSION                    ?=
-IS_GPU                     ?= False
 ifeq ($(WINDOWS), True)
 	CURRENT_DIR             = "$(subst /,\\,${CURDIR})"
 	MKDIR_LOG_CMD           = mkdir logs | exit 0

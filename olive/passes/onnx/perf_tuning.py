@@ -18,7 +18,7 @@ from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 logger = logging.getLogger(__name__)
 
 
-def generate_tuning_combos(model, config):
+def generate_tuning_combos(config):
     import onnxruntime as ort
 
     providers_list = (
@@ -33,9 +33,7 @@ def generate_tuning_combos(model, config):
     )
     opt_level_list = config.opt_level_list if config.opt_level_list else [99]
 
-    if config.enable_cuda_graph:
-        io_bind_list = [True]
-    elif config.io_bind:
+    if config.io_bind:
         io_bind_list = [True, False]
     else:
         io_bind_list = [False]
@@ -44,7 +42,7 @@ def generate_tuning_combos(model, config):
     yield from tuning_combos
 
 
-def valid_config(tuning_combos):
+def valid_config(tuning_combos, config):
     # the order of combos: "provider", "execution_mode", "ort_opt_level", "io_bind"
 
     # Parallel execution mode does not support the CUDA Execution Provider.
@@ -54,6 +52,12 @@ def valid_config(tuning_combos):
     if tuning_combos[0] == "CPUExecutionProvider" and tuning_combos[3]:
         logger.info("[Skipped] Because EPs is CPUExecutionProvider, the io_bind should not be True")
         return False
+    if tuning_combos[0] != "CUDAExecutionProvider" and config.enable_cuda_graph:
+        logger.info("[Ignored] Because EPs is not CUDAExecutionProvider, the enable_cuda_graph is ignored")
+        return True
+    if tuning_combos[0] != "TensorrtExecutionProvider" and config.trt_fp16_enable:
+        logger.info("[Ignored] Because EPs is not TensorrtExecutionProvider, the trt_fp16_enable is ignored")
+        return True
     return True
 
 
@@ -80,10 +84,10 @@ def tune_onnx_model(model, config):
     pretuning_inference_result = get_benchmark(model, latency_metric, config)
 
     tuning_results = []
-    for tuning_combo in generate_tuning_combos(model, config):
+    for tuning_combo in generate_tuning_combos(config):
         tuning_item = ["provider", "execution_mode", "ort_opt_level", "io_bind"]
         logger.info("Run tuning for: {}".format(list(zip(tuning_item, tuning_combo))))
-        if not valid_config(tuning_combo):
+        if not valid_config(tuning_combo, config):
             continue
         tuning_results.extend(threads_num_tuning(model, latency_metric, config, tuning_combo))
 
@@ -112,6 +116,10 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
     io_bind = tuning_combo[3]
 
     test_params = dict()
+
+    # params starts with _ are not used in inference setting, we need add special handling for io_bind
+    test_params["_io_bind"] = io_bind
+
     if provider == "TensorrtExecutionProvider":
         test_params["execution_provider"] = [
             (
@@ -126,6 +134,8 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
                 {"enable_cuda_graph": config.enable_cuda_graph},
             )
         ]
+        if config.enable_cuda_graph:
+            test_params["_io_bind"] = True
     else:
         test_params["execution_provider"] = [(provider, dict())]
     test_params["session_options"] = {
@@ -133,8 +143,7 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
         "graph_optimization_level": ort_opt_level,
         "extra_session_config": config.extra_session_config,
     }
-    # params starts with _ are not used in inference setting, we need add special handling for io_bind
-    test_params["_io_bind"] = io_bind
+
     try:
         for inter in config.inter_thread_num_list:
             test_params["session_options"]["inter_op_num_threads"] = inter
