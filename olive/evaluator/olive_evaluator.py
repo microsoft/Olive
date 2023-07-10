@@ -577,8 +577,9 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
 
         input_data, _ = next(iter(dataloader))
         # filter out the input data that is not used in the model
-        if isinstance(input_data, dict):
-            input_names = model.get_io_config().get("input_names", {})
+        io_config = model.get_io_config()
+        if isinstance(input_data, dict) and io_config:
+            input_names = io_config.get("input_names", {})
             for k in list(input_data.keys()):
                 if k not in input_names:
                     del input_data[k]
