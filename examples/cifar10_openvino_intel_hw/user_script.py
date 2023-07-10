@@ -19,7 +19,7 @@ def post_process(result):
     return [np.argmax(result)]
 
 
-def create_dataloader(data_dir, batchsize):
+def create_dataloader(data_dir, batchsize, *args, **kwargs):
     dataset_config = {"data_source": data_dir}
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))]

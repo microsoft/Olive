@@ -89,12 +89,12 @@ def delete_onnx_model_files():
         os.remove(ONNX_MODEL_PATH)
 
 
-def create_dataloader(datadir, batchsize):
+def create_dataloader(datadir, batchsize, *args, **kwargs):
     dataloader = DataLoader(DummyDataset(1))
     return dataloader
 
 
-def create_fixed_dataloader(datadir, batchsize):
+def create_fixed_dataloader(datadir, batchsize, *args, **kwargs):
     dataloader = DataLoader(FixedDummyDataset(1))
     return dataloader
 

@@ -46,7 +46,7 @@ class MobileNetCalibrationDataReader(CalibrationDataReader):
         self.iter = None
 
 
-def evaluation_dataloader(data_dir, batch_size=1):
+def evaluation_dataloader(data_dir, batch_size=1, *args, **kwargs):
     dataset = MobileNetDataset(data_dir)
     return DataLoader(dataset, batch_size=batch_size)
 
@@ -55,5 +55,5 @@ def post_process(output):
     return output.argmax(axis=1)
 
 
-def mobilenet_calibration_reader(data_dir, batch_size=1):
+def mobilenet_calibration_reader(data_dir, batch_size=1, *args, **kwargs):
     return MobileNetCalibrationDataReader(data_dir, batch_size=batch_size)

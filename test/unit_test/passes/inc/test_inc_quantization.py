@@ -86,7 +86,7 @@ def get_onnx_model(tempdir):
     return onnx_model
 
 
-def create_dataloader(data_dir, batchsize):
+def create_dataloader(data_dir, batchsize, *args, **kwargs):
     # import neural_compressor here to avoid hanging on Windows
     from neural_compressor.data import DefaultDataLoader
 

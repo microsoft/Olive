@@ -164,9 +164,9 @@ def decoder_dummy_inputs(model):
     return tuple(inputs.to_list())
 
 
-def whisper_audio_decoder_dataloader(data_dir, batch_size=None):
+def whisper_audio_decoder_dataloader(data_dir, batch_size=None, *args, **kwargs):
     return WhisperDataset(data_dir=data_dir, use_audio_decoder=True)
 
 
-def whisper_no_audio_decoder_dataloader(data_dir, batch_size=None):
+def whisper_no_audio_decoder_dataloader(data_dir, batch_size=None, *args, **kwargs):
     return WhisperDataset(data_dir=data_dir, use_audio_decoder=False)
