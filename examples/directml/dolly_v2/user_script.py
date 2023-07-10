@@ -40,5 +40,5 @@ def dolly_v2_inputs(batch_size, torch_dtype):
     return inputs
 
 
-def dolly_v2_data_loader(data_dir, batch_size):
+def dolly_v2_data_loader(data_dir, batch_size, *args, **kwargs):
     return RandomDataLoader(dolly_v2_inputs, batch_size, torch.float16)

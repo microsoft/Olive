@@ -134,7 +134,7 @@ def text_encoder_conversion_inputs(model):
     return text_encoder_inputs(1, torch.int32)
 
 
-def text_encoder_data_loader(data_dir, batchsize):
+def text_encoder_data_loader(data_dir, batchsize, *args, **kwargs):
     return RandomDataLoader(text_encoder_inputs, batchsize, torch.int32)
 
 
@@ -168,11 +168,11 @@ def unet_conversion_inputs_768(model):
     return tuple(unet_inputs(1, torch.float32, 768).values())
 
 
-def unet_data_loader_512(data_dir, batchsize):
+def unet_data_loader_512(data_dir, batchsize, *args, **kwargs):
     return RandomDataLoaderImageSize(unet_inputs, batchsize, torch.float16, 512)
 
 
-def unet_data_loader_768(data_dir, batchsize):
+def unet_data_loader_768(data_dir, batchsize, *args, **kwargs):
     return RandomDataLoaderImageSize(unet_inputs, batchsize, torch.float16, 768)
 
 
@@ -203,11 +203,11 @@ def vae_encoder_conversion_inputs_768(model):
     return tuple(vae_encoder_inputs(1, torch.float32, 768).values())
 
 
-def vae_encoder_data_loader_512(data_dir, batchsize):
+def vae_encoder_data_loader_512(data_dir, batchsize, *args, **kwargs):
     return RandomDataLoaderImageSize(vae_encoder_inputs, batchsize, torch.float16, 512)
 
 
-def vae_encoder_data_loader_768(data_dir, batchsize):
+def vae_encoder_data_loader_768(data_dir, batchsize, *args, **kwargs):
     return RandomDataLoaderImageSize(vae_encoder_inputs, batchsize, torch.float16, 768)
 
 
@@ -234,7 +234,7 @@ def vae_decoder_conversion_inputs(model):
     return tuple(vae_decoder_inputs(1, torch.float32).values())
 
 
-def vae_decoder_data_loader(data_dir, batchsize):
+def vae_decoder_data_loader(data_dir, batchsize, *args, **kwargs):
     return RandomDataLoader(vae_decoder_inputs, batchsize, torch.float16)
 
 
@@ -261,5 +261,5 @@ def safety_checker_conversion_inputs(model):
     return tuple(safety_checker_inputs(1, torch.float32).values())
 
 
-def safety_checker_data_loader(data_dir, batchsize):
+def safety_checker_data_loader(data_dir, batchsize, *args, **kwargs):
     return RandomDataLoader(safety_checker_inputs, batchsize, torch.float16)

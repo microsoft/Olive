@@ -100,7 +100,7 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         Evaluate the accuracy of the model.
         """
-        dataloader, post_func, _ = OliveEvaluator.get_user_config(metric)
+        dataloader, post_func, _ = OliveEvaluator.get_user_config(metric, model)
 
         preds = []
         targets = []
@@ -153,7 +153,7 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         Evaluate the latency of the model.
         """
-        dataloader, _, _ = OliveEvaluator.get_user_config(metric)
+        dataloader, _, _ = OliveEvaluator.get_user_config(metric, model)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
         latencies = []

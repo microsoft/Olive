@@ -11,7 +11,7 @@ def post_process(res):
     return res.argmax(1)
 
 
-def create_dataloader(data_dir, batch_size):
+def create_dataloader(data_dir, batch_size, *args, **kwargs):
     dataset = datasets.MNIST(data_dir, transform=ToTensor())
     return torch.utils.data.DataLoader(dataset, batch_size)
 
@@ -26,7 +26,7 @@ def hf_post_process(res):
     return preds
 
 
-def create_hf_dataloader(data_dir, batch_size):
+def create_hf_dataloader(data_dir, batch_size, *args, **kwargs):
     from datasets import load_dataset
     from torch.utils.data import Dataset
     from transformers import AutoTokenizer
