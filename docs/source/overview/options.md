@@ -224,7 +224,7 @@ information of the evaluator contains following items:
         - `batch_size: [int]` The batch size for the metric evaluation.
 
         - `dataloader_func: [str]` The name of the function provided by the user to load the data for the metric evaluation. The
-        function should take the `data_dir` and `batch_size` as input and return the data loader. Only valid for `accuracy` and `latency`
+        function should take the `data_dir`, `batch_size`, `*args`, `**kwargs` as input and return the data loader. Only valid for `accuracy` and `latency`
          type.
 
         - `inference_settings: [Dict]` Inference settings for the different runtime. Only valid for `accuracy` and `latency` type.

@@ -40,5 +40,5 @@ def dummy_inputs(batch_size, torch_dtype):
     return inputs
 
 
-def dataloader_func(data_dir, batch_size):
+def dataloader_func(data_dir, batch_size, *args, **kwargs):
     return RandomDataLoader(dummy_inputs, batch_size, torch.float16)
