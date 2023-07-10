@@ -80,7 +80,7 @@ You can use your own custom compenents functions for your model. You will need t
 #### Script example
 ```
 # my_script.py
-def get_dec_io_config():
+def get_dec_io_config(model_name: str):
     # return your io dict
     ...
 
