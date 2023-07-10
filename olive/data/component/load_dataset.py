@@ -8,12 +8,12 @@ from olive.data.registry import Registry
 
 
 @Registry.register_default_dataset()
-def local_dataset(data_dir=None, label_cols=None, **kwargs):
+def local_dataset(data_dir, label_cols=None, **kwargs):
     pass
 
 
 @Registry.register_dataset()
-def simple_dataset(input_data, label_cols=None, **kwargs):
+def simple_dataset(data_dir, input_data, label_cols=None, **kwargs):
     """
     This function is used to create a simple dataset from input data which can be:
     1. a text
@@ -23,7 +23,7 @@ def simple_dataset(input_data, label_cols=None, **kwargs):
 
 
 @Registry.register_dataset()
-def huggingface_dataset(data_name=None, subset=None, split="validation", **kwargs):
+def huggingface_dataset(data_dir, data_name=None, subset=None, split="validation", **kwargs):
     """
     This function is used to create a dataset from huggingface datasets
     """
@@ -38,7 +38,7 @@ def huggingface_dataset(data_name=None, subset=None, split="validation", **kwarg
 
 
 @Registry.register_dataset()
-def dummy_dataset(input_shapes, input_names=None, input_types=None):
+def dummy_dataset(data_dir, input_shapes, input_names=None, input_types=None):
     return DummyDataset(input_shapes, input_names, input_types)
 
 
