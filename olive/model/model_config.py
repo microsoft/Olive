@@ -72,4 +72,6 @@ class IOConfig(ConfigBase):
 def is_io_config_static(config: Union[IOConfig, Dict]):
     if isinstance(config, IOConfig):
         config = config.dict()
+    if not config["input_shapes"]:
+        return False
     return all(all(isinstance(dim, int) for dim in shape) for shape in config["input_shapes"])

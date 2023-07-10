@@ -3,7 +3,14 @@
         "type": "OptimumModel",
         "config": {
             "model_path": "openlm-research/open_llama_3b",
-            "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"]
+            "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
+            "hf_config": {
+                "model_class": "LlamaForCausalLM"
+            },
+            "io_config" : {
+                "input_names": ["input_ids", "attention_mask"],
+                "output_names": ["output"]
+            }
         }
     },
     "systems": {
@@ -20,7 +27,7 @@
                 {
                     "name": "latency",
                     "type": "latency",
-                    "sub_types": [{"name": "avg"}],
+                    "sub_types": [{"name": "avg", "goal": {"type": "percent-min-improvement", "value": 10}}],
                     "user_config": {
                         "user_script": "user_script.py",
                         "dataloader_func": "dataloader_func",
@@ -54,9 +61,7 @@
             }
         },
         "merge": {
-            "type": "OptimumMerging",
-            "config": {
-            }
+            "type": "OptimumMerging"
         }
     },
     "engine": {
