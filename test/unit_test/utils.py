@@ -160,7 +160,7 @@ def get_onnx_dynamic_quantization_pass(disable_search=False):
 
 def get_data_config():
     @Registry.register_dataset("test_dataset")
-    def _test_dataset(test_value):
+    def _test_dataset(data_dir, test_value):
         ...
 
     @Registry.register_dataloader()
