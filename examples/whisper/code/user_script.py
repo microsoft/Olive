@@ -9,8 +9,8 @@ from whisper_decoder import WhisperDecoder, WhisperDecoderInputs
 from whisper_encoder_decoder_init import WhisperEncoderDecoderInit, WhisperEncoderDecoderInitInputs
 
 
-def get_encoder_decoder_init():
-    model = WhisperForConditionalGeneration.from_pretrained("<model_name>")
+def get_encoder_decoder_init(model_name):
+    model = WhisperForConditionalGeneration.from_pretrained(model_name)
     return WhisperEncoderDecoderInit(
         model,
         model,
@@ -19,8 +19,8 @@ def get_encoder_decoder_init():
     )
 
 
-def get_decoder():
-    model = WhisperForConditionalGeneration.from_pretrained("<model_name>")
+def get_decoder(model_name):
+    model = WhisperForConditionalGeneration.from_pretrained(model_name)
     return WhisperDecoder(model, model.config)
 
 

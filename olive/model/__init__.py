@@ -635,7 +635,7 @@ class PyTorchModel(OliveModel):
         hf_component = components_dict[component_name]
 
         user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-        model_component = user_module_loader.call_object(hf_component.component_func)
+        model_component = user_module_loader.call_object(hf_component.component_func, self.hf_config.model_name)
 
         io_config = hf_component.io_config
         if isinstance(io_config, str):
