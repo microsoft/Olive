@@ -135,7 +135,7 @@ def unet_inputs(batchsize, torch_dtype):
     return {
         "sample": torch.rand((batchsize, 4, 64, 64), dtype=torch_dtype),
         "timestep": torch.rand((batchsize,), dtype=torch_dtype),
-        "encoder_hidden_states": torch.rand((batchsize, 77, 1024), dtype=torch_dtype),
+        "encoder_hidden_states": torch.rand((batchsize, 77, 768), dtype=torch_dtype),
         "return_dict": False,
     }
 
@@ -163,7 +163,7 @@ def unet_data_loader(data_dir, batchsize):
 
 def vae_encoder_inputs(batchsize, torch_dtype):
     return {
-        "sample": torch.rand((batchsize, 3, 768, 768), dtype=torch_dtype),
+        "sample": torch.rand((batchsize, 3, 512, 512), dtype=torch_dtype),
         "return_dict": False,
     }
 
@@ -218,7 +218,7 @@ def vae_decoder_data_loader(data_dir, batchsize):
 def safety_checker_inputs(batchsize, torch_dtype):
     return {
         "clip_input": torch.rand((batchsize, 3, 224, 224), dtype=torch_dtype),
-        "images": torch.rand((batchsize, 768, 768, 3), dtype=torch_dtype),
+        "images": torch.rand((batchsize, 512, 512, 3), dtype=torch_dtype),
     }
 
 
