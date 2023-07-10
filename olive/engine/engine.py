@@ -312,6 +312,9 @@ class Engine:
                         json.dump(results.to_json(), f, indent=4)
                     logger.info(f"Saved evaluation results of input model to {results_path}")
                     outputs[accelerator_spec] = results
+                    if not self.passes:
+                        logger.debug("No passes registered, return input model evaluation results.")
+                        return outputs
 
                 if self.no_search:
                     output = self.run_no_search(
