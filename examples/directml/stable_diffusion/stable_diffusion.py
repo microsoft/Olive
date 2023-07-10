@@ -197,12 +197,22 @@ def optimize(
     if model_id not in models_without_safety_checker:
         submodel_names.append("safety_checker")
 
+    image_size = 768 if model_id == "stabilityai/stable-diffusion-2" else 512
+
     for submodel_name in submodel_names:
         print(f"\nOptimizing {submodel_name}")
 
         olive_config = None
         with open(script_dir / f"config_{submodel_name}.json", "r") as fin:
             olive_config = json.load(fin)
+
+        if submodel_name in ("unet", "vae_encoder"):
+            olive_config["input_model"]["config"][
+                "dummy_inputs_func"
+            ] = f"{submodel_name}_conversion_inputs_{image_size}"
+            olive_config["evaluators"]["common_evaluator"]["metrics"][0]["user_config"][
+                "dataloader_func"
+            ] = f"{submodel_name}_data_loader_{image_size}"
 
         if submodel_name in ("unet", "text_encoder"):
             olive_config["input_model"]["config"]["model_path"] = model_id
@@ -280,7 +290,16 @@ def optimize(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_id", default="runwayml/stable-diffusion-v1-5", type=str)
+    parser.add_argument(
+        "--model_id",
+        default="runwayml/stable-diffusion-v1-5",
+        choices=(
+            "CompVis/stable-diffusion-v1-4",
+            "runwayml/stable-diffusion-v1-5",
+            "sayakpaul/sd-model-finetuned-lora-t4",
+            "stabilityai/stable-diffusion-2",
+        ),
+    )
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")

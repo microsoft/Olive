@@ -10,6 +10,18 @@ from transformers.models.clip.modeling_clip import CLIPTextModel
 
 
 # Helper latency-only dataloader that creates random tensors with no label
+class RandomDataLoaderImageSize:
+    def __init__(self, create_inputs_func, batchsize, torch_dtype, imagesize):
+        self.create_input_func = create_inputs_func
+        self.batchsize = batchsize
+        self.torch_dtype = torch_dtype
+        self.imagesize = imagesize
+
+    def __getitem__(self, idx):
+        label = None
+        return self.create_input_func(self.batchsize, self.torch_dtype, self.imagesize), label
+
+
 class RandomDataLoader:
     def __init__(self, create_inputs_func, batchsize, torch_dtype):
         self.create_input_func = create_inputs_func
@@ -131,11 +143,11 @@ def text_encoder_data_loader(data_dir, batchsize):
 # -----------------------------------------------------------------------------
 
 
-def unet_inputs(batchsize, torch_dtype):
+def unet_inputs(batchsize, torch_dtype, imagesize):
     return {
         "sample": torch.rand((batchsize, 4, 64, 64), dtype=torch_dtype),
         "timestep": torch.rand((batchsize,), dtype=torch_dtype),
-        "encoder_hidden_states": torch.rand((batchsize, 77, 768), dtype=torch_dtype),
+        "encoder_hidden_states": torch.rand((batchsize, 77, imagesize + 256), dtype=torch_dtype),
         "return_dict": False,
     }
 
@@ -148,12 +160,20 @@ def unet_load(model_name):
     return model
 
 
-def unet_conversion_inputs(model):
-    return tuple(unet_inputs(1, torch.float32).values())
+def unet_conversion_inputs_512(model):
+    return tuple(unet_inputs(1, torch.float32, 512).values())
 
 
-def unet_data_loader(data_dir, batchsize):
-    return RandomDataLoader(unet_inputs, batchsize, torch.float16)
+def unet_conversion_inputs_768(model):
+    return tuple(unet_inputs(1, torch.float32, 768).values())
+
+
+def unet_data_loader_512(data_dir, batchsize):
+    return RandomDataLoaderImageSize(unet_inputs, batchsize, torch.float16, 512)
+
+
+def unet_data_loader_768(data_dir, batchsize):
+    return RandomDataLoaderImageSize(unet_inputs, batchsize, torch.float16, 768)
 
 
 # -----------------------------------------------------------------------------
@@ -161,9 +181,9 @@ def unet_data_loader(data_dir, batchsize):
 # -----------------------------------------------------------------------------
 
 
-def vae_encoder_inputs(batchsize, torch_dtype):
+def vae_encoder_inputs(batchsize, torch_dtype, imagesize):
     return {
-        "sample": torch.rand((batchsize, 3, 512, 512), dtype=torch_dtype),
+        "sample": torch.rand((batchsize, 3, imagesize, imagesize), dtype=torch_dtype),
         "return_dict": False,
     }
 
@@ -175,12 +195,20 @@ def vae_encoder_load(model_name):
     return model
 
 
-def vae_encoder_conversion_inputs(model):
-    return tuple(vae_encoder_inputs(1, torch.float32).values())
+def vae_encoder_conversion_inputs_512(model):
+    return tuple(vae_encoder_inputs(1, torch.float32, 512).values())
 
 
-def vae_encoder_data_loader(data_dir, batchsize):
-    return RandomDataLoader(vae_encoder_inputs, batchsize, torch.float16)
+def vae_encoder_conversion_inputs_768(model):
+    return tuple(vae_encoder_inputs(1, torch.float32, 768).values())
+
+
+def vae_encoder_data_loader_512(data_dir, batchsize):
+    return RandomDataLoaderImageSize(vae_encoder_inputs, batchsize, torch.float16, 512)
+
+
+def vae_encoder_data_loader_768(data_dir, batchsize):
+    return RandomDataLoaderImageSize(vae_encoder_inputs, batchsize, torch.float16, 768)
 
 
 # -----------------------------------------------------------------------------

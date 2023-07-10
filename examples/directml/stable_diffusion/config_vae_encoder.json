@@ -10,7 +10,7 @@
                 "output_names": [ "latent_sample" ],
                 "dynamic_axes": { "sample": { "0": "batch", "1": "channels", "2": "height", "3": "width" } }
             },
-            "dummy_inputs_func": "vae_encoder_conversion_inputs"
+            "dummy_inputs_func": "vae_encoder_conversion_inputs_512"
         }
     },
     "systems": {
@@ -30,7 +30,7 @@
                     "sub_types": [{"name": "avg"}],
                     "user_config": {
                         "user_script": "user_script.py",
-                        "dataloader_func": "vae_encoder_data_loader",
+                        "dataloader_func": "vae_encoder_data_loader_512",
                         "batch_size": 1
                     }
                 }
