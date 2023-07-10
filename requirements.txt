@@ -3,7 +3,7 @@ onnx
 optuna
 pandas
 pydantic<2.0.0
-protobuf !=3.20.0, !=3.20.1
+protobuf<4.0.0
 pyyaml
 torch
 torchmetrics>=0.7.0, <0.10.1
