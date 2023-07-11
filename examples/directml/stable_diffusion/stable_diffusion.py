@@ -11,6 +11,7 @@ import tkinter.ttk as ttk
 import warnings
 from pathlib import Path
 
+import config
 import onnxruntime as ort
 import torch
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffusionPipeline
@@ -162,7 +163,6 @@ def run_inference(
 
 def optimize(
     model_id: str,
-    image_size: int,
     unoptimized_model_dir: Path,
     optimized_model_dir: Path,
 ):
@@ -193,13 +193,9 @@ def optimize(
 
     model_info = dict()
 
-    models_without_safety_checker = [
-        "stabilityai/stable-diffusion-2",
-    ]
-
     submodel_names = ["text_encoder", "vae_encoder", "vae_decoder", "unet"]
 
-    if model_id not in models_without_safety_checker:
+    if pipeline.safety_checker is not None:
         submodel_names.append("safety_checker")
 
     for submodel_name in submodel_names:
@@ -208,14 +204,6 @@ def optimize(
         olive_config = None
         with open(script_dir / f"config_{submodel_name}.json", "r") as fin:
             olive_config = json.load(fin)
-
-        if submodel_name in ("unet", "vae_encoder"):
-            olive_config["input_model"]["config"][
-                "dummy_inputs_func"
-            ] = f"{submodel_name}_conversion_inputs_{image_size}"
-            olive_config["evaluators"]["common_evaluator"]["metrics"][0]["user_config"][
-                "dataloader_func"
-            ] = f"{submodel_name}_data_loader_{image_size}"
 
         if submodel_name in ("unet", "text_encoder"):
             olive_config["input_model"]["config"]["model_path"] = model_id
@@ -262,10 +250,10 @@ def optimize(
     # This is optional, and the optimized models can be used directly in a custom pipeline if desired.
     print("\nCreating ONNX pipeline...")
 
-    safety_checker = None
-
-    if model_id not in models_without_safety_checker:
+    if pipeline.safety_checker is not None:
         safety_checker = OnnxRuntimeModel.from_pretrained(model_info["safety_checker"]["unoptimized"]["path"].parent)
+    else:
+        safety_checker = None
 
     onnx_pipeline = OnnxStableDiffusionPipeline(
         vae_encoder=OnnxRuntimeModel.from_pretrained(model_info["vae_encoder"]["unoptimized"]["path"].parent),
@@ -293,16 +281,7 @@ def optimize(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--model_id",
-        default="runwayml/stable-diffusion-v1-5",
-        choices=(
-            "CompVis/stable-diffusion-v1-4",
-            "runwayml/stable-diffusion-v1-5",
-            "sayakpaul/sd-model-finetuned-lora-t4",
-            "stabilityai/stable-diffusion-2",
-        ),
-    )
+    parser.add_argument("--model_id", default="runwayml/stable-diffusion-v1-5", type=str)
     parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
     parser.add_argument("--clean_cache", action="store_true", help="Deletes the Olive cache")
@@ -332,6 +311,22 @@ if __name__ == "__main__":
             "Use --dynamic_dims to disable static shape optimization."
         )
 
+    model_to_image_size = {
+        "CompVis/stable-diffusion-v1-4": 512,
+        "runwayml/stable-diffusion-v1-5": 512,
+        "sayakpaul/sd-model-finetuned-lora-t4": 512,
+        "stabilityai/stable-diffusion-2": 768,
+        "stabilityai/stable-diffusion-2-base": 768,
+        "stabilityai/stable-diffusion-2-1": 768,
+        "stabilityai/stable-diffusion-2-1-base": 768,
+    }
+
+    if args.model_id not in list(model_to_image_size.keys()):
+        print(
+            f"WARNING: {args.model_id} is not an officially supported model for this example and may not work as "
+            + "expected."
+        )
+
     if version.parse(ort.__version__) < version.parse("1.15.0"):
         print("This script requires onnxruntime-directml 1.15.0 or newer")
         exit(1)
@@ -343,13 +338,13 @@ if __name__ == "__main__":
     if args.clean_cache:
         shutil.rmtree(script_dir / "cache", ignore_errors=True)
 
-    image_size = 768 if args.model_id == "stabilityai/stable-diffusion-2" else 512
+    config.image_size = model_to_image_size.get(args.model_id, 512)
 
     if args.optimize or not optimized_model_dir.exists():
         # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            optimize(args.model_id, image_size, unoptimized_model_dir, optimized_model_dir)
+            optimize(args.model_id, unoptimized_model_dir, optimized_model_dir)
 
     if not args.optimize:
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
@@ -362,7 +357,7 @@ if __name__ == "__main__":
                 args.prompt,
                 args.num_images,
                 args.batch_size,
-                image_size,
+                config.image_size,
                 args.num_inference_steps,
                 use_static_dims,
                 args.interactive,

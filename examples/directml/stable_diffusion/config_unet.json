@@ -14,7 +14,7 @@
                     "encoder_hidden_states": {"0": "unet_hidden_batch", "1": "unet_hidden_sequence"}
                 }
             },
-            "dummy_inputs_func": "unet_conversion_inputs_512"
+            "dummy_inputs_func": "unet_conversion_inputs"
         }
     },
     "systems": {
@@ -34,7 +34,7 @@
                     "sub_types": [{"name": "avg"}],
                     "user_config": {
                         "user_script": "user_script.py",
-                        "dataloader_func": "unet_data_loader_512",
+                        "dataloader_func": "unet_data_loader",
                         "batch_size": 2
                     }
                 }
