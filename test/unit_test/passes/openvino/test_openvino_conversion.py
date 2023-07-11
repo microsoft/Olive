@@ -23,7 +23,7 @@ def test_openvino_conversion_pass():
         output_folder = str(Path(tempdir) / "openvino")
 
         # execute
-        openvino_model = local_system.run_pass(p, input_model, output_folder)
+        openvino_model = local_system.run_pass(p, input_model, None, output_folder)
 
         # assert
         assert Path(openvino_model.model_path).exists()
@@ -44,7 +44,7 @@ def test_openvino_conversion_pass_no_example_input():
         output_folder = str(Path(tempdir) / "openvino")
 
         # execute
-        openvino_model = local_system.run_pass(p, input_model, output_folder)
+        openvino_model = local_system.run_pass(p, input_model, None, output_folder)
 
         # assert
         assert Path(openvino_model.model_path).exists()

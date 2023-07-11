@@ -52,7 +52,7 @@ class TestDockerEvaluation:
     def test_evaluate_model(self, model_cls, model_config, metric, expected_res):
         docker_target = get_docker_target()
         olive_model = model_cls(**model_config)
-        actual_res = docker_target.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
+        actual_res = docker_target.evaluate_model(olive_model, None, [metric], DEFAULT_CPU_ACCELERATOR)
         for sub_type in metric.sub_types:
             joint_key = joint_metric_key(metric.name, sub_type.name)
             assert actual_res[joint_key].value >= expected_res

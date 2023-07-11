@@ -21,7 +21,7 @@ def test_pre_post_processing_op():
         output_folder = str(Path(tempdir) / "onnx")
 
         # execute
-        local_system.run_pass(p, input_model, output_folder)
+        local_system.run_pass(p, input_model, None, output_folder)
 
 
 def get_superresolution_model(tempdir, local_system):
@@ -82,6 +82,6 @@ def get_superresolution_model(tempdir, local_system):
         },
     )
     onnx_conversion_pass = create_pass_from_dict(OnnxConversion, {"target_opset": 15}, disable_search=True)
-    onnx_model = local_system.run_pass(onnx_conversion_pass, pytorch_model, str(Path(tempdir) / "onnx"))
+    onnx_model = local_system.run_pass(onnx_conversion_pass, pytorch_model, None, str(Path(tempdir) / "onnx"))
 
     return onnx_model

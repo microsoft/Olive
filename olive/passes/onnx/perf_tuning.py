@@ -12,7 +12,7 @@ from olive.evaluator.metric_config import get_user_config_properties_from_metric
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ def valid_config(tuning_combos, config):
     return True
 
 
-def tune_onnx_model(model, config):
+def tune_onnx_model(model, data_root, config):
     latency_user_config = {}
     # which should be the same as the config in the metric
     config_dict = config.dict()
@@ -81,7 +81,7 @@ def tune_onnx_model(model, config):
     }
     latency_metric = Metric(**latency_metric_config)
 
-    pretuning_inference_result = get_benchmark(model, latency_metric, config)
+    pretuning_inference_result = get_benchmark(model, data_root, latency_metric, config)
 
     tuning_results = []
     for tuning_combo in generate_tuning_combos(config):
@@ -226,7 +226,7 @@ def generate_test_name(test_params):
     return test_name
 
 
-def get_benchmark(model, latency_metric, config, test_params=None):
+def get_benchmark(model, data_root, latency_metric, config, test_params=None):
     from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 
     test_result = {}
@@ -247,9 +247,9 @@ def get_benchmark(model, latency_metric, config, test_params=None):
         test_params["_io_bind"] = io_bind
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
     joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
-    test_result["latency_ms"] = evaluator.evaluate(model, [latency_metric], config.device, config.providers_list)[
-        joint_key
-    ].value
+    test_result["latency_ms"] = evaluator.evaluate(
+        model, data_root, [latency_metric], config.device, config.providers_list
+    )[joint_key].value
     return test_result
 
 
@@ -273,11 +273,13 @@ class OrtPerfTuning(Pass):
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
-                type_=OLIVE_RESOURCE_ANNOTATIONS, is_path=True, description="Directory of sample inference data."
+                type_=OLIVE_RESOURCE_ANNOTATIONS,
+                category=ParamCategory.DATA,
+                description="Directory of sample inference data.",
             ),
             "dataloader_func": PassConfigParam(
                 type_=Union[Callable, str],
-                is_object=True,
+                category=ParamCategory.OBJECT,
                 description="Dataloader function to load data from given data_dir with given batch size.",
             ),
             "batch_size": PassConfigParam(type_=int, description="Batch size for inference."),
@@ -333,7 +335,9 @@ class OrtPerfTuning(Pass):
             ),
         }
 
-    def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+    def _run_for_config(
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModel:
         if not config.get("providers_list"):
             # add the provider to the config if user doesn't provide the execution providers
             config["providers_list"] = [self._accelerator_spec.execution_provider]
@@ -345,4 +349,4 @@ class OrtPerfTuning(Pass):
         # TODO: decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model
         # otherwise save or symlink the original model to the output_model_path
-        return tune_onnx_model(model, config)
+        return tune_onnx_model(model, data_root, config)

@@ -165,6 +165,25 @@ def get_local_path(resource_path: Optional[ResourcePath], cache_dir: Union[str, 
         return download_resource(resource_path, cache_dir).get_path()
 
 
+def normalize_data_path(data_root: Union[str, Path], data_dir: Union[str, Path]):
+    """
+    Normalize data path, if data_dir is absolute path, return data_dir, else return data_root/data_dir
+    """
+    if not data_dir:
+        return data_root
+    elif Path(data_dir).is_absolute():
+        return data_dir
+    else:
+        if data_root:
+            assert Path(data_dir).is_relative(), f"data_dir {data_dir} should be relative path"
+
+            data_dir = Path(data_root) / data_dir
+            data_dir = data_dir.resolve()
+            return data_dir
+        else:
+            return data_dir
+
+
 def save_model(
     model_number: str,
     output_dir: Union[str, Path] = None,

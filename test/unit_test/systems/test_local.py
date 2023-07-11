@@ -25,7 +25,7 @@ class TestLocalSystem:
         output_model_path = "output_model_path"
 
         # execute
-        self.system.run_pass(p, olive_model, output_model_path)
+        self.system.run_pass(p, olive_model, None, output_model_path)
 
         # assert
         p.run.called_once_with(olive_model, output_model_path, None)
@@ -78,7 +78,7 @@ class TestLocalSystem:
         mock_get_user_config.return_value = (None, None, None)
 
         # execute
-        actual_res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
+        actual_res = self.system.evaluate_model(olive_model, None, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
         if metric.type == MetricType.ACCURACY:

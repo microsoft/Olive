@@ -2,11 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from pathlib import Path
 from typing import ClassVar, Optional
 
 from pydantic import BaseModel
 
+from olive.cache import normalize_data_path
 from olive.data.component.dataloader import default_calibration_dataloader
 from olive.data.config import DataConfig, DefaultDataComponentCombos
 from olive.data.constants import DataContainerType, DefaultDataContainer
@@ -38,15 +38,8 @@ class DataContainer(BaseModel):
         Run load dataset
         """
         params_config = self.config.load_dataset_params
-        _data_dir = params_config.get("data_dir")
-        if not _data_dir:
-            data_dir = data_root_path
-        elif Path(_data_dir).is_absolute():
-            data_dir = _data_dir
-        elif Path(_data_dir).is_relative():
-            data_dir = Path(data_root_path) / _data_dir
-            data_dir = data_dir.resolve()
-        params_config["data_dir"] = data_dir
+        data_dir = params_config.get("data_dir")
+        params_config["data_dir"] = normalize_data_path(data_root_path, data_dir)
         return self.config.load_dataset(**params_config)
 
     def pre_process(self, dataset):

@@ -5,10 +5,11 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Union
 
+from olive.cache import normalize_data_path
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModel
 from olive.passes import Pass
-from olive.passes.olive_pass import PassConfigParam
+from olive.passes.olive_pass import ParamCategory, PassConfigParam
 
 
 class QuantizationAwareTraining(Pass):
@@ -26,21 +27,27 @@ class QuantizationAwareTraining(Pass):
         else:
             from pytorch_lightning.loggers import LightningLoggerBase as Logger
         return {
-            "train_data_dir": PassConfigParam(type_=str, description="Directory of training data."),
-            "val_data_dir": PassConfigParam(type_=str, description="Directory of validation data."),
+            "train_data_dir": PassConfigParam(
+                type_=str, description="Directory of training data.", category=ParamCategory.DATA
+            ),
+            "val_data_dir": PassConfigParam(
+                type_=str, description="Directory of validation data.", category=ParamCategory.DATA
+            ),
             "train_dataloader_func": PassConfigParam(
                 type_=Union[Callable, str],
-                is_object=True,
+                category=ParamCategory.OBJECT,
                 description=(
                     "Dataloader function to load training data from given train_data_dir with given train_batch_size."
                 ),
             ),
             "training_loop_func": PassConfigParam(
-                type_=Union[Callable, str], is_object=True, description="Customized training loop function."
+                type_=Union[Callable, str],
+                ategory=ParamCategory.OBJECT,
+                description="Customized training loop function.",
             ),
             "ptl_module": PassConfigParam(
                 type_=Union[Callable, str],
-                is_object=True,
+                category=ParamCategory.OBJECT,
                 description=(
                     "LightningModule for PyTorch Lightning trainer. It is a way of encapsulating all the logic "
                     "related to the training, validation, and testing of a PyTorch model. Please refer to "
@@ -49,7 +56,7 @@ class QuantizationAwareTraining(Pass):
             ),
             "ptl_data_module": PassConfigParam(
                 type_=Union[Callable, str],
-                is_object=True,
+                category=ParamCategory.OBJECT,
                 description=(
                     "LightningDataModule for PyTorch Lightning trainer. It is a way of encapsulating all the "
                     "data-related logic for training, validation, and testing of a PyTorch model. Please refer to "
@@ -72,7 +79,7 @@ class QuantizationAwareTraining(Pass):
             "qconfig_func": PassConfigParam(
                 type_=Union[Callable, str],
                 default_value=None,
-                is_object=True,
+                category=ParamCategory.OBJECT,
                 description=(
                     "Customized function to create a QConfig for QAT. Please refer to "
                     "https://pytorch.org/docs/stable/generated/torch.ao.quantization.qconfig.QConfig.html for details."
@@ -82,7 +89,7 @@ class QuantizationAwareTraining(Pass):
                 type_=Union[Logger, Iterable[Logger], Callable, bool],
                 required=False,
                 default_value=False,
-                is_object=True,
+                category=ParamCategory.OBJECT,
                 description="Logger for training.",
             ),
             "gpus": PassConfigParam(type_=int, description="Number of GPUs to use."),
@@ -90,29 +97,30 @@ class QuantizationAwareTraining(Pass):
             "checkpoint_path": PassConfigParam(type_=str, default_value=None, description="Path to save checkpoints."),
         }
 
-    def _run_for_config(self, model: PyTorchModel, config: Dict[str, Any], output_model_path: str) -> PyTorchModel:
+    def _run_for_config(
+        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> PyTorchModel:
         from olive.passes.pytorch.qat_utils import QatTrainer
 
         qat_trainer_config = self._config_class(**config)
         if Path(output_model_path).suffix != ".pt":
             output_model_path += ".pt"
 
-        if self._fixed_params["train_dataloader_func"]:
+        if config["train_dataloader_func"]:
             qat_trainer_config.train_dataloader_func = self._user_module_loader.load_object(
-                self._fixed_params["train_dataloader_func"]
+                config["train_dataloader_func"]
             )
-        if self._fixed_params["training_loop_func"]:
-            qat_trainer_config.training_loop_func = self._user_module_loader.load_object(
-                self._fixed_params["training_loop_func"]
-            )
-        if self._fixed_params["ptl_module"]:
-            qat_trainer_config.ptl_module = self._user_module_loader.load_object(self._fixed_params["ptl_module"])
-        if self._fixed_params["ptl_data_module"]:
-            qat_trainer_config.ptl_data_module = self._user_module_loader.load_object(
-                self._fixed_params["ptl_data_module"]
-            )
-        if self._fixed_params["qconfig_func"]:
-            qat_trainer_config.qconfig_func = self._user_module_loader.load_object(self._fixed_params["qconfig_func"])
+        qat_trainer_config.train_data_dir = normalize_data_path(data_root, qat_trainer_config.train_data_dir)
+
+        if config["training_loop_func"]:
+            qat_trainer_config.training_loop_func = self._user_module_loader.load_object(config["training_loop_func"])
+        qat_trainer_config.val_data_dir = normalize_data_path(data_root, qat_trainer_config.val_data_dir)
+        if config["ptl_module"]:
+            qat_trainer_config.ptl_module = self._user_module_loader.load_object(config["ptl_module"])
+        if config["ptl_data_module"]:
+            qat_trainer_config.ptl_data_module = self._user_module_loader.load_object(config["ptl_data_module"])
+        if config["qconfig_func"]:
+            qat_trainer_config.qconfig_func = self._user_module_loader.load_object(config["qconfig_func"])
 
         qat_trainer = QatTrainer(model, qat_trainer_config, output_model_path)
         return qat_trainer.execute_local()

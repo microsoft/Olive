@@ -67,7 +67,7 @@ def test_openvino_quantization(data_source):
         output_folder = str(Path(tempdir) / "quantized")
 
         # execute
-        quantized_model = local_system.run_pass(p, ov_model, output_folder)
+        quantized_model = local_system.run_pass(p, ov_model, None, output_folder)
 
         # assert
         assert Path(quantized_model.model_path).exists()

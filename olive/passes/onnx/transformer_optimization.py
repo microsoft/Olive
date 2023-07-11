@@ -80,7 +80,9 @@ class OrtTransformersOptimization(Pass):
         fusion_options.__dict__.update(run_config["optimization_options"])
         run_config["optimization_options"] = fusion_options
 
-    def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+    def _run_for_config(
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModel:
         from onnxruntime.transformers import optimizer as transformers_optimizer
 
         # start with a copy of the config

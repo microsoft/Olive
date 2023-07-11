@@ -11,14 +11,14 @@ from typing import Any, Callable, Dict, Union
 import onnx
 from packaging import version
 
-from olive.cache import get_local_path
+from olive.cache import get_local_path, normalize_data_path
 from olive.common.utils import hash_string
 from olive.exception import OlivePassException
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional, ConditionalDefault
 
@@ -136,7 +136,7 @@ _extra_options_config = {
 _static_dataloader_config = {
     "data_dir": PassConfigParam(
         type_=OLIVE_RESOURCE_ANNOTATIONS,
-        is_path=True,
+        category=ParamCategory.DATA,
         description="""
             Path to the directory containing the dataset.
             For local data, it is required if quant_mode is 'static' and data_config is None.
@@ -153,7 +153,7 @@ _static_dataloader_config = {
     "dataloader_func": PassConfigParam(
         type_=Union[Callable, str],
         required=False,
-        is_object=True,
+        category=ParamCategory.OBJECT,
         description="""
             Function/function name to generate dataloader for calibration,
             required if quant_mode is 'static' and data_config is None.
@@ -289,7 +289,9 @@ class OnnxQuantization(Pass):
                 return False
         return True
 
-    def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+    def _run_for_config(
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModel:
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
         from onnxruntime.quantization.calibrate import CalibrationMethod
@@ -379,13 +381,14 @@ class OnnxQuantization(Pass):
             # get the dataloader
             # TODO: only use data config
             if config["dataloader_func"]:
+                data_dir = normalize_data_path(data_root, config["data_dir"])
                 dataloader = self._user_module_loader.call_object(
                     config["dataloader_func"],
-                    get_local_path(config["data_dir"]),
+                    get_local_path(data_dir),
                     config["batch_size"],
                 )
             elif self._data_config:
-                dataloader = self._data_config.to_data_container().create_calibration_dataloader()
+                dataloader = self._data_config.to_data_container().create_calibration_dataloader(data_root)
             try:
                 quantize_static(
                     model_input=model.model_path,

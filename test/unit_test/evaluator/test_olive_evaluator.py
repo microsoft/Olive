@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR
 from test.unit_test.utils import (
     get_accuracy_metric,
     get_custom_eval,
@@ -106,7 +107,7 @@ class TestOliveEvaluator:
             mock_acc.return_value = expected_res
 
             # execute
-            actual_res = evaluator.evaluate(olive_model, [metric])
+            actual_res = evaluator.evaluate(olive_model, None, [metric], DEFAULT_CPU_ACCELERATOR)
 
             # assert
             mock_acc.assert_called_once()
@@ -140,7 +141,7 @@ class TestOliveEvaluator:
     )
     def test_evaluate_latency(self, evaluator, olive_model, metric, expected_res):
         # execute
-        actual_res = evaluator.evaluate(olive_model, [metric])
+        actual_res = evaluator.evaluate(olive_model, None, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
         for sub_type in metric.sub_types:
@@ -194,7 +195,7 @@ class TestDistributedOnnxEvaluator:
         target = LocalSystem()
 
         # execute
-        actual_res = target.evaluate_model(model, metrics)
+        actual_res = target.evaluate_model(model, None, metrics, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         for sub_type in latency_metric.sub_types:

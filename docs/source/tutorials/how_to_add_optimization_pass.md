@@ -38,11 +38,11 @@ takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
 - `type_` : type of the parameter
 
 - `required` : whether the parameter is required
-
-- `is_object` : whether the parameter is an object/function. If so, this parameter accepts the object or a string with the
+- `category`: The param category. It could be the following values:
+    * `object` : whether the parameter is an object/function. If so, this parameter accepts the object or a string with the
     name of the object in the user script. The type must include `str`.
-
-- `is_path` : whether the parameter is a path. If so, this file/folder will be uploaded to the host system.
+    * `path` : whether the parameter is a path. If so, this file/folder will be uploaded to the host system.
+    * `data`: whether the parameter is a data path, which will be used to do data path normalization based on the data root.
 
 - `description` : description of the parameter
 
@@ -65,11 +65,11 @@ takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
             "param3": PassConfigParam(
                 type_=int, default_value=1, searchable_values=Categorical([1, 2, 3]), description="param3 description"
             ),
-            # optional parameter with `is_object` set to True
+            # optional parameter with `category` set to `object`
             # the value of this parameter can be a string or a function that takes a string and returns the object,
             # say a class ObjectClass
             "param4": PassConfigParam(
-                type_=Union[str, Callable[[str], Pass]], is_object=True, description="param4 description"
+                type_=Union[str, Callable[[str], Pass]], category=ParamCategory.OBJECT, description="param4 description"
             ),
             # optional parameter with default_value that depends on another parameter value
             "param5": PassConfigParam(
@@ -103,5 +103,5 @@ the search space created based on the options defined in `_default_config(accele
 with output path. The method should return a valid OliveModel which can be used as an input for the next Pass.
 
 ```python
-    def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+    def _run_for_config(self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
 ```

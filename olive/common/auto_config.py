@@ -25,7 +25,7 @@ class AutoConfigClass(ABC):
         def _default_config():
             return {
                 "str_param": ConfigParam(type_=str, required=True),
-                "func_param" ConfigParam(type_=Union[str, Callable], is_object=True)
+                "func_param" ConfigParam(type_=Union[str, Callable], category=ParamCategory.OBJECT)
             }
     The class dynamically creates its config class through the class method `get_config_class`.
     This config class has validates for types and also automatically validates object/func params

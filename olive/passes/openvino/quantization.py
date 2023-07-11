@@ -7,11 +7,11 @@ from typing import Any, Callable, Dict, List, Union
 
 import numpy as np
 
-from olive.cache import get_local_path
+from olive.cache import get_local_path, normalize_data_path
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OpenVINOModel
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 
@@ -38,7 +38,7 @@ class OpenVINOQuantization(Pass):
             "dataloader_func": PassConfigParam(
                 type_=Union[Callable, str],
                 required=False,
-                is_object=True,
+                category=ParamCategory.OBJECT,
                 description=(
                     "A callable function or a str of the function name from 'user_script'"
                     " for the instance of the dataloader."
@@ -46,14 +46,14 @@ class OpenVINOQuantization(Pass):
             ),
             "data_dir": PassConfigParam(
                 type_=OLIVE_RESOURCE_ANNOTATIONS,
-                is_path=True,
+                category=ParamCategory.DATA,
                 description="Dataset path. 'data_dir' can be by a str or Pathlib.Path.",
             ),
             "batch_size": PassConfigParam(type_=int, default_value=1, description="Batch size for the dataloader."),
             "metric_func": PassConfigParam(
                 type_=Union[Callable, str],
                 required=False,
-                is_object=True,
+                category=ParamCategory.OBJECT,
                 description=(
                     "A callable function or a str of the function name from 'user_script'"
                     " for Metric instance to calculate the accuracy metric of the model."
@@ -71,7 +71,9 @@ class OpenVINOQuantization(Pass):
             ),
         }
 
-    def _run_for_config(self, model: OpenVINOModel, config: Dict[str, Any], output_model_path: str) -> OpenVINOModel:
+    def _run_for_config(
+        self, model: OpenVINOModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> OpenVINOModel:
         try:
             from openvino.tools.pot import IEEngine, compress_model_weights, create_pipeline, save_model
         except ImportError:
@@ -81,11 +83,12 @@ class OpenVINOQuantization(Pass):
         model_name = "ov_model"
 
         if config["dataloader_func"]:
+            data_dir = normalize_data_path(data_root, config["data_dir"])
             data_loader = self._user_module_loader.call_object(
-                config["dataloader_func"], get_local_path(config["data_dir"]), config["batch_size"]
+                config["dataloader_func"], get_local_path(data_dir), config["batch_size"]
             )
         elif self._data_config:
-            common_dataloader = self._data_config.to_data_container().create_dataloader()
+            common_dataloader = self._data_config.to_data_container().create_dataloader(data_root)
             data_loader = self._create_dataloader(common_dataloader)
 
         metric = self._user_module_loader.load_object(config["metric_func"])

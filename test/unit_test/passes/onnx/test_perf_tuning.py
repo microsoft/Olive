@@ -24,7 +24,7 @@ def test_ort_perf_tuning_pass(config):
         output_folder = str(Path(tempdir) / "onnx")
 
         # execute
-        local_system.run_pass(p, input_model, output_folder)
+        local_system.run_pass(p, input_model, None, output_folder)
 
 
 @patch("olive.model.ONNXModel.get_io_config")
@@ -46,5 +46,5 @@ def test_ort_perf_tuning_pass_with_dynamic_shapes(mock_get_io_config):
 
         with pytest.raises(TypeError) as e:
             # execute
-            local_system.run_pass(p, input_model, output_folder)
+            local_system.run_pass(p, input_model, None, output_folder)
             assert "ones() received an invalid combination of arguments" in str(e.value)
