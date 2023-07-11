@@ -166,7 +166,7 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
             )
 
         if data_root is None:
-            data_root = config.engine.data_root
+            data_root = config.data_root
 
         # run
         best_execution = engine.run(

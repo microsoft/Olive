@@ -241,7 +241,7 @@ class AzureMLSystem(OliveSystem):
 
     def _create_pass_inputs(self, pass_path_params: List[Tuple[str, bool, ParamCategory]]):
         inputs = {"pass_config": Input(type=AssetTypes.URI_FILE)}
-        for param, required in pass_path_params:
+        for param, required, category in pass_path_params:
             # aml supports uploading file/folder even though this is typed as URI_FOLDER
             inputs[f"pass_{param}"] = Input(type=AssetTypes.URI_FOLDER, optional=not required)
 
@@ -254,6 +254,9 @@ class AzureMLSystem(OliveSystem):
         for param, _, category in pass_path_params:
             param_val = pass_config["config"].get(param, None)
             if category == ParamCategory.DATA:
+                if param_val:
+                    # convert the dict to a resource path
+                    param_val = create_resource_path(param_val)
                 param_val = normalize_data_path(data_root, param_val)
             if not param_val:
                 continue
@@ -421,6 +424,8 @@ class AzureMLSystem(OliveSystem):
             metric_config["user_config"]["script_dir"] = None
 
         metric_data_dir = metric_config["user_config"]["data_dir"]
+        # convert the dict to a resource path object
+        metric_data_dir = create_resource_path(metric_data_dir)
         metric_data_dir = normalize_data_path(data_root, metric_data_dir)
         if metric_data_dir:
             metric_data_dir = self._create_args_from_resource_path(metric_data_dir)

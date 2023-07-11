@@ -98,7 +98,7 @@ def get_openvino_model(tempdir):
     output_folder = str(Path(tempdir) / "openvino")
 
     # execute
-    openvino_model = local_system.run_pass(p, pytorch_model, output_folder)
+    openvino_model = local_system.run_pass(p, pytorch_model, None, output_folder)
     return openvino_model
 
 

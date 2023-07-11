@@ -433,7 +433,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         return preds, targets
 
-    def _evaluate_distributed_accuracy(self, model: DistributedOnnxModel, data_root: str, metric: Metric) -> MetricResult:
+    def _evaluate_distributed_accuracy(
+        self, model: DistributedOnnxModel, data_root: str, metric: Metric
+    ) -> MetricResult:
         from copy import deepcopy
 
         from mpi4py.futures import MPIPoolExecutor
@@ -513,7 +515,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         return latencies
 
-    def _evaluate_distributed_latency(self, model: DistributedOnnxModel, data_root: str, metric: Metric) -> MetricResult:
+    def _evaluate_distributed_latency(
+        self, model: DistributedOnnxModel, data_root: str, metric: Metric
+    ) -> MetricResult:
         from copy import deepcopy
 
         from mpi4py.futures import MPIPoolExecutor

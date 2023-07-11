@@ -201,7 +201,8 @@ class TestAzureMLSystem:
 
     def test__create_metric_args(self):
         # setup
-        tem_dir = Path(__file__).absolute().parent
+        # the reason why we need resolve: sometimes, windows system would change c:\\ to C:\\ when calling resolve.
+        tem_dir = Path(__file__).absolute().parent.resolve()
         metric_config = {
             "user_config": {
                 "user_script": "user_script",
