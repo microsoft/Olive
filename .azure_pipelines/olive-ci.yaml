@@ -74,6 +74,17 @@ jobs:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_aml
 
+- template: job_templates/olive-build-template.yaml
+  parameters:
+    name: Linux_GPU_CI
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    windows: False
+    gpu: True
+    examples:
+      bert_cuda_gpu:
+        exampleFolder: bert
+        exampleName: bert_cuda_gpu
+
 - template: job_templates/olive-build-doc-template.yaml
   parameters:
     job_name: Test_BuildDocs

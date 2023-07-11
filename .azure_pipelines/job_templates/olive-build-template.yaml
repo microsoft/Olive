@@ -3,10 +3,12 @@
 parameters:
   name: ''
   pool: ''
+  gpu: False
 
 jobs:
 - job: ${{parameters.name}}_Test_Olive
   timeoutInMinutes: 300
+  condition: eq('${{ parameters.gpu }}', 'False')
   pool:
     name: ${{ parameters.pool}}
   variables:
@@ -78,6 +80,7 @@ jobs:
   variables:
     WINDOWS: ${{ parameters.windows }}
     runCodesignValidationInjection: false
+    GPU: ${{ parameters.gpu }}
 
   steps:
   - task: UsePythonVersion@0
@@ -92,7 +95,7 @@ jobs:
     inputs:
       azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
       scriptLocation: 'inlineScript'
-      inlineScript: make test-examples
+      inlineScript: make test-examples IS_GPU=$(GPU)
     displayName: Test Examples
     env:
       OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)

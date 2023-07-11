@@ -59,7 +59,7 @@
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "io_bind": true
+                "enable_cuda_graph": true
             }
 
         }
