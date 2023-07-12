@@ -6,7 +6,7 @@ from typing import ClassVar, Optional
 
 from pydantic import BaseModel
 
-from olive.cache import get_local_path, normalize_data_path
+from olive.cache import get_local_path_from_root
 from olive.data.component.dataloader import default_calibration_dataloader
 from olive.data.config import DataConfig, DefaultDataComponentCombos
 from olive.data.constants import DataContainerType, DefaultDataContainer
@@ -39,9 +39,9 @@ class DataContainer(BaseModel):
         """
         params_config = self.config.load_dataset_params
         data_dir = params_config.get("data_dir")
-        data_dir = normalize_data_path(data_root_path, data_dir)
+        data_dir = get_local_path_from_root(data_root_path, data_dir)
         if data_dir:
-            params_config["data_dir"] = get_local_path(data_dir)
+            params_config["data_dir"] = data_dir
         return self.config.load_dataset(**params_config)
 
     def pre_process(self, dataset):

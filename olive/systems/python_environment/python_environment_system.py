@@ -94,12 +94,14 @@ class PythonEnvironmentSystem(OliveSystem):
         for original_metric in metrics:
             metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)
             if metric.type == MetricType.ACCURACY:
-                metrics_res[metric.name] = self.evaluate_accuracy(model, metric, accelerator)
+                metrics_res[metric.name] = self.evaluate_accuracy(model, data_root, metric, accelerator)
             elif metric.type == MetricType.LATENCY:
-                metrics_res[metric.name] = self.evaluate_latency(model, metric, accelerator)
+                metrics_res[metric.name] = self.evaluate_latency(model, data_root, metric, accelerator)
         return flatten_metric_result(metrics_res)
 
-    def evaluate_accuracy(self, model: ONNXModel, data_root: str, metric: Metric, accelerator: AcceleratorSpec) -> float:
+    def evaluate_accuracy(
+        self, model: ONNXModel, data_root: str, metric: Metric, accelerator: AcceleratorSpec
+    ) -> float:
         """
         Evaluate the accuracy of the model.
         """

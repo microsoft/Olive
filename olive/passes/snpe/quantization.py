@@ -5,7 +5,7 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
-from olive.cache import normalize_data_path
+from olive.cache import get_local_path_from_root
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import SNPEModel
 from olive.passes.olive_pass import Pass
@@ -81,7 +81,7 @@ class SNPEQuantization(Pass):
             output_model_path += ".dlc"
 
         if config["dataloader_func"]:
-            data_dir = normalize_data_path(data_root, config["data_dir"])
+            data_dir = get_local_path_from_root(data_root, config["data_dir"])
             dataloader = self._user_module_loader.call_object(config["dataloader_func"], data_dir)
         elif self._data_config:
             dataloader = self._data_config.to_data_container().create_dataloader(data_root)

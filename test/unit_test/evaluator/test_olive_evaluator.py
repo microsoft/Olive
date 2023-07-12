@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR
 from test.unit_test.utils import (
     get_accuracy_metric,
     get_custom_eval,
@@ -19,6 +18,7 @@ import pytest
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType
 from olive.evaluator.olive_evaluator import OnnxEvaluator, OpenVINOEvaluator, PyTorchEvaluator, SNPEEvaluator
+from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
 
 
@@ -107,7 +107,7 @@ class TestOliveEvaluator:
             mock_acc.return_value = expected_res
 
             # execute
-            actual_res = evaluator.evaluate(olive_model, None, [metric], DEFAULT_CPU_ACCELERATOR)
+            actual_res = evaluator.evaluate(olive_model, None, [metric])
 
             # assert
             mock_acc.assert_called_once()
@@ -141,7 +141,7 @@ class TestOliveEvaluator:
     )
     def test_evaluate_latency(self, evaluator, olive_model, metric, expected_res):
         # execute
-        actual_res = evaluator.evaluate(olive_model, None, [metric], DEFAULT_CPU_ACCELERATOR)
+        actual_res = evaluator.evaluate(olive_model, None, [metric])
 
         # assert
         for sub_type in metric.sub_types:
@@ -160,7 +160,7 @@ class TestOliveEvaluator:
     )
     def test_evaluate_custom(self, evaluator, olive_model, metric, expected_res):
         # execute
-        actual_res = evaluator.evaluate(olive_model, [metric])
+        actual_res = evaluator.evaluate(olive_model, None, [metric])
 
         # assert
         for sub_type in metric.sub_types:
@@ -171,7 +171,7 @@ class TestOliveEvaluator:
         olive_model = get_pytorch_model()
         metric = get_custom_metric_no_eval()
         with pytest.raises(ValueError, match="evaluate_func or metric_func is not specified in the metric config"):
-            evaluator.evaluate(olive_model, [metric])
+            evaluator.evaluate(olive_model, None, [metric])
 
 
 @pytest.mark.skip(reason="Requires custom onnxruntime build with mpi enabled")

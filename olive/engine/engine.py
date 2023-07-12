@@ -29,7 +29,7 @@ from olive.systems.olive_system import OliveSystem
 
 logger = logging.getLogger(__name__)
 
-EXCEPTIONS_TO_RAISE = (AttributeError, ImportError, TypeError, ValueError)
+EXCEPTIONS_TO_RAISE = (AssertionError, AttributeError, ImportError, TypeError, ValueError)
 
 
 class Engine:

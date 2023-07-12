@@ -89,7 +89,7 @@ def tune_onnx_model(model, data_root, config):
         logger.info("Run tuning for: {}".format(list(zip(tuning_item, tuning_combo))))
         if not valid_config(tuning_combo, config):
             continue
-        tuning_results.extend(threads_num_tuning(model, latency_metric, config, tuning_combo))
+        tuning_results.extend(threads_num_tuning(model, data_root, latency_metric, config, tuning_combo))
 
     for tuning_result in tuning_results:
         logger.debug("Tuning result: {}".format(tuning_result["latency_ms"]))
@@ -108,7 +108,7 @@ def tune_onnx_model(model, data_root, config):
         return model
 
 
-def threads_num_tuning(model, latency_metric, config, tuning_combo):
+def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
     tuning_results = []
     provider = tuning_combo[0]
     execution_mode = tuning_combo[1]
@@ -149,7 +149,7 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
             test_params["session_options"]["inter_op_num_threads"] = inter
             for intra in config.intra_thread_num_list:
                 test_params["session_options"]["intra_op_num_threads"] = intra
-                threads_num_binary_search(model, latency_metric, config, test_params, tuning_results)
+                threads_num_binary_search(model, data_root, latency_metric, config, test_params, tuning_results)
     except Exception:
         logging.error("Optimization failed for tuning combo {}".format(tuning_combo), exc_info=True)
         pass
@@ -157,7 +157,7 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
     return tuning_results
 
 
-def threads_num_binary_search(model, latency_metric, config, test_params, tuning_results):
+def threads_num_binary_search(model, data_root, latency_metric, config, test_params, tuning_results):
     import onnxruntime as ort
     import psutil
 
@@ -176,7 +176,7 @@ def threads_num_binary_search(model, latency_metric, config, test_params, tuning
     if test_params["session_options"].get("inter_op_num_threads") and test_params["session_options"].get(
         "intra_op_num_threads"
     ):
-        test_result = get_benchmark(model, latency_metric, config, test_params)
+        test_result = get_benchmark(model, data_root, latency_metric, config, test_params)
         tuning_results.append(test_result)
         best_latency = test_result["latency_ms"]
     else:
@@ -193,7 +193,7 @@ def threads_num_binary_search(model, latency_metric, config, test_params, tuning
             current_threads_num = lower_threads_num
             test_params["session_options"][threads_name] = current_threads_num
 
-            test_result = get_benchmark(model, latency_metric, config, test_params)
+            test_result = get_benchmark(model, data_root, latency_metric, config, test_params)
             tuning_results.append(test_result)
 
             best_latency = test_result["latency_ms"]
@@ -203,7 +203,7 @@ def threads_num_binary_search(model, latency_metric, config, test_params, tuning
             while lower_threads_num < upper_threads_num:
                 test_params["session_options"][threads_name] = current_threads_num
 
-                test_result = get_benchmark(model, latency_metric, config, test_params)
+                test_result = get_benchmark(model, data_root, latency_metric, config, test_params)
                 tuning_results.append(test_result)
 
                 mid_threads_num = lower_threads_num + (upper_threads_num - lower_threads_num) // 2

@@ -74,6 +74,14 @@ class ResourcePath(AutoConfigClass):
         json_data = {"type": self.type, "config": self.config.to_json()}
         return serialize_to_json(json_data)
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ResourcePath):
+            return False
+        return self.type == other.type and self.config.to_json() == other.config.to_json()
+
+    def __hash__(self) -> int:
+        return hash((self.config.to_json(), self.type))
+
 
 class ResourcePathConfig(ConfigBase):
     type: ResourceType = Field(..., description="Type of the resource.")

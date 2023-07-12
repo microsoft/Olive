@@ -5,7 +5,7 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Union
 
-from olive.cache import normalize_data_path
+from olive.cache import get_local_path_from_root
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModel
 from olive.passes import Pass
@@ -110,11 +110,11 @@ class QuantizationAwareTraining(Pass):
             qat_trainer_config.train_dataloader_func = self._user_module_loader.load_object(
                 config["train_dataloader_func"]
             )
-        qat_trainer_config.train_data_dir = normalize_data_path(data_root, qat_trainer_config.train_data_dir)
+        qat_trainer_config.train_data_dir = get_local_path_from_root(data_root, qat_trainer_config.train_data_dir)
 
         if config["training_loop_func"]:
             qat_trainer_config.training_loop_func = self._user_module_loader.load_object(config["training_loop_func"])
-        qat_trainer_config.val_data_dir = normalize_data_path(data_root, qat_trainer_config.val_data_dir)
+        qat_trainer_config.val_data_dir = get_local_path_from_root(data_root, qat_trainer_config.val_data_dir)
         if config["ptl_module"]:
             qat_trainer_config.ptl_module = self._user_module_loader.load_object(config["ptl_module"])
         if config["ptl_data_module"]:

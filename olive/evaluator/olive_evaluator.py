@@ -15,7 +15,7 @@ from pydantic import validator
 from torch.utils.data import Dataset
 
 import olive.data.template as data_config_template
-from olive.cache import get_local_path, normalize_data_path
+from olive.cache import get_local_path_from_root
 from olive.common.config_utils import ConfigBase
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
@@ -114,7 +114,7 @@ class OliveEvaluator(ABC):
         if metric.user_config.evaluate_func:
             raw_res = eval_func(
                 model,
-                get_local_path(metric.user_config.data_dir),
+                get_local_path_from_root(data_root, metric.user_config.data_dir),
                 metric.user_config.batch_size,
                 device,
                 execution_providers,
@@ -165,7 +165,7 @@ class OliveEvaluator(ABC):
                 )
             elif metric.type == MetricType.CUSTOM:
                 metrics_res[metric.name] = self._evaluate_custom(
-                    model, metric, data_root, eval_func, post_func, device, execution_providers
+                    model, data_root, metric, dataloader, eval_func, post_func, device, execution_providers
                 )
             else:
                 raise TypeError(f"{metric.type} is not a supported metric type")
@@ -204,13 +204,16 @@ class OliveEvaluator(ABC):
         post_func = user_module.load_object(post_processing_func)
 
         dataloader_func = getattr(metric.user_config, "dataloader_func", None)
-        data_dir = normalize_data_path(data_root, metric.user_config.data_dir)
-        dataloader = user_module.call_object(
-            dataloader_func,
-            get_local_path(data_dir),
-            metric.user_config.batch_size,
-            model_framework=framework,
-        )
+        if dataloader_func:
+            data_dir = get_local_path_from_root(data_root, metric.user_config.data_dir)
+            dataloader = user_module.call_object(
+                dataloader_func,
+                data_dir,
+                metric.user_config.batch_size,
+                model_framework=framework,
+            )
+        else:
+            dataloader = None
 
         eval_func = None
         if metric.type == MetricType.CUSTOM:
@@ -591,7 +594,6 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     def _inference(
         self,
         model: PyTorchModel,
-        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -620,6 +622,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     def _evaluate_accuracy(
         self,
         model: PyTorchModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -675,7 +678,6 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
     def _inference(
         self,
         model: SNPEModel,
-        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -700,6 +702,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
     def _evaluate_accuracy(
         self,
         model: SNPEModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -744,7 +747,6 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
     def _inference(
         self,
         model: OpenVINOModel,
-        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -767,6 +769,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
     def _evaluate_accuracy(
         self,
         model: OpenVINOModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,

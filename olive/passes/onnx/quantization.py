@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict, Union
 import onnx
 from packaging import version
 
-from olive.cache import get_local_path, normalize_data_path
+from olive.cache import get_local_path_from_root
 from olive.common.utils import hash_string
 from olive.exception import OlivePassException
 from olive.hardware.accelerator import AcceleratorSpec
@@ -381,10 +381,10 @@ class OnnxQuantization(Pass):
             # get the dataloader
             # TODO: only use data config
             if config["dataloader_func"]:
-                data_dir = normalize_data_path(data_root, config["data_dir"])
+                data_dir = get_local_path_from_root(data_root, config["data_dir"])
                 dataloader = self._user_module_loader.call_object(
                     config["dataloader_func"],
-                    get_local_path(data_dir),
+                    data_dir,
                     config["batch_size"],
                 )
             elif self._data_config:

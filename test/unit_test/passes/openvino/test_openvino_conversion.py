@@ -15,7 +15,7 @@ def test_openvino_conversion_pass():
     # setup
     local_system = LocalSystem()
     input_model = get_pytorch_model()
-    dummy_input = get_pytorch_model_dummy_input()
+    dummy_input = get_pytorch_model_dummy_input(input_model)
     openvino_conversion_config = {"extra_config": {"example_input": dummy_input}}
 
     p = create_pass_from_dict(OpenVINOConversion, openvino_conversion_config, disable_search=True)

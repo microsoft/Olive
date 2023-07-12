@@ -12,7 +12,7 @@ import onnx
 from onnxruntime.quantization.preprocess import quant_pre_process
 from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
 
-from olive.cache import get_local_path, normalize_data_path
+from olive.cache import get_local_path_from_root
 from olive.common.utils import hash_string
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
@@ -333,10 +333,10 @@ class VitisAIQuantization(Pass):
         # get the dataloader
         # TODO: only use data config
         if config["dataloader_func"]:
-            data_dir = normalize_data_path(data_root, config["data_dir"])
+            data_dir = get_local_path_from_root(data_root, config["data_dir"])
             dataloader = self._user_module_loader.call_object(
                 config["dataloader_func"],
-                get_local_path(data_dir),
+                data_dir,
                 config["batch_size"],
             )
         elif self._data_config:

@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Union
 
 import numpy as np
 
-from olive.cache import get_local_path, normalize_data_path
+from olive.cache import get_local_path_from_root
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OpenVINOModel
 from olive.passes import Pass
@@ -83,9 +83,9 @@ class OpenVINOQuantization(Pass):
         model_name = "ov_model"
 
         if config["dataloader_func"]:
-            data_dir = normalize_data_path(data_root, config["data_dir"])
+            data_dir = get_local_path_from_root(data_root, config["data_dir"])
             data_loader = self._user_module_loader.call_object(
-                config["dataloader_func"], get_local_path(data_dir), config["batch_size"]
+                config["dataloader_func"], data_dir, config["batch_size"]
             )
         elif self._data_config:
             common_dataloader = self._data_config.to_data_container().create_dataloader(data_root)

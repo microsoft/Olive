@@ -8,7 +8,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
-from olive.cache import get_local_path, normalize_data_path
+from olive.cache import get_local_path_from_root
 from olive.evaluator.metric import Metric, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 from olive.hardware.accelerator import AcceleratorSpec
@@ -430,10 +430,10 @@ class IncQuantization(Pass):
         inc_calib_dataloader = None
         if is_static:
             if self._user_module_loader:
-                data_dir = normalize_data_path(data_root, config["data_dir"])
+                data_dir = get_local_path_from_root(data_root, config["data_dir"])
                 inc_calib_dataloader = self._user_module_loader.call_object(
                     config["dataloader_func"],
-                    get_local_path(data_dir),
+                    data_dir,
                     config["batch_size"],
                 )
             elif self._data_config:

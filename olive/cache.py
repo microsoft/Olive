@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import logging
+import os
 import shutil
 from pathlib import Path
 from typing import Optional, Union
@@ -184,14 +185,23 @@ def normalize_data_path(data_root: Union[str, Path], data_dir: Union[str, Path, 
             if isinstance(data_dir, ResourcePath) and data_dir.is_azureml_resource():
                 raise ValueError("could not append AzureML data to data_root")
 
-            assert Path(data_dir_str).is_relative(), f"data_dir {data_dir_str} should be relative path"
-
-            data_full_path = Path(data_root) / data_dir_str
-            # data_full_path = data_full_path.resolve()
+            # we cannot use Path to join the path. If the data_root is something like: azureml://, then Path will
+            # change the data_root to azureml:/, which is not a valid path
+            data_full_path = os.path.join(data_root, data_dir_str).replace("\\", "/")
         else:
             data_full_path = data_dir_str
 
     return create_resource_path(data_full_path)
+
+
+def get_local_path_from_root(
+    data_root: Union[str, Path], data_dir: Union[str, Path, ResourcePath], cache_dir: Union[str, Path] = ".olive-cache"
+):
+    data_path = normalize_data_path(data_root, data_dir)
+    if data_path:
+        return get_local_path(data_path, cache_dir)
+    else:
+        return None
 
 
 def save_model(
