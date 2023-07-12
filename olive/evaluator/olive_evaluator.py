@@ -209,9 +209,9 @@ class OliveEvaluator(ABC):
 
         eval_func = None
         if metric.type == MetricType.CUSTOM:
-            evaluate_func = getattr(metric.user_config, "metric_func", None)
+            evaluate_func = getattr(metric.user_config, "evaluate_func", None)
             if not evaluate_func:
-                evaluate_func = getattr(metric.user_config, "evaluate_func", None)
+                evaluate_func = getattr(metric.user_config, "metric_func", None)
 
             if not evaluate_func:
                 raise ValueError("evaluate_func or metric_func is not specified in the metric config")
