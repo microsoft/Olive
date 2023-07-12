@@ -91,12 +91,12 @@ class PythonEnvironmentSystem(OliveSystem):
         for original_metric in metrics:
             metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)
             if metric.type == MetricType.ACCURACY:
-                metrics_res[metric.name] = self.evaluate_accuracy(model, metric)
+                metrics_res[metric.name] = self.evaluate_accuracy(model, metric, accelerator)
             elif metric.type == MetricType.LATENCY:
-                metrics_res[metric.name] = self.evaluate_latency(model, metric)
+                metrics_res[metric.name] = self.evaluate_latency(model, metric, accelerator)
         return flatten_metric_result(metrics_res)
 
-    def evaluate_accuracy(self, model: ONNXModel, metric: Metric) -> float:
+    def evaluate_accuracy(self, model: ONNXModel, metric: Metric, accelerator: AcceleratorSpec) -> float:
         """
         Evaluate the accuracy of the model.
         """
@@ -104,7 +104,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
         preds = []
         targets = []
-        inference_settings = self.get_inference_settings(model, metric)
+        inference_settings = self.get_inference_settings(model, metric, accelerator)
         io_config = model.get_io_config()
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_dir_path = Path(tmp_dir)
@@ -149,7 +149,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
         return OliveEvaluator.compute_accuracy(metric, preds, targets)
 
-    def evaluate_latency(self, model: ONNXModel, metric: Metric) -> float:
+    def evaluate_latency(self, model: ONNXModel, metric: Metric, accelerator: AcceleratorSpec) -> float:
         """
         Evaluate the latency of the model.
         """
@@ -157,7 +157,7 @@ class PythonEnvironmentSystem(OliveSystem):
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
         latencies = []
-        inference_settings = self.get_inference_settings(model, metric)
+        inference_settings = self.get_inference_settings(model, metric, accelerator)
         io_config = model.get_io_config()
 
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -194,7 +194,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
         return OliveEvaluator.compute_latency(metric, latencies)
 
-    def get_inference_settings(self, model: ONNXModel, metric: Metric) -> Dict[str, Any]:
+    def get_inference_settings(self, model: ONNXModel, metric: Metric, accelerator: AcceleratorSpec) -> Dict[str, Any]:
         """
         Get the model inference settings.
         """
@@ -207,7 +207,10 @@ class PythonEnvironmentSystem(OliveSystem):
 
         # if user doesn't not provide ep list, use default value([ep]). Otherwise, use the user's ep list
         if not inference_settings.get("execution_provider"):
-            inference_settings["execution_provider"] = self.get_default_execution_provider(model)
+            execution_providers = (
+                accelerator.execution_provider if accelerator else self.get_default_execution_provider(model)
+            )
+            inference_settings["execution_provider"] = execution_providers
 
         return inference_settings
 
