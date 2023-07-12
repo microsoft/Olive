@@ -18,7 +18,9 @@ user_path_config = ["data_dir"]
 _common_user_config = {
     "script_dir": ConfigParam(type_=Union[Path, str]),
     "user_script": ConfigParam(type_=Union[Path, str]),
+    "inference_settings": ConfigParam(type_=dict),
     "data_dir": ConfigParam(type_=OLIVE_RESOURCE_ANNOTATIONS, is_path=True),
+    "dataloader_func": ConfigParam(type_=Union[Callable, str], is_object=True),
     "batch_size": ConfigParam(type_=int, default_value=1),
     "input_names": ConfigParam(type_=List),
     "input_shapes": ConfigParam(type_=List),
@@ -29,17 +31,14 @@ _common_user_config_validators = {}
 
 _type_to_user_config = {
     "latency": {
-        "dataloader_func": ConfigParam(type_=Union[Callable, str], is_object=True),
-        "inference_settings": ConfigParam(type_=dict),
         "io_bind": ConfigParam(type_=bool, default_value=False),
     },
     "accuracy": {
-        "dataloader_func": ConfigParam(type_=Union[Callable, str], is_object=True),
         "post_processing_func": ConfigParam(type_=Union[Callable, str], is_object=True),
-        "inference_settings": ConfigParam(type_=dict),
     },
     "custom": {
-        "evaluate_func": ConfigParam(type_=Union[Callable, str], required=True, is_object=True),
+        "evaluate_func": ConfigParam(type_=Union[Callable, str], required=False, is_object=True),
+        "metric_func": ConfigParam(type_=Union[Callable, str], required=False, is_object=True),
     },
 }
 

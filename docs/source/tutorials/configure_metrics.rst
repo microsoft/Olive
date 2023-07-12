@@ -165,6 +165,14 @@ In your :code:`"user_script.py"`, you need to define a function that takes in an
             # evaluate model
             # return metric value
 
+Alternatively, if you only need Olive run the inference and you will calculate the metric by yourself, you can speficy :code:`"metric_func": "None"` in the metric configuration.
+Olive will run the inference with you model with the data you provided, and return the inference results to you. You can then calculate the metric by yourself::
+
+        def metric_func(preds, targets):
+            # calculate metric
+            # return metric value
+
+If you provide both :code:`"evaluate_func"` and :code:`"metric_func"`, Olive will call :code:`"evaluate_func"` only.
 
 Multi Metrics configuration
 ----------------------------
