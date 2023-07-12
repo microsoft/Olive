@@ -18,6 +18,8 @@ Outputs the final model and latency results.
 
 Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive.
 
+If you want to run the optimization pipeline with Intel® Neural Compressor, please make sure that `olive-ai[inc]` is installed.
+
 ### Pip requirements
 Install the necessary python packages:
 ```
