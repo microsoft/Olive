@@ -1,0 +1,91 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_loader": "load_pytorch_origin_model",
+            "model_script": "user_script.py",
+            "io_config": {
+                "input_names": ["input_ids", "attention_mask", "token_type_ids"],
+                "input_shapes": [[1, 128], [1, 128], [1, 128]],
+                "input_types": ["int64", "int64", "int64"],
+                "output_names": ["output"]
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "custom",
+                    "sub_types": [
+                        {"name": "accuracy_custom", "priority": 1, "higher_is_better": true, "goal": {"type": "percent-max-degradation", "value": 2}}
+                    ],
+                    "user_config":{
+                        "user_script": "user_script.py",
+                        "evaluate_func": "eval_accuracy",
+                        "batch_size": 1
+                    }
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}}
+                    ],
+                    "user_config":{
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 1
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 13
+            }
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "config": {"model_type": "bert"}
+        },
+        "quantization": {
+            "type": "IncStaticQuantization",
+            "disable_search": true,
+            "config": {
+                "quant_format": "QOperator",
+                "user_script": "user_script.py",
+                "dataloader_func": "inc_glue_calibration_reader",
+                "recipes":{
+                    "smooth_quant": true,
+                    "smooth_quant_args": {"alpha": 0.6}
+                },
+                "metric": {
+                    "name": "accuracy",
+                    "type": "custom",
+                    "sub_types": [
+                        {"name": "accuracy_custom", "priority": 1, "higher_is_better": true, "goal": {"type": "percent-max-degradation", "value": 2}}
+                    ],
+                    "user_config":{
+                        "user_script": "user_script.py",
+                        "evaluate_func": "eval_accuracy",
+                        "batch_size": 1
+                    }
+                }
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "exhaustive"
+        },
+        "evaluator": "common_evaluator",
+        "cache_dir": "cache",
+        "output_dir": "models/bert_inc_static_ptq_cpu"
+    }
+}

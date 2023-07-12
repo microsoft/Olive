@@ -57,6 +57,26 @@ The workflow in [bert_inc_static_ptq_cpu.json](bert_inc_static_ptq_cpu.json) is 
 #### Dynamic Quantization
 The workflow in [bert_inc_dynamic_ptq_cpu.json](bert_inc_dynamic_ptq_cpu.json) is similar to the above workflow, but specifically uses dynamic quantization instead of static/dynamic quantization.
 
+#### Run with SmoothQuant
+
+Quantizing activations in large language models (LLMs) with huge parameter sizes can be challenging due to the presence of outliers. The SmoothQuant method, introduced in this [paper](https://arxiv.org/abs/2211.10438), addresses this issue by transferring the quantization difficulty from activations to weights through a mathematically equivalent transformation by using a fixed-value $\alpha$ for the entire model. However, the distributions of activation outliers vary not only across different models but also across different layers within a model. To resolve this, Intel® Neural Compressor proposes a method to obtain layer-wise optimal $\alpha$ values with the ability to tune automatically. Please refer to this [link](https://github.com/intel/neural-compressor/blob/master/docs/source/smooth_quant.md) for more algorithm details.
+
+User can use SmoothQuant by setting `smooth_quant` in `recipes` as shown below. Refer to [bert_inc_smoothquant_ptq_cpu.json](bert_inc_smoothquant_ptq_cpu.json) for an example of SmoothQuant.
+
+```json
+"passes": {
+    "quantization": {
+        "type": "IncStaticQuantization",
+        "config": {
+            "recipes":{
+                "smooth_quant": true,
+                "smooth_quant_args": {"alpha": 0.5}
+            }
+        }
+    }
+}
+```
+
 ### BERT optimization with QAT Customized Training Loop on CPU
 This workflow performs BERT optimization on CPU with QAT Customized Training Loop. It performs the optimization pipeline:
 - *PyTorch Model -> PyTorch Model after QAT -> Onnx Model -> Transformers Optimized Onnx Model -> ONNX Runtime performance tuning*
