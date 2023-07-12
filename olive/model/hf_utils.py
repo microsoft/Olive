@@ -32,7 +32,7 @@ class HFConfig(ConfigBase):
         if values["model_name"]:
             if not v and not values.get("task", None):
                 raise ValueError("Either task or model_class must be specified")
-            return v
+        return v
 
 
 def load_huggingface_model_from_task(task: str, name: str):

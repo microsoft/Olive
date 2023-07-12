@@ -670,20 +670,13 @@ class PyTorchModel(OliveModel):
         return serialize_to_json(config, check_object)
 
 
-class OptimumModel(OliveModel):
-    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS, model_components: List[str]):
+class OptimumModel(PyTorchModel):
+    def __init__(self, model_components: List[str], **kwargs):
         super().__init__(
-            framework=Framework.PYTORCH,
             model_file_format=ModelFileFormat.OPTIMUM,
-            model_path=model_path,
+            **(kwargs or {}),
         )
         self.model_components = model_components
-
-    def load_model(self, rank: int = None):
-        raise NotImplementedError()
-
-    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
-        raise NotImplementedError()
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
