@@ -246,7 +246,7 @@ information of the evaluator contains following items:
         }
     }
     // provide azureml datastore url
-    "data_dir": "azureml://azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py"
+    "data_dir": "azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py"
     ```
 
 ### Example
