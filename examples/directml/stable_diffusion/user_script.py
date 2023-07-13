@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import config
 import torch
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
@@ -135,7 +136,7 @@ def unet_inputs(batchsize, torch_dtype):
     return {
         "sample": torch.rand((batchsize, 4, 64, 64), dtype=torch_dtype),
         "timestep": torch.rand((batchsize,), dtype=torch_dtype),
-        "encoder_hidden_states": torch.rand((batchsize, 77, 768), dtype=torch_dtype),
+        "encoder_hidden_states": torch.rand((batchsize, 77, config.image_size + 256), dtype=torch_dtype),
         "return_dict": False,
     }
 
@@ -163,7 +164,7 @@ def unet_data_loader(data_dir, batchsize, *args, **kwargs):
 
 def vae_encoder_inputs(batchsize, torch_dtype):
     return {
-        "sample": torch.rand((batchsize, 3, 512, 512), dtype=torch_dtype),
+        "sample": torch.rand((batchsize, 3, config.image_size, config.image_size), dtype=torch_dtype),
         "return_dict": False,
     }
 
@@ -218,7 +219,7 @@ def vae_decoder_data_loader(data_dir, batchsize, *args, **kwargs):
 def safety_checker_inputs(batchsize, torch_dtype):
     return {
         "clip_input": torch.rand((batchsize, 3, 224, 224), dtype=torch_dtype),
-        "images": torch.rand((batchsize, 512, 512, 3), dtype=torch_dtype),
+        "images": torch.rand((batchsize, config.image_size, config.image_size, 3), dtype=torch_dtype),
     }
 
 
