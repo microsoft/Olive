@@ -99,6 +99,20 @@ def get_data_config():
                 "io_config": {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(1, 1)]},
             },
         },
+        "data_configs": {
+            "test_data_config": DataConfig(
+                components={
+                    "load_dataset": {
+                        "name": "dummy_dataset_dataroot",
+                        "type": "dummy_dataset_dataroot",
+                        "params": {"data_dir": "data"},
+                    },
+                    "post_process_data": {
+                        "type": "post_processing_func",
+                    },
+                }
+            ),
+        },
         "evaluators": {
             "common_evaluator": {
                 "metrics": [
@@ -106,18 +120,8 @@ def get_data_config():
                         "name": "accuracy",
                         "type": "accuracy",
                         "sub_types": [{"name": "accuracy_score", "priority": 1}],
-                        "data_config": DataConfig(
-                            components={
-                                "load_dataset": {
-                                    "name": "dummy_dataset_dataroot",
-                                    "type": "dummy_dataset_dataroot",
-                                    "params": {"data_dir": "data"},
-                                },
-                                "post_process_data": {
-                                    "type": "post_processing_func",
-                                },
-                            }
-                        ),
+                        # reference to data_config defined in global data_configs
+                        "data_config": "test_data_config",
                     }
                 ]
             }
@@ -127,18 +131,20 @@ def get_data_config():
             "perf_tuning": {
                 "type": "OrtPerfTuning",
                 "config": {
-                    "data_config": DataConfig(
-                        components={
-                            "load_dataset": {
-                                "name": "dummy_dataset_dataroot",
-                                "type": "dummy_dataset_dataroot",
-                                "params": {"data_dir": "data"},
-                            },
-                            "post_process_data": {
-                                "type": "post_processing_func",
-                            },
-                        }
-                    )
+                    "data_config": "test_data_config"
+                    # This is just demo purpose to show how to use data_config in passes
+                    # "data_config": DataConfig(
+                    #     components={
+                    #         "load_dataset": {
+                    #             "name": "dummy_dataset_dataroot",
+                    #             "type": "dummy_dataset_dataroot",
+                    #             "params": {"data_dir": "data"},
+                    #         },
+                    #         "post_process_data": {
+                    #             "type": "post_processing_func",
+                    #         },
+                    #     }
+                    # )
                 },
             },
         },
@@ -168,7 +174,7 @@ def config(tmpdir, request):
 @patch("olive.cache.get_local_path")
 @pytest.mark.parametrize("is_cmdline", [True, False])
 def test_data_root_for_dataloader_func(mock_get_local_path, config, is_cmdline):
-    mock_get_local_path.side_effect = lambda x, cache_dir=".olive-cache": x.get_path()
+    mock_get_local_path.side_effect = lambda x, cache_dir: x.get_path()
     if is_cmdline:
         data_root = config.pop("data_root", None)
         best = olive_run(config, data_root=data_root)
@@ -200,8 +206,11 @@ def data_config(tmpdir, request):
     return config_obj
 
 
-def test_data_root_for_dataset(data_config):
-    config = get_data_config()
+@patch("olive.cache.get_local_path")
+def test_data_root_for_dataset(mock_get_local_path, data_config):
+    mock_get_local_path.side_effect = lambda x, cache_dir: x.get_path()
+
+    config = data_config
 
     data_root = config.get("data_root")
     if data_root is None:
