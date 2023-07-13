@@ -270,6 +270,14 @@ In your <code class="code docutils literal notranslate"><span class="pre">&quot;
     <span class="c1"># return metric value</span>
 </pre></div>
 </div>
+<p>Alternatively, if you only need Olive run the inference and you will calculate the metric by yourself, you can speficy <code class="code docutils literal notranslate"><span class="pre">&quot;metric_func&quot;:</span> <span class="pre">&quot;None&quot;</span></code> in the metric configuration.
+Olive will run the inference with you model with the data you provided, and return the inference results to you. You can then calculate the metric by yourself:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">metric_func</span><span class="p">(</span><span class="n">preds</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+    <span class="c1"># calculate metric</span>
+    <span class="c1"># return metric value</span>
+</pre></div>
+</div>
+<p>If you provide both <code class="code docutils literal notranslate"><span class="pre">&quot;evaluate_func&quot;</span></code> and <code class="code docutils literal notranslate"><span class="pre">&quot;metric_func&quot;</span></code>, Olive will call <code class="code docutils literal notranslate"><span class="pre">&quot;evaluate_func&quot;</span></code> only.</p>
 </section>
 </section>
 <section id="multi-metrics-configuration">

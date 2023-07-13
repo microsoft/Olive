@@ -217,7 +217,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Evaluate the accuracy of the model.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">dataloader</span><span class="p">,</span> <span class="n">post_func</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+        <span class="n">dataloader</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">post_func</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">framework</span><span class="p">)</span>
 
         <span class="n">preds</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">targets</span> <span class="o">=</span> <span class="p">[]</span>
@@ -270,7 +270,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Evaluate the latency of the model.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">dataloader</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>
+        <span class="n">dataloader</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">get_user_config</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">framework</span><span class="p">)</span>
         <span class="n">warmup_num</span><span class="p">,</span> <span class="n">repeat_test_num</span><span class="p">,</span> <span class="n">sleep_num</span> <span class="o">=</span> <span class="n">get_latency_config_from_metric</span><span class="p">(</span><span class="n">metric</span><span class="p">)</span>
 
         <span class="n">latencies</span> <span class="o">=</span> <span class="p">[]</span>
