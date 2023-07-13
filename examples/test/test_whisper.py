@@ -29,7 +29,7 @@ def setup():
     sys.path.remove(example_dir)
 
 
-@pytest.mark.parametrize("device_precision", [("cpu", "fp32"), ("cpu", "int8")])
+@pytest.mark.parametrize("device_precision", [("cpu", "fp32"), ("cpu", "int8"), ("cpu", "inc_int8")])
 def test_whisper(device_precision):
     from olive.workflows import run as olive_run
 
