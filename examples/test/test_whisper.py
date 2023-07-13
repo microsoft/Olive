@@ -35,7 +35,7 @@ def test_whisper(device_precision):
     from olive.workflows import run as olive_run
 
     if platform.system() == "Windows" and device_precision[1].startswith("inc_int8"):
-        pytest.skip("Skip Linux containers on Windows host test case.")
+        pytest.skip("Skip test on Windows. neural-compressor import is hanging on Windows.")
 
     device, precision = device_precision
     config_file = f"whisper_{device}_{precision}.json"
