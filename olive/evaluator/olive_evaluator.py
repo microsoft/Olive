@@ -62,6 +62,18 @@ class OliveEvaluator(ABC):
         )
 
     @abstractmethod
+    def _inference(
+        self,
+        model: OliveModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ):
+        raise NotImplementedError()
+
+    @abstractmethod
     def _evaluate_accuracy(
         self,
         model: OliveModel,
@@ -95,16 +107,19 @@ class OliveEvaluator(ABC):
         device: Device = Device.CPU,
         execution_providers=None,
     ) -> MetricResult:
-        # TODO: Change the evaluate function to accept the metric rather than
-        # breaking it into multiple arguments
-        # return eval_func(model, metric, dataloader, device, post_func)
-        raw_res = eval_func(
-            model,
-            get_local_path(metric.user_config.data_dir),
-            metric.user_config.batch_size,
-            device,
-            execution_providers,
-        )
+        raw_res = None
+        if metric.user_config.evaluate_func:
+            raw_res = eval_func(
+                model,
+                get_local_path(metric.user_config.data_dir),
+                metric.user_config.batch_size,
+                device,
+                execution_providers,
+            )
+        else:
+            preds, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+            raw_res = eval_func(preds, targets)
+
         metric_res = {}
         for sub_type in metric.sub_types:
             if isinstance(raw_res, Number):
@@ -134,7 +149,7 @@ class OliveEvaluator(ABC):
             # only do this if data_config or dataloader is not provided
             # priority: dataloader_func > data_config > user_config.input_names/input_shapes > model io_config
             metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)
-            dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric, model)
+            dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric, model.framework)
 
             if metric.type == MetricType.ACCURACY:
                 metrics_res[metric.name] = self._evaluate_accuracy(
@@ -178,7 +193,7 @@ class OliveEvaluator(ABC):
         return metric
 
     @staticmethod
-    def get_user_config(metric: Metric, model: OliveModel):
+    def get_user_config(metric: Metric, framework: Framework):
         user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
 
         post_processing_func = getattr(metric.user_config, "post_processing_func", None)
@@ -189,11 +204,19 @@ class OliveEvaluator(ABC):
             dataloader_func,
             get_local_path(metric.user_config.data_dir),
             metric.user_config.batch_size,
-            model_framework=model.framework,
+            model_framework=framework,
         )
 
-        evaluate_func = getattr(metric.user_config, "evaluate_func", None)
-        eval_func = user_module.load_object(evaluate_func)
+        eval_func = None
+        if metric.type == MetricType.CUSTOM:
+            evaluate_func = getattr(metric.user_config, "evaluate_func", None)
+            if not evaluate_func:
+                evaluate_func = getattr(metric.user_config, "metric_func", None)
+
+            if not evaluate_func:
+                raise ValueError("evaluate_func or metric_func is not specified in the metric config")
+
+            eval_func = user_module.load_object(evaluate_func)
 
         if (not dataloader or not post_func) and metric.data_config:
             dc = metric.data_config.to_data_container()
@@ -273,7 +296,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         }
         return input_dict
 
-    def _evaluate_onnx_accuracy(
+    def _inference(
         self,
         model: ONNXModel,
         metric: Metric,
@@ -281,7 +304,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ) -> MetricResult:
+    ):
         session = model.prepare_session(
             inference_settings=self.get_inference_settings(metric),
             device=device,
@@ -299,6 +322,18 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             outputs = post_func(result) if post_func else result
             preds.extend(outputs.tolist())
             targets.extend(labels.data.tolist())
+        return preds, targets
+
+    def _evaluate_onnx_accuracy(
+        self,
+        model: ONNXModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        preds, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
 
         return OliveEvaluator.compute_accuracy(metric, preds, targets)
 
@@ -373,7 +408,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
 
         model = ONNXModel(model_path, inference_settings=inference_settings)
-        dataloader, _, post_func = OnnxEvaluator.get_user_config(metric, model)
+        dataloader, _, post_func = OnnxEvaluator.get_user_config(metric, model.framework)
 
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
         io_config = model.get_io_config()
@@ -442,7 +477,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
 
         model = ONNXModel(model_path, inference_settings=inference_settings)
-        dataloader, _, _ = OnnxEvaluator.get_user_config(metric, model)
+        dataloader, _, _ = OnnxEvaluator.get_user_config(metric, model.framework)
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
         io_config = model.get_io_config()
 
@@ -538,7 +573,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     def _device_string_to_torch_device(device: Device):
         return torch.device("cuda") if device == Device.GPU else torch.device(device)
 
-    def _evaluate_accuracy(
+    def _inference(
         self,
         model: PyTorchModel,
         metric: Metric,
@@ -546,7 +581,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ) -> MetricResult:
+    ):
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         preds = []
@@ -564,6 +599,18 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
             #  ValueError: expected sequence of length 128 at dim 1 (got 3)
             preds.extend(outputs.tolist())
             targets.extend(labels.data.tolist())
+        return preds, targets
+
+    def _evaluate_accuracy(
+        self,
+        model: PyTorchModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        preds, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
 
         return OliveEvaluator.compute_accuracy(metric, preds, targets)
 
@@ -608,7 +655,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
     def __init__(self):
         super().__init__()
 
-    def _evaluate_accuracy(
+    def _inference(
         self,
         model: SNPEModel,
         metric: Metric,
@@ -616,7 +663,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ) -> MetricResult:
+    ):
         dataloader = self._prepare_dataloader(dataloader, model)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
@@ -630,6 +677,18 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
                 raise ValueError("Post processing function is required for SNPE model")
             preds.extend(outputs.tolist())
             targets.extend(labels.tolist())
+        return preds, targets
+
+    def _evaluate_accuracy(
+        self,
+        model: SNPEModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        preds, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
 
         return OliveEvaluator.compute_accuracy(metric, preds, targets)
 
@@ -663,7 +722,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
     def __init__(self):
         super().__init__()
 
-    def _evaluate_accuracy(
+    def _inference(
         self,
         model: OpenVINOModel,
         metric: Metric,
@@ -671,7 +730,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ) -> MetricResult:
+    ):
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         preds = []
@@ -683,6 +742,18 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
                 labels = [labels]
             preds.extend(outputs)
             targets.extend(labels)
+        return preds, targets
+
+    def _evaluate_accuracy(
+        self,
+        model: OpenVINOModel,
+        metric: Metric,
+        dataloader: Dataset,
+        post_func=None,
+        device: Device = Device.CPU,
+        execution_providers: Union[str, List[str]] = None,
+    ) -> MetricResult:
+        preds, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
 
         return OliveEvaluator.compute_accuracy(metric, preds, targets)
 

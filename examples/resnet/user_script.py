@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import torch
+import torchmetrics
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 from pytorch_lightning import LightningDataModule, LightningModule
 from torch.utils.data import DataLoader, Dataset
@@ -10,7 +11,6 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
 from olive.constants import Framework
-from olive.evaluator.accuracy import AccuracyScore
 from olive.model import OliveModel
 
 # -------------------------------------------------------------------------
@@ -137,7 +137,11 @@ def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_pro
             preds.extend(outputs.tolist())
             target.extend(labels.data.tolist())
 
-    return AccuracyScore().measure(preds, target)
+    preds_tensor = torch.tensor(preds, dtype=torch.int)
+    target_tensor = torch.tensor(target, dtype=torch.int)
+    accuracy = torchmetrics.Accuracy()
+    result = accuracy(preds_tensor, target_tensor)
+    return result.item()
 
 
 # -------------------------------------------------------------------------
