@@ -56,6 +56,7 @@
         },
         "quantization": {
             "type": "IncQuantization",
+            "disable_search": true,
             "config": {
                 "approach": "SEARCHABLE_VALUES",
                 "user_script": "user_script.py",
