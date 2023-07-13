@@ -9,8 +9,8 @@ from whisper_decoder import WhisperDecoder, WhisperDecoderInputs
 from whisper_encoder_decoder_init import WhisperEncoderDecoderInit, WhisperEncoderDecoderInitInputs
 
 
-def get_encoder_decoder_init():
-    model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny")
+def get_encoder_decoder_init(model_name):
+    model = WhisperForConditionalGeneration.from_pretrained(model_name)
     return WhisperEncoderDecoderInit(
         model,
         model,
@@ -19,13 +19,13 @@ def get_encoder_decoder_init():
     )
 
 
-def get_decoder():
-    model = WhisperForConditionalGeneration.from_pretrained("openai/whisper-tiny")
+def get_decoder(model_name):
+    model = WhisperForConditionalGeneration.from_pretrained(model_name)
     return WhisperDecoder(model, model.config)
 
 
-def get_encdec_io_config():
-    model = get_encoder_decoder_init()
+def get_encdec_io_config(model_name):
+    model = get_encoder_decoder_init(model_name)
     use_decoder_input_ids = True
 
     inputs = WhisperEncoderDecoderInitInputs.create_dummy(
@@ -96,10 +96,10 @@ def get_encdec_io_config():
     }
 
 
-def get_dec_io_config():
+def get_dec_io_config(model_name):
     # Fix past disappearing bug - duplicate first past entry
     # input_list.insert(2, input_list[2])
-    model = get_decoder()
+    model = get_decoder(model_name)
     past_names = PastKeyValuesHelper.get_past_names(model.config.decoder_layers, present=False)
     present_names = PastKeyValuesHelper.get_past_names(model.config.decoder_layers, present=True)
     present_self_names = present_names[: 2 * model.config.decoder_layers]

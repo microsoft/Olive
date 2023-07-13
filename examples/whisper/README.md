@@ -25,9 +25,13 @@ python -m pip install -r requirements.txt
 
 ### Prepare workflow config json
 ```
-python prepare_whisper_configs.py [--no_audio_decoder] [--multilingual]
+python prepare_whisper_configs.py [--model_name MODEL_NAME] [--no_audio_decoder] [--multilingual]
+
+# For example, using whisper tiny model
+python prepare_whisper_configs.py --model_name openai/whisper-tiny.en
 ```
 
+`--model_name MODEL_NAME` is the name or path of the whisper model. The default value is `openai/whisper-tiny.en`.  
 `--no_audio_decoder` is optional. If not provided, will use audio decoder in the preprocessing ops.
 
 **Note:** If `--no_audio_decoder` is provided, you need to install `librosa` package before running the optimization steps below.
