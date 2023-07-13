@@ -198,39 +198,33 @@ class OliveEvaluator(ABC):
 
     @staticmethod
     def get_user_config(framework: Framework, data_root: str, metric: Metric):
-        if metric.user_config.user_script:
-            # load the dataloader, eval_func, post_func if user script is provided.
-            user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
+        user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
 
-            post_processing_func = getattr(metric.user_config, "post_processing_func", None)
-            post_func = user_module.load_object(post_processing_func)
+        post_processing_func = getattr(metric.user_config, "post_processing_func", None)
+        post_func = user_module.load_object(post_processing_func)
 
-            dataloader_func = getattr(metric.user_config, "dataloader_func", None)
-            if dataloader_func:
-                data_dir = get_local_path_from_root(data_root, metric.user_config.data_dir)
-                dataloader = user_module.call_object(
-                    dataloader_func,
-                    data_dir,
-                    metric.user_config.batch_size,
-                    model_framework=framework,
-                )
-            else:
-                dataloader = None
-
-            eval_func = None
-            if metric.type == MetricType.CUSTOM:
-                evaluate_func = getattr(metric.user_config, "evaluate_func", None)
-                if not evaluate_func:
-                    evaluate_func = getattr(metric.user_config, "metric_func", None)
-
-                if not evaluate_func:
-                    raise ValueError("evaluate_func or metric_func is not specified in the metric config")
-
-                eval_func = user_module.load_object(evaluate_func)
+        dataloader_func = getattr(metric.user_config, "dataloader_func", None)
+        if dataloader_func:
+            data_dir = get_local_path_from_root(data_root, metric.user_config.data_dir)
+            dataloader = user_module.call_object(
+                dataloader_func,
+                data_dir,
+                metric.user_config.batch_size,
+                model_framework=framework,
+            )
         else:
             dataloader = None
-            eval_func = None
-            post_func = None
+
+        eval_func = None
+        if metric.type == MetricType.CUSTOM:
+            evaluate_func = getattr(metric.user_config, "evaluate_func", None)
+            if not evaluate_func:
+                evaluate_func = getattr(metric.user_config, "metric_func", None)
+
+            if not evaluate_func:
+                raise ValueError("evaluate_func or metric_func is not specified in the metric config")
+
+            eval_func = user_module.load_object(evaluate_func)
 
         if (not dataloader or not post_func) and metric.data_config:
             dc = metric.data_config.to_data_container()
