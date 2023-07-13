@@ -112,8 +112,8 @@ def create_evaluation_dataset():
             return self.dataset[index], self.dataset[index]["labels"]
 
         def __len__(self):
-            # return 5
-            return len(self.dataset)
+            return 5
+            # return len(self.dataset)
 
     return _Dateset(tokenized_datasets)
 
@@ -160,10 +160,10 @@ def _evaluate(pre, ref, computer_func=None):
 
 
 def evaluate_accuracy_gpu(model, data_dir, batch_size, device="gpu"):
-    evaluate_accuracy(model, data_dir, batch_size, device=device)
+    evaluate_accuracy(model, data_dir, batch_size, device=device, ep=None)
 
 
-def evaluate_accuracy(model, data_dir, batch_size, device):
+def evaluate_accuracy(model, data_dir, batch_size, device, ep):
     prepared_model = model.prepare_session(inference_settings=None, device=device)
     dataloader = create_dataloader(batch_size=batch_size)
     seqeval = evaluate.load("seqeval")

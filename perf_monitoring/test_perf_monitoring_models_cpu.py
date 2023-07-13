@@ -28,9 +28,34 @@ def setup():
 #     extract_best_models(footprint, "bert")
 
 
+# @pytest.mark.parametrize(
+#     "olive_json",
+#     ["perf_models/distilbert-base-uncased-finetuned-sst-2-english/cpu_config.json"],
+# )
+# def test_bert(olive_json):
+#     print(olive_json)
+#     from olive.workflows import run as olive_run
+
+#     olive_config = patch_config(olive_json)
+#     footprint = olive_run(olive_config)
+#     extract_best_models(footprint, "distilbert-base-uncased-finetuned-sst-2-english")
+
+# @pytest.mark.parametrize(
+#     "olive_json",
+#     ["perf_models/CamemBERT/cpu_config.json"],
+# )
+# def test_bert(olive_json):
+#     print(olive_json)
+#     from olive.workflows import run as olive_run
+
+#     olive_config = patch_config(olive_json)
+#     footprint = olive_run(olive_config)
+#     extract_best_models(footprint, "CamemBERT")
+
+
 @pytest.mark.parametrize(
     "olive_json",
-    ["perf_models/CamemBERT/cpu_config.json"],
+    ["perf_models/bertweet-base-sentiment-analysis/cpu_config.json"],
 )
 def test_bert(olive_json):
     print(olive_json)
@@ -38,4 +63,41 @@ def test_bert(olive_json):
 
     olive_config = patch_config(olive_json)
     footprint = olive_run(olive_config)
-    extract_best_models(footprint, "CamemBERT")
+    extract_best_models(footprint, "bertweet-base-sentiment-analysis")
+
+
+# @pytest.mark.parametrize(
+#     "olive_json",
+#     ["perf_models/microsoft-deberta-base-mnli/cpu_config.json"],
+# )
+# def test_bert(olive_json):
+#     print(olive_json)
+#     from olive.workflows import run as olive_run
+
+#     olive_config = patch_config(olive_json)
+#     footprint = olive_run(olive_config)
+#     extract_best_models(footprint, "microsoft-deberta-base-mnli")
+
+# @pytest.mark.parametrize(
+#     "olive_json",
+#     ["perf_models/roberta-large-mnli/cpu_config.json"],
+# )
+# def test_bert(olive_json):
+#     print(olive_json)
+#     from olive.workflows import run as olive_run
+
+#     olive_config = patch_config(olive_json)
+#     footprint = olive_run(olive_config)
+#     extract_best_models(footprint, "roberta-large-mnli")
+
+# @pytest.mark.parametrize(
+#     "olive_json",
+#     ["perf_models/roberta-large-openai-detector/cpu_config.json"],
+# )
+# def test_bert(olive_json):
+#     print(olive_json)
+#     from olive.workflows import run as olive_run
+
+#     olive_config = patch_config(olive_json)
+#     footprint = olive_run(olive_config)
+#     extract_best_models(footprint, "roberta-large-openai-detector")

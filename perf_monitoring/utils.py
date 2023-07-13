@@ -30,8 +30,9 @@ def patch_config(config_json_path: str):
 
 
 def extract_best_models(footprint, model_name):
-    footprint = list(footprint.values())[0]
-    metrics_of_interest = ["accuracy-accuracy", "latency-avg"]
+    print("Footprint: ", footprint)
+    footprint = list(footprint.values())[0]  #
+    metrics_of_interest = ["accuracy-accuracy_custom", "latency-avg"]
     # gather the metrics from all pareto frontier nodes
     all_metrics = []
     # we iterate over the nodes in the pareto frontier
@@ -54,7 +55,7 @@ def extract_best_models(footprint, model_name):
     print("Compared metrics: ", compared_metric)
 
 
-def no_regression(actual, expected, rel_tol):
+def no_regression(actual, expected, rel_tol):  # check for tolerance
     if actual > expected:
         return True
     return abs(actual - expected) <= rel_tol * abs(expected)

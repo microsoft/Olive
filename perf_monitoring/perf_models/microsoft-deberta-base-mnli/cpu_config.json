@@ -4,7 +4,7 @@
         "type": "PyTorchModel",
         "config": {
             "model_loader": "load_model",
-            "model_script": "./perf_models/CamemBERT/user_script.py",
+            "model_script": "./perf_models/microsoft-deberta-base-mnli/user_script.py",
             "io_config" : {
                 "input_names": ["input_ids", "attention_mask"],
                 "input_shapes": [[1, 128], [1, 128]],
@@ -35,9 +35,10 @@
                         }
                     ],
                     "is_first_priority": true,
-                    "user_config": {
-                        "evaluate_func": "evaluate_accuracy",
-                        "user_script": "./perf_models/CamemBERT/user_script.py",
+                    "user_config":{
+                        "evaluate_func": "eval_accuracy",
+                        "user_script": "./perf_models/microsoft-deberta-base-mnli/user_script.py",
+                        "dataloader_func": "create_dataloader",
                         "batch_size": 1
                     }
                 },
@@ -55,7 +56,7 @@
                         }
                     ],
                     "user_config": {
-                        "user_script": "./perf_models/CamemBERT/user_script.py",
+                        "user_script": "./perf_models/microsoft-deberta-base-mnli/user_script.py",
                         "dataloader_func": "create_dataloader",
                         "batch_size": 1
                     }
@@ -82,7 +83,7 @@
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "user_script": "./perf_models/CamemBERT/user_script.py",
+                "user_script": "./perf_models/microsoft-deberta-base-mnli/user_script.py",
                 "dataloader_func": "create_dataloader",
                 "batch_size": 1
             }
@@ -99,6 +100,6 @@
         },
         "evaluator": "common_evaluator",
         "cache_dir": "cache",
-        "output_dir": "models/CamemBERT_workflow_cpu.json"
+        "output_dir": "models/microsoft-deberta-base-mnli_workflow_cpu.json"
     }
 }
