@@ -79,6 +79,10 @@
 <li class="toctree-l2"><a class="reference internal" href="#example">Example</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#model-config-and-dataset-config">Model config and dataset config</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#metric-config">Metric config</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#custom-components-config">Custom components config</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#script-example">Script example</a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="#e2e-example">E2E example</a></li>
 </ul>
 </li>
@@ -177,6 +181,56 @@
 </pre></div>
 </div>
 <p>Please refer to <a class="reference internal" href="../overview/options.html#metrics"><span class="std std-ref">metrics</span></a> for more details.</p>
+</section>
+<section id="custom-components-config">
+<h3>Custom components config<a class="headerlink" href="#custom-components-config" title="Permalink to this heading">¶</a></h3>
+<p>You can use your own custom compenents functions for your model. You will need to define the details of your components in your script as functions.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;model_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;code/user_script.py&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;script_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;code&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;hf_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nt">&quot;model_class&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;WhisperForConditionalGeneration&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;model_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;openai/whisper-medium&quot;</span><span class="p">,</span>
+<span class="w">                </span><span class="nt">&quot;components&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">                    </span><span class="p">{</span>
+<span class="w">                        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;encoder_decoder_init&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;io_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;get_encdec_io_config&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;component_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;get_encoder_decoder_init&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;dummy_inputs_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;encoder_decoder_init_dummy_inputs&quot;</span>
+<span class="w">                    </span><span class="p">},</span>
+<span class="w">                    </span><span class="p">{</span>
+<span class="w">                        </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;decoder&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;io_config&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;get_dec_io_config&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;component_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;get_decoder&quot;</span><span class="p">,</span>
+<span class="w">                        </span><span class="nt">&quot;dummy_inputs_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;decoder_dummy_inputs&quot;</span>
+<span class="w">                    </span><span class="p">}</span>
+<span class="w">                </span><span class="p">]</span>
+<span class="w">            </span><span class="p">}</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<section id="script-example">
+<h4>Script example<a class="headerlink" href="#script-example" title="Permalink to this heading">¶</a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># my_script.py</span>
+<span class="k">def</span> <span class="nf">get_dec_io_config</span><span class="p">(</span><span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="c1"># return your io dict</span>
+    <span class="o">...</span>
+
+<span class="k">def</span> <span class="nf">get_decoder</span><span class="p">(</span><span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="c1"># your component implementation</span>
+    <span class="o">...</span>
+
+<span class="k">def</span> <span class="nf">dummy_inputs_func</span><span class="p">():</span>
+    <span class="c1"># return the dummy imput for your component</span>
+    <span class="o">...</span>
+</pre></div>
+</div>
+</section>
 </section>
 <section id="e2e-example">
 <h3>E2E example<a class="headerlink" href="#e2e-example" title="Permalink to this heading">¶</a></h3>

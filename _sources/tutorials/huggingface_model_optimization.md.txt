@@ -46,5 +46,52 @@ Please refer to [hf_config](../overview/options.md#hf_config) for more details.
 ```
 Please refer to [metrics](../overview/options.md#metrics) for more details.
 
+### Custom components config
+You can use your own custom compenents functions for your model. You will need to define the details of your components in your script as functions.
+```json
+{
+    "input_model": {
+        "type": "PyTorchModel",
+        "config": {
+            "model_script": "code/user_script.py",
+            "script_dir": "code",
+            "hf_config": {
+                "model_class": "WhisperForConditionalGeneration",
+                "model_name": "openai/whisper-medium",
+                "components": [
+                    {
+                        "name": "encoder_decoder_init",
+                        "io_config": "get_encdec_io_config",
+                        "component_func": "get_encoder_decoder_init",
+                        "dummy_inputs_func": "encoder_decoder_init_dummy_inputs"
+                    },
+                    {
+                        "name": "decoder",
+                        "io_config": "get_dec_io_config",
+                        "component_func": "get_decoder",
+                        "dummy_inputs_func": "decoder_dummy_inputs"
+                    }
+                ]
+            }
+        }
+    },
+}
+```
+#### Script example
+```
+# my_script.py
+def get_dec_io_config(model_name: str):
+    # return your io dict
+    ...
+
+def get_decoder(model_name: str):
+    # your component implementation
+    ...
+
+def dummy_inputs_func():
+    # return the dummy imput for your component
+    ...
+```
+
 ### E2E example
 For the complete example, please refer to [Bert Optimization with PTQ on CPU](https://github.com/microsoft/Olive/tree/main/examples/bert#bert-optimization-with-ptq-on-cpu).
