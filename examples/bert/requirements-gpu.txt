@@ -3,7 +3,6 @@ azure-identity
 datasets
 evaluate
 docker
-onnxruntime-gpu
 scipy
 scikit-learn
 transformers
