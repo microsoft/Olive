@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import json
 import os
+import platform
 import sys
 from pathlib import Path
 
@@ -29,9 +30,12 @@ def setup():
     sys.path.remove(example_dir)
 
 
-@pytest.mark.parametrize("device_precision", [("cpu", "fp32"), ("cpu", "int8")])
+@pytest.mark.parametrize("device_precision", [("cpu", "fp32"), ("cpu", "int8"), ("cpu", "inc_int8")])
 def test_whisper(device_precision):
     from olive.workflows import run as olive_run
+
+    if platform.system() == "Windows" and device_precision[1].startswith("inc_int8"):
+        pytest.skip("Skip test on Windows. neural-compressor import is hanging on Windows.")
 
     device, precision = device_precision
     config_file = f"whisper_{device}_{precision}.json"

@@ -79,6 +79,10 @@
                 "MatMulConstBOnly": false
             }
         },
+        "inc_dynamic_quantization": {
+            "type": "IncDynamicQuantization",
+            "disable_search": true
+        },
         "insert_beam_search" : {
             "type" : "InsertBeamSearch",
             "config": {
