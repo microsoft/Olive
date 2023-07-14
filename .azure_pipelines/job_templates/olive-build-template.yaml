@@ -14,6 +14,7 @@ jobs:
     variables:
       WINDOWS: ${{ parameters.windows}}
       runCodesignValidationInjection: false
+      device: ${{ parameters.device }}
 
     steps:
     - task: UsePythonVersion@0
@@ -21,7 +22,7 @@ jobs:
         versionSpec: 3.8
       displayName: Use Python 3.8
 
-    - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[${{parameters.device}}]
+    - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[$(device)]
       displayName: Install Olive
 
     - task: AzureCLI@1
