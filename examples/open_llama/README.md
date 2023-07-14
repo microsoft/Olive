@@ -16,7 +16,7 @@ Note that this example config uses [openlm-research/open_llama_3b](https://huggi
 | [openlm-research/open_llama_13b](https://huggingface.co/openlm-research/open_llama_13b) | 40 | 40 | 5120 |
 
 
-When you run the example config for other larger models, you may need 
+When you run the example config for other larger models, you may need
 1. change the `model_path` to the one you use.
 ```json
 "input_model":{
