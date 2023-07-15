@@ -19,7 +19,7 @@ class RandomDataLoader:
         return self.create_input_func(self.batch_size, self.torch_dtype, self.model_framework), label
 
 
-def dummy_inputs(batch_size, torch_dtype, model_framework=Framework.PYTORCH):
+def dummy_inputs(batch_size, torch_dtype, model_framework=Framework.PYTORCH, num_hidden_layers=26):
     past_sequence_length = 1
     attention_mask_sequence_length = 1
     sequence_length = 2
@@ -30,7 +30,7 @@ def dummy_inputs(batch_size, torch_dtype, model_framework=Framework.PYTORCH):
     }
 
     if model_framework == Framework.ONNX:
-        for layer_index in range(26):
+        for layer_index in range(num_hidden_layers):
             inputs[f"past_key_values.{layer_index}.key"] = torch.rand(
                 (batch_size, 32, past_sequence_length, 100), dtype=torch_dtype
             )
