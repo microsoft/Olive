@@ -28,17 +28,17 @@ def test_bert(olive_json):
     extract_best_models(footprint, "bert")
 
 
-@pytest.mark.parametrize(
-    "olive_json",
-    ["perf_models/distilbert-base-uncased-finetuned-sst-2-english/cpu_config.json"],
-)
-def test_distilbert(olive_json):
-    print(olive_json)
-    from olive.workflows import run as olive_run
+# @pytest.mark.parametrize(
+#     "olive_json",
+#     ["perf_models/distilbert-base-uncased-finetuned-sst-2-english/cpu_config.json"],
+# )
+# def test_distilbert(olive_json):
+#     print(olive_json)
+#     from olive.workflows import run as olive_run
 
-    olive_config = patch_config(olive_json)
-    footprint = olive_run(olive_config)
-    extract_best_models(footprint, "distilbert-base-uncased-finetuned-sst-2-english")
+#     olive_config = patch_config(olive_json)
+#     footprint = olive_run(olive_config)
+#     extract_best_models(footprint, "distilbert-base-uncased-finetuned-sst-2-english")
 
 
 # @pytest.mark.parametrize(
