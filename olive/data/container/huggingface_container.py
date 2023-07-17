@@ -23,4 +23,8 @@ class HuggingfaceContainer(DataContainer):
         "text-classification": {
             DataComponentType.POST_PROCESS_DATA.value: "text_classification_post_process",
         },
+        "ner": {
+            DataComponentType.PRE_PROCESS_DATA.value: "ner_huggingface_preprocess",
+            DataComponentType.POST_PROCESS_DATA.value: "ner_post_process",
+        },
     }

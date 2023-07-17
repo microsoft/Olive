@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from pydantic import validator
 
@@ -10,7 +10,7 @@ from olive.common.config_utils import ConfigBase
 
 
 class IOConfig(ConfigBase):
-    # TODO remove input names, shapes and types, turn to use olive dataset conifg.
+    # TODO remove input names, shapes and types, turn to use olive dataset config.
     input_names: List[str]
     input_shapes: List[List[int]] = None
     input_types: List[str] = None
@@ -67,3 +67,11 @@ class IOConfig(ConfigBase):
             except ValueError:
                 raise ValueError(f"Invalid string_to_int_dim_params: {dim_param}. Must be castable to int.")
         return v
+
+
+def is_io_config_static(config: Union[IOConfig, Dict]):
+    if isinstance(config, IOConfig):
+        config = config.dict()
+    if not config["input_shapes"]:
+        return False
+    return all(all(isinstance(dim, int) for dim in shape) for shape in config["input_shapes"])

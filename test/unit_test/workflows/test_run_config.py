@@ -17,20 +17,18 @@ class TestRunConfig:
     # like: Systems/Evaluation/Model and etc.
     @pytest.fixture(autouse=True)
     def setup(self):
-        self.transformer_dataset_config_file = Path(__file__).parent / "mock_data" / "transformer_dataset.json"
-        self.only_transformer_dataset_config_file = (
-            Path(__file__).parent / "mock_data" / "only_transformer_dataset.json"
-        )
         self.user_script_config_file = Path(__file__).parent / "mock_data" / "user_script.json"
 
-    def test_transformer_dataset_config_file(self):
-        run_config = RunConfig.parse_file(self.transformer_dataset_config_file)
-        for dc in run_config.data_configs.values():
-            dc.to_data_container().create_dataloader()
-
-    def test_only_transformer_dataset_config_file(self):
-        # test for the case where user want to use the hf dataset but not huggingface models
-        run_config = RunConfig.parse_file(self.only_transformer_dataset_config_file)
+    @pytest.mark.parametrize(
+        "config_file",
+        [
+            Path(__file__).parent / "mock_data" / "transformer_dataset.json",
+            Path(__file__).parent / "mock_data" / "only_transformer_dataset.json",
+            Path(__file__).parent / "mock_data" / "ner_task_dataset.json",
+        ],
+    )
+    def test_dataset_config_file(self, config_file):
+        run_config = RunConfig.parse_file(config_file)
         for dc in run_config.data_configs.values():
             dc.to_data_container().create_dataloader()
 

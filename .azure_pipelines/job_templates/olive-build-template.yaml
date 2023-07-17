@@ -3,69 +3,72 @@
 parameters:
   name: ''
   pool: ''
+  device: 'cpu'
 
 jobs:
-- job: ${{parameters.name}}_Test_Olive
-  timeoutInMinutes: 300
-  pool:
-    name: ${{ parameters.pool}}
-  variables:
-    WINDOWS: ${{ parameters.windows}}
-    runCodesignValidationInjection: false
+- ${{ if eq(parameters.device, 'cpu') }}:
+  - job: ${{parameters.name}}_Test_Olive
+    timeoutInMinutes: 300
+    pool:
+      name: ${{ parameters.pool}}
+    variables:
+      WINDOWS: ${{ parameters.windows}}
+      runCodesignValidationInjection: false
+      device: ${{ parameters.device }}
 
-  steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: 3.8
-    displayName: Use Python 3.8
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: 3.8
+      displayName: Use Python 3.8
 
-  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
-    displayName: Install Olive
+    - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[$(device)]
+      displayName: Install Olive
 
-  - task: AzureCLI@1
-    inputs:
-      azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
-      scriptLocation: 'inlineScript'
-      inlineScript: make test
-    displayName: Test Olive
-    env:
-      OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
-      WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
-      WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
-      WORKSPACE_NAME: $(workspace-name)
-      AZURE_TENANT_ID: $(azure-tenant-id)
-      AZURE_CLIENT_ID: $(olive-rg-sp-id)
-      AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
-      PIPELINE: True
+    - task: AzureCLI@1
+      inputs:
+        azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
+        scriptLocation: 'inlineScript'
+        inlineScript: make test
+      displayName: Test Olive
+      env:
+        OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
+        WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
+        WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
+        WORKSPACE_NAME: $(workspace-name)
+        AZURE_TENANT_ID: $(azure-tenant-id)
+        AZURE_CLIENT_ID: $(olive-rg-sp-id)
+        AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
+        PIPELINE: True
 
-  - task: CredScan@3
-    displayName: 'Run CredScan'
-    inputs:
-      debugMode: false
-    continueOnError: true
+    - task: CredScan@3
+      displayName: 'Run CredScan'
+      inputs:
+        debugMode: false
+      continueOnError: true
 
-  - task: ComponentGovernanceComponentDetection@0
-    inputs:
-      scanType: 'Register'
-      verbosity: 'Verbose'
-      alertWarningLevel: 'High'
-    displayName: Component Detection
+    - task: ComponentGovernanceComponentDetection@0
+      inputs:
+        scanType: 'Register'
+        verbosity: 'Verbose'
+        alertWarningLevel: 'High'
+      displayName: Component Detection
 
-  - task: PublishTestResults@2
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFiles: '**/*TestOlive*.xml'
-      testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
-    displayName: Upload pipeline run test results
+    - task: PublishTestResults@2
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFiles: '**/*TestOlive*.xml'
+        testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
+      displayName: Upload pipeline run test results
 
-  - task: PublishCodeCoverageResults@1
-    inputs:
-      codeCoverageTool: 'Cobertura'
-      summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+    - task: PublishCodeCoverageResults@1
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
 
-  - script: make clean WINDOWS=$(WINDOWS)
-    condition: always()
-    displayName: Clean remaining artifacts
+    - script: make clean WINDOWS=$(WINDOWS)
+      condition: always()
+      displayName: Clean remaining artifacts
 
 
 - job: ${{parameters.name}}_Test_Examples
@@ -78,6 +81,7 @@ jobs:
   variables:
     WINDOWS: ${{ parameters.windows }}
     runCodesignValidationInjection: false
+    device: ${{ parameters.device }}
 
   steps:
   - task: UsePythonVersion@0
@@ -85,7 +89,7 @@ jobs:
       versionSpec: 3.8
     displayName: Use Python 3.8
 
-  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
+  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[$(device)]
     displayName: Install Olive
 
   - task: AzureCLI@1

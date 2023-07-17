@@ -69,6 +69,7 @@ class OliveModel(ABC):
         self.model_resource_path = create_resource_path(model_path) if model_path else None
         self.local_model_path = None
         self.composite_parent = None
+        self.io_config = None
 
     @property
     def model_path(self) -> str:
@@ -152,6 +153,9 @@ class OliveModel(ABC):
 
     def get_composite_parent(self):
         return self.composite_parent
+
+    def get_io_config(self) -> Dict[str, Any]:
+        return self.io_config
 
     def to_json(self, check_object: bool = False):
         config = {
@@ -456,7 +460,7 @@ class ONNXModel(ONNXModelBase):
         # save io_config
         self.io_config = io_config
 
-        return io_config
+        return self.io_config
 
 
 class PyTorchModel(OliveModel):
@@ -488,7 +492,7 @@ class PyTorchModel(OliveModel):
         super().__init__(framework=Framework.PYTORCH, model_file_format=model_file_format, model_path=model_path)
 
         # io config for conversion to onnx
-        self.io_config = validate_config(io_config, IOConfig) if io_config else None
+        self.io_config = validate_config(io_config, IOConfig).dict() if io_config else None
         self.dummy_inputs_func = dummy_inputs_func
 
         self.dummy_inputs = None
@@ -567,12 +571,13 @@ class PyTorchModel(OliveModel):
             logger.debug("Using dummy_inputs_func to get dummy inputs")
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             dummy_inputs = user_module_loader.call_object(self.dummy_inputs_func, self)
-        elif self.io_config and self.io_config.input_shapes:
+        elif self.io_config and self.io_config["input_shapes"]:
             logger.debug("Using io_config.input_shapes to get dummy inputs")
             dummy_inputs, _ = (
+                # input_types is optional
                 data_config_template.dummy_data_config_template(
-                    input_shapes=self.io_config.input_shapes,
-                    input_types=self.io_config.input_types,
+                    input_shapes=self.io_config["input_shapes"],
+                    input_types=self.io_config.get("input_types"),
                 )
                 .to_data_container()
                 .get_first_batch()
@@ -630,12 +635,12 @@ class PyTorchModel(OliveModel):
         hf_component = components_dict[component_name]
 
         user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-        model_component = user_module_loader.call_object(hf_component.component_func)
+        model_component = user_module_loader.call_object(hf_component.component_func, self.hf_config.model_name)
 
         io_config = hf_component.io_config
         if isinstance(io_config, str):
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
-            io_config = user_module_loader.call_object(hf_component.io_config)
+            io_config = user_module_loader.call_object(hf_component.io_config, self.hf_config.model_name)
         io_config = validate_config(io_config, IOConfig)
 
         def model_loader(_):
@@ -665,20 +670,13 @@ class PyTorchModel(OliveModel):
         return serialize_to_json(config, check_object)
 
 
-class OptimumModel(OliveModel):
-    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS, model_components: List[str]):
+class OptimumModel(PyTorchModel):
+    def __init__(self, model_components: List[str], **kwargs):
         super().__init__(
-            framework=Framework.PYTORCH,
             model_file_format=ModelFileFormat.OPTIMUM,
-            model_path=model_path,
+            **(kwargs or {}),
         )
         self.model_components = model_components
-
-    def load_model(self, rank: int = None):
-        raise NotImplementedError()
-
-    def prepare_session(self, inference_settings: Dict[str, Any], device: Device, rank: int = None):
-        raise NotImplementedError()
 
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)

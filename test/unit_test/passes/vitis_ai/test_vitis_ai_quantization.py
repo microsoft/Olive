@@ -32,7 +32,7 @@ class RandomDataReader(CalibrationDataReader):
         return next(self.enum_data_dicts, None)
 
 
-def dummy_calibration_reader(data_dir=None, batch_size=1):
+def dummy_calibration_reader(data_dir=None, batch_size=1, *args, **kwargs):
     return RandomDataReader()
 
 

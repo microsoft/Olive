@@ -75,7 +75,7 @@ latency_metric = Metric(
 evaluator_config =  OliveEvaluatorConfig(metrics=[latency_metric])
 ```
 
-`latency_metric` requires you to provide a function as value for `dataloader_func` that returns a dataloader object when called on `data_dir` and `batch_size`. You can provide the function object directly but here, let's give it a function name `"create_dataloader"` that can be imported from `user_script`.
+`latency_metric` requires you to provide a function as value for `dataloader_func` that returns a dataloader object when called on `data_dir`, `batch_size`, optional positional argument list and keyword argument dictionary. You can provide the function object directly but here, let's give it a function name `"create_dataloader"` that can be imported from `user_script`.
 
 [This file](https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py) for
 has an example of how to write user scripts.

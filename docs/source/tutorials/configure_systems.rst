@@ -92,7 +92,7 @@ System Configuration
                     }
             )
 
-Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert/conda.yaml>`_
+Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert/conda.yaml>`__
 for :code:`"conda.yaml"`.
 
 .. important::
@@ -117,7 +117,8 @@ There are some readymade systems available for AzureML. These systems are pre-co
                     }
                 }
             }
-Please refer to :ref:`system_alias` for the list of supported AzureML readymade systems.
+
+Please refer to :ref:`olive_system_alias` for the list of supported AzureML readymade systems.
 
 
 Docker System
@@ -172,7 +173,7 @@ System Configuration
             )
             docker_system = DockerSystem(local_docker_config=local_docker_config)
 
-Please refer to this `example <https://github.com/microsoft/Olive/tree/main/examples/bert/docker>`_
+Please refer to this `example <https://github.com/microsoft/Olive/tree/main/examples/bert/docker>`__
 for :code:`"docker"` and :code:`"Dockerfile"`.
 
 .. important::

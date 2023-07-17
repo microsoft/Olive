@@ -4,12 +4,14 @@
 # --------------------------------------------------------------------------
 import os
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
+from olive.constants import Framework
 from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.evaluator.metric import Metric, MetricType
@@ -89,12 +91,24 @@ def delete_onnx_model_files():
         os.remove(ONNX_MODEL_PATH)
 
 
-def create_dataloader(datadir, batchsize):
+def get_mock_snpe_model():
+    olive_model = MagicMock()
+    olive_model.framework = Framework.SNPE
+    return olive_model
+
+
+def get_mock_openvino_model():
+    olive_model = MagicMock()
+    olive_model.framework = Framework.OPENVINO
+    return olive_model
+
+
+def create_dataloader(datadir, batchsize, *args, **kwargs):
     dataloader = DataLoader(DummyDataset(1))
     return dataloader
 
 
-def create_fixed_dataloader(datadir, batchsize):
+def create_fixed_dataloader(datadir, batchsize, *args, **kwargs):
     dataloader = DataLoader(FixedDummyDataset(1))
     return dataloader
 
@@ -121,13 +135,26 @@ def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None, 
     return accuracy_metric
 
 
-def get_custom_metric():
+def get_custom_eval():
+    user_script_path = str(Path(__file__).absolute().parent / "assets" / "user_script.py")
     custom_metric = Metric(
         name="custom",
         type=MetricType.CUSTOM,
         sub_types=[{"name": "custom"}],
-        user_config={"evaluate_func": "val", "user_script": "user_script"},
+        user_config={"evaluate_func": "eval_func", "user_script": user_script_path, "need_inference": False},
     )
+    return custom_metric
+
+
+def get_custom_metric():
+    custom_metric = get_custom_eval()
+    custom_metric.user_config.metric_func = "metric_func"
+    return custom_metric
+
+
+def get_custom_metric_no_eval():
+    custom_metric = get_custom_eval()
+    custom_metric.user_config.evaluate_func = None
     return custom_metric
 
 

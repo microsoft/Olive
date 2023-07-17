@@ -1,6 +1,6 @@
 # Stable Diffusion Optimization with DirectML <!-- omit in toc -->
 
-This sample shows how to optimize [Stable Diffusion v1-5](https://huggingface.co/runwayml/stable-diffusion-v1-5) to run with ONNX Runtime and DirectML.
+This sample shows how to optimize [Stable Diffusion v1-4](https://huggingface.co/CompVis/stable-diffusion-v1-4), [Stable Diffusion v1-5](https://huggingface.co/runwayml/stable-diffusion-v1-5) or [Stable Diffusion v2](https://huggingface.co/stabilityai/stable-diffusion-2) to run with ONNX Runtime and DirectML.
 
 Stable Diffusion comprises multiple PyTorch models tied together into a *pipeline*. This Olive sample will convert each PyTorch model to ONNX, and then run the converted ONNX models through the `OrtTransformersOptimization` pass. The transformer optimization pass performs several time-consuming graph transformations that make the models more efficient for inference at runtime. Output models are only guaranteed to be compatible with onnxruntime-directml 1.15.0 or newer.
 
@@ -45,8 +45,8 @@ The above command will enumerate the `config_<model_name>.json` files and optimi
 The stable diffusion models are large, and the optimization process is resource intensive. It is recommended to run optimization on a system with a minimum of 16GB of memory (preferably 32GB). Expect optimization to take several minutes (especially the U-Net model).
 
 Once the script successfully completes:
-- The optimized ONNX pipeline will be stored under `models/optimized/runwayml/stable-diffusion-v1-5`.
-- The unoptimized ONNX pipeline (models converted to ONNX, but not run through transformer optimization pass) will be stored under `models/unoptimized/runwayml/stable-diffusion-v1-5`.
+- The optimized ONNX pipeline will be stored under `models/optimized/[model_id]` (for example `models/optimized/runwayml/stable-diffusion-v1-5`).
+- The unoptimized ONNX pipeline (models converted to ONNX, but not run through transformer optimization pass) will be stored under `models/unoptimized/[model_id]` (for example `models/unoptimized/runwayml/stable-diffusion-v1-5`).
 
 Re-running the script with `--optimize` will delete the output models, but it will *not* delete the Olive cache. Subsequent runs will complete much faster since it will simply be copying previously optimized models; you may use the `--clean_cache` option to start from scratch (not typically used unless you are modifying the scripts, for example).
 
@@ -77,6 +77,8 @@ Run `python stable_diffusion.py --help` for additional options. A few particular
 - `--model_id <string>` : name of a stable diffusion model ID hosted by huggingface.co. This script has been tested with the following:
   - `CompVis/stable-diffusion-v1-4`
   - `runwayml/stable-diffusion-v1-5` (default)
+  - `sayakpaul/sd-model-finetuned-lora-t4`
+  - `stabilityai/stable-diffusion-2`
   - LoRA variants of the above base models may work as well. See [LoRA Models (Experimental)](#lora-models-experimental).
 - `--num_inference_steps <int>` : the number of sampling steps per inference. The default value is 50. A lower value (e.g. 20) will speed up inference at the expensive of quality, and a higher value (e.g. 100) may produce higher quality images.
 - `--num_images <int>` : the number of images to generate per script invocation (non-interactive UI) or per click of the generate button (interactive UI). The default value is 1.

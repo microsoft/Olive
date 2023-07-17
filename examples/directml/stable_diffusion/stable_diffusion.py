@@ -11,6 +11,7 @@ import tkinter.ttk as ttk
 import warnings
 from pathlib import Path
 
+import config
 import onnxruntime as ort
 import torch
 from diffusers import OnnxRuntimeModel, OnnxStableDiffusionPipeline, StableDiffusionPipeline
@@ -23,7 +24,7 @@ from olive.workflows import run as olive_run
 
 
 def run_inference_loop(
-    pipeline, prompt, num_images, batch_size, num_inference_steps, image_callback=None, step_callback=None
+    pipeline, prompt, num_images, batch_size, image_size, num_inference_steps, image_callback=None, step_callback=None
 ):
     images_saved = 0
 
@@ -37,11 +38,13 @@ def run_inference_loop(
             [prompt] * batch_size,
             num_inference_steps=num_inference_steps,
             callback=update_steps if step_callback else None,
+            height=image_size,
+            width=image_size,
         )
         passed_safety_checker = 0
 
         for image_index in range(batch_size):
-            if not result.nsfw_content_detected[image_index]:
+            if result.nsfw_content_detected is None or not result.nsfw_content_detected[image_index]:
                 passed_safety_checker += 1
                 if images_saved < num_images:
                     output_path = f"result_{images_saved}.png"
@@ -54,7 +57,7 @@ def run_inference_loop(
         print(f"Inference Batch End ({passed_safety_checker}/{batch_size} images passed the safety checker).")
 
 
-def run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_steps):
+def run_inference_gui(pipeline, prompt, num_images, batch_size, image_size, num_inference_steps):
     def update_progress_bar(total_steps_completed):
         progress_bar["value"] = total_steps_completed
 
@@ -76,6 +79,7 @@ def run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_st
                 prompt_textbox.get(),
                 num_images,
                 batch_size,
+                image_size,
                 num_inference_steps,
                 image_completed,
                 update_progress_bar,
@@ -86,7 +90,6 @@ def run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_st
         print("WARNING: interactive UI only supports displaying up to 9 images")
         num_images = 9
 
-    image_size = 512
     image_rows = 1 + (num_images - 1) // 3
     image_cols = 2 if num_images == 4 else min(num_images, 3)
     min_batches_required = 1 + (num_images - 1) // batch_size
@@ -127,7 +130,9 @@ def run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_st
     window.mainloop()
 
 
-def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_inference_steps, static_dims, interactive):
+def run_inference(
+    optimized_model_dir, prompt, num_images, batch_size, image_size, num_inference_steps, static_dims, interactive
+):
     ort.set_default_logger_severity(3)
 
     print("Loading models into ORT session...")
@@ -140,8 +145,8 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
         # https://github.com/huggingface/diffusers/blob/46c52f9b9607e6ecb29c782c052aea313e6487b7/src/diffusers/pipelines/stable_diffusion/pipeline_stable_diffusion.py#L672
         sess_options.add_free_dimension_override_by_name("unet_sample_batch", batch_size * 2)
         sess_options.add_free_dimension_override_by_name("unet_sample_channels", 4)
-        sess_options.add_free_dimension_override_by_name("unet_sample_height", 64)
-        sess_options.add_free_dimension_override_by_name("unet_sample_width", 64)
+        sess_options.add_free_dimension_override_by_name("unet_sample_height", image_size // 8)
+        sess_options.add_free_dimension_override_by_name("unet_sample_width", image_size // 8)
         sess_options.add_free_dimension_override_by_name("unet_time_batch", 1)
         sess_options.add_free_dimension_override_by_name("unet_hidden_batch", batch_size * 2)
         sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
@@ -151,9 +156,9 @@ def run_inference(optimized_model_dir, prompt, num_images, batch_size, num_infer
     )
 
     if interactive:
-        run_inference_gui(pipeline, prompt, num_images, batch_size, num_inference_steps)
+        run_inference_gui(pipeline, prompt, num_images, batch_size, image_size, num_inference_steps)
     else:
-        run_inference_loop(pipeline, prompt, num_images, batch_size, num_inference_steps)
+        run_inference_loop(pipeline, prompt, num_images, batch_size, image_size, num_inference_steps)
 
 
 def optimize(
@@ -188,7 +193,12 @@ def optimize(
 
     model_info = dict()
 
-    for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
+    submodel_names = ["text_encoder", "vae_encoder", "vae_decoder", "unet"]
+
+    if pipeline.safety_checker is not None:
+        submodel_names.append("safety_checker")
+
+    for submodel_name in submodel_names:
         print(f"\nOptimizing {submodel_name}")
 
         olive_config = None
@@ -239,6 +249,12 @@ def optimize(
     # Save the unoptimized models in a directory structure that the diffusers library can load and run.
     # This is optional, and the optimized models can be used directly in a custom pipeline if desired.
     print("\nCreating ONNX pipeline...")
+
+    if pipeline.safety_checker is not None:
+        safety_checker = OnnxRuntimeModel.from_pretrained(model_info["safety_checker"]["unoptimized"]["path"].parent)
+    else:
+        safety_checker = None
+
     onnx_pipeline = OnnxStableDiffusionPipeline(
         vae_encoder=OnnxRuntimeModel.from_pretrained(model_info["vae_encoder"]["unoptimized"]["path"].parent),
         vae_decoder=OnnxRuntimeModel.from_pretrained(model_info["vae_decoder"]["unoptimized"]["path"].parent),
@@ -246,7 +262,7 @@ def optimize(
         tokenizer=pipeline.tokenizer,
         unet=OnnxRuntimeModel.from_pretrained(model_info["unet"]["unoptimized"]["path"].parent),
         scheduler=pipeline.scheduler,
-        safety_checker=OnnxRuntimeModel.from_pretrained(model_info["safety_checker"]["unoptimized"]["path"].parent),
+        safety_checker=safety_checker,
         feature_extractor=pipeline.feature_extractor,
         requires_safety_checker=True,
     )
@@ -257,7 +273,7 @@ def optimize(
     # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
     print("Copying optimized models...")
     shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))
-    for submodel_name in ("text_encoder", "vae_encoder", "vae_decoder", "safety_checker", "unet"):
+    for submodel_name in submodel_names:
         src_path = model_info[submodel_name]["optimized"]["path"]
         dst_path = optimized_model_dir / submodel_name / "model.onnx"
         shutil.copyfile(src_path, dst_path)
@@ -295,6 +311,22 @@ if __name__ == "__main__":
             "Use --dynamic_dims to disable static shape optimization."
         )
 
+    model_to_image_size = {
+        "CompVis/stable-diffusion-v1-4": 512,
+        "runwayml/stable-diffusion-v1-5": 512,
+        "sayakpaul/sd-model-finetuned-lora-t4": 512,
+        "stabilityai/stable-diffusion-2": 768,
+        "stabilityai/stable-diffusion-2-base": 768,
+        "stabilityai/stable-diffusion-2-1": 768,
+        "stabilityai/stable-diffusion-2-1-base": 768,
+    }
+
+    if args.model_id not in list(model_to_image_size.keys()):
+        print(
+            f"WARNING: {args.model_id} is not an officially supported model for this example and may not work as "
+            + "expected."
+        )
+
     if version.parse(ort.__version__) < version.parse("1.15.0"):
         print("This script requires onnxruntime-directml 1.15.0 or newer")
         exit(1)
@@ -305,6 +337,8 @@ if __name__ == "__main__":
 
     if args.clean_cache:
         shutil.rmtree(script_dir / "cache", ignore_errors=True)
+
+    config.image_size = model_to_image_size.get(args.model_id, 512)
 
     if args.optimize or not optimized_model_dir.exists():
         # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
@@ -323,6 +357,7 @@ if __name__ == "__main__":
                 args.prompt,
                 args.num_images,
                 args.batch_size,
+                config.image_size,
                 args.num_inference_steps,
                 use_static_dims,
                 args.interactive,

@@ -5,10 +5,13 @@
 import tempfile
 from pathlib import Path
 
+import pytest
 import torch
 from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
+from olive.data.config import DataConfig
+from olive.data.registry import Registry
 from olive.hardware import AcceleratorSpec
 from olive.model import PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
@@ -17,7 +20,8 @@ from olive.passes.openvino.quantization import OpenVINOQuantization
 from olive.systems.local import LocalSystem
 
 
-def test_openvino_quantization():
+@pytest.mark.parametrize("data_source", ["dataloader_func", "data_config"])
+def test_openvino_quantization(data_source):
     # setup
     with tempfile.TemporaryDirectory() as tempdir:
         ov_model = get_openvino_model(tempdir)
@@ -26,8 +30,6 @@ def test_openvino_quantization():
         data_dir.mkdir(exist_ok=True)
         config = {
             "engine_config": {"device": "CPU"},
-            "dataloader_func": create_dataloader,
-            "data_dir": data_dir,
             "algorithms": [
                 {
                     "name": "DefaultQuantization",
@@ -35,6 +37,27 @@ def test_openvino_quantization():
                 }
             ],
         }
+        if data_source == "dataloader_func":
+            config.update(
+                {
+                    "dataloader_func": create_dataloader,
+                    "data_dir": data_dir,
+                }
+            )
+        elif data_source == "data_config":
+            config.update(
+                {
+                    "data_config": DataConfig(
+                        components={
+                            "load_dataset": {
+                                "name": "cifar10_dataset",
+                                "type": "cifar10_dataset",
+                                "params": {"data_dir": data_dir},
+                            }
+                        }
+                    )
+                }
+            )
         p = create_pass_from_dict(
             OpenVINOQuantization,
             config,
@@ -79,7 +102,15 @@ def get_openvino_model(tempdir):
     return openvino_model
 
 
-def create_dataloader(data_dir, batchsize):
+@Registry.register_dataset()
+def cifar10_dataset(data_dir):
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))]
+    )
+    return CIFAR10(root=data_dir, train=False, transform=transform, download=True)
+
+
+def create_dataloader(data_dir, batchsize, *args, **kwargs):
     from addict import Dict
     from openvino.tools.pot.api import DataLoader
 
@@ -127,8 +158,5 @@ def create_dataloader(data_dir, batchsize):
             return indexes, pictures, labels
 
     dataset_config = {"data_source": data_dir}
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))]
-    )
-    dataset = CIFAR10(root=data_dir, train=False, transform=transform, download=True)
+    dataset = cifar10_dataset(data_dir)
     return CifarDataLoader(dataset_config, dataset)

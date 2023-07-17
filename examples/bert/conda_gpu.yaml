@@ -1,0 +1,14 @@
+name: project_environment
+channels:
+  - defaults
+dependencies:
+  - python=3.8.13
+  - pip=22.3.1
+  - pip:
+      - datasets
+      - evaluate
+      - psutil
+      - scipy
+      - scikit-learn
+      - transformers
+      - git+https://github.com/microsoft/Olive#egg=olive-ai[gpu]

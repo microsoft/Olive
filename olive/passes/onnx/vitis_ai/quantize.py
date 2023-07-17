@@ -11,14 +11,13 @@ import tempfile
 from pathlib import Path
 
 from onnxruntime.quantization.calibrate import CalibrationDataReader, CalibrationMethod
-from onnxruntime.quantization.onnx_quantizer import ONNXQuantizer
-from onnxruntime.quantization.quant_utils import QuantFormat, QuantizationMode, QuantType, load_model
+from onnxruntime.quantization.quant_utils import QuantFormat, QuantizationMode, QuantType
 from onnxruntime.quantization.quantize import quantize_static as ort_quantize_static
-from onnxruntime.quantization.registry import QLinearOpsRegistry
+from onnxruntime.quantization.registry import QDQRegistry, QLinearOpsRegistry
 
 from olive.passes.onnx.vitis_ai.calibrate import PowerOfTwoMethod, create_calibrator_power_of_two
-from olive.passes.onnx.vitis_ai.qdq_quantizer import VitisQuantizer
-from olive.passes.onnx.vitis_ai.quant_utils import get_exclude_nodes
+from olive.passes.onnx.vitis_ai.quant_utils import get_exclude_nodes, is_ort_version_below_1_16
+from olive.passes.onnx.vitis_ai.quantizer import VitisDPUQuantizer, VitisQDQQuantizer, VitisQOpQuantizer
 
 
 def quantize_static(
@@ -35,9 +34,12 @@ def quantize_static(
     weight_type=QuantType.QInt8,
     nodes_to_quantize=[],
     nodes_to_exclude=[],
-    optimize_model=True,
+    optimize_model=False,
     use_external_data_format=False,
     calibrate_method=PowerOfTwoMethod.MinMSE,
+    need_layer_fusing=False,
+    execution_providers=["CPUExecutionProvider"],
+    enable_dpu=False,
     extra_options={},
 ):
     """
@@ -92,6 +94,10 @@ def quantize_static(
             when it is not None.
         optimize_model: Deprecating Soon! Optimize model before quantization. NOT recommended, optimization will
             change the computation graph, making debugging of quantization loss difficult.
+        need_layer_fusing: This parameter determines whether to perform layer fusion on certain operations
+            (such as conv-relu) in the network, The default value is False.
+        execution_providers: This parameter specifies the execution providers to run the network, The default
+            value is ['CPUExecutionProvider'].
         use_external_data_format: option used for large size (>2GB) model. Set to False by default.
         extra_options:
             key value pair dictionary for various options in different case. Current used:
@@ -137,43 +143,71 @@ def quantize_static(
     """
 
     if calibrate_method in CalibrationMethod:
-        return ort_quantize_static(
-            model_input,
-            model_output,
-            calibration_data_reader,
-            quant_format,
-            op_types_to_quantize,
-            per_channel,
-            reduce_range,
-            activation_type,
-            weight_type,
-            nodes_to_quantize,
-            nodes_to_exclude,
-            optimize_model,
-            use_external_data_format,
-            calibrate_method,
-            extra_options,
-        )
+        ort_quantize_args = {
+            "model_input": model_input,
+            "model_output": model_output,
+            "calibration_data_reader": calibration_data_reader,
+            "quant_format": quant_format,
+            "op_types_to_quantize": op_types_to_quantize,
+            "per_channel": per_channel,
+            "reduce_range": reduce_range,
+            "activation_type": activation_type,
+            "weight_type": weight_type,
+            "nodes_to_quantize": nodes_to_quantize,
+            "nodes_to_exclude": nodes_to_exclude,
+            "use_external_data_format": use_external_data_format,
+            "calibrate_method": calibrate_method,
+            "extra_options": extra_options,
+        }
+        # for ORT version < 1.16.0, set optimize_model to False
+        # always set it to False since it is not recommended and is removed in ORT 1.16.0
+        # user needs to call pre-process to optimize the model
+        if is_ort_version_below_1_16():
+            ort_quantize_args["optimize_model"] = False
+        return ort_quantize_static(**ort_quantize_args)
 
     mode = QuantizationMode.QLinearOps
 
     if not op_types_to_quantize or len(op_types_to_quantize) == 0:
-        op_types_to_quantize = list(QLinearOpsRegistry.keys())
+        q_linear_ops = list(QLinearOpsRegistry.keys())
+        qdq_ops = list(QDQRegistry.keys())
+        op_types_to_quantize = list(set(q_linear_ops + qdq_ops))
 
-    model = load_model(Path(model_input), optimize_model)
+    # for ORT version >= 1.16.0, we should use load_model_with_shape_infer
+    # since load_model is already removed in ORT 1.16.
+    if is_ort_version_below_1_16():
+        from onnxruntime.quantization.quant_utils import load_model
+
+        model = load_model(Path(model_input), optimize_model)
+    else:
+        from onnxruntime.quantization.quant_utils import load_model_with_shape_infer
+
+        model = load_model_with_shape_infer(Path(model_input))
+
+    calib_extra_options_keys = [
+        ("ActivationSymmetric", "symmetric"),
+    ]
+
+    calib_extra_options = {
+        key: extra_options.get(name) for (name, key) in calib_extra_options_keys if name in extra_options
+    }
 
     with tempfile.TemporaryDirectory(prefix="ort.quant.") as quant_tmp_dir:
         calibrator = create_calibrator_power_of_two(
-            model,
+            Path(model_input),
             op_types_to_quantize,
             augmented_model_path=Path(quant_tmp_dir).joinpath("augmented_model.onnx").as_posix(),
+            activation_type=QuantType.QInt8,
             method=calibrate_method,
             use_external_data_format=use_external_data_format,
-            extra_options=None,
+            execution_providers=execution_providers,
+            extra_options=calib_extra_options,
         )
 
         calibrator.collect_data(calibration_data_reader)
         tensors_range = calibrator.compute_range()
+        del calibrator
+
     if input_nodes or output_nodes:
         if nodes_to_exclude:
             nodes_to_exclude += get_exclude_nodes(model_input, input_nodes, output_nodes)
@@ -181,22 +215,7 @@ def quantize_static(
             nodes_to_exclude = get_exclude_nodes(model_input, input_nodes, output_nodes)
 
     if quant_format is QuantFormat.QOperator:
-        quantizer = ONNXQuantizer(
-            model,
-            per_channel,
-            reduce_range,
-            mode,
-            True,
-            weight_type,
-            activation_type,
-            tensors_range,
-            nodes_to_quantize,
-            nodes_to_exclude,
-            op_types_to_quantize,
-            extra_options,
-        )
-    elif quant_format is QuantFormat.QDQ:
-        quantizer = VitisQuantizer(
+        quantizer = VitisQOpQuantizer(
             model,
             per_channel,
             reduce_range,
@@ -211,8 +230,40 @@ def quantize_static(
             calibrate_method,
             extra_options,
         )
+    elif quant_format is QuantFormat.QDQ and not enable_dpu:
+        quantizer = VitisQDQQuantizer(
+            model,
+            per_channel,
+            reduce_range,
+            mode,
+            True,
+            weight_type,
+            activation_type,
+            tensors_range,
+            nodes_to_quantize,
+            nodes_to_exclude,
+            op_types_to_quantize,
+            extra_options,
+        )
+    elif quant_format is QuantFormat.QDQ and enable_dpu:
+        quantizer = VitisDPUQuantizer(
+            model,
+            per_channel,
+            reduce_range,
+            mode,
+            True,
+            weight_type,
+            activation_type,
+            tensors_range,
+            nodes_to_quantize,
+            nodes_to_exclude,
+            op_types_to_quantize,
+            calibrate_method,
+            need_layer_fusing,
+            extra_options,
+        )
     else:
-        raise TypeError("Invalid quant_format type, it must be either QuantFormat or VitisQuantFormat.")
+        raise TypeError("Invalid quant_format type, it must be QuantFormat.")
 
     quantizer.quantize_model()
 

@@ -67,8 +67,8 @@ class TestPythonEnvironmentSystem:
         # assert
         assert res[metrics_key[0]].value == 0.9
         assert res[metrics_key[1]].value == 10
-        assert mock_evaluate_accuracy.call_once_with(model, metrics[0])
-        assert mock_evaluate_latency.call_once_with(model, metrics[1])
+        assert mock_evaluate_accuracy.call_once_with(model, metrics[0], DEFAULT_CPU_ACCELERATOR)
+        assert mock_evaluate_latency.call_once_with(model, metrics[1], DEFAULT_CPU_ACCELERATOR)
 
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy")
     def test_evaluate_accuracy(self, mock_compute_accuracy):
@@ -91,7 +91,7 @@ class TestPythonEnvironmentSystem:
         expected_res = local_system.evaluate_model(model, [metric], DEFAULT_CPU_ACCELERATOR)["accuracy-accuracy_score"]
 
         # execute
-        actual_res = self.system.evaluate_accuracy(model, metric)[AccuracySubType.ACCURACY_SCORE]
+        actual_res = self.system.evaluate_model(model, [metric], DEFAULT_CPU_ACCELERATOR)["accuracy-accuracy_score"]
 
         # assert
         assert actual_res == expected_res
@@ -127,7 +127,7 @@ class TestPythonEnvironmentSystem:
         expected_res = 10
 
         # execute
-        actual_res = self.system.evaluate_latency(model, metric)
+        actual_res = self.system.evaluate_latency(model, metric, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         assert actual_res[LatencySubType.AVG].value == expected_res

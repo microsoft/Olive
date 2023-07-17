@@ -38,8 +38,8 @@ def huggingface_dataset(data_name=None, subset=None, split="validation", **kwarg
 
 
 @Registry.register_dataset()
-def dummy_dataset(input_names, input_shapes, input_types):
-    return DummyDataset(input_names, input_shapes, input_types)
+def dummy_dataset(input_shapes, input_names=None, input_types=None):
+    return DummyDataset(input_shapes, input_names, input_types)
 
 
 @Registry.register_dataset()

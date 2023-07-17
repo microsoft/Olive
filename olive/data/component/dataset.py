@@ -49,23 +49,23 @@ class BaseDataset(Dataset):
         """
         pass
 
-    def to_snap_dataset(self):
+    def to_snpe_dataset(self):
         """
-        This function is used to convert the dataset to snap dataset
+        This function is used to convert the dataset to snpe dataset
         """
         pass
 
 
 class DummyDataset(BaseDataset):
-    def __init__(self, input_names, input_shapes, input_types):
+    def __init__(self, input_shapes, input_names: Optional[List] = None, input_types: Optional[List] = None):
         """
         This function is used to initialize the dummy dataset
         if input_names is None, the dummy dataset will return a tuple of tensors
         else the dummy dataset will return a dict of tensors
         """
-        self.input_names = input_names
         self.input_shapes = input_shapes
-        self.input_types = input_types
+        self.input_names = input_names
+        self.input_types = input_types or ["float32"] * len(input_shapes)
 
     def __len__(self):
         return 256
@@ -79,8 +79,7 @@ class DummyDataset(BaseDataset):
             "int8": torch.int8,
             "bool": torch.bool,
         }
-        input_types = self.input_types or ["float32"] * len(self.input_shapes)
-        input_types = [str_to_type[type_] for type_ in input_types]
+        input_types = [str_to_type[type_] for type_ in self.input_types]
 
         if not self.input_names:
             dummy_inputs = []

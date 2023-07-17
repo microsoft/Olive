@@ -82,7 +82,7 @@ class Metric(ConfigBase):
     backend: Optional[str] = "torch_metrics"
     sub_types: List[SubMetric]
     user_config: ConfigBase = None
-    data_config: DataConfig = DataConfig()
+    data_config: Optional[DataConfig] = None
 
     def get_sub_type_info(self, info_name, no_priority_filter=True, callback=lambda x: x):
         sub_type_info = {}
@@ -160,7 +160,7 @@ class SubMetricResult(ConfigBase):
 
 
 class MetricResult(ConfigDictBase):
-    __root__: Dict[str, SubMetricResult] = None
+    __root__: Dict[str, SubMetricResult]
     delimiter: ClassVar[str] = "-"
 
     def get_value(self, metric_name, sub_type_name):

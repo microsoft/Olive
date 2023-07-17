@@ -18,7 +18,7 @@ from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 logger = logging.getLogger(__name__)
 
 
-def generate_tuning_combos(model, config):
+def generate_tuning_combos(config):
     import onnxruntime as ort
 
     providers_list = (
@@ -33,13 +33,16 @@ def generate_tuning_combos(model, config):
     )
     opt_level_list = config.opt_level_list if config.opt_level_list else [99]
 
-    io_bind_list = [True, False] if config.io_bind else [False]
+    if config.io_bind:
+        io_bind_list = [True, False]
+    else:
+        io_bind_list = [False]
 
     tuning_combos = itertools.product(providers_list, execution_mode_list, opt_level_list, io_bind_list)
     yield from tuning_combos
 
 
-def valid_config(tuning_combos):
+def valid_config(tuning_combos, config):
     # the order of combos: "provider", "execution_mode", "ort_opt_level", "io_bind"
 
     # Parallel execution mode does not support the CUDA Execution Provider.
@@ -49,6 +52,12 @@ def valid_config(tuning_combos):
     if tuning_combos[0] == "CPUExecutionProvider" and tuning_combos[3]:
         logger.info("[Skipped] Because EPs is CPUExecutionProvider, the io_bind should not be True")
         return False
+    if tuning_combos[0] != "CUDAExecutionProvider" and config.enable_cuda_graph:
+        logger.info("[Ignored] Because EPs is not CUDAExecutionProvider, the enable_cuda_graph is ignored")
+        return True
+    if tuning_combos[0] != "TensorrtExecutionProvider" and config.trt_fp16_enable:
+        logger.info("[Ignored] Because EPs is not TensorrtExecutionProvider, the trt_fp16_enable is ignored")
+        return True
     return True
 
 
@@ -56,30 +65,6 @@ def tune_onnx_model(model, config):
     latency_user_config = {}
     # which should be the same as the config in the metric
     config_dict = config.dict()
-
-    # use model io_config if user does not specify input_names and input_shapes
-    # only do this if data_config or dataloader is not provided
-    # priority: dataloader_func > input_names/input_shapes > data_config > model io_config
-    if not (
-        config_dict.get("dataloader_func")
-        or config_dict.get("data_config")
-        or (config_dict.get("input_names") and config_dict.get("input_shapes"))
-    ):
-        logger.debug(
-            "dataloader_func, data_config and input_names/input_shapes are not provided. Use model io_config instead."
-        )
-        io_config = model.get_io_config()
-        config_dict["input_names"] = io_config["input_names"]
-        # check if inferred input shapes are static
-        input_shapes = io_config["input_shapes"]
-        is_static = all(all(isinstance(dim, int) for dim in shape) for shape in input_shapes)
-        if not is_static:
-            logger.debug(
-                "Model input shapes are not static. Cannot use inferred input shapes for creating dummy data. This will"
-                " cause an error when creating dummy data for tuning."
-            )
-        config_dict["input_shapes"] = io_config["input_shapes"]
-        config_dict["input_types"] = io_config["input_types"]
 
     # data_dir/dataloader_func will be passed to the metric as perf_tuning will leverage
     # the latency metric to run tune
@@ -92,19 +77,17 @@ def tune_onnx_model(model, config):
         "type": MetricType.LATENCY,
         "sub_types": latency_sub_types,
         "user_config": latency_user_config,
+        "data_config": config_dict.get("data_config"),
     }
-    if config_dict.get("data_config"):
-        # we have to do this condition since data_config cannot be None
-        latency_metric_config["data_config"] = config_dict.get("data_config")
     latency_metric = Metric(**latency_metric_config)
 
     pretuning_inference_result = get_benchmark(model, latency_metric, config)
 
     tuning_results = []
-    for tuning_combo in generate_tuning_combos(model, config):
+    for tuning_combo in generate_tuning_combos(config):
         tuning_item = ["provider", "execution_mode", "ort_opt_level", "io_bind"]
         logger.info("Run tuning for: {}".format(list(zip(tuning_item, tuning_combo))))
-        if not valid_config(tuning_combo):
+        if not valid_config(tuning_combo, config):
             continue
         tuning_results.extend(threads_num_tuning(model, latency_metric, config, tuning_combo))
 
@@ -133,6 +116,10 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
     io_bind = tuning_combo[3]
 
     test_params = dict()
+
+    # params starts with _ are not used in inference setting, we need add special handling for io_bind
+    test_params["_io_bind"] = io_bind
+
     if provider == "TensorrtExecutionProvider":
         test_params["execution_provider"] = [
             (
@@ -140,6 +127,15 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
                 {"trt_fp16_enable": config.trt_fp16_enable},
             )
         ]
+    elif provider == "CUDAExecutionProvider":
+        test_params["execution_provider"] = [
+            (
+                "CUDAExecutionProvider",
+                {"enable_cuda_graph": config.enable_cuda_graph},
+            )
+        ]
+        if config.enable_cuda_graph:
+            test_params["_io_bind"] = True
     else:
         test_params["execution_provider"] = [(provider, dict())]
     test_params["session_options"] = {
@@ -147,8 +143,7 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
         "graph_optimization_level": ort_opt_level,
         "extra_session_config": config.extra_session_config,
     }
-    # params starts with _ are not used in inference setting, we need add special handling for io_bind
-    test_params["_io_bind"] = io_bind
+
     try:
         for inter in config.inter_thread_num_list:
             test_params["session_options"]["inter_op_num_threads"] = inter
@@ -305,6 +300,11 @@ class OrtPerfTuning(Pass):
                 type_=bool,
                 default_value=False,
                 description="Whether enable IOBinding Search for ONNX Runtime inference.",
+            ),
+            "enable_cuda_graph": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Whether enable CUDA Graph for CUDA execution provider.",
             ),
             "providers_list": PassConfigParam(
                 type_=list,

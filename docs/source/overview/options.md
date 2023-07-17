@@ -149,7 +149,7 @@ dictionary is the name of the system. The value of the dictionary is another dic
 information of the system contains following items:
 
 - `type: [str]` The type of the system. The supported types are `LocalSystem`, `AzureML` and `Docker`.
-  There are some built-in system alias which could also be used as type. For exmaple, `AzureNDV2System`. Please refer to [System Alias](system_alias) for the complete list of system alias.
+  There are some built-in system alias which could also be used as type. For example, `AzureNDV2System`. Please refer to [Olive System Alias](olive_system_alias) for the complete list of system alias.
 
 - `config: [Dict]` The system config dictionary that contains the system specific information.
 
@@ -224,7 +224,7 @@ information of the evaluator contains following items:
         - `batch_size: [int]` The batch size for the metric evaluation.
 
         - `dataloader_func: [str]` The name of the function provided by the user to load the data for the metric evaluation. The
-        function should take the `data_dir` and `batch_size` as input and return the data loader. Only valid for `accuracy` and `latency`
+        function should take the `data_dir`, `batch_size`, `*args`, `**kwargs` as input and return the data loader. Only valid for `accuracy` and `latency`
          type.
 
         - `inference_settings: [Dict]` Inference settings for the different runtime. Only valid for `accuracy` and `latency` type.
@@ -246,7 +246,7 @@ information of the evaluator contains following items:
         }
     }
     // provide azureml datastore url
-    "data_dir": "azureml://azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py"
+    "data_dir": "azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py"
     ```
 
 ### Example

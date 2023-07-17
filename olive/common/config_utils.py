@@ -116,7 +116,7 @@ class ConfigBase(BaseModel):
 
 
 class ConfigListBase(ConfigBase):
-    __root__: List[Any] = None
+    __root__: List[Any]
 
     def __iter__(self):
         return iter(self.__root__)
@@ -129,7 +129,7 @@ class ConfigListBase(ConfigBase):
 
 
 class ConfigDictBase(ConfigBase):
-    __root__: Dict[str, Any] = None
+    __root__: Dict[str, Any]
 
     def __iter__(self):
         return iter(self.__root__)

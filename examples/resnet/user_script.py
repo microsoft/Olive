@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import torch
+import torchmetrics
 from onnxruntime.quantization.calibrate import CalibrationDataReader
 from pytorch_lightning import LightningDataModule, LightningModule
 from torch.utils.data import DataLoader, Dataset
@@ -10,7 +11,6 @@ from torchvision import transforms
 from torchvision.datasets import CIFAR10
 
 from olive.constants import Framework
-from olive.evaluator.accuracy import AccuracyScore
 from olive.model import OliveModel
 
 # -------------------------------------------------------------------------
@@ -69,7 +69,7 @@ def post_process(output):
 # -------------------------------------------------------------------------
 
 
-def create_dataloader(data_dir, batch_size):
+def create_dataloader(data_dir, batch_size, *args, **kwargs):
     cifar10_dataset = CIFAR10DataSet(data_dir)
     _, val_set = torch.utils.data.random_split(cifar10_dataset.val_dataset, [49000, 1000])
     benchmark_dataloader = DataLoader(PytorchResNetDataset(val_set), batch_size=batch_size, drop_last=True)
@@ -93,7 +93,7 @@ class ResnetCalibrationDataReader(CalibrationDataReader):
             return None
 
 
-def resnet_calibration_reader(data_dir, batch_size=16):
+def resnet_calibration_reader(data_dir, batch_size=16, *args, **kwargs):
     return ResnetCalibrationDataReader(data_dir, batch_size=batch_size)
 
 
@@ -137,7 +137,11 @@ def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_pro
             preds.extend(outputs.tolist())
             target.extend(labels.data.tolist())
 
-    return AccuracyScore().measure(preds, target)
+    preds_tensor = torch.tensor(preds, dtype=torch.int)
+    target_tensor = torch.tensor(target, dtype=torch.int)
+    accuracy = torchmetrics.Accuracy()
+    result = accuracy(preds_tensor, target_tensor)
+    return result.item()
 
 
 # -------------------------------------------------------------------------
@@ -156,7 +160,7 @@ def create_qat_config():
 # -------------------------------------------------------------------------
 
 
-def create_train_dataloader(data_dir, batchsize):
+def create_train_dataloader(data_dir, batchsize, *args, **kwargs):
     cifar10_dataset = CIFAR10DataSet()
     train_dataset, _ = torch.utils.data.random_split(cifar10_dataset.train_dataset, [40000, 10000])
     train_dataloader = DataLoader(PytorchResNetDataset(train_dataset), batch_size=batchsize, drop_last=True)

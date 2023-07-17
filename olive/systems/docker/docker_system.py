@@ -138,6 +138,7 @@ class DockerSystem(OliveSystem):
             container_root_path=container_root_path,
         )
         volumes_list.append(output_mount_str)
+        logger.debug(f"The volumes list is {volumes_list}")
 
         eval_command = docker_utils.create_evaluate_command(
             eval_script_path=eval_file_mount_path,
@@ -149,27 +150,39 @@ class DockerSystem(OliveSystem):
 
         run_command = docker_utils.create_run_command(run_params=self.run_params)
 
-        try:
-            logger.debug(f"Running container with eval command: {eval_command}")
-            logger.debug(f"The volumes list is {volumes_list}")
-            container = self.docker_client.containers.run(
-                image=self.image, command=eval_command, volumes=volumes_list, detach=True, **run_command
+        environment = run_command.pop("environment", {})
+        envs_dict = {"PYTHONPYCACHEPREFIX": "/tmp"}
+        for k, v in envs_dict.items():
+            if isinstance(environment, list):
+                environment = {env.split("=")[0]: env.split("=")[1] for env in environment}
+            elif isinstance(environment, dict) and not environment.get(k):
+                environment[k] = v
+
+        logger.debug(f"Running container with eval command: {eval_command}")
+        container = self.docker_client.containers.run(
+            image=self.image,
+            command=eval_command,
+            volumes=volumes_list,
+            detach=True,
+            environment=environment,
+            **run_command,
+        )
+        docker_logs = []
+        for line in container.logs(stream=True):
+            # containers.logs can accept stdout/stderr as arguments, but it doesn't work
+            # as we cannot ensure that all the logs will be printed in the correct channel(out/err)
+            # so, we collect all the logs and print them in the end if there is an error.
+            log = line.decode().strip()
+            logger.debug(log)
+            docker_logs.append(log)
+        exit_code = container.wait()["StatusCode"]
+        container.remove()
+        if exit_code != 0:
+            error_msg = "\n".join(docker_logs)
+            raise docker.errors.ContainerError(
+                container, exit_code, eval_command, self.image, f"Docker container evaluation failed with: {error_msg}"
             )
-            for line in container.logs(stream=True):
-                print(line.strip().decode())
-            logger.debug("Docker container evaluation completed successfully")
-        finally:
-            # clean up dev mount regardless of whether the run was successful or not
-            # otherwise __pycache__ will be created in the dev mount and will cause issues
-            if self.is_dev:
-                clean_up_mount_path, clean_up_mount_str = docker_utils.create_dev_cleanup_mount(container_root_path)
-                logger.debug("Cleaning up dev mount")
-                self.docker_client.containers.run(
-                    image=self.image,
-                    command=f"python {clean_up_mount_path} --dev_mount_path {dev_mount_path}",
-                    volumes=[dev_mount_str, clean_up_mount_str],
-                )
-                logger.debug("Dev mount cleaned up successfully")
+        logger.debug("Docker container evaluation completed successfully")
 
         metric_json = Path(output_local_path) / f"{eval_output_name}"
         return metric_json

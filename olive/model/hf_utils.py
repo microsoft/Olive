@@ -32,7 +32,7 @@ class HFConfig(ConfigBase):
         if values["model_name"]:
             if not v and not values.get("task", None):
                 raise ValueError("Either task or model_class must be specified")
-            return v
+        return v
 
 
 def load_huggingface_model_from_task(task: str, name: str):
@@ -47,7 +47,7 @@ def load_huggingface_model_from_task(task: str, name: str):
     elif len(task_results) == 3:
         targeted_task = task_results[1]
     else:
-        raise ValueError("unsupported transfomers version")
+        raise ValueError("unsupported transformers version")
 
     model_class = {"pt": targeted_task["pt"]}
     class_tuple = ()
