@@ -1,8 +1,0 @@
-azure-ai-ml
-azure-identity
-datasets
-evaluate
-docker
-scipy
-scikit-learn
-transformers
