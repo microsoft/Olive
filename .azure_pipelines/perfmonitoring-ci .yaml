@@ -34,7 +34,7 @@ jobs:
     windows: True
     examples:
       bert:
-        perfMonitoringScriptName: test_perf_monitoring_models_cpu
+        perfMonitoringScriptName: perf_monitoring_models_cpu
 
 - template: job_templates/olive-perf-monitoring-template.yaml
   parameters:
@@ -43,4 +43,4 @@ jobs:
     windows: False
     examples:
       bert:
-        perfMonitoringScriptName: test_perf_monitoring_models_cpu
+        perfMonitoringScriptName: perf_monitoring_models_cpu
