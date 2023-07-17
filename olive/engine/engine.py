@@ -377,7 +377,7 @@ class Engine:
         output_name: str = None,
     ):
         """
-        Run all the registered Olive passes in search model where search strategy is not None.
+        Run all the registered Olive passes in no-search model where search strategy is None.
         """
         for pass_item in self.passes.values():
             if len(pass_item["pass"].search_space()) > 0:
