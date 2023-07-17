@@ -117,13 +117,11 @@ def post_process(output):
         preds = torch.argmax(output.logits, dim=-1)
     else:
         preds = torch.argmax(output, dim=-1)
-    print(preds.tolist(), "this is preds")
     return preds
 
 
 def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_providers):
     dataloader = create_dataloader(data_dir, batch_size)
-    print(dataloader, "this is dataloader")
     preds = []
     target = []
     sess = model.prepare_session(inference_settings=None, device=device, execution_providers=execution_providers)
@@ -146,7 +144,6 @@ def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_pro
             target.extend(labels.data.tolist())
     elif model.framework == Framework.PYTORCH:
         for inputs, labels in dataloader:
-            print(inputs, "this is inputs", labels, "this is labels")
             if isinstance(inputs, dict):
                 result = sess(**inputs)
             else:
@@ -154,5 +151,4 @@ def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_pro
             outputs = post_process(result)
             preds.extend(outputs.tolist())
             target.extend(labels.data.tolist())
-    print(preds, "this is preds")
     return AccuracyScore().measure(preds, target)

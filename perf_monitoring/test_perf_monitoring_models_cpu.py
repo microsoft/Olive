@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 from utils import extract_best_models, patch_config
 
+from olive.workflows import run as olive_run
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
@@ -59,9 +61,6 @@ def setup():
     ["perf_models/bertweet-base-sentiment-analysis/cpu_config.json"],
 )
 def test_bert(olive_json):
-    print(olive_json)
-    from olive.workflows import run as olive_run
-
     olive_config = patch_config(olive_json)
     footprint = olive_run(olive_config)
     extract_best_models(footprint, "bertweet-base-sentiment-analysis")
