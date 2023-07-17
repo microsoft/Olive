@@ -74,11 +74,14 @@ This workflow performs BERT optimization on GPU with CUDA/TensorRT. It performs 
 ## How to run
 ### Pip requirements
 Install the necessary python packages:
-```
-[CPU]
+```sh
+# [CPU]
+pip install git+https://github.com/microsoft/Olive#egg=olive-ai[cpu]
+# [GPU]
+pip install git+https://github.com/microsoft/Olive#egg=olive-ai[gpu]
+
+# Other dependencies
 python -m pip install -r requirements.txt
-[GPU]
-python -m pip install -r requirements-gpu.txt
 ```
 
 ### Run sample using config
@@ -86,12 +89,12 @@ python -m pip install -r requirements-gpu.txt
 The optimization techniques to run are specified in the relevant config json file.
 
 First, install required packages according to passes.
-```
+```sh
 python -m olive.workflows.run --config <config_file>.json --setup
 ```
 
 Then, optimize the model
-```
+```sh
 python -m olive.workflows.run --config <config_file>.json
 ```
 

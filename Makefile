@@ -1,7 +1,6 @@
 WINDOWS                    ?= False
 PIPELINE                   ?= False
 INSTALL_DEV_MODE           ?= False
-IS_GPU                     ?= False
 EXAMPLE_FOLDER             ?=
 EXAMPLE_NAME               ?=
 INSTALL_EXTRAS             ?=
@@ -44,7 +43,7 @@ test:
 .PHONY: test-examples
 test-examples: logs/
 test-examples:
-	$(TEST_EXAMPLES_CMD) $(PIPELINE) $(CURRENT_DIR) $(EXAMPLE_FOLDER) $(EXAMPLE_NAME) $(IS_GPU)
+	$(TEST_EXAMPLES_CMD) $(PIPELINE) $(CURRENT_DIR) $(EXAMPLE_FOLDER) $(EXAMPLE_NAME)
 
 .PHONY: clean
 clean:

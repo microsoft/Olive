@@ -79,7 +79,7 @@ jobs:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
-    gpu: True
+    device: gpu
     examples:
       bert_cuda_gpu:
         exampleFolder: bert
