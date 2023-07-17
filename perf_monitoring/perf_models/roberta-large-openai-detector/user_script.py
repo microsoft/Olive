@@ -56,6 +56,7 @@ def load_model(model_path=None):
 
 
 def create_evaluation_dataset(dataset_dir):
+    print(f"Dataset directory: {dataset_dir}")
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     rls_ordered = []
     for item, label in [("small-117M.valid.jsonl", 0), ("webtext.valid.jsonl", 1)]:
@@ -104,6 +105,7 @@ def create_dataloader(data_dir="data", batch_size=2):
         return batch
 
     dataset = create_evaluation_dataset(data_dir)
+    print(f"Data directory: {data_dir}")
     return DataLoader(dataset, batch_size=batch_size, collate_fn=_collate_fn)
 
 
@@ -129,6 +131,7 @@ def post_process(output):
 
 def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_providers):
     dataloader = create_dataloader(data_dir, batch_size)
+    print(dataloader, "this is dataloader")
     preds = []
     target = []
     sess = model.prepare_session(inference_settings=None, device=device, execution_providers=execution_providers)
@@ -151,6 +154,7 @@ def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_pro
             target.extend(labels.data.tolist())
     elif model.framework == Framework.PYTORCH:
         for inputs, labels in dataloader:
+            print(inputs, "this is inputs", labels, "this is labels")
             if isinstance(inputs, dict):
                 result = sess(**inputs)
             else:
@@ -158,4 +162,5 @@ def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_pro
             outputs = post_process(result)
             preds.extend(outputs.tolist())
             target.extend(labels.data.tolist())
+    print(preds, "this is preds")
     return AccuracyScore().measure(preds, target)

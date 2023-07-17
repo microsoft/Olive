@@ -72,14 +72,17 @@ def create_evaluation_dataset():
         batched=True,
         remove_columns=dataset.column_names,
     )
-    tokenized_datasets.set_format("torch", columns=["input_ids", "attention_mask", "token_type_ids", "labels"])
+    tokenized_datasets.set_format("torch", columns=["input_ids", "attention_mask", "labels"])
 
     class _Dateset(Dataset):
         def __init__(self, dataset):
             self.dataset = dataset
 
         def __getitem__(self, index):
-            return self.dataset[index], self.dataset[index]["labels"]
+            labels = self.dataset[index]["labels"]
+            inputs = {k: self.dataset[index][k] for k in self.dataset[index].keys() if k != "labels"}
+            return inputs, labels
+            # return self.dataset[index], self.dataset[index]["labels"]
 
         def __len__(self):
             return 5

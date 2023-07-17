@@ -65,13 +65,25 @@ def compare_metrics(best_metrics, model_name):
     # open best metrics json
     with open("best_metrics.json") as f:
         data = json.load(f)
+
+    if model_name in data:
         model_data = data[model_name]
         if len(model_data) == 0:
             print("No data in best_metrics.json")
             return {"accuracy": True, "latency": True}
         print(model_data[0], model_data[1])
         print(best_metrics[0], best_metrics[1])
-        return {
+        comparison_result = {
             "accuracy": no_regression(best_metrics[0], model_data[0], 0.05),
             "latency": no_regression(best_metrics[1], model_data[1], 0.05),
         }
+    else:
+        print(f"{model_name} not found in best_metrics.json, creating new entry...")
+        data[model_name] = best_metrics
+        comparison_result = {"accuracy": True, "latency": True}
+
+    # Save the updated data back to the file
+    with open("best_metrics.json", "w") as f:
+        json.dump(data, f)
+
+    return comparison_result

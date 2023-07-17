@@ -39,7 +39,8 @@
                         "evaluate_func": "eval_accuracy",
                         "user_script": "./perf_models/roberta-large-openai-detector/user_script.py",
                         "dataloader_func": "create_dataloader",
-                        "batch_size": 1
+                        "batch_size": 1,
+                        "data_dir": "data"
                     }
                 },
                 {
