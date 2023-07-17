@@ -99,7 +99,7 @@ def create_evaluation_dataset(dataset_dir):
     return _Dateset(rls)
 
 
-def create_dataloader(data_dir="data", batch_size=2):
+def create_dataloader(data_dir="data", batch_size=2, model_framework=None):
     def _collate_fn(batch):
         batch = default_collate(batch)
         return batch

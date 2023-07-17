@@ -95,7 +95,7 @@ def create_evaluation_dataset():
     return _Dateset(tokenized_datasets)
 
 
-def create_dataloader(data_dir="", batch_size=2):
+def create_dataloader(data_dir="", batch_size=2, model_framework=None):
     def _collate_fn(batch):
         batch = default_collate(batch)
         return batch
