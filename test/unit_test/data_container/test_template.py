@@ -16,7 +16,7 @@ class TestDataConfigTemplate:
     @patch("transformers.AutoTokenizer.from_pretrained")
     def test_huggingface_template(self, mock_from_pretrained, mock_load_dataset):
         dataloader = data_config_template.huggingface_data_config_template(
-            model_name="bert-base-uncased",
+            model_name="Intel/bert-base-uncased-mrpc",
             task="text-classification",
             data_name="glue",
             subset="mrpc",
