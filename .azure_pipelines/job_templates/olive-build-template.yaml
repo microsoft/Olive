@@ -11,6 +11,7 @@ jobs:
     name: ${{parameters.name}}_Unit_Test_Olive
     pool: ${{parameters.pool}}
     device: ${{parameters.device}}
+    WINDOWS: ${{parameters.windows}}
     test_type: 'unit_test'
 
 - template: olive-test-template.yaml
@@ -18,6 +19,7 @@ jobs:
     name: ${{parameters.name}}_Integration_Test_Olive
     pool: ${{parameters.pool}}
     device: ${{parameters.device}}
+    WINDOWS: ${{parameters.windows}}
     test_type: 'integ_test'
 
 - job: ${{parameters.name}}_Test_Examples

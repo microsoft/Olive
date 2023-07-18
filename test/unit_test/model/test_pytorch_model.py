@@ -24,9 +24,9 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         self.root_dir = Path(self.tempdir.name)
         self.model_path = str(self.root_dir.resolve() / "mlflow_test")
         self.task = "text-classification"
-        self.architecture = "distilbert-base-uncased-finetuned-sst-2-english"
-        self.original_model = transformers.AutoModelForSequenceClassification.from_pretrained(self.architecture)
-        self.tokenizer = transformers.DistilBertTokenizerFast.from_pretrained(self.architecture)
+        self.architecture = "Intel/bert-base-uncased-mrpc"
+        self.original_model = transformers.AutoModel.from_pretrained(self.architecture)
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.architecture)
         self.input_text = ["Today was an amazing day!"]
         self.hf_conf = {
             "task_type": self.task,
@@ -73,8 +73,8 @@ class TestPyTorchHFModel(unittest.TestCase):
     def setup(self):
         # hf config values
         self.task = "text-classification"
-        self.model_class = "DistilBertForSequenceClassification"
-        self.model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+        self.model_class = "AutoModel"
+        self.model_name = "Intel/bert-base-uncased-mrpc"
 
     def test_hf_config_task(self):
         self.setup()
@@ -98,8 +98,8 @@ class TestPytorchDummyInput:
     def setup(self):
         # hf config values
         self.task = "text-classification"
-        self.model_class = "DistilBertForSequenceClassification"
-        self.model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+        self.model_class = "AutoModel"
+        self.model_name = "Intel/bert-base-uncased-mrpc"
         self.io_config = {
             "input_names": ["input_ids", "attention_mask", "token_type_ids"],
             "input_shapes": [[1, 128], [1, 128], [1, 128]],
