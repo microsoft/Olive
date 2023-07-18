@@ -52,50 +52,63 @@ class TestRunConfig:
             RunConfig.parse_obj(user_script_config)
             assert str(e.value) == "AzureML client config is required for AzureML system"
 
-    @patch("azure.identity._credentials.default.InteractiveBrowserCredential")
-    @patch("azure.identity._credentials.default.AzurePowerShellCredential")
-    @patch("azure.identity._credentials.default.AzureCliCredential")
-    @patch("azure.identity._credentials.default.SharedTokenCacheCredential")
-    @patch("azure.identity._credentials.default.ManagedIdentityCredential")
-    @patch("azure.identity._credentials.default.EnvironmentCredential")
-    def test_config_with_azureml_default_auth_params(
-        self,
-        mocked_env_credential,
-        mocked_managed_identity_credential,
-        mocked_shared_token_cache_credential,
-        mocked_azure_cli_credential,
-        mocked_azure_powershell_credential,
-        mocked_interactive_browser_credential,
-    ):
+    @pytest.fixture
+    def mock_aml_credentials(self):
         # we need to mock all the credentials because the default credential will get tokens from all of them
+        self.mocked_env_credentials = patch("azure.identity._credentials.default.EnvironmentCredential").start()
+        self.mocked_managed_identity_credentials = patch(
+            "azure.identity._credentials.default.ManagedIdentityCredential"
+        ).start()
+        self.mocked_shared_token_cache_credentials = patch(
+            "azure.identity._credentials.default.SharedTokenCacheCredential"
+        ).start()
+        self.mocked_azure_cli_credentials = patch("azure.identity._credentials.default.AzureCliCredential").start()
+        self.mocked_azure_powershell_credentials = patch(
+            "azure.identity._credentials.default.AzurePowerShellCredential"
+        ).start()
+        self.mocked_interactive_browser_credentials = patch(
+            "azure.identity._credentials.default.InteractiveBrowserCredential"
+        ).start()
+        yield
+        patch.stopall()
+
+    @pytest.mark.usefixtures("mock_aml_credentials")
+    @pytest.mark.parametrize(
+        "default_auth_params",
+        [
+            (None, (1, 1, 1, 1, 1, 0)),
+            (
+                {"exclude_environment_credential": True, "exclude_managed_identity_credential": False},
+                (0, 1, 1, 1, 1, 0),
+            ),
+            ({"exclude_environment_credential": True, "exclude_managed_identity_credential": True}, (0, 0, 1, 1, 1, 0)),
+        ],
+    )
+    def test_config_with_azureml_default_auth_params(self, default_auth_params):
+        """
+        default_auth_params[0] is a dict of the parameters to be passed to DefaultAzureCredential
+
+        default_auth_params[1] is a tuple of the number of times each credential is called.
+        the order is totally same with that in DefaultAzureCredential where the credentials
+        are called sequentially until one of them succeeds:
+            EnvironmentCredential -> ManagedIdentityCredential -> SharedTokenCacheCredential
+            -> AzureCliCredential -> AzurePowerShellCredential -> InteractiveBrowserCredential
+        https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python # noqa: E501
+        """
         with open(self.user_script_config_file, "r") as f:
             user_script_config = json.load(f)
 
-        user_script_config["azureml_client"]["default_auth_params"] = None
+        user_script_config["azureml_client"]["default_auth_params"] = default_auth_params[0]
         config = RunConfig.parse_obj(user_script_config)
         config.azureml_client.create_client()
-        mocked_env_credential.assert_called_once()
-        mocked_interactive_browser_credential.assert_not_called()
-
-        user_script_config["azureml_client"]["default_auth_params"] = {
-            "exclude_environment_credential": True,
-            "exclude_managed_identity_credential": True,
-        }
-        config = RunConfig.parse_obj(user_script_config)
-        config.azureml_client.create_client()
-        assert mocked_env_credential.call_count == 1
-        assert mocked_managed_identity_credential.call_count == 1
-        assert mocked_azure_cli_credential.call_count == 2
-
-        user_script_config["azureml_client"]["default_auth_params"] = {
-            "exclude_environment_credential": True,
-            "exclude_managed_identity_credential": False,
-        }
-        config = RunConfig.parse_obj(user_script_config)
-        config.azureml_client.create_client()
-        assert mocked_env_credential.call_count == 1
-        assert mocked_managed_identity_credential.call_count == 2
-        assert mocked_azure_cli_credential.call_count == 3
+        assert (
+            self.mocked_env_credentials.call_count,
+            self.mocked_managed_identity_credentials.call_count,
+            self.mocked_shared_token_cache_credentials.call_count,
+            self.mocked_azure_cli_credentials.call_count,
+            self.mocked_azure_powershell_credentials.call_count,
+            self.mocked_interactive_browser_credentials.call_count,
+        ) == default_auth_params[1]
 
     def test_readymade_system(self):
         readymade_config_file = Path(__file__).parent / "mock_data" / "readymade_system.json"
