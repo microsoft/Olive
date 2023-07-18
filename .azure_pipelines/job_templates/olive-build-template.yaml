@@ -6,14 +6,14 @@ parameters:
   device: 'cpu'
 
 jobs:
-- template: job_templates/olive-test-template.yaml
+- template: olive-test-template.yaml
   parameters:
     name: ${{parameters.name}}_Unit_Test_Olive
     pool: ${{parameters.pool}}
     device: ${{parameters.device}}
     test_type: 'unit_test'
 
-- template: job_templates/olive-test-template.yaml
+- template: olive-test-template.yaml
   parameters:
     name: ${{parameters.name}}_Integration_Test_Olive
     pool: ${{parameters.pool}}
