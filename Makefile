@@ -36,9 +36,13 @@ overwrite-version:
 install-olive:
 	$(INSTALL_OLIVE_CMD) $(PIPELINE) $(INSTALL_DEV_MODE)
 
-.PHONY: test
-test:
-	$(TEST_CMD) $(PIPELINE) $(CURRENT_DIR)
+.PHONY: unit_test
+unit_test:
+	$(TEST_CMD) $(PIPELINE) $(CURRENT_DIR) unit_test
+
+.PHONY: integ_test
+integ_test:
+	$(TEST_CMD) $(PIPELINE) $(CURRENT_DIR) integ_test
 
 .PHONY: test-examples
 test-examples: logs/
