@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import tempfile
 import zipfile
 from pathlib import Path
@@ -53,6 +54,13 @@ def test_generate_zipfile_artifacts():
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
     assert (output_dir / "ONNXRuntimePackages").exists()
+
+    # contain the evaluation result
+    metrics_file = output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1" / "metrics.json"
+    with open(metrics_file, "r") as f:
+        metrics = json.load(f)
+        assert "input_model_metrics" in metrics
+        assert "candidate_model_metrics" in metrics
 
 
 def test_generate_zipfile_artifacts_no_search():
