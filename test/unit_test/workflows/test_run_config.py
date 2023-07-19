@@ -110,6 +110,16 @@ class TestRunConfig:
             self.mocked_interactive_browser_credentials.call_count,
         ) == default_auth_params[1]
 
+    @patch("azure.identity.DefaultAzureCredential")
+    @patch("azure.identity.InteractiveBrowserCredential")
+    def test_config_with_failed_azureml_default_auth(self, mocked_interactive_login, mocked_default_azure_credential):
+        mocked_default_azure_credential.side_effect = Exception("mock error")
+        with open(self.user_script_config_file, "r") as f:
+            user_script_config = json.load(f)
+        config = RunConfig.parse_obj(user_script_config)
+        config.azureml_client.create_client()
+        assert mocked_interactive_login.call_count == 1
+
     def test_readymade_system(self):
         readymade_config_file = Path(__file__).parent / "mock_data" / "readymade_system.json"
         with open(readymade_config_file, "r") as f:
