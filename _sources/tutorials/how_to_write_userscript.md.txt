@@ -1,4 +1,3 @@
-(user_script)=
 # How to write `user_script`
 
 ## `user_script`

@@ -77,12 +77,12 @@
 <li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="advanced_users.html">Advanced User Tour</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#id1"><code class="docutils literal notranslate"><span class="pre">user_script</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#user-script"><code class="docutils literal notranslate"><span class="pre">user_script</span></code></a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#examples">Examples</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#script-dir"><code class="docutils literal notranslate"><span class="pre">script_dir</span></code></a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#id2">Examples</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id1">Examples</a></li>
 </ul>
 </li>
 </ul>
@@ -127,9 +127,9 @@
            <div itemprop="articleBody">
              
   <section id="how-to-write-user-script">
-<span id="user-script"></span><h1>How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code><a class="headerlink" href="#how-to-write-user-script" title="Permalink to this heading">¶</a></h1>
-<section id="id1">
-<h2><code class="docutils literal notranslate"><span class="pre">user_script</span></code><a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h2>
+<h1>How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code><a class="headerlink" href="#how-to-write-user-script" title="Permalink to this heading">¶</a></h1>
+<section id="user-script">
+<h2><code class="docutils literal notranslate"><span class="pre">user_script</span></code><a class="headerlink" href="#user-script" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">user_script</span></code> can be added when you have your own classes and functions defined in a separate Python file. Olive will automatically use the classes and functions in your script.</p>
 <p><code class="docutils literal notranslate"><span class="pre">user_script</span></code> can be either a <code class="docutils literal notranslate"><span class="pre">str</span></code> path to your script file, or a <code class="docutils literal notranslate"><span class="pre">Path</span></code> object.</p>
 <p>You can define your custom functions, and use them as attributes in configurations.</p>
@@ -189,8 +189,8 @@
 <h2><code class="docutils literal notranslate"><span class="pre">script_dir</span></code><a class="headerlink" href="#script-dir" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">script_dir</span></code> is the directory where you collect your own modules that will be used in Olive. Olive will append this directory to your <code class="docutils literal notranslate"><span class="pre">sys.path</span></code> for your Python interpreter.</p>
 <p><code class="docutils literal notranslate"><span class="pre">script_dir</span></code> can be either a <code class="docutils literal notranslate"><span class="pre">str</span></code> path to your script file, or a <code class="docutils literal notranslate"><span class="pre">Path</span></code> object.</p>
-<section id="id2">
-<h3>Examples<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
+<section id="id1">
+<h3>Examples<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
 <p>You can place your own Python modules, let’s say <code class="docutils literal notranslate"><span class="pre">file.py</span></code>, in <code class="docutils literal notranslate"><span class="pre">my_modules</span></code> directory</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span> <span class="n">my_olive_project</span>
   <span class="o">-</span> <span class="n">my_modules</span>
