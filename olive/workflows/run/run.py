@@ -87,8 +87,8 @@ def dependency_setup(config):
             remote_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type, []))
         if pass_config.type in ["SNPEConversion", "SNPEQuantization", "SNPEtoONNXConversion"]:
             logger.info(
-                "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html                 to"
-                " install SNPE Prerequisites for pass {}".format(pass_config.type)
+                "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html to install SNPE"
+                f" prerequisites for pass {pass_config.type}"
             )
 
     # add dependencies for engine
@@ -105,13 +105,16 @@ def dependency_setup(config):
     else:
         local_packages.extend(DEPENDENCY_MAPPING["device"][config.engine.host.type])
 
-    # install packages to local or tell user to install packages in their environment
-    logger.info("The following packages will be installed: {}".format(" ".join(local_packages)))
+    # install missing packages to local or tell user to install packages in their environment
+    logger.info(f"The following packages are required in the local environment: {local_packages}")
     for package in set(local_packages):
         try:
             __import__(package)
+            logger.info(f"{package} is already installed.")
         except ImportError:
+            logger.info(f"Installing {package}...")
             subprocess.check_call(["python", "-m", "pip", "install", "{}".format(package)])
+            logger.info(f"Successfully installed {package}.")
     if remote_packages:
         logger.info(
             "Please make sure the following packages are installed in {} environment: {}".format(
