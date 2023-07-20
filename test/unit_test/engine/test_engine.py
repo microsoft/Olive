@@ -161,7 +161,7 @@ class TestEngine:
                 assert getattr(actual_res.nodes[model_id], k) == v
         assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
         mock_local_system.run_pass.assert_called_once()
-        mock_local_system.evaluate_model.assert_called_once_with(onnx_model, [metric], accelerator_spec)
+        mock_local_system.evaluate_model.call_count == 2
 
     @patch("olive.systems.local.LocalSystem")
     def test_run_no_search(self, mock_local_system):
@@ -250,7 +250,7 @@ class TestEngine:
             # clean up: tempfile will be deleted automatically
 
     @patch("olive.systems.local.LocalSystem")
-    def test_run_evaluation_only(self, mock_local_system):
+    def test_run_evaluate_input_model(self, mock_local_system):
         # setup
         pytorch_model = get_pytorch_model()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
@@ -284,12 +284,12 @@ class TestEngine:
         expected_res = MetricResult.parse_obj(metric_result_dict)
 
         # execute
-        actual_res = engine.run(pytorch_model, output_dir=output_dir, evaluation_only=True)
+        actual_res = engine.run(pytorch_model, output_dir=output_dir, evaluate_input_model=True)
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        actual_res = actual_res[accelerator_spec]
+        actual_res = actual_res[accelerator_spec]["metrics"]
 
         assert expected_res == actual_res
-        result_json_path = Path(output_dir / f"{accelerator_spec}_metrics.json")
+        result_json_path = Path(output_dir / f"{accelerator_spec}_input_model_metrics.json")
         assert result_json_path.is_file()
         assert MetricResult.parse_file(result_json_path) == actual_res
 

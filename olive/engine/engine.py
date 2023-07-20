@@ -259,7 +259,7 @@ class Engine:
         packaging_config: Optional[PackagingConfig] = None,
         output_dir: str = None,
         output_name: str = None,
-        evaluation_only: bool = False,
+        evaluate_input_model: bool = True,
     ):
         """
         Run all the registered Olive passes on the input model and produce one or more candidate models.
@@ -270,7 +270,7 @@ class Engine:
             output_dir: output directory for the output model
             output_name: output name for the output model, if output_name is provided, the output
                 model will be saved to engine's output_dir with the prefix of output_name.
-            evaluation_only: if evaluation_only is True, run the evaluation on the input model and return the results.
+            evaluate_input_model: if evaluate_input_model is True, run the evaluation on the input model.
 
         Return:
             if search strategy is None, all passes are run in the order they were registered.
@@ -299,18 +299,24 @@ class Engine:
             self.footprints[accelerator_spec].record(model_id=input_model_id)
 
             try:
-                if evaluation_only:
+                if evaluate_input_model:
                     prefix_output_name = (
-                        f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
+                        f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
                     )
-                    assert self.evaluator_config is not None, "Evaluation only is True but no evaluator provided"
+                    assert self.evaluator_config is not None, "evaluate_input_model is True but no evaluator provided"
                     results = self._evaluate_model(input_model, input_model_id, self.evaluator_config, accelerator_spec)
-                    result_name = f"{prefix_output_name}metrics"
+                    logger.info(f"Input model evaluation results: {results}")
+                    result_name = f"{prefix_output_name}_input_model_metrics"
                     results_path = output_dir / f"{result_name}.json"
                     with open(results_path, "w") as f:
                         json.dump(results.to_json(), f, indent=4)
+                    logger.info(f"Saved evaluation results of input model to {results_path}")
                     outputs[accelerator_spec] = results
-                elif self.no_search:
+                    if not self.passes:
+                        logger.debug("No passes registered, return input model evaluation results.")
+                        return outputs
+
+                if self.no_search:
                     output = self.run_no_search(
                         input_model,
                         input_model_id,

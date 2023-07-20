@@ -29,7 +29,7 @@ class RunPassConfig(FullPassConfig):
 
 
 class RunEngineConfig(EngineConfig):
-    evaluation_only: bool = False
+    evaluate_input_model: bool = True
     output_dir: Union[Path, str] = None
     output_name: str = None
     packaging_config: PackagingConfig = None
@@ -39,7 +39,7 @@ class RunEngineConfig(EngineConfig):
     def create_engine(self):
         config = self.dict()
         to_del = [
-            "evaluation_only",
+            "evaluate_input_model",
             "output_dir",
             "output_name",
             "packaging_config",
@@ -118,8 +118,8 @@ class RunConfig(ConfigBase):
         return _resolve_evaluator(v, values)
 
     @validator("engine")
-    def validate_evaluation_only(cls, v):
-        if v.evaluation_only and v.evaluator is None:
+    def validate_evaluate_input_model(cls, v):
+        if v.evaluate_input_model and v.evaluator is None:
             raise ValueError("Evaluation only requires evaluator")
         return v
 

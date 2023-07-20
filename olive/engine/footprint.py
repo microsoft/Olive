@@ -355,3 +355,7 @@ class Footprint:
             return False
 
         return model_config.get("config", {}).get("use_ort_extensions", False)
+
+    def get_input_node(self):
+        input_node = [v for _, v in self.nodes.items() if v.parent_model_id is None][0]
+        return input_node
