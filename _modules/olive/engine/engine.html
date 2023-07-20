@@ -376,7 +376,7 @@
         <span class="n">packaging_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PackagingConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">evaluation_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">evaluate_input_model</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Run all the registered Olive passes on the input model and produce one or more candidate models.</span>
@@ -387,7 +387,7 @@
 <span class="sd">            output_dir: output directory for the output model</span>
 <span class="sd">            output_name: output name for the output model, if output_name is provided, the output</span>
 <span class="sd">                model will be saved to engine&#39;s output_dir with the prefix of output_name.</span>
-<span class="sd">            evaluation_only: if evaluation_only is True, run the evaluation on the input model and return the results.</span>
+<span class="sd">            evaluate_input_model: if evaluate_input_model is True, run the evaluation on the input model.</span>
 
 <span class="sd">        Return:</span>
 <span class="sd">            if search strategy is None, all passes are run in the order they were registered.</span>
@@ -416,18 +416,24 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record</span><span class="p">(</span><span class="n">model_id</span><span class="o">=</span><span class="n">input_model_id</span><span class="p">)</span>
 
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">evaluation_only</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">evaluate_input_model</span><span class="p">:</span>
                     <span class="n">prefix_output_name</span> <span class="o">=</span> <span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output_name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">_&quot;</span> <span class="k">if</span> <span class="n">output_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">_&quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output_name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">_&quot;</span> <span class="k">if</span> <span class="n">output_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">&quot;</span>
                     <span class="p">)</span>
-                    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Evaluation only is True but no evaluator provided&quot;</span>
+                    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;evaluate_input_model is True but no evaluator provided&quot;</span>
                     <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
-                    <span class="n">result_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">metrics&quot;</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Input model evaluation results: </span><span class="si">{</span><span class="n">results</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="n">result_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">_input_model_metrics&quot;</span>
                     <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">result_name</span><span class="si">}</span><span class="s2">.json&quot;</span>
                     <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                         <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">results</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved evaluation results of input model to </span><span class="si">{</span><span class="n">results_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                     <span class="n">outputs</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">results</span>
-                <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No passes registered, return input model evaluation results.&quot;</span><span class="p">)</span>
+                        <span class="k">return</span> <span class="n">outputs</span>
+
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
                     <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_no_search</span><span class="p">(</span>
                         <span class="n">input_model</span><span class="p">,</span>
                         <span class="n">input_model_id</span><span class="p">,</span>
