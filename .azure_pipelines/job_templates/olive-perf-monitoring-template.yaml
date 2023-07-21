@@ -29,7 +29,7 @@ jobs:
     inputs:
       azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
       scriptLocation: 'inlineScript'
-      inlineScript: make perf-monitoring PIPELINE=True WINDOWS=$(WINDOWS) PERF_MONITORING_SCRIPT_NAME=$(perfMonitoringScriptName)
+      inlineScript: make perf-monitoring PIPELINE=True WINDOWS=$(WINDOWS) PERF_MONITORING_SCRIPT_NAME=$(perfMonitoringScriptName) PERF_MONITORING_SCRIPT_FUNCTION=$(perfMonitoringScriptFunction)
     displayName: performance monitoring
     env:
       OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
@@ -50,6 +50,13 @@ jobs:
       testResultsFiles: '**/*TestOlive*.xml'
       testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
     displayName: Upload pipeline run test results
+
+  - task:  PublishPipelineArtifact@1
+    inputs:
+      path: $(Build.SourcesDirectory)/perf_monitoring_results
+      artifactName: best_metrics
+      artifactType: pipeline
+    displayName: Publish models
 
   - script: make clean WINDOWS=$(WINDOWS)
     condition: always()
