@@ -32,7 +32,7 @@ def patch_config(config_json_path: str):
 def extract_best_models(footprint, model_name):
     print("Footprint: ", footprint)
     footprint = list(footprint.values())[0]
-    metrics_of_interest = ["accuracy-accuracy_custom", "latency-avg"]
+    metrics_of_interest = ["accuracy-accuracy", "latency-avg"]
     # gather the metrics from all pareto frontier nodes
     all_metrics = []
     # we iterate over the nodes in the pareto frontier

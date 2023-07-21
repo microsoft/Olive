@@ -29,18 +29,20 @@ variables:
 jobs:
 - template: job_templates/olive-perf-monitoring-template.yaml
   parameters:
-    name: Windows_CI
+    name: bert Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
     examples:
       bert:
         perfMonitoringScriptName: perf_monitoring_models_cpu
+        perfMonitoringScriptFunction: test_bert
 
 - template: job_templates/olive-perf-monitoring-template.yaml
   parameters:
-    name: Linux_CI
+    name: bert Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
     examples:
       bert:
         perfMonitoringScriptName: perf_monitoring_models_cpu
+        perfMonitoringScriptFunction: test_bert
