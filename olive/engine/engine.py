@@ -242,7 +242,9 @@ class Engine:
         if self.no_search and len(p.search_space()) > 0:
             raise ValueError(f"Search strategy is None but pass {name} has search space")
         if output_name and not self.no_search:
-            logger.debug(f"output_name {output_name} for pass {name} is ignored because search strategy is not None")
+            # In no-search mode, if output_name is provided, the output model of the pass will be saved to
+            # engine's output_dir with the prefix of output_name.
+            logger.debug(f"output_name {output_name} for pass {name} will be ignored if search strategy is None")
 
         self.passes[name] = {
             "pass": p,
@@ -257,20 +259,28 @@ class Engine:
         packaging_config: Optional[PackagingConfig] = None,
         output_dir: str = None,
         output_name: str = None,
-        evaluation_only: bool = False,
+        evaluate_input_model: bool = True,
     ):
         """
         Run all the registered Olive passes on the input model and produce one or more candidate models.
+        Args:
+            input_model: input Olive model
+            packaging_config: packaging configuration, if packaging_config is provided, the output
+                model will be packaged into a zip file.
+            output_dir: output directory for the output model
+            output_name: output name for the output model, if output_name is provided, the output
+                model will be saved to engine's output_dir with the prefix of output_name.
+            evaluate_input_model: if evaluate_input_model is True, run the evaluation on the input model.
 
-        if search strategy is None, all passes are run in the order they were registered.
-        Save the final model to {output_dir}/{output_name}_model and json file to {output_dir}/{output_name}_model.json
-        Save evaluation results of the final model, if any, to {output_dir}/{output_name}_metrics.json
-        Return {"model": final_model_json, "metrics": evaluation_results}
+        Return:
+            if search strategy is None, all passes are run in the order they were registered.
+                1. Final model -> {output_dir}/{output_name}_{AcceleratorSpec}_model.onnx
+                2. JSON file -> {output_dir}/{output_name}_{AcceleratorSpec}_model.json
+                3. Evaluation results of the final model -> {output_dir}/{output_name}_{AcceleratorSpec}_metrics.json
+            Return footprint/zip(packaging_config) of the final model and evaluation results of the final model.
 
-        if search strategy is not None, run the search strategy to find candidate models.
-        TODO: save the results using updated RunResult
-
-        if evaluation_only is True, run the evaluation on the input model and return the results.
+            if search strategy is not None, run the search strategy to find candidate models.
+            Return footprint/zip(packaging_config) of candidate models and evaluation results.
         """
         if not self._initialized:
             self.initialize()
@@ -289,18 +299,24 @@ class Engine:
             self.footprints[accelerator_spec].record(model_id=input_model_id)
 
             try:
-                if evaluation_only:
+                if evaluate_input_model:
                     prefix_output_name = (
-                        f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
+                        f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
                     )
-                    assert self.evaluator_config is not None, "Evaluation only is True but no evaluator provided"
+                    assert self.evaluator_config is not None, "evaluate_input_model is True but no evaluator provided"
                     results = self._evaluate_model(input_model, input_model_id, self.evaluator_config, accelerator_spec)
-                    result_name = f"{prefix_output_name}metrics"
+                    logger.info(f"Input model evaluation results: {results}")
+                    result_name = f"{prefix_output_name}_input_model_metrics"
                     results_path = output_dir / f"{result_name}.json"
                     with open(results_path, "w") as f:
                         json.dump(results.to_json(), f, indent=4)
+                    logger.info(f"Saved evaluation results of input model to {results_path}")
                     outputs[accelerator_spec] = results
-                elif self.no_search:
+                    if not self.passes:
+                        logger.debug("No passes registered, return input model evaluation results.")
+                        return outputs
+
+                if self.no_search:
                     output = self.run_no_search(
                         input_model,
                         input_model_id,
@@ -366,6 +382,9 @@ class Engine:
         output_dir: str = None,
         output_name: str = None,
     ):
+        """
+        Run all the registered Olive passes in no-search model where search strategy is None.
+        """
         for pass_item in self.passes.values():
             if len(pass_item["pass"].search_space()) > 0:
                 pass_name = pass_item["name"]
@@ -453,15 +472,7 @@ class Engine:
         output_name: str = None,
     ):
         """
-        Run all the registered Olive passes on the input model and produce one or more candidate models.
-
-        if search strategy is None, all passes are run in the order they were registered.
-        Save the final model to {output_dir}/{output_name}_model and json file to {output_dir}/{output_name}_model.json
-        Save evaluation results of the final model, if any, to {output_dir}/{output_name}_metrics.json
-        Return {"model": final_model_json, "metrics": evaluation_results}
-
-        if search strategy is not None, run the search strategy to find candidate models.
-        TODO: save the results using updated RunResult
+        Run all the registered Olive passes in search model where search strategy is not None.
         """
 
         prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"

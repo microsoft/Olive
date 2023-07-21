@@ -80,6 +80,7 @@
         "evaluator": "common_evaluator",
         "host": "local_system",
         "target": "local_system",
-        "cache_dir": "cache"
+        "cache_dir": "cache",
+        "evaluate_input_model": false
     }
 }

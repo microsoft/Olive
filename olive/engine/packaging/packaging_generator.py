@@ -66,6 +66,7 @@ def _package_candidate_models(
 ) -> None:
     candidate_models_dir = tempdir / "CandidateModels"
     model_rank = 1
+    input_node = footprint.get_input_node()
     for model_id, node in pf_footprint.nodes.items():
         model_dir = candidate_models_dir / f"{accelerator_spec}" / f"BestCandidateModel_{model_rank}"
         model_dir.mkdir(parents=True, exist_ok=True)
@@ -122,7 +123,11 @@ def _package_candidate_models(
         if node.metrics:
             metric_path = str(model_dir / "metrics.json")
             with open(metric_path, "w") as f:
-                f.write(str(node.metrics.value))
+                metrics = {
+                    "input_model_metrics": input_node.metrics.value.to_json() if input_node.metrics else None,
+                    "candidate_model_metrics": node.metrics.value.to_json(),
+                }
+                json.dump(metrics, f, indent=4)
 
 
 def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):

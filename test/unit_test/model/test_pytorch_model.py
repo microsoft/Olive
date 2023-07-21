@@ -24,15 +24,15 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         self.root_dir = Path(self.tempdir.name)
         self.model_path = str(self.root_dir.resolve() / "mlflow_test")
         self.task = "text-classification"
-        self.architecture = "distilbert-base-uncased-finetuned-sst-2-english"
-        self.original_model = transformers.AutoModelForSequenceClassification.from_pretrained(self.architecture)
-        self.tokenizer = transformers.DistilBertTokenizerFast.from_pretrained(self.architecture)
-        self.input_text = ["Today was an amazing day!"]
+        self.architecture = "Intel/bert-base-uncased-mrpc"
+        self.original_model = transformers.BertForSequenceClassification.from_pretrained(self.architecture)
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained(self.architecture)
+        self.input_text = "Today was an amazing day."
         self.hf_conf = {
             "task_type": self.task,
         }
 
-        # cleanup the model path, otherwise, the test will fail after the firsr run.
+        # cleanup the model path, otherwise, the test will fail after the first run.
         shutil.rmtree(self.model_path, ignore_errors=True)
         aml_mlflow.hftransformers.save_model(
             self.original_model,
@@ -73,8 +73,8 @@ class TestPyTorchHFModel(unittest.TestCase):
     def setup(self):
         # hf config values
         self.task = "text-classification"
-        self.model_class = "DistilBertForSequenceClassification"
-        self.model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+        self.model_class = "BertForSequenceClassification"
+        self.model_name = "Intel/bert-base-uncased-mrpc"
 
     def test_hf_config_task(self):
         self.setup()
@@ -82,7 +82,7 @@ class TestPyTorchHFModel(unittest.TestCase):
         olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.model_name})
 
         pytorch_model = olive_model.load_model()
-        assert isinstance(pytorch_model, transformers.DistilBertForSequenceClassification)
+        assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
 
     def test_hf_config_model_class(self):
         self.setup()
@@ -90,7 +90,7 @@ class TestPyTorchHFModel(unittest.TestCase):
         olive_model = PyTorchModel(hf_config={"model_class": self.model_class, "model_name": self.model_name})
 
         pytorch_model = olive_model.load_model()
-        assert isinstance(pytorch_model, transformers.DistilBertForSequenceClassification)
+        assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
 
 
 class TestPytorchDummyInput:
@@ -98,8 +98,8 @@ class TestPytorchDummyInput:
     def setup(self):
         # hf config values
         self.task = "text-classification"
-        self.model_class = "DistilBertForSequenceClassification"
-        self.model_name = "distilbert-base-uncased-finetuned-sst-2-english"
+        self.model_class = "BertForSequenceClassification"
+        self.model_name = "Intel/bert-base-uncased-mrpc"
         self.io_config = {
             "input_names": ["input_ids", "attention_mask", "token_type_ids"],
             "input_shapes": [[1, 128], [1, 128], [1, 128]],

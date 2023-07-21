@@ -31,12 +31,20 @@ N_FRAMES = N_SAMPLES // HOP_LENGTH
 
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Test output of Whisper Model")
-    parser.add_argument("--config", type=str, required=True, help="Config")
+    parser.add_argument("--config", type=str, required=True, help="Config used to generate model")
     parser.add_argument(
         "--audio_path",
         type=str,
         default=None,
-        help="Path to audio file. If not provided, will use the test data from the config.",
+        help="Path to audio file. If not provided, will use the test data from the config",
+    )
+    parser.add_argument("--language", type=str, default="english", help="Language spoken in audio")
+    parser.add_argument(
+        "--task",
+        type=str,
+        default="transcribe",
+        choices=["transcribe", "translate"],
+        help="whether to perform X->X speech recognition ('transcribe') or X->English translation ('translate')",
     )
     return parser.parse_args(raw_args)
 
@@ -50,6 +58,12 @@ def main(raw_args=None):
 
     # load config
     config = json.load(open(args.config, "r"))
+
+    # get model information
+    use_audio_decoder = config["passes"]["prepost"]["config"]["tool_command_args"]["use_audio_decoder"]
+    multilingual = config["passes"]["insert_beam_search"]["config"].get("use_forced_decoder_ids", False)
+    if not multilingual and not (args.language == "english" and args.task == "transcribe"):
+        print("Model is not multilingual but custom language/task provided. Will ignore custom language/task.")
 
     # load output model json
     output_model_json_path = (
@@ -71,7 +85,13 @@ def main(raw_args=None):
     shutil.copy(args.audio_path, temp_audio_path)
 
     # dataset
-    dataset = WhisperDataset(temp_dir_path)
+    dataset = WhisperDataset(
+        data_dir=temp_dir_path,
+        use_audio_decoder=use_audio_decoder,
+        file_ext=temp_audio_path.suffix,
+        language=args.language,
+        task=args.task,
+    )
 
     # create inference session
     session = olive_model.prepare_session(None, "cpu")

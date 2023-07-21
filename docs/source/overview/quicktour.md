@@ -1,4 +1,3 @@
-(Quick-tour)=
 # Quick Tour
 
 Here is a quick guide on using Olive for model optimization. We will focus on accelerating a PyTorch model on the CPU. It is a simple three step process.
