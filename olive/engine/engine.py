@@ -105,7 +105,8 @@ class Engine:
                 accelerators = ["CPU"]
             else:
                 logger.debug(
-                    f"Use inferred accelerators {inferred_accelerators} from given execution providers {self.execution_providers}."
+                    f"Use inferred accelerators {inferred_accelerators} "
+                    f"from given execution providers {self.execution_providers}."
                 )
                 accelerators = inferred_accelerators
 
