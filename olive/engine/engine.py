@@ -94,14 +94,20 @@ class Engine:
                 # for docker system and python system, we default use CPUExecutionProvider
                 execution_providers = ["CPUExecutionProvider"]
 
-        self.execution_providers = execution_providers
-
         # Flatten the accelerators to list of AcceleratorSpec
         accelerators: List[str] = self.target.accelerators
         if accelerators is None:
-            logger.warning("No accelerators specified for target system. Using CPU.")
-            accelerators = ["CPU"]
+            inferred_accelerators = AcceleratorLookup.infer_accelerators_from_execution_provider(
+                self.execution_providers
+            )
+            if not inferred_accelerators:
+                logger.warning("Cannot infer the accelerators from the target system. Use CPU as default.")
+                accelerators = ["CPU"]
+            else:
+                logger.info(f"Use inferred accelerators {inferred_accelerators} from given execution providers.")
+                accelerators = inferred_accelerators
 
+        self.execution_providers = execution_providers
         not_supported_ep = set()
         processed_ep = set()
         self.accelerator_specs: List[AcceleratorSpec] = []
