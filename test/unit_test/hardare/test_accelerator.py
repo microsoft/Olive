@@ -3,11 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import pytest
+
 from olive.hardware.accelerator import AcceleratorLookup
 
 
 class TestAcceleratorLookup:
-
     @pytest.mark.parametrize(
         "execution_providers_test",
         [
@@ -15,7 +15,7 @@ class TestAcceleratorLookup:
             (["CUDAExecutionProvider"], ["gpu"]),
             (["DmlExecutionProvider", "CUDAExecutionProvider"], ["gpu"]),
             (["QNNExecutionProvider", "CUDAExecutionProvider"], ["npu", "gpu"]),
-        ]
+        ],
     )
     def test_infer_accelerators_from_execution_provider(self, execution_providers_test):
         execution_providers, expected_accelerators = execution_providers_test
