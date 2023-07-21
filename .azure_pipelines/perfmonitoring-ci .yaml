@@ -29,7 +29,7 @@ variables:
 jobs:
 - template: job_templates/olive-perf-monitoring-template.yaml
   parameters:
-    name: bert Windows_CI
+    name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
     examples:
@@ -39,7 +39,7 @@ jobs:
 
 - template: job_templates/olive-perf-monitoring-template.yaml
   parameters:
-    name: bert Linux_CI
+    name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
     examples:
