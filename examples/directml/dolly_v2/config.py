@@ -3,4 +3,4 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
-image_size = 2560
+hidden_size = 2560
