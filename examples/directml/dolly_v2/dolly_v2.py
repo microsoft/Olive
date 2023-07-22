@@ -6,9 +6,9 @@ import argparse
 import json
 import os
 import shutil
-import config
 from pathlib import Path
 
+import config
 import onnxruntime as ort
 from packaging import version
 

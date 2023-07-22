@@ -2,8 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import torch
 import config
+import torch
 
 
 # Helper latency-only dataloader that creates random tensors with no label
