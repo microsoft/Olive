@@ -3,18 +3,14 @@
         "type": "PyTorchModel",
         "config": {
             "model_path": "runwayml/stable-diffusion-v1-5",
-            "model_loader": "unet_load",
+            "model_loader": "text_encoder_2_load",
             "model_script": "user_script.py",
             "io_config": {
-                "input_names": [ "sample", "timestep", "encoder_hidden_states", "return_dict" ],
-                "output_names": [ "out_sample" ],
-                "dynamic_axes": {
-                    "sample": {"0": "unet_sample_batch", "1": "unet_sample_channels", "2": "unet_sample_height", "3": "unet_sample_width"},
-                    "timestep": {"0": "unet_time_batch"},
-                    "encoder_hidden_states": {"0": "unet_hidden_batch", "1": "unet_hidden_sequence"}
-                }
+                "input_names": [ "input_ids" ],
+                "output_names": [ "last_hidden_state", "pooler_output" ],
+                "dynamic_axes": { "input_ids": { "0": "batch", "1": "sequence" } }
             },
-            "dummy_inputs_func": "unet_conversion_inputs"
+            "dummy_inputs_func": "text_encoder_2_conversion_inputs"
         }
     },
     "systems": {
@@ -34,8 +30,8 @@
                     "sub_types": [{"name": "avg"}],
                     "user_config": {
                         "user_script": "user_script.py",
-                        "dataloader_func": "unet_data_loader",
-                        "batch_size": 2
+                        "dataloader_func": "text_encoder_2_data_loader",
+                        "batch_size": 1
                     }
                 }
             ]
@@ -45,16 +41,13 @@
         "convert": {
             "type": "OnnxConversion",
             "config": {
-                "target_opset": 14,
-                "save_as_external_data": true,
-                "all_tensors_to_one_file": true,
-                "external_data_name": "weights.pb"
+                "target_opset": 14
             }
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
             "config": {
-                "model_type": "unet",
+                "model_type": "clip",
                 "float16": true,
                 "use_gpu": true,
                 "keep_io_types": false,
@@ -95,7 +88,7 @@
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
-        "output_name": "unet",
+        "output_name": "text_encoder_2",
         "output_dir": "footprints",
         "execution_providers": ["DmlExecutionProvider"]
     }
