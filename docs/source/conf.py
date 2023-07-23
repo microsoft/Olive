@@ -39,6 +39,10 @@ extensions = [
     "sphinxcontrib.jquery",
 ]
 
+myst_enable_extensions = [
+    "html_image",
+]
+
 source_suffix = {
     ".rst": "restructuredtext",
     ".txt": "markdown",

@@ -79,6 +79,10 @@
                 "MatMulConstBOnly": false
             }
         },
+        "inc_dynamic_quantization": {
+            "type": "IncDynamicQuantization",
+            "disable_search": true
+        },
         "insert_beam_search" : {
             "type" : "InsertBeamSearch",
             "config": {
@@ -103,6 +107,7 @@
         "host": "local_system",
         "target": "local_system",
         "evaluator": "common_evaluator",
+        "evaluate_input_model": false,
         "clean_cache": false,
         "cache_dir": "cache",
         "output_dir": "models",

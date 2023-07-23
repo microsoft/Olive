@@ -223,7 +223,7 @@ def get_glue_huggingface_data_config():
         type="HuggingfaceContainer",
         params_config={
             "task": "text-classification",
-            "model_name": "bert-base-uncased",
+            "model_name": "Intel/bert-base-uncased-mrpc",
             "data_name": "glue",
             "subset": "mrpc",
             "split": "validation",

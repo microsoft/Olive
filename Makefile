@@ -1,7 +1,6 @@
 WINDOWS                    ?= False
 PIPELINE                   ?= False
 INSTALL_DEV_MODE           ?= False
-IS_GPU                     ?= False
 EXAMPLE_FOLDER             ?=
 EXAMPLE_NAME               ?=
 INSTALL_EXTRAS             ?=
@@ -37,14 +36,18 @@ overwrite-version:
 install-olive:
 	$(INSTALL_OLIVE_CMD) $(PIPELINE) $(INSTALL_DEV_MODE)
 
-.PHONY: test
-test:
-	$(TEST_CMD) $(PIPELINE) $(CURRENT_DIR)
+.PHONY: unit_test
+unit_test:
+	$(TEST_CMD) $(PIPELINE) $(CURRENT_DIR) unit_test
+
+.PHONY: integ_test
+integ_test:
+	$(TEST_CMD) $(PIPELINE) $(CURRENT_DIR) integ_test
 
 .PHONY: test-examples
 test-examples: logs/
 test-examples:
-	$(TEST_EXAMPLES_CMD) $(PIPELINE) $(CURRENT_DIR) $(EXAMPLE_FOLDER) $(EXAMPLE_NAME) $(IS_GPU)
+	$(TEST_EXAMPLES_CMD) $(PIPELINE) $(CURRENT_DIR) $(EXAMPLE_FOLDER) $(EXAMPLE_NAME)
 
 .PHONY: clean
 clean:

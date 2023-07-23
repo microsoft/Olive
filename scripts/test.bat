@@ -6,6 +6,7 @@ REM --------------------------------------------------------------------------
 
 set PIPELINE=%1
 set ROOT_DIR=%2
+set TEST_TYPE=%3
 
 if "%PIPELINE%"=="True" (
     call olive-venv\\Scripts\\activate.bat || goto :error
@@ -17,7 +18,7 @@ call python -m pip install -r %ROOT_DIR%\\test\\requirements-test.txt || goto :e
 
 rem run tests
 call coverage run --source=%ROOT_DIR%\\olive -m pytest -v -s --log-cli-level=WARNING --junitxml=%ROOT_DIR%\\logs\\test-TestOlive.xml^
- %ROOT_DIR%\\test || goto :error
+ %ROOT_DIR%\\test\\%TEST_TYPE% || goto :error
 call coverage xml
 
 goto :EOF

@@ -3,72 +3,24 @@
 parameters:
   name: ''
   pool: ''
-  gpu: False
+  device: 'cpu'
 
 jobs:
-- job: ${{parameters.name}}_Test_Olive
-  timeoutInMinutes: 300
-  condition: eq('${{ parameters.gpu }}', 'False')
-  pool:
-    name: ${{ parameters.pool}}
-  variables:
-    WINDOWS: ${{ parameters.windows}}
-    runCodesignValidationInjection: false
+- template: olive-test-template.yaml
+  parameters:
+    name: ${{parameters.name}}_Unit_Test_Olive
+    pool: ${{parameters.pool}}
+    device: ${{parameters.device}}
+    WINDOWS: ${{parameters.windows}}
+    test_type: 'unit_test'
 
-  steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: 3.8
-    displayName: Use Python 3.8
-
-  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
-    displayName: Install Olive
-
-  - task: AzureCLI@1
-    inputs:
-      azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
-      scriptLocation: 'inlineScript'
-      inlineScript: make test
-    displayName: Test Olive
-    env:
-      OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
-      WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
-      WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
-      WORKSPACE_NAME: $(workspace-name)
-      AZURE_TENANT_ID: $(azure-tenant-id)
-      AZURE_CLIENT_ID: $(olive-rg-sp-id)
-      AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
-      PIPELINE: True
-
-  - task: CredScan@3
-    displayName: 'Run CredScan'
-    inputs:
-      debugMode: false
-    continueOnError: true
-
-  - task: ComponentGovernanceComponentDetection@0
-    inputs:
-      scanType: 'Register'
-      verbosity: 'Verbose'
-      alertWarningLevel: 'High'
-    displayName: Component Detection
-
-  - task: PublishTestResults@2
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFiles: '**/*TestOlive*.xml'
-      testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
-    displayName: Upload pipeline run test results
-
-  - task: PublishCodeCoverageResults@1
-    inputs:
-      codeCoverageTool: 'Cobertura'
-      summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
-
-  - script: make clean WINDOWS=$(WINDOWS)
-    condition: always()
-    displayName: Clean remaining artifacts
-
+- template: olive-test-template.yaml
+  parameters:
+    name: ${{parameters.name}}_Integration_Test_Olive
+    pool: ${{parameters.pool}}
+    device: ${{parameters.device}}
+    WINDOWS: ${{parameters.windows}}
+    test_type: 'integ_test'
 
 - job: ${{parameters.name}}_Test_Examples
   timeoutInMinutes: 300
@@ -80,7 +32,7 @@ jobs:
   variables:
     WINDOWS: ${{ parameters.windows }}
     runCodesignValidationInjection: false
-    GPU: ${{ parameters.gpu }}
+    device: ${{ parameters.device }}
 
   steps:
   - task: UsePythonVersion@0
@@ -88,14 +40,14 @@ jobs:
       versionSpec: 3.8
     displayName: Use Python 3.8
 
-  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
+  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[$(device)]
     displayName: Install Olive
 
   - task: AzureCLI@1
     inputs:
       azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
       scriptLocation: 'inlineScript'
-      inlineScript: make test-examples IS_GPU=$(GPU)
+      inlineScript: make test-examples
     displayName: Test Examples
     env:
       OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)

@@ -329,8 +329,8 @@ will be used.
 - `clean_run_cache: [Boolean]` This decides whether to clean the run cache of the pass before running the pass. This is `false` by default.
 
 - `output_name: str` In no-search mode (i.e., `search_strategy` is `null`), if `output_name` is provided, the output model of the pass will be
-saved to the engine's `output_dir` with the prefix of `output_name`. For the final pass, the engine's `output_name`, if provided, overrides the
-`output_name` of the pass.
+saved to the engine's `output_dir` with the prefix of `output_name`. For the final pass, if the engine's `output_name` is provided, it will override
+the `output_name` of the pass.
 
 Please refer to [Configuring Pass](configuring_pass) for more details on `type`, `disable_search` and `config`.
 
@@ -411,8 +411,7 @@ This is a dictionary that contains the information of the engine. The informatio
   If `search_strategy` is `true`, the search strategy will be the default search strategy. The default search strategy is `exhaustive` search
   algorithm with `joint` execution order.
 
-- `evaluation_only: [Boolean]` This decides whether to run the engine in evaluation only mode. In this mode, the engine will evaluate the input
-    model using the engine's evaluator and return the results. If the engine has no evaluator, it will raise an error. This is `false` by default.
+- `evaluate_input_model: [Boolean]` In this mode, the engine will evaluate the input model using the engine's evaluator and return the results. If the engine has no evaluator, it will raise an error. This is `true` by default.
 
 - `host: [str | Dict]` The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.
     If it is a dictionary, it contains the system information. If not specified, it is the local system.

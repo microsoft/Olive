@@ -21,6 +21,13 @@ SUPPORTED_WORKFLOWS = {
         "insert_beam_search",
         "prepost",
     ],
+    ("cpu", "inc_int8"): [
+        "conversion",
+        "transformers_optimization",
+        "inc_dynamic_quantization",
+        "insert_beam_search",
+        "prepost",
+    ],
     ("gpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
     ("gpu", "fp16"): ["conversion", "transformers_optimization", "mixed_precision", "insert_beam_search", "prepost"],
     ("gpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search", "prepost"],
@@ -29,7 +36,7 @@ SUPPORTED_WORKFLOWS = {
 
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Prepare config file for Whisper")
-    parser.add_argument("--model_name", type=str, default="openai/whisper-tiny.en", help="Model name")
+    parser.add_argument("--model_name", type=str, default="openai/whisper-tiny", help="Model name")
     parser.add_argument(
         "--no_audio_decoder",
         action="store_true",

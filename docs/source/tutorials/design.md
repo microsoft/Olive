@@ -1,4 +1,3 @@
-(Design)=
 # Design
 In this section, we discuss the core design concepts of Olive. Olive is composed of modular components
 that are composed to construct a model optimization workflow.
@@ -16,11 +15,7 @@ that meets some metric goals.
 
 The following diagram illustrates the relationship between the different components:
 
-```{figure} ../images/olive-design.png
-:align: center
-:alt: olive-design
-:width: 1000px
-```
+<img align="center" alt="olive-design" width="1000px" src="../images/olive-design.png">
 
 ## Pass
 Passes are the building blocks of an Olive workflow. A Pass performs a specific model optimization technique such as ONNX

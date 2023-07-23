@@ -4,6 +4,7 @@ This folder contains a sample use case of Olive to optimize a [Whisper](https://
 Performs optimization pipeline:
 - CPU, FP32: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
 - CPU, INT8: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Dynamic Quantized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
+- CPU, INT8: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Intel® Neural Compressor Dynamic Quantized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
 - GPU, FP32: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
 - GPU, FP16: *PyTorch Model -> Onnx Model -> Transformers Optimized Onnx Model -> Mixed Precision Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
 - GPU, INT8: *PyTorch Model -> Onnx Model -> Dynamic Quantized Onnx Model -> Insert Beam Search Op -> Insert Pre/Post Processing Ops*
@@ -17,10 +18,20 @@ Outputs the final model and latency results.
 
 Refer to the instructions in the [examples README](../README.md) to clone the repository and install Olive.
 
+If you want to run the optimization pipeline with Intel® Neural Compressor, please make sure that `olive-ai[inc]` is installed.
+
 ### Pip requirements
 Install the necessary python packages:
 ```
 python -m pip install -r requirements.txt
+```
+
+**Note:** Multilingual support requires ONNX Runtime 1.16.0+ which is not released yet. Must be built from or after commit https://github.com/microsoft/onnxruntime/commit/4b69226fca914753844a3291818ce23ac2f00d8c.
+
+After running the above, uninstall pre-existing ONNX Runtime package and install the latest nightly build of ONNX Runtime as follows:
+```bash
+python -m pip uninstall -y onnxruntime ort-nightly
+python -m pip install ort-nightly --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
 ```
 
 ### Prepare workflow config json
@@ -67,13 +78,6 @@ forced_decoder_ids = [config.decoder_start_token_id] + list(map(lambda token: to
 decoder_input_ids = np.array([forced_decoder_ids], dtype=np.int32)
 ```
 
-**Note:** `--multiligual` is only supported in ONNX Runtime 1.16.0+ which is not released yet. Must be built from or after commit https://github.com/microsoft/onnxruntime/commit/4b69226fca914753844a3291818ce23ac2f00d8c.
-
-Latest nightly build of ONNX Runtime can be installed using the following commands:
-```bash
-python -m pip uninstall -y onnxruntime
-python -m pip install ort-nightly --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-```
 
 ## Run the config to optimize the model
 First, install required packages according to passes.
@@ -112,10 +116,15 @@ python -m olive.workflows.run --config whisper_cpu_int8.json 2> $null
 
 ## Test the transcription of the optimized model
 ```bash
-python test_transcription.py --config whisper_{device}_{precision}.json [--auto_path AUDIO_PATH]
+python test_transcription.py --config whisper_{device}_{precision}.json [--auto_path AUDIO_PATH] [--language LANGUAGE] [--task {transcribe,translate}]
 
 # For example, to test CPU, INT8 with default audio path
 python test_transcription.py --config whisper_cpu_int8.json
 ```
 
-`--audio_path` is optional. If not provided, will use test auto path from the config.
+`--audio_path` Optional. Path to audio file. If not provided, will use the test data from the config
+
+`--language` Optional. Language spoken in audio. Default is `english`. Only used when `--multilingual` is provided to `prepare_whisper_configs.py`
+
+`--task` Optional. Whether to perform X->X speech recognition ('transcribe') or X->English translation ('translate'). Default is `transcribe`. Only used
+when `--multilingual` is provided to `prepare_whisper_configs.py`

@@ -128,17 +128,56 @@ def text_encoder_data_loader(data_dir, batchsize, *args, **kwargs):
 
 
 # -----------------------------------------------------------------------------
+# TEXT ENCODER 2
+# -----------------------------------------------------------------------------
+
+
+def text_encoder_2_inputs(batchsize, torch_dtype):
+    return torch.zeros((batchsize, 77), dtype=torch_dtype)
+
+
+def text_encoder_2_load(model_name):
+    base_model_id = get_base_model_name(model_name)
+    model = CLIPTextModel.from_pretrained(base_model_id, subfolder="text_encoder_2")
+    if is_lora_model(model_name):
+        merge_lora_weights(model, model_name, "text_encoder_2")
+    return model
+
+
+def text_encoder_2_conversion_inputs(model):
+    return text_encoder_2_inputs(1, torch.int32)
+
+
+def text_encoder_2_data_loader(data_dir, batchsize, *args, **kwargs):
+    return RandomDataLoader(text_encoder_2_inputs, batchsize, torch.int32)
+
+
+# -----------------------------------------------------------------------------
 # UNET
 # -----------------------------------------------------------------------------
 
 
-def unet_inputs(batchsize, torch_dtype):
-    return {
+def unet_inputs(batchsize, torch_dtype, is_conversion_inputs=False):
+    # TODO: Rename onnx::Concat_4 to text_embeds and onnx::Shape_5 to time_ids
+    inputs = {
         "sample": torch.rand((batchsize, 4, 64, 64), dtype=torch_dtype),
         "timestep": torch.rand((batchsize,), dtype=torch_dtype),
         "encoder_hidden_states": torch.rand((batchsize, 77, config.image_size + 256), dtype=torch_dtype),
         "return_dict": False,
     }
+
+    if is_conversion_inputs:
+        inputs["additional_inputs"] = {
+            "added_cond_kwargs": {
+                "text_embeds": torch.rand((1, 1280), dtype=torch_dtype),
+                "time_ids": torch.rand((1, 5), dtype=torch_dtype),
+            }
+        }
+    else:
+        inputs["onnx::Concat_4"] = torch.rand((1, 1280), dtype=torch_dtype)
+        inputs["onnx::Shape_5"] = torch.rand((1, 5), dtype=torch_dtype)
+
+    return inputs
 
 
 def unet_load(model_name):
@@ -150,7 +189,7 @@ def unet_load(model_name):
 
 
 def unet_conversion_inputs(model):
-    return tuple(unet_inputs(1, torch.float32).values())
+    return tuple(unet_inputs(1, torch.float32, True).values())
 
 
 def unet_data_loader(data_dir, batchsize, *args, **kwargs):
