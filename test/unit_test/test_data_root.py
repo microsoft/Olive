@@ -131,20 +131,20 @@ def get_data_config():
             "perf_tuning": {
                 "type": "OrtPerfTuning",
                 "config": {
-                    "data_config": "test_data_config"
+                    # "data_config": "test_data_config"
                     # This is just demo purpose to show how to use data_config in passes
-                    # "data_config": DataConfig(
-                    #     components={
-                    #         "load_dataset": {
-                    #             "name": "dummy_dataset_dataroot",
-                    #             "type": "dummy_dataset_dataroot",
-                    #             "params": {"data_dir": "data"},
-                    #         },
-                    #         "post_process_data": {
-                    #             "type": "post_processing_func",
-                    #         },
-                    #     }
-                    # )
+                    "data_config": DataConfig(
+                        components={
+                            "load_dataset": {
+                                "name": "dummy_dataset_dataroot",
+                                "type": "dummy_dataset_dataroot",
+                                "params": {"data_dir": "perfdata"},
+                            },
+                            "post_process_data": {
+                                "type": "post_processing_func",
+                            },
+                        }
+                    )
                 },
             },
         },
@@ -155,6 +155,17 @@ def get_data_config():
             "cache_dir": "./cache",
         },
     }
+
+
+def concat_data_dir(data_root, data_dir):
+    if data_root is None:
+        data_dir = data_dir
+    elif data_root.startswith("azureml://"):
+        data_dir = data_root + "/" + data_dir
+    else:
+        data_dir = str(Path(data_root) / data_dir)
+
+    return data_dir
 
 
 @pytest.fixture(params=[None, "azureml://CIFAR-10/1", "local"])
@@ -182,12 +193,7 @@ def test_data_root_for_dataloader_func(mock_get_local_path, config, is_cmdline):
         data_root = config.get("data_root")
         best = olive_run(config)
 
-    if data_root is None:
-        data_dir = "data"
-    elif data_root.startswith("azureml://"):
-        data_dir = data_root + "/data"
-    else:
-        data_dir = str(Path(data_root) / "data")
+    data_dir = concat_data_dir(data_root, "data")
     mock_get_local_path.assert_called_with(create_resource_path(data_dir), ".olive-cache")
     assert best is not None
 
@@ -200,6 +206,7 @@ def data_config(tmpdir, request):
     if data_root is not None:
         if data_root == "local":
             tmpdir.mkdir("data")
+            tmpdir.mkdir("perfdata")
             data_root = str(tmpdir)
         config_obj["data_root"] = data_root
 
@@ -211,17 +218,24 @@ def test_data_root_for_dataset(mock_get_local_path, data_config):
     mock_get_local_path.side_effect = lambda x, cache_dir: x.get_path()
 
     config = data_config
-
     data_root = config.get("data_root")
-    if data_root is None:
-        data_dir = "data"
-    elif data_root.startswith("azureml://"):
-        data_dir = data_root + "/data"
-    else:
-        data_dir = str(Path(data_root) / "data")
 
     mock = MagicMock(side_effect=dummy_dataset_dataroot)
     Registry.register_dataset("dummy_dataset_dataroot")(mock)
     best = olive_run(config)
-    mock.assert_called_with(data_dir=data_dir)
+    mock.assert_called_with(data_dir=concat_data_dir(data_root, "data"))
+
+    data_dir_expected = concat_data_dir(data_root, "perfdata")
+    found = mock_called_with(mock, data_dir=data_dir_expected)
+    assert found
+
     assert best is not None
+
+
+def mock_called_with(mock, **expected_kwargs):
+    for call in mock.call_args_list:
+        for key, value in expected_kwargs.items():
+            if key in call.kwargs:
+                if call.kwargs[key] == value:
+                    return True
+    return False

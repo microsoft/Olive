@@ -39,6 +39,7 @@ takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
 
 - `required` : whether the parameter is required
 - `category`: The param category. It could be the following values:
+
     * `object` : whether the parameter is an object/function. If so, this parameter accepts the object or a string with the
     name of the object in the user script. The type must include `str`.
     * `path` : whether the parameter is a path. If so, this file/folder will be uploaded to the host system.
