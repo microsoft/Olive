@@ -112,6 +112,15 @@ class OnnxConversion(Pass):
             output_names = io_config.output_names
             dynamic_axes = io_config.dynamic_axes
 
+            # some dummy inputs might not be used in the model, so we need to remove them
+            # this can happen when we are using an hf dataset to generate dummy inputs
+            # only handle dict for now since we cannot get the name of the input from a list/tuple
+            if isinstance(dummy_inputs, dict):
+                dummy_input_keys = list(dummy_inputs.keys())
+                for key in dummy_input_keys:
+                    if key not in input_names:
+                        del dummy_inputs[key]
+
             output_model_path = ONNXModel.resolve_path(output_model_path)
 
             # there might be multiple files created during export, so we need to track the dir
