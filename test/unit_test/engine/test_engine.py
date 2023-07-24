@@ -497,5 +497,5 @@ class TestEngine:
             engine.register(OnnxDynamicQuantization, disable_search=True)
             with patch("onnxruntime.quantization.quantize_dynamic") as mock_quantize_dynamic:
                 mock_quantize_dynamic.side_effect = AttributeError("test")
-                actual_res = engine.run(onnx_model, data_root=None, output_dir=output_dir)
+                actual_res = engine.run(onnx_model, data_root=None, output_dir=output_dir, evaluate_input_model=False)
                 assert actual_res == {}, "Expect empty dict when quantization fails"
