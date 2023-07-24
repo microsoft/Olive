@@ -274,8 +274,12 @@ class OnnxQuantization(Pass):
         config.update(get_external_data_config())
         return config
 
-    def validate_search_point(self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec) -> bool:
-        config = self.config_at_search_point(search_point)
+    def validate_search_point(
+        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    ) -> bool:
+        config = search_point or {}
+        if with_fixed_value:
+            config = self.config_at_search_point(search_point)
         if config["quant_mode"] == "static":
             if (
                 config["weight_type"] == "QInt8"

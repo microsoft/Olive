@@ -79,8 +79,12 @@ class OrtTransformersOptimization(Pass):
         config.update(get_external_data_config())
         return config
 
-    def validate_search_point(self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec) -> bool:
-        if search_point["float16"]:
+    def validate_search_point(
+        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    ) -> bool:
+        if with_fixed_value:
+            search_point = self.config_at_search_point(search_point or {})
+        if search_point.get("float16"):
             if accelerator_spec.execution_provider == "TensorrtExecutionProvider":
                 logger.info(
                     "TensorRT has its own float16 implementation, please avoid to use float16 in transformers "
@@ -90,7 +94,7 @@ class OrtTransformersOptimization(Pass):
             if accelerator_spec.execution_provider == "CPUExecutionProvider":
                 logger.info("CPUExecutionProvider does not support float16 very well, please avoid to use float16.")
                 return False
-        if search_point["use_gpu"] and accelerator_spec.execution_provider == "CPUExecutionProvider":
+        if search_point.get("use_gpu") and accelerator_spec.execution_provider == "CPUExecutionProvider":
             logger.info("CPUExecutionProvider does not support GPU inference, please avoid to use use_gpu.")
             return False
         return True
