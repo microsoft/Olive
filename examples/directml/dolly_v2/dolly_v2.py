@@ -8,6 +8,7 @@ import os
 import shutil
 from pathlib import Path
 
+import config
 import onnxruntime as ort
 from packaging import version
 
@@ -35,6 +36,8 @@ def optimize(model_name: str, optimized_model_dir: Path):
     with open(script_dir / "config_dolly_v2.json", "r") as fin:
         olive_config = json.load(fin)
 
+    olive_config["input_model"]["config"]["model_path"] = model_name
+    olive_config["passes"]["optimize"]["config"]["hidden_size"] = config.hidden_size
     olive_run(olive_config)
 
     # TODO: rename the 0 prefix in the path when the hardware accelerator feature is implemented.
@@ -94,6 +97,19 @@ if __name__ == "__main__":
         "--max_new_tokens", default=64, type=int, help="Maximum number of tokens that the model will generate"
     )
     args = parser.parse_args()
+
+    model_to_hidden_size = {
+        "databricks/dolly-v2-3b": 2560,
+        "databricks/dolly-v2-7b": 4096,
+    }
+
+    if args.model not in list(model_to_hidden_size.keys()):
+        print(
+            f"WARNING: {args.model} is not an officially supported model for this example and may not work as "
+            + "expected."
+        )
+
+    config.hidden_size = model_to_hidden_size.get(args.model, 2560)
 
     script_dir = Path(__file__).resolve().parent
     optimized_model_dir = script_dir / "models" / "optimized" / args.model
