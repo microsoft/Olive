@@ -248,11 +248,70 @@ def _postprocessing(name: str) -> onnx.ModelProto:
     return fn_decoder.onnx_model
 
 
+# this is copied over from https://github.com/microsoft/onnxruntime-extensions/pull/496 to avoid dependency on
+# unreleased version
+# TODO: remove this once new version of onnxruntime-extensions is released
+def _quick_merge(*models, connection_indices=None):
+    """
+    This function merges multiple ONNX models into a single model, without performing any ONNX format checks.
+    Parameters:
+    *models (onnx.ModelProto): Varargs parameter representing the ONNX models to be merged.
+    connection_indices (List[List[int]], optional): A nested list specifying which outputs in one model should connect
+                                                    to which inputs in the next model, based on their indices.
+                                                    If not provided, it's assumed that the sequence of outputs in
+                                                    one model exactly matches the sequence of inputs in the next model.
+    Returns:
+    merged_model (onnx.ModelProto): The merged ONNX model.
+    Raises:
+    ValueError: If there is any conflict in tensor names, either in initializers or in nodes, including subgraphs.
+                If there is any conflict in opset versions for the same domain.
+    """
+
+    merged_graph = models[0].graph
+
+    # Dictionary to store unique opsets
+    # opset_imports = {opset.domain if opset.domain else "ai.onnx": opset for opset in models[0].opset_import}
+    # onnx checker fails when '' domain is removed
+    # onnx.onnx_cpp2py_export.checker.ValidationError: No opset import for domain '
+    opset_imports = {opset.domain: opset for opset in models[0].opset_import}
+
+    # Iterate over all other models and merge
+    for model_idx, model in enumerate(models[1:], start=1):
+        if connection_indices is None:
+            io_map = [(out.name, in_.name) for out, in_ in zip(models[model_idx - 1].graph.output, model.graph.input)]
+        else:
+            io_map = [
+                (models[model_idx - 1].graph.output[out_idx].name, model.graph.input[in_idx].name)
+                for out_idx, in_idx in connection_indices[model_idx - 1]
+            ]
+
+        merged_graph = onnx.compose.merge_graphs(merged_graph, model.graph, io_map)
+
+        for opset in model.opset_import:
+            # same comment as above for '' domain
+            # if not opset.domain:
+            #     opset.domain = "ai.onnx"
+            if opset.domain in opset_imports and opset_imports[opset.domain].version != opset.version:
+                raise ValueError(
+                    f"Conflict in opset versions for domain '{opset.domain}': "
+                    + f"model {model_idx} has version {opset.version}, while previous model has version "
+                    + f"{opset_imports[opset.domain].version}."
+                )
+            else:
+                opset_imports[opset.domain] = opset
+
+    default_opset = opset_imports.pop("ai.onnx", None)
+    merged_model = onnx.helper.make_model_gen_version(
+        merged_graph, opset_imports=[default_opset], producer_name="ONNX Model Merger"
+    )
+    merged_model.opset_import.extend(opset_imports.values())
+    return merged_model
+
+
 def _merge_models(
     pre_model: onnx.ModelProto, core_model: onnx.ModelProto, post_model: onnx.ModelProto
 ) -> onnx.ModelProto:
-    pre_core_model = onnx.compose.merge_models(pre_model, core_model, io_map=[("log_mel", "input_features")])
-    all_models = onnx.compose.merge_models(pre_core_model, post_model, io_map=[("sequences", "ids")])
+    all_models = _quick_merge(pre_model, core_model, post_model)
     bpe_decoder_node = all_models.graph.node.pop(-1)
     bpe_decoder_node.input.pop(0)
     bpe_decoder_node.input.extend(["generated_ids"])
@@ -273,7 +332,6 @@ def add_pre_post_processing_to_model(
     pre_model = _preprocessing(audio_blob, use_audio_decoder)
     post_model = _postprocessing(model_name)
     final_model = _merge_models(pre_model, model, post_model)
-    onnx.checker.check_model(final_model)
 
     try:
         onnx.save_model(final_model, output_filepath)
@@ -287,4 +345,5 @@ def add_pre_post_processing_to_model(
             convert_attribute=True,
         )
 
-    return final_model
+    # check the saved model instead of final_model since checker fails with large final_model
+    onnx.checker.check_model(output_filepath)

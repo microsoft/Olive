@@ -43,8 +43,11 @@ class OnnxConversion(Pass):
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "target_opset": PassConfigParam(
-                type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
-            )
+                type_=int, default_value=18, description="The version of the default (ai.onnx) opset to target."
+            ),
+            "use_dynamo_exporter": PassConfigParam(
+                type_=bool, default_value=False, description="Whether to use dynamo_export API to export ONNX model."
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -66,20 +69,6 @@ class OnnxConversion(Pass):
         # get dummy inputs
         dummy_inputs = model.get_dummy_inputs()
 
-        # get input and output names, and dynamic axes
-        # priority: model.io_config > auto-generated io_config for HF models
-        io_config = model.io_config
-        if not io_config and (model.hf_config and not model.hf_config.components):
-            logger.debug("Using hf config to get io_config for the model.")
-            io_config = get_hf_model_io_config(
-                model.hf_config.model_name, model.hf_config.task, model.hf_config.feature
-            )
-        assert io_config, "Cannot get io_config for the model. Please specify io_config or hf_config for the model."
-        io_config = validate_config(io_config, IOConfig)
-        input_names = io_config.input_names
-        output_names = io_config.output_names
-        dynamic_axes = io_config.dynamic_axes
-
         # convert the model
         pytorch_model = model.load_model()
         pytorch_model.eval()
@@ -91,39 +80,83 @@ class OnnxConversion(Pass):
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
 
-        output_model_path = ONNXModel.resolve_path(output_model_path)
+        onnx_model = None
+        if config["use_dynamo_exporter"]:
+            # TODO: remove this import check once torch.onnx.dynamo_export is available in stable pytorch
+            try:
+                from torch.onnx import dynamo_export
+            except ImportError:
+                raise ImportError(
+                    "torch.onnx.dynamo_export is not available. Please upgrade your pytorch version to nightly build."
+                )
+            exported = dynamo_export(
+                pytorch_model,
+                *dummy_inputs,
+                export_options=torch.onnx.ExportOptions(opset_version=config["target_opset"], dynamic_shapes=True),
+            )
+            onnx_model = exported.model_proto
+        else:
+            # Standard ONNX export
 
-        # there might be multiple files created during export, so we need to track the dir
-        # if there are other processes writing to the same dir, we might end up deleting files created by
-        # other processes
-        tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
-        tmp_dir_path = Path(tmp_dir.name)
-        tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
+            # get input and output names, and dynamic axes
+            # priority: model.io_config > auto-generated io_config for HF models
+            io_config = model.io_config
+            if not io_config and (model.hf_config and not model.hf_config.components):
+                logger.debug("Using hf config to get io_config for the model.")
+                io_config = get_hf_model_io_config(
+                    model.hf_config.model_name, model.hf_config.task, model.hf_config.feature
+                )
+            assert io_config, "Cannot get io_config for the model. Please specify io_config or hf_config for the model."
+            io_config = validate_config(io_config, IOConfig)
+            input_names = io_config.input_names
+            output_names = io_config.output_names
+            dynamic_axes = io_config.dynamic_axes
 
-        torch.onnx.export(
-            pytorch_model,
-            dummy_inputs,
-            tmp_model_path,
-            export_params=True,
-            opset_version=config["target_opset"],
-            input_names=input_names,
-            output_names=output_names,
-            dynamic_axes=dynamic_axes,
-        )
+            # some dummy inputs might not be used in the model, so we need to remove them
+            # this can happen when we are using an hf dataset to generate dummy inputs
+            # only handle dict for now since we cannot get the name of the input from a list/tuple
+            if isinstance(dummy_inputs, dict):
+                dummy_input_keys = set(dummy_inputs.keys())
+                unused_keys = dummy_input_keys - set(input_names)
+                logger.debug(f"Removing unused dummy inputs: {unused_keys}")
+                for key in unused_keys:
+                    del dummy_inputs[key]
 
-        # load the model
-        onnx_model = onnx.load(tmp_model_path)
-        # the model is loaded into memory, so it's safe to delete previously exported file(s)
-        tmp_dir.cleanup()
+            output_model_path = ONNXModel.resolve_path(output_model_path)
 
-        # Workaround as described under IOConfig.string_to_int_dim_params: change numeric dim_param to dim_value
-        if io_config.string_to_int_dim_params:
-            for tensor in onnx_model.graph.output:
-                for dim_proto in tensor.type.tensor_type.shape.dim:
-                    if dim_proto.HasField("dim_param") and dim_proto.dim_param in io_config.string_to_int_dim_params:
-                        dim_value = int(dim_proto.dim_param)
-                        dim_proto.Clear()
-                        dim_proto.dim_value = dim_value
+            # there might be multiple files created during export, so we need to track the dir
+            # if there are other processes writing to the same dir, we might end up deleting files created by
+            # other processes
+            tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+            tmp_dir_path = Path(tmp_dir.name)
+            tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
+
+            torch.onnx.export(
+                pytorch_model,
+                dummy_inputs,
+                tmp_model_path,
+                export_params=True,
+                opset_version=config["target_opset"],
+                input_names=input_names,
+                output_names=output_names,
+                dynamic_axes=dynamic_axes,
+            )
+            onnx_model = onnx.load(tmp_model_path)
+
+            # the model is loaded into memory, so it's safe to delete previously exported file(s)
+            tmp_dir.cleanup()
+
+            # Workaround as described under IOConfig.string_to_int_dim_params: change numeric dim_param to dim_value
+            if io_config.string_to_int_dim_params:
+                for tensor in onnx_model.graph.output:
+                    for dim_proto in tensor.type.tensor_type.shape.dim:
+                        if (
+                            dim_proto.HasField("dim_param")
+                            and dim_proto.dim_param in io_config.string_to_int_dim_params
+                        ):
+                            dim_value = int(dim_proto.dim_param)
+                            dim_proto.Clear()
+                            dim_proto.dim_value = dim_value
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config)

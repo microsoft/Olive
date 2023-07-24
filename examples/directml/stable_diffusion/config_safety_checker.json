@@ -84,6 +84,7 @@
             "search_algorithm": "exhaustive"
         },
         "evaluator": "common_evaluator",
+        "evaluate_input_model": false,
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
