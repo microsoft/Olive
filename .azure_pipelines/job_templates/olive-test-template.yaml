@@ -15,8 +15,15 @@ jobs:
       runCodesignValidationInjection: false
       device: ${{ parameters.device }}
       testType: ${{ parameters.test_type }}
+      HF_HOME: ${{ Pipeline.Workspace }}/.hfhome
 
     steps:
+    - task: Cache@2
+      inputs:
+        key: '"${{ parameters.name }}" | "${{ parameters.device }}" | " "$(Agent.OS)"'
+        path: $(HF_HOME)
+      displayName: Setup HuggingFace cache
+
     - task: UsePythonVersion@0
       inputs:
         versionSpec: 3.8

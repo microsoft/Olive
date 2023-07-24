@@ -33,15 +33,12 @@ jobs:
     WINDOWS: ${{ parameters.windows }}
     runCodesignValidationInjection: false
     device: ${{ parameters.device }}
-    HF_HOME: $( Pipeline.Workspace )/.hfhome
+    HF_HOME: ${{ Pipeline.Workspace }}/.hfhome
 
   steps:
-  - script:
-
   - task: Cache@2
     inputs:
-      key: '"$(Agent.OS)"'
-      restoreKeys: "$(Agent.OS)"
+      key: '"${{ parameters.name }}" | "${{ parameters.device }}" | " "$(Agent.OS)"'
       path: $(HF_HOME)
     displayName: Setup HuggingFace cache
 
