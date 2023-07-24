@@ -92,7 +92,7 @@ class OnnxConversion(Pass):
             exported = dynamo_export(
                 pytorch_model,
                 *dummy_inputs,
-                export_options=torch.onnx.ExportOptions(opset_version=config["target_opset"], dynamic_shapes=True)
+                export_options=torch.onnx.ExportOptions(opset_version=config["target_opset"], dynamic_shapes=True),
             )
             onnx_model = exported.model_proto
         else:
@@ -111,6 +111,16 @@ class OnnxConversion(Pass):
             input_names = io_config.input_names
             output_names = io_config.output_names
             dynamic_axes = io_config.dynamic_axes
+
+            # some dummy inputs might not be used in the model, so we need to remove them
+            # this can happen when we are using an hf dataset to generate dummy inputs
+            # only handle dict for now since we cannot get the name of the input from a list/tuple
+            if isinstance(dummy_inputs, dict):
+                dummy_input_keys = set(dummy_inputs.keys())
+                unused_keys = dummy_input_keys - set(input_names)
+                logger.debug(f"Removing unused dummy inputs: {unused_keys}")
+                for key in unused_keys:
+                    del dummy_inputs[key]
 
             output_model_path = ONNXModel.resolve_path(output_model_path)
 
