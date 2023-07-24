@@ -1,64 +1,47 @@
 {
-    "verbose": true,
-    "input_model": {
+    "input_model":{
         "type": "PyTorchModel",
         "config": {
-            "model_loader": "load_model",
-            "model_script": "./perf_models/CamemBERT/user_script.py",
-            "io_config" : {
-                "input_names": ["input_ids", "attention_mask"],
-                "input_shapes": [[1, 128], [1, 128]],
-                "input_types": ["int64", "int64"],
-                "output_names": ["output"],
-                "dynamic_axes": {
-                    "input_ids": {"0": "batch_size", "1": "seq_length"},
-                    "attention_mask": {"0": "batch_size", "1": "seq_length"}
+            "hf_config": {
+                "model_name": "Jean-Baptiste/camembert-ner",
+                "task": "ner",
+                "dataset": {
+                    "data_name":"Jean-Baptiste/wikiner_fr",
+                    "split": "test",
+                    "input_cols": ["tokens"],
+                    "label_cols": ["ner_tags"],
+                    "batch_size": 1
                 }
             }
         }
     },
     "evaluators": {
         "common_evaluator": {
-            "metrics": [
+            "metrics":[
                 {
                     "name": "accuracy",
-                    "type": "custom",
+                    "type": "accuracy",
                     "sub_types": [
                         {
-                            "name": "accuracy_custom",
+                            "name": "accuracy_score",
                             "priority": 1,
-                            "higher_is_better": true,
-                            "goal": {
-                                "type": "max-degradation",
-                                "value": 0.01
+                            "goal": {"type": "max-degradation", "value": 0.01},
+                            "metric_config": {
+                                "task": "multiclass",
+                                "num_classes": "5",
+                                "top_k": 1
                             }
                         }
-                    ],
-                    "is_first_priority": true,
-                    "user_config": {
-                        "evaluate_func": "evaluate_accuracy",
-                        "user_script": "./perf_models/CamemBERT/user_script.py",
-                        "batch_size": 1
-                    }
+                    ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 2,
-                            "goal": {
-                                "type": "percent-min-improvement",
-                                "value": 20
-                            }
-                        }
-                    ],
-                    "user_config": {
-                        "user_script": "./perf_models/CamemBERT/user_script.py",
-                        "dataloader_func": "create_dataloader",
-                        "batch_size": 1
-                    }
+                        {"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}},
+                        {"name": "max"},
+                        {"name": "min"}
+                    ]
                 }
             ]
         }
@@ -77,28 +60,25 @@
             }
         },
         "quantization": {
-            "type": "OnnxDynamicQuantization"
+            "type": "OnnxQuantization"
         },
         "perf_tuning": {
-            "type": "OrtPerfTuning",
-            "config": {
-                "user_script": "./perf_models/CamemBERT/user_script.py",
-                "dataloader_func": "create_dataloader",
-                "batch_size": 1
-            }
+            "type": "OrtPerfTuning"
         }
     },
     "engine": {
+        "log_severity_level": 0,
         "search_strategy": {
             "execution_order": "joint",
             "search_algorithm": "tpe",
             "search_algorithm_config": {
-                "num_samples": 5,
+                "num_samples": 3,
                 "seed": 0
             }
         },
         "evaluator": "common_evaluator",
+        "clean_cache": true,
         "cache_dir": "cache",
-        "output_dir": "models/CamemBERT_workflow_cpu.json"
+        "output_dir" : "models/camembert_workflow_cpu"
     }
 }

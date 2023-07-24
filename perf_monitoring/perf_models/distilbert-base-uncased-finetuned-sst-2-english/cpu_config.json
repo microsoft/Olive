@@ -1,18 +1,17 @@
 {
-    "verbose": true,
-    "input_model": {
+    "input_model":{
         "type": "PyTorchModel",
         "config": {
-            "model_loader": "load_model",
-            "model_script": "./perf_models/distilbert-base-uncased-finetuned-sst-2-english/user_script.py",
-            "io_config" : {
-                "input_names": ["input_ids", "attention_mask"],
-                "input_shapes": [[1, 128], [1, 128]],
-                "input_types": ["int64", "int64"],
-                "output_names": ["output"],
-                "dynamic_axes": {
-                    "input_ids": {"0": "batch_size", "1": "seq_length"},
-                    "attention_mask": {"0": "batch_size", "1": "seq_length"}
+            "hf_config": {
+                "model_name": "distilbert-base-uncased-finetuned-sst-2-english",
+                "task": "text-classification",
+                "dataset": {
+                    "data_name":"glue",
+                    "subset": "sst2",
+                    "split": "validation",
+                    "input_cols": ["sentence"],
+                    "label_cols": ["label"],
+                    "batch_size": 1
                 }
             }
         }
@@ -20,53 +19,32 @@
 
     "evaluators": {
         "common_evaluator": {
-            "metrics": [
+            "metrics":[
                 {
                     "name": "accuracy",
-                    "type": "custom",
+                    "type": "accuracy",
+                    "backend": "huggingface_metrics",
                     "sub_types": [
-                        {
-                            "name": "accuracy_custom",
-                            "priority": 1,
-                            "higher_is_better": true,
-                            "goal": {
-                                "type": "max-degradation",
-                                "value": 0.01
-                            }
-                        }
-                    ],
-                    "is_first_priority": true,
-                    "user_config": {
-                        "evaluate_func": "eval_accuracy",
-                        "user_script": "./perf_models/distilbert-base-uncased-finetuned-sst-2-english/user_script.py",
-                        "batch_size": 1
-                    }
+                        {"name": "accuracy", "priority": 1}
+
+                    ]
                 },
                 {
                     "name": "latency",
                     "type": "latency",
                     "sub_types": [
-                        {
-                            "name": "avg",
-                            "priority": 2,
-                            "goal": {
-                                "type": "percent-min-improvement",
-                                "value": 20
-                            }
-                        }
-                    ],
-                    "user_config": {
-                        "user_script": "./perf_models/distilbert-base-uncased-finetuned-sst-2-english/user_script.py",
-                        "dataloader_func": "create_dataloader",
-                        "batch_size": 1
-                    }
+                        {"name": "avg", "priority": 2}
+                    ]
                 }
             ]
         }
     },
     "passes": {
         "conversion": {
-            "type": "OnnxConversion"
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 13
+            }
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
@@ -78,15 +56,10 @@
             }
         },
         "quantization": {
-            "type": "OnnxDynamicQuantization"
+            "type": "OnnxQuantization"
         },
         "perf_tuning": {
-            "type": "OrtPerfTuning",
-            "config": {
-                "user_script": "./perf_models/distilbert-base-uncased-finetuned-sst-2-english/user_script.py",
-                "dataloader_func": "create_dataloader",
-                "batch_size": 1
-            }
+            "type": "OrtPerfTuning"
         }
     },
     "engine": {
@@ -94,12 +67,13 @@
             "execution_order": "joint",
             "search_algorithm": "tpe",
             "search_algorithm_config": {
-                "num_samples": 5,
+                "num_samples": 3,
                 "seed": 0
             }
         },
         "evaluator": "common_evaluator",
+        "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
-        "output_dir": "models/distilbert-base-uncased-finetuned-sst-2-english_workflow_cpu.json"
+        "output_dir" : "models/bert_workflow_cpu"
     }
 }

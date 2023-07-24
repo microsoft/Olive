@@ -41,42 +41,42 @@ def setup():
 #     extract_best_models(footprint, "distilbert-base-uncased-finetuned-sst-2-english")
 
 
-# @pytest.mark.parametrize(
-#     "olive_json",
-#     ["perf_models/CamemBERT/cpu_config.json"],
-# )
-# def test_Camembert(olive_json):
-#     print(olive_json)
-#     from olive.workflows import run as olive_run
-
-#     olive_config = patch_config(olive_json)
-#     footprint = olive_run(olive_config)
-#     extract_best_models(footprint, "CamemBERT")
-
-
 @pytest.mark.parametrize(
     "olive_json",
-    ["perf_models/bertweet-base-sentiment-analysis/cpu_config.json"],
+    ["perf_models/CamemBERT/cpu_config.json"],
 )
-def test_bertweet(olive_json):
+def test_Camembert(olive_json):
+    print(olive_json)
     from olive.workflows import run as olive_run
 
     olive_config = patch_config(olive_json)
     footprint = olive_run(olive_config)
-    extract_best_models(footprint, "bertweet-base-sentiment-analysis")
+    extract_best_models(footprint, "CamemBERT")
 
 
 # @pytest.mark.parametrize(
 #     "olive_json",
-#     ["perf_models/microsoft-deberta-base-mnli/cpu_config.json"],
+#     ["perf_models/bertweet-base-sentiment-analysis/cpu_config.json"],
 # )
-# def test_microsoft(olive_json):
-#     print(olive_json)
+# def test_bertweet(olive_json):
 #     from olive.workflows import run as olive_run
 
 #     olive_config = patch_config(olive_json)
 #     footprint = olive_run(olive_config)
-#     extract_best_models(footprint, "microsoft-deberta-base-mnli")
+#     extract_best_models(footprint, "bertweet-base-sentiment-analysis")
+
+
+@pytest.mark.parametrize(
+    "olive_json",
+    ["perf_models/microsoft-deberta-base-mnli/cpu_config.json"],
+)
+def test_microsoft(olive_json):
+    print(olive_json)
+    from olive.workflows import run as olive_run
+
+    olive_config = patch_config(olive_json)
+    footprint = olive_run(olive_config)
+    extract_best_models(footprint, "microsoft-deberta-base-mnli")
 
 
 # @pytest.mark.parametrize(
