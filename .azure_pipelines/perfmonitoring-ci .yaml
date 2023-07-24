@@ -46,3 +46,7 @@ jobs:
       bert:
         perfMonitoringScriptName: perf_monitoring_models_cpu
         perfMonitoringScriptFunction: test_bert
+
+      bertweet:
+        perfMonitoringScriptName: perf_monitoring_models_cpu
+        perfMonitoringScriptFunction: test_bertweet

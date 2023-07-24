@@ -6,10 +6,10 @@
                 "model_name": "finiteautomata/bertweet-base-sentiment-analysis",
                 "task": "text-classification",
                 "dataset": {
-                    "data_name":"glue",
-                    "subset": "mrpc",
-                    "split": "validation",
-                    "input_cols": ["input_ids", "token_type_ids", "attention_mask"],
+                    "data_name":"cardiffnlp/tweet_sentiment_multilingual",
+                    "subset": "english",
+                    "split": "test",
+                    "input_cols": ["text"],
                     "label_cols": ["label"],
                     "batch_size": 1
                 }
