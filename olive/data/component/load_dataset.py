@@ -23,7 +23,7 @@ def simple_dataset(input_data, label_cols=None, **kwargs):
 
 
 @Registry.register_dataset()
-def huggingface_dataset(data_name=None, subset=None, split="validation", **kwargs):
+def huggingface_dataset(data_name=None, subset=None, split="validation", data_files=None, **kwargs):
     """
     This function is used to create a dataset from huggingface datasets
     """
@@ -34,7 +34,7 @@ def huggingface_dataset(data_name=None, subset=None, split="validation", **kwarg
     from datasets import load_dataset
 
     assert data_name is not None, "Please specify the data name"
-    return load_dataset(path=data_name, name=subset, split=split, **kwargs)
+    return load_dataset(path=data_name, name=subset, split=split, data_files=data_files, **kwargs)
 
 
 @Registry.register_dataset()
