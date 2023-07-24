@@ -42,6 +42,10 @@ class AcceleratorSpec:
 
 
 DEFAULT_CPU_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="CPUExecutionProvider")
+DEFAULT_GPU_CUDA_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider")
+DEFAULT_GPU_TRT_ACCELERATOR = AcceleratorSpec(
+    accelerator_type=Device.GPU, execution_provider="TensorrtExecutionProvider"
+)
 
 
 class AcceleratorLookup:

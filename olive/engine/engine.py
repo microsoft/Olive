@@ -892,7 +892,7 @@ class Engine:
         output_model_path = str(output_model_path)
 
         # prune if invalid search_point
-        if not p.validate_search_point(pass_search_point) and not self.no_search:
+        if not p.validate_search_point(pass_search_point, accelerator_spec) and not self.no_search:
             output_model = PRUNED_CONFIG
         else:
             # run pass

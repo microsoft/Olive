@@ -338,7 +338,7 @@ class Pass(ABC):
             config[key] = value
         return self._config_class(**config).dict()
 
-    def validate_search_point(self, search_point: Dict[str, Any]) -> bool:
+    def validate_search_point(self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec) -> bool:
         """
         Validate the search point for the pass.
         """
