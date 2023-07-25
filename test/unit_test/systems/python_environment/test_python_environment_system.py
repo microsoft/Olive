@@ -62,7 +62,7 @@ class TestPythonEnvironmentSystem:
         )
 
         # execute
-        res = self.system.evaluate_model(model, metrics, DEFAULT_CPU_ACCELERATOR)
+        res = self.system.evaluate_model(model, None, metrics, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         assert res[metrics_key[0]].value == 0.9
@@ -88,10 +88,14 @@ class TestPythonEnvironmentSystem:
 
         # expected result
         local_system = LocalSystem()
-        expected_res = local_system.evaluate_model(model, [metric], DEFAULT_CPU_ACCELERATOR)["accuracy-accuracy_score"]
+        expected_res = local_system.evaluate_model(model, None, [metric], DEFAULT_CPU_ACCELERATOR)[
+            "accuracy-accuracy_score"
+        ]
 
         # execute
-        actual_res = self.system.evaluate_model(model, [metric], DEFAULT_CPU_ACCELERATOR)["accuracy-accuracy_score"]
+        actual_res = self.system.evaluate_model(model, None, [metric], DEFAULT_CPU_ACCELERATOR)[
+            "accuracy-accuracy_score"
+        ]
 
         # assert
         assert actual_res == expected_res
@@ -127,7 +131,7 @@ class TestPythonEnvironmentSystem:
         expected_res = 10
 
         # execute
-        actual_res = self.system.evaluate_latency(model, metric, DEFAULT_CPU_ACCELERATOR)
+        actual_res = self.system.evaluate_latency(model, None, metric, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         assert actual_res[LatencySubType.AVG].value == expected_res

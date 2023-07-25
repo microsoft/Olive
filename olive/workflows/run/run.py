@@ -123,7 +123,7 @@ def dependency_setup(config):
         )
 
 
-def run(config: Union[str, Path, dict], setup: bool = False):
+def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = None):
     # we use parse_file and parse_obj to be safe. If implemented as expected, both should be equivalent.
     if isinstance(config, str) or isinstance(config, Path):
         config = RunConfig.parse_file(config)
@@ -165,9 +165,13 @@ def run(config: Union[str, Path, dict], setup: bool = False):
                 output_name=pass_config.output_name,
             )
 
+        if data_root is None:
+            data_root = config.data_root
+
         # run
         best_execution = engine.run(
             input_model,
+            data_root,
             config.engine.packaging_config,
             config.engine.output_dir,
             config.engine.output_name,

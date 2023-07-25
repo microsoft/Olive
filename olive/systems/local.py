@@ -23,15 +23,18 @@ class LocalSystem(OliveSystem):
         self,
         the_pass: Pass,
         model: OliveModel,
+        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> OliveModel:
         """
         Run the pass on the model at a specific point in the search space.
         """
-        return the_pass.run(model, output_model_path, point)
+        return the_pass.run(model, data_root, output_model_path, point)
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> MetricResult:
+    def evaluate_model(
+        self, model: OliveModel, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+    ) -> MetricResult:
         """
         Evaluate the model
         """
@@ -42,7 +45,7 @@ class LocalSystem(OliveSystem):
         execution_providers = accelerator.execution_provider if accelerator else None
 
         evaluator: OliveEvaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
-        return evaluator.evaluate(model, metrics, device=device, execution_providers=execution_providers)
+        return evaluator.evaluate(model, data_root, metrics, device=device, execution_providers=execution_providers)
 
     @staticmethod
     def get_supported_execution_providers():

@@ -26,6 +26,7 @@ class OliveSystem(ABC):
         self,
         the_pass: Pass,
         model: OliveModel,
+        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> OliveModel:
@@ -35,7 +36,9 @@ class OliveSystem(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> MetricResult:
+    def evaluate_model(
+        self, model: OliveModel, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+    ) -> MetricResult:
         """
         Evaluate the model
         """

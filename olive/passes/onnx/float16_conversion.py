@@ -44,7 +44,9 @@ class OnnxFloatToFloat16(Pass):
         config.update(get_external_data_config())
         return config
 
-    def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+    def _run_for_config(
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModel:
         from onnxconverter_common import float16
 
         output_model_path = ONNXModel.resolve_path(output_model_path)

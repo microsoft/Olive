@@ -68,6 +68,7 @@ class PythonEnvironmentSystem(OliveSystem):
         self,
         the_pass: Pass,
         model: OliveModel,
+        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> OliveModel:
@@ -76,7 +77,9 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         raise ValueError("PythonEnvironmentSystem does not support running passes.")
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> MetricResult:
+    def evaluate_model(
+        self, model: OliveModel, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+    ) -> MetricResult:
         """
         Evaluate the model
         """
@@ -91,16 +94,18 @@ class PythonEnvironmentSystem(OliveSystem):
         for original_metric in metrics:
             metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)
             if metric.type == MetricType.ACCURACY:
-                metrics_res[metric.name] = self.evaluate_accuracy(model, metric, accelerator)
+                metrics_res[metric.name] = self.evaluate_accuracy(model, data_root, metric, accelerator)
             elif metric.type == MetricType.LATENCY:
-                metrics_res[metric.name] = self.evaluate_latency(model, metric, accelerator)
+                metrics_res[metric.name] = self.evaluate_latency(model, data_root, metric, accelerator)
         return flatten_metric_result(metrics_res)
 
-    def evaluate_accuracy(self, model: ONNXModel, metric: Metric, accelerator: AcceleratorSpec) -> float:
+    def evaluate_accuracy(
+        self, model: ONNXModel, data_root: str, metric: Metric, accelerator: AcceleratorSpec
+    ) -> float:
         """
         Evaluate the accuracy of the model.
         """
-        dataloader, _, post_func = OliveEvaluator.get_user_config(metric, model.framework)
+        dataloader, _, post_func = OliveEvaluator.get_user_config(model.framework, data_root, metric)
 
         preds = []
         targets = []
@@ -149,11 +154,11 @@ class PythonEnvironmentSystem(OliveSystem):
 
         return OliveEvaluator.compute_accuracy(metric, preds, targets)
 
-    def evaluate_latency(self, model: ONNXModel, metric: Metric, accelerator: AcceleratorSpec) -> float:
+    def evaluate_latency(self, model: ONNXModel, data_root: str, metric: Metric, accelerator: AcceleratorSpec) -> float:
         """
         Evaluate the latency of the model.
         """
-        dataloader, _, _ = OliveEvaluator.get_user_config(metric, model.framework)
+        dataloader, _, _ = OliveEvaluator.get_user_config(model.framework, data_root, metric)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
         latencies = []

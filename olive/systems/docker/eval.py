@@ -25,7 +25,7 @@ def evaluate_entry(config, model_path, output_path, output_name):
     model = ModelConfig.from_json(model_json).create_model()
 
     evaluator: OliveEvaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
-    metrics_res = evaluator.evaluate(model, evaluator_config.metrics)
+    metrics_res = evaluator.evaluate(model, None, evaluator_config.metrics)
 
     with open(os.path.join(output_path, f"{output_name}"), "w") as f:
         f.write(metrics_res.json())

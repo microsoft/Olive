@@ -37,7 +37,7 @@ class OptimumMerging(Pass):
         return config
 
     def _run_for_config(
-        self, model: CompositeOnnxModel, config: Dict[str, Any], output_model_path: str
+        self, model: CompositeOnnxModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModel, CompositeOnnxModel]:
         assert len(model.model_components) == 2
 

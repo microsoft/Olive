@@ -34,7 +34,7 @@ def test_inc_quantization():
         # create IncQuantization pass
         p = create_pass_from_dict(IncQuantization, config, disable_search=True)
         # execute
-        quantized_model = local_system.run_pass(p, ov_model, output_folder)
+        quantized_model = local_system.run_pass(p, ov_model, None, output_folder)
         # assert
         assert quantized_model.model_path.endswith(".onnx")
         assert Path(quantized_model.model_path).exists()
@@ -46,7 +46,7 @@ def test_inc_quantization():
         # create IncDynamicQuantization pass
         p = create_pass_from_dict(IncDynamicQuantization, config, disable_search=True)
         # execute
-        quantized_model = local_system.run_pass(p, ov_model, output_folder)
+        quantized_model = local_system.run_pass(p, ov_model, None, output_folder)
         # assert
         assert quantized_model.model_path.endswith(".onnx")
         assert Path(quantized_model.model_path).exists()
@@ -58,7 +58,7 @@ def test_inc_quantization():
         # create IncStaticQuantization pass
         p = create_pass_from_dict(IncStaticQuantization, config, disable_search=True)
         # execute
-        quantized_model = local_system.run_pass(p, ov_model, output_folder)
+        quantized_model = local_system.run_pass(p, ov_model, None, output_folder)
         # assert
         assert quantized_model.model_path.endswith(".onnx")
         assert Path(quantized_model.model_path).exists()
@@ -82,7 +82,7 @@ def get_onnx_model(tempdir):
     output_folder = str(Path(tempdir) / "onnx")
 
     # execute
-    onnx_model = local_system.run_pass(p, pytorch_model, output_folder)
+    onnx_model = local_system.run_pass(p, pytorch_model, None, output_folder)
     return onnx_model
 
 

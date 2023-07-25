@@ -44,7 +44,7 @@ def test_generate_zipfile_artifacts():
     output_dir = Path(tempdir.name) / "outputs"
 
     # execute
-    engine.run(input_model=input_model, packaging_config=packaging_config, output_dir=output_dir)
+    engine.run(input_model=input_model, data_root=None, packaging_config=packaging_config, output_dir=output_dir)
 
     # assert
     artifacts_path = output_dir / "OutputModels.zip"

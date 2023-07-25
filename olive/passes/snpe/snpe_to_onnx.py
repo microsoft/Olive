@@ -47,7 +47,9 @@ class SNPEtoONNXConversion(Pass):
             "validate_target_device": validator("target_device", allow_reuse=True)(_validate_target_device),
         }
 
-    def _run_for_config(self, model: SNPEModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+    def _run_for_config(
+        self, model: SNPEModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModel:
         config = self._config_class(**config)
 
         output_model_path = ONNXModel.resolve_path(output_model_path)
