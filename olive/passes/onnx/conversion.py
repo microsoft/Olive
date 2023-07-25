@@ -118,8 +118,7 @@ class OnnxConversion(Pass):
             if isinstance(dummy_inputs, dict):
                 dummy_input_keys = set(dummy_inputs.keys())
                 unused_keys = dummy_input_keys - set(input_names)
-                if unused_keys:
-                    logger.debug(f"Removing unused dummy inputs: {unused_keys}")
+                logger.debug(f"Unused dummy inputs: {unused_keys}")
                 for key in unused_keys:
                     del dummy_inputs[key]
 

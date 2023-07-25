@@ -43,7 +43,7 @@ def _huggingface_pre_precess_helper(dataset, model_name, input_cols, label_cols,
 
 
 @Registry.register_pre_process()
-def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, max_samples=None, **kwargs):
+def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, **kwargs):
     """Pre-process data.
 
     Args:
@@ -73,11 +73,11 @@ def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, max_sa
         _dataset, model_name, input_cols, label_cols, _tokenizer_and_align_labels, **kwargs
     )
     # label_cols is ["label"] since we added label_cols[0] as "label" to tokenized_inputs
-    return BaseDataset(tokenized_datasets, label_cols=["label"], max_samples=max_samples)
+    return BaseDataset(tokenized_datasets, label_cols=["label"])
 
 
 @Registry.register_pre_process()
-def ner_huggingface_preprocess(_dataset, model_name, input_cols, label_cols, max_samples=None, **kwargs):
+def ner_huggingface_preprocess(_dataset, model_name, input_cols, label_cols, **kwargs):
     """
     Pre-process data for ner task.
     """
@@ -125,4 +125,4 @@ def ner_huggingface_preprocess(_dataset, model_name, input_cols, label_cols, max
     tokenized_datasets = _huggingface_pre_precess_helper(
         _dataset, model_name, input_cols, label_cols, _tokenizer_and_align_labels, **kwargs
     )
-    return BaseDataset(tokenized_datasets, label_cols=["label"], max_samples=max_samples)
+    return BaseDataset(tokenized_datasets, label_cols=["label"])

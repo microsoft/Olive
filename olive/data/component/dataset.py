@@ -19,23 +19,18 @@ class BaseDataset(Dataset):
     The data should be a list or dict of numpy arrays or torch tensors
     """
 
-    def __init__(self, data, label_cols=None, max_samples=None, **kwargs):
+    def __init__(self, data, label_cols=None, **kwargs):
         """
         This function is used to initialize the dataset
         """
         self.data = data
         self.label_cols = label_cols or []
-        self.max_samples = max_samples
 
     def __len__(self):
         """
         This function is used to return the length of the dataset
         """
-        num_samples = len(self.data)
-        if self.max_samples is not None:
-            # if max_samples is not None, return the min of num_samples and max_samples
-            num_samples = min(num_samples, self.max_samples)
-        return num_samples
+        return len(self.data)
 
     def __getitem__(self, index):
         data = {k: v for k, v in self.data[index].items() if k not in self.label_cols}
