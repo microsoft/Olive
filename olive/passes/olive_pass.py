@@ -74,7 +74,7 @@ class Pass(ABC):
 
         config_class, default_config = self.get_config_class(accelerator_spec, disable_search)
 
-        self._accelerator_spec = accelerator_spec
+        self.accelerator_spec = accelerator_spec
 
         self._config_class = config_class
         self._config = config
@@ -407,7 +407,7 @@ class Pass(ABC):
         return {
             "type": self.__class__.__name__,
             "disable_search": True,
-            "accelerator": self._accelerator_spec.to_json(),
+            "accelerator": self.accelerator_spec.to_json(),
             "config": self.serialize_config(self._config, check_object),
         }
 

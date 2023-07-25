@@ -340,10 +340,10 @@ class OrtPerfTuning(Pass):
     ) -> ONNXModel:
         if not config.get("providers_list"):
             # add the provider to the config if user doesn't provide the execution providers
-            config["providers_list"] = [self._accelerator_spec.execution_provider]
+            config["providers_list"] = [self.accelerator_spec.execution_provider]
 
         if not config.get("device"):
-            config["device"] = self._accelerator_spec.accelerator_type
+            config["device"] = self.accelerator_spec.accelerator_type
 
         config = self._config_class(**config)
         # TODO: decide on whether to ignore the output_model_path
