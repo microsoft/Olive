@@ -2,7 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-
 import logging
 from typing import Union
 
@@ -38,10 +37,12 @@ class Registry:
         """
 
         def decorator(component):
-            if name is None:
-                cls._REGISTRY[sub_type.value][component.__name__] = component
-            else:
-                cls._REGISTRY[sub_type.value][name] = component
+            component_name = name if name is not None else component.__name__
+            if component_name in cls._REGISTRY[sub_type.value]:
+                logger.warning(
+                    f"Component {component_name} already registered in {sub_type.value}, will override the old one."
+                )
+            cls._REGISTRY[sub_type.value][component_name] = component
             return component
 
         return decorator

@@ -77,6 +77,7 @@ class DockerSystem(OliveSystem):
         self,
         the_pass: Pass,
         model: OliveModel,
+        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> OliveModel:
@@ -86,17 +87,21 @@ class DockerSystem(OliveSystem):
         logger.warning("DockerSystem.run_pass is not implemented yet.")
         raise NotImplementedError()
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> Dict[str, Any]:
+    def evaluate_model(
+        self, model: OliveModel, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+    ) -> Dict[str, Any]:
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
             metrics_res = None
-            metric_json = self._run_container(tempdir, model, metrics, container_root_path)
+            metric_json = self._run_container(tempdir, model, data_root, metrics, container_root_path)
             if metric_json.is_file():
                 with metric_json.open() as f:
                     metrics_res = json.load(f)
             return MetricResult.parse_obj(metrics_res)
 
-    def _run_container(self, tempdir, model: OliveModel, metrics: List[Metric], container_root_path: Path):
+    def _run_container(
+        self, tempdir, model: OliveModel, data_root: str, metrics: List[Metric], container_root_path: Path
+    ):
         eval_output_path = "eval_output"
         eval_output_name = "eval_res.json"
 
@@ -118,6 +123,7 @@ class DockerSystem(OliveSystem):
 
         metrics_copy = copy.deepcopy(metrics)
         volumes_list = docker_utils.create_metric_volumes_list(
+            data_root=data_root,
             metrics=metrics_copy,
             container_root_path=container_root_path,
             mount_list=volumes_list,

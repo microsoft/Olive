@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 from typing import List
 
-from olive.cache import get_local_path
+from olive.cache import get_local_path_from_root
 from olive.constants import Framework
 from olive.evaluator.metric import Metric
 from olive.model import OliveModel
@@ -55,7 +55,9 @@ def create_run_command(run_params: dict):
     return run_command_dict
 
 
-def create_metric_volumes_list(metrics: List[Metric], container_root_path: Path, mount_list: list) -> List[str]:
+def create_metric_volumes_list(
+    data_root: str, metrics: List[Metric], container_root_path: Path, mount_list: list
+) -> List[str]:
     for metric in metrics:
         metric_path = container_root_path / "metrics" / metric.name
         if metric.user_config.user_script:
@@ -74,8 +76,8 @@ def create_metric_volumes_list(metrics: List[Metric], container_root_path: Path,
             mount_list.append(f"{script_dir_path}:{script_dir_mount_path}")
             metric.user_config.script_dir = script_dir_mount_path
 
-        if metric.user_config.data_dir:
-            data_dir = get_local_path(metric.user_config.data_dir)
+        if data_root or metric.user_config.data_dir:
+            data_dir = get_local_path_from_root(data_root, metric.user_config.data_dir)
             mount_list.append(f"{data_dir}:{str(metric_path / 'data_dir')}")
             metric.user_config.data_dir = str(metric_path / "data_dir")
 

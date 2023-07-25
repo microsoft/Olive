@@ -7,7 +7,7 @@ from typing import Callable, List, Union
 
 from pydantic import validator
 
-from olive.common.config_utils import ConfigBase, ConfigParam, create_config_class
+from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, create_config_class
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 WARMUP_NUM = 10
@@ -19,8 +19,8 @@ _common_user_config = {
     "script_dir": ConfigParam(type_=Union[Path, str]),
     "user_script": ConfigParam(type_=Union[Path, str]),
     "inference_settings": ConfigParam(type_=dict),
-    "data_dir": ConfigParam(type_=OLIVE_RESOURCE_ANNOTATIONS, is_path=True),
-    "dataloader_func": ConfigParam(type_=Union[Callable, str], is_object=True),
+    "data_dir": ConfigParam(type_=OLIVE_RESOURCE_ANNOTATIONS, category=ParamCategory.DATA),
+    "dataloader_func": ConfigParam(type_=Union[Callable, str], category=ParamCategory.OBJECT),
     "batch_size": ConfigParam(type_=int, default_value=1),
     "input_names": ConfigParam(type_=List),
     "input_shapes": ConfigParam(type_=List),
@@ -34,11 +34,11 @@ _type_to_user_config = {
         "io_bind": ConfigParam(type_=bool, default_value=False),
     },
     "accuracy": {
-        "post_processing_func": ConfigParam(type_=Union[Callable, str], is_object=True),
+        "post_processing_func": ConfigParam(type_=Union[Callable, str], category=ParamCategory.OBJECT),
     },
     "custom": {
-        "evaluate_func": ConfigParam(type_=Union[Callable, str], required=False, is_object=True),
-        "metric_func": ConfigParam(type_=Union[Callable, str], required=False, is_object=True),
+        "evaluate_func": ConfigParam(type_=Union[Callable, str], required=False, category=ParamCategory.OBJECT),
+        "metric_func": ConfigParam(type_=Union[Callable, str], required=False, category=ParamCategory.OBJECT),
     },
 }
 

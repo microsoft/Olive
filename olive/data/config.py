@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Union
 
 from olive.common.config_utils import ConfigBase
-from olive.common.user_module_loader import UserModuleLoader
+from olive.common.import_lib import import_user_module
 from olive.data.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
 from olive.data.registry import Registry
 
@@ -52,8 +52,9 @@ class DataConfig(ConfigBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # call UserModuleLoader to load the user script once and register the components
-        UserModuleLoader(self.user_script, self.script_dir)
+        # call import_user_module to load the user script once and register the components
+        if self.user_script:
+            import_user_module(self.user_script, self.script_dir)
         self.update_components()
         self.fill_in_params()
 

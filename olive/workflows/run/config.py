@@ -55,6 +55,7 @@ class RunConfig(ConfigBase):
     azureml_client: AzureMLClientConfig = None
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
+    data_root: str = None
     data_configs: Dict[str, DataConfig] = {
         DefaultDataContainer.DATA_CONTAINER.value: DataConfig(),
         DEFAULT_HF_DATA_CONTAINER_NAME: DataConfig(

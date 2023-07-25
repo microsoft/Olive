@@ -5,10 +5,11 @@
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
+from olive.cache import get_local_path_from_root
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import SNPEModel
 from olive.passes.olive_pass import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.snpe import SNPECommonDataLoader, SNPEDataLoader
 from olive.snpe.tools.dev import quantize_dlc
@@ -30,13 +31,13 @@ class SNPEQuantization(Pass):
             "data_dir": PassConfigParam(
                 type_=OLIVE_RESOURCE_ANNOTATIONS,
                 required=False,
-                is_path=True,
+                category=ParamCategory.DATA,
                 description="Path to the data directory. Required is data_config is None.",
             ),
             "dataloader_func": PassConfigParam(
                 type_=Union[Callable, str],
                 required=False,
-                is_object=True,
+                category=ParamCategory.OBJECT,
                 description=(
                     "Function or function name to create dataloader for quantization. Function should take data"
                     " directory as an argument and return a olive.snpe.SNPEDataLoader or torch.data.DataLoader-like"
@@ -73,14 +74,17 @@ class SNPEQuantization(Pass):
             ),
         }
 
-    def _run_for_config(self, model: SNPEModel, config: Dict[str, Any], output_model_path: str) -> SNPEModel:
+    def _run_for_config(
+        self, model: SNPEModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> SNPEModel:
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 
         if config["dataloader_func"]:
-            dataloader = self._user_module_loader.call_object(config["dataloader_func"], config["data_dir"])
+            data_dir = get_local_path_from_root(data_root, config["data_dir"])
+            dataloader = self._user_module_loader.call_object(config["dataloader_func"], data_dir)
         elif self._data_config:
-            dataloader = self._data_config.to_data_container().create_dataloader()
+            dataloader = self._data_config.to_data_container().create_dataloader(data_root)
 
         # convert dataloader to SNPEDataLoader if it is not already
         if not isinstance(dataloader, SNPEDataLoader):

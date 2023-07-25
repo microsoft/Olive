@@ -45,7 +45,7 @@ def test_aml_model_pass_run():
     with tempfile.TemporaryDirectory() as tempdir:
         onnx_model_file = str(Path(tempdir) / "model.onnx")
         onnx_conversion_pass = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
-        onnx_model = aml_system.run_pass(onnx_conversion_pass, pytorch_model, onnx_model_file)
+        onnx_model = aml_system.run_pass(onnx_conversion_pass, pytorch_model, None, onnx_model_file)
         assert Path(onnx_model.model_path).is_file()
 
 

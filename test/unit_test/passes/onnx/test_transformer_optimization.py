@@ -51,7 +51,7 @@ def test_ort_transformer_optimization_pass():
         output_folder = str(Path(tempdir) / "onnx")
 
         # execute
-        local_system.run_pass(p, input_model, output_folder)
+        local_system.run_pass(p, input_model, None, output_folder)
 
 
 @pytest.mark.parametrize("use_gpu", [True, False])
@@ -81,4 +81,4 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec):
     if not is_pruned:
         with tempfile.TemporaryDirectory() as tempdir:
             output_folder = str(Path(tempdir) / "onnx")
-            local_system.run_pass(p, input_model, output_folder)
+            local_system.run_pass(p, input_model, None, output_folder)

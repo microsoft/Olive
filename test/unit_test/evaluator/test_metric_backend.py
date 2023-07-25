@@ -57,7 +57,7 @@ class TestMetricBackend:
             system = LocalSystem()
 
             # execute
-            actual_res = system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
+            actual_res = system.evaluate_model(olive_model, None, [metric], DEFAULT_CPU_ACCELERATOR)
 
             # assert
             mock_measure.call_count == len(metric.sub_types)
