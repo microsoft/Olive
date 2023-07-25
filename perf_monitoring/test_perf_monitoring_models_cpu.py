@@ -41,17 +41,17 @@ def setup():
 #     extract_best_models(footprint, "distilbert-base-uncased-finetuned-sst-2-english")
 
 
-@pytest.mark.parametrize(
-    "olive_json",
-    ["perf_models/CamemBERT/cpu_config.json"],
-)
-def test_Camembert(olive_json):
-    print(olive_json)
-    from olive.workflows import run as olive_run
+# @pytest.mark.parametrize(
+#     "olive_json",
+#     ["perf_models/CamemBERT/cpu_config.json"],
+# )
+# def test_Camembert(olive_json):
+#     print(olive_json)
+#     from olive.workflows import run as olive_run
 
-    olive_config = patch_config(olive_json)
-    footprint = olive_run(olive_config)
-    extract_best_models(footprint, "CamemBERT")
+#     olive_config = patch_config(olive_json)
+#     footprint = olive_run(olive_config)
+#     extract_best_models(footprint, "CamemBERT")
 
 
 # @pytest.mark.parametrize(
@@ -66,30 +66,30 @@ def test_Camembert(olive_json):
 #     extract_best_models(footprint, "bertweet-base-sentiment-analysis")
 
 
-@pytest.mark.parametrize(
-    "olive_json",
-    ["perf_models/microsoft-deberta-base-mnli/cpu_config.json"],
-)
-def test_microsoft(olive_json):
-    print(olive_json)
-    from olive.workflows import run as olive_run
-
-    olive_config = patch_config(olive_json)
-    footprint = olive_run(olive_config)
-    extract_best_models(footprint, "microsoft-deberta-base-mnli")
-
-
 # @pytest.mark.parametrize(
 #     "olive_json",
-#     ["perf_models/roberta-large-mnli/cpu_config.json"],
+#     ["perf_models/microsoft-deberta-base-mnli/cpu_config.json"],
 # )
-# def test_roberta_mnli(olive_json):
+# def test_microsoft(olive_json):
 #     print(olive_json)
 #     from olive.workflows import run as olive_run
 
 #     olive_config = patch_config(olive_json)
 #     footprint = olive_run(olive_config)
-#     extract_best_models(footprint, "roberta-large-mnli")
+#     extract_best_models(footprint, "microsoft-deberta-base-mnli")
+
+
+@pytest.mark.parametrize(
+    "olive_json",
+    ["perf_models/roberta-large-mnli/cpu_config.json"],
+)
+def test_roberta_mnli(olive_json):
+    print(olive_json)
+    from olive.workflows import run as olive_run
+
+    olive_config = patch_config(olive_json)
+    footprint = olive_run(olive_config)
+    extract_best_models(footprint, "roberta-large-mnli")
 
 
 # @pytest.mark.parametrize(
