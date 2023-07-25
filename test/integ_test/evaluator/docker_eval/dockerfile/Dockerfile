@@ -11,6 +11,7 @@ RUN pip install onnxruntime \
             openvino \
             openvino-dev \
             onnxconverter_common \
-            git+https://github.com/microsoft/Olive.git
+            git+https://github.com/microsoft/Olive.git \
+            --no-cache-dir
 
 WORKDIR /olive
