@@ -29,7 +29,7 @@ from olive.systems.olive_system import OliveSystem
 
 logger = logging.getLogger(__name__)
 
-EXCEPTIONS_TO_RAISE = (AttributeError, ImportError, TypeError, ValueError)
+EXCEPTIONS_TO_RAISE = (AssertionError, AttributeError, ImportError, TypeError, ValueError)
 
 
 class Engine:
@@ -256,6 +256,7 @@ class Engine:
     def run(
         self,
         input_model: OliveModel,
+        data_root: str = None,
         packaging_config: Optional[PackagingConfig] = None,
         output_dir: str = None,
         output_name: str = None,
@@ -304,7 +305,9 @@ class Engine:
                         f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
                     )
                     assert self.evaluator_config is not None, "evaluate_input_model is True but no evaluator provided"
-                    results = self._evaluate_model(input_model, input_model_id, self.evaluator_config, accelerator_spec)
+                    results = self._evaluate_model(
+                        input_model, input_model_id, data_root, self.evaluator_config, accelerator_spec
+                    )
                     logger.info(f"Input model evaluation results: {results}")
                     result_name = f"{prefix_output_name}_input_model_metrics"
                     results_path = output_dir / f"{result_name}.json"
@@ -320,6 +323,7 @@ class Engine:
                     output = self.run_no_search(
                         input_model,
                         input_model_id,
+                        data_root,
                         accelerator_spec,
                         output_dir,
                         output_name,
@@ -331,6 +335,7 @@ class Engine:
                     footprint = self.run_search(
                         input_model,
                         input_model_id,
+                        data_root,
                         accelerator_spec,
                         output_dir,
                         output_name,
@@ -378,6 +383,7 @@ class Engine:
         self,
         input_model: OliveModel,
         input_model_id: str,
+        data_root: str,
         accelerator_spec: AcceleratorSpec,
         output_dir: str = None,
         output_name: str = None,
@@ -396,7 +402,7 @@ class Engine:
             objective_dict = {"dummy": {"higher_is_better": True, "goal": 0}}
         else:
             objective_dict = self.resolve_objectives(
-                input_model, input_model_id, evaluator_config.metrics, accelerator_spec
+                input_model, input_model_id, data_root, evaluator_config.metrics, accelerator_spec
             )
 
         # initialize the search strategy
@@ -420,7 +426,7 @@ class Engine:
             _,
             signal,
             model_ids,
-        ) = self._run_passes(next_step["passes"], model, model_id, accelerator_spec)
+        ) = self._run_passes(next_step["passes"], model, model_id, data_root, accelerator_spec)
         # names of the output models of the passes
         pass_output_names = [self.passes[pass_name]["output_name"] for pass_name, _ in next_step["passes"]]
         pass_output_names = [f"{name}_{accelerator_spec}" if name else None for name in pass_output_names]
@@ -467,6 +473,7 @@ class Engine:
         self,
         input_model: OliveModel,
         input_model_id: str,
+        data_root: str,
         accelerator_spec: AcceleratorSpec,
         output_dir: str = None,
         output_name: str = None,
@@ -484,7 +491,7 @@ class Engine:
             raise ValueError("No evaluator provided for the last pass")
         else:
             objective_dict = self.resolve_objectives(
-                input_model, input_model_id, evaluator_config.metrics, accelerator_spec
+                input_model, input_model_id, data_root, evaluator_config.metrics, accelerator_spec
             )
 
         # initialize the search strategy
@@ -514,7 +521,9 @@ class Engine:
             logger.debug(f"Step {iter_num} with search point {next_step['search_point']} ...")
 
             # run all the passes in the step
-            should_prune, signal, model_ids = self._run_passes(next_step["passes"], model, model_id, accelerator_spec)
+            should_prune, signal, model_ids = self._run_passes(
+                next_step["passes"], model, model_id, data_root, accelerator_spec
+            )
 
             # record feedback signal
             self.search_strategy.record_feedback_signal(next_step["search_point"], signal, model_ids, should_prune)
@@ -545,6 +554,7 @@ class Engine:
         self,
         input_model: OliveModel,
         input_model_id: str,
+        data_root: str,
         metrics: List[Metric],
         accelerator_spec: AcceleratorSpec,
     ) -> Dict[str, Dict[str, Any]]:
@@ -553,7 +563,7 @@ class Engine:
 
         {objective_name: {"higher_is_better": bool, "goal": float}}
         """
-        goals = self.resolve_goals(input_model, input_model_id, metrics, accelerator_spec)
+        goals = self.resolve_goals(input_model, input_model_id, data_root, metrics, accelerator_spec)
         objective_dict = {}
         for metric in metrics:
             for sub_type in metric.sub_types:
@@ -573,6 +583,7 @@ class Engine:
         self,
         input_model: OliveModel,
         input_model_id: str,
+        data_root: str,
         metrics: List[Metric],
         accelerator_spec: AcceleratorSpec,
     ) -> Dict[str, float]:
@@ -602,7 +613,7 @@ class Engine:
                     assert self.evaluator_config is not None, "Default evaluator must be provided to resolve goals"
                     logger.debug("Computing baseline for metrics ...")
                     baseline = self._evaluate_model(
-                        input_model, input_model_id, self.evaluator_config, accelerator_spec
+                        input_model, input_model_id, data_root, self.evaluator_config, accelerator_spec
                     )
                     _evaluated = True
                     break
@@ -806,6 +817,7 @@ class Engine:
         passes: List[Tuple[str, Dict[str, Any]]],
         model: OliveModel,
         model_id: str,
+        data_root: str,
         accelerator_spec: AcceleratorSpec,
     ):
         """
@@ -816,7 +828,7 @@ class Engine:
         # run all the passes in the step
         model_ids = []
         for pass_id, pass_search_point in passes:
-            model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, accelerator_spec)
+            model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, data_root, accelerator_spec)
             if model == PRUNED_CONFIG:
                 should_prune = True
                 logger.debug("Pruned")
@@ -830,7 +842,7 @@ class Engine:
                 # skip evaluation if no search and no evaluator
                 signal = None
             else:
-                signal = self._evaluate_model(model, model_id, evaluator_config, accelerator_spec)
+                signal = self._evaluate_model(model, model_id, data_root, evaluator_config, accelerator_spec)
             logger.debug(f"Signal: {signal}")
         else:
             signal = None
@@ -844,6 +856,7 @@ class Engine:
         pass_search_point: Dict[str, Any],
         input_model: OliveModel,
         input_model_id: str,
+        data_root: str,
         accelerator_spec: AcceleratorSpec,
     ):
         """
@@ -900,7 +913,7 @@ class Engine:
             if host.system_type != SystemType.AzureML:
                 input_model = self._prepare_non_local_model(input_model)
             try:
-                output_model = host.run_pass(p, input_model, output_model_path, pass_search_point)
+                output_model = host.run_pass(p, input_model, data_root, output_model_path, pass_search_point)
             except OlivePassException as e:
                 logger.error(f"Pass run_pass failed: {e}", exc_info=True)
                 output_model = PRUNED_CONFIG
@@ -976,6 +989,7 @@ class Engine:
         self,
         model: OliveModel,
         model_id: str,
+        data_root: str,
         evaluator_config: OliveEvaluatorConfig,
         accelerator_spec: AcceleratorSpec,
     ):
@@ -1008,7 +1022,7 @@ class Engine:
         metrics = evaluator_config.metrics if evaluator_config else []
         if self.target.system_type != SystemType.AzureML:
             model = self._prepare_non_local_model(model)
-        signal = self.target.evaluate_model(model, metrics, accelerator_spec)
+        signal = self.target.evaluate_model(model, data_root, metrics, accelerator_spec)
 
         # cache evaluation
         self._cache_evaluation(model_id_with_accelerator, signal)

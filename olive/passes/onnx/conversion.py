@@ -53,7 +53,7 @@ class OnnxConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: PyTorchModel, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModel, CompositeOnnxModel]:
         # check if the model has components
         if model.components:
@@ -62,7 +62,7 @@ class OnnxConversion(Pass):
             for component_name in model.components:
                 component_model = model.get_component(component_name)
                 component_output_path = Path(output_model_path).with_suffix("") / component_name
-                onnx_models.append(self._run_for_config(component_model, config, str(component_output_path)))
+                onnx_models.append(self._run_for_config(component_model, data_root, config, str(component_output_path)))
                 component_names.append(component_name)
             return CompositeOnnxModel(onnx_models, component_names, hf_config=model.hf_config)
 
@@ -118,7 +118,7 @@ class OnnxConversion(Pass):
             if isinstance(dummy_inputs, dict):
                 dummy_input_keys = set(dummy_inputs.keys())
                 unused_keys = dummy_input_keys - set(input_names)
-                logger.debug(f"Unused dummy inputs: {unused_keys}")
+                logger.debug(f"Removing unused dummy inputs: {unused_keys}")
                 for key in unused_keys:
                     del dummy_inputs[key]
 

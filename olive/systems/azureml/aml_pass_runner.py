@@ -8,6 +8,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from olive.common.config_utils import ParamCategory
 from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
@@ -36,7 +37,7 @@ def parse_pass_args(pass_type, accelerator_spec, raw_args):
 
     # parse pass args
     for param, param_config in pass_class.default_config(accelerator_spec).items():
-        if param_config.is_path:
+        if param_config.category in (ParamCategory.PATH, ParamCategory.DATA):
             parser.add_argument(f"--pass_{param}", type=str, help=f"pass {param}", required=param_config.required)
 
     return parser.parse_args(raw_args)
@@ -90,7 +91,7 @@ def main(raw_args=None):
     output_model_path = str(Path(common_args.pipeline_output) / "output_model")
 
     # run pass
-    output_model = p.run(input_model, output_model_path)
+    output_model = p.run(input_model, None, output_model_path)
 
     # save model json
     model_json = output_model.to_json()

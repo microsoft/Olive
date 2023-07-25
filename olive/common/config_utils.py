@@ -5,6 +5,7 @@
 import inspect
 import json
 import logging
+from enum import Enum
 from functools import partial
 from pathlib import Path
 from types import FunctionType, MethodType
@@ -150,6 +151,16 @@ class ConfigDictBase(ConfigBase):
         return len(self.__root__) if self.__root__ else 0
 
 
+class ParamCategory(str, Enum):
+    NONE = "none"
+    OBJECT = "object"
+    PATH = "path"
+    DATA = "data"
+
+    def __str__(self) -> str:
+        return self.value
+
+
 class ConfigParam(ConfigBase):
     """
     Dataclass for pass configuration parameters.
@@ -158,13 +169,12 @@ class ConfigParam(ConfigBase):
     type_: Any
     required: bool = False
     default_value: Any = None
-    is_object: bool = False
-    is_path: bool = False
+    category: ParamCategory = ParamCategory.NONE
     description: str = None
 
     def __repr__(self):
         repr_list = []
-        booleans = ["required", "is_object"]
+        booleans = ["required"]
         for k, v in self.__dict__.items():
             if k in booleans:
                 if v:
@@ -218,7 +228,7 @@ def create_config_class(
             validator_name = f"validate_{param}_resource_path"
             validators[validator_name] = validator(param, allow_reuse=True)(validate_resource_path)
         # automatically add validator for object params
-        if param_config.is_object:
+        if param_config.category == ParamCategory.OBJECT:
             validator_name = f"validate_{param}_object"
             count = 0
             while validator_name in validators:

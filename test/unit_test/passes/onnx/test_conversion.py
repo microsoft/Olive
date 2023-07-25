@@ -16,8 +16,9 @@ def test_onnx_conversion_pass():
     with tempfile.TemporaryDirectory() as tempdir:
         output_folder = str(Path(tempdir) / "onnx")
 
-        # execute
-        onnx_model = local_system.run_pass(p, input_model, output_folder)
+        # The conversion need torch version > 1.13.1, otherwise, it will complain
+        # Unsupported ONNX opset version: 18
+        onnx_model = local_system.run_pass(p, input_model, None, output_folder)
 
         # assert
         assert Path(onnx_model.model_path).exists()

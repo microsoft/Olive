@@ -73,10 +73,12 @@ class TestAzureMLSystem:
         self.system.azureml_client_config.operation_retry_interval = 5
 
         # execute
-        res = self.system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
+        res = self.system.evaluate_model(olive_model, None, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
-        mock_create_pipeline.assert_called_once_with(output_folder, olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
+        mock_create_pipeline.assert_called_once_with(
+            None, output_folder, olive_model, [metric], DEFAULT_CPU_ACCELERATOR
+        )
         ml_client.jobs.stream.assert_called_once()
         assert mock_retry_func.call_count == 2
         if metric.name == "accuracy":
@@ -131,10 +133,10 @@ class TestAzureMLSystem:
         with patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory") as mock_tempdir:
             mock_tempdir.return_value.__enter__.return_value = output_folder
             # execute
-            actual_res = self.system.run_pass(p, olive_model, output_model_path)
+            actual_res = self.system.run_pass(p, olive_model, None, output_model_path)
 
         # assert
-        mock_create_pipeline.assert_called_once_with(output_folder, olive_model, p.to_json(), p.path_params)
+        mock_create_pipeline.assert_called_once_with(None, output_folder, olive_model, p.to_json(), p.path_params)
         assert mock_retry_func.call_count == 2
         ml_client.jobs.stream.assert_called_once()
         assert expected_model.to_json() == actual_res.to_json()
@@ -199,7 +201,8 @@ class TestAzureMLSystem:
 
     def test__create_metric_args(self):
         # setup
-        tem_dir = Path(__file__).absolute().parent
+        # the reason why we need resolve: sometimes, windows system would change c:\\ to C:\\ when calling resolve.
+        tem_dir = Path(__file__).absolute().parent.resolve()
         metric_config = {
             "user_config": {
                 "user_script": "user_script",
@@ -221,7 +224,7 @@ class TestAzureMLSystem:
         }
 
         # execute
-        actual_res = self.system._create_metric_args(metric_config, tem_dir)
+        actual_res = self.system._create_metric_args(None, metric_config, tem_dir)
 
         # assert
         assert actual_res == expected_res
@@ -289,7 +292,7 @@ class TestAzureMLSystem:
         else:
             model_resource_path = create_resource_path(ONNX_MODEL_PATH)
         actual_res = self.system._create_metric_component(
-            tem_dir, metric, model_args, model_resource_path, accelerator_config_path
+            None, tem_dir, metric, model_args, model_resource_path, accelerator_config_path
         )
 
         # assert

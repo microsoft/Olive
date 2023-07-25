@@ -50,4 +50,4 @@ def test_ort_transformer_optimization_pass():
         output_folder = str(Path(tempdir) / "onnx")
 
         # execute
-        local_system.run_pass(p, input_model, output_folder)
+        local_system.run_pass(p, input_model, None, output_folder)

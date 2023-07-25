@@ -162,6 +162,7 @@ class TestEngine:
         assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
         mock_local_system.run_pass.assert_called_once()
         mock_local_system.evaluate_model.call_count == 2
+        mock_local_system.evaluate_model.assert_called_with(onnx_model, None, [metric], accelerator_spec)
 
     @patch("olive.systems.local.LocalSystem")
     def test_run_no_search(self, mock_local_system):
@@ -485,7 +486,7 @@ class TestEngine:
             engine.register(OnnxStaticQuantization)
             with patch("onnxruntime.quantization.quantize_static") as mock_quantize_static:
                 mock_quantize_static.side_effect = AttributeError("test")
-                actual_res = engine.run(onnx_model, output_dir=output_dir)
+                actual_res = engine.run(onnx_model, data_root=None, output_dir=output_dir)
                 pf = actual_res[DEFAULT_CPU_ACCELERATOR]
                 assert not pf.nodes, "Expect empty dict when quantization fails"
         else:
@@ -496,5 +497,5 @@ class TestEngine:
             engine.register(OnnxDynamicQuantization, disable_search=True)
             with patch("onnxruntime.quantization.quantize_dynamic") as mock_quantize_dynamic:
                 mock_quantize_dynamic.side_effect = AttributeError("test")
-                actual_res = engine.run(onnx_model, output_dir=output_dir)
+                actual_res = engine.run(onnx_model, data_root=None, output_dir=output_dir, evaluate_input_model=False)
                 assert actual_res == {}, "Expect empty dict when quantization fails"

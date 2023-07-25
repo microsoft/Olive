@@ -142,6 +142,7 @@ class TestDockerSystem:
         container_root_path = Path("/olive/")
         eval_output_path = "eval_output"
         eval_output_name = "eval_res.json"
+        data_root = None
         mock_copy = MagicMock()
         mock_copy.return_value = mock_copy
 
@@ -176,14 +177,14 @@ class TestDockerSystem:
                 docker.errors.ContainerError,
                 match=r".*returned non-zero exit status 1: Docker container evaluation failed with: mock_error",
             ):
-                actual_res = docker_system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
+                actual_res = docker_system.evaluate_model(olive_model, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
         else:
-            actual_res = docker_system.evaluate_model(olive_model, [metric], DEFAULT_CPU_ACCELERATOR)
+            actual_res = docker_system.evaluate_model(olive_model, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
             # assert
             self.mock_create_eval_script_mount.called_once_with(container_root_path)
             self.mock_create_model_mount.called_once_with(mock_copy, container_root_path)
             vol_list = [eval_file_mount_str] + model_mount_str_list
-            self.mock_create_metric_volumes_list.called_once_with(mock_copy, container_root_path, vol_list)
+            self.mock_create_metric_volumes_list.called_once_with(data_root, mock_copy, container_root_path, vol_list)
             self.mock_create_config_file.called_once_with(tempdir, mock_copy, mock_copy, container_root_path)
             self.mock_create_output_mount.called_once_with(tempdir, eval_output_path, container_root_path)
             self.mock_create_evaluate_command.called_once_with(

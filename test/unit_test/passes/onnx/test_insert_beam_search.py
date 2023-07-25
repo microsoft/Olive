@@ -25,4 +25,4 @@ def test_insert_beam_search_pass():
         output_folder = str(Path(tempdir) / "onnx")
 
         # execute
-        local_system.run_pass(p, composite_model, output_folder)
+        local_system.run_pass(p, composite_model, None, output_folder)
