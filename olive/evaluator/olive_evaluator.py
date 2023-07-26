@@ -591,6 +591,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     def _device_string_to_torch_device(device: Device):
         return torch.device("cuda") if device == Device.GPU else torch.device(device)
 
+    @torch.no_grad()
     def _inference(
         self,
         model: PyTorchModel,
