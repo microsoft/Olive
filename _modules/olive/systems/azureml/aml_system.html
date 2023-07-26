@@ -405,7 +405,7 @@
             <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
             <span class="n">command</span><span class="o">=</span><span class="n">cmd_line</span><span class="p">,</span>
             <span class="n">environment</span><span class="o">=</span><span class="n">aml_environment</span><span class="p">,</span>
-            <span class="n">code</span><span class="o">=</span><span class="n">code</span><span class="p">,</span>
+            <span class="n">code</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">code</span><span class="p">),</span>
             <span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
             <span class="n">outputs</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">pipeline_output</span><span class="o">=</span><span class="n">Output</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">)),</span>
             <span class="n">instance_count</span><span class="o">=</span><span class="n">instance_count</span><span class="p">,</span>
@@ -459,7 +459,7 @@
             <span class="n">display_name</span><span class="o">=</span><span class="n">pass_type</span><span class="p">,</span>
             <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Run olive </span><span class="si">{</span><span class="n">pass_type</span><span class="si">}</span><span class="s2"> pass&quot;</span><span class="p">,</span>
             <span class="n">aml_environment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span>
-            <span class="n">code</span><span class="o">=</span><span class="n">code_root</span><span class="p">,</span>
+            <span class="n">code</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">code_root</span><span class="p">),</span>
             <span class="n">compute</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">compute</span><span class="p">,</span>
             <span class="n">instance_count</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">instance_count</span><span class="p">,</span>
             <span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
@@ -688,7 +688,7 @@
             <span class="n">display_name</span><span class="o">=</span><span class="n">metric_type</span><span class="p">,</span>
             <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Run olive </span><span class="si">{</span><span class="n">metric_type</span><span class="si">}</span><span class="s2"> evaluation&quot;</span><span class="p">,</span>
             <span class="n">aml_environment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span>
-            <span class="n">code</span><span class="o">=</span><span class="n">code_root</span><span class="p">,</span>
+            <span class="n">code</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">code_root</span><span class="p">),</span>
             <span class="n">compute</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">compute</span><span class="p">,</span>
             <span class="n">instance_count</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">instance_count</span><span class="p">,</span>
             <span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
