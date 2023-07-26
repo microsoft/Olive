@@ -23,17 +23,7 @@ class OptimumMerging(Pass):
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = {
-            "execution_provider": PassConfigParam(
-                type_=str,
-                default_value=None,
-                description=(
-                    "Target execution provider. This parameter will be removed when "
-                    "accelerators/targets are visible to passes."
-                ),
-            ),
-        }
-        config.update(get_external_data_config())
+        config = get_external_data_config()
         return config
 
     def _run_for_config(
@@ -72,7 +62,7 @@ class OptimumMerging(Pass):
         sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_BASIC
         sess_options.optimized_model_filepath = output_model_path
 
-        execution_provider = config["execution_provider"]
+        execution_provider = self.accelerator_spec.execution_provider
         onnxruntime.InferenceSession(output_model_path, sess_options, providers=[execution_provider])
 
         return olive_model

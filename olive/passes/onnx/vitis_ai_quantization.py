@@ -342,7 +342,7 @@ class VitisAIQuantization(Pass):
         elif self._data_config:
             dataloader = self._data_config.to_data_container().create_calibration_dataloader(data_root)
 
-        execution_provider = self._accelerator_spec.execution_provider
+        execution_provider = self.accelerator_spec.execution_provider
 
         quantize_static(
             model_input=model.model_path,
