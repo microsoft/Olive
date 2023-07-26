@@ -49,3 +49,21 @@ def ner_post_process(_output_data, **kwargs):
         logits = _output_data
     preds = torch.argmax(logits, dim=-1)
     return preds
+
+
+@Registry.register_post_process()
+def text_generatation_post_process(_output_data, **kwargs):
+    """Post-process data for text generation task.
+
+    Args:
+        data (object): Model output to be post-processed.
+        **kwargs: Additional arguments.
+
+    Returns:
+        object: Post-processed data.
+    """
+    if isinstance(_output_data, transformers.modeling_outputs.CausalLMOutput):
+        preds = _output_data.logits
+    else:
+        preds = _output_data
+    return preds

@@ -22,7 +22,7 @@ def pre_process(_dataset):
     return _dataset
 
 
-def _huggingface_pre_precess_helper(dataset, model_name, input_cols, label_cols, map_func, **kwargs):
+def _huggingface_pre_process_helper(dataset, model_name, input_cols, label_cols, map_func, **kwargs):
     """Pre-process data.
 
     Args:
@@ -69,7 +69,7 @@ def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, max_sa
         # huggingface dataset api limit to return dict and arrow table
         return tokenized_inputs
 
-    tokenized_datasets = _huggingface_pre_precess_helper(
+    tokenized_datasets = _huggingface_pre_process_helper(
         _dataset, model_name, input_cols, label_cols, _tokenizer_and_align_labels, **kwargs
     )
     # label_cols is ["label"] since we added label_cols[0] as "label" to tokenized_inputs
@@ -122,7 +122,118 @@ def ner_huggingface_preprocess(_dataset, model_name, input_cols, label_cols, max
         tokenized_inputs["label"] = new_labels
         return tokenized_inputs
 
-    tokenized_datasets = _huggingface_pre_precess_helper(
+    tokenized_datasets = _huggingface_pre_process_helper(
         _dataset, model_name, input_cols, label_cols, _tokenizer_and_align_labels, **kwargs
     )
     return BaseDataset(tokenized_datasets, label_cols=["label"], max_samples=max_samples)
+
+
+@Registry.register_pre_process()
+def text_generation_huggingface_pre_process(
+    _dataset, model_name, input_cols, seqlen, stride=None, max_samples=None, **kwargs
+):
+    """Pre-process data.
+
+    Args:
+        _dataset (object): Data to be pre-processed.
+        model_name (str): Name of the huggingface model.
+        input_cols (list): List of input columns.
+        seqlen (int): Length of the sequence.
+        stride (int): Stride to use when splitting the sequence. I
+            If None, the sequence is split into non-overlapping sequences. No context is used.
+            When stride is not None, we use a sliding window approach to split the sequence. The stride is
+            also used as context length.
+        max_samples (int): Maximum number of samples to use.
+        **kwargs: Additional arguments.
+            random_seed (int): Random seed to use. If not None, we use the random seed to choose the starting
+                point of the sequence.
+
+    Returns:
+        object: Pre-processed data.
+    """
+    from random import Random
+
+    from datasets import Dataset as HFDataset
+    from transformers import AutoTokenizer
+
+    # get tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    # gather text from all input columns
+    text_list = []
+    for input_col in input_cols:
+        text_list += _dataset[input_col]
+    # delimiter between the text sequences
+    joiner = kwargs.get("joiner", " ")
+    text = joiner.join(text_list)
+
+    # in order to make processing faster we will only tokenize as much as needed
+    # assumes that num words > num tokens
+    split_text = text.split(" ")
+    num_text = len(split_text)
+
+    tokenized_inputs = {
+        "input_ids": [],
+        "target_ids": [],
+    }
+
+    random_seed = kwargs.get("random_seed")
+    if random_seed is None:
+        # no randomization, just use contiguous blocks of tokens
+        max_text = max_samples * seqlen if max_samples is not None else num_text
+        max_text = min(max_text, num_text)
+        encodings = tokenizer(" ".join(split_text[:max_text]), return_tensors="pt")
+        input_ids = encodings.input_ids
+
+        num_tokens = input_ids.shape[1]
+        step = stride or seqlen
+        # loop over the number of tokens
+        # all inputs must be seqlen long
+        for begin_loc in range(0, num_tokens - seqlen, step):
+            # end_loc is the beginning of the next sequence
+            end_loc = begin_loc + seqlen
+            # get the input sequence
+            input_ids = encodings.input_ids[0, begin_loc:end_loc].clone()
+            # target is the same as input, but shifted one token over
+            target_ids = encodings.input_ids[0, begin_loc + 1 : end_loc + 1].clone()  # noqa: E203
+
+            # set to -100 to ignore loss for context
+            if stride is not None:
+                target_ids[:-stride] = -100
+
+            # add to list
+            tokenized_inputs["input_ids"].append(input_ids)
+            tokenized_inputs["target_ids"].append(target_ids)
+    else:
+        assert max_samples, "max_samples must be specified if random_seed is None"
+        # randomization, sample random blocks of tokens
+        rng = Random(random_seed)
+
+        for _ in range(max_samples):
+            # -2 since we need to leave space for the target
+            begin_loc = rng.randint(0, num_text - seqlen - 2)
+            encodings = tokenizer(
+                " ".join(split_text[begin_loc : begin_loc + seqlen + 2]), return_tensors="pt"  # noqa: E203
+            )
+
+            if encodings.input_ids.shape[1] < seqlen + 1:
+                # in case the encoding is too short
+                continue
+
+            input_ids = encodings.input_ids[0, :seqlen].clone()
+            target_ids = encodings.input_ids[0, 1 : seqlen + 1].clone()  # noqa: E203
+
+            # set to -100 to ignore loss for context
+            if stride is not None:
+                target_ids[:-stride] = -100
+
+            # add to list
+            tokenized_inputs["input_ids"].append(input_ids)
+            tokenized_inputs["target_ids"].append(target_ids)
+
+    # convert to HFDataset
+    hf_dataset = HFDataset.from_dict(tokenized_inputs)
+    hf_dataset.set_format("torch", output_all_columns=True)
+
+    # return BaseDataset
+    return BaseDataset(hf_dataset, ["target_ids"], max_samples=max_samples)
