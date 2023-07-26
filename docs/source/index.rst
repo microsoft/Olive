@@ -30,6 +30,18 @@ This document introduces Olive and provides some examples to get you started.
 
 .. toctree::
    :maxdepth: 1
+   :caption: FEATURES
+   features/model_transformations_and_optimizations
+   features/huggingface_model_optimization
+   features/packaging_output_models
+   features/custom_scripts
+
+.. toctree::
+   :maxdepth: 1
+   :caption: EXTENDING OLIVE
+
+.. toctree::
+   :maxdepth: 1
    :caption: TUTORIALS
 
    tutorials/design
@@ -37,11 +49,7 @@ This document introduces Olive and provides some examples to get you started.
    tutorials/configure_metrics
    tutorials/configure_pass
    tutorials/configure_model_path
-   tutorials/configure_hardware_optimizations
-   tutorials/huggingface_model_optimization
    tutorials/advanced_users
-   tutorials/how_to_write_userscript
-   tutorials/packaging_output_models
    tutorials/how_to_add_optimization_pass
 
 .. toctree::

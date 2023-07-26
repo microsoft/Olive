@@ -1,13 +1,11 @@
-# ONNX related – General
+# ONNX
 
-Olive provides multiple Passes that execute optimization tools related to ONNX. [ONNX](https://onnx.ai/) is
-an open format built to represent machine learning models. [ONNX Runtime](https://onnxruntime.ai/docs/) is a cross-platform machine-learning
-model accelerator, with a flexible interface to integrate hardware-specific libraries.
+[ONNX](https://onnx.ai/) is an open graph format to represent machine learning models. [ONNX Runtime](https://onnxruntime.ai/docs/) is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.
 
-Olive provides easy access to the model optimization tools available in ONNX Runtime.
+Olive provides multiple transformations and optimizations based on various ONNX to improve model performance. 
 
 ## Model Conversion
-The user might not have a model ready in the ONNX format. `OnnxConversion` converts PyTorch models to ONNX using
+The `OnnxConversion` pass converts PyTorch models to ONNX using
 [torch.onnx](https://pytorch.org/docs/stable/onnx.html).
 
 Please refer to [OnnxConversion](onnx_conversion) for more details about the pass and its config parameters.
@@ -24,8 +22,7 @@ Please refer to [OnnxConversion](onnx_conversion) for more details about the pas
 
 ## Model Optimizer
 `OnnxModelOptimizer` optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
-reduce the computational cost and improve the performance of the model.
-The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.
+reduce the computational cost and improve the performance of the model. The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.
 
 Please refer to [OnnxModelOptimizer](onnx_model_optimizer) for more details about the pass and its config parameters.
 
