@@ -326,7 +326,11 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         for input_data, labels in dataloader:
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             res = session.run(input_feed=input_dict, output_names=None)
-            result = torch.Tensor(res[0]) if len(output_names) == 1 else torch.Tensor(res)
+            if len(output_names) == 1:
+                result = torch.Tensor(res[0])
+            else:
+                # convert to dict of torch tensor
+                result = {name: torch.Tensor(res[i]) for i, name in enumerate(output_names)}
             outputs = post_func(result) if post_func else result
             preds.extend(outputs.tolist())
             targets.extend(labels.data.tolist())

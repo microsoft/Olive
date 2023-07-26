@@ -3,16 +3,16 @@
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
-                "model_name": "facebook/opt-125m",
+                "model_name": "gpt2",
                 "task": "text-generation",
                 "dataset": {
                     "data_name": "ptb_text_only",
                     "subset": "penn_treebank",
                     "split": "train",
                     "input_cols": ["sentence"],
-                    "seqlen": 2048,
+                    "seqlen": 1024,
                     "max_samples": 5,
-                    "stride": 512
+                    "stride": 256
                 }
             }
         }
@@ -31,10 +31,17 @@
         }
     },
     "passes": {
+        "conversion": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 13
+            }
+        }
     },
     "engine": {
         "log_severity_level": 0,
         "search_strategy": false,
+        "evaluate_input_model": true,
         "evaluator": "common_evaluator",
         "target": {
             "type": "LocalSystem",
