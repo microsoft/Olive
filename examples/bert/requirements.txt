@@ -1,4 +1,4 @@
-azure-ai-ml==1.8.0
+azure-ai-ml
 azure-identity
 datasets
 evaluate
