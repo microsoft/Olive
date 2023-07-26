@@ -77,8 +77,7 @@ class Engine:
         elif self._config.target is not None:
             self.target = self._config.target.create_system()
         else:
-            # set default accelerator to CPU
-            self.target = LocalSystem([Device.CPU])
+            self.target = LocalSystem()
 
         if execution_providers is None:
             execution_providers = self._config.execution_providers
@@ -95,12 +94,21 @@ class Engine:
                 execution_providers = ["CPUExecutionProvider"]
 
         self.execution_providers = execution_providers
-
         # Flatten the accelerators to list of AcceleratorSpec
         accelerators: List[str] = self.target.accelerators
         if accelerators is None:
-            logger.warning("No accelerators specified for target system. Using CPU.")
-            accelerators = ["CPU"]
+            inferred_accelerators = AcceleratorLookup.infer_accelerators_from_execution_provider(
+                self.execution_providers
+            )
+            if not inferred_accelerators:
+                logger.warning("Cannot infer the accelerators from the target system. Use CPU as default.")
+                accelerators = ["CPU"]
+            else:
+                logger.debug(
+                    f"Use inferred accelerators {inferred_accelerators} "
+                    f"from given execution providers {self.execution_providers}."
+                )
+                accelerators = inferred_accelerators
 
         not_supported_ep = set()
         processed_ep = set()
@@ -120,7 +128,13 @@ class Engine:
                     self.accelerator_specs.append(AcceleratorSpec(device, ep))
                     processed_ep.add(ep)
 
-        assert self.accelerator_specs, "No valid accelerator specified for target system."
+        assert self.accelerator_specs, (
+            "No valid accelerator specified for target system. "
+            "Please specify the accelerators in the target system or provide valid execution providers. "
+            f"Given execution providers: {self.execution_providers}. "
+            f"Current accelerators: {accelerators}."
+            f"Supported execution providers: {AcceleratorLookup.EXECUTION_PROVIDERS}."
+        )
         if not_supported_ep:
             logger.warning(
                 f"The following execution provider is not supported: {','.join(not_supported_ep)}. "
