@@ -36,7 +36,7 @@ def extract_best_models(footprint, model_name):
         "Footprint: ",
         footprint,
     )
-    metrics_of_interest = ["accuracy-accuracy", "latency-avg", "accuracy-accuracy_score"]
+    metrics_of_interest = ["accuracy-accuracy", "accuracy-accuracy_score", "latency-avg"]
     # gather the metrics from all pareto frontier nodes
     all_metrics = []
     # we iterate over the nodes in the pareto frontier
