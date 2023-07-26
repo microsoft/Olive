@@ -87,9 +87,9 @@ System Configuration
             aml_system = AzureMLSystem(
                 aml_compute="cpu-cluster",
                 aml_docker_config={
-                        "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-                        "conda_file_path": "conda.yaml"
-                    }
+                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                    "conda_file_path": "conda.yaml"
+                }
             )
 
 Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert/conda.yaml>`__
