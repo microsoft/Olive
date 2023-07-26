@@ -45,8 +45,8 @@ jobs:
     examples:
       bert:
         perfMonitoringScriptName: perf_monitoring_models_cpu
-        perfMonitoringScriptFunction: test_bert
+        testModel: bert
 
       bertweet:
         perfMonitoringScriptName: perf_monitoring_models_cpu
-        perfMonitoringScriptFunction: test_bertweet
+        testModel: bertweet

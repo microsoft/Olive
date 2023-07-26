@@ -32,7 +32,11 @@ def patch_config(config_json_path: str):
 def extract_best_models(footprint, model_name):
     print("Footprint: ", footprint)
     footprint = list(footprint.values())[0]
-    metrics_of_interest = ["accuracy-accuracy", "latency-avg"]
+    print(
+        "Footprint: ",
+        footprint,
+    )
+    metrics_of_interest = ["accuracy-accuracy", "latency-avg", "accuracy-accuracy_score"]
     # gather the metrics from all pareto frontier nodes
     all_metrics = []
     # we iterate over the nodes in the pareto frontier
@@ -42,7 +46,8 @@ def extract_best_models(footprint, model_name):
         for name in metrics_of_interest:
             # (value of metric * direction of comparison)
             # now higher is better for all metrics
-            metrics.append(node.metrics.value[name].value * node.metrics.cmp_direction[name])
+            if name in node.metrics.value:
+                metrics.append(node.metrics.value[name].value * node.metrics.cmp_direction[name])
         all_metrics.append(metrics)
     # sort the metrics
     # this sorts it

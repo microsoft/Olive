@@ -8,7 +8,7 @@ set -eoux pipefail
 PIPELINE=$1
 ROOT_DIR=$2
 PERF_MONITORING_SCRIPT_NAME=$3
-PERF_MONITORING_SCRIPT_FUNCTION=$4
+
 
 echo $PIPELINE
 if [[ "$PIPELINE" == "True" ]]; then
@@ -24,4 +24,4 @@ python -m pip install pytest
 echo "performance monitoring examples"
 python -m pip install -r $ROOT_DIR/perf_monitoring/requirements.txt
 
-python -m pytest -v -s --log-cli-level=WARNING --junitxml=$ROOT_DIR/logs/performance-monitoring-TestOlive.xml $ROOT_DIR/perf_monitoring/test_$PERF_MONITORING_SCRIPT_NAME.py::$PERF_MONITORING_SCRIPT_FUNCTION
+python -m pytest -v -s --log-cli-level=WARNING --junitxml=$ROOT_DIR/logs/performance-monitoring-TestOlive.xml $ROOT_DIR/perf_monitoring/test_$PERF_MONITORING_SCRIPT_NAME.py
