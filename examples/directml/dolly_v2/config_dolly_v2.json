@@ -72,10 +72,7 @@
             }
         },
         "merge": {
-            "type": "OptimumMerging",
-            "config": {
-                "execution_provider": "DmlExecutionProvider"
-            }
+            "type": "OptimumMerging"
         }
     },
     "engine": {

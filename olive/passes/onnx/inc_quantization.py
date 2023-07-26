@@ -294,8 +294,8 @@ class IncQuantization(Pass):
             result = evaluator.evaluate(
                 olive_model,
                 [accuracy_metric],
-                self._accelerator_spec.accelerator_type,
-                [self._accelerator_spec.execution_provider],
+                self.accelerator_spec.accelerator_type,
+                [self.accelerator_spec.execution_provider],
             )
             joint_key = joint_metric_key(accuracy_metric.name, sub_type.name)
             return result[joint_key].value
