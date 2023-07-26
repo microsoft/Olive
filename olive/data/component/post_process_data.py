@@ -62,7 +62,7 @@ def text_generatation_post_process(_output_data, **kwargs):
     Returns:
         object: Post-processed data.
     """
-    if isinstance(_output_data, transformers.modeling_outputs.CausalLMOutput):
+    if isinstance(_output_data, transformers.modeling_outputs.ModelOutput):
         preds = _output_data.logits
     else:
         preds = _output_data
