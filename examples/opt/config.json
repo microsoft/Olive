@@ -1,0 +1,49 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "facebook/opt-125m",
+                "task": "text-generation",
+                "dataset": {
+                    "data_name": "ptb_text_only",
+                    "subset": "penn_treebank",
+                    "split": "train",
+                    "input_cols": ["sentence"],
+                    "seqlen": 2048,
+                    "max_samples": 5,
+                    "stride": 512
+                }
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "perplexity",
+                    "type": "accuracy",
+                    "sub_types": [
+                        {"name": "perplexity"}
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "search_strategy": false,
+        "evaluator": "common_evaluator",
+        "target": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["gpu"]
+            }
+        },
+        "execution_providers": ["CPUExecutionProvider"],
+        "cache_dir": "cache",
+        "output_dir" : "models/bert_ptq_cpu"
+    }
+}
