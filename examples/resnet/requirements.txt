@@ -1,4 +1,4 @@
-azure-ai-ml
+azure-ai-ml==1.8.0
 azure-identity
 azureml-fsspec
 onnxruntime
