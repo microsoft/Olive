@@ -35,7 +35,11 @@ jobs:
     examples:
       bert:
         perfMonitoringScriptName: perf_monitoring_models_cpu
-        perfMonitoringScriptFunction: test_bert
+        testModel: bert
+
+      bertweet:
+        perfMonitoringScriptName: perf_monitoring_models_cpu
+        testModel: bertweet
 
 - template: job_templates/olive-perf-monitoring-template.yaml
   parameters:
