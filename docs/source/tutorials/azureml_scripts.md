@@ -1,8 +1,10 @@
 # Azure ML scripts
 
-Olive provides a couple of scripts to help you manage your Azure ML assets. The scripts are listed in: https://github.com/microsoft/Olive/tree/main/azureml_scripts
+Olive provides a couple of scripts to help you manage your Azure ML assets.
 
-## `manage_compute_instance.py`
+## Scripts list
+
+### `manage_compute_instance`
 This Python script provides a command-line interface for managing compute resources in an Azure Machine Learning workspace.
 
 * `--create` or `-c`: A flag indicating that a new compute resource should be created. This is mutually exclusive with `--delete` - only one of them can be specified at a time.
@@ -38,21 +40,21 @@ This Python script provides a command-line interface for managing compute resour
 }
 ```
 
-### Usage
+#### Usage
 
 You can run the script to create an AzureML compute instance from the command line like this:
 
 ```
-python manage_compute_instance.py --create --subscription_id <subscription_id> --resource_group <resource_group> --workspace_name <workspace_name> --compute_name <compute_name> --vm_size <vm_size> --location <location> --min_nodes <min_nodes> --max_nodes <max_nodes> --idle_time_before_scale_down <idle_time_before_scale_down>
+python -m olive.scripts.manage_compute_instance --create --subscription_id <subscription_id> --resource_group <resource_group> --workspace_name <workspace_name> --compute_name <compute_name> --vm_size <vm_size> --location <location> --min_nodes <min_nodes> --max_nodes <max_nodes> --idle_time_before_scale_down <idle_time_before_scale_down>
 ```
 
 or
 
 ```
-python manage_compute_instance.py --create --aml_config_path </path/to/aml_config.json> --compute_name <compute_name> --vm_size <vm_size> --location <location> --min_nodes <min_nodes> --max_nodes <max_nodes> --idle_time_before_scale_down <idle_time_before_scale_down>
+python -m olive.scripts.manage_compute_instance --create --aml_config_path </path/to/aml_config.json> --compute_name <compute_name> --vm_size <vm_size> --location <location> --min_nodes <min_nodes> --max_nodes <max_nodes> --idle_time_before_scale_down <idle_time_before_scale_down>
 ```
 
 You can delete an AzureML compute instance by:
 ```
-python manage_compute_instance.py --delete --compute_name <compute_name>
+python -m olive.scripts.manage_compute_instance --delete --compute_name <compute_name>
 ```
