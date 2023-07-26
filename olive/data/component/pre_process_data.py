@@ -145,6 +145,7 @@ def text_generation_huggingface_pre_process(
             also used as context length.
         max_samples (int): Maximum number of samples to use.
         **kwargs: Additional arguments.
+            joiner (str): Delimiter to use when joining the rows of the input columns.
             random_seed (int): Random seed to use. If not None, we use the random seed to choose the starting
                 point of the sequence.
 
