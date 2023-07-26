@@ -64,6 +64,13 @@ def text_generatation_post_process(_output_data, **kwargs):
     """
     if isinstance(_output_data, transformers.modeling_outputs.ModelOutput):
         preds = _output_data.logits
+    elif isinstance(_output_data, dict):
+        if "logits" in _output_data:
+            preds = _output_data["logits"]
+        elif "last_hidden_state" in _output_data:
+            preds = _output_data["last_hidden_state"]
+        else:
+            raise ValueError("`logits` or `last_hidden_state` not found in model output.")
     else:
         preds = _output_data
     return preds
