@@ -194,8 +194,7 @@
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">target</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">create_system</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># set default accelerator to CPU</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">LocalSystem</span><span class="p">([</span><span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">LocalSystem</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">execution_providers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">execution_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_providers</span>
@@ -212,12 +211,21 @@
                 <span class="n">execution_providers</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span> <span class="o">=</span> <span class="n">execution_providers</span>
-
         <span class="c1"># Flatten the accelerators to list of AcceleratorSpec</span>
         <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">accelerators</span>
         <span class="k">if</span> <span class="n">accelerators</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No accelerators specified for target system. Using CPU.&quot;</span><span class="p">)</span>
-            <span class="n">accelerators</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CPU&quot;</span><span class="p">]</span>
+            <span class="n">inferred_accelerators</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">infer_accelerators_from_execution_provider</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">inferred_accelerators</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Cannot infer the accelerators from the target system. Use CPU as default.&quot;</span><span class="p">)</span>
+                <span class="n">accelerators</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CPU&quot;</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Use inferred accelerators </span><span class="si">{</span><span class="n">inferred_accelerators</span><span class="si">}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;from given execution providers </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+                <span class="n">accelerators</span> <span class="o">=</span> <span class="n">inferred_accelerators</span>
 
         <span class="n">not_supported_ep</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
         <span class="n">processed_ep</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
@@ -237,7 +245,13 @@
                     <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">AcceleratorSpec</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">ep</span><span class="p">))</span>
                     <span class="n">processed_ep</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ep</span><span class="p">)</span>
 
-        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="p">,</span> <span class="s2">&quot;No valid accelerator specified for target system.&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="p">,</span> <span class="p">(</span>
+            <span class="s2">&quot;No valid accelerator specified for target system. &quot;</span>
+            <span class="s2">&quot;Please specify the accelerators in the target system or provide valid execution providers. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Given execution providers: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span><span class="si">}</span><span class="s2">. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Current accelerators: </span><span class="si">{</span><span class="n">accelerators</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Supported execution providers: </span><span class="si">{</span><span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">EXECUTION_PROVIDERS</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="n">not_supported_ep</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;The following execution provider is not supported: </span><span class="si">{</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">not_supported_ep</span><span class="p">)</span><span class="si">}</span><span class="s2">. &quot;</span>
