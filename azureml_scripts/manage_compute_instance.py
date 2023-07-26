@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import argparse
 from pathlib import Path
+
 try:
     from azure.ai.ml import MLClient
     from azure.ai.ml.entities import AmlCompute
@@ -24,13 +25,30 @@ def get_args():
     parser.add_argument("--subscription_id", type=str, required=False, help="Azure subscription ID")
     parser.add_argument("--resource_group", type=str, required=False, help="Name of the Azure resource group")
     parser.add_argument("--workspace_name", type=str, required=False, help="Name of the AzureML workspace")
-    parser.add_argument("--aml_config_path", type=str, required=False, help="Path to AzureML config file. If provided, subscription_id, resource_group and workspace_name are ignored")
-    parser.add_argument("--compute_name", type=str, required=True, help="Name of the new compute")    
-    parser.add_argument("--vm_size", type=str, required=False, help="VM size of the new compute. This is required if you are creating a compute instance")
-    parser.add_argument("--location", type=str, required=False, help="Location of the new compute. This is required if you are creating a compute instance")
+    parser.add_argument(
+        "--aml_config_path",
+        type=str,
+        required=False,
+        help="Path to AzureML config file. If provided, subscription_id, resource_group and workspace_name are ignored",
+    )
+    parser.add_argument("--compute_name", type=str, required=True, help="Name of the new compute")
+    parser.add_argument(
+        "--vm_size",
+        type=str,
+        required=False,
+        help="VM size of the new compute. This is required if you are creating a compute instance",
+    )
+    parser.add_argument(
+        "--location",
+        type=str,
+        required=False,
+        help="Location of the new compute. This is required if you are creating a compute instance",
+    )
     parser.add_argument("--min_nodes", type=int, required=False, default=0, help="Minimum number of nodes")
     parser.add_argument("--max_nodes", type=int, required=False, default=2, help="Maximum number of nodes")
-    parser.add_argument("--idle_time_before_scale_down", type=int, required=False, default=120, help="Idle seconds before scaledown")
+    parser.add_argument(
+        "--idle_time_before_scale_down", type=int, required=False, default=120, help="Idle seconds before scaledown"
+    )
     args = parser.parse_args()
     return args
 
@@ -68,13 +86,16 @@ def main():
             idle_time_before_scale_down=idle_time_before_scale_down,
         )
         ml_client.begin_create_or_update(cluster_basic).result()
-        print(f"Successfully created compute: {compute_name} at {location} with vm_size:{vm_size} \
-            and min_nodes={min_nodes} and max_nodes={max_nodes} and idle_time_before_scale_down={idle_time_before_scale_down}")    
+        print(
+            f"Successfully created compute: {compute_name} at {location} with vm_size:{vm_size} and min_nodes={min_nodes} \
+                and max_nodes={max_nodes} and idle_time_before_scale_down={idle_time_before_scale_down}"
+        )
     elif is_delete:
         print(f"Deleting compute {compute_name}...")
         ml_client.compute.begin_delete(compute_name).wait()
         print(f"Successfully deleted compute: {compute_name}")
-        
+
+
 def get_ml_client(aml_config_path, subscription_id, resource_group, workspace_name):
     if aml_config_path is not None:
         if not Path(aml_config_path).exists():
@@ -96,6 +117,7 @@ def get_ml_client(aml_config_path, subscription_id, resource_group, workspace_na
             workspace_name=workspace_name,
         )
 
+
 def get_credentials():
     print("Getting credentials for MLClient")
     try:
@@ -114,6 +136,7 @@ def get_credentials():
             print("Using InteractiveBrowserCredential")
 
     return credential
+
 
 if __name__ == "__main__":
     main()

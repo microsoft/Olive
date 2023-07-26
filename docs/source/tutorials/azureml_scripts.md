@@ -46,7 +46,7 @@ You can run the script to create an AzureML compute instance from the command li
 python manage_compute_instance.py --create --subscription_id <subscription_id> --resource_group <resource_group> --workspace_name <workspace_name> --compute_name <compute_name> --vm_size <vm_size> --location <location> --min_nodes <min_nodes> --max_nodes <max_nodes> --idle_time_before_scale_down <idle_time_before_scale_down>
 ```
 
-or 
+or
 
 ```
 python manage_compute_instance.py --create --aml_config_path </path/to/aml_config.json> --compute_name <compute_name> --vm_size <vm_size> --location <location> --min_nodes <min_nodes> --max_nodes <max_nodes> --idle_time_before_scale_down <idle_time_before_scale_down>
