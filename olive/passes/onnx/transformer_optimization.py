@@ -101,7 +101,7 @@ class OrtTransformersOptimization(Pass):
         if config["optimization_options"]:
             self._set_fusion_options(run_config)
 
-        optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
+        optimizer = transformers_optimizer.optimize_model(input=model.model_path, use_external_data_format=True, **run_config)
 
         if config["float16"]:
             op_block_list = config["force_fp32_ops"]
