@@ -18,7 +18,6 @@ def setup():
 def test_models():
     model_name = os.environ["TEST_MODEL"]
     olive_json = f"perf_models/cpu_models/{model_name}_cpu_config.json"
-
     print(olive_json)
     from olive.workflows import run as olive_run
 

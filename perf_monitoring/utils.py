@@ -63,30 +63,19 @@ def compare_metrics(best_metrics, model_name):
         print(best_metrics[0], best_metrics[1])
 
         accuracy_percentage_change = ((best_metrics[0] - model_data[0]) / model_data[0]) * 100
-        latency_percentage_change = ((best_metrics[1] - model_data[1]) / model_data[1]) * 100
+        latency_percentage_change = -((best_metrics[1] - model_data[1]) / model_data[1]) * 100
 
         comparison_result = {
             "accuracy": no_regression(best_metrics[0], model_data[0], 0.05),
             "latency": no_regression(best_metrics[1], model_data[1], 0.05),
             "accuracy_percentage_change": accuracy_percentage_change,
             "latency_percentage_change": latency_percentage_change,
-            "accuracy_better": "same"
-            if accuracy_percentage_change == 0
-            else "higher"
-            if accuracy_percentage_change > 0
-            else "lower",
-            "latency_better": "same"
-            if latency_percentage_change == 0
-            else "lower"
-            if latency_percentage_change > 0
-            else "higher",
         }
 
-        with open("model_output.txt", "w") as f:
-            f.write(f"Accuracy percentage change: {accuracy_percentage_change}\n")
-            f.write(f"Latency percentage change: {latency_percentage_change}\n")
-            f.write(f"Is accuracy better?: {comparison_result['accuracy_better']}\n")
-            f.write(f"Is latency better?: {comparison_result['latency_better']}\n")
+        # Assert that both accuracy and latency are True
+        assert comparison_result["accuracy"], "accuracy must be True"
+        assert comparison_result["latency"], "latency must be True"
+
     else:
         print(f"{model_name} not found in best_metrics.json, creating new entry...")
         data[model_name] = best_metrics
@@ -100,5 +89,4 @@ def compare_metrics(best_metrics, model_name):
     # Save the updated data back to the file
     with open("best_metrics.json", "w") as f:
         json.dump(data, f, indent=4)
-
     return comparison_result

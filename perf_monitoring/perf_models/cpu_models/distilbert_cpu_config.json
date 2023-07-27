@@ -74,6 +74,6 @@
         "evaluator": "common_evaluator",
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
-        "output_dir" : "models/bert_workflow_cpu"
+        "output_dir" : "models/distilbert_workflow_cpu"
     }
 }
