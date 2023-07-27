@@ -34,26 +34,20 @@ jobs:
     windows: True
     examples:
       bert:
-        perfMonitoringScriptName: perf_monitoring_models_cpu
         testModel: bert
 
       bertweet:
-        perfMonitoringScriptName: perf_monitoring_models_cpu
         testModel: bertweet
       camembert:
-        perfMonitoringScriptName: perf_monitoring_models_cpu
         testModel: camembert
 
       distilbert:
-        perfMonitoringScriptName: perf_monitoring_models_cpu
         testModel: distilbert
 
       microsoft-deberta:
-        perfMonitoringScriptName: perf_monitoring_models_cpu
         testModel: microsoft-deberta
 
       roberta:
-        perfMonitoringScriptName: perf_monitoring_models_cpu
         testModel: roberta
 
 - template: job_templates/olive-perf-monitoring-template.yaml
@@ -63,24 +57,18 @@ jobs:
     windows: False
     examples:
       bert:
-        perfMonitoringScriptName: perf_monitoring_models_cpu
         testModel: bert
 
       bertweet:
-        perfMonitoringScriptName: perf_monitoring_models_cpu
         testModel: bertweet
       camembert:
-        perfMonitoringScriptName: perf_monitoring_models_cpu
         testModel: camembert
 
       distilbert:
-        perfMonitoringScriptName: perf_monitoring_models_cpu
         testModel: distilbert
 
       microsoft-deberta:
-        perfMonitoringScriptName: perf_monitoring_models_cpu
         testModel: microsoft-deberta
 
       roberta:
-        perfMonitoringScriptName: perf_monitoring_models_cpu
         testModel: roberta

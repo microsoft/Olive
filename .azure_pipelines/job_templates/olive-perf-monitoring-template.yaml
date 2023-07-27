@@ -29,7 +29,7 @@ jobs:
     inputs:
       azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
       scriptLocation: 'inlineScript'
-      inlineScript: make perf-monitoring PIPELINE=True WINDOWS=$(WINDOWS) PERF_MONITORING_SCRIPT_NAME=$(perfMonitoringScriptName)
+      inlineScript: make perf-monitoring PIPELINE=True WINDOWS=$(WINDOWS) PERF_MONITORING_SCRIPT_NAME=perf_monitoring_models_cpu
     displayName: performance monitoring
     env:
       OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
