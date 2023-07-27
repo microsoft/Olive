@@ -1,1 +1,28 @@
-{"bert": [], "CamemBERT": [], "bertweet-base-sentiment-analysis": [1.0, -16.03689], "distilbert-base-uncased-finetuned-sst-2-english": [1.0, -8.61203], "microsoft-deberta-base-mnli": [1.0, -111.79317], "roberta-large-mnli": [1.0, -146.89287], "cpu_models": [-96.3853, 0.9933962225914001]}
+{
+    "bert": [],
+    "CamemBERT": [],
+    "bertweet-base-sentiment-analysis": [
+        1.0,
+        -16.03689
+    ],
+    "distilbert-base-uncased-finetuned-sst-2-english": [
+        1.0,
+        -8.61203
+    ],
+    "microsoft-deberta-base-mnli": [
+        1.0,
+        -111.79317
+    ],
+    "roberta-large-mnli": [
+        1.0,
+        -146.89287
+    ],
+    "cpu_models": [
+        -96.3853,
+        0.9933962225914001
+    ],
+    "bertweet": [
+        0.735632183908046,
+        -14.61082
+    ]
+}
