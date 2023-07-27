@@ -292,7 +292,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         """
         input_names = io_config["input_names"]
         name_to_type = {k: v for k, v in zip(io_config["input_names"], io_config["input_types"])}
-        if not isinstance(input_data, dict):
+        if isinstance(input_data, list):
+            input_data = dict(zip(input_names, input_data))
+        elif not isinstance(input_data, dict):
             input_data = dict(zip(input_names, [input_data]))
         input_dict = {
             k: np.ascontiguousarray(
