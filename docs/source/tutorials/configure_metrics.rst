@@ -1,5 +1,5 @@
-Configuring Metric
-===================
+How To Configure Metric
+=======================
 
 This document describes how to configure the different types of Metrics.
 
