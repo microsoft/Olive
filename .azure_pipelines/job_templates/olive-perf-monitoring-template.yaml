@@ -53,13 +53,6 @@ jobs:
       testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
     displayName: Upload pipeline run test results
 
-  - task:  PublishPipelineArtifact@1
-    inputs:
-      path: $(Build.SourcesDirectory)/perf_monitoring_results
-      artifactName: best_metrics
-      artifactType: pipeline
-    displayName: Publish models
-
   - script: make clean WINDOWS=$(WINDOWS)
     condition: always()
     displayName: Clean remaining artifacts
