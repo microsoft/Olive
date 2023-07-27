@@ -4,7 +4,9 @@
 # --------------------------------------------------------------------------
 from unittest.mock import MagicMock, patch
 
-from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Precision, Recall
+import numpy as np
+
+from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Perplexity, Precision, Recall
 
 
 @patch("olive.evaluator.accuracy.torch")
@@ -109,4 +111,29 @@ def test_evaluate_auc(mock_torchmetrics, mock_torch):
     # assert
     mock_torch.tensor.called_once_with(preds)
     mock_torch.tensor.called_once_with(targets)
+    assert actual_res == expected_res
+
+
+@patch("olive.evaluator.accuracy.torch")
+@patch("olive.evaluator.accuracy.torchmetrics")
+def test_evaluate_perplexity(mock_torchmetrics, mock_torch):
+    # setup
+    Perplexity()
+    batch = 2
+    seqlen = 3
+    vocab_size = 10
+    preds = np.random.rand(batch, seqlen, vocab_size).tolist()
+    targets = np.random.randint(0, vocab_size, (batch, seqlen)).tolist()
+    expected_res = 20.0
+    mock_res = MagicMock()
+    mock_res.item.return_value = expected_res
+    mock_torchmetrics.text.perplexity.Perplexity().compute.return_value = mock_res
+
+    # execute
+    actual_res = Perplexity().measure(preds, targets)
+
+    # assert
+    for i in range(batch):
+        mock_torch.tensor.called_once_with(preds[i])
+        mock_torch.tensor.called_once_with(targets[i])
     assert actual_res == expected_res
