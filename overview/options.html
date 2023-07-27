@@ -54,7 +54,11 @@
 <li class="toctree-l1"><a class="reference internal" href="quicktour.html">Quick Tour</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Olive Options</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#azure-ml-client">Azure ML Client</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#example">Example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#example">Example</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#azureml-client-with-aml-config-path"><code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> with <code class="docutils literal notranslate"><span class="pre">aml_config_path</span></code>:</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#azureml-client-with-azureml-config-fields"><code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> with azureml config fields:</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#input-model-information">Input Model Information</a><ul>
@@ -173,7 +177,7 @@ to apply from user in the form of a json dictionary. In this document, we docume
 <a class="reference external" href="https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?tabs=sdk">this</a>  for
 more details.</p>
 <p><code class="docutils literal notranslate"><span class="pre">azureml_client:</span> <span class="pre">[Dict]</span></code></p>
-<ul class="simple">
+<ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">subscription_id:</span> <span class="pre">[str]</span></code> Azure account subscription id.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">resource_group:</span> <span class="pre">[str]</span></code> Azure account resource group name.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">workspace_name:</span> <span class="pre">[str]</span></code> Azure ML workspace name.</p></li>
@@ -182,20 +186,45 @@ more details.</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">max_operation_retries:</span> <span class="pre">[int]</span></code> The maximum number of retries for Azure ML operations like resource creation and download.
 The default value is 3. User can increase if there are network issues and the operations fail.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">operation_retry_interval:</span> <span class="pre">[int]</span></code> The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">default_auth_params:</span> <span class="pre">Dict[str,</span> <span class="pre">Any]</span></code> Default auth parameters for AzureML client. Please refer to <a class="reference external" href="https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters">azure DefaultAzureCredential</a> for more details. For example, if you want to exclude managed identity credential, you can set the following:</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">default_auth_params:</span> <span class="pre">Dict[str,</span> <span class="pre">Any]</span></code> Default auth parameters for AzureML client. Please refer to <a class="reference external" href="https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters">azure DefaultAzureCredential</a> for more details. For example, if you want to exclude managed identity credential, you can set the following:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span>&quot;azureml_client&quot;: {
+    ...
+    &quot;default_auth_params&quot;: {
+        &quot;exclude_managed_identity_credential&quot;: true
+    }
+}
+</pre></div>
+</div>
+</li>
 </ul>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_subscription_id&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_resource_group&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_workspace&quot;</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;default_auth_params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;exclude_managed_identity_credential&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
-<span class="w">    </span><span class="p">}</span>
+<section id="example">
+<h3>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h3>
+<section id="azureml-client-with-aml-config-path">
+<h4><code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> with <code class="docutils literal notranslate"><span class="pre">aml_config_path</span></code>:<a class="headerlink" href="#azureml-client-with-aml-config-path" title="Permalink to this heading">¶</a></h4>
+<section id="aml-config-json">
+<h5><code class="docutils literal notranslate"><span class="pre">aml_config.json</span></code>:<a class="headerlink" href="#aml-config-json" title="Permalink to this heading">¶</a></h5>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;subscription_id&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;resource_group&gt;&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;workspace_name&gt;&quot;</span><span class="p">,</span>
 <span class="p">}</span>
 </pre></div>
 </div>
-<section id="example">
-<h3>Example<a class="headerlink" href="#example" title="Permalink to this heading">¶</a></h3>
+</section>
+<section id="azureml-client">
+<h5><code class="docutils literal notranslate"><span class="pre">azureml_client</span></code>:<a class="headerlink" href="#azureml-client" title="Permalink to this heading">¶</a></h5>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;aml_config_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;aml_config.json&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;read_timeout&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">4000</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;max_operation_retries&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;operation_retry_interval&quot;</span><span class="w"> </span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
+<span class="p">},</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="azureml-client-with-azureml-config-fields">
+<h4><code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> with azureml config fields:<a class="headerlink" href="#azureml-client-with-azureml-config-fields" title="Permalink to this heading">¶</a></h4>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;subscription_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;subscription_id&gt;&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nt">&quot;resource_group&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;resource_group&gt;&quot;</span><span class="p">,</span>
@@ -206,6 +235,7 @@ The default value is 3. User can increase if there are network issues and the op
 <span class="p">},</span>
 </pre></div>
 </div>
+</section>
 </section>
 </section>
 <section id="input-model-information">
