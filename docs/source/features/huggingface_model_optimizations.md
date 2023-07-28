@@ -45,7 +45,7 @@ Please refer to [hf_config](../overview/options.md#hf_config) for more details.
 Please refer to [metrics](../overview/options.md#metrics) for more details.
 
 ### Custom components config
-You can use your own custom compenents functions for your model. You will need to define the details of your components in your script as functions.
+You can use your own custom components functions for your model. You will need to define the details of your components in your script as functions.
 ```json
 {
     "input_model": {
@@ -87,7 +87,7 @@ def get_decoder(model_name: str):
     ...
 
 def dummy_inputs_func():
-    # return the dummy imput for your component
+    # return the dummy input for your component
     ...
 ```
 

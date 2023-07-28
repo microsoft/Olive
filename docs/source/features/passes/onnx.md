@@ -2,7 +2,7 @@
 
 [ONNX](https://onnx.ai/) is an open graph format to represent machine learning models. [ONNX Runtime](https://onnxruntime.ai/docs/) is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.
 
-Olive provides multiple transformations and optimizations based on various ONNX to improve model performance. 
+Olive provides multiple transformations and optimizations based on various ONNX to improve model performance.
 
 ## Model Conversion
 The `OnnxConversion` pass converts PyTorch models to ONNX using
@@ -79,7 +79,7 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
 }
 ```
 
-## Insert Beam Serch Op
+## Insert Beam Search Op
 
 `InsertBeamSearch` chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.
 
