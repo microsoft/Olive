@@ -8,3 +8,4 @@ sentencepiece
 evaluate
 seqeval
 emoji==0.6.0
+psutil
