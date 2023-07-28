@@ -3,17 +3,17 @@
         "type": "PyTorchModel",
         "config": {
             "hf_config": {
-                "model_name": "facebook/opt-125m",
+                "model_name": "openlm-research/open_llama_3b",
                 "task": "text-generation"
             }
         }
     },
     "data_configs": {
         "c4_train": {
-            "name": "ptb_train",
+            "name": "c4_train",
             "type": "HuggingfaceContainer",
             "params_config": {
-                "model_name": "facebook/opt-125m",
+                "model_name": "openlm-research/open_llama_3b",
                 "task": "text-generation",
                 "data_name": "allenai/c4",
                 "subset": "allenai--c4",
@@ -22,34 +22,18 @@
                 "input_cols": ["text"],
                 "seqlen": 2048,
                 "max_samples": 128
-
             }
         },
-        "ptb_train": {
-            "name": "ptb_train",
+        "wikitext2_test": {
+            "name": "wikitext2_test",
             "type": "HuggingfaceContainer",
             "params_config": {
-                "model_name": "facebook/opt-125m",
+                "model_name": "openlm-research/open_llama_3b",
                 "task": "text-generation",
-                "data_name": "ptb_text_only",
-                "subset": "penn_treebank",
-                "split": "train",
-                "input_cols": ["sentence"],
-                "seqlen": 2048,
-                "max_samples": 128
-
-            }
-        },
-        "ptb_test": {
-            "name": "ptb_test",
-            "type": "HuggingfaceContainer",
-            "params_config": {
-                "model_name": "facebook/opt-125m",
-                "task": "text-generation",
-                "data_name": "ptb_text_only",
-                "subset": "penn_treebank",
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
                 "split": "test",
-                "input_cols": ["sentence"],
+                "input_cols": ["text"],
                 "seqlen": 2048
             }
         }
@@ -63,7 +47,7 @@
                     "sub_types": [
                         {"name": "perplexity"}
                     ],
-                    "data_config": "ptb_test"
+                    "data_config": "wikitext2_test"
                 }
             ]
         }
@@ -72,7 +56,7 @@
         "sparsegpt": {
             "type": "SparseGPT",
             "config": {
-                "model_type": "opt",
+                "model_type": "llama",
                 "sparsity": 0.5,
                 "data_config": "c4_train"
             }

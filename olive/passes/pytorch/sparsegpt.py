@@ -34,7 +34,7 @@ class SparseGPT(Pass):
             "model_type": PassConfigParam(
                 type_=str,
                 required=True,
-                description="Transformer model type. Currently supported types are: opt.",
+                description="Transformer model type. Currently supported types are: opt, llama.",
             ),
             "sparsity": PassConfigParam(
                 type_=Union[float, List[int]],
@@ -78,7 +78,7 @@ class SparseGPT(Pass):
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModel:
-        if config["model_type"] != "opt":
+        if config["model_type"] not in ["opt", "llama"]:
             raise ValueError(f"Unsupported model type: {config['model_type']}")
         model_type = config["model_type"]
 
@@ -100,11 +100,16 @@ class SparseGPT(Pass):
 
         # load_data
         assert config["data_config"] is not None, "Data config is required for SparseGPT pass."
+        logger.debug("Loading data...")
         dataloader = self._data_config.to_data_container().create_dataloader(data_root)
+        logger.debug(f"Data loaded. Number of batches: {len(dataloader)}")
 
         # load model
+        logger.debug("Loading model...")
         pytorch_model = model.load_model()
+        logger.debug("Copying model...")
         pytorch_model = copy.deepcopy(pytorch_model)
+        logger.debug("Copying model done.")
         pytorch_model.eval()
         use_cache = pytorch_model.config.use_cache
         pytorch_model.config.use_cache = False
@@ -113,7 +118,9 @@ class SparseGPT(Pass):
         layers = get_layers(pytorch_model, model_type)
 
         # get the inputs to the first layer
+        logger.debug("Getting inputs to first layer...")
         inputs, attention_mask = catch_layer_inputs(pytorch_model, model_type, dataloader, device)
+        logger.debug(f"Inputs shape: {inputs.shape}")
         # place holder to store output from layer
         outputs = torch.zeros_like(inputs)
 
@@ -124,6 +131,7 @@ class SparseGPT(Pass):
         if isinstance(layer_name_filter, str):
             layer_name_filter = [layer_name_filter]
         # loop over layers
+        logger.debug(f"Pruning layers {min_layer} to {max_layer}...")
         for i in range(min_layer, max_layer):
             logger.debug(f"Pruning layer {i}...")
             layer = layers[i]
