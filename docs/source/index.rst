@@ -31,6 +31,7 @@ This document introduces Olive and provides some examples to get you started.
 .. toctree::
    :maxdepth: 1
    :caption: FEATURES
+
    features/model_transformations_and_optimizations
    features/huggingface_model_optimization
    features/packaging_output_models
@@ -39,6 +40,7 @@ This document introduces Olive and provides some examples to get you started.
 .. toctree::
    :maxdepth: 1
    :caption: EXTENDING OLIVE
+
    extending_olive/design
    extending_olive/how_to_add_optimization_pass
 
