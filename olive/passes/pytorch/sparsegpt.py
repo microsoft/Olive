@@ -6,7 +6,6 @@
 # https://github.com/IST-DASLab/sparsegpt
 # https://arxiv.org/abs/2301.00774
 # -------------------------------------------------------------------------
-import copy
 import logging
 from typing import Any, Dict, List, Union
 
@@ -107,9 +106,12 @@ class SparseGPT(Pass):
         # load model
         logger.debug("Loading model...")
         pytorch_model = model.load_model()
-        logger.debug("Copying model...")
-        pytorch_model = copy.deepcopy(pytorch_model)
-        logger.debug("Copying model done.")
+        # we will update the model inplace
+        # since the models are large, it is expensive to copy and maintain two copies
+        # set model.model to None so that the input model doesn't use this same model object when it is loaded
+        model.model = None
+        # alternative is to copy the model and use the copy
+        # pytorch_model = copy.deepcopy(model.model)
         pytorch_model.eval()
         use_cache = pytorch_model.config.use_cache
         pytorch_model.config.use_cache = False
