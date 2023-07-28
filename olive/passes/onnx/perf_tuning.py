@@ -270,6 +270,13 @@ class OrtPerfTuning(Pass):
     _requires_data_config = True
 
     @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        """Override this method to return False by using the
+        accelerator spec information.
+        """
+        return False
+
+    @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
