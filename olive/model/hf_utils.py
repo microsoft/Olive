@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from itertools import chain
 from typing import Any, Callable, Dict, List, Union
 
@@ -9,6 +10,8 @@ from pydantic import validator
 
 from olive.common.config_utils import ConfigBase
 from olive.model.model_config import IOConfig
+
+logger = logging.getLogger(__name__)
 
 
 class HFComponent(ConfigBase):
@@ -58,6 +61,7 @@ def load_huggingface_model_from_task(task: str, name: str):
     for model_class in class_tuple:
         try:
             model = model_class.from_pretrained(name)
+            logger.debug(f"Loaded model {model_class} with name_or_path {name}")
             return model
         except (OSError, ValueError):
             # the ValueError need to be caught since there will be multiple model_class for single task.

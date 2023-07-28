@@ -1,0 +1,269 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+# Based on the original implementation at
+# https://github.com/IST-DASLab/sparsegpt
+# https://arxiv.org/abs/2301.00774
+# -------------------------------------------------------------------------
+import logging
+import math
+
+import torch
+import transformers
+
+logger = logging.getLogger(__name__)
+
+layers_map = {
+    "opt": "model.decoder.layers",
+    "llama": "model.layers",
+}
+
+embedding_map = {
+    "opt": [
+        "model.decoder.embed_tokens",
+        "model.decoder.embed_positions",
+        "model.model.decoder.project_out",
+        "model.model.decoder.project_in",
+    ],
+    "llama": ["model.embed_tokens", "model.norm"],
+}
+
+
+def _get_attr(module, attr):
+    """Get attribute from module.
+
+    :param module: module to get attribute from
+    :param attr: attribute name, can be a string with dot notation
+    :return: attribute
+    """
+    attr = attr.split(".")
+    for a in attr:
+        if hasattr(module, a):
+            module = getattr(module, a)
+        else:
+            return None
+    return module
+
+
+def get_layers(model, model_type):
+    """Get the layers from model based on model type."""
+    layers = layers_map[model_type]
+    return _get_attr(model, layers)
+
+
+def get_layer_submodules(module, submodule_types=[torch.nn.Conv2d, torch.nn.Linear], layer_name_filter=None, name=""):
+    if type(module) in submodule_types:
+        if layer_name_filter and not any([s in name for s in layer_name_filter]):
+            # skip this layer
+            return {}
+        return {name: module}
+
+    submodules = {}
+    for submodule_name, submodule in module.named_children():
+        submodule_name = name + "." + submodule_name if name else submodule_name
+        submodules.update(get_layer_submodules(submodule, submodule_types, layer_name_filter, submodule_name))
+    return submodules
+
+
+@torch.no_grad()
+def catch_layer_inputs(model, model_type, dataloader, device):
+    """Get the layers from model based on model type."""
+
+    num_samples = len(dataloader)
+    first_batch = next(iter(dataloader))
+    # sequence length
+    seqlen = first_batch[0]["input_ids"].shape[1]
+    # embedding dimension
+    hidden_size = model.config.hidden_size
+    # data type
+    dtype = next(iter(model.parameters())).dtype
+
+    # placeholder to save the layer inputs
+    inputs = torch.zeros((num_samples, seqlen, hidden_size), dtype=dtype, device=device)
+    cache = {"i": 0, "attention_mask": None}
+
+    # get layers
+    layers = get_layers(model, model_type)
+
+    class FirstLayer(torch.nn.Module):
+        def __init__(self, module):
+            super().__init__()
+            self.module = module
+
+        def forward(self, input, **kwargs):
+            inputs[cache["i"]] = input
+            cache["i"] += 1
+            cache["attention_mask"] = kwargs.get("attention_mask")
+            raise ValueError("Stop forward propagation")
+
+    # put all modules until the first layer on the device
+    for name in embedding_map[model_type]:
+        module = _get_attr(model, name)
+        if module:
+            module.to(device)
+
+    # wrap the first layer
+    layers[0] = FirstLayer(layers[0])
+
+    # run the model on the data
+    for data, _ in dataloader:
+        input_ids = data["input_ids"].to(device)
+        try:
+            model(input_ids)
+        except ValueError:
+            pass
+
+    # unwrap the first layer
+    layers[0] = layers[0].module
+
+    # put all modules until the first layer back on the CPU
+    for name in embedding_map[model_type]:
+        module = _get_attr(model, name)
+        if module:
+            module.to("cpu")
+    torch.cuda.empty_cache()
+
+    return inputs, cache["attention_mask"]
+
+
+class SparseGPTModule:
+    def __init__(self, layer):
+        self.layer = layer
+        self.device = self.layer.weight.device
+
+        # get weights
+        W = self.get_W()
+        # store shape of W
+        self.rows = W.shape[0]
+        self.columns = W.shape[1]
+
+        # Hessian
+        self.H = torch.zeros((self.columns, self.columns), device=self.device)
+
+        # number of samples
+        self.num_samples = 0
+
+    def get_W(self):
+        W = self.layer.weight.data.clone()
+        if isinstance(self.layer, torch.nn.Conv2d):
+            # convert to 2D
+            W = W.flatten(1)
+        elif isinstance(self.layer, transformers.Conv1D):
+            W = W.t()
+        return W.float()
+
+    def add_batch(self, input):
+        # add batch dim if needed
+        if input.ndim == 2:
+            input = input.unsqueeze(0)
+        # get number of samples
+        num_samples = input.shape[0]
+        # prepare input for linear layer
+        if isinstance(self.layer, torch.nn.Linear) or isinstance(self.layer, transformers.Conv1D):
+            if input.ndim == 3:
+                # flatten the batch and sequence dimensions
+                input = input.reshape(-1, input.shape[-1])
+            input = input.t()
+
+        # renormalize H
+        self.H *= self.num_samples / (self.num_samples + num_samples)
+        # add new samples
+        self.num_samples += num_samples
+        input = math.sqrt(2 / self.num_samples) * input.float()
+        self.H += input.matmul(input.t())
+
+    def prune(self, mode, sparsity=None, n=None, m=None, blocksize=128, percdamp=0.01):
+        W = self.get_W()
+        H = self.H
+        del self.H
+
+        # set zero on the diagonal to 1
+        dead = torch.diag(H) == 0
+        H[dead, dead] = 1
+        # set corresponding column of W to 0 to ignore it
+        W[:, dead] = 0
+
+        # dampen the Hessian
+        assert percdamp >= 0 and percdamp <= 1
+        damp = percdamp * torch.mean(torch.diag(H))
+        diag = torch.arange(self.columns, device=self.device)
+        H[diag, diag] += damp
+        # use Cholesky decomposition to get the inverse
+        H = torch.linalg.cholesky(H)
+        H = torch.cholesky_inverse(H)
+        H = torch.linalg.cholesky(H, upper=True)
+        Hinv = H
+
+        # placeholder for losses per row
+        Losses = torch.zeros(self.rows, device=self.device)
+
+        # loop over blocks of columns
+        for start in range(0, self.columns, blocksize):
+            end = min(start + blocksize, self.columns)
+            num_cols = end - start
+
+            # get submatrices
+            W1 = W[:, start:end].clone()  # weights for the block
+            Q1 = torch.zeros_like(W1)  # matrix to store new weights, updated column by column
+            Err1 = torch.zeros_like(W1)  # block error
+            Losses1 = torch.zeros_like(W1)  # losses
+            Hinv1 = Hinv[start:end, start:end]  # Hessian inverse
+
+            if mode == "unstructured":
+                # chose the bottom sparsity% weights to prune (True)
+                # lower magnitude = higher importance
+                magnitude = W1**2 / (torch.diag(Hinv1).reshape((1, -1))) ** 2
+                threshold = torch.sort(magnitude.flatten())[0][int(magnitude.numel() * sparsity)]
+                mask1 = magnitude <= threshold
+            else:
+                # placeholder for mask
+                mask1 = torch.zeros_like(W1) == 1
+
+            # loop over columns in the block
+            for col in range(num_cols):
+                w = W1[:, col]
+                hinv = Hinv1[col, col]
+
+                if mode == "structured" and col % m == 0:
+                    # every mth column, set bottom n weights to True (prune)
+                    magnitude = (
+                        W1[:, col : (col + m)] ** 2  # noqa: E203
+                        / (torch.diag(Hinv1)[col : (col + m)].reshape((1, -1))) ** 2  # noqa: E203
+                    )
+                    mask1.scatter_(1, col + torch.topk(magnitude, n, dim=1, largest=False)[1], True)
+
+                # freeze weights in current column
+                q = w.clone()
+                q[mask1[:, col]] = 0
+                Q1[:, col] = q
+
+                # save losses
+                Losses1[:, col] = (w - q) ** 2 / hinv**2
+
+                # pruning error
+                err1 = (w - q) / hinv
+                # update weights for remaining columns in block
+                W1[:, col:] -= err1.unsqueeze(1).matmul(Hinv1[col, col:].unsqueeze(0))
+                # save error for lazy update
+                Err1[:, col] = err1
+
+            # copy new weights for current block
+            W[:, start:end] = Q1
+            Losses += torch.sum(Losses1, 1) / 2
+
+            # lazy update rest of the weights
+            W[:, end:] -= Err1.matmul(Hinv[start:end, end:])
+
+        torch.cuda.synchronize()
+
+        # set new weights
+        if isinstance(self.layer, transformers.Conv1D):
+            W = W.t()
+        self.layer.weight.data = W.reshape(self.layer.weight.shape).to(self.layer.weight.data.dtype)
+
+        return torch.sum(Losses).item()
+
+    def free(self):
+        self.H = None
+        torch.cuda.empty_cache()

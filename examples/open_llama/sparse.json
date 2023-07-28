@@ -1,0 +1,96 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "facebook/opt-125m",
+                "task": "text-generation"
+            }
+        }
+    },
+    "data_configs": {
+        "c4_train": {
+            "name": "ptb_train",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "model_name": "facebook/opt-125m",
+                "task": "text-generation",
+                "data_name": "allenai/c4",
+                "subset": "allenai--c4",
+                "split": "train",
+                "data_files": {"train": "en/c4-train.00000-of-01024.json.gz"},
+                "input_cols": ["text"],
+                "seqlen": 2048,
+                "max_samples": 128
+
+            }
+        },
+        "ptb_train": {
+            "name": "ptb_train",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "model_name": "facebook/opt-125m",
+                "task": "text-generation",
+                "data_name": "ptb_text_only",
+                "subset": "penn_treebank",
+                "split": "train",
+                "input_cols": ["sentence"],
+                "seqlen": 2048,
+                "max_samples": 128
+
+            }
+        },
+        "ptb_test": {
+            "name": "ptb_test",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "model_name": "facebook/opt-125m",
+                "task": "text-generation",
+                "data_name": "ptb_text_only",
+                "subset": "penn_treebank",
+                "split": "test",
+                "input_cols": ["sentence"],
+                "seqlen": 2048
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "perplexity",
+                    "type": "accuracy",
+                    "sub_types": [
+                        {"name": "perplexity"}
+                    ],
+                    "data_config": "ptb_test"
+                }
+            ]
+        }
+    },
+    "passes": {
+        "sparsegpt": {
+            "type": "SparseGPT",
+            "config": {
+                "model_type": "opt",
+                "sparsity": 0.5,
+                "data_config": "c4_train"
+            }
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "search_strategy": false,
+        "evaluate_input_model": true,
+        "evaluator": "common_evaluator",
+        "target": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["gpu"]
+            }
+        },
+        "execution_providers": ["CPUExecutionProvider"],
+        "cache_dir": "cache",
+        "output_dir" : "models/bert_ptq_cpu"
+    }
+}
