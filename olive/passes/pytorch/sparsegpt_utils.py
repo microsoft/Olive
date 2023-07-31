@@ -15,18 +15,20 @@ import transformers
 logger = logging.getLogger(__name__)
 
 layers_map = {
-    "opt": "model.decoder.layers",
+    "gpt2": "transformer.h",
     "llama": "model.layers",
+    "opt": "model.decoder.layers",
 }
 
 embedding_map = {
+    "gpt2": ["transformer.wte", "transformer.wpe"],
+    "llama": ["model.embed_tokens", "model.norm"],
     "opt": [
         "model.decoder.embed_tokens",
         "model.decoder.embed_positions",
         "model.model.decoder.project_out",
         "model.model.decoder.project_in",
     ],
-    "llama": ["model.embed_tokens", "model.norm"],
 }
 
 
@@ -52,7 +54,9 @@ def get_layers(model, model_type):
     return _get_attr(model, layers)
 
 
-def get_layer_submodules(module, submodule_types=[torch.nn.Conv2d, torch.nn.Linear], layer_name_filter=None, name=""):
+def get_layer_submodules(
+    module, submodule_types=[torch.nn.Conv2d, torch.nn.Linear, transformers.Conv1D], layer_name_filter=None, name=""
+):
     if type(module) in submodule_types:
         if layer_name_filter and not any([s in name for s in layer_name_filter]):
             # skip this layer

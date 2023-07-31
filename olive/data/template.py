@@ -27,15 +27,13 @@ def dummy_data_config_template(input_shapes, input_names=None, input_types=None)
     )
 
 
-def huggingface_data_config_template(model_name, task, component_kwargs=None, **kwargs) -> DataConfig:
+def huggingface_data_config_template(model_name, task, **kwargs) -> DataConfig:
     """
     Convert the huggingface data config to the data container.
     model_name: str
         The model name of huggingface.
     task: str
         The task type of huggingface.
-    component_kwargs: dict of dict
-        Additional parameters to pass to specific component(s).
     **kwargs: dict
         The additional arguments. Will be passed as `params_config` to the data container.
         - `data_name`: str, data name in huggingface dataset, e.g.: "glue", "squad"
@@ -58,9 +56,6 @@ def huggingface_data_config_template(model_name, task, component_kwargs=None, **
             "task": task,
             **kwargs,
         },
-        components={name: {"params": params} for name, params in component_kwargs.items()}
-        if component_kwargs
-        else None,
     )
 
 

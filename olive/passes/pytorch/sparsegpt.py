@@ -15,7 +15,13 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModel
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
-from olive.passes.pytorch.sparsegpt_utils import SparseGPTModule, catch_layer_inputs, get_layer_submodules, get_layers
+from olive.passes.pytorch.sparsegpt_utils import (
+    SparseGPTModule,
+    catch_layer_inputs,
+    get_layer_submodules,
+    get_layers,
+    layers_map,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +39,7 @@ class SparseGPT(Pass):
             "model_type": PassConfigParam(
                 type_=str,
                 required=True,
-                description="Transformer model type. Currently supported types are: opt, llama.",
+                description=f"Transformer model type. Currently supported types are: {list(layers_map.keys())}",
             ),
             "sparsity": PassConfigParam(
                 type_=Union[float, List[int]],
@@ -77,7 +83,7 @@ class SparseGPT(Pass):
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModel:
-        if config["model_type"] not in ["opt", "llama"]:
+        if config["model_type"] not in layers_map:
             raise ValueError(f"Unsupported model type: {config['model_type']}")
         model_type = config["model_type"]
 
