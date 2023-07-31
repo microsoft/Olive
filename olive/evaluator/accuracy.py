@@ -64,6 +64,7 @@ class AccuracyBase(AutoConfigClass):
     @staticmethod
     def prepare_tensors(preds, target, dtypes=torch.int):
         dtypes = dtypes if isinstance(dtypes, (list, tuple)) else [dtypes, dtypes]
+        assert len(dtypes) == 2, "dtypes should be a list or tuple with two elements."
         preds = torch.tensor(preds, dtype=dtypes[0]) if not isinstance(preds, torch.Tensor) else preds.to(dtypes[0])
         target = torch.tensor(target, dtype=dtypes[1]) if not isinstance(target, torch.Tensor) else target.to(dtypes[1])
         return preds, target
