@@ -1,9 +1,11 @@
-.. _configuring_olivesystem:
+.. _how_to_configure_system:
 
-Configuring OliveSystem
+How To Configure System
 =========================
 
-This document describes how to configure the different types of OliveSystems
+A system is the environment (OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model
+is evaluated on. It can thus be the **host** of a Pass or the **target** of an evaluation. This document describes
+how to configure the different types of Systems.
 
 Local System
 -------------

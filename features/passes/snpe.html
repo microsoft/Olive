@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SNPE related – Qualcomm HW &mdash; Olive  documentation</title>
+  <title>SNPE &mdash; Olive  documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/autodoc_pydantic.css" type="text/css" />
@@ -23,7 +23,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="Huggingface Model Optimization" href="../huggingface_model_optimization.html" />
-    <link rel="prev" title="OpenVINO related – Intel HW" href="openvino.html" /> 
+    <link rel="prev" title="OpenVINO" href="openvino.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -66,18 +66,13 @@
 <li class="toctree-l1"><a class="reference internal" href="../../examples.html#acceleration-on-npu">Acceleration on NPU</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../examples.html#acceleration-on-dpu">Acceleration on DPU</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../design.html">Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../configure_systems.html">Configuring OliveSystem</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../configure_metrics.html">Configuring Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../configure_pass.html">Configuring Pass</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../configure_model_path.html">Configuring Model Path</a></li>
-<li class="toctree-l1 current"><a class="reference internal" href="../configure_hardware_optimizations.html">Configuring HW-dependent optimizations</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="onnx.html">ONNX related – General</a></li>
-<li class="toctree-l2"><a class="reference internal" href="pytorch.html">PyTorch related – General</a></li>
-<li class="toctree-l2"><a class="reference internal" href="openvino.html">OpenVINO related – Intel HW</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">SNPE related – Qualcomm HW</a><ul>
+<li class="toctree-l1 current"><a class="reference internal" href="../model_transformations_and_optimizations.html">Model Transformations and Optimizations</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="onnx.html">ONNX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pytorch.html">PyTorch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="openvino.html">OpenVINO</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">SNPE</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#prerequisites">Prerequisites</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#download-and-unzip-snpe-sdk">Download and unzip SNPE SDK</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#install-sdk-system-dependencies">Install SDK system dependencies</a></li>
@@ -97,10 +92,21 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../advanced_users.html">Advanced User Tour</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../custom_scripts.html">Custom Scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/advanced_users.html">Advanced User Tour</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
 <ul>
@@ -128,10 +134,10 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
-          <li class="breadcrumb-item"><a href="../configure_hardware_optimizations.html">Configuring HW-dependent optimizations</a></li>
-      <li class="breadcrumb-item active">SNPE related – Qualcomm HW</li>
+          <li class="breadcrumb-item"><a href="../model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+      <li class="breadcrumb-item active">SNPE</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../../_sources/tutorials/passes/snpe.md.txt" rel="nofollow"> View page source</a>
+            <a href="../../_sources/features/passes/snpe.md.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -139,8 +145,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="snpe-related-qualcomm-hw">
-<h1>SNPE related – Qualcomm HW<a class="headerlink" href="#snpe-related-qualcomm-hw" title="Permalink to this heading">¶</a></h1>
+  <section id="snpe">
+<h1>SNPE<a class="headerlink" href="#snpe" title="Permalink to this heading">¶</a></h1>
 <p>The Snapdragon Neural Processing Engine (SNPE) is a Qualcomm Snapdragon software accelerated runtime for the execution of
 deep neural networks.</p>
 <p>Olive provides tools to convert models from different frameworks such as ONNX and TensorFlow to SNPE Deep Learning Container
@@ -222,7 +228,7 @@ for an example implementation of <code class="docutils literal notranslate"><spa
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="openvino.html" class="btn btn-neutral float-left" title="OpenVINO related – Intel HW" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="openvino.html" class="btn btn-neutral float-left" title="OpenVINO" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="../huggingface_model_optimization.html" class="btn btn-neutral float-right" title="Huggingface Model Optimization" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

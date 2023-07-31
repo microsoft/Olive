@@ -101,19 +101,25 @@
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-npu">Acceleration on NPU</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-dpu">Acceleration on DPU</a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/custom_scripts.html">Custom Scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
 <p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/design.html">Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_systems.html">Configuring OliveSystem</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_metrics.html">Configuring Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_pass.html">Configuring Pass</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_model_path.html">Configuring Model Path</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_hardware_optimizations.html">Configuring HW-dependent optimizations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_model_path.html">How To Set Model Path</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../tutorials/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
 <ul>
@@ -366,7 +372,7 @@ information of the system contains following items:</p>
 There are some built-in system alias which could also be used as type. For example, <code class="docutils literal notranslate"><span class="pre">AzureNDV2System</span></code>. Please refer to <a class="reference internal" href="../api/systems.html#olive-system-alias"><span class="std std-ref">Olive System Alias</span></a> for the complete list of system alias.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[Dict]</span></code> The system config dictionary that contains the system specific information.</p></li>
 </ul>
-<p>Please refer to <a class="reference internal" href="../tutorials/configure_systems.html#configuring-olivesystem"><span class="std std-ref">Configuring OliveSystem</span></a> for the more information of the system config dictionary.</p>
+<p>Please refer to <a class="reference internal" href="#configuring_olivesystem"><span class="xref myst">Configuring OliveSystem</span></a> for the more information of the system config dictionary.</p>
 <section id="id2">
 <h3>Example<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;systems&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -539,7 +545,7 @@ will be used.</p></li>
 saved to the engine’s <code class="docutils literal notranslate"><span class="pre">output_dir</span></code> with the prefix of <code class="docutils literal notranslate"><span class="pre">output_name</span></code>. For the final pass, if the engine’s <code class="docutils literal notranslate"><span class="pre">output_name</span></code> is provided, it will override
 the <code class="docutils literal notranslate"><span class="pre">output_name</span></code> of the pass.</p></li>
 </ul>
-<p>Please refer to <a class="reference internal" href="../tutorials/configure_pass.html#configuring-pass"><span class="std std-ref">Configuring Pass</span></a> for more details on <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">disable_search</span></code> and <code class="docutils literal notranslate"><span class="pre">config</span></code>.</p>
+<p>Please refer to <a class="reference internal" href="#configuring_pass"><span class="xref myst">Configuring Pass</span></a> for more details on <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">disable_search</span></code> and <code class="docutils literal notranslate"><span class="pre">config</span></code>.</p>
 <p>Please also find the detailed options from following table for each pass:</p>
 <table class="docutils align-default">
 <thead>

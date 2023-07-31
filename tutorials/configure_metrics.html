@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Configuring Metric &mdash; Olive  documentation</title>
+  <title>How To Configure Metric &mdash; Olive  documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="../_static/autodoc_pydantic.css" type="text/css" />
@@ -23,8 +23,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Configuring Pass" href="configure_pass.html" />
-    <link rel="prev" title="Configuring OliveSystem" href="configure_systems.html" /> 
+    <link rel="next" title="How To Configure Pass" href="configure_pass.html" />
+    <link rel="prev" title="How To Configure System" href="configure_systems.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -67,11 +67,22 @@
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-npu">Acceleration on NPU</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-dpu">Acceleration on DPU</a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/custom_scripts.html">Custom Scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
 <p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="design.html">Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_systems.html">Configuring OliveSystem</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Configuring Metric</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">How To Configure Metric</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#metric-types">Metric Types</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#accuracy-metric">Accuracy Metric</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#latency-metric">Latency Metric</a></li>
@@ -81,14 +92,9 @@
 <li class="toctree-l2"><a class="reference internal" href="#multi-metrics-configuration">Multi Metrics configuration</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="configure_pass.html">Configuring Pass</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_model_path.html">Configuring Model Path</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_hardware_optimizations.html">Configuring HW-dependent optimizations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_model_path.html">How To Set Model Path</a></li>
 <li class="toctree-l1"><a class="reference internal" href="advanced_users.html">Advanced User Tour</a></li>
-<li class="toctree-l1"><a class="reference internal" href="how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
 <ul>
@@ -116,7 +122,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Configuring Metric</li>
+      <li class="breadcrumb-item active">How To Configure Metric</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/tutorials/configure_metrics.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -126,8 +132,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="configuring-metric">
-<h1>Configuring Metric<a class="headerlink" href="#configuring-metric" title="Permalink to this heading">¶</a></h1>
+  <section id="how-to-configure-metric">
+<h1>How To Configure Metric<a class="headerlink" href="#how-to-configure-metric" title="Permalink to this heading">¶</a></h1>
 <p>This document describes how to configure the different types of Metrics.</p>
 <section id="metric-types">
 <h2>Metric Types<a class="headerlink" href="#metric-types" title="Permalink to this heading">¶</a></h2>
@@ -270,7 +276,7 @@ In your <code class="code docutils literal notranslate"><span class="pre">&quot;
     <span class="c1"># return metric value</span>
 </pre></div>
 </div>
-<p>Alternatively, if you only need Olive run the inference and you will calculate the metric by yourself, you can speficy <code class="code docutils literal notranslate"><span class="pre">&quot;metric_func&quot;:</span> <span class="pre">&quot;None&quot;</span></code> in the metric configuration.
+<p>Alternatively, if you only need Olive run the inference and you will calculate the metric by yourself, you can specify <code class="code docutils literal notranslate"><span class="pre">&quot;metric_func&quot;:</span> <span class="pre">&quot;None&quot;</span></code> in the metric configuration.
 Olive will run the inference with you model with the data you provided, and return the inference results to you. You can then calculate the metric by yourself:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">metric_func</span><span class="p">(</span><span class="n">preds</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
     <span class="c1"># calculate metric</span>
@@ -317,8 +323,8 @@ If you only have one metric, you can omit <code class="code docutils literal not
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="configure_systems.html" class="btn btn-neutral float-left" title="Configuring OliveSystem" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="configure_pass.html" class="btn btn-neutral float-right" title="Configuring Pass" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="configure_systems.html" class="btn btn-neutral float-left" title="How To Configure System" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="configure_pass.html" class="btn btn-neutral float-right" title="How To Configure Pass" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Configuring Pass &mdash; Olive  documentation</title>
+  <title>How To Configure Pass &mdash; Olive  documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="../_static/autodoc_pydantic.css" type="text/css" />
@@ -23,8 +23,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Configuring Model Path" href="configure_model_path.html" />
-    <link rel="prev" title="Configuring Metric" href="configure_metrics.html" /> 
+    <link rel="next" title="How To Set Model Path" href="configure_model_path.html" />
+    <link rel="prev" title="How To Configure Metric" href="configure_metrics.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -67,19 +67,25 @@
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-npu">Acceleration on NPU</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-dpu">Acceleration on DPU</a></li>
 </ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../features/custom_scripts.html">Custom Scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
 <p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="design.html">Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_systems.html">Configuring OliveSystem</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_metrics.html">Configuring Metric</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Configuring Pass</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_model_path.html">Configuring Model Path</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_hardware_optimizations.html">Configuring HW-dependent optimizations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configure_model_path.html">How To Set Model Path</a></li>
 <li class="toctree-l1"><a class="reference internal" href="advanced_users.html">Advanced User Tour</a></li>
-<li class="toctree-l1"><a class="reference internal" href="how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
 <ul>
@@ -107,7 +113,7 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Configuring Pass</li>
+      <li class="breadcrumb-item active">How To Configure Pass</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/tutorials/configure_pass.rst.txt" rel="nofollow"> View page source</a>
       </li>
@@ -117,8 +123,8 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="configuring-pass">
-<span id="id1"></span><h1>Configuring Pass<a class="headerlink" href="#configuring-pass" title="Permalink to this heading">¶</a></h1>
+  <section id="how-to-configure-pass">
+<span id="id1"></span><h1>How To Configure Pass<a class="headerlink" href="#how-to-configure-pass" title="Permalink to this heading">¶</a></h1>
 <p>This document describes how to configure a Pass.</p>
 <p>When configuring a Pass, the user can chose to set the values of parameters to their default value (no search), pre-defined search space
 (search for the best value from the possible options) or a combination of the two (fix some parameters to a certain value, default or
@@ -182,8 +188,8 @@ value or <code class="code docutils literal notranslate"><span class="pre">&quot
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="configure_metrics.html" class="btn btn-neutral float-left" title="Configuring Metric" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="configure_model_path.html" class="btn btn-neutral float-right" title="Configuring Model Path" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="configure_metrics.html" class="btn btn-neutral float-left" title="How To Configure Metric" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="configure_model_path.html" class="btn btn-neutral float-right" title="How To Set Model Path" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

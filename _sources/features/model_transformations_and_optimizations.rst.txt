@@ -1,5 +1,7 @@
-Configuring HW-dependent optimizations
+Model Transformations and Optimizations
 =======================================
+
+Olive provides multiple transformations and optimizations to improve model performance.
 
 .. toctree::
    :maxdepth: 2

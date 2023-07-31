@@ -22,8 +22,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Advanced User Tour" href="advanced_users.html" />
-    <link rel="prev" title="SNPE related – Qualcomm HW" href="passes/snpe.html" /> 
+    <link rel="next" title="Packaging Olive artifacts" href="packaging_output_models.html" />
+    <link rel="prev" title="SNPE" href="passes/snpe.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -66,14 +66,9 @@
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-npu">Acceleration on NPU</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-dpu">Acceleration on DPU</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="design.html">Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_systems.html">Configuring OliveSystem</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_metrics.html">Configuring Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_pass.html">Configuring Pass</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_model_path.html">Configuring Model Path</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_hardware_optimizations.html">Configuring HW-dependent optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Huggingface Model Optimization</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#example">Example</a><ul>
@@ -88,10 +83,21 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="advanced_users.html">Advanced User Tour</a></li>
-<li class="toctree-l1"><a class="reference internal" href="how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_scripts.html">Custom Scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
 <ul>
@@ -121,7 +127,7 @@
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
       <li class="breadcrumb-item active">Huggingface Model Optimization</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/tutorials/huggingface_model_optimization.md.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/features/huggingface_model_optimization.md.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -133,7 +139,7 @@
 <h1>Huggingface Model Optimization<a class="headerlink" href="#huggingface-model-optimization" title="Permalink to this heading">¶</a></h1>
 <section id="introduction">
 <h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this heading">¶</a></h2>
-<p>This document describes how to configure a optimization workflow for Huggingface models, where the user can specify the</p>
+<p>This document describes how to configure a  workflow to optimize Huggingface models using Olive. The user can simply specify the model name, task, dataset and metric to optimize a model.</p>
 <ol class="arabic simple">
 <li><p>Model name: is in Huggingface model hub, e.g. <code class="docutils literal notranslate"><span class="pre">bert-base-uncased</span></code>.</p></li>
 <li><p>Task name: introduces the task specific head for the model, e.g. <code class="docutils literal notranslate"><span class="pre">text-classification</span></code>. More task names can be found <a class="reference external" href="https://huggingface.co/tasks">here</a>. Task name is used to:</p>
@@ -184,7 +190,7 @@
 </section>
 <section id="custom-components-config">
 <h3>Custom components config<a class="headerlink" href="#custom-components-config" title="Permalink to this heading">¶</a></h3>
-<p>You can use your own custom compenents functions for your model. You will need to define the details of your components in your script as functions.</p>
+<p>You can use your own custom components functions for your model. You will need to define the details of your components in your script as functions.</p>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;input_model&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;PyTorchModel&quot;</span><span class="p">,</span>
@@ -226,7 +232,7 @@
     <span class="o">...</span>
 
 <span class="k">def</span> <span class="nf">dummy_inputs_func</span><span class="p">():</span>
-    <span class="c1"># return the dummy imput for your component</span>
+    <span class="c1"># return the dummy input for your component</span>
     <span class="o">...</span>
 </pre></div>
 </div>
@@ -243,8 +249,8 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="passes/snpe.html" class="btn btn-neutral float-left" title="SNPE related – Qualcomm HW" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="advanced_users.html" class="btn btn-neutral float-right" title="Advanced User Tour" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="passes/snpe.html" class="btn btn-neutral float-left" title="SNPE" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="packaging_output_models.html" class="btn btn-neutral float-right" title="Packaging Olive artifacts" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

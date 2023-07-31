@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Configuring HW-dependent optimizations &mdash; Olive  documentation</title>
+  <title>Model Transformations and Optimizations &mdash; Olive  documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
       <link rel="stylesheet" href="../_static/autodoc_pydantic.css" type="text/css" />
@@ -22,8 +22,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="ONNX related – General" href="passes/onnx.html" />
-    <link rel="prev" title="Configuring Model Path" href="configure_model_path.html" /> 
+    <link rel="next" title="ONNX" href="passes/onnx.html" />
+    <link rel="prev" title="Acceleration on CPU" href="../examples.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -66,25 +66,31 @@
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-npu">Acceleration on NPU</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../examples.html#acceleration-on-dpu">Acceleration on DPU</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="design.html">Design</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_systems.html">Configuring OliveSystem</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_metrics.html">Configuring Metric</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_pass.html">Configuring Pass</a></li>
-<li class="toctree-l1"><a class="reference internal" href="configure_model_path.html">Configuring Model Path</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Configuring HW-dependent optimizations</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html">ONNX related – General</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html">PyTorch related – General</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/openvino.html">OpenVINO related – Intel HW</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/snpe.html">SNPE related – Qualcomm HW</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Model Transformations and Optimizations</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html">ONNX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html">PyTorch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="passes/openvino.html">OpenVINO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="passes/snpe.html">SNPE</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
-<li class="toctree-l1"><a class="reference internal" href="advanced_users.html">Advanced User Tour</a></li>
-<li class="toctree-l1"><a class="reference internal" href="how_to_write_userscript.html">How to write <code class="docutils literal notranslate"><span class="pre">user_script</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="packaging_output_models.html">Packaging Olive artifacts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="custom_scripts.html">Custom Scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
 <ul>
@@ -112,9 +118,9 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Configuring HW-dependent optimizations</li>
+      <li class="breadcrumb-item active">Model Transformations and Optimizations</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/tutorials/configure_hardware_optimizations.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/features/model_transformations_and_optimizations.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -122,33 +128,34 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="configuring-hw-dependent-optimizations">
-<h1>Configuring HW-dependent optimizations<a class="headerlink" href="#configuring-hw-dependent-optimizations" title="Permalink to this heading">¶</a></h1>
+  <section id="model-transformations-and-optimizations">
+<h1>Model Transformations and Optimizations<a class="headerlink" href="#model-transformations-and-optimizations" title="Permalink to this heading">¶</a></h1>
+<p>Olive provides multiple transformations and optimizations to improve model performance.</p>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="passes/onnx.html">ONNX related – General</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="passes/onnx.html">ONNX</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#model-conversion">Model Conversion</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#model-optimizer">Model Optimizer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#ort-transformers-optimization">ORT Transformers Optimization</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#append-pre-post-processing-ops">Append Pre/Post Processing Ops</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#insert-beam-serch-op">Insert Beam Serch Op</a></li>
+<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#insert-beam-search-op">Insert Beam Search Op</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#post-training-quantization-ptq">Post Training Quantization (PTQ)</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#ort-performance-tuning">ORT Performance Tuning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#float16-conversion">Float16 Conversion</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#mixed-precision-conversion">Mixed Precision Conversion</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="passes/pytorch.html">PyTorch related – General</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="passes/pytorch.html">PyTorch</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#quantization-aware-training">Quantization Aware Training</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="passes/openvino.html">OpenVINO related – Intel HW</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="passes/openvino.html">OpenVINO</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="passes/openvino.html#prerequisites">Prerequisites</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/openvino.html#model-conversion">Model Conversion</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/openvino.html#post-training-quantization-ptq">Post Training Quantization (PTQ)</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="passes/snpe.html">SNPE related – Qualcomm HW</a><ul>
+<li class="toctree-l1"><a class="reference internal" href="passes/snpe.html">SNPE</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="passes/snpe.html#prerequisites">Prerequisites</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/snpe.html#model-conversion">Model Conversion</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/snpe.html#post-training-quantization-ptq">Post Training Quantization (PTQ)</a></li>
@@ -162,8 +169,8 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="configure_model_path.html" class="btn btn-neutral float-left" title="Configuring Model Path" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="passes/onnx.html" class="btn btn-neutral float-right" title="ONNX related – General" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="../examples.html" class="btn btn-neutral float-left" title="Acceleration on CPU" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="passes/onnx.html" class="btn btn-neutral float-right" title="ONNX" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
