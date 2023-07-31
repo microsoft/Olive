@@ -270,6 +270,13 @@ class OrtPerfTuning(Pass):
     _requires_data_config = True
 
     @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        """Override this method to return False by using the
+        accelerator spec information.
+        """
+        return False
+
+    @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
@@ -338,6 +345,7 @@ class OrtPerfTuning(Pass):
     def _run_for_config(
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
+        # TODO remove this when we have a concrete investigation on the backcompat issue
         if not config.get("providers_list"):
             # add the provider to the config if user doesn't provide the execution providers
             config["providers_list"] = [self.accelerator_spec.execution_provider]
