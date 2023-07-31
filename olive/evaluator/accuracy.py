@@ -7,7 +7,6 @@ from abc import abstractmethod
 from inspect import isfunction, signature
 from typing import Any, Callable, Dict, Type, Union
 
-import numpy as np
 import torch
 import torchmetrics
 
@@ -62,6 +61,13 @@ class AccuracyBase(AutoConfigClass):
     def _default_config(cls) -> Dict[str, ConfigParam]:
         return cls._metric_config_from_torch_metrics()
 
+    @staticmethod
+    def prepare_tensors(preds, target, dtypes=torch.int):
+        dtypes = dtypes if isinstance(dtypes, (list, tuple)) else [dtypes, dtypes]
+        preds = torch.tensor(preds, dtype=dtypes[0]) if not isinstance(preds, torch.Tensor) else preds.to(dtypes[0])
+        target = torch.tensor(target, dtype=dtypes[1]) if not isinstance(target, torch.Tensor) else target.to(dtypes[1])
+        return preds, target
+
     @abstractmethod
     def measure(self, preds, target):
         raise NotImplementedError()
@@ -71,8 +77,7 @@ class AccuracyScore(AccuracyBase):
     name: str = "accuracy_score"
 
     def measure(self, preds, target):
-        preds_tensor = torch.tensor(preds, dtype=torch.int)
-        target_tensor = torch.tensor(target, dtype=torch.int)
+        preds_tensor, target_tensor = self.prepare_tensors(preds, target)
         accuracy = torchmetrics.Accuracy(**self.config.dict())
         result = accuracy(preds_tensor, target_tensor)
         return result.item()
@@ -82,8 +87,7 @@ class F1Score(AccuracyBase):
     name: str = "f1_score"
 
     def measure(self, preds, target):
-        preds_tensor = torch.tensor(preds, dtype=torch.int)
-        target_tensor = torch.tensor(target, dtype=torch.int)
+        preds_tensor, target_tensor = self.prepare_tensors(preds, target)
         f1 = torchmetrics.F1Score(**self.config.dict())
         result = f1(preds_tensor, target_tensor)
         return result.item()
@@ -93,8 +97,7 @@ class Precision(AccuracyBase):
     name: str = "precision"
 
     def measure(self, preds, target):
-        preds_tensor = torch.tensor(preds, dtype=torch.int)
-        target_tensor = torch.tensor(target, dtype=torch.int)
+        preds_tensor, target_tensor = self.prepare_tensors(preds, target)
         precision = torchmetrics.Precision(**self.config.dict())
         result = precision(preds_tensor, target_tensor)
         return result.item()
@@ -104,8 +107,7 @@ class Recall(AccuracyBase):
     name: str = "recall"
 
     def measure(self, preds, target):
-        preds_tensor = torch.tensor(preds, dtype=torch.int)
-        target_tensor = torch.tensor(target, dtype=torch.int)
+        preds_tensor, target_tensor = self.prepare_tensors(preds, target)
         recall = torchmetrics.Recall(**self.config.dict())
         result = recall(preds_tensor, target_tensor)
         return result.item()
@@ -115,10 +117,9 @@ class AUC(AccuracyBase):
     name: str = "auc"
 
     def measure(self, preds, target):
-        preds = np.array(preds).flatten()
-        target = np.array(target).flatten()
-        preds_tensor = torch.tensor(preds, dtype=torch.int)
-        target_tensor = torch.tensor(target, dtype=torch.int)
+        preds_tensor, target_tensor = self.prepare_tensors(preds, target)
+        preds_tensor = preds_tensor.flatten()
+        target_tensor = target_tensor.flatten()
         result = torchmetrics.functional.auc(preds_tensor, target_tensor, self.config.reorder)
         return result.item()
 
@@ -139,8 +140,9 @@ class Perplexity(AccuracyBase):
         # the logits are large matrics, so converting all to tensors at once is slow
         num_samples = len(preds)
         for i in range(num_samples):
-            logits = torch.tensor(preds[i], dtype=torch.float).unsqueeze(0)
-            targets = torch.tensor(target[i], dtype=torch.long).unsqueeze(0)
+            logits, targets = self.prepare_tensors(preds[i], target[i], dtypes=[torch.float, torch.long])
+            logits = logits.unsqueeze(0)
+            targets = targets.unsqueeze(0)
             perplexity.update(logits, targets)
         result = perplexity.compute()
         return result.item()

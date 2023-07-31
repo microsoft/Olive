@@ -9,9 +9,9 @@ import numpy as np
 from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Perplexity, Precision, Recall
 
 
-@patch("olive.evaluator.accuracy.torch")
+@patch("olive.evaluator.accuracy.torch.tensor")
 @patch("olive.evaluator.accuracy.torchmetrics")
-def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch):
+def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = AccuracyScore()
     preds = [1, 0, 1, 1]
@@ -25,14 +25,14 @@ def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch):
     actual_res = acc.measure(preds, targets)
 
     # assert
-    mock_torch.tensor.called_once_with(preds)
-    mock_torch.tensor.called_once_with(targets)
+    mock_torch_tensor.tensor.called_once_with(preds)
+    mock_torch_tensor.tensor.called_once_with(targets)
     assert actual_res == expected_res
 
 
-@patch("olive.evaluator.accuracy.torch")
+@patch("olive.evaluator.accuracy.torch.tensor")
 @patch("olive.evaluator.accuracy.torchmetrics")
-def test_evaluate_f1score(mock_torchmetrics, mock_torch):
+def test_evaluate_f1score(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = F1Score()
     preds = [1, 0, 1, 1]
@@ -46,14 +46,14 @@ def test_evaluate_f1score(mock_torchmetrics, mock_torch):
     actual_res = acc.measure(preds, targets)
 
     # assert
-    mock_torch.tensor.called_once_with(preds)
-    mock_torch.tensor.called_once_with(targets)
+    mock_torch_tensor.tensor.called_once_with(preds)
+    mock_torch_tensor.tensor.called_once_with(targets)
     assert actual_res == expected_res
 
 
-@patch("olive.evaluator.accuracy.torch")
+@patch("olive.evaluator.accuracy.torch.tensor")
 @patch("olive.evaluator.accuracy.torchmetrics")
-def test_evaluate_precision(mock_torchmetrics, mock_torch):
+def test_evaluate_precision(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = Precision()
     preds = [1, 0, 1, 1]
@@ -67,14 +67,14 @@ def test_evaluate_precision(mock_torchmetrics, mock_torch):
     actual_res = acc.measure(preds, targets)
 
     # assert
-    mock_torch.tensor.called_once_with(preds)
-    mock_torch.tensor.called_once_with(targets)
+    mock_torch_tensor.tensor.called_once_with(preds)
+    mock_torch_tensor.tensor.called_once_with(targets)
     assert actual_res == expected_res
 
 
-@patch("olive.evaluator.accuracy.torch")
+@patch("olive.evaluator.accuracy.torch.tensor")
 @patch("olive.evaluator.accuracy.torchmetrics")
-def test_evaluate_recall(mock_torchmetrics, mock_torch):
+def test_evaluate_recall(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = Recall()
     preds = [1, 0, 1, 1]
@@ -88,14 +88,14 @@ def test_evaluate_recall(mock_torchmetrics, mock_torch):
     actual_res = acc.measure(preds, targets)
 
     # assert
-    mock_torch.tensor.called_once_with(preds)
-    mock_torch.tensor.called_once_with(targets)
+    mock_torch_tensor.tensor.called_once_with(preds)
+    mock_torch_tensor.tensor.called_once_with(targets)
     assert actual_res == expected_res
 
 
-@patch("olive.evaluator.accuracy.torch")
+@patch("olive.evaluator.accuracy.torch.tensor")
 @patch("olive.evaluator.accuracy.torchmetrics")
-def test_evaluate_auc(mock_torchmetrics, mock_torch):
+def test_evaluate_auc(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = AUC()
     preds = [1, 0, 1, 1]
@@ -109,14 +109,14 @@ def test_evaluate_auc(mock_torchmetrics, mock_torch):
     actual_res = acc.measure(preds, targets)
 
     # assert
-    mock_torch.tensor.called_once_with(preds)
-    mock_torch.tensor.called_once_with(targets)
+    mock_torch_tensor.tensor.called_once_with(preds)
+    mock_torch_tensor.tensor.called_once_with(targets)
     assert actual_res == expected_res
 
 
-@patch("olive.evaluator.accuracy.torch")
+@patch("olive.evaluator.accuracy.torch.tensor")
 @patch("olive.evaluator.accuracy.torchmetrics")
-def test_evaluate_perplexity(mock_torchmetrics, mock_torch):
+def test_evaluate_perplexity(mock_torchmetrics, mock_torch_tensor):
     # setup
     Perplexity()
     batch = 2
@@ -134,6 +134,6 @@ def test_evaluate_perplexity(mock_torchmetrics, mock_torch):
 
     # assert
     for i in range(batch):
-        mock_torch.tensor.called_once_with(preds[i])
-        mock_torch.tensor.called_once_with(targets[i])
+        mock_torch_tensor.tensor.called_once_with(preds[i])
+        mock_torch_tensor.tensor.called_once_with(targets[i])
     assert actual_res == expected_res
