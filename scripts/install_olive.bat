@@ -16,6 +16,10 @@ if "%PIPELINE%"=="True" (
     call echo "Using active python environment"
 )
 
+rem Upgrade pip
+call echo "Upgrading pip"
+call python -m pip install --upgrade pip || goto :error
+
 rem Install olive
 if "%INSTALL_DEV_MODE%"=="True" (
     call echo "Installing olive in dev mode"
