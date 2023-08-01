@@ -47,6 +47,12 @@ class LocalSystem(OliveSystem):
         evaluator: OliveEvaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
         return evaluator.evaluate(model, data_root, metrics, device=device, execution_providers=execution_providers)
 
+    def install_requirements(self, accelerator: AcceleratorSpec):
+        """
+        Local system does support user customized installation
+        """
+        raise ValueError("Local system does not support user customized installation")
+
     @staticmethod
     def get_supported_execution_providers():
         import onnxruntime as ort

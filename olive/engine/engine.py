@@ -26,6 +26,7 @@ from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
+from olive.systems.utils import create_new_system
 
 logger = logging.getLogger(__name__)
 
@@ -111,22 +112,21 @@ class Engine:
                 accelerators = inferred_accelerators
 
         not_supported_ep = set()
-        processed_ep = set()
         self.accelerator_specs: List[AcceleratorSpec] = []
         is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
         for accelerator in accelerators:
             device = Device(accelerator.lower())
-            supported_eps = AcceleratorLookup.get_execution_providers_for_device(device)
-            eps = [e for e in self.execution_providers if e not in processed_ep]
-            for ep in eps:
+            skip_get_available_ep = False
+            if self.target.system_type in (SystemType.AzureML, SystemType.Docker, SystemType.PythonEnvironment):
+                skip_get_available_ep = True
+            supported_eps = AcceleratorLookup.get_execution_providers_for_device(device, skip_get_available_ep)
+            for ep in self.execution_providers:
                 if ep not in supported_eps:
                     not_supported_ep.add(ep)
-                    processed_ep.add(ep)
                 elif ep == "CPUExecutionProvider" and device != "cpu" and is_cpu_available:
                     logger.info("ignore the CPUExecutionProvider for non-cpu device")
                 else:
                     self.accelerator_specs.append(AcceleratorSpec(device, ep))
-                    processed_ep.add(ep)
 
         assert self.accelerator_specs, (
             "No valid accelerator specified for target system. "
@@ -305,7 +305,13 @@ class Engine:
 
         outputs = {}
         pf_footprints = {}
+
+        origin_system = self.target
         for accelerator_spec in self.accelerator_specs:
+            if origin_system.config.olive_managed_env:
+                self.target = create_new_system(origin_system, accelerator_spec)
+                self.target.install_requirements(accelerator_spec)
+
             # generate search space and initialize the passes for each hardware accelerator
             self.setup_passes(accelerator_spec)
 

@@ -43,3 +43,10 @@ class OliveSystem(ABC):
         Evaluate the model
         """
         raise NotImplementedError()
+
+    @abstractmethod
+    def install_requirements(self, accelerator: AcceleratorSpec):
+        """
+        Install requirements for the accelerator
+        """
+        raise NotImplementedError()

@@ -4,6 +4,11 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+import os
+import subprocess
+import tempfile
+
+import yaml
 
 
 def parse_common_args(raw_args):
@@ -31,3 +36,93 @@ def get_model_config(common_args):
             model_json["config"][key] = value
 
     return model_json
+
+
+def get_package_name(execution_provider):
+    PROVIDER_PACKAGE_MAPPING = {
+        "CPUExecutionProvider": "onnxruntime",
+        "CUDAExecutionProvider": "onnxruntime-gpu",
+        "TensorrtExecutionProvider": "onnxruntime-gpu",
+        "OpenVINOExecutionProvider": "onnxruntime-openvino",
+        "DmlExecutionProvider": "onnxruntime-directml",
+    }
+    return PROVIDER_PACKAGE_MAPPING.get(execution_provider, "onnxruntime")
+
+
+def create_new_system(origin_system, accelerator):
+    PROVIDER_DOCKERFILE_MAPPING = {
+        "CPUExecutionProvider": "Dockerfile.cpu",
+        "CUDAExecutionProvider": "Dockerfile.gpu",
+        "TensorrtExecutionProvider": "Dockerfile.gpu",
+        "OpenVINOExecutionProvider": "Dockerfile.openvino",
+        "DmlExecutionProvider": "Dockerfile.dml",
+    }
+
+    # create a new system with the same type as the origin system
+    if origin_system.system_type == "LocalSystem":
+        raise NotImplementedError("olive_managed_env is not supported for LocalSystem")
+
+    elif origin_system.system_type == "PythonEnvironment":
+        import tempfile
+        import venv
+        from pathlib import Path
+
+        from olive.systems.python_environment import PythonEnvironmentSystem
+
+        # Create the virtual environment
+        venv_path = Path(tempfile.TemporaryDirectory(prefix="olive_python_env_").name)
+        venv.create(venv_path, with_pip=True)
+        new_system = PythonEnvironmentSystem(
+            python_environment_path=f"{venv_path}/bin",
+            accelerators=[accelerator.accelerator_type],
+            environment_variables=origin_system.config.environment_variables,
+            prepend_to_path=origin_system.config.prepend_to_path,
+            olive_managed_env=True,
+            requirements_file=origin_system.config.requirements_file,
+        )
+
+    elif origin_system.system_type == "Docker":
+        from olive.systems.docker import DockerSystem
+
+        dockerfile = PROVIDER_DOCKERFILE_MAPPING.get(accelerator.execution_provider, "Dockerfile.cpu")
+        new_system = DockerSystem(
+            local_docker_config={
+                "image_name": f"Olive_{accelerator.execution_provider}",
+                "requirements_file_path": origin_system.requirements_file,
+                "dockerfile": dockerfile,
+            },
+            accelerators=[accelerator.accelerator_type],
+        )
+
+    elif origin_system.system_type == "AzureML":
+        from olive.systems.azureml import AzureMLSystem
+
+        dockerfile = PROVIDER_DOCKERFILE_MAPPING.get(accelerator.execution_provider, "Dockerfile.cpu")
+        conda_file_path = export_conda_yaml_from_requirements(origin_system.requirements_file)
+        new_system = AzureMLSystem(
+            azureml_client_config=origin_system.azureml_client_config,
+            aml_compute=origin_system.aml_compute,
+            instance_count=origin_system.instance_count,
+            accelerators=[accelerator.accelerator_type],
+            aml_docker_config={
+                "dockerfile": dockerfile,
+                "conda_file_path": conda_file_path,
+            },
+        )
+
+    else:
+        raise NotImplementedError(f"System type {origin_system.system_type} is not supported")
+
+    return new_system
+
+
+def export_conda_yaml_from_requirements(requirements_file):
+    temp_dir = tempfile.TemporaryDirectory(prefix="olive_")
+    conda_file = os.path.join(temp_dir.name, "environment.yml")
+    subprocess.run(["conda", "env", "export", "-f", conda_file, "--no-builds"], check=True)
+    with open(conda_file) as f:
+        conda_env = yaml.safe_load(f)
+    conda_env["dependencies"] = conda_env["dependencies"] + [{"pip": requirements_file}]
+    with open(conda_file, "w") as f:
+        yaml.dump(conda_env, f)
+    return conda_file

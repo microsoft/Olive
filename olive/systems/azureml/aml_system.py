@@ -73,6 +73,8 @@ class AzureMLSystem(OliveSystem):
         instance_count: int = 1,
         is_dev: bool = False,
         accelerators: List[str] = None,
+        olive_managed_env: bool = False,
+        requirements_file: Union[Path, str] = None,
     ):
         super().__init__(accelerators)
         self._assert_not_none(aml_docker_config)
@@ -83,6 +85,8 @@ class AzureMLSystem(OliveSystem):
         self.environment = self._create_environment(aml_docker_config)
         self.instance_count = instance_count
         self.is_dev = is_dev
+        self.olive_managed_env = olive_managed_env
+        self.requirements_file = requirements_file
 
     def _create_environment(self, docker_config: AzureMLDockerConfig):
         if docker_config.build_context_path:

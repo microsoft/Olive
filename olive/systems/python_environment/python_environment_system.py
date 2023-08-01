@@ -28,6 +28,7 @@ from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
+from olive.systems.utils import get_package_name
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +38,12 @@ class PythonEnvironmentSystem(OliveSystem):
 
     def __init__(
         self,
-        python_environment_path: Union[Path, str],
+        python_environment_path: Union[Path, str] = None,
         environment_variables: Dict[str, str] = None,
         prepend_to_path: List[str] = None,
         accelerators: List[str] = None,
+        olive_managed_env: bool = False,
+        requirements_file: Union[Path, str] = None,
     ):
         super().__init__(accelerators=accelerators)
         self.config = PythonEnvironmentTargetUserConfig(
@@ -48,6 +51,8 @@ class PythonEnvironmentSystem(OliveSystem):
             environment_variables=environment_variables,
             prepend_to_path=prepend_to_path,
             accelerators=accelerators,
+            olive_managed_env=olive_managed_env,
+            requirements_file=requirements_file,
         )
         self.environ = deepcopy(os.environ)
         if self.config.environment_variables:
@@ -296,3 +301,31 @@ class PythonEnvironmentSystem(OliveSystem):
                     + f"Please make sure the environment with {ep} has the required dependencies."
                 )
                 return False
+
+    def install_requirements(self, accelerator: AcceleratorSpec):
+        """
+        Install required packages.
+        """
+        # install common packages
+        common_requirements_file = Path(__file__).parent.resolve() / "common_requirements.txt"
+        run_subprocess(
+            f"pip install -r {common_requirements_file}",
+            env=self.environ,
+            check=True,
+        )
+
+        # install onnxruntime
+        onnxruntime_package = get_package_name(accelerator.execution_provider)
+        run_subprocess(
+            f"pip install {onnxruntime_package}",
+            env=self.environ,
+            check=True,
+        )
+
+        # install user requirements
+        if self.config.requirements_file:
+            run_subprocess(
+                f"pip install -r {self.config.requirements_file}",
+                env=self.environ,
+                check=True,
+            )

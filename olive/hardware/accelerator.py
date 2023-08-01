@@ -53,7 +53,6 @@ class AcceleratorLookup:
         "gpu": [
             "DmlExecutionProvider",
             "CUDAExecutionProvider",
-            "OpenVINOExecutionProvider",
             "TensorrtExecutionProvider",
             "CPUExecutionProvider",
         ],
@@ -61,10 +60,9 @@ class AcceleratorLookup:
     }
 
     @staticmethod
-    def get_execution_providers_for_device(device: Device):
-        import onnxruntime as ort
-
-        available_providers = ort.get_available_providers()
+    def get_execution_providers_for_device(device: Device, skip_get_available_ep=False):
+        if skip_get_available_ep:
+            available_providers = AcceleratorLookup.EXECUTION_PROVIDERS.get(device)
         return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(device, available_providers)
 
     @staticmethod

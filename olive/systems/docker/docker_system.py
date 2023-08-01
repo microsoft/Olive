@@ -34,6 +34,8 @@ class DockerSystem(OliveSystem):
         local_docker_config: Union[Dict[str, Any], LocalDockerConfig],
         accelerators: List[str] = None,
         is_dev: bool = False,
+        olive_managed_env: bool = False,
+        requirements_file: Union[Path, str] = None,
     ):
         super().__init__(accelerators=accelerators)
         logger.info("Initializing Docker System...")
@@ -41,6 +43,8 @@ class DockerSystem(OliveSystem):
         self.is_dev = is_dev
         self.docker_client = docker.from_env()
         self.run_params = local_docker_config.run_params
+        self.olive_managed_env = olive_managed_env
+        self.requirements_file = requirements_file
         try:
             self.image = self.docker_client.images.get(local_docker_config.image_name)
             logger.info(f"Image {local_docker_config.image_name} found")
