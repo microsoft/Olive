@@ -34,13 +34,6 @@ class SparseGPT(Pass):
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
-            # TODO: `model_type` will be removed later when we generalize this pass to support other models.
-            # it can be inferred from the input model.
-            "model_type": PassConfigParam(
-                type_=str,
-                required=True,
-                description=f"Transformer model type. Currently supported types are: {list(layers_map.keys())}",
-            ),
             "sparsity": PassConfigParam(
                 type_=Union[float, List[int]],
                 description=(
@@ -83,9 +76,10 @@ class SparseGPT(Pass):
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModel:
-        if config["model_type"] not in layers_map:
-            raise ValueError(f"Unsupported model type: {config['model_type']}")
-        model_type = config["model_type"]
+        model_config = model.get_model_config()
+        model_type = model_config.model_type
+        if model_type not in layers_map:
+            raise ValueError(f"Unsupported model type: {model_type}. Supported types: {layers_map.keys()}")
 
         # get sparsity mode and parameters
         if isinstance(config["sparsity"], float):
@@ -95,7 +89,7 @@ class SparseGPT(Pass):
         mode = "unstructured" if isinstance(config["sparsity"], float) else "structured"
         sparsity = config["sparsity"]
         n, m = sparsity if mode == "structured" else [0, 0]
-        logger.debug(f"Running SparseGPT with mode={mode}, sparsity={sparsity}")
+        logger.debug(f"Running SparseGPT with on {model_type} with mode: {mode}, sparsity: {sparsity}")
 
         # get device to use for computations
         device = config["compute_device"]

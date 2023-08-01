@@ -56,7 +56,6 @@
         "sparsegpt": {
             "type": "SparseGPT",
             "config": {
-                "model_type": "llama",
                 "sparsity": 0.5,
                 "data_config": "c4_train"
             }
