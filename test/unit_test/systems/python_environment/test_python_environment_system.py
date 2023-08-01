@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+import torch
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult, MetricType, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
@@ -105,8 +106,8 @@ class TestPythonEnvironmentSystem:
         # python environment call
         actual_call = mock_compute_accuracy.mock_calls[1]
         assert actual_call.args[0] == expected_call.args[0]
-        assert actual_call.args[1] == expected_call.args[1]
-        assert actual_call.args[2] == expected_call.args[2]
+        assert torch.equal(actual_call.args[1], expected_call.args[1])
+        assert torch.equal(actual_call.args[2], expected_call.args[2])
 
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_latency")
     def test_evaluate_latency(self, mock_compute_latency):

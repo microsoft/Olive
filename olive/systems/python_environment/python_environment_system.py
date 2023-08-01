@@ -131,7 +131,7 @@ class PythonEnvironmentSystem(OliveSystem):
                 input_path = input_dir / f"input_{idx}.npz"
                 np.savez(input_path, **input_dict)
                 # save labels
-                targets.extend(labels.data.tolist())
+                targets.append(labels.cpu())
                 num_batches += 1
 
             # run inference
@@ -147,10 +147,16 @@ class PythonEnvironmentSystem(OliveSystem):
             for idx in range(num_batches):
                 output_path = output_dir / f"output_{idx}.npy"
                 output = np.load(output_path)
-                output = torch.Tensor(output[0] if len(output_names) == 1 else output)
+                if len(output_names) == 1:
+                    output = torch.Tensor(output[0])
+                else:
+                    # convert to dict of torch tensor
+                    output = {name: torch.Tensor(output[i]) for i, name in enumerate(output_names)}
                 if post_func:
                     output = post_func(output)
-                preds.extend(output.tolist())
+                preds.append(output.cpu())
+            preds = torch.cat(preds, dim=0)
+            targets = torch.cat(targets, dim=0)
 
         return OliveEvaluator.compute_accuracy(metric, preds, targets)
 
