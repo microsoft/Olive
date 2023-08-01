@@ -154,6 +154,9 @@ class Engine:
         # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator, "clean_run_cache": clean_run_cache}}
         self.passes = OrderedDict()
 
+        self.pass_flows = None
+        self.pass_flows_search_spaces = None
+
         self.footprints = defaultdict(Footprint)
 
         self.azureml_client_config = self._config.azureml_client_config
@@ -194,6 +197,7 @@ class Engine:
             if clean_run_cache:
                 cache_utils.clean_pass_run_cache(pass_config["type"].__name__, cache_dir)
 
+        self.set_pass_flows(self.pass_flows)
         self._initialized = True
 
     def register(
@@ -266,6 +270,18 @@ class Engine:
             "evaluator": evaluator_config,
             "output_name": output_name,
         }
+
+    def set_pass_flows(self, pass_flows: List[List[str]]):
+        """
+        Construct pass flows from a list of pass names.
+        Args:
+            pass_flows: a list of pass names, each pass name is a string.
+        """
+        if not pass_flows:
+            assert self.pass_config, "Pass flows can only be set after passes are registered"
+            self.pass_flows = [list(self.pass_config.keys())]
+        else:
+            self.pass_flows = pass_flows
 
     def run(
         self,
@@ -388,10 +404,14 @@ class Engine:
 
         # list of passes starting from the first pass with non-empty search space
         # These passes will be added to the search space
-        self.pass_search_spaces = []
-        for pass_name in self.passes.keys():
-            p: Pass = self.passes[pass_name]["pass"]
-            self.pass_search_spaces.append((pass_name, p.search_space()))
+        self.pass_flows_search_spaces = []
+        for pass_flow in self.pass_flows:
+            self.pass_search_spaces = []
+            for pass_name in pass_flow:
+                pass_cls_name = self.pass_config[pass_name]["type"].__name__
+                p: Pass = self.passes[pass_cls_name]["pass"]
+                self.pass_search_spaces.append((pass_cls_name, p.search_space()))
+            self.pass_flows_search_spaces.append(self.pass_search_spaces)
 
     def run_no_search(
         self,
@@ -420,7 +440,7 @@ class Engine:
             )
 
         # initialize the search strategy
-        self.search_strategy.initialize(self.pass_search_spaces, input_model_id, objective_dict)
+        self.search_strategy.initialize(self.pass_flows_search_spaces, input_model_id, objective_dict)
 
         # get the next step
         next_step = self.search_strategy.next_step()
@@ -509,7 +529,7 @@ class Engine:
             )
 
         # initialize the search strategy
-        self.search_strategy.initialize(self.pass_search_spaces, input_model_id, objective_dict)
+        self.search_strategy.initialize(self.pass_flows_search_spaces, input_model_id, objective_dict)
         output_model_num = self.search_strategy.get_output_model_num()
 
         # record start time
