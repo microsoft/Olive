@@ -2,7 +2,7 @@
 
 
 ## Introduction
-This document describes how to configure a optimization workflow for Huggingface models, where the user can specify the
+This document describes how to configure a  workflow to optimize Huggingface models using Olive. The user can simply specify the model name, task, dataset and metric to optimize a model.
 1. Model name: is in Huggingface model hub, e.g. `bert-base-uncased`.
 2. Task name: introduces the task specific head for the model, e.g. `text-classification`. More task names can be found [here](https://huggingface.co/tasks). Task name is used to:
     - Load model in which user can just provide the model name and task name. Olive will automatically load the model from Huggingface model hub for specific task.
@@ -45,7 +45,7 @@ Please refer to [hf_config](../overview/options.md#hf_config) for more details.
 Please refer to [metrics](../overview/options.md#metrics) for more details.
 
 ### Custom components config
-You can use your own custom compenents functions for your model. You will need to define the details of your components in your script as functions.
+You can use your own custom components functions for your model. You will need to define the details of your components in your script as functions.
 ```json
 {
     "input_model": {
@@ -87,7 +87,7 @@ def get_decoder(model_name: str):
     ...
 
 def dummy_inputs_func():
-    # return the dummy imput for your component
+    # return the dummy input for your component
     ...
 ```
 

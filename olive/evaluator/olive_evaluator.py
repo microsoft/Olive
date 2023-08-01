@@ -292,7 +292,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         """
         input_names = io_config["input_names"]
         name_to_type = {k: v for k, v in zip(io_config["input_names"], io_config["input_types"])}
-        if not isinstance(input_data, dict):
+        if isinstance(input_data, list):
+            input_data = dict(zip(input_names, input_data))
+        elif not isinstance(input_data, dict):
             input_data = dict(zip(input_names, [input_data]))
         input_dict = {
             k: np.ascontiguousarray(
@@ -326,7 +328,11 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         for input_data, labels in dataloader:
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             res = session.run(input_feed=input_dict, output_names=None)
-            result = torch.Tensor(res[0]) if len(output_names) == 1 else torch.Tensor(res)
+            if len(output_names) == 1:
+                result = torch.Tensor(res[0])
+            else:
+                # convert to dict of torch tensor
+                result = {name: torch.Tensor(res[i]) for i, name in enumerate(output_names)}
             outputs = post_func(result) if post_func else result
             preds.extend(outputs.tolist())
             targets.extend(labels.data.tolist())
@@ -591,6 +597,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     def _device_string_to_torch_device(device: Device):
         return torch.device("cuda") if device == Device.GPU else torch.device(device)
 
+    @torch.no_grad()
     def _inference(
         self,
         model: PyTorchModel,

@@ -1,9 +1,11 @@
-.. _configuring_olivesystem:
+.. _how_to_configure_system:
 
-Configuring OliveSystem
+How To Configure System
 =========================
 
-This document describes how to configure the different types of OliveSystems
+A system is the environment (OS, hardware spec, device platform, supported EP) that a Pass is run in or a Model
+is evaluated on. It can thus be the **host** of a Pass or the **target** of an evaluation. This document describes
+how to configure the different types of Systems.
 
 Local System
 -------------
@@ -87,9 +89,9 @@ System Configuration
             aml_system = AzureMLSystem(
                 aml_compute="cpu-cluster",
                 aml_docker_config={
-                        "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-                        "conda_file_path": "conda.yaml"
-                    }
+                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                    "conda_file_path": "conda.yaml"
+                }
             )
 
 Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert/conda.yaml>`__

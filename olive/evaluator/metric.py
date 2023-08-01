@@ -28,6 +28,7 @@ class AccuracySubType(str, Enum):
     PRECISION = "precision"
     RECALL = "recall"
     AUC = "auc"
+    PERPLEXITY = "perplexity"
 
 
 class LatencySubType(str, Enum):

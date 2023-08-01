@@ -34,18 +34,35 @@ more details.
 The default value is 3. User can increase if there are network issues and the operations fail.
 - `operation_retry_interval: [int]` The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.
 - `default_auth_params: Dict[str, Any]` Default auth parameters for AzureML client. Please refer to [azure DefaultAzureCredential](https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters) for more details. For example, if you want to exclude managed identity credential, you can set the following:
-```json
-"azureml_client": {
-    "subscription_id": "my_subscription_id",
-    "resource_group": "my_resource_group",
-    "workspace_name": "my_workspace",
-    "default_auth_params": {
-        "exclude_managed_identity_credential": true
+    ```json
+    "azureml_client": {
+        ...
+        "default_auth_params": {
+            "exclude_managed_identity_credential": true
+        }
     }
-}
-```
+    ```
 
 ### Example
+#### `azureml_client` with `aml_config_path`:
+##### `aml_config.json`:
+```json
+{
+    "subscription_id": "<subscription_id>",
+    "resource_group": "<resource_group>",
+    "workspace_name": "<workspace_name>",
+}
+```
+##### `azureml_client`:
+```json
+"azureml_client": {
+    "aml_config_path": "aml_config.json",
+    "read_timeout" : 4000,
+    "max_operation_retries" : 4,
+    "operation_retry_interval" : 5
+},
+```
+#### `azureml_client` with azureml config fields:
 ```json
 "azureml_client": {
     "subscription_id": "<subscription_id>",

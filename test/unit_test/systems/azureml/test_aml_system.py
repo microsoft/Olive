@@ -303,7 +303,7 @@ class TestAzureMLSystem:
             description=f"Run olive {metric_type} evaluation",
             command=self.create_command(inputs),
             environment=self.system.environment,
-            code=code_path,
+            code=str(code_path),
             inputs=inputs,
             outputs=dict(pipeline_output=Output(type=AssetTypes.URI_FOLDER)),
             instance_count=1,

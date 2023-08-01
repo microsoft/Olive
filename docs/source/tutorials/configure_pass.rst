@@ -1,7 +1,7 @@
-.. _configuring_pass:
+.. _how_to_configure_pass:
 
-Configuring Pass
-===================
+How To Configure Pass
+=====================
 
 This document describes how to configure a Pass.
 

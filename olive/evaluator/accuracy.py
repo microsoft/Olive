@@ -25,6 +25,7 @@ class AccuracyBase(AutoConfigClass):
         "precision": torchmetrics.Precision,
         "recall": torchmetrics.Recall,
         "auc": torchmetrics.functional.auc,
+        "perplexity": torchmetrics.text.perplexity.Perplexity,
     }
 
     @classmethod
@@ -119,4 +120,27 @@ class AUC(AccuracyBase):
         preds_tensor = torch.tensor(preds, dtype=torch.int)
         target_tensor = torch.tensor(target, dtype=torch.int)
         result = torchmetrics.functional.auc(preds_tensor, target_tensor, self.config.reorder)
+        return result.item()
+
+
+class Perplexity(AccuracyBase):
+    name: str = "perplexity"
+
+    def measure(self, preds, target):
+        # update ignore_index if not set
+        config = self.config.dict()
+        if config["ignore_index"] is None:
+            config["ignore_index"] = -100
+
+        # create perplexity metric
+        perplexity = torchmetrics.text.perplexity.Perplexity(**config)
+
+        # loop through samples
+        # the logits are large matrics, so converting all to tensors at once is slow
+        num_samples = len(preds)
+        for i in range(num_samples):
+            logits = torch.tensor(preds[i], dtype=torch.float).unsqueeze(0)
+            targets = torch.tensor(target[i], dtype=torch.long).unsqueeze(0)
+            perplexity.update(logits, targets)
+        result = perplexity.compute()
         return result.item()
