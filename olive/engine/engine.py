@@ -271,7 +271,7 @@ class Engine:
             "output_name": output_name,
         }
 
-    def set_pass_flows(self, pass_flows: List[List[str]]):
+    def set_pass_flows(self, pass_flows: List[List[str]] = None):
         """
         Construct pass flows from a list of pass names.
         Args:
@@ -350,7 +350,7 @@ class Engine:
                         return outputs
 
                 if self.no_search:
-                    output = self.run_no_search(
+                    output, model_ids = self.run_no_search(
                         input_model,
                         input_model_id,
                         data_root,
@@ -360,8 +360,8 @@ class Engine:
                     )
                     if output:
                         outputs[accelerator_spec] = output
-                        pf_footprints[accelerator_spec] = self.get_pareto_frontier_footprints(
-                            accelerator_spec, len(self.pass_flows), None, output_dir, output_name or ""
+                        pf_footprints[accelerator_spec] = self.footprints[accelerator_spec].get_footprints_by_model_ids(
+                            model_ids
                         )
                 else:
                     footprint = self.run_search(
@@ -496,6 +496,8 @@ class Engine:
             pass_output_names[-1] = final_output_name
 
             output_model_json = None
+            output = {}
+            output_model_ids = []
             for pass_output_name, pass_output_model_id in zip(pass_output_names, model_ids):
                 if not pass_output_name:
                     continue
@@ -506,23 +508,24 @@ class Engine:
                     overwrite=True,
                     cache_dir=self._config.cache_dir,
                 )
+                output_model_ids.append(pass_output_model_id)
 
             # save the evaluation results to output_dir
 
             if signal is not None:
-                result_name = f"{result_prefix}_metrics"
+                result_name = f"{final_output_name}_metrics"
                 results_path = output_dir / f"{result_name}.json"
                 with open(results_path, "w") as f:
                     json.dump(signal.to_json(), f, indent=4)
 
             if output_model_json:
-                output = {"model": output_model_json}
+                output["model"] = output_model_json
                 if signal is not None:
                     output["metrics"] = signal
             else:
                 output = None
             flows_output[tuple(pass_flow)] = output
-        return flows_output
+        return flows_output, output_model_ids
 
     def run_search(
         self,
