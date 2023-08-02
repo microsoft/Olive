@@ -157,6 +157,8 @@ def text_generation_huggingface_pre_process(
     from datasets import Dataset as HFDataset
     from transformers import AutoTokenizer
 
+    assert seqlen is not None, "Must specify seqlen"
+
     # get tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
