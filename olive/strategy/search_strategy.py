@@ -135,9 +135,14 @@ class SearchStrategy(ABC):
         """
         Get the next search space group and initialize the search algorithm.
         """
+        # if there is no more search space group, return None
+        # 1. joint: no more flows(self._space_groups)
+        # 2. pass-by-pass: no more flows(self._space_groups) and no more passes(self._pass_by_pass_sg)
         if not (self._spaces_groups or self._pass_by_pass_sg):
             self._active_spaces_group = None
             return None
+
+        # for the fist search group, init_model_id must be provided
         if init_model_id is None and self._active_spaces_group is None:
             raise ValueError("init_model_id must be provided for the first search group")
 
@@ -148,11 +153,13 @@ class SearchStrategy(ABC):
         return next_sg
 
     def _next_search_group_pass_by_pass(self, init_model_id: Optional[str] = None) -> Optional[SearchAlgorithm]:
+        # passes are exhausted or empty for current flow, try next pass flow
         if not self._pass_by_pass_sg:
             self._pass_by_pass_sg = self._spaces_groups.pop(0)
             self._active_spaces_group = None
             init_model_id = self.init_model_id
 
+        # get the best model from last space group
         if self._active_spaces_group is not None:
             self._done_spaces_groups.append(self._active_spaces_group)
             # legacy, will update once search results has info function
@@ -184,6 +191,9 @@ class SearchStrategy(ABC):
                 " evaluated successfully. Cannot continue."
             )
 
+        # set up next search group
+        # if it is the first run in this flow, init_model_id should be input model id
+        # otherwise, it should be the best model id from last search group
         self._active_spaces_group = self._pass_by_pass_sg.pop(0)
         self._searchers[tuple(self._active_spaces_group)] = self._create_searcher(self._active_spaces_group)
         self._search_results[tuple(self._active_spaces_group)] = SearchResults(self._objective_dict)
@@ -192,6 +202,8 @@ class SearchStrategy(ABC):
 
     def _next_search_group_joint(self, init_model_id: Optional[str] = None) -> Optional[SearchAlgorithm]:
         init_model_id = init_model_id or self.init_model_id
+        # get the first pass flow
+        # for "joint" model, init_model_id should be input_model_id
         sg = self._spaces_groups.pop(0)
         self._searchers[tuple(sg)] = self._create_searcher(sg)
         self._search_results[tuple(sg)] = SearchResults(self._objective_dict)

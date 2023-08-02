@@ -360,7 +360,9 @@ class Engine:
                     )
                     if output:
                         outputs[accelerator_spec] = output
-                        pf_footprints[accelerator_spec] = self.footprints[accelerator_spec].get_last_node()
+                        pf_footprints[accelerator_spec] = self.get_pareto_frontier_footprints(
+                            accelerator_spec, len(self.pass_flows), None, output_dir, output_name or ""
+                        )
                 else:
                     footprint = self.run_search(
                         input_model,
@@ -425,6 +427,10 @@ class Engine:
         """
         Run all the registered Olive passes in no-search model where search strategy is None.
         """
+        assert (
+            self.search_strategy._config.execution_order == "joint"
+        ), "run_no_search only supports default joint execution order"
+
         for pass_item in self.passes.values():
             if len(pass_item["pass"].search_space()) > 0:
                 pass_name = pass_item["name"]
@@ -442,66 +448,81 @@ class Engine:
         # initialize the search strategy
         self.search_strategy.initialize(self.pass_flows_search_spaces, input_model_id, objective_dict)
 
-        # get the next step
-        next_step = self.search_strategy.next_step()
-        assert next_step is not None, "Search strategy returned None for the first step"
+        iter_num = 0
+        flows_output = {}
+        while True:
+            iter_num += 1
 
-        # get the model id of the first input model
-        model_id = next_step["model_id"]
-        if model_id == input_model_id:
-            model = input_model
-        else:
-            model = self._load_model(model_id)
+            # get the next step
+            next_step = self.search_strategy.next_step()
+            if iter_num == 1:
+                assert next_step is not None, "Search strategy returned None for the first step"
+            # if no more steps, break
+            if next_step is None:
+                break
 
-        logger.debug(f"Step no search with search point {next_step['search_point']} ...")
+            assert iter_num <= len(self.pass_flows), "No more pass flows to run"
 
-        # run all the passes in the step
-        (
-            _,
-            signal,
-            model_ids,
-        ) = self._run_passes(next_step["passes"], model, model_id, data_root, accelerator_spec)
-        # names of the output models of the passes
-        pass_output_names = [self.passes[pass_name]["output_name"] for pass_name, _ in next_step["passes"]]
-        pass_output_names = [f"{name}_{accelerator_spec}" if name else None for name in pass_output_names]
+            # get the model id of the first input model
+            model_id = next_step["model_id"]
+            if model_id == input_model_id:
+                model = input_model
+            else:
+                model = self._load_model(model_id)
 
-        final_output_name = pass_output_names[-1]
-        if output_name:
-            # override the output name of the last pass
-            logger.debug("Engine output_name is provided. Will ignore output_name for final pass")
-            final_output_name = f"{output_name}_{accelerator_spec}"
-        elif not final_output_name:
-            # use the default output name
-            final_output_name = str(accelerator_spec)
-        pass_output_names[-1] = final_output_name
+            logger.debug(f"Step no search with search point {next_step['search_point']} ...")
 
-        output_model_json = None
-        for pass_output_name, pass_output_model_id in zip(pass_output_names, model_ids):
-            if not pass_output_name:
-                continue
-            output_model_json = cache_utils.save_model(
-                model_number=pass_output_model_id,
-                output_dir=output_dir,
-                output_name=f"{pass_output_name}_model",
-                overwrite=True,
-                cache_dir=self._config.cache_dir,
-            )
+            # run all the passes in the step
+            (
+                _,
+                signal,
+                model_ids,
+            ) = self._run_passes(next_step["passes"], model, model_id, data_root, accelerator_spec)
+            # names of the output models of the passes
+            pass_output_names = [self.passes[pass_name]["output_name"] for pass_name, _ in next_step["passes"]]
+            pass_output_names = [f"{name}_{accelerator_spec}" if name else None for name in pass_output_names]
 
-        # save the evaluation results to output_dir
-        if signal is not None:
-            result_name = f"{final_output_name}_metrics"
-            results_path = output_dir / f"{result_name}.json"
-            with open(results_path, "w") as f:
-                json.dump(signal.to_json(), f, indent=4)
+            pass_flow = self.pass_flows[iter_num - 1]
+            result_prefix = "-".join(pass_flow)
 
-        if output_model_json:
-            output = {"model": output_model_json}
+            final_output_name = pass_output_names[-1]
+            if output_name:
+                # override the output name of the last pass
+                logger.debug("Engine output_name is provided. Will ignore output_name for final pass")
+                final_output_name = f"{output_name}_{accelerator_spec}_{result_prefix}"
+            elif not final_output_name:
+                # use the default output name
+                final_output_name = f"{accelerator_spec}_{result_prefix}"
+            pass_output_names[-1] = final_output_name
+
+            output_model_json = None
+            for pass_output_name, pass_output_model_id in zip(pass_output_names, model_ids):
+                if not pass_output_name:
+                    continue
+                output_model_json = cache_utils.save_model(
+                    model_number=pass_output_model_id,
+                    output_dir=output_dir,
+                    output_name=f"{pass_output_name}_model",
+                    overwrite=True,
+                    cache_dir=self._config.cache_dir,
+                )
+
+            # save the evaluation results to output_dir
+
             if signal is not None:
-                output["metrics"] = signal
-        else:
-            output = None
+                result_name = f"{result_prefix}_metrics"
+                results_path = output_dir / f"{result_name}.json"
+                with open(results_path, "w") as f:
+                    json.dump(signal.to_json(), f, indent=4)
 
-        return output
+            if output_model_json:
+                output = {"model": output_model_json}
+                if signal is not None:
+                    output["metrics"] = signal
+            else:
+                output = None
+            flows_output[tuple(pass_flow)] = output
+        return flows_output
 
     def run_search(
         self,
@@ -565,8 +586,13 @@ class Engine:
             time_diff = time.time() - start_time
             self.search_strategy.check_exit_criteria(iter_num, time_diff, signal)
 
-        self.footprints[accelerator_spec].to_file(output_dir / f"{prefix_output_name}footprints.json")
+        return self.get_pareto_frontier_footprints(
+            accelerator_spec, output_model_num, objective_dict, output_dir, prefix_output_name
+        )
 
+    def get_pareto_frontier_footprints(
+        self, accelerator_spec, output_model_num, objective_dict, output_dir, prefix_output_name
+    ):
         pf_footprints = self.footprints[accelerator_spec].get_pareto_frontier()
         if output_model_num is None or len(pf_footprints.nodes) <= output_model_num:
             logger.info(f"Output all {len(pf_footprints.nodes)} models")

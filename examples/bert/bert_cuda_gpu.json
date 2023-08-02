@@ -61,7 +61,6 @@
             "config": {
                 "enable_cuda_graph": true
             }
-
         }
     },
     "pass_flows": [
