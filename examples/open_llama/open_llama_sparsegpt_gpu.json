@@ -64,7 +64,6 @@
     "engine": {
         "log_severity_level": 0,
         "search_strategy": false,
-        "evaluate_input_model": true,
         "evaluator": "common_evaluator",
         "target": {
             "type": "LocalSystem",
@@ -74,6 +73,6 @@
         },
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
-        "output_dir" : "models/bert_ptq_cpu"
+        "output_dir" : "models/sparsegpt"
     }
 }
