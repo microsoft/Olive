@@ -23,7 +23,7 @@ class AccuracyBase(AutoConfigClass):
         "f1_score": torchmetrics.F1Score,
         "precision": torchmetrics.Precision,
         "recall": torchmetrics.Recall,
-        "auc": torchmetrics.functional.auc,
+        "auc": torchmetrics.AUROC,
         "perplexity": torchmetrics.text.perplexity.Perplexity,
     }
 
@@ -35,6 +35,12 @@ class AccuracyBase(AutoConfigClass):
 
     def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
         super().__init__(config)
+
+    def resolve_kwargs(self):
+        config_dict = self.config.dict()
+        kwargs = config_dict.pop("kwargs", {})
+        config_dict.update(kwargs or {})
+        self.config_dict = config_dict
 
     @classmethod
     def _metric_config_from_torch_metrics(cls):
@@ -70,16 +76,16 @@ class AccuracyBase(AutoConfigClass):
         return preds, target
 
     @abstractmethod
-    def measure(self, preds, target):
+    def measure(self, preds, target, logits=None):
         raise NotImplementedError()
 
 
 class AccuracyScore(AccuracyBase):
     name: str = "accuracy_score"
 
-    def measure(self, preds, target):
+    def measure(self, preds, target, logits=None):
         preds_tensor, target_tensor = self.prepare_tensors(preds, target)
-        accuracy = torchmetrics.Accuracy(**self.config.dict())
+        accuracy = torchmetrics.Accuracy(**self.config_dict)
         result = accuracy(preds_tensor, target_tensor)
         return result.item()
 
@@ -87,9 +93,9 @@ class AccuracyScore(AccuracyBase):
 class F1Score(AccuracyBase):
     name: str = "f1_score"
 
-    def measure(self, preds, target):
+    def measure(self, preds, target, logits=None):
         preds_tensor, target_tensor = self.prepare_tensors(preds, target)
-        f1 = torchmetrics.F1Score(**self.config.dict())
+        f1 = torchmetrics.F1Score(**self.config_dict)
         result = f1(preds_tensor, target_tensor)
         return result.item()
 
@@ -97,9 +103,9 @@ class F1Score(AccuracyBase):
 class Precision(AccuracyBase):
     name: str = "precision"
 
-    def measure(self, preds, target):
+    def measure(self, preds, target, logits=None):
         preds_tensor, target_tensor = self.prepare_tensors(preds, target)
-        precision = torchmetrics.Precision(**self.config.dict())
+        precision = torchmetrics.Precision(**self.config_dict)
         result = precision(preds_tensor, target_tensor)
         return result.item()
 
@@ -107,9 +113,9 @@ class Precision(AccuracyBase):
 class Recall(AccuracyBase):
     name: str = "recall"
 
-    def measure(self, preds, target):
+    def measure(self, preds, target, logits=None):
         preds_tensor, target_tensor = self.prepare_tensors(preds, target)
-        recall = torchmetrics.Recall(**self.config.dict())
+        recall = torchmetrics.Recall(**self.config_dict)
         result = recall(preds_tensor, target_tensor)
         return result.item()
 
@@ -117,20 +123,21 @@ class Recall(AccuracyBase):
 class AUC(AccuracyBase):
     name: str = "auc"
 
-    def measure(self, preds, target):
-        preds_tensor, target_tensor = self.prepare_tensors(preds, target)
-        preds_tensor = preds_tensor.flatten()
+    def measure(self, preds, target, logits=None):
+        logits_tensor, target_tensor = self.prepare_tensors(logits, target, dtypes=[torch.float, torch.int32])
+        auroc = torchmetrics.AUROC(**self.config_dict)
+        logits_tensor = logits_tensor.flatten(start_dim=1)
         target_tensor = target_tensor.flatten()
-        result = torchmetrics.functional.auc(preds_tensor, target_tensor, self.config.reorder)
+        result = auroc(logits_tensor, target_tensor)
         return result.item()
 
 
 class Perplexity(AccuracyBase):
     name: str = "perplexity"
 
-    def measure(self, preds, target):
+    def measure(self, preds, target, logits=None):
         # update ignore_index if not set
-        config = self.config.dict()
+        config = self.config_dict
         if config["ignore_index"] is None:
             config["ignore_index"] = -100
 

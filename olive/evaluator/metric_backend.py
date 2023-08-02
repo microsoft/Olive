@@ -25,20 +25,21 @@ class MetricBackend(AutoConfigClass):
     def measure_sub_metric(self, preds, targets, sub_metric: SubMetric) -> SubMetricResult:
         raise NotImplementedError()
 
-    def measure(self, preds, targets, metrics: Metric) -> MetricResult:
+    def measure(self, preds, targets, metrics: Metric, logits=None) -> MetricResult:
         metric_results_dict = {}
         for sub_metric in metrics.sub_types:
-            metric_results_dict[sub_metric.name] = self.measure_sub_metric(preds, targets, sub_metric)
+            metric_results_dict[sub_metric.name] = self.measure_sub_metric(preds, targets, sub_metric, logits)
         return MetricResult.parse_obj(metric_results_dict)
 
 
 class TorchMetrics(MetricBackend):
     name: str = "torch_metrics"
 
-    def measure_sub_metric(self, preds, targets, sub_metric: SubMetric) -> SubMetricResult:
+    def measure_sub_metric(self, preds, targets, sub_metric: SubMetric, logits) -> SubMetricResult:
         metric_cls = AccuracyBase.registry[sub_metric.name.value]
         metric_obj = metric_cls(sub_metric.metric_config)
-        result = metric_obj.measure(preds, targets)
+        metric_obj.resolve_kwargs()
+        result = metric_obj.measure(preds, targets, logits)
         return SubMetricResult(
             value=result,
             priority=sub_metric.priority,
@@ -77,7 +78,7 @@ class HuggingfaceMetrics(MetricBackend):
             ),
         }
 
-    def measure_sub_metric(self, preds, target, sub_metric: SubMetric) -> SubMetricResult:
+    def measure_sub_metric(self, preds, target, sub_metric: SubMetric, logits=None) -> SubMetricResult:
         load_params = sub_metric.metric_config.load_params or {}
         evaluator = self.evaluate_module.load(sub_metric.name, **load_params)
 

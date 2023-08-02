@@ -23,9 +23,11 @@
                     "name": "accuracy",
                     "type": "accuracy",
                     "sub_types": [
-                        {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
-                        {"name": "f1_score", "metric_config": {"multiclass": false}},
-                        {"name": "auc", "metric_config": {"reorder": true}}
+                        {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}, "metric_config": {"task": "binary"}},
+                        {"name": "f1_score", "metric_config": {"task": "binary"}},
+                        {"name": "precision", "metric_config": {"task": "binary"}},
+                        {"name": "recall", "metric_config": {"task": "binary"}},
+                        {"name": "auc", "metric_config": {"task": "binary"}}
                     ]
                 },
                 {
@@ -75,7 +77,6 @@
         },
         "evaluator": "common_evaluator",
         "execution_providers": ["CUDAExecutionProvider"],
-        "clean_cache": true,
         "cache_dir": "cache",
         "output_dir" : "models/bert_cuda"
     }

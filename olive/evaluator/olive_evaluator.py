@@ -248,12 +248,12 @@ class OliveEvaluator(ABC):
         return dataloader, eval_func, post_func
 
     @staticmethod
-    def compute_accuracy(metric: Metric, preds: Any, targets: Any) -> MetricResult:
+    def compute_accuracy(metric: Metric, preds: Any, targets: Any, logits: Any = None) -> MetricResult:
         """
         Compute accuracy metrics
         """
         evaluate_backend_cls = MetricBackend.registry[metric.backend]
-        return evaluate_backend_cls().measure(preds, targets, metric)
+        return evaluate_backend_cls().measure(preds, targets, metric, logits)
 
     @staticmethod
     def compute_latency(metric: Metric, latencies: Any) -> MetricResult:
@@ -324,6 +324,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         preds = []
         targets = []
+        logits = []
         output_names = io_config["output_names"]
         for input_data, labels in dataloader:
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
@@ -337,9 +338,11 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             # keep as numpy or torch arrays
             preds.append(outputs.cpu())
             targets.append(labels.cpu())
+            logits.append(result.cpu())
         preds = torch.cat(preds, dim=0)
         targets = torch.cat(targets, dim=0)
-        return preds, targets
+        logits = torch.cat(logits, dim=0)
+        return preds, targets, logits
 
     def _evaluate_onnx_accuracy(
         self,
@@ -614,6 +617,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
 
         preds = []
         targets = []
+        logits = []
         device = PyTorchEvaluator._device_string_to_torch_device(device)
         if device:
             session.to(device)
@@ -625,10 +629,12 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
             # it is expensive to convert to list and then convert back to torch tensor
             preds.append(outputs.cpu())
             targets.append(labels.cpu())
+            logits.append(result.logits.cpu())
         # concatenate along the batch dimension
         preds = torch.cat(preds, dim=0)
         targets = torch.cat(targets, dim=0)
-        return preds, targets
+        logits = torch.cat(logits, dim=0)
+        return preds, targets, logits
 
     def _evaluate_accuracy(
         self,
@@ -640,9 +646,9 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        preds, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        preds, targets, logits = self._inference(model, metric, dataloader, post_func, device, execution_providers)
 
-        return OliveEvaluator.compute_accuracy(metric, preds, targets)
+        return OliveEvaluator.compute_accuracy(metric, preds, targets, logits)
 
     def _evaluate_latency(
         self,
@@ -700,6 +706,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
 
         preds = []
         targets = []
+        logits = []
         for data_dir, input_list, labels in dataloader:
             result = session(input_list, data_dir)
             if post_func:
@@ -708,7 +715,8 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
                 raise ValueError("Post processing function is required for SNPE model")
             preds.extend(outputs.tolist())
             targets.extend(labels.tolist())
-        return preds, targets
+            logits.extend(result.tolist())
+        return preds, targets, logits
 
     def _evaluate_accuracy(
         self,
@@ -768,6 +776,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
 
         preds = []
         targets = []
+        logits = []
         for input_data, labels in dataloader:
             result = session.infer_new_request({0: input_data})
             outputs = post_func(result) if post_func else result
@@ -775,7 +784,8 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
                 labels = [labels]
             preds.extend(outputs)
             targets.extend(labels)
-        return preds, targets
+            logits.extend(result)
+        return preds, targets, logits
 
     def _evaluate_accuracy(
         self,
