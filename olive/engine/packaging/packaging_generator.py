@@ -91,11 +91,8 @@ def _package_candidate_models(
                     onnx_model = ONNXModel(temp_resource_path, onnx_file_name)
                     model_name = Path(onnx_model.model_path).name
                     for file in Path(temp_resource_path.get_path()).iterdir():
-                        if file.name.startswith(model_name):
-                            if file.name.endswith(".onnx"):
-                                file_name = "model.onnx"
-                            elif file.name.endswith(".onnx.data"):
-                                file_name = "model.onnx.data"
+                        if file.name == model_name:
+                            file_name = "model.onnx"
                         else:
                             file_name = file.name
                         Path(file).rename(model_dir / file_name)
