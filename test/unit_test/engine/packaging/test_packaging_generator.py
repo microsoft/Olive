@@ -7,6 +7,10 @@ import tempfile
 import zipfile
 from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_pytorch_model
+from unittest.mock import patch
+
+import onnx
+import pytest
 
 from olive.engine import Engine
 from olive.engine.footprint import Footprint
@@ -18,8 +22,15 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.onnx.conversion import OnnxConversion
 
 
-def test_generate_zipfile_artifacts():
+@patch("onnx.external_data_helper.sys.getsizeof")
+@pytest.mark.parametrize(
+    "save_as_external_data, mocked_size_value",
+    [(True, 2048), (False, 100)],
+)
+def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, mocked_size_value):
     # setup
+    # onnx will save with external data when tensor size is greater than 1024(default threshold)
+    mock_sys_getsizeof.return_value = mocked_size_value
     metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
     evaluator_config = OliveEvaluatorConfig(metrics=[metric])
     options = {
@@ -32,7 +43,7 @@ def test_generate_zipfile_artifacts():
         "clean_evaluation_cache": True,
     }
     engine = Engine(options, evaluator_config=evaluator_config)
-    engine.register(OnnxConversion)
+    engine.register(OnnxConversion, {"save_as_external_data": save_as_external_data})
 
     input_model = get_pytorch_model()
 
@@ -56,7 +67,16 @@ def test_generate_zipfile_artifacts():
     assert (output_dir / "ONNXRuntimePackages").exists()
 
     # contain the evaluation result
-    metrics_file = output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1" / "metrics.json"
+    candidate_model_path = output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1"
+    if save_as_external_data:
+        assert (candidate_model_path / "model.onnx.data").exists()
+    try:
+        model_path = candidate_model_path / "model.onnx"
+        onnx.load(str(model_path))
+    except Exception as e:
+        pytest.fail(f"Failed to load the model: {e}")
+
+    metrics_file = candidate_model_path / "metrics.json"
     with open(metrics_file, "r") as f:
         metrics = json.load(f)
         assert "input_model_metrics" in metrics
