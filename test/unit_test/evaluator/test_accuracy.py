@@ -5,15 +5,25 @@
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pytest
 
 from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Perplexity, Precision, Recall
 
 
 @patch("olive.evaluator.accuracy.torch.tensor")
 @patch("olive.evaluator.accuracy.torchmetrics")
-def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch_tensor):
+@pytest.mark.parametrize(
+    "metric_config",
+    [
+        {"task": "binary"},
+        {"task": "binary", "kwargs": {"test": 2}},
+    ],
+)
+def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch_tensor, metric_config):
     # setup
-    acc = AccuracyScore()
+    acc = AccuracyScore(metric_config)
+    assert "kwargs" in acc.config.dict()
+    assert "kwargs" not in acc.config_dict
     preds = [1, 0, 1, 1]
     targets = [1, 1, 1, 1]
     expected_res = 0.99
