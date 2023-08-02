@@ -179,7 +179,8 @@ class SparseGPT(Pass):
             logger.debug(f"Losses for layer {i}: {losses}")
 
             layer.to("cpu")
-            torch.cuda.empty_cache()
+            if "cuda" in device:
+                torch.cuda.empty_cache()
 
             inputs, outputs = outputs, inputs
 

@@ -126,7 +126,9 @@ def catch_layer_inputs(model, model_type, dataloader, device):
         module = _get_attr(model, name)
         if module:
             module.to("cpu")
-    torch.cuda.empty_cache()
+
+    if "cuda" in str(device):
+        torch.cuda.empty_cache()
 
     return inputs, cache["attention_mask"]
 
@@ -259,7 +261,8 @@ class SparseGPTModule:
             # lazy update rest of the weights
             W[:, end:] -= Err1.matmul(Hinv[start:end, end:])
 
-        torch.cuda.synchronize()
+        if "cuda" in str(self.device):
+            torch.cuda.synchronize()
 
         # set new weights
         if isinstance(self.layer, transformers.Conv1D):
@@ -270,4 +273,5 @@ class SparseGPTModule:
 
     def free(self):
         self.H = None
-        torch.cuda.empty_cache()
+        if "cuda" in str(self.device):
+            torch.cuda.empty_cache()
