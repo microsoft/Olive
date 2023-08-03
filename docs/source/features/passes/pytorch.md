@@ -65,7 +65,9 @@ for an example implementation of `"user_script.py"` and `"create_train_dataloade
 sparsity upto 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
 as 2:4 and 4:8 patterns.
 
-TensorRT can accelerate inference on 2:4 sparse models as described in [this blog](https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/).
+Please refer to the original paper linked above for more details on the algorithm and performance results for different models, sparsities and datasets.
+
+**Note:** TensorRT can accelerate inference on 2:4 sparse models as described in [this blog](https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/).
 
 ### Example Configuration
 ```json

@@ -62,6 +62,9 @@ class SparseGPT(Pass):
                 default_value=None,
                 description="Only prune layers whose name contains the given string(s).",
             ),
+            # this is not the same as accelerator_spec.device which is the target device for inference
+            # compute_device is the device we want to run the algorithm on, does not affect the final model
+            # so accelerator_spec.device can be cpu but compute_device can be cuda for faster pass execution
             "compute_device": PassConfigParam(
                 type_=str,
                 default_value="auto",
