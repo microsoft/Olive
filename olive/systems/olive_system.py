@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 class OliveSystem(ABC):
     system_type: SystemType
 
-    def __init__(self, accelerators: List[str] = None):
+    def __init__(self, accelerators: List[str] = None, olive_managed_env: bool = False):
         self.accelerators = accelerators
+        self.olive_managed_env = olive_managed_env
 
     @abstractmethod
     def run_pass(

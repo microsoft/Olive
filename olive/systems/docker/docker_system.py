@@ -15,6 +15,7 @@ import docker
 import olive.systems.docker.utils as docker_utils
 from olive.common.config_utils import validate_config
 from olive.evaluator.metric import Metric, MetricResult
+from olive.hardware import Device
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OliveModel
 from olive.passes import Pass
@@ -31,51 +32,51 @@ class DockerSystem(OliveSystem):
 
     def __init__(
         self,
-        local_docker_config: Union[Dict[str, Any], LocalDockerConfig],
+        local_docker_config: Union[Dict[str, Any], LocalDockerConfig] = None,
         accelerators: List[str] = None,
         is_dev: bool = False,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
     ):
-        super().__init__(accelerators=accelerators)
+        super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env)
         logger.info("Initializing Docker System...")
-        local_docker_config = validate_config(local_docker_config, LocalDockerConfig)
         self.is_dev = is_dev
-        self.docker_client = docker.from_env()
-        self.run_params = local_docker_config.run_params
-        self.olive_managed_env = olive_managed_env
         self.requirements_file = requirements_file
-        try:
-            self.image = self.docker_client.images.get(local_docker_config.image_name)
-            logger.info(f"Image {local_docker_config.image_name} found")
+        if local_docker_config:
+            self.docker_client = docker.from_env()
+            local_docker_config = validate_config(local_docker_config, LocalDockerConfig)
+            self.run_params = local_docker_config.run_params
+            try:
+                self.image = self.docker_client.images.get(local_docker_config.image_name)
+                logger.info(f"Image {local_docker_config.image_name} found")
 
-        except docker.errors.ImageNotFound:
-            if local_docker_config.build_context_path and local_docker_config.dockerfile:
-                build_context_path = local_docker_config.build_context_path
-                logger.info(f"Building image from Dockerfile {build_context_path}/{local_docker_config.dockerfile}")
-                self.image = self.docker_client.images.build(
-                    path=build_context_path,
-                    dockerfile=local_docker_config.dockerfile,
-                    tag=local_docker_config.image_name,
-                    buildargs=local_docker_config.build_args,
-                )[0]
-            elif local_docker_config.requirements_file_path:
-                logger.info(
-                    f"Building image from Olive default Dockerfile with buildargs {local_docker_config.build_args} "
-                    f"requirements.txt {local_docker_config.requirements_file_path}"
-                )
-                dockerfile_path = str(Path(__file__).resolve().parent / self.BASE_DOCKERFILE)
-                with tempfile.TemporaryDirectory() as tempdir:
-                    build_context_path = tempdir
-                    shutil.copy2(dockerfile_path, build_context_path)
-                    shutil.copy2(local_docker_config.requirements_file_path, build_context_path)
+            except docker.errors.ImageNotFound:
+                if local_docker_config.build_context_path and local_docker_config.dockerfile:
+                    build_context_path = local_docker_config.build_context_path
+                    logger.info(f"Building image from Dockerfile {build_context_path}/{local_docker_config.dockerfile}")
                     self.image = self.docker_client.images.build(
                         path=build_context_path,
-                        dockerfile=self.BASE_DOCKERFILE,
+                        dockerfile=local_docker_config.dockerfile,
                         tag=local_docker_config.image_name,
                         buildargs=local_docker_config.build_args,
                     )[0]
-            logger.info(f"Image {local_docker_config.image_name} build successfully.")
+                elif local_docker_config.requirements_file_path:
+                    logger.info(
+                        f"Building image from Olive default Dockerfile with buildargs {local_docker_config.build_args} "
+                        f"requirements.txt {local_docker_config.requirements_file_path}"
+                    )
+                    dockerfile_path = str(Path(__file__).resolve().parent / self.BASE_DOCKERFILE)
+                    with tempfile.TemporaryDirectory() as tempdir:
+                        build_context_path = tempdir
+                        shutil.copy2(dockerfile_path, build_context_path)
+                        shutil.copy2(local_docker_config.requirements_file_path, build_context_path)
+                        self.image = self.docker_client.images.build(
+                            path=build_context_path,
+                            dockerfile=self.BASE_DOCKERFILE,
+                            tag=local_docker_config.image_name,
+                            buildargs=local_docker_config.build_args,
+                        )[0]
+                logger.info(f"Image {local_docker_config.image_name} build successfully.")
 
     def run_pass(
         self,
@@ -97,14 +98,20 @@ class DockerSystem(OliveSystem):
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
             metrics_res = None
-            metric_json = self._run_container(tempdir, model, data_root, metrics, container_root_path)
+            metric_json = self._run_container(tempdir, model, data_root, metrics, container_root_path, accelerator)
             if metric_json.is_file():
                 with metric_json.open() as f:
                     metrics_res = json.load(f)
             return MetricResult.parse_obj(metrics_res)
 
     def _run_container(
-        self, tempdir, model: OliveModel, data_root: str, metrics: List[Metric], container_root_path: Path
+        self,
+        tempdir,
+        model: OliveModel,
+        data_root: str,
+        metrics: List[Metric],
+        container_root_path: Path,
+        accelerator: AcceleratorSpec,
     ):
         eval_output_path = "eval_output"
         eval_output_name = "eval_res.json"
@@ -169,14 +176,25 @@ class DockerSystem(OliveSystem):
                 environment[k] = v
 
         logger.debug(f"Running container with eval command: {eval_command}")
-        container = self.docker_client.containers.run(
-            image=self.image,
-            command=eval_command,
-            volumes=volumes_list,
-            detach=True,
-            environment=environment,
-            **run_command,
-        )
+        if accelerator.accelerator_type == Device.GPU:
+            container = self.docker_client.containers.run(
+                image=self.image,
+                command=eval_command,
+                volumes=volumes_list,
+                detach=True,
+                environment=environment,
+                device_requests=[docker.types.DeviceRequest(capabilities=[["gpu"]])],
+                **run_command,
+            )
+        else:
+            container = self.docker_client.containers.run(
+                image=self.image,
+                command=eval_command,
+                volumes=volumes_list,
+                detach=True,
+                environment=environment,
+                **run_command,
+            )
         docker_logs = []
         for line in container.logs(stream=True):
             # containers.logs can accept stdout/stderr as arguments, but it doesn't work
@@ -196,3 +214,6 @@ class DockerSystem(OliveSystem):
 
         metric_json = Path(output_local_path) / f"{eval_output_name}"
         return metric_json
+
+    def install_requirements(self, accelerator: AcceleratorSpec):
+        pass

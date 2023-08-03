@@ -45,7 +45,7 @@ class PythonEnvironmentSystem(OliveSystem):
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
     ):
-        super().__init__(accelerators=accelerators)
+        super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env)
         self.config = PythonEnvironmentTargetUserConfig(
             python_environment_path=python_environment_path,
             environment_variables=environment_variables,

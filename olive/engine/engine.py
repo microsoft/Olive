@@ -306,11 +306,15 @@ class Engine:
         outputs = {}
         pf_footprints = {}
 
-        origin_system = self.target
+        origin_target_system = self.target
+        origin_host_system = self.host
         for accelerator_spec in self.accelerator_specs:
-            if origin_system.config.olive_managed_env:
-                self.target = create_new_system(origin_system, accelerator_spec)
+            if origin_target_system.olive_managed_env:
+                self.target = create_new_system(origin_target_system, accelerator_spec)
                 self.target.install_requirements(accelerator_spec)
+            if origin_host_system.olive_managed_env:
+                self.host = create_new_system(origin_host_system, accelerator_spec)
+                self.host.install_requirements(accelerator_spec)
 
             # generate search space and initialize the passes for each hardware accelerator
             self.setup_passes(accelerator_spec)

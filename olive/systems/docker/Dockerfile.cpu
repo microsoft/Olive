@@ -1,0 +1,13 @@
+# mcr image https://github.com/microsoft/mcr
+# tag list https://mcr.microsoft.com/v2/azureml/openmpi4.1.0-ubuntu20.04/tags/list
+FROM mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:20230727.v1
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get -y update && apt-get -y upgrade
+RUN apt-get install -y --no-install-recommends wget python3-dev python3-pip gnupg
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
+RUN python -m pip install --upgrade pip
+RUN python -m pip install pandas plotly psutil datasets transformers
+RUN python -m pip install onnxruntime-openvino==1.15.0
+RUN python -m pip install git+https://github.com/microsoft/Olive

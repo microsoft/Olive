@@ -44,7 +44,6 @@ def get_package_name(execution_provider):
         "CUDAExecutionProvider": "onnxruntime-gpu",
         "TensorrtExecutionProvider": "onnxruntime-gpu",
         "OpenVINOExecutionProvider": "onnxruntime-openvino",
-        "DmlExecutionProvider": "onnxruntime-directml",
     }
     return PROVIDER_PACKAGE_MAPPING.get(execution_provider, "onnxruntime")
 
@@ -55,7 +54,6 @@ def create_new_system(origin_system, accelerator):
         "CUDAExecutionProvider": "Dockerfile.gpu",
         "TensorrtExecutionProvider": "Dockerfile.gpu",
         "OpenVINOExecutionProvider": "Dockerfile.openvino",
-        "DmlExecutionProvider": "Dockerfile.dml",
     }
 
     # create a new system with the same type as the origin system
@@ -87,9 +85,10 @@ def create_new_system(origin_system, accelerator):
         dockerfile = PROVIDER_DOCKERFILE_MAPPING.get(accelerator.execution_provider, "Dockerfile.cpu")
         new_system = DockerSystem(
             local_docker_config={
-                "image_name": f"Olive_{accelerator.execution_provider}",
+                "image_name": f"olive_{accelerator.execution_provider[:-17].lower()}",
                 "requirements_file_path": origin_system.requirements_file,
                 "dockerfile": dockerfile,
+                "build_context_path": ".",
             },
             accelerators=[accelerator.accelerator_type],
         )
@@ -101,13 +100,10 @@ def create_new_system(origin_system, accelerator):
         conda_file_path = export_conda_yaml_from_requirements(origin_system.requirements_file)
         new_system = AzureMLSystem(
             azureml_client_config=origin_system.azureml_client_config,
-            aml_compute=origin_system.aml_compute,
+            aml_compute=origin_system.compute,
             instance_count=origin_system.instance_count,
             accelerators=[accelerator.accelerator_type],
-            aml_docker_config={
-                "dockerfile": dockerfile,
-                "conda_file_path": conda_file_path,
-            },
+            aml_docker_config={"dockerfile": dockerfile, "conda_file_path": conda_file_path, "build_context_path": "."},
         )
 
     else:

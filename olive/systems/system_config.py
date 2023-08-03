@@ -24,16 +24,20 @@ class LocalTargetUserConfig(TargetUserConfig):
 
 
 class DockerTargetUserConfig(TargetUserConfig):
-    local_docker_config: LocalDockerConfig
+    local_docker_config: LocalDockerConfig = None
     is_dev: bool = False
+    olive_managed_env: bool = False
+    requirements_file: Union[Path, str] = None
 
 
 class AzureMLTargetUserConfig(TargetUserConfig):
     azureml_client_config: AzureMLClientConfig = None
     aml_compute: str
-    aml_docker_config: AzureMLDockerConfig
+    aml_docker_config: AzureMLDockerConfig = None
     instance_count: int = 1
     is_dev: bool = False
+    olive_managed_env: bool = False
+    requirements_file: Union[Path, str] = None
 
 
 class PythonEnvironmentTargetUserConfig(TargetUserConfig):

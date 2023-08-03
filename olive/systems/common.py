@@ -32,7 +32,10 @@ class AzureMLDockerConfig(ConfigBase):
 
     @validator("conda_file_path")
     def _get_abspath(cls, v):
-        return str(Path(v).resolve())
+        if v:
+            return str(Path(v).resolve())
+        else:
+            return None
 
 
 class LocalDockerConfig(ConfigBase):
