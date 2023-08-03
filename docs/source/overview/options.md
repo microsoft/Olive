@@ -101,7 +101,8 @@ case insensitive.
         - `task: [str]`: This is the task type for the model such as `text-classification`. The complete list of supported task can be found
         at [huggingface-tasks](https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task).
 
-        - `feature: [str]`: The ONNX export features. This is only needed for HuggingFace hub model. Default to `default`. You can find more info at [Export to ONNX](https://huggingface.co/docs/transformers/serialization)
+        - `feature: [str]`: The ONNX export features. This is only needed for HuggingFace hub model. It is inferred from `task` if not provided. You must provide the feature if you need past. For instance,
+        `"causal-lm-with-past"`. You can find more info at [Export to ONNX](https://huggingface.co/docs/transformers/serialization)
 
         - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
 
