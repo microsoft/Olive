@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, List, Union
 
 from pydantic import validator
 
@@ -64,6 +64,7 @@ class RunConfig(ConfigBase):
         ),
     }
     evaluators: Dict[str, OliveEvaluatorConfig] = None
+    pass_flows: List[List[str]] = None
     engine: RunEngineConfig
     passes: Dict[str, RunPassConfig]
 
