@@ -123,9 +123,8 @@ def patched_supported_features_mapping(*supported_features: str, onnx_config_cls
     if onnx_config_cls is None:
         raise ValueError("A OnnxConfig class must be provided")
 
-    import olive.model.hf_onnx_config as hf_onnx_config
+    import olive.model.hf_onnx_config as config_cls
 
-    config_cls = hf_onnx_config
     for attr_name in onnx_config_cls.split("."):
         config_cls = getattr(config_cls, attr_name)
     mapping = {}
