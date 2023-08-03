@@ -277,6 +277,9 @@
         <span class="c1"># {&quot;pass_name&quot;: {&quot;pass&quot;: pass, &quot;host&quot;: host, &quot;evaluator&quot;: evaluator, &quot;clean_run_cache&quot;: clean_run_cache}}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">passes</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows_search_spaces</span> <span class="o">=</span> <span class="kc">None</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="n">Footprint</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">azureml_client_config</span>
@@ -317,6 +320,7 @@
             <span class="k">if</span> <span class="n">clean_run_cache</span><span class="p">:</span>
                 <span class="n">cache_utils</span><span class="o">.</span><span class="n">clean_pass_run_cache</span><span class="p">(</span><span class="n">pass_config</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">cache_dir</span><span class="p">)</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">set_pass_flows</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">True</span>
 
 <div class="viewcode-block" id="Engine.register"><a class="viewcode-back" href="../../../api/engine.html#olive.engine.Engine.register">[docs]</a>    <span class="k">def</span> <span class="nf">register</span><span class="p">(</span>
@@ -390,6 +394,18 @@
             <span class="s2">&quot;output_name&quot;</span><span class="p">:</span> <span class="n">output_name</span><span class="p">,</span>
         <span class="p">}</span>
 
+    <span class="k">def</span> <span class="nf">set_pass_flows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_flows</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Construct pass flows from a list of pass names.</span>
+<span class="sd">        Args:</span>
+<span class="sd">            pass_flows: a list of pass names, each pass name is a string.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">pass_flows</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_config</span><span class="p">,</span> <span class="s2">&quot;Pass flows can only be set after passes are registered&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_config</span><span class="o">.</span><span class="n">keys</span><span class="p">())]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span> <span class="o">=</span> <span class="n">pass_flows</span>
+
 <div class="viewcode-block" id="Engine.run"><a class="viewcode-back" href="../../../api/engine.html#olive.engine.Engine.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">input_model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span>
@@ -457,7 +473,7 @@
                         <span class="k">return</span> <span class="n">outputs</span>
 
                 <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
-                    <span class="n">output</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_no_search</span><span class="p">(</span>
+                    <span class="n">output</span><span class="p">,</span> <span class="n">model_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_no_search</span><span class="p">(</span>
                         <span class="n">input_model</span><span class="p">,</span>
                         <span class="n">input_model_id</span><span class="p">,</span>
                         <span class="n">data_root</span><span class="p">,</span>
@@ -467,7 +483,9 @@
                     <span class="p">)</span>
                     <span class="k">if</span> <span class="n">output</span><span class="p">:</span>
                         <span class="n">outputs</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">output</span>
-                        <span class="n">pf_footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">get_last_node</span><span class="p">()</span>
+                        <span class="n">pf_footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">get_footprints_by_model_ids</span><span class="p">(</span>
+                            <span class="n">model_ids</span>
+                        <span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">footprint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_search</span><span class="p">(</span>
                         <span class="n">input_model</span><span class="p">,</span>
@@ -511,10 +529,14 @@
 
         <span class="c1"># list of passes starting from the first pass with non-empty search space</span>
         <span class="c1"># These passes will be added to the search space</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">pass_search_spaces</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">pass_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-            <span class="n">p</span><span class="p">:</span> <span class="n">Pass</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_name</span><span class="p">][</span><span class="s2">&quot;pass&quot;</span><span class="p">]</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">pass_search_spaces</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">search_space</span><span class="p">()))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows_search_spaces</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">pass_flow</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pass_search_spaces</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">pass_name</span> <span class="ow">in</span> <span class="n">pass_flow</span><span class="p">:</span>
+                <span class="n">pass_cls_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_config</span><span class="p">[</span><span class="n">pass_name</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span><span class="o">.</span><span class="vm">__name__</span>
+                <span class="n">p</span><span class="p">:</span> <span class="n">Pass</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_cls_name</span><span class="p">][</span><span class="s2">&quot;pass&quot;</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">pass_search_spaces</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">pass_cls_name</span><span class="p">,</span> <span class="n">p</span><span class="o">.</span><span class="n">search_space</span><span class="p">()))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows_search_spaces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_search_spaces</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">run_no_search</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -528,6 +550,10 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Run all the registered Olive passes in no-search model where search strategy is None.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_order</span> <span class="o">==</span> <span class="s2">&quot;joint&quot;</span>
+        <span class="p">),</span> <span class="s2">&quot;run_no_search only supports default joint execution order&quot;</span>
+
         <span class="k">for</span> <span class="n">pass_item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pass_item</span><span class="p">[</span><span class="s2">&quot;pass&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">search_space</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">pass_name</span> <span class="o">=</span> <span class="n">pass_item</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
@@ -543,68 +569,85 @@
             <span class="p">)</span>
 
         <span class="c1"># initialize the search strategy</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_search_spaces</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_flows_search_spaces</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">)</span>
 
-        <span class="c1"># get the next step</span>
-        <span class="n">next_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">next_step</span><span class="p">()</span>
-        <span class="k">assert</span> <span class="n">next_step</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Search strategy returned None for the first step&quot;</span>
+        <span class="n">iter_num</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">flows_output</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">iter_num</span> <span class="o">+=</span> <span class="mi">1</span>
 
-        <span class="c1"># get the model id of the first input model</span>
-        <span class="n">model_id</span> <span class="o">=</span> <span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;model_id&quot;</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">model_id</span> <span class="o">==</span> <span class="n">input_model_id</span><span class="p">:</span>
-            <span class="n">model</span> <span class="o">=</span> <span class="n">input_model</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
+            <span class="c1"># get the next step</span>
+            <span class="n">next_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">next_step</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">iter_num</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="n">next_step</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Search strategy returned None for the first step&quot;</span>
+            <span class="c1"># if no more steps, break</span>
+            <span class="k">if</span> <span class="n">next_step</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">break</span>
 
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step no search with search point </span><span class="si">{</span><span class="n">next_step</span><span class="p">[</span><span class="s1">&#39;search_point&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> ...&quot;</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="n">iter_num</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span><span class="p">),</span> <span class="s2">&quot;No more pass flows to run&quot;</span>
 
-        <span class="c1"># run all the passes in the step</span>
-        <span class="p">(</span>
-            <span class="n">_</span><span class="p">,</span>
-            <span class="n">signal</span><span class="p">,</span>
-            <span class="n">model_ids</span><span class="p">,</span>
-        <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_passes</span><span class="p">(</span><span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">],</span> <span class="n">model</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
-        <span class="c1"># names of the output models of the passes</span>
-        <span class="n">pass_output_names</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_name</span><span class="p">][</span><span class="s2">&quot;output_name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">pass_name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">]]</span>
-        <span class="n">pass_output_names</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">name</span> <span class="k">else</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">pass_output_names</span><span class="p">]</span>
+            <span class="c1"># get the model id of the first input model</span>
+            <span class="n">model_id</span> <span class="o">=</span> <span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;model_id&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">model_id</span> <span class="o">==</span> <span class="n">input_model_id</span><span class="p">:</span>
+                <span class="n">model</span> <span class="o">=</span> <span class="n">input_model</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
 
-        <span class="n">final_output_name</span> <span class="o">=</span> <span class="n">pass_output_names</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">output_name</span><span class="p">:</span>
-            <span class="c1"># override the output name of the last pass</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Engine output_name is provided. Will ignore output_name for final pass&quot;</span><span class="p">)</span>
-            <span class="n">final_output_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output_name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">elif</span> <span class="ow">not</span> <span class="n">final_output_name</span><span class="p">:</span>
-            <span class="c1"># use the default output name</span>
-            <span class="n">final_output_name</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">)</span>
-        <span class="n">pass_output_names</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">final_output_name</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step no search with search point </span><span class="si">{</span><span class="n">next_step</span><span class="p">[</span><span class="s1">&#39;search_point&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> ...&quot;</span><span class="p">)</span>
 
-        <span class="n">output_model_json</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">for</span> <span class="n">pass_output_name</span><span class="p">,</span> <span class="n">pass_output_model_id</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pass_output_names</span><span class="p">,</span> <span class="n">model_ids</span><span class="p">):</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">pass_output_name</span><span class="p">:</span>
-                <span class="k">continue</span>
-            <span class="n">output_model_json</span> <span class="o">=</span> <span class="n">cache_utils</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span>
-                <span class="n">model_number</span><span class="o">=</span><span class="n">pass_output_model_id</span><span class="p">,</span>
-                <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir</span><span class="p">,</span>
-                <span class="n">output_name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pass_output_name</span><span class="si">}</span><span class="s2">_model&quot;</span><span class="p">,</span>
-                <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                <span class="n">cache_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span>
-            <span class="p">)</span>
+            <span class="c1"># run all the passes in the step</span>
+            <span class="p">(</span>
+                <span class="n">_</span><span class="p">,</span>
+                <span class="n">signal</span><span class="p">,</span>
+                <span class="n">model_ids</span><span class="p">,</span>
+            <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_passes</span><span class="p">(</span><span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">],</span> <span class="n">model</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
+            <span class="c1"># names of the output models of the passes</span>
+            <span class="n">pass_output_names</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_name</span><span class="p">][</span><span class="s2">&quot;output_name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">pass_name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">]]</span>
+            <span class="n">pass_output_names</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">name</span> <span class="k">else</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">pass_output_names</span><span class="p">]</span>
 
-        <span class="c1"># save the evaluation results to output_dir</span>
-        <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">result_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">final_output_name</span><span class="si">}</span><span class="s2">_metrics&quot;</span>
-            <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">result_name</span><span class="si">}</span><span class="s2">.json&quot;</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+            <span class="n">pass_flow</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span><span class="p">[</span><span class="n">iter_num</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">output_dir_with_pf</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;-&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pass_flow</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">output_model_json</span><span class="p">:</span>
-            <span class="n">output</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="n">output_model_json</span><span class="p">}</span>
+            <span class="n">final_output_name</span> <span class="o">=</span> <span class="n">pass_output_names</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">output_name</span><span class="p">:</span>
+                <span class="c1"># override the output name of the last pass</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Engine output_name is provided. Will ignore output_name for final pass&quot;</span><span class="p">)</span>
+                <span class="n">final_output_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">output_name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="n">final_output_name</span><span class="p">:</span>
+                <span class="c1"># use the default output name</span>
+                <span class="n">final_output_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">pass_output_names</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">final_output_name</span>
+
+            <span class="n">output_model_json</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">output</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">output_model_ids</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">pass_output_name</span><span class="p">,</span> <span class="n">pass_output_model_id</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pass_output_names</span><span class="p">,</span> <span class="n">model_ids</span><span class="p">):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">pass_output_name</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">output_model_json</span> <span class="o">=</span> <span class="n">cache_utils</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span>
+                    <span class="n">model_number</span><span class="o">=</span><span class="n">pass_output_model_id</span><span class="p">,</span>
+                    <span class="n">output_dir</span><span class="o">=</span><span class="n">output_dir_with_pf</span><span class="p">,</span>
+                    <span class="n">output_name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pass_output_name</span><span class="si">}</span><span class="s2">_model&quot;</span><span class="p">,</span>
+                    <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">cache_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">output_model_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pass_output_model_id</span><span class="p">)</span>
+
+            <span class="c1"># save the evaluation results to output_dir</span>
+
             <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">output</span><span class="p">[</span><span class="s2">&quot;metrics&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">signal</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">output</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir_with_pf</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">final_output_name</span><span class="si">}</span><span class="s2">_metrics.json&quot;</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">output</span>
+            <span class="k">if</span> <span class="n">output_model_json</span><span class="p">:</span>
+                <span class="n">output</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_model_json</span>
+                <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">output</span><span class="p">[</span><span class="s2">&quot;metrics&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">signal</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">output</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">flows_output</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">pass_flow</span><span class="p">)]</span> <span class="o">=</span> <span class="n">output</span>
+        <span class="k">return</span> <span class="n">flows_output</span><span class="p">,</span> <span class="n">output_model_ids</span>
 
     <span class="k">def</span> <span class="nf">run_search</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -632,7 +675,7 @@
             <span class="p">)</span>
 
         <span class="c1"># initialize the search strategy</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_search_spaces</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_flows_search_spaces</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">)</span>
         <span class="n">output_model_num</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">get_output_model_num</span><span class="p">()</span>
 
         <span class="c1"># record start time</span>
@@ -668,8 +711,13 @@
             <span class="n">time_diff</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">check_exit_criteria</span><span class="p">(</span><span class="n">iter_num</span><span class="p">,</span> <span class="n">time_diff</span><span class="p">,</span> <span class="n">signal</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">footprints.json&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_pareto_frontier_footprints</span><span class="p">(</span>
+            <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">prefix_output_name</span>
+        <span class="p">)</span>
 
+    <span class="k">def</span> <span class="nf">get_pareto_frontier_footprints</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">prefix_output_name</span>
+    <span class="p">):</span>
         <span class="n">pf_footprints</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">get_pareto_frontier</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">output_model_num</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">pf_footprints</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">output_model_num</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Output all </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pf_footprints</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span><span class="si">}</span><span class="s2"> models&quot;</span><span class="p">)</span>

@@ -82,8 +82,12 @@
 <li class="toctree-l3"><a class="reference internal" href="#id4">Example</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#engine-information">Engine Information</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#pass-flows-information">Pass Flows Information</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#id5">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#engine-information">Engine Information</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#id6">Example</a></li>
 </ul>
 </li>
 </ul>
@@ -527,8 +531,9 @@ model, <code class="docutils literal notranslate"><span class="pre">data_dir</sp
 <h2>Passes Information<a class="headerlink" href="#passes-information" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">passes:</span> <span class="pre">[Dict]</span></code></p>
 <p>This is a dictionary that contains the information of passes that are executed by the engine. The passes are executed
-in order of their definition in this dictionary. The key of the dictionary is the name of the pass. The value of the dictionary is
-another dictionary that contains the information of the pass. The information of the pass contains following items:</p>
+in order of their definition in this dictionary if <code class="docutils literal notranslate"><span class="pre">pass_flows</span></code> is not specified. The key of the dictionary is the name
+of the pass. The value of the dictionary is another dictionary that contains the information of the pass. The information
+of the pass contains following items:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">type:</span> <span class="pre">[str]</span></code> The type of the pass.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">disable_search:</span> <span class="pre">[Boolean]</span></code> This decides whether to use the default value (<code class="docutils literal notranslate"><span class="pre">true</span></code>) or the default searchable values,
@@ -636,6 +641,48 @@ the <code class="docutils literal notranslate"><span class="pre">output_name</sp
 </div>
 </section>
 </section>
+<section id="pass-flows-information">
+<h2>Pass Flows Information<a class="headerlink" href="#pass-flows-information" title="Permalink to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">pass_flows:</span> <span class="pre">List[List[str]]</span></code></p>
+<p>This is a list of list of pass names. Each list of pass names is a pass flow which will be executed in order.
+When <code class="docutils literal notranslate"><span class="pre">pass_flows</span></code> is not specified, the passes are executed in the order of the <code class="docutils literal notranslate"><span class="pre">passes</span></code> dictionary.</p>
+<section id="id5">
+<h3>Example<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;passes&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;onnx_conversion&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxConversion&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;target_opset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">13</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;transformers_optimization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OrtTransformersOptimization&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;model_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bert&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;num_heads&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;hidden_size&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">768</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;float16&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">&quot;onnx_quantization&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;OnnxQuantization&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;user_script&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;user_script.py&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;data_dir&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;data&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;dataloader_func&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;resnet_calibration_reader&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;weight_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;QUInt8&quot;</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">},</span>
+<span class="nt">&quot;pass_flows&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">[</span><span class="s2">&quot;onnx_conversion&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;transformers_optimization&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="p">[</span><span class="s2">&quot;onnx_conversion&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;transformers_optimization&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;onnx_quantization&quot;</span><span class="p">],</span>
+<span class="w">    </span><span class="p">[</span><span class="s2">&quot;onnx_conversion&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;onnx_quantization&quot;</span><span class="p">],</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</section>
+</section>
 <section id="engine-information">
 <h2>Engine Information<a class="headerlink" href="#engine-information" title="Permalink to this heading">¶</a></h2>
 <p><code class="docutils literal notranslate"><span class="pre">engine:</span> <span class="pre">[Dict]</span></code></p>
@@ -705,8 +752,8 @@ prefix.</p></li>
 </tr>
 </tbody>
 </table>
-<section id="id5">
-<h3>Example<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h3>
+<section id="id6">
+<h3>Example<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;engine&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nt">&quot;search_strategy&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">&quot;execution_order&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;joint&quot;</span><span class="p">,</span>
