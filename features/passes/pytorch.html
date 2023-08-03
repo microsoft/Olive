@@ -75,6 +75,10 @@
 <li class="toctree-l4"><a class="reference internal" href="#example-configuration">Example Configuration</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#sparsegpt">SparseGPT</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#id1">Example Configuration</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="openvino.html">OpenVINO</a></li>
@@ -187,6 +191,29 @@ for an example implementation of <code class="docutils literal notranslate"><spa
 </div>
 <p>Check out <a class="reference external" href="https://github.com/microsoft/Olive/blob/main/examples/resnet/user_script.py">this file</a>
 for an example implementation of <code class="docutils literal notranslate"><span class="pre">&quot;user_script.py&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;create_train_dataloader&quot;</span></code>.</p>
+</section>
+</section>
+<section id="sparsegpt">
+<h2>SparseGPT<a class="headerlink" href="#sparsegpt" title="Permalink to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">SparseGPT</span></code> prunes GPT like models using a pruning method called <a class="reference external" href="https://arxiv.org/abs/2301.00774">SparseGPT</a>. This one-shot pruning method can perform unstructured
+sparsity upto 60% on large models like OPT-175B and BLOOM-176B efficiently with negligible perplexity increase. It also supports semi-structured sparsity patterns such
+as 2:4 and 4:8 patterns.</p>
+<p>Please refer to the original paper linked above for more details on the algorithm and performance results for different models, sparsities and datasets.</p>
+<p><strong>Note:</strong> TensorRT can accelerate inference on 2:4 sparse models as described in <a class="reference external" href="https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/">this blog</a>.</p>
+<section id="id1">
+<h3>Example Configuration<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SparseGPT&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;sparsity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.5</span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;SparseGPT&quot;</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;sparsity&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="mi">4</span><span class="p">]}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
 </section>
 </section>
 </section>
