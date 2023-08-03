@@ -84,6 +84,7 @@ def get_dataloader_config():
             "search_strategy": {"execution_order": "joint", "search_algorithm": "exhaustive"},
             "evaluator": "common_evaluator",
             "clean_cache": True,
+            "output_dir": "./cache",
             "cache_dir": "./cache",
         },
     }
@@ -152,6 +153,7 @@ def get_data_config():
             "search_strategy": {"execution_order": "joint", "search_algorithm": "exhaustive"},
             "evaluator": "common_evaluator",
             "clean_cache": True,
+            "output_dir": "./cache",
             "cache_dir": "./cache",
         },
     }
