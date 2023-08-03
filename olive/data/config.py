@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import copy
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Union
@@ -79,7 +80,8 @@ class DataConfig(ConfigBase):
         Resolve the default component type.
         """
         dc_cls = Registry.get_container(self.type)
-        self.default_components_type = dc_cls.default_components_type or {}
+        # deepcopy dc_cls.default_components_type since we don't want to update dc_cls.default_components_type
+        self.default_components_type = copy.deepcopy(dc_cls.default_components_type) or {}
         # 1. update default_components_type with task_type for huggingface case
         self._update_default_component_type_with_task_type(dc_cls)
         # 2. update default_components_type with DefaultDataComponentCombos

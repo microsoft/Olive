@@ -1,0 +1,84 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "openlm-research/open_llama_3b",
+                "task": "text-generation"
+            }
+        }
+    },
+    "data_configs": {
+        "c4_train": {
+            "name": "c4_train",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "model_name": "openlm-research/open_llama_3b",
+                "task": "text-generation",
+                "data_name": "allenai/c4",
+                "subset": "allenai--c4",
+                "split": "train",
+                "data_files": {"train": "en/c4-train.00000-of-01024.json.gz"},
+                "input_cols": ["text"],
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "seqlen": 2048,
+                        "max_samples": 128,
+                        "random_seed": 42
+                    }
+                }
+
+            }
+        },
+        "wikitext2_test": {
+            "name": "wikitext2_test",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "model_name": "openlm-research/open_llama_3b",
+                "task": "text-generation",
+                "data_name": "wikitext",
+                "subset": "wikitext-2-raw-v1",
+                "split": "test",
+                "input_cols": ["text"],
+                "seqlen": 2048
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "perplexity",
+                    "type": "accuracy",
+                    "sub_types": [
+                        {"name": "perplexity"}
+                    ],
+                    "data_config": "wikitext2_test"
+                }
+            ]
+        }
+    },
+    "passes": {
+        "sparsegpt": {
+            "type": "SparseGPT",
+            "config": {
+                "sparsity": [2,4],
+                "data_config": "c4_train"
+            }
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "search_strategy": false,
+        "evaluator": "common_evaluator",
+        "target": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["gpu"]
+            }
+        },
+        "execution_providers": ["CPUExecutionProvider"],
+        "cache_dir": "cache",
+        "output_dir" : "models/sparsegpt"
+    }
+}
