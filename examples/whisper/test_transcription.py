@@ -66,10 +66,10 @@ def main(raw_args=None):
         print("Model is not multilingual but custom language/task provided. Will ignore custom language/task.")
 
     # load output model json
-    output_model_json_path = (
-        Path(config["engine"]["output_dir"]) / f"{config['engine']['output_name']}_cpu-cpu_model.json"
-    )
-    output_model_json = json.load(open(output_model_json_path, "r"))
+    output_model_json_path = Path(config["engine"]["output_dir"])
+    for model_json in output_model_json_path.glob(f"**/{config['engine']['output_name']}_cpu-cpu_model.json"):
+        output_model_json = json.load(open(model_json, "r"))
+        break
 
     # load output model onnx
     olive_model = ONNXModel(**output_model_json["config"])

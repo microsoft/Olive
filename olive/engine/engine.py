@@ -483,16 +483,16 @@ class Engine:
             pass_output_names = [f"{name}_{accelerator_spec}" if name else None for name in pass_output_names]
 
             pass_flow = self.pass_flows[iter_num - 1]
-            result_prefix = "-".join(pass_flow)
+            output_dir_with_pf = Path(output_dir) / "-".join(pass_flow)
 
             final_output_name = pass_output_names[-1]
             if output_name:
                 # override the output name of the last pass
                 logger.debug("Engine output_name is provided. Will ignore output_name for final pass")
-                final_output_name = f"{output_name}_{accelerator_spec}_{result_prefix}"
+                final_output_name = f"{output_name}_{accelerator_spec}"
             elif not final_output_name:
                 # use the default output name
-                final_output_name = f"{accelerator_spec}_{result_prefix}"
+                final_output_name = f"{accelerator_spec}"
             pass_output_names[-1] = final_output_name
 
             output_model_json = None
@@ -503,7 +503,7 @@ class Engine:
                     continue
                 output_model_json = cache_utils.save_model(
                     model_number=pass_output_model_id,
-                    output_dir=output_dir,
+                    output_dir=output_dir_with_pf,
                     output_name=f"{pass_output_name}_model",
                     overwrite=True,
                     cache_dir=self._config.cache_dir,
@@ -513,8 +513,7 @@ class Engine:
             # save the evaluation results to output_dir
 
             if signal is not None:
-                result_name = f"{final_output_name}_metrics"
-                results_path = output_dir / f"{result_name}.json"
+                results_path = output_dir_with_pf / f"{final_output_name}_metrics.json"
                 with open(results_path, "w") as f:
                     json.dump(signal.to_json(), f, indent=4)
 

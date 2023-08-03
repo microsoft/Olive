@@ -197,12 +197,14 @@ class TestEngine:
         # output model to output_dir
         temp_dir = tempfile.TemporaryDirectory()
         output_dir = Path(temp_dir.name)
+        expected_output_dir = output_dir / "-".join(engine.pass_flows[0])
 
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        pass_flow_key = "-".join(engine.pass_flows[0])
-        output_prefix = f"{accelerator_spec}_{pass_flow_key}"
+        output_prefix = f"{accelerator_spec}"
         expected_res = {"model": onnx_model.to_json(), "metrics": MetricResult.parse_obj(metric_result_dict)}
-        expected_res["model"]["config"]["model_path"] = str(Path(output_dir / f"{output_prefix}_model.onnx").resolve())
+        expected_res["model"]["config"]["model_path"] = str(
+            Path(expected_output_dir / f"{output_prefix}_model.onnx").resolve()
+        )
 
         # execute
         actual_res = engine.run(pytorch_model, output_dir=output_dir)
@@ -210,11 +212,11 @@ class TestEngine:
 
         assert expected_res == actual_res
         assert Path(actual_res["model"]["config"]["model_path"]).is_file()
-        model_json_path = Path(output_dir / f"{output_prefix}_model.json")
+        model_json_path = Path(expected_output_dir / f"{output_prefix}_model.json")
         assert model_json_path.is_file()
         with open(model_json_path, "r") as f:
             assert json.load(f) == actual_res["model"]
-        result_json_path = Path(output_dir / f"{output_prefix}_metrics.json")
+        result_json_path = Path(expected_output_dir / f"{output_prefix}_metrics.json")
         assert result_json_path.is_file()
         with open(result_json_path, "r") as f:
             assert json.load(f) == actual_res["metrics"].__root__
