@@ -6,13 +6,10 @@
 # https://github.com/IST-DASLab/sparsegpt
 # https://arxiv.org/abs/2301.00774
 # -------------------------------------------------------------------------
-import logging
 import math
 
 import torch
 import transformers
-
-logger = logging.getLogger(__name__)
 
 layers_map = {
     "gpt2": "transformer.h",

@@ -92,22 +92,19 @@ class SparseGPT(Pass):
         mode = "unstructured" if isinstance(config["sparsity"], float) else "structured"
         sparsity = config["sparsity"]
         n, m = sparsity if mode == "structured" else [0, 0]
-        logger.debug(f"Running SparseGPT with on {model_type} with mode: {mode}, sparsity: {sparsity}")
 
         # get device to use for computations
         device = config["compute_device"]
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
-        logger.debug(f"Running SparseGPT on device: {device}")
+        logger.debug(f"Running SparseGPT on {device} with model_type: {model_type}, mode: {mode}, sparsity: {sparsity}")
 
         # load_data
         assert config["data_config"] is not None, "Data config is required for SparseGPT pass."
-        logger.debug("Loading data...")
         dataloader = self._data_config.to_data_container().create_dataloader(data_root)
         logger.debug(f"Data loaded. Number of batches: {len(dataloader)}")
 
         # load model
-        logger.debug("Loading model...")
         pytorch_model = model.load_model()
         # we will update the model inplace
         # since the models are large, it is expensive to copy and maintain two copies
@@ -123,7 +120,6 @@ class SparseGPT(Pass):
         layers = get_layers(pytorch_model, model_type)
 
         # get the inputs to the first layer
-        logger.debug("Getting inputs to first layer...")
         inputs, attention_mask = catch_layer_inputs(pytorch_model, model_type, dataloader, device)
         logger.debug(f"Inputs shape: {inputs.shape}")
         # place holder to store output from layer
