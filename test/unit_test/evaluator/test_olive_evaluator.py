@@ -56,8 +56,8 @@ class TestOliveEvaluator:
         (
             PyTorchEvaluator(),
             get_pytorch_model(),
-            get_accuracy_metric(AccuracySubType.AUC),
-            "olive.evaluator.accuracy.AUC",
+            get_accuracy_metric(AccuracySubType.AUROC),
+            "olive.evaluator.accuracy.AUROC",
             0.99,
         ),
         (
@@ -91,8 +91,8 @@ class TestOliveEvaluator:
         (
             OnnxEvaluator(),
             get_onnx_model(),
-            get_accuracy_metric(AccuracySubType.AUC),
-            "olive.evaluator.accuracy.AUC",
+            get_accuracy_metric(AccuracySubType.AUROC),
+            "olive.evaluator.accuracy.AUROC",
             0.99,
         ),
     ]

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from olive.evaluator.accuracy import AUC, AccuracyScore, F1Score, Perplexity, Precision, Recall
+from olive.evaluator.accuracy import AUROC, AccuracyScore, F1Score, Perplexity, Precision, Recall
 
 
 @patch("olive.evaluator.accuracy.torch.tensor")
@@ -107,13 +107,13 @@ def test_evaluate_recall(mock_torchmetrics, mock_torch_tensor):
 @patch("olive.evaluator.accuracy.torchmetrics")
 def test_evaluate_auc(mock_torchmetrics, mock_torch_tensor):
     # setup
-    acc = AUC()
+    acc = AUROC()
     preds = [1, 0, 1, 1]
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
     mock_res.item.return_value = expected_res
-    mock_torchmetrics.functional.auc.return_value = mock_res
+    mock_torchmetrics.AUROC().return_value = mock_res
 
     # execute
     actual_res = acc.measure(preds, targets)
