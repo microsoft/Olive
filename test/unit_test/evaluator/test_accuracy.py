@@ -24,7 +24,7 @@ def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch_tensor, metric_con
     acc = AccuracyScore(metric_config)
     assert "kwargs" in acc.config.dict()
     assert "kwargs" not in acc.config_dict
-    preds = [1, 0, 1, 1]
+    preds = ([1, 0, 1, 1], None)
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -45,7 +45,7 @@ def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch_tensor, metric_con
 def test_evaluate_f1score(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = F1Score()
-    preds = [1, 0, 1, 1]
+    preds = ([1, 0, 1, 1], None)
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -66,7 +66,7 @@ def test_evaluate_f1score(mock_torchmetrics, mock_torch_tensor):
 def test_evaluate_precision(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = Precision()
-    preds = [1, 0, 1, 1]
+    preds = ([1, 0, 1, 1], None)
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -87,7 +87,7 @@ def test_evaluate_precision(mock_torchmetrics, mock_torch_tensor):
 def test_evaluate_recall(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = Recall()
-    preds = [1, 0, 1, 1]
+    preds = ([1, 0, 1, 1], None)
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -108,7 +108,7 @@ def test_evaluate_recall(mock_torchmetrics, mock_torch_tensor):
 def test_evaluate_auc(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = AUROC()
-    preds = [1, 0, 1, 1]
+    preds = (None, [1, 0, 1, 1])
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -132,7 +132,7 @@ def test_evaluate_perplexity(mock_torchmetrics, mock_torch_tensor):
     batch = 2
     seqlen = 3
     vocab_size = 10
-    preds = np.random.rand(batch, seqlen, vocab_size).tolist()
+    preds = (np.random.rand(batch, seqlen, vocab_size).tolist(), None)
     targets = np.random.randint(0, vocab_size, (batch, seqlen)).tolist()
     expected_res = 20.0
     mock_res = MagicMock()

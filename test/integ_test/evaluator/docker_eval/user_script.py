@@ -22,7 +22,7 @@ def openvino_post_process(res):
 
 
 def hf_post_process(res):
-    _, preds = torch.max(res[0], dim=1)
+    _, preds = torch.max(res, dim=1)
     return preds
 
 

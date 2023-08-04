@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import Any, Dict, Type, Union
+from typing import Any, Dict, NamedTuple, Tuple, Type, Union
 
 from olive.common.auto_config import AutoConfigClass, ConfigBase
 from olive.common.config_utils import ConfigParam
@@ -22,23 +22,26 @@ class MetricBackend(AutoConfigClass):
         return {}
 
     @abstractmethod
-    def measure_sub_metric(self, preds, targets, sub_metric: SubMetric) -> SubMetricResult:
+    def measure_sub_metric(
+        self, model_output: Union[Tuple, NamedTuple], targets: Any, sub_metric: SubMetric
+    ) -> SubMetricResult:
+        # model_output: (preds, logits)
         raise NotImplementedError()
 
-    def measure(self, preds, targets, metrics: Metric, logits=None) -> MetricResult:
+    def measure(self, model_output, targets, metrics: Metric) -> MetricResult:
         metric_results_dict = {}
         for sub_metric in metrics.sub_types:
-            metric_results_dict[sub_metric.name] = self.measure_sub_metric(preds, targets, sub_metric, logits)
+            metric_results_dict[sub_metric.name] = self.measure_sub_metric(model_output, targets, sub_metric)
         return MetricResult.parse_obj(metric_results_dict)
 
 
 class TorchMetrics(MetricBackend):
     name: str = "torch_metrics"
 
-    def measure_sub_metric(self, preds, targets, sub_metric: SubMetric, logits) -> SubMetricResult:
+    def measure_sub_metric(self, model_output, targets, sub_metric: SubMetric) -> SubMetricResult:
         metric_cls = AccuracyBase.registry[sub_metric.name.value]
         metric_obj = metric_cls(sub_metric.metric_config)
-        result = metric_obj.measure(preds, targets, logits)
+        result = metric_obj.measure(model_output, targets)
         return SubMetricResult(
             value=result,
             priority=sub_metric.priority,
@@ -77,12 +80,12 @@ class HuggingfaceMetrics(MetricBackend):
             ),
         }
 
-    def measure_sub_metric(self, preds, target, sub_metric: SubMetric, logits=None) -> SubMetricResult:
+    def measure_sub_metric(self, model_output, target, sub_metric: SubMetric) -> SubMetricResult:
         load_params = sub_metric.metric_config.load_params or {}
         evaluator = self.evaluate_module.load(sub_metric.name, **load_params)
 
         compute_params = sub_metric.metric_config.compute_params or {}
-        result = evaluator.compute(predictions=preds, references=target, **compute_params)
+        result = evaluator.compute(predictions=model_output[0], references=target, **compute_params)
         if not result:
             raise ValueError(
                 f"Cannot find the result for {sub_metric.name} in the metric result. Please check your parameters."
