@@ -11,7 +11,8 @@
                     "split": "validation",
                     "input_cols": ["sentence1", "sentence2"],
                     "label_cols": ["label"],
-                    "batch_size": 1
+                    "batch_size": 1,
+                    "max_samples": 100
                 }
             }
         }
@@ -62,14 +63,7 @@
         }
     },
     "engine": {
-        "search_strategy": {
-            "execution_order": "joint",
-            "search_algorithm": "tpe",
-            "search_algorithm_config": {
-                "num_samples": 3,
-                "seed": 0
-            }
-        },
+        "search_strategy":true,
         "evaluator": "common_evaluator",
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
