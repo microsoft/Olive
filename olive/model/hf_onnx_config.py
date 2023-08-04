@@ -3,6 +3,10 @@ from typing import Any, Mapping, Optional, OrderedDict
 from transformers import PreTrainedTokenizer, TensorType
 from transformers.onnx import OnnxConfigWithPast
 
+# dictionary of model types and their (supported features list, config class name)
+# the supported features list is the list of features that are supported by the model type
+# similar to the tasks supported by the model type. Refer to `task_to_feature` under `get_onnx_config` in
+# `hf_utils.py` for a mapping from task to feature.
 ADDITIONAL_MODEL_TYPES = {
     "gpt-neox": (
         [
