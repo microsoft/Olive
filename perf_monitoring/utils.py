@@ -8,7 +8,7 @@ def patch_config(config_json_path: str):
     # set default logger severity
     olive_config["engine"]["log_severity_level"] = 0
     # set clean cache
-    olive_config["engine"]["clean_cache"] = True
+    olive_config["engine"]["clean_cache"] = False
     return olive_config
 
 
@@ -41,6 +41,8 @@ def extract_best_models(footprint, model_name):
     print("Best metrics: ", best_metrics)
     compared_metric = compare_metrics(best_metrics, model_name)
     print("Compared metrics: ", compared_metric)
+    compared_new_input_metric = compare_input_metrics(best_metrics, model_name)
+    print("Compared new input metrics: ", compared_new_input_metric)
 
 
 def no_regression(actual, expected, rel_tol):  # check for tolerance
@@ -89,4 +91,23 @@ def compare_metrics(best_metrics, model_name):
     # Save the updated data back to the file
     with open("best_metrics.json", "w") as f:
         json.dump(data, f, indent=4)
+    return comparison_result
+
+
+def compare_input_metrics(best_metrics, model_name):
+    # open best metrics json
+    with open(f"models/{model_name}_workflow_cpu/cpu-cpu_input_model_metrics.json") as f:
+        data = json.load(f)
+
+    accuracy = data["accuracy-accuracy"]["value"]
+    latency = data["latency-avg"]["value"]
+    accuracy_percentage_change = ((best_metrics[0] - accuracy) / accuracy) * 100
+    latency_percentage_change = -((best_metrics[1] - latency) / latency) * 100
+
+    comparison_result = {
+        "accuracy": no_regression(best_metrics[0], accuracy, 0.05),
+        "latency": no_regression(best_metrics[1], latency, 0.05),
+        "accuracy_percentage_change": accuracy_percentage_change,
+        "latency_percentage_change": latency_percentage_change,
+    }
     return comparison_result
