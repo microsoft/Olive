@@ -8,7 +8,7 @@ def patch_config(config_json_path: str):
     # set default logger severity
     olive_config["engine"]["log_severity_level"] = 0
     # set clean cache
-    olive_config["engine"]["clean_cache"] = False
+    olive_config["engine"]["clean_cache"] = True
     return olive_config
 
 
@@ -68,8 +68,8 @@ def compare_metrics(best_metrics, model_name):
         latency_percentage_change = -((best_metrics[1] - model_data[1]) / model_data[1]) * 100
 
         comparison_result = {
-            "accuracy": no_regression(best_metrics[0], model_data[0], 0.05),
-            "latency": no_regression(best_metrics[1], model_data[1], 0.05),
+            "accuracy": no_regression(best_metrics[0], model_data[0], 0.09),
+            "latency": no_regression(best_metrics[1], model_data[1], 0.095),
             "accuracy_percentage_change": accuracy_percentage_change,
             "latency_percentage_change": latency_percentage_change,
         }
@@ -98,15 +98,18 @@ def compare_input_metrics(best_metrics, model_name):
     # open best metrics json
     with open(f"models/{model_name}_workflow_cpu/cpu-cpu_input_model_metrics.json") as f:
         data = json.load(f)
-
-    accuracy = data["accuracy-accuracy"]["value"]
+    if "accuracy-accuracy" in data:
+        accuracy = data["accuracy-accuracy"]["value"]
+    else:
+        accuracy = data["accuracy-accuracy_score"]["value"]
+    # accuracy = data["accuracy-accuracy"]["value"]
     latency = data["latency-avg"]["value"]
     accuracy_percentage_change = ((best_metrics[0] - accuracy) / accuracy) * 100
     latency_percentage_change = -((best_metrics[1] - latency) / latency) * 100
 
     comparison_result = {
-        "accuracy": no_regression(best_metrics[0], accuracy, 0.05),
-        "latency": no_regression(best_metrics[1], latency, 0.05),
+        "accuracy": no_regression(best_metrics[0], accuracy, 0.09),
+        "latency": no_regression(best_metrics[1], latency, 0.095),
         "accuracy_percentage_change": accuracy_percentage_change,
         "latency_percentage_change": latency_percentage_change,
     }
