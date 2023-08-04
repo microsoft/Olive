@@ -106,7 +106,8 @@ class TestPythonEnvironmentSystem:
         # python environment call
         actual_call = mock_compute_accuracy.mock_calls[1]
         assert actual_call.args[0] == expected_call.args[0]
-        assert torch.equal(actual_call.args[1], expected_call.args[1])
+        assert torch.equal(actual_call.args[1].preds, expected_call.args[1].preds)
+        assert torch.equal(actual_call.args[1].logits, expected_call.args[1].logits)
         assert torch.equal(actual_call.args[2], expected_call.args[2])
 
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_latency")

@@ -22,7 +22,12 @@ def openvino_post_process(res):
 
 
 def hf_post_process(res):
-    _, preds = torch.max(res, dim=1)
+    import transformers
+
+    if isinstance(res, transformers.modeling_outputs.SequenceClassifierOutput):
+        _, preds = torch.max(res.logits, dim=1)
+    else:
+        _, preds = torch.max(res, dim=1)
     return preds
 
 

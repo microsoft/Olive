@@ -74,7 +74,7 @@ class OliveEvaluator(ABC):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ) -> OliveModelOutput:
+    ) -> Tuple[OliveModelOutput, Any]:
         raise NotImplementedError()
 
     @abstractmethod
@@ -320,7 +320,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ) -> OliveModelOutput:
+    ) -> Tuple[OliveModelOutput, Any]:
         session = model.prepare_session(
             inference_settings=self.get_inference_settings(metric),
             device=device,
@@ -494,7 +494,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         preds = [x for p, _, _ in results for x in p]
         targets = [x for _, t, _ in results for x in t]
         logits = [x for _, _, l in results for x in l]
-        return OliveEvaluator.compute_accuracy(metric, preds, targets, logits)
+        model_output = OliveModelOutput(preds, logits)
+        return OliveEvaluator.compute_accuracy(metric, model_output, targets)
 
     @staticmethod
     def _evaluate_distributed_latency_worker(data_root, config) -> List[float]:
@@ -629,7 +630,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ) -> OliveModelOutput:
+    ) -> Tuple[OliveModelOutput, Any]:
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         preds = []
@@ -728,7 +729,7 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ) -> OliveModelOutput:
+    ) -> Tuple[OliveModelOutput, Any]:
         dataloader = self._prepare_dataloader(dataloader, model)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
@@ -799,7 +800,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ) -> OliveModelOutput:
+    ) -> Tuple[OliveModelOutput, Any]:
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         preds = []
