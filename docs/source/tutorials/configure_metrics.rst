@@ -168,7 +168,8 @@ In your :code:`"user_script.py"`, you need to define a function that takes in an
 Alternatively, if you only need Olive run the inference and you will calculate the metric by yourself, you can specify :code:`"metric_func": "None"` in the metric configuration.
 Olive will run the inference with you model with the data you provided, and return the inference results to you. You can then calculate the metric by yourself::
 
-        def metric_func(preds, targets):
+        def metric_func(model_output, targets):
+            # model_output[0]: preds, model_output[1]: logits
             # calculate metric
             # return metric value
 

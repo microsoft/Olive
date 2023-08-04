@@ -24,7 +24,7 @@ def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch_tensor, metric_con
     acc = AccuracyScore(metric_config)
     assert "kwargs" in acc.config.dict()
     assert "kwargs" not in acc.config_dict
-    preds = ([1, 0, 1, 1], None)
+    model_output = ([1, 0, 1, 1], None)
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -32,10 +32,10 @@ def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch_tensor, metric_con
     mock_torchmetrics.Accuracy().return_value = mock_res
 
     # execute
-    actual_res = acc.measure(preds, targets)
+    actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.tensor.called_once_with(preds)
+    mock_torch_tensor.tensor.called_once_with(model_output)
     mock_torch_tensor.tensor.called_once_with(targets)
     assert actual_res == expected_res
 
@@ -45,7 +45,7 @@ def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch_tensor, metric_con
 def test_evaluate_f1score(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = F1Score()
-    preds = ([1, 0, 1, 1], None)
+    model_output = ([1, 0, 1, 1], None)
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -53,10 +53,10 @@ def test_evaluate_f1score(mock_torchmetrics, mock_torch_tensor):
     mock_torchmetrics.F1Score().return_value = mock_res
 
     # execute
-    actual_res = acc.measure(preds, targets)
+    actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.tensor.called_once_with(preds)
+    mock_torch_tensor.tensor.called_once_with(model_output)
     mock_torch_tensor.tensor.called_once_with(targets)
     assert actual_res == expected_res
 
@@ -66,7 +66,7 @@ def test_evaluate_f1score(mock_torchmetrics, mock_torch_tensor):
 def test_evaluate_precision(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = Precision()
-    preds = ([1, 0, 1, 1], None)
+    model_output = ([1, 0, 1, 1], None)
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -74,10 +74,10 @@ def test_evaluate_precision(mock_torchmetrics, mock_torch_tensor):
     mock_torchmetrics.Precision().return_value = mock_res
 
     # execute
-    actual_res = acc.measure(preds, targets)
+    actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.tensor.called_once_with(preds)
+    mock_torch_tensor.tensor.called_once_with(model_output)
     mock_torch_tensor.tensor.called_once_with(targets)
     assert actual_res == expected_res
 
@@ -87,7 +87,7 @@ def test_evaluate_precision(mock_torchmetrics, mock_torch_tensor):
 def test_evaluate_recall(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = Recall()
-    preds = ([1, 0, 1, 1], None)
+    model_output = ([1, 0, 1, 1], None)
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -95,10 +95,10 @@ def test_evaluate_recall(mock_torchmetrics, mock_torch_tensor):
     mock_torchmetrics.Recall().return_value = mock_res
 
     # execute
-    actual_res = acc.measure(preds, targets)
+    actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.tensor.called_once_with(preds)
+    mock_torch_tensor.tensor.called_once_with(model_output)
     mock_torch_tensor.tensor.called_once_with(targets)
     assert actual_res == expected_res
 
@@ -108,7 +108,7 @@ def test_evaluate_recall(mock_torchmetrics, mock_torch_tensor):
 def test_evaluate_auc(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = AUROC()
-    preds = (None, [1, 0, 1, 1])
+    model_output = (None, [1, 0, 1, 1])
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -116,10 +116,10 @@ def test_evaluate_auc(mock_torchmetrics, mock_torch_tensor):
     mock_torchmetrics.AUROC().return_value = mock_res
 
     # execute
-    actual_res = acc.measure(preds, targets)
+    actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.tensor.called_once_with(preds)
+    mock_torch_tensor.tensor.called_once_with(model_output)
     mock_torch_tensor.tensor.called_once_with(targets)
     assert actual_res == expected_res
 
@@ -132,7 +132,7 @@ def test_evaluate_perplexity(mock_torchmetrics, mock_torch_tensor):
     batch = 2
     seqlen = 3
     vocab_size = 10
-    preds = (np.random.rand(batch, seqlen, vocab_size).tolist(), None)
+    model_output = (np.random.rand(batch, seqlen, vocab_size).tolist(), None)
     targets = np.random.randint(0, vocab_size, (batch, seqlen)).tolist()
     expected_res = 20.0
     mock_res = MagicMock()
@@ -140,10 +140,10 @@ def test_evaluate_perplexity(mock_torchmetrics, mock_torch_tensor):
     mock_torchmetrics.text.perplexity.Perplexity().compute.return_value = mock_res
 
     # execute
-    actual_res = Perplexity().measure(preds, targets)
+    actual_res = Perplexity().measure(model_output, targets)
 
     # assert
     for i in range(batch):
-        mock_torch_tensor.tensor.called_once_with(preds[i])
+        mock_torch_tensor.tensor.called_once_with(model_output[0][i])
         mock_torch_tensor.tensor.called_once_with(targets[i])
     assert actual_res == expected_res

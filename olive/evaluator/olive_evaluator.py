@@ -462,7 +462,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             targets.extend(labels.data.tolist())
             logits.extend(output.tolist())
 
-        return preds, targets, logits
+        model_output = OliveModelOutput(preds=preds, logits=logits)
+        return model_output, targets
 
     def _evaluate_distributed_accuracy(
         self, model: DistributedOnnxModel, data_root: str, metric: Metric
