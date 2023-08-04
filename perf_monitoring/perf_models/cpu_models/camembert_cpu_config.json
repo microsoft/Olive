@@ -50,6 +50,21 @@
             "config": {
                 "target_opset": 13
             }
+        },
+        "transformers_optimization": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "bert",
+                "num_heads": 12,
+                "hidden_size": 768,
+                "float16": false
+            }
+        },
+        "quantization": {
+            "type": "OnnxQuantization"
+        },
+        "perf_tuning": {
+            "type": "OrtPerfTuning"
         }
     },
     "engine": {
