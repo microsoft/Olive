@@ -888,6 +888,8 @@ class OpenVINOModel(OliveModel):
 
 
 class DistributedOnnxModel(ONNXModelBase):
+    resource_keys: ClassVar[list] = ["model_filepaths"]
+
     EXECUTION_PROVIDERS: ClassVar[dict] = {
         "cpu": ["CPUExecutionProvider"],
         "gpu": ["CUDAExecutionProvider", "CPUExecutionProvider"],

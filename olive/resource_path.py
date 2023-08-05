@@ -121,7 +121,8 @@ def create_resource_path(
         return None
     if isinstance(resource_path, ResourcePath):
         return resource_path
-
+    if isinstance(resource_path, list):
+        return [create_resource_path(rp) for rp in resource_path]
     if isinstance(resource_path, (ResourcePathConfig, dict)):
         resource_path_config = validate_config(resource_path, ResourcePathConfig)
         return resource_path_config.create_resource_path()
