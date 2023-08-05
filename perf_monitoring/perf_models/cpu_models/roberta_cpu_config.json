@@ -12,7 +12,7 @@
                     "input_cols": ["premise"],
                     "label_cols": ["label"],
                     "batch_size": 1,
-                    "max_samples": 100
+                    "max_samples": 50
                 }
             }
         }
