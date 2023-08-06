@@ -45,8 +45,10 @@ def extract_best_models(footprint, model_name):
     print("Compared new input metrics: ", compared_new_input_metric)
 
 
-def no_regression(actual, expected, rel_tol):  # check for tolerance
-    if actual > expected:
+def no_regression(actual, expected, rel_tol, higher_is_better):  # check for tolerance
+    if higher_is_better and actual > expected:
+        return True
+    elif not higher_is_better and actual < expected:
         return True
     return abs(actual - expected) <= rel_tol * abs(expected)
 
