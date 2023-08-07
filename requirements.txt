@@ -6,5 +6,5 @@ pydantic<2.0.0
 protobuf<4.0.0
 pyyaml
 torch
-torchmetrics>=0.7.0, <0.10.1
+torchmetrics~=0.10.0
 transformers
