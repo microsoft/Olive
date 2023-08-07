@@ -488,6 +488,8 @@ Please find the detailed config options from following table for each search alg
 | [exhaustive](exhaustive_search_algorithm) | Iterates over the entire search space |
 | [random](random_search_algorithm) | Samples random points from the search space with or without replacement |
 | [tpe](tpe_search_algorithm) | Sample using TPE (Tree-structured Parzen Estimator) algorithm. |
+| [qmc](qmc_search_algorithm) | Sample using QMC (Quasi-Monte Carlo) algorithm. |
+| [nsgaII](nsgaII_search_algorithm) | Sample using NSGA-II (Non-dominated Sorting Genetic Algorithm) algorithm. |
 
 ### Example
 ```json

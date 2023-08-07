@@ -29,3 +29,19 @@ TPESearchAlgorithm
 **Name:** :code:`"tpe"`
 
 .. autoconfigclass:: olive.strategy.search_algorithm.TPESearchAlgorithm
+
+.. _qmc_search_algorithm:
+
+QMCSearchAlgorithm
+------------------
+**Name:** :code:`"qmc"`
+
+.. autoconfigclass:: olive.strategy.search_algorithm.QMCSearchAlgorithm
+
+.. _nsgaII_search_algorithm:
+
+NSGAIIAlgorithm
+---------------
+**Name:** :code:`"nsgaII"`
+
+.. autoconfigclass:: olive.strategy.search_algorithm.NSGAIIAlgorithm

@@ -84,3 +84,5 @@ The following search algorithms have been implemented:
 - `exhaustive`: Exhaustively iterates over the search space.
 - `random`: Randomly samples points from the search space without replacement.
 - `tpe`: ample using TPE (Tree-structured Parzen Estimator) algorithm to sample from the search space.
+- `qmc`: Sample using Quasi-Monte Carlo algorithm to sample from the search space.
+-`nsgaII`: Sample using NSGA-II (Non-dominated Sorting Genetic Algorithm) algorithm to sample from the search space.
