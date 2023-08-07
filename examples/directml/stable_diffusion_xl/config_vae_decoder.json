@@ -51,7 +51,7 @@
             "type": "OrtTransformersOptimization",
             "config": {
                 "model_type": "vae",
-                "float16": true,
+                "float16": false,
                 "use_gpu": true,
                 "keep_io_types": true,
                 "optimization_options": {

@@ -189,6 +189,8 @@ def optimize(
 
     model_info = dict()
 
+    # TODO: Convert vae_decoder to fp16 once we figure out which op makes the black screen happen
+    # (can be changed in config_vae_decoder.json)
     submodel_names = ["vae_encoder", "vae_decoder", "unet", "text_encoder"]
 
     has_text_encoder_2 = getattr(pipeline, "text_encoder_2", None) is not None
