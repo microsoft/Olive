@@ -97,18 +97,14 @@ def compare_metrics(best_metrics, model_name):
 def compare_input_metrics(best_metrics, model_name):
     with open(f"models/{model_name}_workflow_cpu/cpu-cpu_input_model_metrics.json") as f:
         data = json.load(f)
-        print("Contents of cpu-cpu_input_model_metrics.json:")
-        print(json.dumps(data, indent=4))
     if "accuracy-accuracy" in data:
         accuracy = data["accuracy-accuracy"]["value"]
     else:
         accuracy = data["accuracy-accuracy_score"]["value"]
-    # accuracy = data["accuracy-accuracy"]["value"]
-    latency = data["latency-avg"]["value"]
+
+    latency = data["latency-avg"]["value"] * -1
     # print latency and accuracy values on next line
     print("accuracy: ", accuracy, "latency: ", latency)
-    # now print the input model metrics on the next line
-    print("input model metrics: ", best_metrics[0], best_metrics[1])
     accuracy_percentage_change = ((best_metrics[0] - accuracy) / accuracy) * 100
     latency_percentage_change = -((best_metrics[1] - latency) / latency) * 100
 
