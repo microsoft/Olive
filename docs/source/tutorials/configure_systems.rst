@@ -103,10 +103,10 @@ for :code:`"conda.yaml"`.
 
 Please refer to :ref:`azureml_system_config` for more details on the config options.
 
-AzureML Ready-made Systems
+AzureML Readymade Systems
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-There are some ready-made systems available for AzureML. These systems are pre-configured with the necessary.
+There are some readymade systems available for AzureML. These systems are pre-configured with the necessary.
     .. code-block:: json
 
             {
@@ -120,7 +120,7 @@ There are some ready-made systems available for AzureML. These systems are pre-c
                 }
             }
 
-Please refer to :ref:`olive_system_alias` for the list of supported AzureML ready-made systems.
+Please refer to :ref:`olive_system_alias` for the list of supported AzureML readymade systems.
 
 
 Docker System
