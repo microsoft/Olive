@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from olive.evaluator.accuracy import AUROC, AccuracyScore, F1Score, Perplexity, Precision, Recall
+from olive.evaluator.olive_evaluator import OliveModelOutput
 
 
 @patch("olive.evaluator.accuracy.torch.tensor")
@@ -24,7 +25,7 @@ def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch_tensor, metric_con
     acc = AccuracyScore(metric_config)
     assert "kwargs" in acc.config.dict()
     assert "kwargs" not in acc.config_dict
-    model_output = ([1, 0, 1, 1], None)
+    model_output = OliveModelOutput([1, 0, 1, 1], None)
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -45,7 +46,7 @@ def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch_tensor, metric_con
 def test_evaluate_f1score(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = F1Score()
-    model_output = ([1, 0, 1, 1], None)
+    model_output = OliveModelOutput([1, 0, 1, 1], None)
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -66,7 +67,7 @@ def test_evaluate_f1score(mock_torchmetrics, mock_torch_tensor):
 def test_evaluate_precision(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = Precision()
-    model_output = ([1, 0, 1, 1], None)
+    model_output = OliveModelOutput([1, 0, 1, 1], None)
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -87,7 +88,7 @@ def test_evaluate_precision(mock_torchmetrics, mock_torch_tensor):
 def test_evaluate_recall(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = Recall()
-    model_output = ([1, 0, 1, 1], None)
+    model_output = OliveModelOutput([1, 0, 1, 1], None)
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -108,7 +109,7 @@ def test_evaluate_recall(mock_torchmetrics, mock_torch_tensor):
 def test_evaluate_auc(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = AUROC()
-    model_output = (None, [1, 0, 1, 1])
+    model_output = OliveModelOutput(None, [1, 0, 1, 1])
     targets = [1, 1, 1, 1]
     expected_res = 0.99
     mock_res = MagicMock()
@@ -132,7 +133,7 @@ def test_evaluate_perplexity(mock_torchmetrics, mock_torch_tensor):
     batch = 2
     seqlen = 3
     vocab_size = 10
-    model_output = (np.random.rand(batch, seqlen, vocab_size).tolist(), None)
+    model_output = OliveModelOutput(np.random.rand(batch, seqlen, vocab_size).tolist(), None)
     targets = np.random.randint(0, vocab_size, (batch, seqlen)).tolist()
     expected_res = 20.0
     mock_res = MagicMock()
@@ -144,6 +145,6 @@ def test_evaluate_perplexity(mock_torchmetrics, mock_torch_tensor):
 
     # assert
     for i in range(batch):
-        mock_torch_tensor.tensor.called_once_with(model_output[0][i])
+        mock_torch_tensor.tensor.called_once_with(model_output.preds[i])
         mock_torch_tensor.tensor.called_once_with(targets[i])
     assert actual_res == expected_res
