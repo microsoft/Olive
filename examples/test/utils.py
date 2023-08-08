@@ -52,6 +52,10 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
         set_docker_system(olive_config)
         olive_config["engine"]["target"] = system
         # reduce agent size for docker system
+
+        # as our docker image is big, we need to reduce the agent size to avoid timeout
+        # for the docker system test, we skip to search for transformers optimization as
+        # it is tested in other olive system tests
         olive_config["passes"]["transformers_optimization"]["disable_search"] = True
         olive_config["engine"]["search_strategy"]["search_algorithm_config"]["num_samples"] = 2
 
