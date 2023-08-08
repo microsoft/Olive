@@ -79,8 +79,25 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
 }
 ```
 
-`AppendPrePostProcessingOps` also support customize pre and post processing ops by leveraging the [onnxruntime-extension steps](https://github.com/microsoft/onnxruntime-extensions/tree/main/onnxruntime_extensions/tools/pre_post_processing/steps) and `PrePostProcessor`.
+`AppendPrePostProcessingOps` also supports pre/post processing ops by leveraging the [onnxruntime-extension steps](https://github.com/microsoft/onnxruntime-extensions/tree/main/onnxruntime_extensions/tools/pre_post_processing/steps) and `PrePostProcessor`.
 You can refer to [here](https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/Example%20usage%20of%20the%20PrePostProcessor.md) to see how to leverage `PrePostProcessor` to customize pre and post processing ops.
+
+* Olive introduces two placeholders to represent the model input/ouput shape dimension value: `__model_input__` and `__model_output__`.
+* To support the IoMapEntry, the step need choose use the full form. For example:
+```json
+    "YCbCrToPixels": {
+        "params": {
+            "layout": "BGR",
+        },
+        "io_map": [
+            ["Y1_uint8", 0, 0],
+            ["Cb1_uint8", 0, 1],
+            ["Cr1_uint8", 0, 2],
+        ],
+    }
+```
+* The `tool_command_args` will be used to describe the input parameters to create the `PrePostProcessor` instance. It is list of `PrePostProcessorInput`.
+  The `name` is the tensor name. The `data_type` and `shape` will be used to create the tensor type. The `shape` can be a list of integers or a list of string.
 
 Here are some examples to describe the pre/post processing which is exactly same with [superresolution](https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/add_pre_post_processing_to_model.py#L89)
 
@@ -160,22 +177,6 @@ Here are some examples to describe the pre/post processing which is exactly same
 }
 ```
 
-* Olive introduce two placeholders to represent the model input/ouput shape dimension value: `__model_input__` and `__model_output__`.
-* To support the IoMapEntry, the step need choose use the full form. For example:
-```json
-    "YCbCrToPixels": {
-        "params": {
-            "layout": "BGR",
-        },
-        "io_map": [
-            ["Y1_uint8", 0, 0],
-            ["Cb1_uint8", 0, 1],
-            ["Cr1_uint8", 0, 2],
-        ],
-    }
-```
-* The `tool_command_args` will be used to describe the input parameters to create the `PrePostProcessor` instance. It is list of `PrePostProcessorInput`.
-  The `name` is the tensor name. The `data_type` and `shape` will be used to create the tensor type. The `shape` can be a list of integers or a list of string.
 ## Insert Beam Search Op
 
 `InsertBeamSearch` chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.

@@ -61,7 +61,7 @@ def parse_steps(model: onnx.ModelProto, config: List[Dict]):
 
     1. simple form:
          ```
-         { }"step_name": {"param_name": param_value} }
+         {"step_name": {"param_name": param_value}}
          ```
 
     2. full form:

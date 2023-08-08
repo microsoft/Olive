@@ -126,13 +126,14 @@ class AppendPrePostProcessingOps(Pass):
 
                 # add the processing commands to the mode.
                 tool_command(Path(model.model_path), Path(tmp_model_path), **kwargs)
-                onnx_model = onnx.load(tmp_model_path)
+
+            # load the model
+            onnx_model = onnx.load(tmp_model_path)
         else:
             # Handle args pre and post
             new_model_proto = self._run_prepost_pipeline(model, config)
             onnx_model = new_model_proto
 
-        # load the model
         # the model is loaded into memory, so it's safe to delete previously exported files
         tmp_dir.cleanup()
 
