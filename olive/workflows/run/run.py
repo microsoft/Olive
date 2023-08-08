@@ -72,6 +72,7 @@ def dependency_setup(config):
             "IncStaticQuantization": EXTRAS.get("inc"),
             "OptimumConversion": EXTRAS.get("optimum"),
             "OptimumMerging": EXTRAS.get("optimum"),
+            "SparseTRTConversion": EXTRAS.get("torch-tensorrt"),
         },
     }
 

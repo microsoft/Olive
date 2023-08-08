@@ -28,5 +28,8 @@
     ],
     "optimum": [
         "optimum"
+    ],
+    "torch-tensorrt": [
+        "torch-tensorrt"
     ]
 }

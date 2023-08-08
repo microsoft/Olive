@@ -38,6 +38,15 @@ embedding_map = {
 # all model types are expected to have "input_ids" and "attention_mask"
 additional_inputs = {"bloom": ["alibi"], "gpt_neox": ["position_ids"]}
 
+# max sequence length for each model type
+seqlens = {
+    "bloom": 2048,
+    "gpt2": 1024,
+    "gpt_neox": 2048,
+    "llama": 2048,
+    "opt": 2048,
+}
+
 
 def _get_attr(module, attr):
     """Get attribute from module.
