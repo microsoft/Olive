@@ -157,6 +157,8 @@ def text_generation_huggingface_pre_process(
     from datasets import Dataset as HFDataset
     from transformers import AutoTokenizer
 
+    assert seqlen is not None, "Must specify seqlen"
+
     # get tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -175,6 +177,7 @@ def text_generation_huggingface_pre_process(
 
     tokenized_inputs = {
         "input_ids": [],
+        "attention_mask": [],
         "target_ids": [],
     }
 
@@ -195,6 +198,8 @@ def text_generation_huggingface_pre_process(
             end_loc = begin_loc + seqlen
             # get the input sequence
             input_ids = encodings.input_ids[0, begin_loc:end_loc].clone()
+            # get the attention mask
+            attention_mask = encodings.attention_mask[0, begin_loc:end_loc].clone()
             # target is the same as input, but shifted one token over
             target_ids = encodings.input_ids[0, begin_loc + 1 : end_loc + 1].clone()  # noqa: E203
 
@@ -204,6 +209,7 @@ def text_generation_huggingface_pre_process(
 
             # add to list
             tokenized_inputs["input_ids"].append(input_ids)
+            tokenized_inputs["attention_mask"].append(attention_mask)
             tokenized_inputs["target_ids"].append(target_ids)
     else:
         assert max_samples, "max_samples must be specified if random_seed is None"
@@ -222,6 +228,7 @@ def text_generation_huggingface_pre_process(
                 continue
 
             input_ids = encodings.input_ids[0, :seqlen].clone()
+            attention_mask = encodings.attention_mask[0, :seqlen].clone()
             target_ids = encodings.input_ids[0, 1 : seqlen + 1].clone()  # noqa: E203
 
             # set to -100 to ignore loss for context
@@ -230,6 +237,7 @@ def text_generation_huggingface_pre_process(
 
             # add to list
             tokenized_inputs["input_ids"].append(input_ids)
+            tokenized_inputs["attention_mask"].append(attention_mask)
             tokenized_inputs["target_ids"].append(target_ids)
 
     # convert to HFDataset

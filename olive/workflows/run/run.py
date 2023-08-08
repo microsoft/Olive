@@ -164,6 +164,7 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
                 clean_run_cache=pass_config.clean_run_cache,
                 output_name=pass_config.output_name,
             )
+        engine.set_pass_flows(config.pass_flows)
 
         if data_root is None:
             data_root = config.data_root

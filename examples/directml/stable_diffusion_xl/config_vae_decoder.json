@@ -2,15 +2,18 @@
     "input_model": {
         "type": "PyTorchModel",
         "config": {
-            "model_path": "runwayml/stable-diffusion-v1-5",
-            "model_loader": "vae_encoder_load",
+            "model_path": "stabilityai/stable-diffusion-xl-base-1.0",
+            "model_loader": "vae_decoder_load",
             "model_script": "user_script.py",
             "io_config": {
-                "input_names": [ "sample", "return_dict" ],
-                "output_names": [ "latent_sample" ],
-                "dynamic_axes": { "sample": { "0": "batch", "1": "channels", "2": "height", "3": "width" } }
+                "input_names": [ "latent_sample", "return_dict" ],
+                "output_names": [ "sample" ],
+                "dynamic_axes": {
+                    "latent_sample": { "0": "batch_size", "1": "num_channels_latent", "2": "height_latent", "3": "width_latent" },
+                    "sample": { "0": "batch_size", "1": "num_channels", "2": "height", "3": "width" }
+                }
             },
-            "dummy_inputs_func": "vae_encoder_conversion_inputs"
+            "dummy_inputs_func": "vae_decoder_conversion_inputs"
         }
     },
     "systems": {
@@ -30,7 +33,7 @@
                     "sub_types": [{"name": "avg"}],
                     "user_config": {
                         "user_script": "user_script.py",
-                        "dataloader_func": "vae_encoder_data_loader",
+                        "dataloader_func": "vae_decoder_data_loader",
                         "batch_size": 1
                     }
                 }
@@ -48,10 +51,9 @@
             "type": "OrtTransformersOptimization",
             "config": {
                 "model_type": "vae",
-                "disable_search": true,
-                "float16": true,
+                "float16": false,
                 "use_gpu": true,
-                "keep_io_types": false,
+                "keep_io_types": true,
                 "optimization_options": {
                     "enable_gelu": true,
                     "enable_layer_norm": true,
@@ -86,7 +88,7 @@
         "host": "local_system",
         "target": "local_system",
         "cache_dir": "cache",
-        "output_name": "vae_encoder",
+        "output_name": "vae_decoder",
         "output_dir": "footprints",
         "execution_providers": ["DmlExecutionProvider"]
     }

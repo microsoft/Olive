@@ -35,6 +35,13 @@ class AccuracyBase(AutoConfigClass):
 
     def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
         super().__init__(config)
+        self.resolve_kwargs()
+
+    def resolve_kwargs(self):
+        config_dict = self.config.dict()
+        kwargs = config_dict.pop("kwargs", {})
+        config_dict.update(kwargs or {})
+        self.config_dict = config_dict
 
     def resolve_kwargs(self):
         config_dict = self.config.dict()

@@ -17,10 +17,13 @@ def check_search_output(footprints):
 
 def check_no_search_output(outputs):
     assert outputs, "outputs is empty. The run must have failed for all accelerator specs."
-    for output in outputs.values():
-        output_metrics = output["metrics"]
-        for item in output_metrics.values():
-            assert item.value > 0
+    # k:v => accelerator_spec: pass_flow_output
+    for pass_flow_output in outputs.values():
+        # k:v => pass_flow: output
+        for output in pass_flow_output.values():
+            output_metrics = output["metrics"]
+            for item in output_metrics.values():
+                assert item.value > 0
 
 
 def patch_config(config_json_path: str, search_algorithm: str, execution_order: str, system: str, is_gpu: bool = False):

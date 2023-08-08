@@ -633,6 +633,10 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         # concatenate along the batch dimension
         preds = torch.cat(preds, dim=0)
         targets = torch.cat(targets, dim=0)
+        # move model to cpu
+        # don't want model to be kept on gpu since model persists and takes up gpu memory
+        if device:
+            session.to("cpu")
         logits = torch.cat(logits, dim=0)
         return preds, targets, logits
 
@@ -684,6 +688,10 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
                 t = time.perf_counter()
                 session(input_data)
                 latencies.append(time.perf_counter() - t)
+
+        # move model to cpu
+        if device:
+            session.to("cpu")
 
         return OliveEvaluator.compute_latency(metric, latencies)
 

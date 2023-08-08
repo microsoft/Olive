@@ -2,13 +2,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
+from functools import partial
 from itertools import chain
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from pydantic import validator
 
 from olive.common.config_utils import ConfigBase
 from olive.model.model_config import IOConfig
+
+logger = logging.getLogger(__name__)
 
 
 class HFComponent(ConfigBase):
@@ -21,7 +25,9 @@ class HFComponent(ConfigBase):
 class HFConfig(ConfigBase):
     model_name: str = None
     task: str = None
-    feature: str = "default"
+    # feature is optional if task is specified and don't need past
+    # else, provide feature such as "causal-lm-with-past"
+    feature: str = None
     # TODO: remove model_class and only use task
     model_class: str = None
     components: List[HFComponent] = None
@@ -58,6 +64,7 @@ def load_huggingface_model_from_task(task: str, name: str):
     for model_class in class_tuple:
         try:
             model = model_class.from_pretrained(name)
+            logger.debug(f"Loaded model {model_class} with name_or_path {name}")
             return model
         except (OSError, ValueError):
             # the ValueError need to be caught since there will be multiple model_class for single task.
@@ -100,15 +107,89 @@ def load_huggingface_model_from_model_class(model_class: str, name: str):
     return huggingface_model_loader(model_class)(name)
 
 
-def get_onnx_config(model_name: str, task: str, feature: str):
+# patched version of transforrmers.onnx.features.supported_features_mapping
+# to support additional models in olive
+def patched_supported_features_mapping(*supported_features: str, onnx_config_cls: str = None) -> Dict[str, Callable]:
+    """
+    Generate the mapping between supported the features and their corresponding OnnxConfig for a given model.
+
+    Args:
+        *supported_features: The names of the supported features.
+        onnx_config_cls: The OnnxConfig full name corresponding to the model.
+
+    Returns:
+        The dictionary mapping a feature to an OnnxConfig constructor.
+    """
+    if onnx_config_cls is None:
+        raise ValueError("A OnnxConfig class must be provided")
+
+    import olive.model.hf_onnx_config as config_cls
+
+    for attr_name in onnx_config_cls.split("."):
+        config_cls = getattr(config_cls, attr_name)
+    mapping = {}
+    for feature in supported_features:
+        if "-with-past" in feature:
+            task = feature.replace("-with-past", "")
+            mapping[feature] = partial(config_cls.with_past, task=task)
+        else:
+            mapping[feature] = partial(config_cls.from_model_config, task=feature)
+
+    return mapping
+
+
+def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None):
     from transformers.onnx import FeaturesManager
 
-    model = load_huggingface_model_from_task(task, model_name)
-    _, model_onnx_config = FeaturesManager.check_supported_model_or_raise(model, feature=feature)
-    return model_onnx_config(model.config)
+    from olive.model.hf_onnx_config import ADDITIONAL_MODEL_TYPES
+
+    # patch FeaturesManager._SUPPORTED_MODEL_TYPE to support additional models in olive
+    for model_type in ADDITIONAL_MODEL_TYPES:
+        if model_type in FeaturesManager._SUPPORTED_MODEL_TYPE:
+            continue
+        features, onnx_config_cls = ADDITIONAL_MODEL_TYPES[model_type]
+        FeaturesManager._SUPPORTED_MODEL_TYPE[model_type] = patched_supported_features_mapping(
+            *features, onnx_config_cls=onnx_config_cls
+        )
+
+    # mapping from task to feature
+    task_to_feature = {
+        "automatic-speech-recognition": "speech2seq-lm",
+        "fill-mask": "masked-lm",
+        "image-classification": "image-classification",
+        "image-segmentation": "image-segmentation",
+        "image-to-text": "vision2seq-lm",
+        "multiple-choice": "multiple-choice",
+        "ner": "token-classification",
+        "object-detection": "object-detection",
+        "question-answering": "question-answering",
+        "sentiment-analysis": "sequence-classification",
+        "summarization": "seq2seq-lm",
+        "text2text-generation": "seq2seq-lm",
+        "text-classification": "sequence-classification",
+        "text-generation": "causal-lm",
+        "token-classification": "token-classification",
+        "translation": "seq2seq-lm",
+    }
+    # if feature is not provided, try to get it from task
+    # else use "default"
+    feature = feature or task_to_feature.get(task, "default")
+
+    # don't want to load the model here since all we need is the config
+    # model loading is expensive computationally and memory-wise for large models
+    config = get_hf_model_config(model_name)
+    # recreate the logic for FeaturesManager.check_supported_model_or_raise to get the model_onnx_config
+    # https://github.com/huggingface/transformers/blob/main/src/transformers/onnx/features.py#L712
+    model_type = config.model_type.replace("_", "-")
+    model_features = FeaturesManager.get_supported_features_for_model_type(model_type, model_name=model_name)
+    if feature not in model_features:
+        raise ValueError(
+            f"{config.model_type} doesn't support feature {feature}. Supported values are: {model_features}"
+        )
+    return FeaturesManager.get_config(model_type, feature)(config)
 
 
-def get_hf_model_io_config(model_name: str, task: str, feature: str):
+def get_hf_model_io_config(model_name: str, task: str, feature: Optional[str] = None):
     model_config = get_onnx_config(model_name, task, feature)
     inputs = model_config.inputs
     outputs = model_config.outputs
@@ -119,7 +200,7 @@ def get_hf_model_io_config(model_name: str, task: str, feature: str):
     return io_config
 
 
-def get_hf_model_dummy_input(model_name: str, task: str, feature: str):
+def get_hf_model_dummy_input(model_name: str, task: str, feature: Optional[str] = None):
     from transformers import AutoTokenizer
 
     model_config = get_onnx_config(model_name, task, feature)
