@@ -23,11 +23,7 @@ class AccuracyBase(AutoConfigClass):
         "f1_score": torchmetrics.F1Score,
         "precision": torchmetrics.Precision,
         "recall": torchmetrics.Recall,
-<<<<<<< HEAD
-        "auc": torchmetrics.AUROC,
-=======
         "auroc": torchmetrics.AUROC,
->>>>>>> da93eb844e61f3b4ba136197eb8f02c29c495d51
         "perplexity": torchmetrics.text.perplexity.Perplexity,
     }
 

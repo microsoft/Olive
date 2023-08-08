@@ -106,7 +106,7 @@ def test_evaluate_recall(mock_torchmetrics, mock_torch_tensor):
 
 @patch("olive.evaluator.accuracy.torch.tensor")
 @patch("olive.evaluator.accuracy.torchmetrics")
-def test_evaluate_auc(mock_torchmetrics, mock_torch_tensor):
+def test_evaluate_auroc(mock_torchmetrics, mock_torch_tensor):
     # setup
     acc = AUROC()
     model_output = OliveModelOutput(None, [1, 0, 1, 1])

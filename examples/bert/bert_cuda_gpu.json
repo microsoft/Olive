@@ -27,7 +27,7 @@
                         {"name": "f1_score", "metric_config": {"task": "binary"}},
                         {"name": "precision", "metric_config": {"task": "binary"}},
                         {"name": "recall", "metric_config": {"task": "binary"}},
-                        {"name": "auc", "metric_config": {"task": "binary"}}
+                        {"name": "auroc", "metric_config": {"task": "binary"}}
                     ]
                 },
                 {
