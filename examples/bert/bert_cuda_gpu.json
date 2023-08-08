@@ -61,9 +61,12 @@
             "config": {
                 "enable_cuda_graph": true
             }
-
         }
     },
+    "pass_flows": [
+        ["conversion", "transformers_optimization", "perf_tuning"],
+        ["conversion", "perf_tuning"]
+    ],
     "engine": {
         "search_strategy": {
             "execution_order": "joint",

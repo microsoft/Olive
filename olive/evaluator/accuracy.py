@@ -35,6 +35,13 @@ class AccuracyBase(AutoConfigClass):
 
     def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
         super().__init__(config)
+        self.resolve_kwargs()
+
+    def resolve_kwargs(self):
+        config_dict = self.config.dict()
+        kwargs = config_dict.pop("kwargs", {})
+        config_dict.update(kwargs or {})
+        self.config_dict = config_dict
 
     @classmethod
     def _metric_config_from_torch_metrics(cls):
@@ -79,7 +86,7 @@ class AccuracyScore(AccuracyBase):
 
     def measure(self, preds, target):
         preds_tensor, target_tensor = self.prepare_tensors(preds, target)
-        accuracy = torchmetrics.Accuracy(**self.config.dict())
+        accuracy = torchmetrics.Accuracy(**self.config_dict)
         result = accuracy(preds_tensor, target_tensor)
         return result.item()
 
@@ -89,7 +96,7 @@ class F1Score(AccuracyBase):
 
     def measure(self, preds, target):
         preds_tensor, target_tensor = self.prepare_tensors(preds, target)
-        f1 = torchmetrics.F1Score(**self.config.dict())
+        f1 = torchmetrics.F1Score(**self.config_dict)
         result = f1(preds_tensor, target_tensor)
         return result.item()
 
@@ -99,7 +106,7 @@ class Precision(AccuracyBase):
 
     def measure(self, preds, target):
         preds_tensor, target_tensor = self.prepare_tensors(preds, target)
-        precision = torchmetrics.Precision(**self.config.dict())
+        precision = torchmetrics.Precision(**self.config_dict)
         result = precision(preds_tensor, target_tensor)
         return result.item()
 
@@ -109,7 +116,7 @@ class Recall(AccuracyBase):
 
     def measure(self, preds, target):
         preds_tensor, target_tensor = self.prepare_tensors(preds, target)
-        recall = torchmetrics.Recall(**self.config.dict())
+        recall = torchmetrics.Recall(**self.config_dict)
         result = recall(preds_tensor, target_tensor)
         return result.item()
 
@@ -130,7 +137,7 @@ class Perplexity(AccuracyBase):
 
     def measure(self, preds, target):
         # update ignore_index if not set
-        config = self.config.dict()
+        config = self.config_dict
         if config["ignore_index"] is None:
             config["ignore_index"] = -100
 

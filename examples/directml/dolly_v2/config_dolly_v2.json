@@ -48,6 +48,7 @@
                 "keep_io_types": true,
                 "num_heads": 32,
                 "hidden_size": 4096,
+                "disable_search": true,
                 "optimization_options": {
                     "enable_gelu": true,
                     "enable_layer_norm": true,

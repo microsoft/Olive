@@ -50,13 +50,13 @@ def valid_config(tuning_combos, config):
 
     # if the first combo is CPUExecutionProvider, then the io_bind should not be True
     if tuning_combos[0] == "CPUExecutionProvider" and tuning_combos[3]:
-        logger.info("[Skipped] Because EPs is CPUExecutionProvider, the io_bind should not be True")
+        logger.info("[Ignored] Because EP is CPUExecutionProvider, the io_bind should not be True")
         return False
     if tuning_combos[0] != "CUDAExecutionProvider" and config.enable_cuda_graph:
-        logger.info("[Ignored] Because EPs is not CUDAExecutionProvider, the enable_cuda_graph is ignored")
+        logger.info("[Ignored] Because EP is not CUDAExecutionProvider, the enable_cuda_graph is ignored")
         return True
     if tuning_combos[0] != "TensorrtExecutionProvider" and config.trt_fp16_enable:
-        logger.info("[Ignored] Because EPs is not TensorrtExecutionProvider, the trt_fp16_enable is ignored")
+        logger.info("[Ignored] Because EP is not TensorrtExecutionProvider, the trt_fp16_enable is ignored")
         return True
     return True
 
