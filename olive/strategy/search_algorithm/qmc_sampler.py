@@ -29,11 +29,6 @@ class QMCSearchAlgorithm(OptunaSearchAlgorithm):
                 default_value=True,
                 description="If this option is True, scrambling (randomization) is applied to the QMC sequences.",
             ),
-            "seed": ConfigParam(
-                type_=int,
-                default_value=None,
-                description="This argument is used only when scramble is True, else, the seed is initialized randomly.",
-            ),
             "qmc_type": ConfigParam(
                 type_=str,
                 default_value="sobol",
@@ -46,7 +41,6 @@ class QMCSearchAlgorithm(OptunaSearchAlgorithm):
         Create the sampler.
         """
         return optuna.samplers.QMCSampler(
-            seed=self._config.seed,
             scramble=self._config.scramble,
             qmc_type=self._config.qmc_type,
         )

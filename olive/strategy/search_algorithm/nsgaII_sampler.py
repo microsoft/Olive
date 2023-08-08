@@ -42,11 +42,6 @@ class NSGAIISearchAlgorithm(OptunaSearchAlgorithm):
                 default_value=0.5,
                 description="Probability of swapping each parameter of the parents during crossover.",
             ),
-            "seed": ConfigParam(
-                type_=int,
-                default_value=None,
-                description="Seed for random number generator. If not specified, a random seed is used.",
-            ),
             "crossover": ConfigParam(
                 type_=str,
                 default_value=None,
@@ -59,7 +54,6 @@ class NSGAIISearchAlgorithm(OptunaSearchAlgorithm):
         Create the sampler.
         """
         return optuna.samplers.NSGAIISampler(
-            seed=self._config.seed,
             population_size=self._config.population_size,
             mutation_prob=self._config.mutation_prob,
             crossover_prob=self._config.crossover_prob,
