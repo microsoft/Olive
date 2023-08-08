@@ -97,7 +97,7 @@ class AzureND96ASystem(AzureMLSystemAlias):
 # STANDARD_NV8AS_V4
 
 
-# Please add surface readymade system alias from https://learn.microsoft.com/en-us/surface/surface-system-sku-reference
+# Please add surface ready-made system alias from https://learn.microsoft.com/en-us/surface/surface-system-sku-reference
 class SurfaceSystemAlias:
     system_type = SystemType.Local
     accelerators = ["GPU"]
