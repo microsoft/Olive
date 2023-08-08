@@ -1,4 +1,6 @@
-# How to write `user_script`
+# Custom Scripts
+
+Olive provides ability to write custom scripts for specific tasks such as loading a dataset using `user_script`.
 
 ## `user_script`
 `user_script` can be added when you have your own classes and functions defined in a separate Python file. Olive will automatically use the classes and functions in your script.

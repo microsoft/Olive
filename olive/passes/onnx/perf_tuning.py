@@ -50,13 +50,13 @@ def valid_config(tuning_combos, config):
 
     # if the first combo is CPUExecutionProvider, then the io_bind should not be True
     if tuning_combos[0] == "CPUExecutionProvider" and tuning_combos[3]:
-        logger.info("[Skipped] Because EPs is CPUExecutionProvider, the io_bind should not be True")
+        logger.info("[Ignored] Because EP is CPUExecutionProvider, the io_bind should not be True")
         return False
     if tuning_combos[0] != "CUDAExecutionProvider" and config.enable_cuda_graph:
-        logger.info("[Ignored] Because EPs is not CUDAExecutionProvider, the enable_cuda_graph is ignored")
+        logger.info("[Ignored] Because EP is not CUDAExecutionProvider, the enable_cuda_graph is ignored")
         return True
     if tuning_combos[0] != "TensorrtExecutionProvider" and config.trt_fp16_enable:
-        logger.info("[Ignored] Because EPs is not TensorrtExecutionProvider, the trt_fp16_enable is ignored")
+        logger.info("[Ignored] Because EP is not TensorrtExecutionProvider, the trt_fp16_enable is ignored")
         return True
     return True
 
@@ -270,6 +270,13 @@ class OrtPerfTuning(Pass):
     _requires_data_config = True
 
     @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        """Override this method to return False by using the
+        accelerator spec information.
+        """
+        return False
+
+    @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
@@ -338,6 +345,7 @@ class OrtPerfTuning(Pass):
     def _run_for_config(
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
+        # TODO remove this when we have a concrete investigation on the backcompat issue
         if not config.get("providers_list"):
             # add the provider to the config if user doesn't provide the execution providers
             config["providers_list"] = [self.accelerator_spec.execution_provider]

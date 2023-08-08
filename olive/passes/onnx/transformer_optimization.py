@@ -2,15 +2,19 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 import os
 from copy import deepcopy
 from typing import Any, Dict, List, Union
 
-from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
+from olive.strategy.search_parameter import Boolean, Categorical
+
+logger = logging.getLogger(__name__)
 
 
 class OrtTransformersOptimization(Pass):
@@ -19,8 +23,9 @@ class OrtTransformersOptimization(Pass):
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        # TODO: add default search if supported
         from onnxruntime.transformers.fusion_options import FusionOptions
+
+        is_gpu = accelerator_spec.accelerator_type == Device.GPU
 
         config = {
             "model_type": PassConfigParam(
@@ -43,15 +48,17 @@ class OrtTransformersOptimization(Pass):
             "opt_level": PassConfigParam(
                 type_=Any,
                 default_value=None,
+                searchable_values=Categorical([0, 1, 2, 99]),
                 description=(
                     "Graph optimization level of Onnx Runtime: "
                     "0 - disable all (default), 1 - basic, 2 - extended, 99 - all."
                 ),
             ),
-            "use_gpu": PassConfigParam(type_=bool, default_value=False, description="Flag for GPU inference."),
+            "use_gpu": PassConfigParam(type_=bool, default_value=is_gpu, description="Flag for GPU inference."),
             "only_onnxruntime": PassConfigParam(
                 type_=bool,
                 default_value=False,
+                searchable_values=Boolean(),
                 description="Whether only use onnxruntime to optimize model, and no python fusion.",
             ),
             "float16": PassConfigParam(
@@ -71,6 +78,26 @@ class OrtTransformersOptimization(Pass):
         }
         config.update(get_external_data_config())
         return config
+
+    def validate_search_point(
+        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    ) -> bool:
+        if with_fixed_value:
+            search_point = self.config_at_search_point(search_point or {})
+        if search_point.get("float16"):
+            if accelerator_spec.execution_provider == "TensorrtExecutionProvider":
+                logger.info(
+                    "TensorRT has its own float16 implementation, please avoid to use float16 in transformers "
+                    "optimization. Suggest to set 'trt_fp16_enable' as True in OrtPerfTuning."
+                )
+                return False
+            if accelerator_spec.execution_provider == "CPUExecutionProvider":
+                logger.info("CPUExecutionProvider does not support float16 very well, please avoid to use float16.")
+                return False
+        if search_point.get("use_gpu") and accelerator_spec.execution_provider == "CPUExecutionProvider":
+            logger.info("CPUExecutionProvider does not support GPU inference, please avoid to use use_gpu.")
+            return False
+        return True
 
     @staticmethod
     def _set_fusion_options(run_config: Dict[str, Any]):
@@ -115,3 +142,7 @@ class OrtTransformersOptimization(Pass):
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(optimizer.model, output_model_path, config)
+
+    @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        return False

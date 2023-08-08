@@ -19,6 +19,10 @@ else
     echo "Using active python environment"
 fi
 
+# Upgrade pip
+echo "Upgrading pip"
+python -m pip install --upgrade pip
+
 # Install olive
 if [[ "$INSTALL_DEV_MODE" == "True" ]]; then
     echo "Installing olive in dev mode"

@@ -20,7 +20,7 @@ def setup():
 
 
 @pytest.mark.parametrize("search_algorithm", ["tpe"])
-@pytest.mark.parametrize("execution_order", ["joint"])
+@pytest.mark.parametrize("execution_order", ["joint", "pass-by-pass"])
 @pytest.mark.parametrize("system", ["aml_system"])
 @pytest.mark.parametrize("olive_json", ["bert_cuda_gpu.json"])
 @pytest.mark.parametrize("enable_cuda_graph", [True, False])

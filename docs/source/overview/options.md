@@ -101,7 +101,8 @@ case insensitive.
         - `task: [str]`: This is the task type for the model such as `text-classification`. The complete list of supported task can be found
         at [huggingface-tasks](https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task).
 
-        - `feature: [str]`: The ONNX export features. This is only needed for HuggingFace hub model. Default to `default`. You can find more info at [Export to ONNX](https://huggingface.co/docs/transformers/serialization)
+        - `feature: [str]`: The ONNX export features. This is only needed for HuggingFace hub model. It is inferred from `task` if not provided. You must provide the feature if you need past key value cache.
+        For instance, `"causal-lm-with-past"`. You can find more info at [Export to ONNX](https://huggingface.co/docs/transformers/serialization)
 
         - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
 
@@ -341,8 +342,9 @@ information of the evaluator contains following items:
 `passes: [Dict]`
 
 This is a dictionary that contains the information of passes that are executed by the engine. The passes are executed
-in order of their definition in this dictionary. The key of the dictionary is the name of the pass. The value of the dictionary is
-another dictionary that contains the information of the pass. The information of the pass contains following items:
+in order of their definition in this dictionary if `pass_flows` is not specified. The key of the dictionary is the name
+of the pass. The value of the dictionary is another dictionary that contains the information of the pass. The information
+of the pass contains following items:
 
 - `type: [str]` The type of the pass.
 
@@ -410,6 +412,48 @@ Please also find the detailed options from following table for each pass:
         }
     }
 }
+```
+
+## Pass Flows Information
+`pass_flows: List[List[str]]`
+
+This is a list of list of pass names. Each list of pass names is a pass flow which will be executed in order.
+When `pass_flows` is not specified, the passes are executed in the order of the `passes` dictionary.
+
+
+### Example
+```json
+"passes": {
+    "onnx_conversion": {
+        "type": "OnnxConversion",
+        "config": {
+            "target_opset": 13
+        }
+    },
+    "transformers_optimization": {
+        "type": "OrtTransformersOptimization",
+        "config": {
+            "model_type": "bert",
+            "num_heads": 12,
+            "hidden_size": 768,
+            "float16": true
+        }
+    },
+    "onnx_quantization": {
+        "type": "OnnxQuantization",
+        "config": {
+            "user_script": "user_script.py",
+            "data_dir": "data",
+            "dataloader_func": "resnet_calibration_reader",
+            "weight_type": "QUInt8"
+        }
+    }
+},
+"pass_flows": [
+    ["onnx_conversion", "transformers_optimization"],
+    ["onnx_conversion", "transformers_optimization", "onnx_quantization"],
+    ["onnx_conversion", "onnx_quantization"],
+]
 ```
 
 ## Engine Information

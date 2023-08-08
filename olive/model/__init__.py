@@ -312,7 +312,6 @@ class ONNXModel(ONNXModelBase):
         return str(path)
 
     def load_model(self, rank: int = None) -> onnx.ModelProto:
-        # HACK: ASSUME no external data
         return onnx.load(self.model_path)
 
     def prepare_session(

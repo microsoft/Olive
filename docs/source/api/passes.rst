@@ -126,6 +126,12 @@ SNPEtoONNXConversion
 --------------------
 .. autoconfigclass:: olive.passes.SNPEtoONNXConversion
 
+.. _sparsegpt:
+
+SparseGPT
+--------------------
+.. autoconfigclass:: olive.passes.SparseGPT
+
 .. _vitis_ai_quantization:
 
 VitisAIQuantization
