@@ -27,7 +27,7 @@ class AccuracySubType(str, Enum):
     F1_SCORE = "f1_score"
     PRECISION = "precision"
     RECALL = "recall"
-    AUC = "auc"
+    AUROC = "auroc"
     PERPLEXITY = "perplexity"
 
 

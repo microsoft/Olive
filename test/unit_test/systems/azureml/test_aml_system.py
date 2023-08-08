@@ -43,7 +43,7 @@ class TestAzureMLSystem:
         (get_accuracy_metric(AccuracySubType.F1_SCORE)),
         (get_accuracy_metric(AccuracySubType.PRECISION)),
         (get_accuracy_metric(AccuracySubType.RECALL)),
-        (get_accuracy_metric(AccuracySubType.AUC)),
+        (get_accuracy_metric(AccuracySubType.AUROC)),
         (get_latency_metric(LatencySubType.AVG)),
         (get_latency_metric(LatencySubType.MAX)),
         (get_latency_metric(LatencySubType.MIN)),
