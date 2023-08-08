@@ -165,7 +165,7 @@ Please find the detailed config options from following table for each model type
 
 This is the root directory that contains the data for the model evaluation, quantization, performance tuning, QAT and all other place that need use data for model optimization.
 if `data_root` is specified, the data_dir in metrics evaluation or other passes which are relative path will be concatenated to the `data_root`. If not specified, the data_dir in metrics evaluation or other passes will be used.
-On the other hand, if the `data_dir` is an absolute path, the `data_root` will be ignored. For exmaple, if the `data_dir` is /home/user/data, then the `data_root` will be ignored and the final data_dir will be /home/user/data.
+On the other hand, if the `data_dir` is an absolute path, the `data_root` will be ignored. For example, if the `data_dir` is /home/user/data, then the `data_root` will be ignored and the final data_dir will be /home/user/data.
 
 The `data_root` could be passed either in config json or by command line like: python -m olive.workflows.run --config <config_file>.json --data_root /home/user/data config.json. If both are provided, the command line will override the config json.
 
