@@ -16,15 +16,109 @@ def test_pre_post_processing_op():
         {"tool_command": "superresolution", "tool_command_args": {"output_format": "png"}},
         disable_search=True,
     )
+
+    pytorch_model = get_superresolution_model()
     with tempfile.TemporaryDirectory() as tempdir:
-        input_model = get_superresolution_model(tempdir, local_system)
+        input_model = convert_superresolution_model(pytorch_model, tempdir, local_system)
         output_folder = str(Path(tempdir) / "onnx")
 
         # execute
         local_system.run_pass(p, input_model, None, output_folder)
 
 
-def get_superresolution_model(tempdir, local_system):
+def test_pre_post_pipeline():
+    config = {
+        "pre": [
+            {"ConvertImageToBGR": {}},
+            {
+                "Resize": {
+                    "resize_to": [
+                        {"type": "__model_input__", "input_index": 0, "dim_index": -2},
+                        {"type": "__model_input__", "input_index": 0, "dim_index": -1},
+                    ]
+                }
+            },
+            {
+                "CenterCrop": {
+                    "height": {"type": "__model_input__", "input_index": 0, "dim_index": -2},
+                    "width": {"type": "__model_input__", "input_index": 0, "dim_index": -1},
+                }
+            },
+            {"PixelsToYCbCr": {"layout": "BGR"}},
+            {"ImageBytesToFloat": {}},
+            {"Unsqueeze": {"axes": [0, 1]}},
+        ],
+        "post": [
+            {"Squeeze": {"axes": [0, 1]}},
+            {"FloatToImageBytes": {"name": "Y1_uint8"}},
+            {
+                "Resize": {
+                    "params": {
+                        "resize_to": [
+                            {"type": "__model_output__", "output_index": 0, "dim_index": -2},
+                            {"type": "__model_output__", "output_index": 0, "dim_index": -1},
+                        ],
+                        "layout": "HW",
+                    },
+                    "io_map": [["PixelsToYCbCr", 1, 0]],
+                }
+            },
+            {"FloatToImageBytes": {"multiplier": 1.0, "name": "Cb1_uint8"}},
+            {
+                "Resize": {
+                    "params": {
+                        "resize_to": [
+                            {"type": "__model_output__", "output_index": 0, "dim_index": -2},
+                            {"type": "__model_output__", "output_index": 0, "dim_index": -1},
+                        ],
+                        "layout": "HW",
+                    },
+                    "io_map": [["PixelsToYCbCr", 2, 0]],
+                }
+            },
+            {"FloatToImageBytes": {"multiplier": 1.0, "name": "Cr1_uint8"}},
+            {
+                "YCbCrToPixels": {
+                    "params": {
+                        "layout": "BGR",
+                    },
+                    "io_map": [
+                        ["Y1_uint8", 0, 0],
+                        ["Cb1_uint8", 0, 1],
+                        ["Cr1_uint8", 0, 2],
+                    ],
+                }
+            },
+            {"ConvertBGRToImage": {"image_format": "png"}},
+        ],
+        "tool_command_args": [
+            {
+                "name": "image",
+                "data_type": "uint8",
+                "shape": ["num_bytes"],
+            }
+        ],
+        "target_opset": 16,
+    }
+
+    p = create_pass_from_dict(
+        AppendPrePostProcessingOps,
+        config,
+        disable_search=True,
+    )
+    assert p is not None
+
+    local_system = LocalSystem()
+    pytorch_model = get_superresolution_model()
+    with tempfile.TemporaryDirectory() as tempdir:
+        input_model = convert_superresolution_model(pytorch_model, tempdir, local_system)
+        output_folder = str(Path(tempdir) / "onnx")
+
+        # execute
+        local_system.run_pass(p, input_model, None, output_folder)
+
+
+def get_superresolution_model():
     import torch.nn as nn
     import torch.nn.init as init
 
@@ -81,6 +175,11 @@ def get_superresolution_model(tempdir, local_system):
             "output_names": ["output"],
         },
     )
+
+    return pytorch_model
+
+
+def convert_superresolution_model(pytorch_model, tempdir, local_system):
     onnx_conversion_pass = create_pass_from_dict(OnnxConversion, {"target_opset": 15}, disable_search=True)
     onnx_model = local_system.run_pass(onnx_conversion_pass, pytorch_model, None, str(Path(tempdir) / "onnx"))
 
