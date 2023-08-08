@@ -54,6 +54,7 @@ class NSGAIISearchAlgorithm(OptunaSearchAlgorithm):
         Create the sampler.
         """
         return optuna.samplers.NSGAIISampler(
+            seed=self._config.seed,
             population_size=self._config.population_size,
             mutation_prob=self._config.mutation_prob,
             crossover_prob=self._config.crossover_prob,

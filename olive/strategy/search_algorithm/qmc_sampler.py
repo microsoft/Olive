@@ -41,6 +41,7 @@ class QMCSearchAlgorithm(OptunaSearchAlgorithm):
         Create the sampler.
         """
         return optuna.samplers.QMCSampler(
+            seed=self._config.seed,
             scramble=self._config.scramble,
             qmc_type=self._config.qmc_type,
         )
