@@ -25,6 +25,8 @@ class TestRunConfig:
             Path(__file__).parent / "mock_data" / "transformer_dataset.json",
             Path(__file__).parent / "mock_data" / "only_transformer_dataset.json",
             Path(__file__).parent / "mock_data" / "ner_task_dataset.json",
+            Path(__file__).parent / "mock_data" / "text_generation_dataset.json",
+            Path(__file__).parent / "mock_data" / "text_generation_dataset_random.json",
         ],
     )
     def test_dataset_config_file(self, config_file):

@@ -17,10 +17,13 @@ def check_search_output(footprints):
 
 def check_no_search_output(outputs):
     assert outputs, "outputs is empty. The run must have failed for all accelerator specs."
-    for output in outputs.values():
-        output_metrics = output["metrics"]
-        for item in output_metrics.values():
-            assert item.value > 0
+    # k:v => accelerator_spec: pass_flow_output
+    for pass_flow_output in outputs.values():
+        # k:v => pass_flow: output
+        for output in pass_flow_output.values():
+            output_metrics = output["metrics"]
+            for item in output_metrics.values():
+                assert item.value > 0
 
 
 def patch_config(config_json_path: str, search_algorithm: str, execution_order: str, system: str, is_gpu: bool = False):
@@ -48,6 +51,13 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
         # set docker_system
         set_docker_system(olive_config)
         olive_config["engine"]["target"] = system
+        # reduce agent size for docker system
+
+        # as our docker image is big, we need to reduce the agent size to avoid timeout
+        # for the docker system test, we skip to search for transformers optimization as
+        # it is tested in other olive system tests
+        olive_config["passes"]["transformers_optimization"]["disable_search"] = True
+        olive_config["engine"]["search_strategy"]["search_algorithm_config"]["num_samples"] = 2
 
     return olive_config
 

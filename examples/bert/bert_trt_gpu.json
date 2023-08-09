@@ -56,14 +56,6 @@
 
         }
     },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": ["gpu"]
-            }
-        }
-    },
     "engine": {
         "search_strategy": {
             "execution_order": "joint",
@@ -74,8 +66,6 @@
             }
         },
         "evaluator": "common_evaluator",
-        "target": "local_system",
-        "host": "local_system",
         "execution_providers": ["TensorrtExecutionProvider"],
         "clean_cache": true,
         "cache_dir": "cache",

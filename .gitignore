@@ -12,6 +12,9 @@ examples/**/model
 test/**/data
 nc_workspace/
 
+# Onnx dynamo export artifacts
+*.sarif
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

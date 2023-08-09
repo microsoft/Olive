@@ -43,7 +43,7 @@ class OnnxConversion(Pass):
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "target_opset": PassConfigParam(
-                type_=int, default_value=18, description="The version of the default (ai.onnx) opset to target."
+                type_=int, default_value=13, description="The version of the default (ai.onnx) opset to target."
             ),
             "use_dynamo_exporter": PassConfigParam(
                 type_=bool, default_value=False, description="Whether to use dynamo_export API to export ONNX model."
@@ -117,7 +117,23 @@ class OnnxConversion(Pass):
             # only handle dict for now since we cannot get the name of the input from a list/tuple
             if isinstance(dummy_inputs, dict):
                 dummy_input_keys = set(dummy_inputs.keys())
+
+                # handle dummy inputs for hf model with past, which has past_key_values
+                # match input names in `past_key_values.(hidden_layer_num).(key|value)` pattern
+                from transformers.modeling_utils import PreTrainedModel
+
+                if issubclass(type(pytorch_model), PreTrainedModel):
+                    for name, input in dummy_inputs.items():
+                        if isinstance(input, list):
+                            key_value_names = set(
+                                [f"{name}.{idx}.key" for idx in range(len(input))]
+                                + [f"{name}.{idx}.value" for idx in range(len(input))]
+                            )
+                            if key_value_names.issubset(set(input_names)):
+                                dummy_input_keys.discard(name)
+
                 unused_keys = dummy_input_keys - set(input_names)
+
                 if unused_keys:
                     logger.debug(f"Removing unused dummy inputs: {unused_keys}")
                 for key in unused_keys:

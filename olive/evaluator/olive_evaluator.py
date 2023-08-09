@@ -292,7 +292,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         """
         input_names = io_config["input_names"]
         name_to_type = {k: v for k, v in zip(io_config["input_names"], io_config["input_types"])}
-        if not isinstance(input_data, dict):
+        if isinstance(input_data, list):
+            input_data = dict(zip(input_names, input_data))
+        elif not isinstance(input_data, dict):
             input_data = dict(zip(input_names, [input_data]))
         input_dict = {
             k: np.ascontiguousarray(
@@ -326,10 +328,17 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         for input_data, labels in dataloader:
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             res = session.run(input_feed=input_dict, output_names=None)
-            result = torch.Tensor(res[0]) if len(output_names) == 1 else torch.Tensor(res)
+            if len(output_names) == 1:
+                result = torch.Tensor(res[0])
+            else:
+                # convert to dict of torch tensor
+                result = {name: torch.Tensor(res[i]) for i, name in enumerate(output_names)}
             outputs = post_func(result) if post_func else result
-            preds.extend(outputs.tolist())
-            targets.extend(labels.data.tolist())
+            # keep as numpy or torch arrays
+            preds.append(outputs.cpu())
+            targets.append(labels.cpu())
+        preds = torch.cat(preds, dim=0)
+        targets = torch.cat(targets, dim=0)
         return preds, targets
 
     def _evaluate_onnx_accuracy(
@@ -591,6 +600,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     def _device_string_to_torch_device(device: Device):
         return torch.device("cuda") if device == Device.GPU else torch.device(device)
 
+    @torch.no_grad()
     def _inference(
         self,
         model: PyTorchModel,
@@ -611,12 +621,17 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
             input_data = tensor_data_to_device(input_data, device)
             result = session(**input_data) if isinstance(input_data, dict) else session(input_data)
             outputs = post_func(result) if post_func else result
-            # use the list.extend instead of list.append to avoid the different sub-array has different size when
-            # batch size is greater than 2 so that the residue array has different size with the batch size,
-            # which will result the exception like:
-            #  ValueError: expected sequence of length 128 at dim 1 (got 3)
-            preds.extend(outputs.tolist())
-            targets.extend(labels.data.tolist())
+            # keep the outputs and results as torch tensor on cpu
+            # it is expensive to convert to list and then convert back to torch tensor
+            preds.append(outputs.cpu())
+            targets.append(labels.cpu())
+        # concatenate along the batch dimension
+        preds = torch.cat(preds, dim=0)
+        targets = torch.cat(targets, dim=0)
+        # move model to cpu
+        # don't want model to be kept on gpu since model persists and takes up gpu memory
+        if device:
+            session.to("cpu")
         return preds, targets
 
     def _evaluate_accuracy(
@@ -667,6 +682,10 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
                 t = time.perf_counter()
                 session(input_data)
                 latencies.append(time.perf_counter() - t)
+
+        # move model to cpu
+        if device:
+            session.to("cpu")
 
         return OliveEvaluator.compute_latency(metric, latencies)
 

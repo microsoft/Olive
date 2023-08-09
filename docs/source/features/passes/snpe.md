@@ -1,4 +1,4 @@
-# SNPE related – Qualcomm HW
+# SNPE
 
 The Snapdragon Neural Processing Engine (SNPE) is a Qualcomm Snapdragon software accelerated runtime for the execution of
 deep neural networks.

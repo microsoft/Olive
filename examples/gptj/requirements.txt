@@ -1,0 +1,4 @@
+datasets
+onnxruntime
+neural-compressor
+transformers

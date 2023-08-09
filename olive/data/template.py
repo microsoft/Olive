@@ -35,7 +35,7 @@ def huggingface_data_config_template(model_name, task, **kwargs) -> DataConfig:
     task: str
         The task type of huggingface.
     **kwargs: dict
-        The additional arguments.
+        The additional arguments. Will be passed as `params_config` to the data container.
         - `data_name`: str, data name in huggingface dataset, e.g.: "glue", "squad"
         - `subset`: str, subset of data, e.g.: "train", "validation", "test"
         - `split`: str, split of data, e.g.: "train", "validation", "test"

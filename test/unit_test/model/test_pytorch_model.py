@@ -171,5 +171,5 @@ class TestPytorchDummyInput:
         # get dummy inputs
         dummy_inputs = olive_model.get_dummy_inputs()
 
-        get_hf_model_dummy_input.assert_called_once_with(self.model_name, self.task, "default")
+        get_hf_model_dummy_input.assert_called_once_with(self.model_name, self.task, None)
         assert dummy_inputs == 1

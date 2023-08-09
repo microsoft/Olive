@@ -1,6 +1,8 @@
 # Open LLaMa Optimization
 This folder contains examples of Open LLaMA workflow.
 
+## Optimization Workflows
+### Convert, Optimize and Merge Open LLaMA Model
 This workflow also demonstrates how to use:
 - Huggingface `transformers` to load model from [model hub](https://huggingface.co/models).
 - Huggingface `optimum` to convert and merge generative models [optimum](https://huggingface.co/docs/optimum/index).
@@ -55,25 +57,38 @@ def dummy_inputs(batch_size, torch_dtype, model_framework=Framework.PYTORCH, num
     attention_mask_sequence_length = 1
 ```
 
+### Sparsify Open LLaMA Model using SparseGPT
+This workflow sparsifies Open LLaMA model using [SparseGPT](https://arxiv.org/abs/2301.00774). The output model is still a transformers pytorch model but with the layer weights
+sparsified. The given config has sparsity set to `[2,4]` for [structured 2:4 sparsity pattern](https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/) but
+can be changed to other sparsity pattern such as `0.5` for 50% unstructured sparsity or `[4,8]` for 4:8 structured sparsity pattern.
+
+The relevant config file is [open_llaopen_llama_sparsegpt_gpuma_config.json](open_llama_sparsegpt_gpu.json)
+
+## How to run
+### Pip requirements
+Install the necessary python packages:
+```
+python -m pip install -r requirements.txt
+```
+
 ### Run sample using config
 
 The optimization techniques to run are specified in the relevant config json file.
 
 First, install required packages according to passes.
 ```
-python -m olive.workflows.run --config open_llama_config.json --setup
+python -m olive.workflows.run --config <config_file>.json --setup
 ```
 
 Then, optimize the model
 ```
-python -m olive.workflows.run --config open_llama_config.json
+python -m olive.workflows.run --config <config_file>.json
 ```
-
 
 or run simply with python code:
 ```python
 from olive.workflows import run as olive_run
-olive_run("open_llama_config.json")
+olive_run("<config_file>.json")
 ```
 
 After running the above command, the model candidates and corresponding config will be saved in the output directory.

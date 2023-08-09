@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import os
-import platform
 from pathlib import Path
 
 import pytest
@@ -22,12 +21,9 @@ def setup():
 
 @pytest.mark.parametrize("search_algorithm", ["tpe"])
 @pytest.mark.parametrize("execution_order", ["joint"])
-@pytest.mark.parametrize("system", ["local_system", "aml_system", "docker_system"])
+@pytest.mark.parametrize("system", ["local_system", "aml_system"])
 @pytest.mark.parametrize("olive_json", ["bert_ptq_cpu.json"])
 def test_bert(search_algorithm, execution_order, system, olive_json):
-    # TODO: add gpu e2e test
-    if system == "docker_system" and platform.system() == "Windows":
-        pytest.skip("Skip Linux containers on Windows host test case.")
 
     from olive.workflows import run as olive_run
 
