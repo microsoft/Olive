@@ -46,8 +46,8 @@ class OliveSystem(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def install_requirements(self, accelerator: AcceleratorSpec):
+    def remove(self):
         """
-        Install requirements for the accelerator
+        Remove the system
         """
         raise NotImplementedError()

@@ -327,10 +327,8 @@ class Engine:
         for accelerator_spec in self.accelerator_specs:
             if origin_target_system.olive_managed_env:
                 self.target = create_new_system(origin_target_system, accelerator_spec)
-                self.target.install_requirements(accelerator_spec)
             if origin_host_system.olive_managed_env:
                 self.host = create_new_system(origin_host_system, accelerator_spec)
-                self.host.install_requirements(accelerator_spec)
 
             # generate search space and initialize the passes for each hardware accelerator
             self.setup_passes(accelerator_spec)
@@ -388,6 +386,11 @@ class Engine:
                 raise
             except Exception as e:
                 logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
+
+            if origin_target_system.olive_managed_env:
+                self.target.remove()
+            if origin_host_system.olive_managed_env:
+                self.host.remove()
 
         if packaging_config:
             logger.info(f"Package top ranked {sum([len(f.nodes) for f in pf_footprints.values()])} models as artifacts")

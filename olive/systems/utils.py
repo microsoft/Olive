@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import tempfile
+from pathlib import Path
 
 import yaml
 
@@ -63,7 +64,6 @@ def create_new_system(origin_system, accelerator):
     elif origin_system.system_type == "PythonEnvironment":
         import tempfile
         import venv
-        from pathlib import Path
 
         from olive.systems.python_environment import PythonEnvironmentSystem
 
@@ -78,6 +78,7 @@ def create_new_system(origin_system, accelerator):
             olive_managed_env=True,
             requirements_file=origin_system.config.requirements_file,
         )
+        new_system.install_requirements(accelerator)
 
     elif origin_system.system_type == "Docker":
         from olive.systems.docker import DockerSystem
@@ -86,9 +87,9 @@ def create_new_system(origin_system, accelerator):
         new_system = DockerSystem(
             local_docker_config={
                 "image_name": f"olive_{accelerator.execution_provider[:-17].lower()}",
-                "requirements_file_path": origin_system.requirements_file,
+                "requirements_file_path": str(origin_system.requirements_file),
                 "dockerfile": dockerfile,
-                "build_context_path": ".",
+                "build_context_path": Path(__file__).parent / "docker",
             },
             accelerators=[accelerator.accelerator_type],
         )
@@ -103,7 +104,11 @@ def create_new_system(origin_system, accelerator):
             aml_compute=origin_system.compute,
             instance_count=origin_system.instance_count,
             accelerators=[accelerator.accelerator_type],
-            aml_docker_config={"dockerfile": dockerfile, "conda_file_path": conda_file_path, "build_context_path": "."},
+            aml_docker_config={
+                "dockerfile": dockerfile,
+                "conda_file_path": conda_file_path,
+                "build_context_path": Path(__file__).parent / "docker",
+            },
         )
 
     else:

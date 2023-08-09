@@ -594,5 +594,5 @@ class AzureMLSystem(OliveSystem):
 
         return metric_component
 
-    def install_requirements(self, accelerator: AcceleratorSpec):
-        pass
+    def remove(self):
+        logger.info("AzureML system does not need system removal")

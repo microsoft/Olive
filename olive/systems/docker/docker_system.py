@@ -215,5 +215,6 @@ class DockerSystem(OliveSystem):
         metric_json = Path(output_local_path) / f"{eval_output_name}"
         return metric_json
 
-    def install_requirements(self, accelerator: AcceleratorSpec):
-        pass
+    def remove(self):
+        self.docker_client.images.remove(self.image.tags[0], force=True)
+        logger.info(f"Image {self.image.tags[0]} removed successfully.")

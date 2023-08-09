@@ -329,3 +329,10 @@ class PythonEnvironmentSystem(OliveSystem):
                 env=self.environ,
                 check=True,
             )
+
+    def remove(self):
+        import shutil
+
+        vitual_env_path = str(self.config.python_environment_path)[:-3]
+        shutil.rmtree(vitual_env_path)
+        logger.info("Virtual environment '{}' removed.".format(vitual_env_path))
