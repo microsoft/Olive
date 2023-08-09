@@ -711,6 +711,8 @@
             <span class="n">time_diff</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">check_exit_criteria</span><span class="p">(</span><span class="n">iter_num</span><span class="p">,</span> <span class="n">time_diff</span><span class="p">,</span> <span class="n">signal</span><span class="p">)</span>
 
+        <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">footprints.json&quot;</span><span class="p">)</span>
+
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_pareto_frontier_footprints</span><span class="p">(</span>
             <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">prefix_output_name</span>
         <span class="p">)</span>
