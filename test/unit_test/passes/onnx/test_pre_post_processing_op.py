@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 
-from olive.model import PyTorchModel
+from olive.model import ONNXModel, PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.append_pre_post_processing_ops import AppendPrePostProcessingOps
 from olive.passes.onnx.conversion import OnnxConversion
@@ -112,10 +112,19 @@ def test_pre_post_pipeline():
     pytorch_model = get_superresolution_model()
     with tempfile.TemporaryDirectory() as tempdir:
         input_model = convert_superresolution_model(pytorch_model, tempdir, local_system)
-        output_folder = str(Path(tempdir) / "onnx")
+        input_model_graph = input_model.get_graph()
+        assert input_model_graph.node[0].op_type == "Conv"
+        output_folder = str(Path(tempdir) / "onnx_pre_post")
 
         # execute
-        local_system.run_pass(p, input_model, None, output_folder)
+        model = local_system.run_pass(p, input_model, None, output_folder)
+        assert model is not None
+        assert isinstance(model, ONNXModel)
+        graph = model.get_graph()
+
+        # assert the first node is ConvertImageToBGR
+        assert graph.node[0].op_type == "DecodeImage"
+        assert graph.node[0].domain == "com.microsoft.extensions"
 
 
 def get_superresolution_model():
