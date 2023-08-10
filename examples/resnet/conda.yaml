@@ -10,3 +10,4 @@ dependencies:
       - scipy
       - torchvision
       - git+https://github.com/microsoft/Olive.git
+      - pydantic==2.*

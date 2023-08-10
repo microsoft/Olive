@@ -13,3 +13,4 @@ dependencies:
       - torchvision
       - onnxconverter_common
       - git+https://github.com/microsoft/Olive.git
+      - pydantic==2.*
