@@ -14,6 +14,8 @@ import shutil
 import subprocess
 import time
 
+from olive.hardware import Device
+
 logger = logging.getLogger(__name__)
 
 
@@ -162,3 +164,9 @@ def tensor_data_to_device(data, device: str):
         return set(tensor_data_to_device(v, device) for v in data)
     else:
         return data
+
+
+def device_string_to_torch_device(device: Device):
+    import torch
+
+    return torch.device("cuda") if device == Device.GPU else torch.device(device)

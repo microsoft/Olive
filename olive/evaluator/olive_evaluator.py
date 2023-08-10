@@ -18,7 +18,7 @@ import olive.data.template as data_config_template
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import ConfigBase
 from olive.common.user_module_loader import UserModuleLoader
-from olive.common.utils import tensor_data_to_device
+from olive.common.utils import device_string_to_torch_device, tensor_data_to_device
 from olive.constants import Framework
 from olive.evaluator.metric import (
     LatencySubType,
@@ -596,10 +596,6 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     def __init__(self):
         super().__init__()
 
-    @staticmethod
-    def _device_string_to_torch_device(device: Device):
-        return torch.device("cuda") if device == Device.GPU else torch.device(device)
-
     @torch.no_grad()
     def _inference(
         self,
@@ -614,7 +610,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
 
         preds = []
         targets = []
-        device = PyTorchEvaluator._device_string_to_torch_device(device)
+        device = device_string_to_torch_device(device)
         if device:
             session.to(device)
         for input_data, labels in dataloader:
@@ -662,7 +658,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         input_data, _ = next(iter(dataloader))
-        device = PyTorchEvaluator._device_string_to_torch_device(device)
+        device = device_string_to_torch_device(device)
         if device:
             session.to(device)
             input_data = tensor_data_to_device(input_data, device)

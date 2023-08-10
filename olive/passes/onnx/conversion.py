@@ -11,7 +11,7 @@ import onnx
 import torch
 
 from olive.common.config_utils import validate_config
-from olive.common.utils import tensor_data_to_device
+from olive.common.utils import device_string_to_torch_device, tensor_data_to_device
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeOnnxModel, ONNXModel, PyTorchModel
 from olive.model.hf_utils import get_hf_model_io_config
@@ -75,8 +75,9 @@ class OnnxConversion(Pass):
 
         # TODO: add e2e test for model on cpu but data on gpu; model on gpu but data on cpu
         # put pytorch_model and dummy_inputs at the same device
-        pytorch_model.to("cpu")
-        dummy_inputs = tensor_data_to_device(dummy_inputs, "cpu")
+        device = device_string_to_torch_device(self.accelerator_spec.accelerator_type)
+        pytorch_model.to(device)
+        dummy_inputs = tensor_data_to_device(dummy_inputs, device)
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
 
@@ -162,6 +163,9 @@ class OnnxConversion(Pass):
 
             # the model is loaded into memory, so it's safe to delete previously exported file(s)
             tmp_dir.cleanup()
+
+            # Finally, pull the model back to cpu
+            pytorch_model.to("cpu")
 
             # Workaround as described under IOConfig.string_to_int_dim_params: change numeric dim_param to dim_value
             if io_config.string_to_int_dim_params:
