@@ -5,8 +5,7 @@ RUN pip install onnxruntime \
             evaluate \
             scikit-learn \
             transformers \
-            git+https://github.com/microsoft/Olive.git \
-            pydantic==2.* \
+            git+https://github.com/microsoft/Olive.git@myguo/pydantic_2 \
             --no-cache-dir
 
 WORKDIR /olive
