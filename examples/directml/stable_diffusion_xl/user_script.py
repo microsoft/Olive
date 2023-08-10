@@ -76,25 +76,22 @@ def text_encoder_2_data_loader(data_dir, batchsize, *args, **kwargs):
 
 
 def unet_inputs(batchsize, torch_dtype, is_conversion_inputs=False):
-    # TODO (pavignol): All the multiplications by 2 here are bacause the XL base has 2 text encoders
-    # For refiner, it should be multiplied by 1 (single text encoder)
-
     inputs = {
         "sample": torch.rand((2 * batchsize, 4, config.image_size // 8, config.image_size // 8), dtype=torch_dtype),
         "timestep": torch.rand((1,), dtype=torch_dtype),
-        "encoder_hidden_states": torch.rand((2 * batchsize, 77, config.image_size * 2), dtype=torch_dtype),
+        "encoder_hidden_states": torch.rand((2 * batchsize, 77, config.hidden_state_size), dtype=torch_dtype),
     }
 
     if is_conversion_inputs:
         inputs["additional_inputs"] = {
             "added_cond_kwargs": {
                 "text_embeds": torch.rand((2 * batchsize, config.image_size + 256), dtype=torch_dtype),
-                "time_ids": torch.rand((2 * batchsize, 6), dtype=torch_dtype),
+                "time_ids": torch.rand((2 * batchsize, config.time_ids_size), dtype=torch_dtype),
             }
         }
     else:
         inputs["text_embeds"] = torch.rand((2 * batchsize, config.image_size + 256), dtype=torch_dtype)
-        inputs["time_ids"] = torch.rand((2 * batchsize, 6), dtype=torch_dtype)
+        inputs["time_ids"] = torch.rand((2 * batchsize, config.time_ids_size), dtype=torch_dtype)
 
     return inputs
 
