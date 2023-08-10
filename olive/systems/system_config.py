@@ -5,9 +5,9 @@
 import importlib
 import shutil
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
-from pydantic import root_validator, validator
+from pydantic import FieldValidationInfo, field_validator, model_validator
 
 import olive.systems.system_alias as system_alias
 from olive.azureml.azureml_client import AzureMLClientConfig
@@ -16,7 +16,7 @@ from olive.systems.common import AzureMLDockerConfig, LocalDockerConfig, SystemT
 
 
 class TargetUserConfig(ConfigBase):
-    accelerators: List[str] = None
+    accelerators: Optional[List[str]] = None
 
 
 class LocalTargetUserConfig(TargetUserConfig):
@@ -29,7 +29,7 @@ class DockerTargetUserConfig(TargetUserConfig):
 
 
 class AzureMLTargetUserConfig(TargetUserConfig):
-    azureml_client_config: AzureMLClientConfig = None
+    azureml_client_config: Optional[AzureMLClientConfig] = None
     aml_compute: str
     aml_docker_config: AzureMLDockerConfig
     instance_count: int = 1
@@ -40,14 +40,22 @@ class PythonEnvironmentTargetUserConfig(TargetUserConfig):
     python_environment_path: Union[
         Path, str
     ]  # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv
-    environment_variables: Dict[str, str] = None  # os.environ will be updated with these variables
-    prepend_to_path: List[str] = None  # paths to prepend to os.environ["PATH"]
+    environment_variables: Optional[Dict[str, str]] = None  # os.environ will be updated with these variables
+    prepend_to_path: Optional[List[str]] = None  # paths to prepend to os.environ["PATH"]
 
-    @validator("python_environment_path", "prepend_to_path", pre=True, each_item=True)
-    def _get_abspath(cls, v):
-        return str(Path(v).resolve()) if v else None
+    @model_validator(mode="before")
+    @classmethod
+    def validate_pathes(cls, data):
+        python_environment_path = data.get("python_environment_path")
+        if python_environment_path:
+            data["python_environment_path"] = str(Path(python_environment_path).resolve())
 
-    @validator("python_environment_path")
+        prepend_to_path = data.get("prepend_to_path")
+        if prepend_to_path:
+            data["prepend_to_path"] = [str(Path(p).resolve()) for p in prepend_to_path]
+        return data
+
+    @field_validator("python_environment_path")
     def _validate_python_environment_path(cls, v):
         # check if the path exists
         if not Path(v).exists():
@@ -84,9 +92,10 @@ def import_system_from_type(system_type: SystemType):
 
 class SystemConfig(ConfigBase):
     type: SystemType
-    config: TargetUserConfig = None
+    config: Optional[TargetUserConfig] = None
 
-    @root_validator(pre=True)
+    @model_validator(mode="before")
+    @classmethod
     def validate_config_type(cls, values):
         type_name = values.get("type")
         system_alias_class = getattr(system_alias, type_name, None)
@@ -96,12 +105,12 @@ class SystemConfig(ConfigBase):
             # TODO: consider how to use num_cpus and num_gpus in distributed inference.
         return values
 
-    @validator("config", pre=True, always=True)
-    def validate_config(cls, v, values):
-        if "type" not in values:
+    @field_validator("config", mode="before")
+    def validate_config(cls, v, info: FieldValidationInfo):
+        if "type" not in info.data:
             raise ValueError("Invalid type")
 
-        system_type = values["type"]
+        system_type = info.data["type"]
         config_class = _type_to_config[system_type]
         return validate_config(v, config_class)
 
@@ -109,4 +118,4 @@ class SystemConfig(ConfigBase):
         system_class = import_system_from_type(self.type)
         if system_class.system_type == SystemType.AzureML and not self.config.azureml_client_config:
             raise ValueError("azureml_client is required for AzureML system")
-        return system_class(**self.config.dict())
+        return system_class(**self.config.model_dump())

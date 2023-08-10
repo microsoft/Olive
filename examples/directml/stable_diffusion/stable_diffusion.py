@@ -242,8 +242,8 @@ def optimize(
 
             assert conversion_footprint and optimizer_footprint
 
-            unoptimized_olive_model = ONNXModel(**conversion_footprint["model_config"]["config"])
-            optimized_olive_model = ONNXModel(**optimizer_footprint["model_config"]["config"])
+            unoptimized_olive_model = ONNXModel(**conversion_footprint["model_conf"]["config"])
+            optimized_olive_model = ONNXModel(**optimizer_footprint["model_conf"]["config"])
 
             model_info[submodel_name] = {
                 "unoptimized": {

@@ -12,7 +12,7 @@ from typing import Any, Dict, List, NamedTuple, Tuple, Type, Union
 
 import numpy as np
 import torch
-from pydantic import validator
+from pydantic import field_validator
 from torch.utils.data import Dataset
 
 import olive.data.template as data_config_template
@@ -143,7 +143,7 @@ class OliveEvaluator(ABC):
                     priority=sub_type.priority,
                     higher_is_better=sub_type.higher_is_better,
                 )
-        return MetricResult.parse_obj(metric_res)
+        return MetricResult.model_validate(metric_res)
 
     def evaluate(
         self,
@@ -284,7 +284,7 @@ class OliveEvaluator(ABC):
                 priority=sub_type.priority,
                 higher_is_better=sub_type.higher_is_better,
             )
-        return MetricResult.parse_obj(metric_res)
+        return MetricResult.model_validate(metric_res)
 
 
 class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
@@ -862,7 +862,7 @@ class OliveEvaluatorFactory:
 class OliveEvaluatorConfig(ConfigBase):
     metrics: List[Metric] = []
 
-    @validator("metrics")
+    @field_validator("metrics")
     def validate_metrics(cls, v):
         metric_len = len(v)
 

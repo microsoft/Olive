@@ -5,7 +5,7 @@
 import copy
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Union
+from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from olive.common.config_utils import ConfigBase
 from olive.common.import_lib import import_user_module
@@ -37,19 +37,19 @@ class DataConfig(ConfigBase):
     type: str = DefaultDataContainer.DATA_CONTAINER.value
 
     # used to store the params for each component
-    params_config: Dict = None
+    params_config: Optional[Dict] = None
 
     # user script to define and register the components
-    user_script: Union[Path, str] = None
-    script_dir: Union[Path, str] = None
+    user_script: Optional[Union[Path, str]] = None
+    script_dir: Optional[Union[Path, str]] = None
 
     # use to update default components
     # 1. update default_components_type from DataContainer or DefaultDataComponentCombos
     # 2. update default_components from default_components_type
     # 3. update components from default_components
-    components: Dict[str, DataComponentConfig] = None
-    default_components: Dict[str, DataComponentConfig] = None
-    default_components_type: Dict[str, str] = None
+    components: Optional[Dict[str, DataComponentConfig]] = None
+    default_components: Optional[Dict[str, DataComponentConfig]] = None
+    default_components_type: Optional[Dict[str, str]] = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

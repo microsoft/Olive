@@ -64,7 +64,7 @@ def valid_config(tuning_combos, config):
 def tune_onnx_model(model, data_root, config):
     latency_user_config = {}
     # which should be the same as the config in the metric
-    config_dict = config.dict()
+    config_dict = config.model_dump()
 
     # data_dir/dataloader_func will be passed to the metric as perf_tuning will leverage
     # the latency metric to run tune

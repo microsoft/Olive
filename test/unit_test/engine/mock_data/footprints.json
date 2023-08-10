@@ -2,7 +2,7 @@
     "node2": {
         "model_id": "node2",
         "parent_model_id": "node1",
-        "model_config": {
+        "model_conf": {
             "config": {
                 "model_path": "a/b/c/model2.onnx",
                 "inference_settings": {
@@ -41,7 +41,7 @@
     "node1": {
         "model_id": "node1",
         "parent_model_id": "node0",
-        "model_config": {
+        "model_conf": {
             "config": {
                 "model_path": "a/b/c/model1.onnx",
                 "inference_settings": {
@@ -79,7 +79,7 @@
     },
     "node0": {
         "model_id": "node0",
-        "model_config": {
+        "model_conf": {
             "config": {
                 "model_path": "a/b/c/model.pt",
                 "inference_settings": null

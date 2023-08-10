@@ -6,7 +6,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
-from pydantic import validator
+from pydantic import FieldValidationInfo, field_validator
 
 from olive.common.config_utils import ConfigBase
 
@@ -24,13 +24,13 @@ class AzureMLDockerConfig(ConfigBase):
     build_context_path: Optional[Union[Path, str]] = None
     conda_file_path: Optional[Union[Path, str]] = None
 
-    @validator("dockerfile", "build_context_path", always=True)
-    def _validate_one_of_dockerfile_or_base_image(cls, v, values):
-        if v is None and values.get("base_image") is None:
+    @field_validator("dockerfile", "build_context_path")
+    def _validate_one_of_dockerfile_or_base_image(cls, v, info: FieldValidationInfo):
+        if v is None and info.data.get("base_image") is None:
             raise ValueError("One of build_context_path/dockerfile or base_image must be provided")
         return v
 
-    @validator("conda_file_path")
+    @field_validator("conda_file_path")
     def _get_abspath(cls, v):
         return str(Path(v).resolve())
 
@@ -44,12 +44,12 @@ class LocalDockerConfig(ConfigBase):
     build_args: Optional[dict] = None
     run_params: Optional[dict] = None
 
-    @validator("build_context_path", "requirements_file_path")
+    @field_validator("build_context_path", "requirements_file_path")
     def _get_abspath(cls, v):
         return str(Path(v).resolve()) if v else None
 
-    @validator("dockerfile", always=True)
-    def _validate_one_of_dockerfile_or_base_image(cls, v, values):
-        if v is None and values.get("requirements_file_path") is None:
+    @field_validator("dockerfile")
+    def _validate_one_of_dockerfile_or_base_image(cls, v, info: FieldValidationInfo):
+        if v is None and info.data.get("requirements_file_path") is None:
             raise ValueError("One of build_context_path/dockerfile or requirements_file_path must be provided")
         return v

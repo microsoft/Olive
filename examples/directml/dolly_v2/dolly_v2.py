@@ -54,8 +54,8 @@ def optimize(model_name: str, optimized_model_dir: Path):
 
         assert conversion_footprint and merger_footprint
 
-        unopimized_olive_model = CompositeOnnxModel(**conversion_footprint["model_config"]["config"])
-        optimized_olive_model = ONNXModel(**merger_footprint["model_config"]["config"])
+        unopimized_olive_model = CompositeOnnxModel(**conversion_footprint["model_conf"]["config"])
+        optimized_olive_model = ONNXModel(**merger_footprint["model_conf"]["config"])
 
         model_info = {
             "unoptimized": {

@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 
-from pydantic import validator
+from pydantic import field_validator
 
 from olive.common.config_utils import ConfigBase, ParamCategory, validate_config
 from olive.common.user_module_loader import UserModuleLoader
@@ -311,7 +311,7 @@ class Pass(ABC):
         """
         Resolve config to PassConfigBase.
         """
-        config = input_config.dict()
+        config = input_config.model_dump()
         config = cls._resolve_defaults(config, default_config)
         if cls._requires_user_script:
             user_module_loader = UserModuleLoader(config["user_script"], config["script_dir"])
@@ -338,7 +338,7 @@ class Pass(ABC):
         config = self._fixed_params.copy()
         for key, value in point.items():
             config[key] = value
-        return self._config_class(**config).dict()
+        return self._config_class(**config).model_dump()
 
     def validate_search_point(
         self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
@@ -421,7 +421,7 @@ class FullPassConfig(ConfigBase):
     accelerator: Dict[str, str] = None
     config: Dict[str, Any] = None
 
-    @validator("type")
+    @field_validator("type")
     def validate_type(cls, v):
         if v.lower() not in Pass.registry:
             raise ValueError(f"Unknown pass type {v}")

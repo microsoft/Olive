@@ -119,7 +119,7 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
         mock_local_system.run_pass.return_value = onnx_model
-        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        mock_local_system.evaluate_model.return_value = MetricResult.model_validate(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
@@ -188,7 +188,7 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
         mock_local_system.run_pass.return_value = onnx_model
-        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        mock_local_system.evaluate_model.return_value = MetricResult.model_validate(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
@@ -201,7 +201,7 @@ class TestEngine:
 
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
         output_prefix = f"{accelerator_spec}"
-        expected_res = {"model": onnx_model.to_json(), "metrics": MetricResult.parse_obj(metric_result_dict)}
+        expected_res = {"model": onnx_model.to_json(), "metrics": MetricResult.model_validate(metric_result_dict)}
         expected_res["model"]["config"]["model_path"] = str(
             Path(expected_output_dir / f"{output_prefix}_model.onnx").resolve()
         )
@@ -219,7 +219,9 @@ class TestEngine:
         result_json_path = Path(expected_output_dir / f"{output_prefix}_metrics.json")
         assert result_json_path.is_file()
         with open(result_json_path, "r") as f:
-            assert json.load(f) == actual_res["metrics"].__root__
+            # In Pydantic v2, the __eq__ operator doesn't implement comparison between BaseModel and dict
+            # so we use to_json here.
+            assert json.load(f) == actual_res["metrics"].to_json()
 
     def test_pass_exception(self, caplog):
         # Need explicitly set the propagate to allow the message to be logged into caplog
@@ -275,7 +277,7 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
         mock_local_system.run_pass.return_value = onnx_model
-        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        mock_local_system.evaluate_model.return_value = MetricResult.model_validate(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
@@ -285,7 +287,7 @@ class TestEngine:
         temp_dir = tempfile.TemporaryDirectory()
         output_dir = Path(temp_dir.name)
 
-        expected_res = MetricResult.parse_obj(metric_result_dict)
+        expected_res = MetricResult.model_validate(metric_result_dict)
 
         # execute
         actual_res = engine.run(pytorch_model, output_dir=output_dir, evaluate_input_model=True)
@@ -295,7 +297,9 @@ class TestEngine:
         assert expected_res == actual_res
         result_json_path = Path(output_dir / f"{accelerator_spec}_input_model_metrics.json")
         assert result_json_path.is_file()
-        assert MetricResult.parse_file(result_json_path) == actual_res
+        with open(result_json_path, "r") as f:
+            result_json = json.load(f)
+        assert MetricResult.model_validate(result_json) == actual_res
 
     @patch.object(Path, "glob", return_value=[Path("cache") / "output" / "100_model.json"])
     @patch.object(Path, "unlink")
@@ -372,7 +376,7 @@ class TestEngine:
             }
             for sub_metric in metric.sub_types
         }
-        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        mock_local_system.evaluate_model.return_value = MetricResult.model_validate(metric_result_dict)
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         assert len(engine.accelerator_specs) == 2
@@ -418,7 +422,7 @@ class TestEngine:
             }
             for sub_metric in metric.sub_types
         }
-        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        mock_local_system.evaluate_model.return_value = MetricResult.model_validate(metric_result_dict)
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, clean_run_cache=True)

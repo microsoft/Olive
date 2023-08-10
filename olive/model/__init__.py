@@ -15,7 +15,7 @@ import onnx
 import torch
 import yaml
 from onnx import AttributeProto, GraphProto
-from pydantic import validator
+from pydantic import field_validator
 
 import olive.data.template as data_config_template
 from olive.common.config_utils import ConfigBase, serialize_to_json, validate_config
@@ -169,7 +169,7 @@ class ModelConfig(ConfigBase):
     type: str
     config: dict
 
-    @validator("type")
+    @field_validator("type")
     def validate_type(cls, v):
         if v.lower() not in REGISTRY:
             raise ValueError(f"Unknown model type {v}")
@@ -491,7 +491,7 @@ class PyTorchModel(OliveModel):
         super().__init__(framework=Framework.PYTORCH, model_file_format=model_file_format, model_path=model_path)
 
         # io config for conversion to onnx
-        self.io_config = validate_config(io_config, IOConfig).dict() if io_config else None
+        self.io_config = validate_config(io_config, IOConfig).model_dump() if io_config else None
         self.dummy_inputs_func = dummy_inputs_func
 
         self.dummy_inputs = None

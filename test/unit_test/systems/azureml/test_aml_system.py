@@ -328,7 +328,7 @@ class TestAzureMLSystem:
 
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.evaluate")
     def test_aml_evaluation_runner(self, mock_evaluate, tmp_path):
-        mock_evaluate.return_value = MetricResult.parse_obj(
+        mock_evaluate.return_value = MetricResult.model_validate(
             {"accuracy-accuracy_score": {"value": 0.5, "priority": 1, "higher_is_better": True}}
         )
 

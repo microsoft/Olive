@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def automatically_insert_passes(config):
-    new_config_dict = json.loads(config.json())
+    new_config_dict = json.loads(config.model_dump_json())
     new_passes = {}
 
     # insert onnx converter
@@ -45,7 +45,7 @@ def automatically_insert_passes(config):
     new_passes["perf_tuning"] = t_config
 
     new_config_dict["passes"] = new_passes
-    new_config = RunConfig.parse_obj(new_config_dict)
+    new_config = RunConfig.model_validate(new_config_dict)
     new_engine = new_config.engine.create_engine()
 
     return new_engine, new_config
@@ -124,11 +124,12 @@ def dependency_setup(config):
 
 
 def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = None):
-    # we use parse_file and parse_obj to be safe. If implemented as expected, both should be equivalent.
+    # we use model_validate to be safe. If implemented as expected, both should be equivalent.
     if isinstance(config, str) or isinstance(config, Path):
-        config = RunConfig.parse_file(config)
-    else:
-        config = RunConfig.parse_obj(config)
+        with open(config, "r") as f:
+            config = json.load(f)
+
+    config = RunConfig.model_validate(config)
 
     # set ort log level
     set_default_logger_severity(config.engine.log_severity_level)

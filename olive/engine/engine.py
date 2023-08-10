@@ -297,11 +297,11 @@ class Engine:
 
         Args:
             input_model: input Olive model
-            packaging_config: packaging configuration, if packaging_config is provided, the output
-                model will be packaged into a zip file.
+            packaging_config: packaging configuration, if packaging_config is provided, the output model will be
+              packaged into a zip file.
             output_dir: output directory for the output model
-            output_name: output name for the output model, if output_name is provided, the output
-                model will be saved to engine's output_dir with the prefix of output_name.
+            output_name: output name for the output model, if output_name is provided, the output model will be saved
+              to engine's output_dir with the prefix of output_name.
             evaluate_input_model: if evaluate_input_model is True, run the evaluation on the input model.
 
         Return:
@@ -312,8 +312,8 @@ class Engine:
 
             Return footprint/zip(packaging_config) of the final model and evaluation results of the final model.
 
-            if search strategy is not None, run the search strategy to find candidate models.
-            Return footprint/zip(packaging_config) of candidate models and evaluation results.
+            if search strategy is not None, run the search strategy to find candidate models. Return
+              footprint/zip(packaging_config) of candidate models and evaluation results.
         """
         if not self._initialized:
             self.initialize()
@@ -961,7 +961,7 @@ class Engine:
                 # footprint model and run
                 self.footprints[accelerator_spec].record(
                     model_id=output_model_id,
-                    model_config=output_model.to_json() if output_model != FAILED_CONFIG else {"is_pruned": True},
+                    model_conf=output_model.to_json() if output_model != FAILED_CONFIG else {"is_pruned": True},
                     parent_model_id=input_model_id,
                     from_pass=pass_name,
                     pass_run_config=pass_config,
@@ -1016,7 +1016,7 @@ class Engine:
         # footprint model and run
         self.footprints[accelerator_spec].record(
             model_id=output_model_id,
-            model_config=output_model.to_json() if output_model != FAILED_CONFIG else {"is_pruned": True},
+            model_conf=output_model.to_json() if output_model != FAILED_CONFIG else {"is_pruned": True},
             parent_model_id=input_model_id,
             from_pass=pass_name,
             pass_run_config=pass_config,
@@ -1036,7 +1036,7 @@ class Engine:
         """
         evaluation_json = {
             "model_id": model_id,
-            "signal": signal.dict(),
+            "signal": signal.model_dump(),
         }
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         try:

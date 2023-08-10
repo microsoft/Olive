@@ -23,7 +23,7 @@ def create_config_file(
     model_json["config"]["model_path"] = model_mount_path
 
     config_file_path = Path(tempdir) / "config.json"
-    data = {"metrics": [k.dict() for k in metrics], "model": model_json}
+    data = {"metrics": [k.model_dump() for k in metrics], "model": model_json}
 
     # the config yaml file saved to local disk
     with config_file_path.open("w") as f:

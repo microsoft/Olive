@@ -488,7 +488,7 @@ class AzureMLSystem(OliveSystem):
                     with metric_json.open() as f:
                         metric_results.update(json.load(f))
 
-            return MetricResult.parse_obj(metric_results)
+            return MetricResult.model_validate(metric_results)
 
     def _create_pipeline_for_evaluation(
         self, data_root: str, tmp_dir: str, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec

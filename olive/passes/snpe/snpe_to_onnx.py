@@ -55,7 +55,7 @@ class SNPEtoONNXConversion(Pass):
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
         # create a onnx model that wraps the dlc binary in a node
-        onnx_model = dlc_to_onnx(model.model_path, config.dict(), **model.io_config)
+        onnx_model = dlc_to_onnx(model.model_path, config.model_dump(), **model.io_config)
 
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config.dict())
+        return model_proto_to_olive_model(onnx_model, output_model_path, config.model_dump())

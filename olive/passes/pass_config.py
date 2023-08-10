@@ -6,7 +6,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Callable, Dict, Optional, Type, Union
 
-from pydantic import create_model, validator
+from pydantic import ConfigDict, FieldValidationInfo, create_model, field_validator
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object, validate_resource_path
 from olive.data.config import DataConfig
@@ -41,6 +41,8 @@ class PassConfigParam(ConfigParam):
     searchable_values: default searchable values for the parameter. This value is used if search is enabled.
         Must be a Categorical or Conditional SearchParameter.
     """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     searchable_values: SearchParameter = None
 
@@ -99,16 +101,16 @@ def get_data_config(required: Optional[bool] = False):
 
 
 class PassConfigBase(ConfigBase):
-    @validator("*", pre=True)
-    def _validate_default_str(cls, v, field):
+    @field_validator("*", mode="before")
+    def _validate_default_str(cls, v, info: FieldValidationInfo):
         try:
             v = PassParamDefault(v)
         finally:
-            if field.required and isinstance(v, PassParamDefault):
-                raise ValueError(f"{field.name} is required and cannot be set to {v.value}")
+            if cls.model_fields[info.field_name].is_required() and isinstance(v, PassParamDefault):
+                raise ValueError(f"{info.field_name} is required and cannot be set to {v.value}")
             return v
 
-    @validator("*", pre=True)
+    @field_validator("*", mode="before")
     def _validate_search_parameter(cls, v):
         if isinstance(v, dict) and v.get("olive_parameter_type") == "SearchParameter":
             return json_to_search_parameter(v)
@@ -128,9 +130,9 @@ def create_config_class(
     validators = validators.copy() if validators else {}
     for param, param_config in default_config.items():
         if param_config.category == ParamCategory.OBJECT:
-            validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_object)
+            validators[f"validate_{param}"] = field_validator(param)(validate_object)
         if param == "data_dir":
-            validators[f"validate_{param}"] = validator(param, allow_reuse=True)(validate_resource_path)
+            validators[f"validate_{param}"] = field_validator(param)(validate_resource_path)
 
         type_ = param_config.type_
         if param_config.required:

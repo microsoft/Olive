@@ -11,7 +11,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Type, Union
 
-from pydantic import Field, validator
+from pydantic import Field, FieldValidationInfo, field_validator
 
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.auto_config import AutoConfigClass
@@ -87,12 +87,12 @@ class ResourcePathConfig(ConfigBase):
     type: ResourceType = Field(..., description="Type of the resource.")
     config: ConfigBase = Field(..., description="Config of the resource.")
 
-    @validator("config", pre=True)
-    def validate_config(cls, v, values):
-        if "type" not in values:
+    @field_validator("config", mode="before")
+    def validate_config(cls, v, info: FieldValidationInfo):
+        if "type" not in info.data:
             raise ValueError("Invalid type.")
 
-        config_class = ResourcePath.registry[values["type"]].get_config_class()
+        config_class = ResourcePath.registry[info.data["type"]].get_config_class()
         return validate_config(v, ConfigBase, config_class)
 
     def create_resource_path(self) -> ResourcePath:
@@ -186,7 +186,7 @@ class LocalResourcePath(ResourcePath):
 
     @staticmethod
     def _validators() -> Dict[str, Callable]:
-        return {"validate_path": validator("path", allow_reuse=True)(_validate_path)}
+        return {"validate_path": field_validator("path")(_validate_path)}
 
     def get_path(self) -> str:
         return str(self.config.path)
@@ -230,7 +230,7 @@ class LocalFile(LocalResourcePath):
     @staticmethod
     def _validators() -> Dict[str, Callable[..., Any]]:
         validators = LocalResourcePath._validators()
-        validators.update({"validate_file_path": validator("path", allow_reuse=True)(_validate_file_path)})
+        validators.update({"validate_file_path": field_validator("path")(_validate_file_path)})
         return validators
 
 
@@ -249,7 +249,7 @@ class LocalFolder(LocalResourcePath):
     @staticmethod
     def _validators() -> Dict[str, Callable[..., Any]]:
         validators = LocalResourcePath._validators()
-        validators.update({"validate_folder_path": validator("path", allow_reuse=True)(_validate_folder_path)})
+        validators.update({"validate_folder_path": field_validator("path")(_validate_folder_path)})
         return validators
 
 
@@ -340,8 +340,10 @@ class AzureMLModel(ResourcePath):
         return str(new_path)
 
 
-def _datastore_url_validator(v, values, **kwargs):
-    aml_info_ready = all([values.get("azureml_client"), values.get("datastore_name"), values.get("relative_path")])
+def _datastore_url_validator(v, info: FieldValidationInfo):
+    aml_info_ready = all(
+        [info.data.get("azureml_client"), info.data.get("datastore_name"), info.data.get("relative_path")]
+    )
     if not v and not aml_info_ready:
         raise ValueError(
             "If datastore_url is not specified, then azureml_client, datastore_name, and relative_path "
@@ -365,7 +367,7 @@ class AzureMLDatastore(ResourcePath):
         validators = ResourcePath._validators()
         validators.update(
             {
-                "validate_datastore_url": validator("datastore_url", allow_reuse=True)(_datastore_url_validator),
+                "validate_datastore_url": field_validator("datastore_url")(_datastore_url_validator),
             }
         )
         return validators

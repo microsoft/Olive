@@ -7,7 +7,7 @@ from abc import ABC
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from pydantic import validator
+from pydantic import FieldValidationInfo, field_validator
 
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.evaluator.metric import MetricResult
@@ -23,39 +23,39 @@ _VALID_EXECUTION_ORDERS = ["joint", "pass-by-pass"]
 class SearchStrategyConfig(ConfigBase):
     execution_order: str
     search_algorithm: str
-    search_algorithm_config: ConfigBase = None
-    output_model_num: int = None
-    stop_when_goals_met: bool = False
-    max_iter: int = None
-    max_time: int = None
+    search_algorithm_config: Optional[ConfigBase] = None
+    output_model_num: Optional[int] = None
+    stop_when_goals_met: Optional[bool] = False
+    max_iter: Optional[int] = None
+    max_time: Optional[int] = None
 
-    @validator("execution_order", pre=True)
+    @field_validator("execution_order", mode="before")
     def _validate_execution_order(cls, v):
         if v not in _VALID_EXECUTION_ORDERS:
             raise ValueError(f"Unknown execution order: {v}")
         return v
 
-    @validator("search_algorithm", pre=True)
+    @field_validator("search_algorithm", mode="before")
     def _validate_search_algorithm(cls, v):
         if v not in REGISTRY:
             raise ValueError(f"Unknown search algorithm: {v}")
         return v
 
-    @validator("search_algorithm_config", pre=True, always=True)
-    def _validate_search_algorithm_config(cls, v, values):
-        if "search_algorithm" not in values:
+    @field_validator("search_algorithm_config", mode="before")
+    def _validate_search_algorithm_config(cls, v, info: FieldValidationInfo):
+        if "search_algorithm" not in info.data:
             raise ValueError("Invalid search_algorithm")
 
-        config_class = REGISTRY[values["search_algorithm"]].get_config_class()
+        config_class = REGISTRY[info.data["search_algorithm"]].get_config_class()
         return validate_config(v, ConfigBase, config_class)
 
-    @validator("stop_when_goals_met", "max_iter", "max_time", pre=True)
-    def _validate_stop_when_goals_met(cls, v, values, field):
-        if "execution_order" not in values:
+    @field_validator("stop_when_goals_met", "max_iter", "max_time", mode="before")
+    def _validate_stop_when_goals_met(cls, v, info: FieldValidationInfo):
+        if "execution_order" not in info.data:
             raise ValueError("Invalid execution_order")
-        if v and values["execution_order"] != "joint":
-            logger.info(f"{field.name} is only supported for joint execution order. Ignoring...")
-            return field.default
+        if v and info.data["execution_order"] != "joint":
+            logger.info(f"{info.field_name} is only supported for joint execution order. Ignoring...")
+            return cls.model_fields[info.field_name].default
         return v
 
 

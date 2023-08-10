@@ -55,10 +55,10 @@ class TestPythonEnvironmentSystem:
             for sub_metric in metric.sub_types
         }
 
-        mock_evaluate_accuracy.return_value = MetricResult.parse_obj(
+        mock_evaluate_accuracy.return_value = MetricResult.model_validate(
             {AccuracySubType.ACCURACY_SCORE: mock_return_value[AccuracySubType.ACCURACY_SCORE]}
         )
-        mock_evaluate_latency.return_value = MetricResult.parse_obj(
+        mock_evaluate_latency.return_value = MetricResult.model_validate(
             {LatencySubType.AVG: mock_return_value[LatencySubType.AVG]}
         )
 
@@ -76,7 +76,7 @@ class TestPythonEnvironmentSystem:
         # setup
         model = get_onnx_model()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, random_dataloader=False)
-        mock_value = MetricResult.parse_obj(
+        mock_value = MetricResult.model_validate(
             {
                 AccuracySubType.ACCURACY_SCORE: {
                     "value": 0.9,
@@ -118,7 +118,7 @@ class TestPythonEnvironmentSystem:
         metric_config = metric.sub_types[0].metric_config
         metric_config.repeat_test_num = 5
 
-        mock_value = MetricResult.parse_obj(
+        mock_value = MetricResult.model_validate(
             {
                 LatencySubType.AVG: {
                     "value": 10,

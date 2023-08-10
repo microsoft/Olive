@@ -2,9 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
-from pydantic import validator
+from pydantic import FieldValidationInfo, field_validator
 
 from olive.common.config_utils import ConfigBase
 
@@ -12,41 +12,41 @@ from olive.common.config_utils import ConfigBase
 class IOConfig(ConfigBase):
     # TODO remove input names, shapes and types, turn to use olive dataset config.
     input_names: List[str]
-    input_shapes: List[List[int]] = None
-    input_types: List[str] = None
+    input_shapes: Optional[List[List[int]]] = None
+    input_types: Optional[List[str]] = None
     output_names: List[str]
-    output_shapes: List[List[int]] = None
-    output_types: List[str] = None
-    dynamic_axes: Dict[str, Dict[int, str]] = None
+    output_shapes: Optional[List[List[int]]] = None
+    output_types: Optional[List[str]] = None
+    dynamic_axes: Optional[Dict[str, Dict[int, str]]] = None
     # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference
     # even though we want the dimension to be a constant int.
     # We use a workaround here: first use dim_param like "1" to represent the dimension, and then
     # convert it to int in the onnx model.
-    string_to_int_dim_params: List[str] = None
+    string_to_int_dim_params: Optional[List[str]] = None
 
-    @validator("input_shapes", "input_types")
-    def check_input_shapes(cls, v, values):
+    @field_validator("input_shapes", "input_types")
+    def check_input_shapes(cls, v, info: FieldValidationInfo):
         if not v:
             return v
 
-        if "input_names" not in values:
+        if "input_names" not in info.data:
             raise ValueError("Invalid input_names")
-        if len(v) != len(values["input_names"]):
+        if len(v) != len(info.data["input_names"]):
             raise ValueError("input_names and input_shapes must have the same length")
         return v
 
-    @validator("output_shapes", "output_types")
-    def check_output_shapes(cls, v, values):
+    @field_validator("output_shapes", "output_types")
+    def check_output_shapes(cls, v, info: FieldValidationInfo):
         if not v:
             return v
 
-        if "output_names" not in values:
+        if "output_names" not in info.data:
             raise ValueError("Invalid output_names")
-        if len(v) != len(values["output_names"]):
+        if len(v) != len(info.data["output_names"]):
             raise ValueError("output_names and output_shapes must have the same length")
         return v
 
-    @validator("dynamic_axes")
+    @field_validator("dynamic_axes")
     def convert_dynamic_axes(cls, v):
         if not v:
             return v
@@ -56,7 +56,7 @@ class IOConfig(ConfigBase):
             dynamic_axes[k] = {int(kk): vv for kk, vv in v.items()}
         return dynamic_axes
 
-    @validator("string_to_int_dim_params")
+    @field_validator("string_to_int_dim_params")
     def check_string_to_int_dim_params(cls, v):
         if not v:
             return v
@@ -71,7 +71,7 @@ class IOConfig(ConfigBase):
 
 def is_io_config_static(config: Union[IOConfig, Dict]):
     if isinstance(config, IOConfig):
-        config = config.dict()
+        config = config.model_dump()
     if not config["input_shapes"]:
         return False
     return all(all(isinstance(dim, int) for dim in shape) for shape in config["input_shapes"])

@@ -5,7 +5,7 @@
 from pathlib import Path
 from typing import Callable, List, Union
 
-from pydantic import validator
+from pydantic import FieldValidationInfo, field_validator
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, create_config_class
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
@@ -56,7 +56,7 @@ def get_user_config_class(metric_type: str):
 def get_user_config_properties_from_metric_type(metric_type):
     user_config_class = get_user_config_class(metric_type)
     # avoid to use schema() to get the fields, because it will skip the ones with object type
-    return list(user_config_class.__fields__)
+    return list(user_config_class.model_fields)
 
 
 # TODO: automate latency metric config also we standardize accuracy metric config
@@ -70,7 +70,7 @@ class MetricGoal(ConfigBase):
     type: str  # threshold , deviation, percent-deviation
     value: float
 
-    @validator("type")
+    @field_validator("type")
     def check_type(cls, v):
         allowed_types = [
             "threshold",
@@ -83,10 +83,10 @@ class MetricGoal(ConfigBase):
             raise ValueError(f"Metric goal type must be one of {allowed_types}")
         return v
 
-    @validator("value")
-    def check_value(cls, v, values):
-        if "type" not in values:
+    @field_validator("value")
+    def check_value(cls, v, info: FieldValidationInfo):
+        if "type" not in info.data:
             raise ValueError("Invalid type")
-        if values["type"] in ["min-improvement", "max-degradation"] and v < 0:
-            raise ValueError(f"Value must be positive for type {values['type']}")
+        if info.data["type"] in ["min-improvement", "max-degradation"] and v < 0:
+            raise ValueError(f"Value must be positive for type {info.data['type']}")
         return v

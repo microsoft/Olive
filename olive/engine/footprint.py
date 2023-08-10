@@ -6,7 +6,7 @@
 import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
-from typing import DefaultDict, Dict
+from typing import DefaultDict, Dict, Optional
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric import MetricResult
@@ -22,21 +22,22 @@ class FootprintNodeMetric(ConfigBase):
     is_goals_met: if the goals set by users is met
     """
 
-    value: MetricResult = None
-    cmp_direction: DefaultDict[str, int] = None
+    value: Optional[MetricResult] = None
+    cmp_direction: Optional[DefaultDict[str, int]] = None
     is_goals_met: bool = False
 
 
 class FootprintNode(ConfigBase):
     # None for no parent which means current model is the input model
-    parent_model_id: str = None
+    parent_model_id: Optional[str] = None
     model_id: str
-    model_config: Dict = None
-    from_pass: str = None
-    pass_run_config: Dict = None
+    # User model_conf since Pydantic v2 use model_config to control the BaseModel
+    model_conf: Optional[Dict] = None
+    from_pass: Optional[str] = None
+    pass_run_config: Optional[Dict] = None
     is_pareto_frontier: bool = False
     # TODO add EP/accelerators for same_model_id metrics
-    metrics: FootprintNodeMetric = None
+    metrics: Optional[FootprintNodeMetric] = None
 
     date_time: float = datetime.now().timestamp()
 
@@ -321,39 +322,39 @@ class Footprint:
             return cls.from_json(f.read())
 
     def get_model_inference_config(self, model_id):
-        model_config = self.nodes[model_id].model_config
-        if model_config is None:
+        model_conf = self.nodes[model_id].model_conf
+        if model_conf is None:
             return None
 
-        return model_config.get("config", {}).get("inference_settings", None)
+        return model_conf.get("config", {}).get("inference_settings", None)
 
     def get_model_path(self, model_id):
-        model_config = self.nodes[model_id].model_config
-        if model_config is None:
+        model_conf = self.nodes[model_id].model_conf
+        if model_conf is None:
             return None
 
-        return model_config.get("config", {}).get("model_path", None)
+        return model_conf.get("config", {}).get("model_path", None)
 
     def get_model_config(self, model_id):
-        model_config = self.nodes[model_id].model_config
-        if model_config is None:
+        model_conf = self.nodes[model_id].model_conf
+        if model_conf is None:
             return None
 
-        return model_config.get("config", {})
+        return model_conf.get("config", {})
 
     def get_model_type(self, model_id):
-        model_config = self.nodes[model_id].model_config
-        if model_config is None:
+        model_conf = self.nodes[model_id].model_conf
+        if model_conf is None:
             return None
 
-        return model_config.get("type", None)
+        return model_conf.get("type", None)
 
     def get_use_ort_extensions(self, model_id):
-        model_config = self.nodes[model_id].model_config
-        if model_config is None:
+        model_conf = self.nodes[model_id].model_conf
+        if model_conf is None:
             return False
 
-        return model_config.get("config", {}).get("use_ort_extensions", False)
+        return model_conf.get("config", {}).get("use_ort_extensions", False)
 
     def get_input_node(self):
         input_node = [v for _, v in self.nodes.items() if v.parent_model_id is None][0]

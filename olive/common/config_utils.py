@@ -5,13 +5,14 @@
 import inspect
 import json
 import logging
+from collections import deque
 from enum import Enum
 from functools import partial
 from pathlib import Path
 from types import FunctionType, MethodType
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
-from pydantic import BaseModel, create_model, validator
+from pydantic import BaseModel, ConfigDict, FieldValidationInfo, RootModel, create_model, field_validator
 
 from olive.common.utils import hash_function, hash_object
 
@@ -86,7 +87,8 @@ def serialize_to_json(obj: Any, check_object: bool = False) -> dict:
     Serialize a Python object into a JSON dict. Also serializes functions and objects.
     """
     if isinstance(obj, BaseModel):
-        raw_json = obj.json()
+        obj_dict = model_dump(obj)
+        raw_json = config_json_dumps(obj_dict)
     else:
         raw_json = config_json_dumps(obj)
     if check_object:
@@ -101,7 +103,7 @@ def serialize_to_json(obj: Any, check_object: bool = False) -> dict:
     return json.loads(raw_json)
 
 
-class ConfigBase(BaseModel):
+class ModelSerializerMixin:
     class Config:
         arbitrary_types_allowed = True
         json_loads = config_json_loads
@@ -113,42 +115,46 @@ class ConfigBase(BaseModel):
 
     @classmethod
     def from_json(cls, json_dict: dict) -> "ConfigBase":
-        return cls.parse_raw(json.dumps(json_dict))
+        return cls.model_validate_json(json.dumps(json_dict))
 
 
-class ConfigListBase(ConfigBase):
-    __root__: List[Any]
+class ConfigBase(BaseModel, ModelSerializerMixin):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
+class ConfigListBase(RootModel, ModelSerializerMixin):
+    root: List[Any]
 
     def __iter__(self):
-        return iter(self.__root__)
+        return iter(self.root)
 
     def __getitem__(self, item):
-        return self.__root__[item]
+        return self.root[item]
 
     def __len__(self):
-        return len(self.__root__)
+        return len(self.root)
 
 
-class ConfigDictBase(ConfigBase):
-    __root__: Dict[str, Any]
+class ConfigDictBase(RootModel, ModelSerializerMixin):
+    root: Dict[str, Any]
 
     def __iter__(self):
-        return iter(self.__root__)
+        return iter(self.root)
 
     def keys(self):
-        return self.__root__.keys()
+        return self.root.keys()
 
     def values(self):
-        return self.__root__.values()
+        return self.root.values()
 
     def items(self):
-        return self.__root__.items()
+        return self.root.items()
 
     def __getitem__(self, item):
-        return self.__root__[item]
+        return self.root[item]
 
     def __len__(self):
-        return len(self.__root__) if self.__root__ else 0
+        return len(self.root) if self.root else 0
 
 
 class ParamCategory(str, Enum):
@@ -194,15 +200,15 @@ def validate_enum(enum_class: type, value: str):
 
 
 # validator for object params. This ensures user_script is not None if value v is string
-def validate_object(v, values, field):
-    if "user_script" not in values:
+def validate_object(v, info: FieldValidationInfo):
+    if "user_script" not in info.data:
         raise ValueError("Invalid user_script")
-    if isinstance(v, str) and values["user_script"] is None:
-        raise ValueError(f"user_script must be provided if {field.name} is a name string")
+    if isinstance(v, str) and info.data["user_script"] is None:
+        raise ValueError(f"user_script must be provided if {info.field_name} is a name string")
     return v
 
 
-def validate_resource_path(v, values, field):
+def validate_resource_path(v):
     from olive.resource_path import create_resource_path
 
     try:
@@ -226,7 +232,7 @@ def create_config_class(
     for param, param_config in default_config.items():
         if param == "data_dir":
             validator_name = f"validate_{param}_resource_path"
-            validators[validator_name] = validator(param, allow_reuse=True)(validate_resource_path)
+            validators[validator_name] = field_validator(param)(validate_resource_path)
         # automatically add validator for object params
         if param_config.category == ParamCategory.OBJECT:
             validator_name = f"validate_{param}_object"
@@ -234,7 +240,7 @@ def create_config_class(
             while validator_name in validators:
                 validator_name = f"{validator_name}_{count}"
                 count += 1
-            validators[validator_name] = validator(param, allow_reuse=True)(validate_object)
+            validators[validator_name] = field_validator(param)(validate_object)
 
         type_ = param_config.type_
         if param_config.required:
@@ -264,7 +270,7 @@ def validate_config(
     if isinstance(config, dict):
         user_keys = set(config.keys())
         config = instance_class(**config)
-        config_keys = set(config.dict().keys())
+        config_keys = set(config.model_dump().keys())
         unused_keys = user_keys - config_keys
         if unused_keys and warn_unused_keys:
             logger.warning(f"Keys {unused_keys} are not part of {instance_class.__name__}. Ignoring them.")
@@ -275,3 +281,48 @@ def validate_config(
             f"Invalid config class. Expected {instance_class.__name__} but got {config.__class__.__name__}"
         )
     return config
+
+
+def sequence_like(v: Any) -> bool:
+    return isinstance(v, (list, tuple, set, frozenset, deque))
+
+
+def is_namedtuple(type_: Type[Any]) -> bool:
+    return isinstance(type_, type) and issubclass(type_, tuple) and hasattr(type_, "_fields")
+
+
+def model_dump(obj: BaseModel):
+    """In Pydantic 2, the BaseModel.model_dump behavior is different that Pydantic v1 BaseModel.dict.
+    It will make all the values as string. As the result, if there are some
+    object like callable, these fields will missing. Not sure it is Pydantic2 bug or by design. Anyway, it will break
+    existing Olive scenario.
+
+    We delibrely keep the old behavior by using the following code.
+    """
+    result = {}
+    if isinstance(obj, RootModel):
+        if isinstance(obj.root, dict):
+            for k, v in obj.root.items():
+                result[k] = get_value(v)
+        else:
+            # TODO: handle other cases
+            pass
+    else:
+        for k, v in vars(obj).items():
+            v = get_value(v)
+            result[k] = v
+    return result
+
+
+def get_value(v):
+    if isinstance(v, BaseModel):
+        v = model_dump(v)
+    elif isinstance(v, dict):
+        v = {k_: get_value(v_) for k_, v_ in v.items()}
+    elif sequence_like(v):
+        seq_args = (get_value(v_) for i, v_ in enumerate(v))
+        v = v.__class__(*seq_args) if is_namedtuple(v.__class__) else v.__class__(seq_args)
+    elif isinstance(v, Enum):
+        v = v.value
+
+    return v

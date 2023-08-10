@@ -7,7 +7,7 @@ from functools import partial
 from itertools import chain
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from pydantic import validator
+from pydantic import FieldValidationInfo, field_validator
 
 from olive.common.config_utils import ConfigBase
 from olive.model.model_config import IOConfig
@@ -23,21 +23,19 @@ class HFComponent(ConfigBase):
 
 
 class HFConfig(ConfigBase):
-    model_name: str = None
-    task: str = None
-    # feature is optional if task is specified and don't need past
-    # else, provide feature such as "causal-lm-with-past"
-    feature: str = None
+    model_name: Optional[str] = None
+    task: Optional[str] = None
+    feature: Optional[str] = None
     # TODO: remove model_class and only use task
-    model_class: str = None
-    components: List[HFComponent] = None
-    config: Dict[str, Any] = None
-    dataset: Dict[str, Any] = None
+    model_class: Optional[str] = None
+    components: Optional[List[HFComponent]] = None
+    config: Optional[Dict[str, Any]] = None
+    dataset: Optional[Dict[str, Any]] = None
 
-    @validator("model_class", always=True)
-    def task_or_model_class_required(cls, v, values):
-        if values["model_name"]:
-            if not v and not values.get("task", None):
+    @field_validator("model_class")
+    def task_or_model_class_required(cls, v, info: FieldValidationInfo):
+        if info.data["model_name"]:
+            if not v and not info.data.get("task", None):
                 raise ValueError("Either task or model_class must be specified")
         return v
 

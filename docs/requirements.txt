@@ -1,4 +1,4 @@
-autodoc_pydantic<2.0.0
+autodoc_pydantic>=2.0.0
 azure-ai-ml>=0.1.0b6
 azure-identity
 azureml-fsspec

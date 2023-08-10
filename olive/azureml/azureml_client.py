@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from pydantic import Field, validator
+from pydantic import Field, FieldValidationInfo, field_validator
 
 from olive.common.config_utils import ConfigBase
 
@@ -50,14 +50,14 @@ class AzureMLClientConfig(ConfigBase):
         ),
     )
 
-    @validator("aml_config_path", always=True)
-    def validate_aml_config_path(cls, v, values):
+    @field_validator("aml_config_path")
+    def validate_aml_config_path(cls, v, info: FieldValidationInfo):
         if v is None:
-            if values.get("subscription_id") is None:
+            if info.data.get("subscription_id") is None:
                 raise ValueError("subscription_id must be provided if aml_config_path is not provided")
-            if values.get("resource_group") is None:
+            if info.data.get("resource_group") is None:
                 raise ValueError("resource_group must be provided if aml_config_path is not provided")
-            if values.get("workspace_name") is None:
+            if info.data.get("workspace_name") is None:
                 raise ValueError("workspace_name must be provided if aml_config_path is not provided")
         if v is not None:
             if not Path(v).exists():

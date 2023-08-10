@@ -21,13 +21,13 @@ PRUNED_CONFIGS = [FAILED_CONFIG, INVALID_CONFIG]
 
 
 class EngineConfig(ConfigBase):
-    search_strategy: Union[SearchStrategyConfig, bool] = None
-    host: SystemConfig = None
-    target: SystemConfig = None
-    execution_providers: List[str] = None
-    evaluator: OliveEvaluatorConfig = None
-    azureml_client_config: Optional[AzureMLClientConfig] = None
-    packaging_config: PackagingConfig = None
+    search_strategy: Optional[Union[SearchStrategyConfig, bool]] = None
+    host: Optional[SystemConfig] = None
+    target: Optional[SystemConfig] = None
+    execution_providers: Optional[List[str]] = None
+    evaluator: Optional[OliveEvaluatorConfig] = None
+    azureml_client_config: Optional[Optional[AzureMLClientConfig]] = None
+    packaging_config: Optional[PackagingConfig] = None
     cache_dir: Union[Path, str] = ".olive-cache"
     clean_cache: bool = False
     clean_evaluation_cache: bool = False
