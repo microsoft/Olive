@@ -601,6 +601,8 @@ class Engine:
             time_diff = time.time() - start_time
             self.search_strategy.check_exit_criteria(iter_num, time_diff, signal)
 
+        self.footprints[accelerator_spec].to_file(output_dir / f"{prefix_output_name}footprints.json")
+
         return self.get_pareto_frontier_footprints(
             accelerator_spec, output_model_num, objective_dict, output_dir, prefix_output_name
         )
