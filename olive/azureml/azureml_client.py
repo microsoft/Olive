@@ -20,8 +20,8 @@ class AzureMLClientConfig(ConfigBase):
     )
     resource_group: str = Field(None, description="Azure resource group. Required if aml_config_path is not provided.")
     workspace_name: str = Field(None, description="Azure workspace name. Required if aml_config_path is not provided.")
-    aml_config_path: str = Field(
-        None, description="Path to AzureML config file. If provided, other fields are ignored."
+    aml_config_path: Optional[str] = Field(
+        None, description="Path to AzureML config file. If provided, other fields are ignored.", validate_default=True
     )
     # read timeout in seconds for HTTP requests, user can increase if they find the default value too small.
     # The default value from azureml sdk is 3000 which is too large and cause the evaluations and pass runs to

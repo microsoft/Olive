@@ -30,9 +30,7 @@ class TestRunConfig:
         ],
     )
     def test_dataset_config_file(self, config_file):
-        with open(config_file, "r") as f:
-            config = f.read()
-        run_config = RunConfig.model_validate_json(config)
+        run_config = RunConfig.parse_file(config_file)
         for dc in run_config.data_configs.values():
             dc.to_data_container().create_dataloader(data_root_path=None)
 
@@ -43,7 +41,7 @@ class TestRunConfig:
 
         user_script_config["engine"]["host"] = system
         user_script_config["engine"]["target"] = system
-        config = RunConfig.model_validate(user_script_config)
+        config = RunConfig.parse_obj(user_script_config)
         for metric in config.evaluators["common_evaluator"].metrics:
             assert metric.user_config.data_dir.get_path().startswith("azureml://")
 
@@ -53,7 +51,7 @@ class TestRunConfig:
 
         user_script_config.pop("azureml_client")
         with pytest.raises(ValueError) as e:
-            RunConfig.model_validate(user_script_config)
+            RunConfig.parse_obj(user_script_config)
             assert str(e.value) == "AzureML client config is required for AzureML system"
 
     @pytest.fixture
@@ -103,7 +101,7 @@ class TestRunConfig:
             user_script_config = json.load(f)
 
         user_script_config["azureml_client"]["default_auth_params"] = default_auth_params[0]
-        config = RunConfig.model_validate(user_script_config)
+        config = RunConfig.parse_obj(user_script_config)
         config.azureml_client.create_client()
         assert (
             self.mocked_env_credentials.call_count,
@@ -120,7 +118,7 @@ class TestRunConfig:
         mocked_default_azure_credential.side_effect = Exception("mock error")
         with open(self.user_script_config_file, "r") as f:
             user_script_config = json.load(f)
-        config = RunConfig.model_validate(user_script_config)
+        config = RunConfig.parse_obj(user_script_config)
         config.azureml_client.create_client()
         assert mocked_interactive_login.call_count == 1
 
@@ -129,5 +127,5 @@ class TestRunConfig:
         with open(readymade_config_file, "r") as f:
             user_script_config = json.load(f)
 
-        cfg = RunConfig.model_validate(user_script_config)
+        cfg = RunConfig.parse_obj(user_script_config)
         assert cfg.engine.target.config.accelerators == ["GPU"]

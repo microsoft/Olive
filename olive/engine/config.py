@@ -26,7 +26,7 @@ class EngineConfig(ConfigBase):
     target: Optional[SystemConfig] = None
     execution_providers: Optional[List[str]] = None
     evaluator: Optional[OliveEvaluatorConfig] = None
-    azureml_client_config: Optional[Optional[AzureMLClientConfig]] = None
+    azureml_client_config: Optional[AzureMLClientConfig] = None
     packaging_config: Optional[PackagingConfig] = None
     cache_dir: Union[Path, str] = ".olive-cache"
     clean_cache: bool = False
