@@ -1,4 +1,5 @@
 from copy import deepcopy
+from unittest.mock import patch
 
 import pytest
 
@@ -85,7 +86,8 @@ def test_aml_config(config):
     assert engine is not None
 
 
-def test_aml_system_engine_create(config):
+@patch("olive.systems.azureml.aml_system.Environment")
+def test_aml_system_engine_create(mock_env, config):
     config_json = deepcopy(config)
 
     config_patched = patch_config(config_json, "tpe", "joint", "aml_system")

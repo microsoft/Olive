@@ -6,7 +6,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Callable, Dict, Optional, Type, Union
 
-from pydantic import ConfigDict, FieldValidationInfo, create_model, field_validator
+from pydantic import FieldValidationInfo, create_model, field_validator
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object, validate_resource_path
 from olive.data.config import DataConfig
@@ -41,8 +41,6 @@ class PassConfigParam(ConfigParam):
     searchable_values: default searchable values for the parameter. This value is used if search is enabled.
         Must be a Categorical or Conditional SearchParameter.
     """
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     searchable_values: SearchParameter = None
 
