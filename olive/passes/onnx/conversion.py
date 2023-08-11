@@ -12,7 +12,6 @@ import torch
 
 from olive.common.config_utils import validate_config
 from olive.common.utils import tensor_data_to_device
-from olive.exception import OlivePassException
 from olive.hardware import AcceleratorSpec, Device
 from olive.model import CompositeOnnxModel, ONNXModel, PyTorchModel
 from olive.model.hf_utils import get_hf_model_io_config
@@ -36,7 +35,7 @@ class TraceModelWrapper(torch.nn.Module):
 
 
 class OnnxConversion(Pass):
-    """Convert a PyTorch model to ONNX model using torch.onnx.export."""
+    """Convert a PyTorch model to ONNX model using torch.onnx.export on CPU."""
 
     _requires_user_script = True
 
@@ -190,7 +189,9 @@ class OnnxConversion(Pass):
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
 
-class GpuOnnxConversion(OnnxConversion):
+class DeviceSpecificOnnxConversion(OnnxConversion):
+    """Convert a PyTorch model to ONNX model using torch.onnx.export by using specific hardware device."""
+
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
         return False
@@ -198,7 +199,6 @@ class GpuOnnxConversion(OnnxConversion):
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModel, CompositeOnnxModel]:
-        if self.accelerator_spec.accelerator_type != Device.GPU:
-            raise OlivePassException("GpuOnnxConversion can only be run on GPU devices.")
-
-        return self._convert_model_on_device(model, data_root, config, output_model_path, torch.device("cuda"))
+        accel_type = self.accelerator_spec.accelerator_type
+        device = torch.device("cuda") if accel_type == Device.GPU else torch.device(accel_type)
+        return self._convert_model_on_device(model, data_root, config, output_model_path, device)
