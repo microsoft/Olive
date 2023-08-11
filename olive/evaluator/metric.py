@@ -6,7 +6,7 @@ import logging
 from enum import Enum
 from typing import ClassVar, Dict, List, Optional, Union
 
-from pydantic import FieldValidationInfo, field_validator, model_validator
+from pydantic import FieldValidationInfo, SerializeAsAny, field_validator, model_validator
 
 from olive.common.config_utils import ConfigBase, ConfigDictBase, validate_config
 from olive.data.config import DataConfig
@@ -82,7 +82,7 @@ class Metric(ConfigBase):
     type: MetricType
     backend: Optional[str] = "torch_metrics"
     sub_types: List[SubMetric]
-    user_config: Optional[ConfigBase] = None
+    user_config: Optional[SerializeAsAny[ConfigBase]] = None
     data_config: Optional[DataConfig] = None
 
     def get_sub_type_info(self, info_name, no_priority_filter=True, callback=lambda x: x):

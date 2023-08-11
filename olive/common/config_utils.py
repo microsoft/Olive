@@ -5,12 +5,11 @@
 import inspect
 import json
 import logging
-from collections import deque
 from enum import Enum
 from functools import partial
 from pathlib import Path
 from types import FunctionType, MethodType
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, FieldValidationInfo, RootModel, create_model, field_validator
 
@@ -87,7 +86,7 @@ def serialize_to_json(obj: Any, check_object: bool = False) -> dict:
     Serialize a Python object into a JSON dict. Also serializes functions and objects.
     """
     if isinstance(obj, BaseModel):
-        obj_dict = model_dump(obj)
+        obj_dict = obj.model_dump()
         raw_json = config_json_dumps(obj_dict)
     else:
         raw_json = config_json_dumps(obj)
@@ -104,22 +103,16 @@ def serialize_to_json(obj: Any, check_object: bool = False) -> dict:
 
 
 class ModelSerializerMixin:
-    class Config:
-        arbitrary_types_allowed = True
-        json_loads = config_json_loads
-        json_dumps = config_json_dumps
-        json_encoders = {Path: lambda x: str(x.resolve())}
-
     def to_json(self, check_object: bool = False) -> dict:
         return serialize_to_json(self, check_object)
 
     @classmethod
     def from_json(cls, json_dict: dict) -> "ConfigBase":
-        return cls.model_validate_json(json.dumps(json_dict))
+        return cls.model_validate(json_dict)
 
 
 class ConfigBase(BaseModel, ModelSerializerMixin):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, json_encoders={Path: lambda x: str(x.resolve())})
 
 
 class ConfigListBase(RootModel, ModelSerializerMixin):
@@ -281,48 +274,3 @@ def validate_config(
             f"Invalid config class. Expected {instance_class.__name__} but got {config.__class__.__name__}"
         )
     return config
-
-
-def sequence_like(v: Any) -> bool:
-    return isinstance(v, (list, tuple, set, frozenset, deque))
-
-
-def is_namedtuple(type_: Type[Any]) -> bool:
-    return isinstance(type_, type) and issubclass(type_, tuple) and hasattr(type_, "_fields")
-
-
-def model_dump(obj: BaseModel):
-    """In Pydantic 2, the BaseModel.model_dump behavior is different that Pydantic v1 BaseModel.dict.
-    It will make all the values as string. As the result, if there are some
-    object like callable, these fields will missing. Not sure it is Pydantic2 bug or by design. Anyway, it will break
-    existing Olive scenario.
-
-    We delibrely keep the old behavior by using the following code.
-    """
-    result = {}
-    if isinstance(obj, RootModel):
-        if isinstance(obj.root, dict):
-            for k, v in obj.root.items():
-                result[k] = get_value(v)
-        else:
-            # TODO: handle other cases
-            pass
-    else:
-        for k, v in vars(obj).items():
-            v = get_value(v)
-            result[k] = v
-    return result
-
-
-def get_value(v):
-    if isinstance(v, BaseModel):
-        v = model_dump(v)
-    elif isinstance(v, dict):
-        v = {k_: get_value(v_) for k_, v_ in v.items()}
-    elif sequence_like(v):
-        seq_args = (get_value(v_) for i, v_ in enumerate(v))
-        v = v.__class__(*seq_args) if is_namedtuple(v.__class__) else v.__class__(seq_args)
-    elif isinstance(v, Enum):
-        v = v.value
-
-    return v

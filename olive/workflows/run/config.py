@@ -9,7 +9,7 @@ from pydantic import Field, FieldValidationInfo, field_validator
 from typing_extensions import Annotated
 
 from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.common.config_utils import ConfigBase, model_dump, validate_config
+from olive.common.config_utils import ConfigBase, validate_config
 from olive.data.config import DataConfig
 from olive.data.constants import DEFAULT_HF_DATA_CONTAINER_NAME, DefaultDataContainer
 from olive.data.container.huggingface_container import HuggingfaceContainer
@@ -38,7 +38,7 @@ class RunEngineConfig(EngineConfig):
     ort_log_severity_level: int = 3
 
     def create_engine(self):
-        config = model_dump(self)
+        config = self.model_dump()
         to_del = [
             "evaluate_input_model",
             "output_dir",
