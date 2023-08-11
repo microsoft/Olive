@@ -79,7 +79,7 @@ To run a pass, the search parameters need to be assigned a value each from their
 The pass then combines those with the fixed parameters to form a complete configuration using `config_at_search_point`. This run configuration is also used by the engine as a unique id to cache the pass run.
 
 ### Implemented Passes
-- OnnxConversionPass
+- OnnxConversion
 - OrtTransformersOptimization
 - OnnxDynamicQuantization
 - OnnxStaticQuantization
