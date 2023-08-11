@@ -648,6 +648,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
 
         return OliveEvaluator.compute_accuracy(metric, preds, targets)
 
+    @torch.no_grad()
     def _evaluate_latency(
         self,
         model: PyTorchModel,
