@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
-from olive.engine.config import PRUNED_CONFIG, EngineConfig
+from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS, EngineConfig
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
 from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
@@ -450,6 +450,7 @@ class Engine:
 
         iter_num = 0
         flows_output = {}
+        output_model_ids = []
         while True:
             iter_num += 1
 
@@ -474,10 +475,13 @@ class Engine:
 
             # run all the passes in the step
             (
-                _,
+                should_prune,
                 signal,
                 model_ids,
             ) = self._run_passes(next_step["passes"], model, model_id, data_root, accelerator_spec)
+            if should_prune:
+                logger.warning(f"Flow {iter_num} is pruned due to failed or invalid config")
+                continue
             # names of the output models of the passes
             pass_output_names = [self.passes[pass_name]["output_name"] for pass_name, _ in next_step["passes"]]
             pass_output_names = [f"{name}_{accelerator_spec}" if name else None for name in pass_output_names]
@@ -497,7 +501,6 @@ class Engine:
 
             output_model_json = None
             output = {}
-            output_model_ids = []
             for pass_output_name, pass_output_model_id in zip(pass_output_names, model_ids):
                 if not pass_output_name:
                     continue
@@ -752,7 +755,7 @@ class Engine:
         Cache the model in the cache directory.
         """
         # TODO move model/pass run/evaluation cache into footprints
-        if model == PRUNED_CONFIG:
+        if model == FAILED_CONFIG:
             model_json = {}
         else:
             model_json = model.to_json(check_object=check_object)
@@ -776,7 +779,7 @@ class Engine:
             return None
 
         if model_json == {}:
-            return PRUNED_CONFIG
+            return FAILED_CONFIG
 
         model = ModelConfig.from_json(model_json).create_model()
         return model
@@ -893,7 +896,7 @@ class Engine:
         model_ids = []
         for pass_id, pass_search_point in passes:
             model, model_id = self._run_pass(pass_id, pass_search_point, model, model_id, data_root, accelerator_spec)
-            if model == PRUNED_CONFIG:
+            if model in PRUNED_CONFIGS:
                 should_prune = True
                 logger.debug("Pruned")
                 break
@@ -933,6 +936,16 @@ class Engine:
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)
 
+        # check whether the config is valid
+        if not p.validate_search_point(pass_search_point, accelerator_spec, with_fixed_value=True):
+            logger.debug("Invalid search point, prune")
+            output_model = INVALID_CONFIG
+            # no need to record in footprint since there was no run and thus no valid/failed model
+            # invalid configs are also not cached since the same config can be valid for other accelerator specs
+            # a pass can be accelerator agnostic but still have accelerator specific invalid configs
+            # this helps reusing cached models for different accelerator specs
+            return output_model, None
+
         # load run from cache if it exists
         run_accel = None if p.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
         output_model_id = self._load_run(input_model_id, pass_name, pass_config, run_accel)
@@ -943,7 +956,7 @@ class Engine:
                 # footprint model and run
                 self.footprints[accelerator_spec].record(
                     model_id=output_model_id,
-                    model_config=output_model.to_json() if output_model != PRUNED_CONFIG else {"is_pruned": True},
+                    model_config=output_model.to_json() if output_model != FAILED_CONFIG else {"is_pruned": True},
                     parent_model_id=input_model_id,
                     from_pass=pass_name,
                     pass_run_config=pass_config,
@@ -968,30 +981,26 @@ class Engine:
         output_model_path.parent.mkdir(parents=True, exist_ok=True)
         output_model_path = str(output_model_path)
 
-        # prune if invalid search_point
-        if not p.validate_search_point(pass_search_point, accelerator_spec, with_fixed_value=True):
-            output_model = PRUNED_CONFIG
-        else:
-            # run pass
-            host = self.host_for_pass(pass_id)
-            if host.system_type != SystemType.AzureML:
-                input_model = self._prepare_non_local_model(input_model)
-            try:
-                output_model = host.run_pass(p, input_model, data_root, output_model_path, pass_search_point)
-            except OlivePassException as e:
-                logger.error(f"Pass run_pass failed: {e}", exc_info=True)
-                output_model = PRUNED_CONFIG
-            except EXCEPTIONS_TO_RAISE:
-                # Don't catch these errors since most of time, it is caused by the user errors and need not retry.
-                raise
-            except Exception:
-                output_model = PRUNED_CONFIG
-                # TODO: from the time being, we need to catch all exceptions to make the
-                #      search process robust. We need rethrow the exception only when
-                #      it is not pass specific. For example, for olive bugs and user errors
-                logger.error("Pass run failed.", exc_info=True)
-                if self.no_search:
-                    raise  # rethrow the exception if no search is performed
+        # run pass
+        host = self.host_for_pass(pass_id)
+        if host.system_type != SystemType.AzureML:
+            input_model = self._prepare_non_local_model(input_model)
+        try:
+            output_model = host.run_pass(p, input_model, data_root, output_model_path, pass_search_point)
+        except OlivePassException as e:
+            logger.error(f"Pass run_pass failed: {e}", exc_info=True)
+            output_model = FAILED_CONFIG
+        except EXCEPTIONS_TO_RAISE:
+            # Don't catch these errors since most of time, it is caused by the user errors and need not retry.
+            raise
+        except Exception:
+            output_model = FAILED_CONFIG
+            # TODO: from the time being, we need to catch all exceptions to make the
+            #      search process robust. We need rethrow the exception only when
+            #      it is not pass specific. For example, for olive bugs and user errors
+            logger.error("Pass run failed.", exc_info=True)
+            if self.no_search:
+                raise  # rethrow the exception if no search is performed
 
         # cache model
         self._cache_model(output_model, output_model_id)
@@ -1002,7 +1011,7 @@ class Engine:
         # footprint model and run
         self.footprints[accelerator_spec].record(
             model_id=output_model_id,
-            model_config=output_model.to_json() if output_model != PRUNED_CONFIG else {"is_pruned": True},
+            model_config=output_model.to_json() if output_model != FAILED_CONFIG else {"is_pruned": True},
             parent_model_id=input_model_id,
             from_pass=pass_name,
             pass_run_config=pass_config,
