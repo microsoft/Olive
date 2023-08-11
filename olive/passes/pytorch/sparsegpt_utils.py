@@ -13,6 +13,7 @@ import transformers
 
 # model_type -> name for layers
 layers_map = {
+    "bloom": "transformer.h",
     "gpt2": "transformer.h",
     "gpt_neox": "gpt_neox.layers",
     "llama": "model.layers",
@@ -21,6 +22,7 @@ layers_map = {
 
 # model_type -> name for embedding, these are the modules before the first layer
 embedding_map = {
+    "bloom": ["transformer.word_embeddings", "transformer.word_embeddings_layernorm"],
     "gpt2": ["transformer.wte", "transformer.wpe"],
     "gpt_neox": ["gpt_neox.embed_in"],
     "llama": ["model.embed_tokens", "model.norm"],
@@ -34,7 +36,7 @@ embedding_map = {
 
 # additional inputs to the layers for each model type
 # all model types are expected to have "input_ids" and "attention_mask"
-additional_inputs = {"gpt_neox": ["position_ids"]}
+additional_inputs = {"bloom": ["alibi"], "gpt_neox": ["position_ids"]}
 
 
 def _get_attr(module, attr):
@@ -128,10 +130,8 @@ def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
     # run the model on the data
     for data, _ in dataloader:
         input_ids = data["input_ids"].to(device)
-        # attention mask is optional
-        attention_mask = data["attention_mask"].to(device) if data.get("attention_mask") is not None else None
         try:
-            model(input_ids, attention_mask=attention_mask)
+            model(input_ids)
         except ValueError:
             pass
         # stop if we have enough samples

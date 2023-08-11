@@ -161,7 +161,7 @@ class SparseGPT(Pass):
 
             # run layer
             for j in range(inputs.shape[0]):
-                outputs[j] = layer(inputs[j].unsqueeze(0), attention_mask, **extras)[0]
+                outputs[j] = layer(inputs[j].unsqueeze(0), attention_mask=attention_mask, **extras)[0]
 
             # remove handler
             for handle in handles:
