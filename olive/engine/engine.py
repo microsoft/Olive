@@ -294,6 +294,7 @@ class Engine:
     ):
         """
         Run all the registered Olive passes on the input model and produce one or more candidate models.
+
         Args:
             input_model: input Olive model
             packaging_config: packaging configuration, if packaging_config is provided, the output
@@ -308,6 +309,7 @@ class Engine:
                 1. Final model -> {output_dir}/{output_name}_{AcceleratorSpec}_model.onnx
                 2. JSON file -> {output_dir}/{output_name}_{AcceleratorSpec}_model.json
                 3. Evaluation results of the final model -> {output_dir}/{output_name}_{AcceleratorSpec}_metrics.json
+
             Return footprint/zip(packaging_config) of the final model and evaluation results of the final model.
 
             if search strategy is not None, run the search strategy to find candidate models.
