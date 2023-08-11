@@ -83,6 +83,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_pass.html">How To Configure Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
 <ul>
@@ -417,6 +418,7 @@
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Run all the registered Olive passes on the input model and produce one or more candidate models.</span>
+
 <span class="sd">        Args:</span>
 <span class="sd">            input_model: input Olive model</span>
 <span class="sd">            packaging_config: packaging configuration, if packaging_config is provided, the output</span>
@@ -431,6 +433,7 @@
 <span class="sd">                1. Final model -&gt; {output_dir}/{output_name}_{AcceleratorSpec}_model.onnx</span>
 <span class="sd">                2. JSON file -&gt; {output_dir}/{output_name}_{AcceleratorSpec}_model.json</span>
 <span class="sd">                3. Evaluation results of the final model -&gt; {output_dir}/{output_name}_{AcceleratorSpec}_metrics.json</span>
+
 <span class="sd">            Return footprint/zip(packaging_config) of the final model and evaluation results of the final model.</span>
 
 <span class="sd">            if search strategy is not None, run the search strategy to find candidate models.</span>

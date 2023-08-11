@@ -124,6 +124,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_pass.html">How To Configure Pass</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/configure_model_path.html">How To Set Model Path</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
 <ul>
@@ -197,12 +198,12 @@ more details.</p>
 The default value is 3. User can increase if there are network issues and the operations fail.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">operation_retry_interval:</span> <span class="pre">[int]</span></code> The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">default_auth_params:</span> <span class="pre">Dict[str,</span> <span class="pre">Any]</span></code> Default auth parameters for AzureML client. Please refer to <a class="reference external" href="https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters">azure DefaultAzureCredential</a> for more details. For example, if you want to exclude managed identity credential, you can set the following:</p>
-<div class="highlight-json notranslate"><div class="highlight"><pre><span></span>&quot;azureml_client&quot;: {
-    ...
-    &quot;default_auth_params&quot;: {
-        &quot;exclude_managed_identity_credential&quot;: true
-    }
-}
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="nt">&quot;azureml_client&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="w">    </span><span class="nt">&quot;default_auth_params&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;exclude_managed_identity_credential&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </li>
