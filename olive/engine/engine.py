@@ -479,14 +479,17 @@ class Engine:
                 signal,
                 model_ids,
             ) = self._run_passes(next_step["passes"], model, model_id, data_root, accelerator_spec)
+            pass_flow = self.pass_flows[iter_num - 1]
+
             if should_prune:
-                logger.warning(f"Flow {iter_num} is pruned due to failed or invalid config")
-                continue
+                failed_pass = pass_flow[len(model_ids)]
+                logger.warning(f"Flow {pass_flow} is pruned due to failed or invalid config for pass '{failed_pass}'")
+
             # names of the output models of the passes
             pass_output_names = [self.passes[pass_name]["output_name"] for pass_name, _ in next_step["passes"]]
             pass_output_names = [f"{name}_{accelerator_spec}" if name else None for name in pass_output_names]
 
-            pass_flow = self.pass_flows[iter_num - 1]
+            # output dir with pass flow
             output_dir_with_pf = Path(output_dir) / "-".join(pass_flow)
 
             final_output_name = pass_output_names[-1]
@@ -514,13 +517,13 @@ class Engine:
                 output_model_ids.append(pass_output_model_id)
 
             # save the evaluation results to output_dir
-
             if signal is not None:
                 results_path = output_dir_with_pf / f"{final_output_name}_metrics.json"
                 with open(results_path, "w") as f:
                     json.dump(signal.to_json(), f, indent=4)
 
-            if output_model_json:
+            if output_model_json and not should_prune:
+                # output_model_json is the last model only if the flow is not pruned
                 output["model"] = output_model_json
                 if signal is not None:
                     output["metrics"] = signal
