@@ -45,7 +45,7 @@ class LatencySubType(str, Enum):
 
 class SubMetric(ConfigBase):
     name: Union[AccuracySubType, LatencyMetricConfig, str]
-    metric_config: Optional[ConfigBase] = None
+    metric_config: Optional[SerializeAsAny[ConfigBase]] = None
     # -1 means no priority which will be evaluated only
     priority: int = -1
     higher_is_better: bool = False

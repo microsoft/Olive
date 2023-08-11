@@ -68,9 +68,12 @@ class TestEvaluation:
             },
         ]
 
-        metrics = OliveEvaluatorConfig(metrics=metrics_config).metrics
+        evaluator_config = OliveEvaluatorConfig(metrics=metrics_config)
+        metrics = evaluator_config.metrics
         for metric in metrics:
             assert metric.name in ["accuracy", "hf_accuracy", "latency", "test"]
+        evaluator_config_json = evaluator_config.model_dump()
+        assert evaluator_config_json["metrics"][0]["sub_types"][1]["metric_config"]["reorder"]
 
     def test_metrics_dump(self):
         user_script = "user_script.py"

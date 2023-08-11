@@ -30,7 +30,9 @@ class TestRunConfig:
         ],
     )
     def test_dataset_config_file(self, config_file):
-        run_config = RunConfig.model_validate(config_file)
+        with open(config_file, "r") as f:
+            config = json.load(f)
+        run_config = RunConfig.model_validate(config)
         for dc in run_config.data_configs.values():
             dc.to_data_container().create_dataloader(data_root_path=None)
 

@@ -7,7 +7,7 @@ from abc import ABC
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from pydantic import FieldValidationInfo, field_validator
+from pydantic import FieldValidationInfo, SerializeAsAny, field_validator
 
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.evaluator.metric import MetricResult
@@ -23,7 +23,7 @@ _VALID_EXECUTION_ORDERS = ["joint", "pass-by-pass"]
 class SearchStrategyConfig(ConfigBase):
     execution_order: str
     search_algorithm: str
-    search_algorithm_config: Optional[ConfigBase] = None
+    search_algorithm_config: Optional[SerializeAsAny[ConfigBase]] = None
     output_model_num: Optional[int] = None
     stop_when_goals_met: Optional[bool] = False
     max_iter: Optional[int] = None
