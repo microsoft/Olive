@@ -124,7 +124,6 @@ def dependency_setup(config):
 
 
 def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = None):
-    # we use model_validate to be safe. If implemented as expected, both should be equivalent.
     if isinstance(config, str) or isinstance(config, Path):
         with open(config, "r") as f:
             config = json.load(f)

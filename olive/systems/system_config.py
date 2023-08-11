@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-from pydantic import FieldValidationInfo, field_validator, model_validator
+from pydantic import FieldValidationInfo, SerializeAsAny, field_validator, model_validator
 
 import olive.systems.system_alias as system_alias
 from olive.azureml.azureml_client import AzureMLClientConfig
@@ -92,7 +92,7 @@ def import_system_from_type(system_type: SystemType):
 
 class SystemConfig(ConfigBase):
     type: SystemType
-    config: Optional[TargetUserConfig] = None
+    config: Optional[SerializeAsAny[TargetUserConfig]] = None
 
     @model_validator(mode="before")
     @classmethod

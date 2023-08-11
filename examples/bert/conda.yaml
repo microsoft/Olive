@@ -11,4 +11,3 @@ dependencies:
       - scikit-learn
       - transformers
       - git+https://github.com/microsoft/Olive.git@myguo/pydantic_2#egg=olive-ai[cpu]
-      - pydantic==2.*
