@@ -12,10 +12,10 @@ import warnings
 from pathlib import Path
 
 import config
-import numpy as np
 import onnxruntime as ort
 import torch
 from diffusers import DiffusionPipeline, OnnxRuntimeModel
+from diffusers.utils import load_image
 from optimum.onnxruntime import ORTStableDiffusionXLImg2ImgPipeline, ORTStableDiffusionXLPipeline
 from packaging import version
 from PIL import Image, ImageTk
@@ -52,15 +52,12 @@ def run_inference_loop(
             width=image_size,
         )
     else:
-        base_images_tensor = np.array([np.array(Image.open(base_image)) for base_image in base_images])
-
-        # Convert from NHWC to NCHW
-        base_images_tensor = np.transpose(base_images_tensor, axes=[0, 3, 1, 2])
+        base_images_rgb = [load_image(base_image).convert("RGB") for base_image in base_images]
 
         result = pipeline(
             [prompt] * batch_size,
             negative_prompt=[""] * batch_size,
-            image=base_images_tensor,
+            image=base_images_rgb,
             num_inference_steps=num_inference_steps,
             callback=update_steps if step_callback else None,
         )
@@ -272,6 +269,14 @@ def optimize(
         with open(script_dir / f"config_{submodel_name}.json", "r") as fin:
             olive_config = json.load(fin)
 
+        # TODO: Remove this once we figure out which nodes are causing the black screen
+        if is_refiner_model and submodel_name == "vae_encoder":
+            olive_config["passes"]["optimize"]["config"]["float16"] = False
+
+        # TODO: Remove this once we figure out which nodes are causing the black screen
+        if submodel_name == "vae_decoder":
+            olive_config["passes"]["optimize"]["config"]["float16"] = False
+
         olive_config["input_model"]["config"]["model_path"] = model_id
         olive_run(olive_config)
 
@@ -455,6 +460,10 @@ if __name__ == "__main__":
 
     if is_refiner_model and not args.optimize and args.base_images is None:
         print("--base_images needs to be provided when executing a refiner model without --optimize")
+        exit(1)
+
+    if not is_refiner_model and args.base_images is not None:
+        print("--base_images should only be provided for refiner models")
         exit(1)
 
     if args.optimize or not optimized_model_dir.exists():
