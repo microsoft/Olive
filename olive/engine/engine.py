@@ -278,8 +278,7 @@ class Engine:
             pass_flows: a list of pass names, each pass name is a string.
         """
         if not pass_flows:
-            assert self.pass_config, "Pass flows can only be set after passes are registered"
-            self.pass_flows = [list(self.pass_config.keys())]
+            self.pass_flows = [list(self.pass_config.keys())] if self.pass_config else []
         else:
             self.pass_flows = pass_flows
 
