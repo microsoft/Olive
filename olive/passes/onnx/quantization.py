@@ -377,9 +377,8 @@ class OnnxQuantization(Pass):
         # reload the model and save to output_model_path using the external data config
         # TODO: don't default to use_external_data_format=True if the loading and saving model makes
         # the pass inefficient
-        tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
-        tmp_dir_path = Path(tmp_dir.name)
-        tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
+        new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+        tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
 
         if is_static:
             # get the dataloader
@@ -417,16 +416,23 @@ class OnnxQuantization(Pass):
         # load the model
         onnx_model = onnx.load(tmp_model_path)
         # the model is loaded into memory, so it's safe to delete previously exported files
-        tmp_dir.cleanup()
+        # NOTE: Don't cleanup self.tmp_dir to avoid preprocessing the same model again during
+        # recurrent passes of the search.
+        new_tmp_dir.cleanup()
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
-    def _quant_preprocess(self, model: ONNXModel, output_model_path: str) -> ONNXModel:
+    def _quant_preprocess(self, model: ONNXModel, output_model_path: Union[str, Path]) -> ONNXModel:
         from onnxruntime.quantization.preprocess import quant_pre_process
 
         try:
-            quant_pre_process(input_model_path=model.model_path, output_model_path=output_model_path, auto_merge=True)
+            quant_pre_process(
+                input_model_path=model.model_path,
+                output_model_path=str(output_model_path),
+                auto_merge=True,
+                save_as_external_data=True,
+            )
         except Exception as e:
             # TODO: try with `skip_optimization = True`
             # quantization preprocessing will fail if the model is too large and `skip_optimization = False`
