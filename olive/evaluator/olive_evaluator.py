@@ -676,6 +676,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
         return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
+    @torch.no_grad()
     def _evaluate_latency(
         self,
         model: PyTorchModel,

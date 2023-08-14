@@ -120,7 +120,7 @@ class SparseGPT(Pass):
         layers = get_layers(pytorch_model, model_type)
 
         # get the inputs to the first layer
-        inputs, attention_mask = catch_layer_inputs(pytorch_model, model_type, dataloader, device)
+        inputs, attention_mask, extras = catch_layer_inputs(pytorch_model, model_type, dataloader, device)
         logger.debug(f"Inputs shape: {inputs.shape}")
         # place holder to store output from layer
         outputs = torch.zeros_like(inputs)
@@ -161,7 +161,7 @@ class SparseGPT(Pass):
 
             # run layer
             for j in range(inputs.shape[0]):
-                outputs[j] = layer(inputs[j].unsqueeze(0), attention_mask)[0]
+                outputs[j] = layer(inputs[j].unsqueeze(0), attention_mask=attention_mask, **extras)[0]
 
             # remove handler
             for handle in handles:
