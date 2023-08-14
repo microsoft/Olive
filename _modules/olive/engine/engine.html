@@ -136,7 +136,7 @@
 <span class="kn">import</span> <span class="nn">olive.cache</span> <span class="k">as</span> <span class="nn">cache_utils</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.common.utils</span> <span class="kn">import</span> <span class="n">hash_dict</span>
-<span class="kn">from</span> <span class="nn">olive.engine.config</span> <span class="kn">import</span> <span class="n">PRUNED_CONFIG</span><span class="p">,</span> <span class="n">EngineConfig</span>
+<span class="kn">from</span> <span class="nn">olive.engine.config</span> <span class="kn">import</span> <span class="n">FAILED_CONFIG</span><span class="p">,</span> <span class="n">INVALID_CONFIG</span><span class="p">,</span> <span class="n">PRUNED_CONFIGS</span><span class="p">,</span> <span class="n">EngineConfig</span>
 <span class="kn">from</span> <span class="nn">olive.engine.footprint</span> <span class="kn">import</span> <span class="n">Footprint</span><span class="p">,</span> <span class="n">FootprintNode</span><span class="p">,</span> <span class="n">FootprintNodeMetric</span>
 <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_config</span> <span class="kn">import</span> <span class="n">PackagingConfig</span>
 <span class="kn">from</span> <span class="nn">olive.engine.packaging.packaging_generator</span> <span class="kn">import</span> <span class="n">generate_output_artifacts</span>
@@ -576,6 +576,7 @@
 
         <span class="n">iter_num</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">flows_output</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">output_model_ids</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
             <span class="n">iter_num</span> <span class="o">+=</span> <span class="mi">1</span>
 
@@ -600,15 +601,21 @@
 
             <span class="c1"># run all the passes in the step</span>
             <span class="p">(</span>
-                <span class="n">_</span><span class="p">,</span>
+                <span class="n">should_prune</span><span class="p">,</span>
                 <span class="n">signal</span><span class="p">,</span>
                 <span class="n">model_ids</span><span class="p">,</span>
             <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_passes</span><span class="p">(</span><span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">],</span> <span class="n">model</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
+            <span class="n">pass_flow</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span><span class="p">[</span><span class="n">iter_num</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">should_prune</span><span class="p">:</span>
+                <span class="n">failed_pass</span> <span class="o">=</span> <span class="n">pass_flow</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">model_ids</span><span class="p">)]</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Flow </span><span class="si">{</span><span class="n">pass_flow</span><span class="si">}</span><span class="s2"> is pruned due to failed or invalid config for pass &#39;</span><span class="si">{</span><span class="n">failed_pass</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+
             <span class="c1"># names of the output models of the passes</span>
             <span class="n">pass_output_names</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_name</span><span class="p">][</span><span class="s2">&quot;output_name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">pass_name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">]]</span>
             <span class="n">pass_output_names</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">name</span> <span class="k">else</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">pass_output_names</span><span class="p">]</span>
 
-            <span class="n">pass_flow</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span><span class="p">[</span><span class="n">iter_num</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="c1"># output dir with pass flow</span>
             <span class="n">output_dir_with_pf</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;-&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pass_flow</span><span class="p">)</span>
 
             <span class="n">final_output_name</span> <span class="o">=</span> <span class="n">pass_output_names</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
@@ -623,7 +630,6 @@
 
             <span class="n">output_model_json</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">output</span> <span class="o">=</span> <span class="p">{}</span>
-            <span class="n">output_model_ids</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">for</span> <span class="n">pass_output_name</span><span class="p">,</span> <span class="n">pass_output_model_id</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pass_output_names</span><span class="p">,</span> <span class="n">model_ids</span><span class="p">):</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">pass_output_name</span><span class="p">:</span>
                     <span class="k">continue</span>
@@ -637,13 +643,13 @@
                 <span class="n">output_model_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pass_output_model_id</span><span class="p">)</span>
 
             <span class="c1"># save the evaluation results to output_dir</span>
-
             <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">results_path</span> <span class="o">=</span> <span class="n">output_dir_with_pf</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">final_output_name</span><span class="si">}</span><span class="s2">_metrics.json&quot;</span>
                 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                     <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">output_model_json</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">output_model_json</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">should_prune</span><span class="p">:</span>
+                <span class="c1"># output_model_json is the last model only if the flow is not pruned</span>
                 <span class="n">output</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_model_json</span>
                 <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">output</span><span class="p">[</span><span class="s2">&quot;metrics&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">signal</span>
@@ -878,7 +884,7 @@
 <span class="sd">        Cache the model in the cache directory.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># TODO move model/pass run/evaluation cache into footprints</span>
-        <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="n">PRUNED_CONFIG</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="n">FAILED_CONFIG</span><span class="p">:</span>
             <span class="n">model_json</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">model_json</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="n">check_object</span><span class="p">)</span>
@@ -902,7 +908,7 @@
             <span class="k">return</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="n">model_json</span> <span class="o">==</span> <span class="p">{}:</span>
-            <span class="k">return</span> <span class="n">PRUNED_CONFIG</span>
+            <span class="k">return</span> <span class="n">FAILED_CONFIG</span>
 
         <span class="n">model</span> <span class="o">=</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">model_json</span><span class="p">)</span><span class="o">.</span><span class="n">create_model</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">model</span>
@@ -1019,7 +1025,7 @@
         <span class="n">model_ids</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_search_point</span> <span class="ow">in</span> <span class="n">passes</span><span class="p">:</span>
             <span class="n">model</span><span class="p">,</span> <span class="n">model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="n">PRUNED_CONFIG</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">PRUNED_CONFIGS</span><span class="p">:</span>
                 <span class="n">should_prune</span> <span class="o">=</span> <span class="kc">True</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Pruned&quot;</span><span class="p">)</span>
                 <span class="k">break</span>
@@ -1059,6 +1065,16 @@
         <span class="n">pass_config</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">config_at_search_point</span><span class="p">(</span><span class="n">pass_search_point</span><span class="p">)</span>
         <span class="n">pass_config</span> <span class="o">=</span> <span class="n">p</span><span class="o">.</span><span class="n">serialize_config</span><span class="p">(</span><span class="n">pass_config</span><span class="p">)</span>
 
+        <span class="c1"># check whether the config is valid</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="o">.</span><span class="n">validate_search_point</span><span class="p">(</span><span class="n">pass_search_point</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">with_fixed_value</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Invalid search point, prune&quot;</span><span class="p">)</span>
+            <span class="n">output_model</span> <span class="o">=</span> <span class="n">INVALID_CONFIG</span>
+            <span class="c1"># no need to record in footprint since there was no run and thus no valid/failed model</span>
+            <span class="c1"># invalid configs are also not cached since the same config can be valid for other accelerator specs</span>
+            <span class="c1"># a pass can be accelerator agnostic but still have accelerator specific invalid configs</span>
+            <span class="c1"># this helps reusing cached models for different accelerator specs</span>
+            <span class="k">return</span> <span class="n">output_model</span><span class="p">,</span> <span class="kc">None</span>
+
         <span class="c1"># load run from cache if it exists</span>
         <span class="n">run_accel</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">is_accelerator_agnostic</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">)</span> <span class="k">else</span> <span class="n">accelerator_spec</span>
         <span class="n">output_model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_run</span><span class="p">(</span><span class="n">input_model_id</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">run_accel</span><span class="p">)</span>
@@ -1069,7 +1085,7 @@
                 <span class="c1"># footprint model and run</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record</span><span class="p">(</span>
                     <span class="n">model_id</span><span class="o">=</span><span class="n">output_model_id</span><span class="p">,</span>
-                    <span class="n">model_config</span><span class="o">=</span><span class="n">output_model</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span> <span class="k">if</span> <span class="n">output_model</span> <span class="o">!=</span> <span class="n">PRUNED_CONFIG</span> <span class="k">else</span> <span class="p">{</span><span class="s2">&quot;is_pruned&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+                    <span class="n">model_config</span><span class="o">=</span><span class="n">output_model</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span> <span class="k">if</span> <span class="n">output_model</span> <span class="o">!=</span> <span class="n">FAILED_CONFIG</span> <span class="k">else</span> <span class="p">{</span><span class="s2">&quot;is_pruned&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
                     <span class="n">parent_model_id</span><span class="o">=</span><span class="n">input_model_id</span><span class="p">,</span>
                     <span class="n">from_pass</span><span class="o">=</span><span class="n">pass_name</span><span class="p">,</span>
                     <span class="n">pass_run_config</span><span class="o">=</span><span class="n">pass_config</span><span class="p">,</span>
@@ -1094,30 +1110,26 @@
         <span class="n">output_model_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">output_model_path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">)</span>
 
-        <span class="c1"># prune if invalid search_point</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="o">.</span><span class="n">validate_search_point</span><span class="p">(</span><span class="n">pass_search_point</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">with_fixed_value</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-            <span class="n">output_model</span> <span class="o">=</span> <span class="n">PRUNED_CONFIG</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># run pass</span>
-            <span class="n">host</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_for_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">host</span><span class="o">.</span><span class="n">system_type</span> <span class="o">!=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span><span class="p">:</span>
-                <span class="n">input_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_non_local_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">)</span>
-            <span class="k">try</span><span class="p">:</span>
-                <span class="n">output_model</span> <span class="o">=</span> <span class="n">host</span><span class="o">.</span><span class="n">run_pass</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">input_model</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">)</span>
-            <span class="k">except</span> <span class="n">OlivePassException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pass run_pass failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                <span class="n">output_model</span> <span class="o">=</span> <span class="n">PRUNED_CONFIG</span>
-            <span class="k">except</span> <span class="n">EXCEPTIONS_TO_RAISE</span><span class="p">:</span>
-                <span class="c1"># Don&#39;t catch these errors since most of time, it is caused by the user errors and need not retry.</span>
-                <span class="k">raise</span>
-            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                <span class="n">output_model</span> <span class="o">=</span> <span class="n">PRUNED_CONFIG</span>
-                <span class="c1"># TODO: from the time being, we need to catch all exceptions to make the</span>
-                <span class="c1">#      search process robust. We need rethrow the exception only when</span>
-                <span class="c1">#      it is not pass specific. For example, for olive bugs and user errors</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Pass run failed.&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
-                    <span class="k">raise</span>  <span class="c1"># rethrow the exception if no search is performed</span>
+        <span class="c1"># run pass</span>
+        <span class="n">host</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_for_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">host</span><span class="o">.</span><span class="n">system_type</span> <span class="o">!=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span><span class="p">:</span>
+            <span class="n">input_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_non_local_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">output_model</span> <span class="o">=</span> <span class="n">host</span><span class="o">.</span><span class="n">run_pass</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">input_model</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">OlivePassException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pass run_pass failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">output_model</span> <span class="o">=</span> <span class="n">FAILED_CONFIG</span>
+        <span class="k">except</span> <span class="n">EXCEPTIONS_TO_RAISE</span><span class="p">:</span>
+            <span class="c1"># Don&#39;t catch these errors since most of time, it is caused by the user errors and need not retry.</span>
+            <span class="k">raise</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="n">output_model</span> <span class="o">=</span> <span class="n">FAILED_CONFIG</span>
+            <span class="c1"># TODO: from the time being, we need to catch all exceptions to make the</span>
+            <span class="c1">#      search process robust. We need rethrow the exception only when</span>
+            <span class="c1">#      it is not pass specific. For example, for olive bugs and user errors</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Pass run failed.&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
+                <span class="k">raise</span>  <span class="c1"># rethrow the exception if no search is performed</span>
 
         <span class="c1"># cache model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">output_model</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">)</span>
@@ -1128,7 +1140,7 @@
         <span class="c1"># footprint model and run</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record</span><span class="p">(</span>
             <span class="n">model_id</span><span class="o">=</span><span class="n">output_model_id</span><span class="p">,</span>
-            <span class="n">model_config</span><span class="o">=</span><span class="n">output_model</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span> <span class="k">if</span> <span class="n">output_model</span> <span class="o">!=</span> <span class="n">PRUNED_CONFIG</span> <span class="k">else</span> <span class="p">{</span><span class="s2">&quot;is_pruned&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+            <span class="n">model_config</span><span class="o">=</span><span class="n">output_model</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span> <span class="k">if</span> <span class="n">output_model</span> <span class="o">!=</span> <span class="n">FAILED_CONFIG</span> <span class="k">else</span> <span class="p">{</span><span class="s2">&quot;is_pruned&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
             <span class="n">parent_model_id</span><span class="o">=</span><span class="n">input_model_id</span><span class="p">,</span>
             <span class="n">from_pass</span><span class="o">=</span><span class="n">pass_name</span><span class="p">,</span>
             <span class="n">pass_run_config</span><span class="o">=</span><span class="n">pass_config</span><span class="p">,</span>
