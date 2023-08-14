@@ -53,6 +53,7 @@ This document introduces Olive and provides some examples to get you started.
    tutorials/configure_pass
    tutorials/configure_model_path
    tutorials/advanced_users
+   tutorials/azureml_scripts
 
 .. toctree::
    :maxdepth: 1

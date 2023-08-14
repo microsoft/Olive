@@ -151,7 +151,7 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
                 test_params["session_options"]["intra_op_num_threads"] = intra
                 threads_num_binary_search(model, data_root, latency_metric, config, test_params, tuning_results)
     except Exception:
-        logging.error("Optimization failed for tuning combo {}".format(tuning_combo), exc_info=True)
+        logger.error("Optimization failed for tuning combo {}".format(tuning_combo), exc_info=True)
         pass
 
     return tuning_results
