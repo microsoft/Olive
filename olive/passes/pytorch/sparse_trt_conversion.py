@@ -2,13 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-# Based on the original implementation at
-# https://github.com/IST-DASLab/sparsegpt
-# https://arxiv.org/abs/2301.00774
-# -------------------------------------------------------------------------
-import io
 import logging
-from contextlib import redirect_stdout
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
@@ -43,12 +37,19 @@ class SparseTRTConversion(Pass):
                 default_value=None,
                 description="Only convert layers whose name contains the given string(s).",
             ),
+            "float16": PassConfigParam(
+                type_=bool,
+                default_value=False,
+                description="Convert entire model to fp16. If False, only the sparse modules are converted to fp16.",
+            ),
         }
 
     @torch.no_grad()
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModel:
+        from olive.passes.pytorch.trt_utils import compile_trt_model
+
         model_config = model.get_model_config()
         model_type = model_config.model_type
         if model_type not in seqlens:
@@ -74,8 +75,11 @@ class SparseTRTConversion(Pass):
         # alternative is to copy the model and use the copy
         # pytorch_model = copy.deepcopy(model.model)
         pytorch_model.eval()
-        # convert model to fp16 on GPU
-        pytorch_model.to(dtype=torch.float16, device=device)
+        # move model to device
+        pytorch_model.to(device=device)
+        # convert model to fp16 if needed
+        if config["float16"]:
+            pytorch_model = pytorch_model.to(dtype=torch.float16)
         # disable cache
         use_cache = pytorch_model.config.use_cache
         pytorch_model.config.use_cache = False
@@ -127,7 +131,7 @@ class SparseTRTConversion(Pass):
             for name, shape in info["input_shapes"].items():
                 input = torch.zeros(shape, dtype=torch.float16, device=device)
                 # create trt module
-                trt_module = self._compile_trt_model(info["submodules"][name], input, batch_size, seqlen)
+                trt_module = compile_trt_model(info["submodules"][name], input, batch_size, seqlen)
                 # get parent module
                 parent_name = ".".join(name.split(".")[:-1])
                 parent_module = (
@@ -152,53 +156,3 @@ class SparseTRTConversion(Pass):
         output_model_path = Path(output_model_path).with_suffix(".pt")
         torch.save(pytorch_model, output_model_path)
         return PyTorchModel(model_path=output_model_path)
-
-    def _compile_trt_model(
-        self, torch_module: torch.nn.Module, hidden_states: torch.Tensor, batch_size: int, seqlen: int
-    ):
-        """Compile a torch module to a TensorRT module.
-
-        :param torch_module: The torch module to compile. Only torch.nn.Linear modules are supported currently.
-        :param hidden_states: The input tensor to the torch module.
-        :param batch_size: The batch size of the input tensor.
-        :param seqlen: The maximum sequence length of the input tensor. seqlen dimension is treated as dynamic.
-        """
-        import tensorrt as trt
-        import torch_tensorrt.fx.tracer.acc_tracer.acc_tracer as acc_tracer
-        from torch_tensorrt.fx import InputTensorSpec, TRTInterpreter, TRTModule, compile
-
-        logging.getLogger("torch_tensorrt").setLevel(logging.ERROR)
-
-        if not isinstance(torch_module, torch.nn.Linear):
-            raise TypeError("torch_module must be a torch.nn.Linear module. Other modules are not supported.")
-
-        # whether the batch and seqlen dimensions are flattened
-        flattened = len(hidden_states.shape) == 2
-
-        # redirect stdout to avoid printing
-        f = io.StringIO()
-        with redirect_stdout(f):
-            # compile torch module to TensorRT module
-            low_model = compile(torch_module, [hidden_states]).eval()
-        f.close()
-        acc_model = acc_tracer.trace(low_model, [hidden_states])
-        # get input specs
-        hidden_size = hidden_states.shape[-1]
-        if not flattened:
-            shape = [batch_size, -1, hidden_size]
-            shape_ranges = [
-                ((batch_size, 1, hidden_size), (batch_size, 100, hidden_size), (batch_size, seqlen, hidden_size))
-            ]
-        else:
-            shape = [-1, hidden_size]
-            shape_ranges = [
-                ((batch_size, hidden_size), (batch_size * 100, hidden_size), (batch_size * seqlen, hidden_size))
-            ]
-        input_specs = [InputTensorSpec(shape=shape, dtype=torch.float16, shape_ranges=shape_ranges)]
-        # create TensorRT module
-        interpreter = TRTInterpreter(
-            acc_model, input_specs, explicit_batch_dimension=True, logger_level=trt.Logger.ERROR
-        )
-        result = interpreter.run(sparse_weights=True)
-        trt_module = TRTModule(result.engine, result.input_names, result.output_names)
-        return trt_module
