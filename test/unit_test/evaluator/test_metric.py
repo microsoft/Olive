@@ -73,7 +73,7 @@ class TestEvaluation:
         for metric in metrics:
             assert metric.name in ["accuracy", "hf_accuracy", "latency", "test"]
         evaluator_config_json = evaluator_config.model_dump()
-        assert evaluator_config_json["metrics"][0]["sub_types"][1]["metric_config"]["reorder"]
+        assert evaluator_config_json["metrics"][0]["sub_types"][1]["metric_config"]["num_classes"] == 2
 
     def test_metrics_dump(self):
         user_script = "user_script.py"
