@@ -33,7 +33,7 @@ def test_search_strategy_serialization():
                                 "goal": {"type": "max-degradation", "value": 0.01},
                             },
                             {"name": "f1_score", "metric_config": {"multiclass": False}},
-                            {"name": "auc", "metric_config": {"reorder": True}},
+                            {"name": "auroc", "metric_config": {"num_classes": 2}},
                         ],
                     },
                     {
