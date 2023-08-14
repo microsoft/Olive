@@ -23,7 +23,7 @@ class AccuracyBase(AutoConfigClass):
         "f1_score": torchmetrics.F1Score,
         "precision": torchmetrics.Precision,
         "recall": torchmetrics.Recall,
-        "auc": torchmetrics.functional.auc,
+        "auroc": torchmetrics.AUROC,
         "perplexity": torchmetrics.text.perplexity.Perplexity,
     }
 
@@ -77,15 +77,15 @@ class AccuracyBase(AutoConfigClass):
         return preds, target
 
     @abstractmethod
-    def measure(self, preds, target):
+    def measure(self, model_output, target):
         raise NotImplementedError()
 
 
 class AccuracyScore(AccuracyBase):
     name: str = "accuracy_score"
 
-    def measure(self, preds, target):
-        preds_tensor, target_tensor = self.prepare_tensors(preds, target)
+    def measure(self, model_output, target):
+        preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
         accuracy = torchmetrics.Accuracy(**self.config_dict)
         result = accuracy(preds_tensor, target_tensor)
         return result.item()
@@ -94,8 +94,8 @@ class AccuracyScore(AccuracyBase):
 class F1Score(AccuracyBase):
     name: str = "f1_score"
 
-    def measure(self, preds, target):
-        preds_tensor, target_tensor = self.prepare_tensors(preds, target)
+    def measure(self, model_output, target):
+        preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
         f1 = torchmetrics.F1Score(**self.config_dict)
         result = f1(preds_tensor, target_tensor)
         return result.item()
@@ -104,8 +104,8 @@ class F1Score(AccuracyBase):
 class Precision(AccuracyBase):
     name: str = "precision"
 
-    def measure(self, preds, target):
-        preds_tensor, target_tensor = self.prepare_tensors(preds, target)
+    def measure(self, model_output, target):
+        preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
         precision = torchmetrics.Precision(**self.config_dict)
         result = precision(preds_tensor, target_tensor)
         return result.item()
@@ -114,28 +114,28 @@ class Precision(AccuracyBase):
 class Recall(AccuracyBase):
     name: str = "recall"
 
-    def measure(self, preds, target):
-        preds_tensor, target_tensor = self.prepare_tensors(preds, target)
+    def measure(self, model_output, target):
+        preds_tensor, target_tensor = self.prepare_tensors(model_output.preds, target)
         recall = torchmetrics.Recall(**self.config_dict)
         result = recall(preds_tensor, target_tensor)
         return result.item()
 
 
-class AUC(AccuracyBase):
-    name: str = "auc"
+class AUROC(AccuracyBase):
+    name: str = "auroc"
 
-    def measure(self, preds, target):
-        preds_tensor, target_tensor = self.prepare_tensors(preds, target)
-        preds_tensor = preds_tensor.flatten()
+    def measure(self, model_output, target):
+        logits_tensor, target_tensor = self.prepare_tensors(model_output.logits, target, [torch.float, torch.int32])
+        auroc = torchmetrics.AUROC(**self.config_dict)
         target_tensor = target_tensor.flatten()
-        result = torchmetrics.functional.auc(preds_tensor, target_tensor, self.config.reorder)
+        result = auroc(logits_tensor, target_tensor)
         return result.item()
 
 
 class Perplexity(AccuracyBase):
     name: str = "perplexity"
 
-    def measure(self, preds, target):
+    def measure(self, model_output, target):
         # update ignore_index if not set
         config = self.config_dict
         if config["ignore_index"] is None:
@@ -145,10 +145,10 @@ class Perplexity(AccuracyBase):
         perplexity = torchmetrics.text.perplexity.Perplexity(**config)
 
         # loop through samples
-        # the logits are large matrics, so converting all to tensors at once is slow
-        num_samples = len(preds)
+        # the logits are large matrix, so converting all to tensors at once is slow
+        num_samples = len(model_output.preds)
         for i in range(num_samples):
-            logits, targets = self.prepare_tensors(preds[i], target[i], dtypes=[torch.float, torch.long])
+            logits, targets = self.prepare_tensors(model_output.preds[i], target[i], dtypes=[torch.float, torch.long])
             logits = logits.unsqueeze(0)
             targets = targets.unsqueeze(0)
             perplexity.update(logits, targets)

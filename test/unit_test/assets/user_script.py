@@ -5,5 +5,5 @@ def eval_func(model: OliveModel, data_dir, batch_size, device, execution_provide
     return 0.382715310
 
 
-def metric_func(preds, actuals):
+def metric_func(inference_output, actuals):
     return 0.382715311

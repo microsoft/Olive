@@ -11,14 +11,20 @@ import math
 import torch
 import transformers
 
+# model_type -> name for layers
 layers_map = {
+    "bloom": "transformer.h",
     "gpt2": "transformer.h",
+    "gpt_neox": "gpt_neox.layers",
     "llama": "model.layers",
     "opt": "model.decoder.layers",
 }
 
+# model_type -> name for embedding, these are the modules before the first layer
 embedding_map = {
+    "bloom": ["transformer.word_embeddings", "transformer.word_embeddings_layernorm"],
     "gpt2": ["transformer.wte", "transformer.wpe"],
+    "gpt_neox": ["gpt_neox.embed_in"],
     "llama": ["model.embed_tokens", "model.norm"],
     "opt": [
         "model.decoder.embed_tokens",
@@ -27,6 +33,10 @@ embedding_map = {
         "model.model.decoder.project_in",
     ],
 }
+
+# additional inputs to the layers for each model type
+# all model types are expected to have "input_ids" and "attention_mask"
+additional_inputs = {"bloom": ["alibi"], "gpt_neox": ["position_ids"]}
 
 
 def _get_attr(module, attr):
@@ -68,10 +78,10 @@ def get_layer_submodules(
 
 
 @torch.no_grad()
-def catch_layer_inputs(model, model_type, dataloader, device):
+def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
     """Get the layers from model based on model type."""
 
-    num_samples = len(dataloader)
+    num_samples = num_samples or len(dataloader.dataset)
     first_batch = next(iter(dataloader))
     # sequence length
     seqlen = first_batch[0]["input_ids"].shape[1]
@@ -83,6 +93,10 @@ def catch_layer_inputs(model, model_type, dataloader, device):
     # placeholder to save the layer inputs
     inputs = torch.zeros((num_samples, seqlen, hidden_size), dtype=dtype, device=device)
     cache = {"i": 0, "attention_mask": None}
+    # additional inputs to the layers
+    additional_input = additional_inputs.get(model_type, [])
+    for input_name in additional_input:
+        cache[input_name] = None
 
     # get layers
     layers = get_layers(model, model_type)
@@ -93,9 +107,15 @@ def catch_layer_inputs(model, model_type, dataloader, device):
             self.module = module
 
         def forward(self, input, **kwargs):
-            inputs[cache["i"]] = input
-            cache["i"] += 1
+            # handle batch dimension
+            for batch in range(input.shape[0]):
+                if cache["i"] >= num_samples:
+                    break
+                inputs[cache["i"]] = input[batch]
+                cache["i"] += 1
             cache["attention_mask"] = kwargs.get("attention_mask")
+            for input_name in additional_input:
+                cache[input_name] = kwargs.get(input_name)
             raise ValueError("Stop forward propagation")
 
     # put all modules until the first layer on the device
@@ -114,6 +134,9 @@ def catch_layer_inputs(model, model_type, dataloader, device):
             model(input_ids)
         except ValueError:
             pass
+        # stop if we have enough samples
+        if cache["i"] >= num_samples:
+            break
 
     # unwrap the first layer
     layers[0] = layers[0].module
@@ -127,7 +150,11 @@ def catch_layer_inputs(model, model_type, dataloader, device):
     if "cuda" in str(device):
         torch.cuda.empty_cache()
 
-    return inputs, cache["attention_mask"]
+    extras = {}
+    for input_name in additional_input:
+        extras[input_name] = cache[input_name]
+
+    return inputs, cache["attention_mask"], extras
 
 
 class SparseGPTModule:

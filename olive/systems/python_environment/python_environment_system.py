@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import collections
 import logging
 import os
 import pickle
@@ -21,7 +22,7 @@ from olive.evaluator.metric import (
     flatten_metric_result,
     get_latency_config_from_metric,
 )
-from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
+from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluator
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
@@ -109,6 +110,8 @@ class PythonEnvironmentSystem(OliveSystem):
 
         preds = []
         targets = []
+        logits = []
+        logits_dict = collections.defaultdict(list)
         inference_settings = self.get_inference_settings(model, metric, accelerator)
         io_config = model.get_io_config()
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -144,10 +147,11 @@ class PythonEnvironmentSystem(OliveSystem):
 
             # load output
             output_names = io_config["output_names"]
+            is_single_tensor_output = len(output_names) == 1
             for idx in range(num_batches):
                 output_path = output_dir / f"output_{idx}.npy"
                 output = np.load(output_path)
-                if len(output_names) == 1:
+                if is_single_tensor_output:
                     output = torch.Tensor(output[0])
                 else:
                     # convert to dict of torch tensor
@@ -155,10 +159,20 @@ class PythonEnvironmentSystem(OliveSystem):
                 if post_func:
                     output = post_func(output)
                 preds.append(output.cpu())
+                if is_single_tensor_output:
+                    logits.append(output.cpu())
+                else:
+                    for k in output_names:
+                        logits_dict[k].append(output[k].cpu())
             preds = torch.cat(preds, dim=0)
             targets = torch.cat(targets, dim=0)
+            if is_single_tensor_output:
+                logits = torch.cat(logits, dim=0)
+            else:
+                logits = {k: torch.cat(logits[k], dim=0) for k in output_names}
 
-        return OliveEvaluator.compute_accuracy(metric, preds, targets)
+        model_output = OliveModelOutput(preds, logits)
+        return OliveEvaluator.compute_accuracy(metric, model_output, targets)
 
     def evaluate_latency(self, model: ONNXModel, data_root: str, metric: Metric, accelerator: AcceleratorSpec) -> float:
         """

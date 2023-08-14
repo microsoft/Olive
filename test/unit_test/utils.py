@@ -70,6 +70,16 @@ def get_pytorch_model():
     )
 
 
+def get_hf_model_with_past():
+    return PyTorchModel(
+        hf_config={
+            "model_name": "hf-internal-testing/tiny-random-gptj",
+            "task": "text-generation",
+            "feature": "causal-lm-with-past",
+        }
+    )
+
+
 def get_pytorch_model_dummy_input(model):
     return torch.randn(1, 1)
 
