@@ -18,19 +18,9 @@ from torch_tensorrt.fx import InputTensorSpec, TRTInterpreter, TRTModule, compil
 
 
 class TRTLinearLayer(TRTModule):
-    def forward(self, *input):
+    def forward(self, input):
         """Forward pass of the module. Casts input to fp16 and casts output back to original data type."""
-        # original data type of input
-        dtype = input[0].dtype
-        # cast input to fp16
-        input = [x.to(torch.float16) for x in input]
-        output = super().forward(*input)
-        # cast output back to original data type
-        if isinstance(output, tuple):
-            output = tuple(x.to(dtype) for x in output)
-        else:
-            output = output.to(dtype)
-        return output
+        return super().forward(input.to(torch.float16)).to(input.dtype)
 
 
 def compile_trt_model(torch_module: torch.nn.Module, hidden_states: torch.Tensor, batch_size: int, seqlen: int):
