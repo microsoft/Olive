@@ -2160,7 +2160,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-pre">
 <span class="sig-name descname"><span class="pre">pre</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-pre" title="Permalink to this definition">¶</a></dt>
 <dd><p>List of pre-processing commands to add.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> List[Dict[str, Any]]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
@@ -2169,7 +2169,7 @@
 <dt class="sig sig-object std" id="cmdoption-arg-post">
 <span class="sig-name descname"><span class="pre">post</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-post" title="Permalink to this definition">¶</a></dt>
 <dd><p>List of post-processing commands to add.</p>
-<p><strong>type:</strong> List[str]</p>
+<p><strong>type:</strong> List[Dict[str, Any]]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
@@ -2186,8 +2186,13 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-tool_command_args">
 <span id="cmdoption-arg-tool-command-args"></span><span class="sig-name descname"><span class="pre">tool_command_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-tool_command_args" title="Permalink to this definition">¶</a></dt>
-<dd><p>Arguments to pass to tool command.</p>
-<p><strong>type:</strong> Dict[str, Any]</p>
+<dd><p>Arguments to pass to tool command or to PrePostProcessor.
+                If it is used for PrePostProcessor, the schema would like:
+                {
+                    “name”: “image”,
+                    “data_type”: “uint8”,
+                    “shape”: [“num_bytes”],</p>
+<p><strong>type:</strong> Dict[str, Any] | List[olive.passes.onnx.append_pre_post_processing_ops.PrePostProcessorInput]</p>
 <p><strong>default_value:</strong> None</p>
 <p><strong>searchable_values:</strong> None</p>
 </dd></dl>
