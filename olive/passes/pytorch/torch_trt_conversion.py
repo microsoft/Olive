@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Union
 import torch
 
 from olive.common.utils import tensor_data_to_device
-from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import PyTorchModel
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
@@ -18,8 +18,11 @@ from olive.passes.pytorch.sparsegpt_utils import _get_attr, get_layer_submodules
 logger = logging.getLogger(__name__)
 
 
-class SparseTRTConversion(Pass):
-    """Convert a PyTorch model to a sparse fp16 Pytorch model with TRT Modules."""
+class TorchTRTConversion(Pass):
+    """
+    Convert the nn.Linear modules in the transformer layers of a Hugging Face PyTorch model to TensorRT modules with
+    fp16 precision and sparse weights, if present.
+    """
 
     _requires_data_config = True
 
@@ -44,6 +47,14 @@ class SparseTRTConversion(Pass):
             ),
         }
 
+    def validate_search_point(
+        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    ) -> bool:
+        if accelerator_spec.accelerator_type != Device.GPU:
+            logger.info("TorchTRTConversion only supports GPU.")
+            return False
+        return True
+
     @torch.no_grad()
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
@@ -56,11 +67,11 @@ class SparseTRTConversion(Pass):
             raise ValueError(f"Unsupported model type: {model_type}. Supported types: {seqlens.keys()}")
 
         if not torch.cuda.is_available():
-            raise ValueError("SparseTRTConversion requires a GPU to run.")
+            raise ValueError("TorchTRTConversion requires a GPU to run.")
         device = "cuda"
 
         # load_data
-        assert config["data_config"] is not None, "Data config is required for SparseTRTConversion."
+        assert config["data_config"] is not None, "Data config is required for TorchTRTConversion."
         first_batch = self._data_config.to_data_container().get_first_batch(data_root_path=data_root)[0]
         first_batch = tensor_data_to_device(first_batch, device=device)
         batch_size = first_batch["input_ids"].shape[0]

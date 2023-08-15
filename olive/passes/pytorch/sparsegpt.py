@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class SparseGPT(Pass):
-    """Run SparseGPT on PyTorch model."""
+    """Run SparseGPT on Hugging Face PyTorch model."""
 
     _requires_data_config = True
 
