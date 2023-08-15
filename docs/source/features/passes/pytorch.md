@@ -82,3 +82,15 @@ Please refer to the original paper linked above for more details on the algorith
     "config": {"sparsity": [2,4]}
 }
 ```
+
+## TorchTRTConversion
+`TorchTRTConversion` converts the `torch.nn.Linear` modules in the transformer layers in a Hugging Face PyTorch model to `TRTModules` from `torch_tensorrt` with fp16 precision and sparse weights, if
+applicable. `torch_tensorrt` is an extension to `torch` where TensorRT compiled engines can be used like regular `torch.nn.Module`s. This pass can be used to accelerate inference on transformer models
+with sparse weights by taking advantage of the 2:4 structured sparsity pattern supported by TensorRT.
+
+### Example Configuration
+```json
+{
+    "type": "TorchTRTConversion"
+}
+```

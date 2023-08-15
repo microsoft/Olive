@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 class TorchTRTConversion(Pass):
     """
-    Convert the nn.Linear modules in the transformer layers of a Hugging Face PyTorch model to TensorRT modules with
-    fp16 precision and sparse weights, if present.
+    Convert torch.nn.Linear modules in the transformer layers of a Hugging Face PyTorch model to TensorRT modules with
+    fp16 precision and sparse weights, if applicable.
     """
 
     _requires_data_config = True

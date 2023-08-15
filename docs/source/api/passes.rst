@@ -138,6 +138,12 @@ SparseGPT
 --------------------
 .. autoconfigclass:: olive.passes.SparseGPT
 
+.. _torch_trt_conversion:
+
+TorchTRTConversion
+--------------------
+.. autoconfigclass:: olive.passes.TorchTRTConversion
+
 .. _vitis_ai_quantization:
 
 VitisAIQuantization
