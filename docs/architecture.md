@@ -80,6 +80,7 @@ The pass then combines those with the fixed parameters to form a complete config
 
 ### Implemented Passes
 - OnnxConversion
+- DeviceSpecificOnnxConversion
 - OrtTransformersOptimization
 - OnnxDynamicQuantization
 - OnnxStaticQuantization

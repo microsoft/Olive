@@ -12,7 +12,7 @@ import torch
 
 from olive.common.config_utils import validate_config
 from olive.common.utils import tensor_data_to_device
-from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware import AcceleratorSpec, Device
 from olive.model import CompositeOnnxModel, ONNXModel, PyTorchModel
 from olive.model.hf_utils import get_hf_model_io_config
 from olive.model.model_config import IOConfig
@@ -35,7 +35,7 @@ class TraceModelWrapper(torch.nn.Module):
 
 
 class OnnxConversion(Pass):
-    """Convert a PyTorch model to ONNX model using torch.onnx.export."""
+    """Convert a PyTorch model to ONNX model using torch.onnx.export on CPU."""
 
     _requires_user_script = True
 
@@ -55,6 +55,16 @@ class OnnxConversion(Pass):
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModel, CompositeOnnxModel]:
+        return self._convert_model_on_device(model, data_root, config, output_model_path, "cpu")
+
+    def _convert_model_on_device(
+        self,
+        model: PyTorchModel,
+        data_root: str,
+        config: Dict[str, Any],
+        output_model_path: str,
+        device: str,
+    ):
         # check if the model has components
         if model.components:
             onnx_models = []
@@ -75,8 +85,8 @@ class OnnxConversion(Pass):
 
         # TODO: add e2e test for model on cpu but data on gpu; model on gpu but data on cpu
         # put pytorch_model and dummy_inputs at the same device
-        pytorch_model.to("cpu")
-        dummy_inputs = tensor_data_to_device(dummy_inputs, "cpu")
+        pytorch_model.to(device)
+        dummy_inputs = tensor_data_to_device(dummy_inputs, device)
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
 
@@ -175,5 +185,23 @@ class OnnxConversion(Pass):
                             dim_proto.Clear()
                             dim_proto.dim_value = dim_value
 
+        # Reset to CPU so the resource consumed on GPU could be free.
+        if device != "cpu":
+            pytorch_model.to("cpu")
         # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
+
+
+class DeviceSpecificOnnxConversion(OnnxConversion):
+    """Convert a PyTorch model to ONNX model using torch.onnx.export by using specific hardware device."""
+
+    @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        return False
+
+    def _run_for_config(
+        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> Union[ONNXModel, CompositeOnnxModel]:
+        accel_type = self.accelerator_spec.accelerator_type
+        device = torch.device("cuda") if accel_type == Device.GPU else torch.device(accel_type)
+        return self._convert_model_on_device(model, data_root, config, output_model_path, device)
