@@ -64,7 +64,11 @@ This workflow sparsifies Open LLaMA model using [SparseGPT](https://arxiv.org/ab
 sparsified. The given config has sparsity set to `[2,4]` for [structured 2:4 sparsity pattern](https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/) but
 can be changed to other sparsity pattern such as `0.5` for 50% unstructured sparsity or `[4,8]` for 4:8 structured sparsity pattern.
 
-The relevant config file is [open_llaopen_llama_sparsegpt_gpuma_config.json](open_llama_sparsegpt_gpu.json)
+To take advantage of the sparsity using TensorRT, the sparse `torch.nn.Linear` modules in the transformer layers are then converted to `TRTModule` from `torch-tensorrt` with fp16 precision and sparsity enabled.
+This is done using the `TorchTRTConversion` pass in Olive which saves the entire model. This saved model can then be loaded using `torch.load` but requires Olive to be installed.
+Inference is done like a normal pytorch model.
+
+The relevant config file is [open_llama_sparsegpt_gpu.json](open_llama_sparsegpt_gpu.json)
 
 ## How to run
 ### Pip requirements

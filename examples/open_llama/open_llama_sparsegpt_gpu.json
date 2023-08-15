@@ -65,6 +65,12 @@
                 "sparsity": [2,4],
                 "data_config": "c4_train"
             }
+        },
+        "trt_conversion": {
+            "type": "TorchTRTConversion",
+            "config": {
+                "data_config": "c4_train"
+            }
         }
     },
     "engine": {

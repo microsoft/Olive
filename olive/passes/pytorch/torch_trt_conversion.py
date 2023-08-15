@@ -22,6 +22,9 @@ class TorchTRTConversion(Pass):
     """
     Convert torch.nn.Linear modules in the transformer layers of a Hugging Face PyTorch model to TensorRT modules with
     fp16 precision and sparse weights, if applicable.
+
+    The entire model is saved using `torch.save` and can be loaded using `torch.load`. Loading the model requires
+    `torch-tensorrt` and Olive to be installed.
     """
 
     _requires_data_config = True
