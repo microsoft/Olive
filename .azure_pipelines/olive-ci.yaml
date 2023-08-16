@@ -33,9 +33,6 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
     examples:
-      cifar10_openvino_intel_hw:
-        exampleFolder: cifar10_openvino_intel_hw
-        exampleName: cifar10_openvino_intel_hw
       bert_ptq_cpu:
         exampleFolder: bert
         exampleName: bert_ptq_cpu
@@ -45,6 +42,9 @@ jobs:
       bert_ptq_cpu_docker:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_docker
+      cifar10_openvino_intel_hw:
+        exampleFolder: cifar10_openvino_intel_hw
+        exampleName: cifar10_openvino_intel_hw
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
@@ -61,15 +61,15 @@ jobs:
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
     examples:
-      cifar10_openvino_intel_hw:
-        exampleFolder: cifar10_openvino_intel_hw
-        exampleName: cifar10_openvino_intel_hw
       bert_ptq_cpu:
         exampleFolder: bert
         exampleName: bert_ptq_cpu
       bert_ptq_cpu_aml:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_aml
+      cifar10_openvino_intel_hw:
+        exampleFolder: cifar10_openvino_intel_hw
+        exampleName: cifar10_openvino_intel_hw
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu

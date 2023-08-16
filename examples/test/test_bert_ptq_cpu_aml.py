@@ -26,9 +26,8 @@ def setup():
         ("bert_ptq_cpu.json", "tpe", "joint", "aml_system"),
         # aml model test in local system
         ("bert_ptq_cpu_aml.json", False, None, "local_system"),
-        # TODO aml model test in aml system
-        # failed with Authentication failed for container registry
-        # ("bert_ptq_cpu_aml.json", False, None, "aml_system"),
+        # aml model test in aml system
+        ("bert_ptq_cpu_aml.json", False, None, "aml_system"),
     ],
 )
 def test_bert(olive_test_knob):
