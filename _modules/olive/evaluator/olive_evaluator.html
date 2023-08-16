@@ -816,25 +816,39 @@
 
         <span class="n">input_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">dataloader</span><span class="p">))</span>
         <span class="n">device</span> <span class="o">=</span> <span class="n">PyTorchEvaluator</span><span class="o">.</span><span class="n">_device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">is_cuda</span> <span class="o">=</span> <span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span>
         <span class="k">if</span> <span class="n">device</span><span class="p">:</span>
             <span class="n">session</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
             <span class="n">input_data</span> <span class="o">=</span> <span class="n">tensor_data_to_device</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+        <span class="n">input_is_dict</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+
+        <span class="c1"># warm up</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">warmup_num</span><span class="p">):</span>
+            <span class="n">session</span><span class="p">(</span><span class="o">**</span><span class="n">input_data</span><span class="p">)</span> <span class="k">if</span> <span class="n">input_is_dict</span> <span class="k">else</span> <span class="n">session</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
 
         <span class="n">latencies</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">warmup_num</span><span class="p">):</span>
-                <span class="n">session</span><span class="p">(</span><span class="o">**</span><span class="n">input_data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_cuda</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">repeat_test_num</span><span class="p">):</span>
                 <span class="n">t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
-                <span class="n">session</span><span class="p">(</span><span class="o">**</span><span class="n">input_data</span><span class="p">)</span>
+                <span class="c1"># TODO: do we care about the efficiency of if/else here?</span>
+                <span class="c1"># probably won&#39;t add much overhead compared to the inference time</span>
+                <span class="c1"># also we are doing the same for all models</span>
+                <span class="n">session</span><span class="p">(</span><span class="o">**</span><span class="n">input_data</span><span class="p">)</span> <span class="k">if</span> <span class="n">input_is_dict</span> <span class="k">else</span> <span class="n">session</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
                 <span class="n">latencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">warmup_num</span><span class="p">):</span>
-                <span class="n">session</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
+            <span class="c1"># synchronize before starting the test</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
+            <span class="c1"># cuda events for measuring latency</span>
+            <span class="n">starter</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Event</span><span class="p">(</span><span class="n">enable_timing</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">ender</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">Event</span><span class="p">(</span><span class="n">enable_timing</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">repeat_test_num</span><span class="p">):</span>
-                <span class="n">t</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
-                <span class="n">session</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
-                <span class="n">latencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span>
+                <span class="n">starter</span><span class="o">.</span><span class="n">record</span><span class="p">()</span>
+                <span class="n">session</span><span class="p">(</span><span class="o">**</span><span class="n">input_data</span><span class="p">)</span> <span class="k">if</span> <span class="n">input_is_dict</span> <span class="k">else</span> <span class="n">session</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
+                <span class="n">ender</span><span class="o">.</span><span class="n">record</span><span class="p">()</span>
+                <span class="c1"># synchronize after forward pass</span>
+                <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
+                <span class="c1"># add time in seconds, originally in milliseconds</span>
+                <span class="n">latencies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">starter</span><span class="o">.</span><span class="n">elapsed_time</span><span class="p">(</span><span class="n">ender</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e-3</span><span class="p">)</span>
 
         <span class="c1"># move model to cpu</span>
         <span class="k">if</span> <span class="n">device</span><span class="p">:</span>
