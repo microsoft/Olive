@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Optional, Union
 from olive.cache import get_local_path_from_root
 from olive.evaluator.metric import Metric, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
+from olive.exception import OlivePassException
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -271,7 +272,7 @@ class IncQuantization(Pass):
         config.update(get_external_data_config())
         return config
 
-    def _set_eval_func(self, accuracy_metric, sub_type):
+    def _set_eval_func(self, accuracy_metric, sub_type, data_root):
         # set eval_func for INC according to Olive accuracy metric
         def eval_func(model):
             # eval_func for Intel® Neural Compressor quantization take model as input,
@@ -300,6 +301,7 @@ class IncQuantization(Pass):
             # evaluate model
             result = evaluator.evaluate(
                 olive_model,
+                data_root,
                 [accuracy_metric],
                 self.accelerator_spec.accelerator_type,
                 [self.accelerator_spec.execution_provider],
@@ -335,7 +337,7 @@ class IncQuantization(Pass):
 
         return higher_is_better, criterion, tolerable_loss
 
-    def _set_tuning_config(self, run_config):
+    def _set_tuning_config(self, run_config, data_root):
         # set criterion and eval func for INC
         # INC quantization without accuracy aware tuning situation:
         #  1. 'metric' is not set
@@ -377,7 +379,7 @@ class IncQuantization(Pass):
             if len(accuracy_metric.sub_types) != 0:
                 sub_type = accuracy_metric.sub_types[0]
             if sub_type is not None and sub_type.goal is not None:
-                eval_func = self._set_eval_func(accuracy_metric, sub_type)
+                eval_func = self._set_eval_func(accuracy_metric, sub_type, data_root)
 
                 higher_is_better, criterion, tolerable_loss = self._set_accuracy_criterion(sub_type)
                 accuracy_criterion = AccuracyCriterion(
@@ -412,7 +414,7 @@ class IncQuantization(Pass):
 
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
-        eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config)
+        eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config, data_root)
 
         # keys not needed for quantization
         to_delete = [
@@ -450,7 +452,7 @@ class IncQuantization(Pass):
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
         )
         if eval_func is not None and q_model is None:
-            logger.error(
+            raise OlivePassException(
                 "Intel® Neural Compressor quantization does not "
                 "find any quantized model which meet accuracy goal. "
                 "Try to increase 'max_trials' in 'tuning_criterion'."
