@@ -1,0 +1,75 @@
+{
+    "input_model": {
+        "type": "OptimumModel",
+        "config": {
+            "model_path": "togethercomputer/RedPajama-INCITE-Base-3B-v1",
+            "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
+            "hf_config": {
+                "model_class": "GPTNeoXForCausalLM"
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": { "accelerators": [ "gpu" ] }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [{ "name": "avg" }],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_data_loader",
+                        "batch_size": 1
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OptimumConversion",
+            "config": {
+                "target_opset": 16,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
+        },
+        "optimize": {
+            "type": "OrtTransformersOptimization",
+            "disable_search": true,
+            "config": {
+                "model_type": "gpt_neox",
+                "float16": true,
+                "use_gpu": true,
+                "keep_io_types": true,
+                "num_heads": 32,
+                "hidden_size": 2560,
+                "optimization_options": {
+                    "use_multi_head_attention": false
+                },
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
+        },
+        "merge": {
+            "type": "OptimumMerging",
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
+        }
+    },
+    "engine": {
+        "evaluator": "common_evaluator",
+        "host": "local_system",
+        "target": "local_system",
+        "cache_dir": "cache",
+        "output_dir": "models"
+    }
+}

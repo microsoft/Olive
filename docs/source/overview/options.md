@@ -36,7 +36,7 @@ The default value is 3. User can increase if there are network issues and the op
 - `default_auth_params: Dict[str, Any]` Default auth parameters for AzureML client. Please refer to [azure DefaultAzureCredential](https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters) for more details. For example, if you want to exclude managed identity credential, you can set the following:
     ```json
     "azureml_client": {
-        ...
+        // ...
         "default_auth_params": {
             "exclude_managed_identity_credential": true
         }
@@ -294,7 +294,7 @@ information of the evaluator contains following items:
                 "sub_types": [
                     {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                     {"name": "f1_score", "metric_config": {"multiclass": false}},
-                    {"name": "auc", "metric_config": {"reorder": true}}
+                    {"name": "auroc", "metric_config": {"num_classes": 2}}
                 ],
                 "user_config":{
                     "post_processing_func": "post_process",

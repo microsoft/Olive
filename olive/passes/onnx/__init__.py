@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from olive.passes.onnx.append_pre_post_processing_ops import AppendPrePostProcessingOps
-from olive.passes.onnx.conversion import OnnxConversion
+from olive.passes.onnx.conversion import DeviceSpecificOnnxConversion, OnnxConversion
 from olive.passes.onnx.float16_conversion import OnnxFloatToFloat16
 from olive.passes.onnx.inc_quantization import IncDynamicQuantization, IncQuantization, IncStaticQuantization
 from olive.passes.onnx.insert_beam_search import InsertBeamSearch
@@ -20,6 +20,7 @@ from olive.passes.onnx.vitis_ai_quantization import VitisAIQuantization
 __all__ = [
     "AppendPrePostProcessingOps",
     "OnnxConversion",
+    "DeviceSpecificOnnxConversion",
     "OnnxDynamicQuantization",
     "OnnxQuantization",
     "OnnxStaticQuantization",

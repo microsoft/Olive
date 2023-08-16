@@ -33,27 +33,27 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
     examples:
-      cifar10_openvino_intel_hw:
-        exampleFolder: cifar10_openvino_intel_hw
-        exampleName: cifar10_openvino_intel_hw
       bert_ptq_cpu:
         exampleFolder: bert
         exampleName: bert_ptq_cpu
-      resnet_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_ptq_cpu
-      whisper:
-        exampleFolder: whisper
-        exampleName: whisper
-      resnet_vitis_ai_ptq_cpu:
-        exampleFolder: resnet
-        exampleName: resnet_vitis_ai_ptq_cpu
       bert_ptq_cpu_aml:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_aml
       bert_ptq_cpu_docker:
         exampleFolder: bert
         exampleName: bert_ptq_cpu_docker
+      cifar10_openvino_intel_hw:
+        exampleFolder: cifar10_openvino_intel_hw
+        exampleName: cifar10_openvino_intel_hw
+      resnet_ptq_cpu:
+        exampleFolder: resnet
+        exampleName: resnet_ptq_cpu
+      resnet_vitis_ai_ptq_cpu:
+        exampleFolder: resnet
+        exampleName: resnet_vitis_ai_ptq_cpu
+      whisper:
+        exampleFolder: whisper
+        exampleName: whisper
 
 - template: job_templates/olive-build-template.yaml
   parameters:
@@ -61,21 +61,21 @@ jobs:
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
     examples:
-      cifar10_openvino_intel_hw:
-        exampleFolder: cifar10_openvino_intel_hw
-        exampleName: cifar10_openvino_intel_hw
       bert_ptq_cpu:
         exampleFolder: bert
         exampleName: bert_ptq_cpu
+      bert_ptq_cpu_aml:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu_aml
+      cifar10_openvino_intel_hw:
+        exampleFolder: cifar10_openvino_intel_hw
+        exampleName: cifar10_openvino_intel_hw
       resnet_ptq_cpu:
         exampleFolder: resnet
         exampleName: resnet_ptq_cpu
       whisper:
         exampleFolder: whisper
         exampleName: whisper
-      bert_ptq_cpu_aml:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu_aml
 
 - template: job_templates/olive-build-template.yaml
   parameters:

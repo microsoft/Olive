@@ -19,43 +19,45 @@ Note that this example config uses [openlm-research/open_llama_3b](https://huggi
 
 
 When you run the example config for other larger models, you may need
-1. change the `model_path` to the one you use.
-```json
-"input_model":{
-    "type": "OptimumModel",
-    "config": {
-        "model_path": "openlm-research/open_llama_3b", // to change based on the model you use
-        "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
-        "hf_config": {
-            "model_class": "LlamaForCausalLM"
+1. change the `model_path` to the one you use in `open_llama_config.json` and `user_script.py`.
+    ```json
+    "input_model":{
+        "type": "OptimumModel",
+        "config": {
+            "model_path": "openlm-research/open_llama_3b", // to change based on the model you use
+            "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
+            "hf_config": {
+                "model_class": "LlamaForCausalLM"
+            }
         }
     }
-}
-```
+    ```
+    ```python
+    import torch
+    from transformers import AutoConfig
+
+    from olive.constants import Framework
+
+    model_id = "openlm-research/open_llama_3b" # to change based on the model you use
+    config = AutoConfig.from_pretrained(model_id)
+    ```
 2. change the transformer optimization pass options in `open_llama_config.json` based on the above table:
-```json
-"optimize": {
-    "type": "OrtTransformersOptimization",
-    "config": {
-        "model_type": "gpt2",
-        "float16": true,
-        "use_gpu": false,
-        "keep_io_types": true,
-        "num_heads": 32, // to change based on the model you use
-        "hidden_size": 4096, // to change based on the model you use
-        "optimization_options": {
-            "use_multi_head_attention": false
+    ```json
+    "optimize": {
+        "type": "OrtTransformersOptimization",
+        "config": {
+            "model_type": "gpt2",
+            "float16": true,
+            "use_gpu": false,
+            "keep_io_types": true,
+            "num_heads": 32, // to change based on the model you use
+            "hidden_size": 4096, // to change based on the model you use
+            "optimization_options": {
+                "use_multi_head_attention": false
+            }
         }
     }
-}
-```
-3. increase the `num_hidden_layers` for dummy inputs in `user_script.py`.
-```python
-// to increase `num_hidden_layers` to conduct proper inputs data
-def dummy_inputs(batch_size, torch_dtype, model_framework=Framework.PYTORCH, num_hidden_layers=26):
-    past_sequence_length = 1
-    attention_mask_sequence_length = 1
-```
+    ```
 
 ### Sparsify Open LLaMA Model using SparseGPT
 This workflow sparsifies Open LLaMA model using [SparseGPT](https://arxiv.org/abs/2301.00774). The output model is still a transformers pytorch model but with the layer weights

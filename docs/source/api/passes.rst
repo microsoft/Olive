@@ -12,6 +12,12 @@ OnnxConversion
 --------------
 .. autoconfigclass:: olive.passes.OnnxConversion
 
+.. _device_specific_onnx_conversion:
+
+DeviceSpecificOnnxConversion
+-----------------
+.. autoconfigclass:: olive.passes.DeviceSpecificOnnxConversion
+
 .. _onnx_model_optimizer:
 
 OnnxModelOptimizer

@@ -36,10 +36,13 @@ def patch_config(config_json_path: str, search_algorithm: str, execution_order: 
     olive_config["engine"]["clean_cache"] = True
 
     # update search strategy
-    olive_config["engine"]["search_strategy"]["search_algorithm"] = search_algorithm
-    if search_algorithm == "random" or search_algorithm == "tpe":
-        olive_config["engine"]["search_strategy"]["search_algorithm_config"] = {"num_samples": 3, "seed": 0}
-    olive_config["engine"]["search_strategy"]["execution_order"] = execution_order
+    if not search_algorithm:
+        olive_config["engine"]["search_strategy"] = False
+    else:
+        olive_config["engine"]["search_strategy"]["search_algorithm"] = search_algorithm
+        olive_config["engine"]["search_strategy"]["execution_order"] = execution_order
+        if search_algorithm == "random" or search_algorithm == "tpe":
+            olive_config["engine"]["search_strategy"]["search_algorithm_config"] = {"num_samples": 3, "seed": 0}
 
     update_azureml_config(olive_config)
     if system == "aml_system":
