@@ -32,6 +32,9 @@ def compile_trt_model(torch_module: torch.nn.Module, hidden_states: torch.Tensor
     :param seqlen: The maximum sequence length of the input tensor. seqlen dimension is treated as dynamic.
     """
 
+    # disable logging from torch_tensorrt
+    # torch_tensorrt logs are very verbose and produces multiple lines of log per module
+    # this makes the log file very large and hard to read
     logging.getLogger("torch_tensorrt").setLevel(logging.ERROR)
 
     if not isinstance(torch_module, torch.nn.Linear):
