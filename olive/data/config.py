@@ -2,12 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import copy
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Union
 
 from olive.common.config_utils import ConfigBase
-from olive.common.user_module_loader import UserModuleLoader
+from olive.common.import_lib import import_user_module
 from olive.data.constants import DataComponentType, DefaultDataComponent, DefaultDataContainer
 from olive.data.registry import Registry
 
@@ -52,8 +53,9 @@ class DataConfig(ConfigBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # call UserModuleLoader to load the user script once and register the components
-        UserModuleLoader(self.user_script, self.script_dir)
+        # call import_user_module to load the user script once and register the components
+        if self.user_script:
+            import_user_module(self.user_script, self.script_dir)
         self.update_components()
         self.fill_in_params()
 
@@ -78,7 +80,8 @@ class DataConfig(ConfigBase):
         Resolve the default component type.
         """
         dc_cls = Registry.get_container(self.type)
-        self.default_components_type = dc_cls.default_components_type or {}
+        # deepcopy dc_cls.default_components_type since we don't want to update dc_cls.default_components_type
+        self.default_components_type = copy.deepcopy(dc_cls.default_components_type) or {}
         # 1. update default_components_type with task_type for huggingface case
         self._update_default_component_type_with_task_type(dc_cls)
         # 2. update default_components_type with DefaultDataComponentCombos
@@ -97,23 +100,30 @@ class DataConfig(ConfigBase):
     def fill_in_params(self):
         """
         Fill in the default parameters for each component.
-        1. if prams_config is not None, use the params_config to fill in the params
-        2. if params_config is None, use the default params from the function signature
-        3. if there is already define params under the component, use the params directly
+        1. If params_config["component_kwargs"] is not None, use the params_config["component_kwargs"]
+        to update component.params
+        2. if params_config is not None, use the params_config to fill in the params. Overrides the
+        component.params
+        3. if params_config is None, use the default params from the function signature
+        4. if there is already define params under the component, use the params directly
         """
         from inspect import signature
 
         self.params_config = self.params_config or {}
+        component_kwargs = self.params_config.pop("component_kwargs", {})
         for k, v in self.components.items():
             component = Registry.get_component(k, v.type)
-            # 1. user function signature to fill params firstly
+            # 1. use the params_config["component_kwargs"] to update component.params
+            if k in component_kwargs:
+                v.params.update(component_kwargs[k])
+            # 2. user function signature to fill params firstly
             params = signature(component).parameters
             for param, info in params.items():
-                # 2. override the params with params_config
+                # 3. override the params with params_config
                 if param in self.params_config:
                     v.params[param] = self.params_config[param]
                     continue
-                # 3. if it already defined params under the component, use the params directly
+                # 4. if it already defined params under the component, use the params directly
                 if param not in v.params and not param.startswith("_"):
                     if info.kind == info.VAR_POSITIONAL or info.kind == info.VAR_KEYWORD:
                         continue

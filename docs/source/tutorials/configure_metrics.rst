@@ -1,5 +1,5 @@
-Configuring Metric
-===================
+How To Configure Metric
+=======================
 
 This document describes how to configure the different types of Metrics.
 
@@ -20,7 +20,7 @@ Accuracy Metric
                 "sub_types": [
                     {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                     {"name": "f1_score", "metric_config": {"multiclass": false}},
-                    {"name": "auc", "metric_config": {"reorder": true}}
+                    {"name": "auroc", "metric_config": {"num_classes": 2}}
                 ],
                 "user_config": {
                     "post_processing_func": "post_process",
@@ -165,10 +165,11 @@ In your :code:`"user_script.py"`, you need to define a function that takes in an
             # evaluate model
             # return metric value
 
-Alternatively, if you only need Olive run the inference and you will calculate the metric by yourself, you can speficy :code:`"metric_func": "None"` in the metric configuration.
+Alternatively, if you only need Olive run the inference and you will calculate the metric by yourself, you can specify :code:`"metric_func": "None"` in the metric configuration.
 Olive will run the inference with you model with the data you provided, and return the inference results to you. You can then calculate the metric by yourself::
 
-        def metric_func(preds, targets):
+        def metric_func(model_output, targets):
+            # model_output[0]: preds, model_output[1]: logits
             # calculate metric
             # return metric value
 
@@ -186,7 +187,7 @@ If you have multiple metrics to evaluate, you can configure them in the followin
                     "sub_types": [
                         {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                         {"name": "f1_score", "metric_config": {"multiclass": false}},
-                        {"name": "auc", "metric_config": {"reorder": true}}
+                        {"name": "auroc", "metric_config": {"num_classes": 2}}
                     ]
                 },
                 {

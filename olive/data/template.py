@@ -35,13 +35,15 @@ def huggingface_data_config_template(model_name, task, **kwargs) -> DataConfig:
     task: str
         The task type of huggingface.
     **kwargs: dict
-        The additional arguments.
+        The additional arguments. Will be passed as `params_config` to the data container.
         - `data_name`: str, data name in huggingface dataset, e.g.: "glue", "squad"
         - `subset`: str, subset of data, e.g.: "train", "validation", "test"
         - `split`: str, split of data, e.g.: "train", "validation", "test"
+        - `data_files`: str | list | dict, path to source data file(s).
         - `input_cols`: list, input columns of data
         - `label_cols`: list, label columns of data
         - `batch_size`: int, batch size of data
+        - `max_samples`: int, maximum number of samples in the dataset
         and other arguments in
             - olive.data.component.load_dataset.huggingface_dataset
             - olive.data.component.pre_process_data.huggingface_pre_process

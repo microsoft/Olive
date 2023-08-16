@@ -79,7 +79,8 @@ To run a pass, the search parameters need to be assigned a value each from their
 The pass then combines those with the fixed parameters to form a complete configuration using `config_at_search_point`. This run configuration is also used by the engine as a unique id to cache the pass run.
 
 ### Implemented Passes
-- OnnxConversionPass
+- OnnxConversion
+- DeviceSpecificOnnxConversion
 - OrtTransformersOptimization
 - OnnxDynamicQuantization
 - OnnxStaticQuantization
@@ -199,6 +200,7 @@ class OliveSystem(ABC):
         self,
         the_pass: Pass,
         model: OliveModel,
+        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> OliveModel:
@@ -207,7 +209,7 @@ class OliveSystem(ABC):
         """
 
     @abstractmethod
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric]) -> Dict[str, Any]:
+    def evaluate_model(self, model: OliveModel, data_root: str, metrics: List[Metric]) -> Dict[str, Any]:
         """
         Evaluate the model
         """

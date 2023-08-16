@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import collections
 import logging
 import os
 import pickle
@@ -21,7 +22,7 @@ from olive.evaluator.metric import (
     flatten_metric_result,
     get_latency_config_from_metric,
 )
-from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
+from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluator
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
@@ -68,6 +69,7 @@ class PythonEnvironmentSystem(OliveSystem):
         self,
         the_pass: Pass,
         model: OliveModel,
+        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> OliveModel:
@@ -76,7 +78,9 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         raise ValueError("PythonEnvironmentSystem does not support running passes.")
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> MetricResult:
+    def evaluate_model(
+        self, model: OliveModel, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+    ) -> MetricResult:
         """
         Evaluate the model
         """
@@ -91,19 +95,23 @@ class PythonEnvironmentSystem(OliveSystem):
         for original_metric in metrics:
             metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)
             if metric.type == MetricType.ACCURACY:
-                metrics_res[metric.name] = self.evaluate_accuracy(model, metric, accelerator)
+                metrics_res[metric.name] = self.evaluate_accuracy(model, data_root, metric, accelerator)
             elif metric.type == MetricType.LATENCY:
-                metrics_res[metric.name] = self.evaluate_latency(model, metric, accelerator)
+                metrics_res[metric.name] = self.evaluate_latency(model, data_root, metric, accelerator)
         return flatten_metric_result(metrics_res)
 
-    def evaluate_accuracy(self, model: ONNXModel, metric: Metric, accelerator: AcceleratorSpec) -> float:
+    def evaluate_accuracy(
+        self, model: ONNXModel, data_root: str, metric: Metric, accelerator: AcceleratorSpec
+    ) -> float:
         """
         Evaluate the accuracy of the model.
         """
-        dataloader, _, post_func = OliveEvaluator.get_user_config(metric, model.framework)
+        dataloader, _, post_func = OliveEvaluator.get_user_config(model.framework, data_root, metric)
 
         preds = []
         targets = []
+        logits = []
+        logits_dict = collections.defaultdict(list)
         inference_settings = self.get_inference_settings(model, metric, accelerator)
         io_config = model.get_io_config()
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -126,7 +134,7 @@ class PythonEnvironmentSystem(OliveSystem):
                 input_path = input_dir / f"input_{idx}.npz"
                 np.savez(input_path, **input_dict)
                 # save labels
-                targets.extend(labels.data.tolist())
+                targets.append(labels.cpu())
                 num_batches += 1
 
             # run inference
@@ -139,21 +147,38 @@ class PythonEnvironmentSystem(OliveSystem):
 
             # load output
             output_names = io_config["output_names"]
+            is_single_tensor_output = len(output_names) == 1
             for idx in range(num_batches):
                 output_path = output_dir / f"output_{idx}.npy"
                 output = np.load(output_path)
-                output = torch.Tensor(output[0] if len(output_names) == 1 else output)
+                if is_single_tensor_output:
+                    output = torch.Tensor(output[0])
+                else:
+                    # convert to dict of torch tensor
+                    output = {name: torch.Tensor(output[i]) for i, name in enumerate(output_names)}
                 if post_func:
                     output = post_func(output)
-                preds.extend(output.tolist())
+                preds.append(output.cpu())
+                if is_single_tensor_output:
+                    logits.append(output.cpu())
+                else:
+                    for k in output_names:
+                        logits_dict[k].append(output[k].cpu())
+            preds = torch.cat(preds, dim=0)
+            targets = torch.cat(targets, dim=0)
+            if is_single_tensor_output:
+                logits = torch.cat(logits, dim=0)
+            else:
+                logits = {k: torch.cat(logits[k], dim=0) for k in output_names}
 
-        return OliveEvaluator.compute_accuracy(metric, preds, targets)
+        model_output = OliveModelOutput(preds, logits)
+        return OliveEvaluator.compute_accuracy(metric, model_output, targets)
 
-    def evaluate_latency(self, model: ONNXModel, metric: Metric, accelerator: AcceleratorSpec) -> float:
+    def evaluate_latency(self, model: ONNXModel, data_root: str, metric: Metric, accelerator: AcceleratorSpec) -> float:
         """
         Evaluate the latency of the model.
         """
-        dataloader, _, _ = OliveEvaluator.get_user_config(metric, model.framework)
+        dataloader, _, _ = OliveEvaluator.get_user_config(model.framework, data_root, metric)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
         latencies = []

@@ -5,6 +5,7 @@ RUN pip install onnxruntime \
             evaluate \
             scikit-learn \
             transformers \
-            git+https://github.com/microsoft/Olive.git
+            git+https://github.com/microsoft/Olive.git \
+            --no-cache-dir
 
 WORKDIR /olive

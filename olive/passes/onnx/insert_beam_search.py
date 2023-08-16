@@ -155,7 +155,9 @@ class InsertBeamSearch(Pass):
         )
         model.graph.input.insert(1, mask)
 
-    def _run_for_config(self, model: OliveModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+    def _run_for_config(
+        self, model: OliveModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModel:
         if isinstance(model, ONNXModel):
             return model
 

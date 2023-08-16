@@ -12,7 +12,7 @@ import onnx
 from onnxruntime.quantization.preprocess import quant_pre_process
 from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
 
-from olive.cache import get_local_path
+from olive.cache import get_local_path_from_root
 from olive.common.utils import hash_string
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
@@ -20,7 +20,7 @@ from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
 from olive.passes.onnx.vitis_ai import quantize_static
 from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 vai_q_onnx_quantization_config = {
     "data_dir": PassConfigParam(
         type_=OLIVE_RESOURCE_ANNOTATIONS,
-        is_path=True,
+        category=ParamCategory.DATA,
         description="""
             Path to the directory containing the dataset.
         """,
@@ -45,7 +45,7 @@ vai_q_onnx_quantization_config = {
     "dataloader_func": PassConfigParam(
         type_=Union[Callable, str],
         required=True,
-        is_object=True,
+        category=ParamCategory.OBJECT,
         description="""
             Function/function name to generate dataloader for calibration,
             required'
@@ -255,8 +255,9 @@ class VitisAIQuantization(Pass):
         config.update(get_external_data_config())
         return config
 
-    def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
-
+    def _run_for_config(
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModel:
         # start with a copy of the config
         run_config = deepcopy(config)
 
@@ -332,15 +333,16 @@ class VitisAIQuantization(Pass):
         # get the dataloader
         # TODO: only use data config
         if config["dataloader_func"]:
+            data_dir = get_local_path_from_root(data_root, config["data_dir"])
             dataloader = self._user_module_loader.call_object(
                 config["dataloader_func"],
-                get_local_path(config["data_dir"]),
+                data_dir,
                 config["batch_size"],
             )
         elif self._data_config:
-            dataloader = self._data_config.to_data_container().create_calibration_dataloader()
+            dataloader = self._data_config.to_data_container().create_calibration_dataloader(data_root)
 
-        execution_provider = self._accelerator_spec.execution_provider
+        execution_provider = self.accelerator_spec.execution_provider
 
         quantize_static(
             model_input=model.model_path,
@@ -358,7 +360,6 @@ class VitisAIQuantization(Pass):
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
     def _quant_preprocess(self, model: ONNXModel, output_model_path: str) -> ONNXModel:
-
         try:
             quant_pre_process(input_model_path=model.model_path, output_model_path=output_model_path, auto_merge=True)
         except Exception as e:

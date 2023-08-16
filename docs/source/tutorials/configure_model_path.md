@@ -1,4 +1,4 @@
-# Configuring Model Path
+# How To Set Model Path
 
 This document describes how to configure model paths in Olive for both local and remote model resources.
 

@@ -162,6 +162,7 @@ class TestEngine:
         assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
         mock_local_system.run_pass.assert_called_once()
         mock_local_system.evaluate_model.call_count == 2
+        mock_local_system.evaluate_model.assert_called_with(onnx_model, None, [metric], accelerator_spec)
 
     @patch("olive.systems.local.LocalSystem")
     def test_run_no_search(self, mock_local_system):
@@ -192,27 +193,30 @@ class TestEngine:
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, disable_search=True, clean_run_cache=True)
+        engine.set_pass_flows()
         # output model to output_dir
         temp_dir = tempfile.TemporaryDirectory()
         output_dir = Path(temp_dir.name)
+        expected_output_dir = output_dir / "-".join(engine.pass_flows[0])
 
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
+        output_prefix = f"{accelerator_spec}"
         expected_res = {"model": onnx_model.to_json(), "metrics": MetricResult.parse_obj(metric_result_dict)}
         expected_res["model"]["config"]["model_path"] = str(
-            Path(output_dir / f"{accelerator_spec}_model.onnx").resolve()
+            Path(expected_output_dir / f"{output_prefix}_model.onnx").resolve()
         )
 
         # execute
         actual_res = engine.run(pytorch_model, output_dir=output_dir)
-        actual_res = actual_res[accelerator_spec]
+        actual_res = actual_res[accelerator_spec][tuple(engine.pass_flows[0])]
 
         assert expected_res == actual_res
         assert Path(actual_res["model"]["config"]["model_path"]).is_file()
-        model_json_path = Path(output_dir / f"{accelerator_spec}_model.json")
+        model_json_path = Path(expected_output_dir / f"{output_prefix}_model.json")
         assert model_json_path.is_file()
         with open(model_json_path, "r") as f:
             assert json.load(f) == actual_res["model"]
-        result_json_path = Path(output_dir / f"{accelerator_spec}_metrics.json")
+        result_json_path = Path(expected_output_dir / f"{output_prefix}_metrics.json")
         assert result_json_path.is_file()
         with open(result_json_path, "r") as f:
             assert json.load(f) == actual_res["metrics"].__root__
@@ -286,7 +290,7 @@ class TestEngine:
         # execute
         actual_res = engine.run(pytorch_model, output_dir=output_dir, evaluate_input_model=True)
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        actual_res = actual_res[accelerator_spec]["metrics"]
+        actual_res = actual_res[accelerator_spec][tuple(engine.pass_flows[0])]["metrics"]
 
         assert expected_res == actual_res
         result_json_path = Path(output_dir / f"{accelerator_spec}_input_model_metrics.json")
@@ -485,7 +489,7 @@ class TestEngine:
             engine.register(OnnxStaticQuantization)
             with patch("onnxruntime.quantization.quantize_static") as mock_quantize_static:
                 mock_quantize_static.side_effect = AttributeError("test")
-                actual_res = engine.run(onnx_model, output_dir=output_dir)
+                actual_res = engine.run(onnx_model, data_root=None, output_dir=output_dir)
                 pf = actual_res[DEFAULT_CPU_ACCELERATOR]
                 assert not pf.nodes, "Expect empty dict when quantization fails"
         else:
@@ -496,5 +500,8 @@ class TestEngine:
             engine.register(OnnxDynamicQuantization, disable_search=True)
             with patch("onnxruntime.quantization.quantize_dynamic") as mock_quantize_dynamic:
                 mock_quantize_dynamic.side_effect = AttributeError("test")
-                actual_res = engine.run(onnx_model, output_dir=output_dir)
-                assert actual_res == {}, "Expect empty dict when quantization fails"
+                actual_res = engine.run(onnx_model, data_root=None, output_dir=output_dir, evaluate_input_model=False)
+                for pass_flow in engine.pass_flows:
+                    assert not actual_res[DEFAULT_CPU_ACCELERATOR][
+                        tuple(pass_flow)
+                    ], "Expect empty dict when quantization fails"

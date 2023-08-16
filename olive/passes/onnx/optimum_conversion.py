@@ -28,7 +28,7 @@ class OptimumConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: OptimumModel, config: Dict[str, Any], output_model_path: str
+        self, model: OptimumModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModel, CompositeOnnxModel]:
         assert len(model.model_components) > 0
 

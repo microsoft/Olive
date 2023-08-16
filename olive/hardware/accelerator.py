@@ -2,9 +2,12 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Union
+from typing import List, Union
+
+logger = logging.getLogger(__name__)
 
 
 class Device(str, Enum):
@@ -42,6 +45,10 @@ class AcceleratorSpec:
 
 
 DEFAULT_CPU_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="CPUExecutionProvider")
+DEFAULT_GPU_CUDA_ACCELERATOR = AcceleratorSpec(accelerator_type=Device.GPU, execution_provider="CUDAExecutionProvider")
+DEFAULT_GPU_TRT_ACCELERATOR = AcceleratorSpec(
+    accelerator_type=Device.GPU, execution_provider="TensorrtExecutionProvider"
+)
 
 
 class AcceleratorLookup:
@@ -83,3 +90,37 @@ class AcceleratorLookup:
         assert isinstance(available_providers, list)
 
         return [ep for ep in execution_providers if ep in available_providers]
+
+    @staticmethod
+    def infer_accelerators_from_execution_provider(execution_provider: List[str]):
+        """
+        Infer the device from the execution provider name.
+        If all the execution provider is uniquely mapped to a device, return the device list.
+        Otherwise, return None.
+        For example:
+            execution_provider = ["CPUExecutionProvider", "CUDAExecutionProvider"]
+            return None (CPUExecutionProvider is mapped to CPU and GPU, Olive cannot infer the device)
+            execution_provider = ["CUDAExecutionProvider", "TensorrtExecutionProvider"]
+            return ["gpu"]
+        """
+        if not execution_provider:
+            return None
+
+        is_unique_inferring = True
+        accelerators = []
+        for idx, ep in enumerate(execution_provider):
+            accelerators.append([])
+            for accelerator, eps in AcceleratorLookup.EXECUTION_PROVIDERS.items():
+                if ep in eps:
+                    accelerators[idx].append(accelerator)
+                    if len(accelerators[idx]) > 1:
+                        logger.warning(
+                            f"Execution provider {ep} is mapped to multiple accelerators {accelerators[idx]}. "
+                            "Olive cannot infer the device which may cause unexpected behavior"
+                            "Please specify the accelerator in the accelerator configs"
+                        )
+                        is_unique_inferring = False
+
+        if is_unique_inferring:
+            return list(set([accelerator[0] for accelerator in accelerators]))
+        return None

@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, List, Union
 
 from pydantic import validator
 
@@ -55,6 +55,7 @@ class RunConfig(ConfigBase):
     azureml_client: AzureMLClientConfig = None
     input_model: ModelConfig
     systems: Dict[str, SystemConfig] = None
+    data_root: str = None
     data_configs: Dict[str, DataConfig] = {
         DefaultDataContainer.DATA_CONTAINER.value: DataConfig(),
         DEFAULT_HF_DATA_CONTAINER_NAME: DataConfig(
@@ -63,6 +64,7 @@ class RunConfig(ConfigBase):
         ),
     }
     evaluators: Dict[str, OliveEvaluatorConfig] = None
+    pass_flows: List[List[str]] = None
     engine: RunEngineConfig
     passes: Dict[str, RunPassConfig]
 

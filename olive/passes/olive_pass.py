@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 
 from pydantic import validator
 
-from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.config_utils import ConfigBase, ParamCategory, validate_config
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
@@ -74,7 +74,7 @@ class Pass(ABC):
 
         config_class, default_config = self.get_config_class(accelerator_spec, disable_search)
 
-        self._accelerator_spec = accelerator_spec
+        self.accelerator_spec = accelerator_spec
 
         self._config_class = config_class
         self._config = config
@@ -95,8 +95,8 @@ class Pass(ABC):
         # Params that are paths [(param_name, required)]
         self.path_params = []
         for param, param_config in default_config.items():
-            if param_config.is_path:
-                self.path_params.append((param, param_config.required))
+            if param_config.category in (ParamCategory.PATH, ParamCategory.DATA):
+                self.path_params.append((param, param_config.required, param_config.category))
 
         self._initialized = False
 
@@ -182,11 +182,13 @@ class Pass(ABC):
                     searchable_values=Categorical([1, 2, 3]),
                     description="param3 description",
                 ),
-                # optional parameter with `is_object` set to True
+                # optional parameter with `category` set to `object`
                 # the value of this parameter can be a string or a function that takes a string and returns the object,
                 # say a class ObjectClass
                 "param4": PassConfigParam(
-                    type_=Union[str, Callable[[str], Pass]], is_object=True, description="param4 description"
+                    type_=Union[str, Callable[[str], Pass]],
+                    category=ParamCategory.OBJECT,
+                    description="param4 description"
                 ),
                 # optional parameter with default_value that depends on another parameter value
                 "param5": PassConfigParam(
@@ -236,7 +238,7 @@ class Pass(ABC):
         Validate callables in the config.
         """
         for key, value in config.items():
-            if default_config[key].is_object and isinstance(value, str):
+            if default_config[key].category == ParamCategory.OBJECT and isinstance(value, str):
                 assert user_module_loader.user_script, f"'user_script' must be specified if a {key} is a string."
         # TODO: once convention for user_script and script dir is finalized, let config class handle
         # the resolution during serialization
@@ -272,7 +274,7 @@ class Pass(ABC):
             if isinstance(value, SearchParameter):
                 search_space[key] = value
             else:
-                if default_config[key].is_path and value is not None:
+                if default_config[key].category == ParamCategory.PATH and value is not None:
                     if not isinstance(value, ResourcePath):
                         value = str(Path(value).resolve())
                 fixed_params[key] = value
@@ -338,7 +340,9 @@ class Pass(ABC):
             config[key] = value
         return self._config_class(**config).dict()
 
-    def validate_search_point(self, search_point: Dict[str, Any]) -> bool:
+    def validate_search_point(
+        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+    ) -> bool:
         """
         Validate the search point for the pass.
         """
@@ -351,13 +355,17 @@ class Pass(ABC):
         return {key: value for key, value in config.items() if value != SpecialParamValue.IGNORED}
 
     @abstractmethod
-    def _run_for_config(self, model: OliveModel, config: Dict[str, Any], output_model_path: str) -> OliveModel:
+    def _run_for_config(
+        self, model: OliveModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> OliveModel:
         """
         Run the pass on the model with the given configuration.
         """
         raise NotImplementedError()
 
-    def run(self, model: OliveModel, output_model_path: str, point: Optional[Dict[str, Any]] = None) -> OliveModel:
+    def run(
+        self, model: OliveModel, data_root: str, output_model_path: str, point: Optional[Dict[str, Any]] = None
+    ) -> OliveModel:
         """
         Run the pass on the model at a specific point in the search space.
         """
@@ -374,7 +382,7 @@ class Pass(ABC):
             for rank in range(0, model.ranks):
                 input_rank_model = model.load_model(rank)
                 rank_output_path = Path(output_model_path).with_suffix("") / str(rank)
-                output_rank_model = self._run_for_config(input_rank_model, config, rank_output_path)
+                output_rank_model = self._run_for_config(input_rank_model, data_root, config, rank_output_path)
                 output_filepaths.append(output_rank_model.model_path)
             return DistributedOnnxModel(output_filepaths, inference_settings=model.inference_settings)
         elif isinstance(model, CompositeOnnxModel) and not self._accepts_composite_model:
@@ -382,11 +390,11 @@ class Pass(ABC):
             component_names = []
             for cidx, child in enumerate(model.get_model_components()):
                 component_output_path = Path(output_model_path).with_suffix("") / str(cidx)
-                components.append(self._run_for_config(child, config, str(component_output_path)))
+                components.append(self._run_for_config(child, data_root, config, str(component_output_path)))
                 component_names.append(model.get_model_component_name(cidx))
             return CompositeOnnxModel(components, component_names, hf_config=model.hf_config)
         else:
-            return self._run_for_config(model, config, output_model_path)
+            return self._run_for_config(model, data_root, config, output_model_path)
 
     def serialize_config(self, config: Dict[str, Any], check_object: bool = False) -> str:
         """
@@ -401,7 +409,7 @@ class Pass(ABC):
         return {
             "type": self.__class__.__name__,
             "disable_search": True,
-            "accelerator": self._accelerator_spec.to_json(),
+            "accelerator": self.accelerator_spec.to_json(),
             "config": self.serialize_config(self._config, check_object),
         }
 

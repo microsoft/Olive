@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+import torch
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult, MetricType, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
@@ -62,7 +63,7 @@ class TestPythonEnvironmentSystem:
         )
 
         # execute
-        res = self.system.evaluate_model(model, metrics, DEFAULT_CPU_ACCELERATOR)
+        res = self.system.evaluate_model(model, None, metrics, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         assert res[metrics_key[0]].value == 0.9
@@ -88,10 +89,14 @@ class TestPythonEnvironmentSystem:
 
         # expected result
         local_system = LocalSystem()
-        expected_res = local_system.evaluate_model(model, [metric], DEFAULT_CPU_ACCELERATOR)["accuracy-accuracy_score"]
+        expected_res = local_system.evaluate_model(model, None, [metric], DEFAULT_CPU_ACCELERATOR)[
+            "accuracy-accuracy_score"
+        ]
 
         # execute
-        actual_res = self.system.evaluate_model(model, [metric], DEFAULT_CPU_ACCELERATOR)["accuracy-accuracy_score"]
+        actual_res = self.system.evaluate_model(model, None, [metric], DEFAULT_CPU_ACCELERATOR)[
+            "accuracy-accuracy_score"
+        ]
 
         # assert
         assert actual_res == expected_res
@@ -101,8 +106,9 @@ class TestPythonEnvironmentSystem:
         # python environment call
         actual_call = mock_compute_accuracy.mock_calls[1]
         assert actual_call.args[0] == expected_call.args[0]
-        assert actual_call.args[1] == expected_call.args[1]
-        assert actual_call.args[2] == expected_call.args[2]
+        assert torch.equal(actual_call.args[1].preds, expected_call.args[1].preds)
+        assert torch.equal(actual_call.args[1].logits, expected_call.args[1].logits)
+        assert torch.equal(actual_call.args[2], expected_call.args[2])
 
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_latency")
     def test_evaluate_latency(self, mock_compute_latency):
@@ -127,7 +133,7 @@ class TestPythonEnvironmentSystem:
         expected_res = 10
 
         # execute
-        actual_res = self.system.evaluate_latency(model, metric, DEFAULT_CPU_ACCELERATOR)
+        actual_res = self.system.evaluate_latency(model, None, metric, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         assert actual_res[LatencySubType.AVG].value == expected_res

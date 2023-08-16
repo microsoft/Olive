@@ -12,7 +12,7 @@ from olive.evaluator.metric_config import get_user_config_properties_from_metric
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
@@ -50,18 +50,18 @@ def valid_config(tuning_combos, config):
 
     # if the first combo is CPUExecutionProvider, then the io_bind should not be True
     if tuning_combos[0] == "CPUExecutionProvider" and tuning_combos[3]:
-        logger.info("[Skipped] Because EPs is CPUExecutionProvider, the io_bind should not be True")
+        logger.info("[Ignored] Because EP is CPUExecutionProvider, the io_bind should not be True")
         return False
     if tuning_combos[0] != "CUDAExecutionProvider" and config.enable_cuda_graph:
-        logger.info("[Ignored] Because EPs is not CUDAExecutionProvider, the enable_cuda_graph is ignored")
+        logger.info("[Ignored] Because EP is not CUDAExecutionProvider, the enable_cuda_graph is ignored")
         return True
     if tuning_combos[0] != "TensorrtExecutionProvider" and config.trt_fp16_enable:
-        logger.info("[Ignored] Because EPs is not TensorrtExecutionProvider, the trt_fp16_enable is ignored")
+        logger.info("[Ignored] Because EP is not TensorrtExecutionProvider, the trt_fp16_enable is ignored")
         return True
     return True
 
 
-def tune_onnx_model(model, config):
+def tune_onnx_model(model, data_root, config):
     latency_user_config = {}
     # which should be the same as the config in the metric
     config_dict = config.dict()
@@ -81,7 +81,7 @@ def tune_onnx_model(model, config):
     }
     latency_metric = Metric(**latency_metric_config)
 
-    pretuning_inference_result = get_benchmark(model, latency_metric, config)
+    pretuning_inference_result = get_benchmark(model, data_root, latency_metric, config)
 
     tuning_results = []
     for tuning_combo in generate_tuning_combos(config):
@@ -89,7 +89,7 @@ def tune_onnx_model(model, config):
         logger.info("Run tuning for: {}".format(list(zip(tuning_item, tuning_combo))))
         if not valid_config(tuning_combo, config):
             continue
-        tuning_results.extend(threads_num_tuning(model, latency_metric, config, tuning_combo))
+        tuning_results.extend(threads_num_tuning(model, data_root, latency_metric, config, tuning_combo))
 
     for tuning_result in tuning_results:
         logger.debug("Tuning result: {}".format(tuning_result["latency_ms"]))
@@ -108,7 +108,7 @@ def tune_onnx_model(model, config):
         return model
 
 
-def threads_num_tuning(model, latency_metric, config, tuning_combo):
+def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
     tuning_results = []
     provider = tuning_combo[0]
     execution_mode = tuning_combo[1]
@@ -149,15 +149,15 @@ def threads_num_tuning(model, latency_metric, config, tuning_combo):
             test_params["session_options"]["inter_op_num_threads"] = inter
             for intra in config.intra_thread_num_list:
                 test_params["session_options"]["intra_op_num_threads"] = intra
-                threads_num_binary_search(model, latency_metric, config, test_params, tuning_results)
+                threads_num_binary_search(model, data_root, latency_metric, config, test_params, tuning_results)
     except Exception:
-        logging.error("Optimization failed for tuning combo {}".format(tuning_combo), exc_info=True)
+        logger.error("Optimization failed for tuning combo {}".format(tuning_combo), exc_info=True)
         pass
 
     return tuning_results
 
 
-def threads_num_binary_search(model, latency_metric, config, test_params, tuning_results):
+def threads_num_binary_search(model, data_root, latency_metric, config, test_params, tuning_results):
     import onnxruntime as ort
     import psutil
 
@@ -176,7 +176,7 @@ def threads_num_binary_search(model, latency_metric, config, test_params, tuning
     if test_params["session_options"].get("inter_op_num_threads") and test_params["session_options"].get(
         "intra_op_num_threads"
     ):
-        test_result = get_benchmark(model, latency_metric, config, test_params)
+        test_result = get_benchmark(model, data_root, latency_metric, config, test_params)
         tuning_results.append(test_result)
         best_latency = test_result["latency_ms"]
     else:
@@ -193,7 +193,7 @@ def threads_num_binary_search(model, latency_metric, config, test_params, tuning
             current_threads_num = lower_threads_num
             test_params["session_options"][threads_name] = current_threads_num
 
-            test_result = get_benchmark(model, latency_metric, config, test_params)
+            test_result = get_benchmark(model, data_root, latency_metric, config, test_params)
             tuning_results.append(test_result)
 
             best_latency = test_result["latency_ms"]
@@ -203,7 +203,7 @@ def threads_num_binary_search(model, latency_metric, config, test_params, tuning
             while lower_threads_num < upper_threads_num:
                 test_params["session_options"][threads_name] = current_threads_num
 
-                test_result = get_benchmark(model, latency_metric, config, test_params)
+                test_result = get_benchmark(model, data_root, latency_metric, config, test_params)
                 tuning_results.append(test_result)
 
                 mid_threads_num = lower_threads_num + (upper_threads_num - lower_threads_num) // 2
@@ -226,7 +226,7 @@ def generate_test_name(test_params):
     return test_name
 
 
-def get_benchmark(model, latency_metric, config, test_params=None):
+def get_benchmark(model, data_root, latency_metric, config, test_params=None):
     from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 
     test_result = {}
@@ -247,9 +247,9 @@ def get_benchmark(model, latency_metric, config, test_params=None):
         test_params["_io_bind"] = io_bind
     evaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
     joint_key = joint_metric_key(latency_metric.name, latency_metric.sub_types[0].name)
-    test_result["latency_ms"] = evaluator.evaluate(model, [latency_metric], config.device, config.providers_list)[
-        joint_key
-    ].value
+    test_result["latency_ms"] = evaluator.evaluate(
+        model, data_root, [latency_metric], config.device, config.providers_list
+    )[joint_key].value
     return test_result
 
 
@@ -270,14 +270,23 @@ class OrtPerfTuning(Pass):
     _requires_data_config = True
 
     @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        """Override this method to return False by using the
+        accelerator spec information.
+        """
+        return False
+
+    @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
-                type_=OLIVE_RESOURCE_ANNOTATIONS, is_path=True, description="Directory of sample inference data."
+                type_=OLIVE_RESOURCE_ANNOTATIONS,
+                category=ParamCategory.DATA,
+                description="Directory of sample inference data.",
             ),
             "dataloader_func": PassConfigParam(
                 type_=Union[Callable, str],
-                is_object=True,
+                category=ParamCategory.OBJECT,
                 description="Dataloader function to load data from given data_dir with given batch size.",
             ),
             "batch_size": PassConfigParam(type_=int, description="Batch size for inference."),
@@ -333,16 +342,19 @@ class OrtPerfTuning(Pass):
             ),
         }
 
-    def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+    def _run_for_config(
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModel:
+        # TODO remove this when we have a concrete investigation on the backcompat issue
         if not config.get("providers_list"):
             # add the provider to the config if user doesn't provide the execution providers
-            config["providers_list"] = [self._accelerator_spec.execution_provider]
+            config["providers_list"] = [self.accelerator_spec.execution_provider]
 
         if not config.get("device"):
-            config["device"] = self._accelerator_spec.accelerator_type
+            config["device"] = self.accelerator_spec.accelerator_type
 
         config = self._config_class(**config)
         # TODO: decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model
         # otherwise save or symlink the original model to the output_model_path
-        return tune_onnx_model(model, config)
+        return tune_onnx_model(model, data_root, config)

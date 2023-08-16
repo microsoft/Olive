@@ -16,5 +16,5 @@ def test_pass_serialization():
     cfg = FullPassConfig.from_json(json)
     p = cfg.create_pass()
     assert isinstance(p, OnnxConversion)
-    assert p._accelerator_spec == DEFAULT_CPU_ACCELERATOR
+    assert p.accelerator_spec == DEFAULT_CPU_ACCELERATOR
     assert p._config == config

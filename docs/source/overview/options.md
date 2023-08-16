@@ -8,6 +8,7 @@ The options are organized into following sections:
 
 - [Azure ML client](#azure-ml-client) `azureml_client`
 - [Input Model Information](#input-model-information) `input_model`
+- [Data Information](#data-information) `data_root`
 - [Systems Information](#systems-information) `systems`
 - [Evaluators Information](#evaluators-information) `evaluators`
 - [Passes Information](#passes-information) `passes`
@@ -33,18 +34,35 @@ more details.
 The default value is 3. User can increase if there are network issues and the operations fail.
 - `operation_retry_interval: [int]` The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.
 - `default_auth_params: Dict[str, Any]` Default auth parameters for AzureML client. Please refer to [azure DefaultAzureCredential](https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters) for more details. For example, if you want to exclude managed identity credential, you can set the following:
-```json
-"azureml_client": {
-    "subscription_id": "my_subscription_id",
-    "resource_group": "my_resource_group",
-    "workspace_name": "my_workspace",
-    "default_auth_params": {
-        "exclude_managed_identity_credential": true
+    ```json
+    "azureml_client": {
+        // ...
+        "default_auth_params": {
+            "exclude_managed_identity_credential": true
+        }
     }
-}
-```
+    ```
 
 ### Example
+#### `azureml_client` with `aml_config_path`:
+##### `aml_config.json`:
+```json
+{
+    "subscription_id": "<subscription_id>",
+    "resource_group": "<resource_group>",
+    "workspace_name": "<workspace_name>",
+}
+```
+##### `azureml_client`:
+```json
+"azureml_client": {
+    "aml_config_path": "aml_config.json",
+    "read_timeout" : 4000,
+    "max_operation_retries" : 4,
+    "operation_retry_interval" : 5
+},
+```
+#### `azureml_client` with azureml config fields:
 ```json
 "azureml_client": {
     "subscription_id": "<subscription_id>",
@@ -83,7 +101,8 @@ case insensitive.
         - `task: [str]`: This is the task type for the model such as `text-classification`. The complete list of supported task can be found
         at [huggingface-tasks](https://huggingface.co/docs/transformers/v4.28.1/en/main_classes/pipelines#transformers.pipeline.task).
 
-        - `feature: [str]`: The ONNX export features. This is only needed for HuggingFace hub model. Default to `default`. You can find more info at [Export to ONNX](https://huggingface.co/docs/transformers/serialization)
+        - `feature: [str]`: The ONNX export features. This is only needed for HuggingFace hub model. It is inferred from `task` if not provided. You must provide the feature if you need past key value cache.
+        For instance, `"causal-lm-with-past"`. You can find more info at [Export to ONNX](https://huggingface.co/docs/transformers/serialization)
 
         - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
 
@@ -140,6 +159,21 @@ Please find the detailed config options from following table for each model type
     }
 }
 ```
+
+## Data Information
+`data_root: [str]`
+
+This is the root directory that contains the data for the model evaluation, quantization, performance tuning, QAT and all other place that need use data for model optimization.
+if `data_root` is specified, the data_dir in metrics evaluation or other passes which are relative path will be concatenated to the `data_root`. If not specified, the data_dir in metrics evaluation or other passes will be used.
+On the other hand, if the `data_dir` is an absolute path, the `data_root` will be ignored. For example, if the `data_dir` is /home/user/data, then the `data_root` will be ignored and the final data_dir will be /home/user/data.
+
+The `data_root` could be passed either in config json or by command line like: python -m olive.workflows.run --config <config_file>.json --data_root /home/user/data config.json. If both are provided, the command line will override the config json.
+
+### Local Examples
+If `data_root` is /home/user/data, and the data_dir in metrics evaluation is `data_dir: "cifar-10-batches-py"`, then the final data_dir will be `/home/user/data/cifar-10-batches-py`.
+
+### Azureml Examples
+If `data_root` is `azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test`, and the data_dir in metrics evaluation is `data_dir: "cifar-10-batches-py"`, then the final data_dir will be `azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py`.
 
 ## Systems Information
 `systems: [Dict]`
@@ -260,7 +294,7 @@ information of the evaluator contains following items:
                 "sub_types": [
                     {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                     {"name": "f1_score", "metric_config": {"multiclass": false}},
-                    {"name": "auc", "metric_config": {"reorder": true}}
+                    {"name": "auroc", "metric_config": {"num_classes": 2}}
                 ],
                 "user_config":{
                     "post_processing_func": "post_process",
@@ -308,8 +342,9 @@ information of the evaluator contains following items:
 `passes: [Dict]`
 
 This is a dictionary that contains the information of passes that are executed by the engine. The passes are executed
-in order of their definition in this dictionary. The key of the dictionary is the name of the pass. The value of the dictionary is
-another dictionary that contains the information of the pass. The information of the pass contains following items:
+in order of their definition in this dictionary if `pass_flows` is not specified. The key of the dictionary is the name
+of the pass. The value of the dictionary is another dictionary that contains the information of the pass. The information
+of the pass contains following items:
 
 - `type: [str]` The type of the pass.
 
@@ -377,6 +412,48 @@ Please also find the detailed options from following table for each pass:
         }
     }
 }
+```
+
+## Pass Flows Information
+`pass_flows: List[List[str]]`
+
+This is a list of list of pass names. Each list of pass names is a pass flow which will be executed in order.
+When `pass_flows` is not specified, the passes are executed in the order of the `passes` dictionary.
+
+
+### Example
+```json
+"passes": {
+    "onnx_conversion": {
+        "type": "OnnxConversion",
+        "config": {
+            "target_opset": 13
+        }
+    },
+    "transformers_optimization": {
+        "type": "OrtTransformersOptimization",
+        "config": {
+            "model_type": "bert",
+            "num_heads": 12,
+            "hidden_size": 768,
+            "float16": true
+        }
+    },
+    "onnx_quantization": {
+        "type": "OnnxQuantization",
+        "config": {
+            "user_script": "user_script.py",
+            "data_dir": "data",
+            "dataloader_func": "resnet_calibration_reader",
+            "weight_type": "QUInt8"
+        }
+    }
+},
+"pass_flows": [
+    ["onnx_conversion", "transformers_optimization"],
+    ["onnx_conversion", "transformers_optimization", "onnx_quantization"],
+    ["onnx_conversion", "onnx_quantization"],
+]
 ```
 
 ## Engine Information

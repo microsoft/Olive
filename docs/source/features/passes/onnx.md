@@ -1,13 +1,11 @@
-# ONNX related – General
+# ONNX
 
-Olive provides multiple Passes that execute optimization tools related to ONNX. [ONNX](https://onnx.ai/) is
-an open format built to represent machine learning models. [ONNX Runtime](https://onnxruntime.ai/docs/) is a cross-platform machine-learning
-model accelerator, with a flexible interface to integrate hardware-specific libraries.
+[ONNX](https://onnx.ai/) is an open graph format to represent machine learning models. [ONNX Runtime](https://onnxruntime.ai/docs/) is a cross-platform machine-learning model accelerator, with a flexible interface to integrate hardware-specific libraries.
 
-Olive provides easy access to the model optimization tools available in ONNX Runtime.
+Olive provides multiple transformations and optimizations based on various ONNX to improve model performance.
 
 ## Model Conversion
-The user might not have a model ready in the ONNX format. `OnnxConversion` converts PyTorch models to ONNX using
+The `OnnxConversion` pass converts PyTorch models to ONNX using
 [torch.onnx](https://pytorch.org/docs/stable/onnx.html).
 
 Please refer to [OnnxConversion](onnx_conversion) for more details about the pass and its config parameters.
@@ -24,8 +22,7 @@ Please refer to [OnnxConversion](onnx_conversion) for more details about the pas
 
 ## Model Optimizer
 `OnnxModelOptimizer` optimizes an ONNX model by fusing nodes. Fusing nodes involves merging multiple nodes in a model into a single node to
-reduce the computational cost and improve the performance of the model.
-The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.
+reduce the computational cost and improve the performance of the model. The optimization process involves analyzing the structure of the ONNX model and identifying nodes that can be fused.
 
 Please refer to [OnnxModelOptimizer](onnx_model_optimizer) for more details about the pass and its config parameters.
 
@@ -56,7 +53,7 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
 }
 ```
 ## Append Pre/Post Processing Ops
-'AppendPrePostProcessingOps' inserts pre and post processing ops into the ONNX graph.
+`AppendPrePostProcessingOps` inserts pre and post processing ops into the ONNX graph.
 
 ### Example Configuration
 ```json
@@ -82,7 +79,108 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
 }
 ```
 
-## Insert Beam Serch Op
+`AppendPrePostProcessingOps` also supports pre/post processing ops by leveraging the [onnxruntime-extension steps](https://github.com/microsoft/onnxruntime-extensions/tree/main/onnxruntime_extensions/tools/pre_post_processing/steps) and `PrePostProcessor`.
+You can refer to [here](https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/Example%20usage%20of%20the%20PrePostProcessor.md) to see how to leverage `PrePostProcessor` to customize pre and post processing ops.
+
+* Olive introduces two placeholders to represent the model input/ouput shape dimension value: `__model_input__` and `__model_output__`.
+* To support the IoMapEntry, the step need choose use the full form. For example:
+```json
+    "YCbCrToPixels": {
+        "params": {
+            "layout": "BGR",
+        },
+        "io_map": [
+            ["Y1_uint8", 0, 0],
+            ["Cb1_uint8", 0, 1],
+            ["Cr1_uint8", 0, 2],
+        ],
+    }
+```
+* The `tool_command_args` will be used to describe the input parameters to create the `PrePostProcessor` instance. It is list of `PrePostProcessorInput`.
+  The `name` is the tensor name. The `data_type` and `shape` will be used to create the tensor type. The `shape` can be a list of integers or a list of string.
+
+Users that write their own pre/post processing steps need to have the knowledge about whether the step includes the operators that is built-in support or supported in onnxextension.
+For example, for some ops like `ConvertImageToBGR` which requires other extensions may be incompatible with ort-web, user need to exclude this kind of ops to generate proper models.
+
+Here are some examples to describe the pre/post processing which is exactly same with [superresolution](https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/add_pre_post_processing_to_model.py#L89)
+
+```json
+{
+    "pre": [
+        {"ConvertImageToBGR": {}},
+        {
+            "Resize": {
+                "resize_to": [
+                    {"type": "__model_input__", "input_index": 0, "dim_index": -2},
+                    {"type": "__model_input__", "input_index": 0, "dim_index": -1},
+                ]
+            }
+        },
+        {
+            "CenterCrop": {
+                "height": {"type": "__model_input__", "input_index": 0, "dim_index": -2},
+                "width": {"type": "__model_input__", "input_index": 0, "dim_index": -1},
+            }
+        },
+        {"PixelsToYCbCr": {"layout": "BGR"}},
+        {"ImageBytesToFloat": {}},
+        {"Unsqueeze": {"axes": [0, 1]}},
+    ],
+    "post": [
+        {"Squeeze": {"axes": [0, 1]}},
+        {"FloatToImageBytes": {"name": "Y1_uint8"}},
+        {
+            "Resize": {
+                "params": {
+                    "resize_to": [
+                        {"type": "__model_output__", "output_index": 0, "dim_index": -2},
+                        {"type": "__model_output__", "output_index": 0, "dim_index": -1},
+                    ],
+                    "layout": "HW",
+                },
+                "io_map": [["PixelsToYCbCr", 1, 0]],
+            }
+        },
+        {"FloatToImageBytes": {"multiplier": 1.0, "name": "Cb1_uint8"}},
+        {
+            "Resize": {
+                "params": {
+                    "resize_to": [
+                        {"type": "__model_output__", "output_index": 0, "dim_index": -2},
+                        {"type": "__model_output__", "output_index": 0, "dim_index": -1},
+                    ],
+                    "layout": "HW",
+                },
+                "io_map": [["PixelsToYCbCr", 2, 0]],
+            }
+        },
+        {"FloatToImageBytes": {"multiplier": 1.0, "name": "Cr1_uint8"}},
+        {
+            "YCbCrToPixels": {
+                "params": {
+                    "layout": "BGR",
+                },
+                "io_map": [
+                    ["Y1_uint8", 0, 0],
+                    ["Cb1_uint8", 0, 1],
+                    ["Cr1_uint8", 0, 2],
+                ],
+            }
+        },
+        {"ConvertBGRToImage": {"image_format": "png"}},
+    ],
+    "tool_command_args": [
+        {
+            "name": "image",
+            "data_type": "uint8",
+            "shape": ["num_bytes"],
+        }
+    ],
+    "target_opset": 16,
+}
+```
+
+## Insert Beam Search Op
 
 `InsertBeamSearch` chains two model components (for example, encoder and decoder) together by inserting beam search op in between them.
 

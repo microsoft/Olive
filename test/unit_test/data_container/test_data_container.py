@@ -44,8 +44,8 @@ class TestDataConfig:
         # override the default components from task_type
         assert dc_config.components["post_process_data"].type == "text_classification_post_process"
         dc = dc_config.to_data_container()
-        dc.create_dataloader()
-        dc.create_calibration_dataloader()
+        dc.create_dataloader(data_root_path=None)
+        dc.create_calibration_dataloader(data_root_path=None)
 
     def test_raw_data_constructor(self):
         dc_config = DataConfig(type="RawDataContainer")
@@ -79,8 +79,8 @@ class TestDataConfig:
             assert input_data[input_name].dtype == input_types[input_names.index(input_name)]
             assert np.array_equal(input_data[input_name], data[input_name][0])
 
-        dc.create_dataloader()
-        dc.create_calibration_dataloader()
+        dc.create_dataloader(data_root_path=None)
+        dc.create_calibration_dataloader(data_root_path=None)
 
     def test_dc_runner(self):
         try:

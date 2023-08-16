@@ -17,7 +17,8 @@ from azure.ai.ml.entities import BuildContext, Environment, Model
 from azure.core.exceptions import HttpResponseError, ServiceResponseError
 
 from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.common.config_utils import validate_config
+from olive.cache import normalize_data_path
+from olive.common.config_utils import ParamCategory, validate_config
 from olive.common.utils import retry_func
 from olive.constants import Framework
 from olive.evaluator.metric import Metric, MetricResult
@@ -100,6 +101,7 @@ class AzureMLSystem(OliveSystem):
         self,
         the_pass: Pass,
         model: OliveModel,
+        data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> OliveModel:
@@ -113,7 +115,7 @@ class AzureMLSystem(OliveSystem):
         pass_config["config"].update(the_pass.serialize_config(config, check_object=True))
 
         with tempfile.TemporaryDirectory() as tempdir:
-            pipeline_job = self._create_pipeline_for_pass(tempdir, model, pass_config, the_pass.path_params)
+            pipeline_job = self._create_pipeline_for_pass(data_root, tempdir, model, pass_config, the_pass.path_params)
 
             # submit job
             logger.debug("Submitting pipeline")
@@ -237,18 +239,25 @@ class AzureMLSystem(OliveSystem):
             "model_script_dir": model_script_dir,
         }
 
-    def _create_pass_inputs(self, pass_path_params: List[Tuple[str, bool]]):
+    def _create_pass_inputs(self, pass_path_params: List[Tuple[str, bool, ParamCategory]]):
         inputs = {"pass_config": Input(type=AssetTypes.URI_FILE)}
-        for param, required in pass_path_params:
+        for param, required, category in pass_path_params:
             # aml supports uploading file/folder even though this is typed as URI_FOLDER
             inputs[f"pass_{param}"] = Input(type=AssetTypes.URI_FOLDER, optional=not required)
 
         return inputs
 
-    def _create_pass_args(self, pass_config: dict, pass_path_params: List[Tuple[str, bool]], tmp_dir: Path):
+    def _create_pass_args(
+        self, pass_config: dict, pass_path_params: List[Tuple[str, bool, ParamCategory]], data_root: str, tmp_dir: Path
+    ):
         pass_args = {}
-        for param, _ in pass_path_params:
+        for param, _, category in pass_path_params:
             param_val = pass_config["config"].get(param, None)
+            if category == ParamCategory.DATA:
+                if param_val:
+                    # convert the dict to a resource path
+                    param_val = create_resource_path(param_val)
+                param_val = normalize_data_path(data_root, param_val)
             if not param_val:
                 continue
             pass_args[f"pass_{param}"] = self._create_args_from_resource_path(param_val)
@@ -279,7 +288,7 @@ class AzureMLSystem(OliveSystem):
             description=description,
             command=cmd_line,
             environment=aml_environment,
-            code=code,
+            code=str(code),
             inputs=inputs,
             outputs=dict(pipeline_output=Output(type=AssetTypes.URI_FOLDER)),
             instance_count=instance_count,
@@ -290,10 +299,11 @@ class AzureMLSystem(OliveSystem):
 
     def _create_pipeline_for_pass(
         self,
+        data_root: str,
         tmp_dir,
         model: OliveModel,
         pass_config: dict,
-        pass_path_params: List[Tuple[str, bool]],
+        pass_path_params: List[Tuple[str, bool, ParamCategory]],
     ):
         tmp_dir = Path(tmp_dir)
 
@@ -332,7 +342,7 @@ class AzureMLSystem(OliveSystem):
             display_name=pass_type,
             description=f"Run olive {pass_type} pass",
             aml_environment=self.environment,
-            code=code_root,
+            code=str(code_root),
             compute=self.compute,
             instance_count=self.instance_count,
             inputs=inputs,
@@ -345,7 +355,7 @@ class AzureMLSystem(OliveSystem):
         # input argument values
         args = {
             **self._create_model_args(model_json, tmp_dir),
-            **self._create_pass_args(pass_config, pass_path_params, tmp_dir),
+            **self._create_pass_args(pass_config, pass_path_params, data_root, tmp_dir),
             **accelerator_info,
         }
 
@@ -402,7 +412,7 @@ class AzureMLSystem(OliveSystem):
             "metric_data_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
 
-    def _create_metric_args(self, metric_config: dict, tmp_dir: Path) -> Tuple[List[str], dict]:
+    def _create_metric_args(self, data_root: str, metric_config: dict, tmp_dir: Path) -> Tuple[List[str], dict]:
         metric_user_script = metric_config["user_config"]["user_script"]
         if metric_user_script:
             metric_user_script = Input(type=AssetTypes.URI_FILE, path=metric_user_script)
@@ -414,6 +424,9 @@ class AzureMLSystem(OliveSystem):
             metric_config["user_config"]["script_dir"] = None
 
         metric_data_dir = metric_config["user_config"]["data_dir"]
+        # convert the dict to a resource path object
+        metric_data_dir = create_resource_path(metric_data_dir)
+        metric_data_dir = normalize_data_path(data_root, metric_data_dir)
         if metric_data_dir:
             metric_data_dir = self._create_args_from_resource_path(metric_data_dir)
             if metric_data_dir:
@@ -431,7 +444,9 @@ class AzureMLSystem(OliveSystem):
             "metric_data_dir": metric_data_dir,
         }
 
-    def evaluate_model(self, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec) -> MetricResult:
+    def evaluate_model(
+        self, model: OliveModel, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+    ) -> MetricResult:
         if model.framework == Framework.SNPE:
             raise NotImplementedError("SNPE model does not support azureml evaluation")
         if model.framework == Framework.OPENVINO:
@@ -439,7 +454,7 @@ class AzureMLSystem(OliveSystem):
 
         with tempfile.TemporaryDirectory() as tempdir:
             ml_client = self.azureml_client_config.create_client()
-            pipeline_job = self._create_pipeline_for_evaluation(tempdir, model, metrics, accelerator)
+            pipeline_job = self._create_pipeline_for_evaluation(data_root, tempdir, model, metrics, accelerator)
 
             # submit job
             logger.debug("Submitting pipeline")
@@ -476,7 +491,7 @@ class AzureMLSystem(OliveSystem):
             return MetricResult.parse_obj(metric_results)
 
     def _create_pipeline_for_evaluation(
-        self, tmp_dir: str, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec
+        self, data_root: str, tmp_dir: str, model: OliveModel, metrics: List[Metric], accelerator: AcceleratorSpec
     ):
         tmp_dir = Path(tmp_dir)
 
@@ -496,6 +511,7 @@ class AzureMLSystem(OliveSystem):
             for metric in metrics:
                 metric_tmp_dir = tmp_dir / metric.name
                 metric_component = self._create_metric_component(
+                    data_root,
                     metric_tmp_dir,
                     metric,
                     model_args,
@@ -512,6 +528,7 @@ class AzureMLSystem(OliveSystem):
 
     def _create_metric_component(
         self,
+        data_root: str,
         tmp_dir: Path,
         metric: Metric,
         model_args: Dict[str, Input],
@@ -554,7 +571,7 @@ class AzureMLSystem(OliveSystem):
             display_name=metric_type,
             description=f"Run olive {metric_type} evaluation",
             aml_environment=self.environment,
-            code=code_root,
+            code=str(code_root),
             compute=self.compute,
             instance_count=self.instance_count,
             inputs=inputs,
@@ -564,7 +581,7 @@ class AzureMLSystem(OliveSystem):
         # input argument values
         args = {
             **model_args,
-            **self._create_metric_args(metric_json, tmp_dir),
+            **self._create_metric_args(data_root, metric_json, tmp_dir),
             **{"accelerator_config": Input(type=AssetTypes.URI_FILE, path=accelerator_config_path)},
         }
 

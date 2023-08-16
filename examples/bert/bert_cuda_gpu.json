@@ -25,7 +25,7 @@
                     "sub_types": [
                         {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                         {"name": "f1_score", "metric_config": {"multiclass": false}},
-                        {"name": "auc", "metric_config": {"reorder": true}}
+                        {"name": "auroc", "metric_config": {"num_classes": 2}}
                     ]
                 },
                 {
@@ -61,17 +61,12 @@
             "config": {
                 "enable_cuda_graph": true
             }
-
         }
     },
-    "systems": {
-        "local_system": {
-            "type": "LocalSystem",
-            "config": {
-                "accelerators": ["gpu"]
-            }
-        }
-    },
+    "pass_flows": [
+        ["conversion", "transformers_optimization", "perf_tuning"],
+        ["conversion", "perf_tuning"]
+    ],
     "engine": {
         "search_strategy": {
             "execution_order": "joint",
@@ -82,8 +77,6 @@
             }
         },
         "evaluator": "common_evaluator",
-        "target": "local_system",
-        "host": "local_system",
         "execution_providers": ["CUDAExecutionProvider"],
         "clean_cache": true,
         "cache_dir": "cache",

@@ -1,4 +1,4 @@
-# OpenVINO related – Intel HW
+# OpenVINO
 
 OpenVINO is a cross-platform deep learning toolkit developed by Intel. The name stands for "Open Visual Inference and Neural Network
 Optimization." OpenVINO focuses on optimizing neural network inference with a write-once, deploy-anywhere approach for Intel hardware

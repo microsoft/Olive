@@ -1,0 +1,58 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "gpt2",
+                "task": "text-generation",
+                "dataset": {
+                    "data_name": "ptb_text_only",
+                    "subset": "penn_treebank",
+                    "split": "train",
+                    "input_cols": ["sentence"],
+                    "seqlen": 1024,
+                    "max_samples": 5,
+                    "stride": 256
+                }
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[
+                {
+                    "name": "perplexity",
+                    "type": "accuracy",
+                    "sub_types": [
+                        {"name": "perplexity"}
+                    ]
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion": {
+            "type": "OnnxConversion"
+        },
+        "quantization": {
+            "type": "OnnxQuantization"
+        },
+        "perf_tuning": {
+            "type": "OrtPerfTuning"
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "tpe",
+            "search_algorithm_config": {
+                "num_samples": 3,
+                "seed": 0
+            }
+        },
+        "evaluator": "common_evaluator",
+        "clean_cache": true,
+        "cache_dir": "cache"
+    }
+}

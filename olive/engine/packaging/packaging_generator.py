@@ -89,8 +89,9 @@ def _package_candidate_models(
                     model_config = pf_footprint.get_model_config(model_id)
                     onnx_file_name = model_config.get("onnx_file_name")
                     onnx_model = ONNXModel(temp_resource_path, onnx_file_name)
+                    model_name = Path(onnx_model.model_path).name
                     for file in Path(temp_resource_path.get_path()).iterdir():
-                        if file.name == Path(onnx_model.model_path).name:
+                        if file.name == model_name:
                             file_name = "model.onnx"
                         else:
                             file_name = file.name

@@ -2,12 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import collections
 import logging
 import time
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from numbers import Number
-from typing import Any, Dict, List, Tuple, Type, Union
+from typing import Any, Dict, List, NamedTuple, Tuple, Type, Union
 
 import numpy as np
 import torch
@@ -15,7 +16,7 @@ from pydantic import validator
 from torch.utils.data import Dataset
 
 import olive.data.template as data_config_template
-from olive.cache import get_local_path
+from olive.cache import get_local_path_from_root
 from olive.common.config_utils import ConfigBase
 from olive.common.user_module_loader import UserModuleLoader
 from olive.common.utils import tensor_data_to_device
@@ -37,6 +38,9 @@ from olive.model.model_config import is_io_config_static
 from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
+
+
+OliveModelOutput = collections.namedtuple("OliveModelOutput", ["preds", "logits"])
 
 
 class OliveEvaluator(ABC):
@@ -70,13 +74,14 @@ class OliveEvaluator(ABC):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ):
+    ) -> Tuple[OliveModelOutput, Any]:
         raise NotImplementedError()
 
     @abstractmethod
     def _evaluate_accuracy(
         self,
         model: OliveModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -89,6 +94,7 @@ class OliveEvaluator(ABC):
     def _evaluate_latency(
         self,
         model: OliveModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -100,6 +106,7 @@ class OliveEvaluator(ABC):
     def _evaluate_custom(
         self,
         model: OliveModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         eval_func,
@@ -111,14 +118,16 @@ class OliveEvaluator(ABC):
         if metric.user_config.evaluate_func:
             raw_res = eval_func(
                 model,
-                get_local_path(metric.user_config.data_dir),
+                get_local_path_from_root(data_root, metric.user_config.data_dir),
                 metric.user_config.batch_size,
                 device,
                 execution_providers,
             )
         else:
-            preds, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
-            raw_res = eval_func(preds, targets)
+            inference_output, targets = self._inference(
+                model, metric, dataloader, post_func, device, execution_providers
+            )
+            raw_res = eval_func(inference_output, targets)
 
         metric_res = {}
         for sub_type in metric.sub_types:
@@ -139,6 +148,7 @@ class OliveEvaluator(ABC):
     def evaluate(
         self,
         model: OliveModel,
+        data_root: str,
         metrics: List[Metric],
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
@@ -149,19 +159,19 @@ class OliveEvaluator(ABC):
             # only do this if data_config or dataloader is not provided
             # priority: dataloader_func > data_config > user_config.input_names/input_shapes > model io_config
             metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)
-            dataloader, eval_func, post_func = OliveEvaluator.get_user_config(metric, model.framework)
+            dataloader, eval_func, post_func = OliveEvaluator.get_user_config(model.framework, data_root, metric)
 
             if metric.type == MetricType.ACCURACY:
                 metrics_res[metric.name] = self._evaluate_accuracy(
-                    model, metric, dataloader, post_func, device, execution_providers
+                    model, data_root, metric, dataloader, post_func, device, execution_providers
                 )
             elif metric.type == MetricType.LATENCY:
                 metrics_res[metric.name] = self._evaluate_latency(
-                    model, metric, dataloader, post_func, device, execution_providers
+                    model, data_root, metric, dataloader, post_func, device, execution_providers
                 )
             elif metric.type == MetricType.CUSTOM:
                 metrics_res[metric.name] = self._evaluate_custom(
-                    model, metric, dataloader, eval_func, post_func, device, execution_providers
+                    model, data_root, metric, dataloader, eval_func, post_func, device, execution_providers
                 )
             else:
                 raise TypeError(f"{metric.type} is not a supported metric type")
@@ -193,19 +203,23 @@ class OliveEvaluator(ABC):
         return metric
 
     @staticmethod
-    def get_user_config(metric: Metric, framework: Framework):
+    def get_user_config(framework: Framework, data_root: str, metric: Metric):
         user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
 
         post_processing_func = getattr(metric.user_config, "post_processing_func", None)
         post_func = user_module.load_object(post_processing_func)
 
         dataloader_func = getattr(metric.user_config, "dataloader_func", None)
-        dataloader = user_module.call_object(
-            dataloader_func,
-            get_local_path(metric.user_config.data_dir),
-            metric.user_config.batch_size,
-            model_framework=framework,
-        )
+        if dataloader_func:
+            data_dir = get_local_path_from_root(data_root, metric.user_config.data_dir)
+            dataloader = user_module.call_object(
+                dataloader_func,
+                data_dir,
+                metric.user_config.batch_size,
+                model_framework=framework,
+            )
+        else:
+            dataloader = None
 
         eval_func = None
         if metric.type == MetricType.CUSTOM:
@@ -223,7 +237,7 @@ class OliveEvaluator(ABC):
 
             # TODO remove user_scripts dataloader: we should respect user scripts
             # dataloder to meet back compatibility for time being.
-            dataloader = dataloader or dc.create_dataloader()
+            dataloader = dataloader or dc.create_dataloader(data_root)
             post_func = post_func or dc.config.post_process
 
         if metric.user_config.input_names and metric.user_config.input_shapes and not dataloader and not eval_func:
@@ -234,18 +248,18 @@ class OliveEvaluator(ABC):
                     input_types=metric.user_config.input_types,
                 )
                 .to_data_container()
-                .create_dataloader()
+                .create_dataloader(data_root)
             )
 
         return dataloader, eval_func, post_func
 
     @staticmethod
-    def compute_accuracy(metric: Metric, preds: Any, targets: Any) -> MetricResult:
+    def compute_accuracy(metric: Metric, model_outputs: Union[Tuple, NamedTuple], targets: Any) -> MetricResult:
         """
         Compute accuracy metrics
         """
         evaluate_backend_cls = MetricBackend.registry[metric.backend]
-        return evaluate_backend_cls().measure(preds, targets, metric)
+        return evaluate_backend_cls().measure(model_outputs, targets, metric)
 
     @staticmethod
     def compute_latency(metric: Metric, latencies: Any) -> MetricResult:
@@ -284,7 +298,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         """
         input_names = io_config["input_names"]
         name_to_type = {k: v for k, v in zip(io_config["input_names"], io_config["input_types"])}
-        if not isinstance(input_data, dict):
+        if isinstance(input_data, list):
+            input_data = dict(zip(input_names, input_data))
+        elif not isinstance(input_data, dict):
             input_data = dict(zip(input_names, [input_data]))
         input_dict = {
             k: np.ascontiguousarray(
@@ -304,7 +320,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ):
+    ) -> Tuple[OliveModelOutput, Any]:
         session = model.prepare_session(
             inference_settings=self.get_inference_settings(metric),
             device=device,
@@ -314,15 +330,34 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         preds = []
         targets = []
+        logits = []
+        logits_dict = collections.defaultdict(list)
         output_names = io_config["output_names"]
+        is_single_tensor_output = len(output_names) == 1
         for input_data, labels in dataloader:
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             res = session.run(input_feed=input_dict, output_names=None)
-            result = torch.Tensor(res[0]) if len(output_names) == 1 else torch.Tensor(res)
+            if is_single_tensor_output:
+                result = torch.Tensor(res[0])
+            else:
+                # convert to dict of torch tensor
+                result = {name: torch.Tensor(res[i]) for i, name in enumerate(output_names)}
             outputs = post_func(result) if post_func else result
-            preds.extend(outputs.tolist())
-            targets.extend(labels.data.tolist())
-        return preds, targets
+            # keep as numpy or torch arrays
+            preds.append(outputs.cpu())
+            targets.append(labels.cpu())
+            if is_single_tensor_output:
+                logits.append(result.cpu())
+            else:
+                for k in output_names:
+                    logits_dict[k].append(result[k].cpu())
+        preds = torch.cat(preds, dim=0)
+        targets = torch.cat(targets, dim=0)
+        if is_single_tensor_output:
+            logits = torch.cat(logits, dim=0)
+        else:
+            logits = {k: torch.cat(logits[k], dim=0) for k in output_names}
+        return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_onnx_accuracy(
         self,
@@ -333,9 +368,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        preds, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
-
-        return OliveEvaluator.compute_accuracy(metric, preds, targets)
+        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     def _evaluate_onnx_latency(
         self,
@@ -389,6 +423,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
     @staticmethod
     def _evaluate_distributed_accuracy_worker(config) -> Tuple[List[Any], List[Any]]:
         model_path = config["model_path"]
+        data_root = config["data_root"]
         local_rank = config["local_rank"]
         world_size = config["world_size"]
         inference_settings = config.get("inference_settings", {}) or {}
@@ -408,26 +443,31 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
 
         model = ONNXModel(model_path, inference_settings=inference_settings)
-        dataloader, _, post_func = OnnxEvaluator.get_user_config(metric, model.framework)
+        dataloader, _, post_func = OnnxEvaluator.get_user_config(model.framework, data_root, metric)
 
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
         io_config = model.get_io_config()
 
         preds = []
         targets = []
+        logits = []
         output_names = io_config["output_names"]
         for _, (input_data, labels) in enumerate(dataloader):
             input_dict = OnnxEvaluator.format_input(input_data, io_config)
             MPI.COMM_WORLD.barrier()  # Synchronize before starting each run
             output = session.run(input_feed=input_dict, output_names=None)
             output = torch.Tensor(output[0]) if len(output_names) == 1 else torch.Tensor(output)
-            output = post_func(output) if post_func else output
-            preds.extend(output.tolist())
+            post_output = post_func(output) if post_func else output
+            preds.extend(post_output.tolist())
             targets.extend(labels.data.tolist())
+            logits.extend(output.tolist())
 
-        return preds, targets
+        model_output = OliveModelOutput(preds=preds, logits=logits)
+        return model_output, targets
 
-    def _evaluate_distributed_accuracy(self, model: DistributedOnnxModel, metric: Metric) -> MetricResult:
+    def _evaluate_distributed_accuracy(
+        self, model: DistributedOnnxModel, data_root: str, metric: Metric
+    ) -> MetricResult:
         from copy import deepcopy
 
         from mpi4py.futures import MPIPoolExecutor
@@ -445,19 +485,23 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             cfg = deepcopy(config)
             cfg["local_rank"] = rank
             cfg["model_path"] = model.ranked_model_path(rank)
+            cfg["data_root"] = data_root
             args.append(cfg)
 
         with MPIPoolExecutor(max_workers=model.ranks) as executor:
             results = executor.map(OnnxEvaluator._evaluate_distributed_accuracy_worker, args)
             executor.shutdown()
 
-        preds = [x for p, _ in results for x in p]
-        targets = [x for _, t in results for x in t]
-        return OliveEvaluator.compute_accuracy(metric, preds, targets)
+        preds = [x for p, _, _ in results for x in p]
+        targets = [x for _, t, _ in results for x in t]
+        logits = [x for _, _, l in results for x in l]
+        model_output = OliveModelOutput(preds, logits)
+        return OliveEvaluator.compute_accuracy(metric, model_output, targets)
 
     @staticmethod
-    def _evaluate_distributed_latency_worker(config) -> List[float]:
+    def _evaluate_distributed_latency_worker(data_root, config) -> List[float]:
         model_path = config["model_path"]
+        data_root = config["data_root"]
         local_rank = config["local_rank"]
         world_size = config["world_size"]
         inference_settings = config.get("inference_settings", {}) or {}
@@ -477,7 +521,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
 
         model = ONNXModel(model_path, inference_settings=inference_settings)
-        dataloader, _, _ = OnnxEvaluator.get_user_config(metric, model.framework)
+        dataloader, _, _ = OnnxEvaluator.get_user_config(model.framework, data_root, metric)
         session = model.prepare_session(inference_settings=inference_settings, device=Device.GPU, rank=int(local_rank))
         io_config = model.get_io_config()
 
@@ -505,7 +549,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         return latencies
 
-    def _evaluate_distributed_latency(self, model: DistributedOnnxModel, metric: Metric) -> MetricResult:
+    def _evaluate_distributed_latency(
+        self, model: DistributedOnnxModel, data_root: str, metric: Metric
+    ) -> MetricResult:
         from copy import deepcopy
 
         from mpi4py.futures import MPIPoolExecutor
@@ -523,6 +569,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             cfg = deepcopy(config)
             cfg["local_rank"] = rank
             cfg["model_path"] = model.ranked_model_path(rank)
+            cfg["data_root"] = data_root
             args.append(cfg)
 
         with MPIPoolExecutor(max_workers=model.ranks) as executor:
@@ -535,6 +582,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
     def _evaluate_accuracy(
         self,
         model: ONNXModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -544,13 +592,14 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         if isinstance(model, ONNXModel):
             return self._evaluate_onnx_accuracy(model, metric, dataloader, post_func, device, execution_providers)
         elif isinstance(model, DistributedOnnxModel):
-            return self._evaluate_distributed_accuracy(model, metric)
+            return self._evaluate_distributed_accuracy(model, data_root, metric)
         else:
             raise TypeError(f"Cannot evaluate accuracy for model of type: {type(model)}")
 
     def _evaluate_latency(
         self,
         model: OliveModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -560,7 +609,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         if isinstance(model, ONNXModel):
             return self._evaluate_onnx_latency(model, metric, dataloader, post_func, device, execution_providers)
         elif isinstance(model, DistributedOnnxModel):
-            return self._evaluate_distributed_latency(model, metric)
+            return self._evaluate_distributed_latency(model, data_root, metric)
         else:
             raise TypeError(f"Cannot evaluate latency for model of type: {type(model)}")
 
@@ -573,6 +622,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
     def _device_string_to_torch_device(device: Device):
         return torch.device("cuda") if device == Device.GPU else torch.device(device)
 
+    @torch.no_grad()
     def _inference(
         self,
         model: PyTorchModel,
@@ -581,11 +631,12 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ):
+    ) -> Tuple[OliveModelOutput, Any]:
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         preds = []
         targets = []
+        logits = []
         device = PyTorchEvaluator._device_string_to_torch_device(device)
         if device:
             session.to(device)
@@ -593,30 +644,43 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
             input_data = tensor_data_to_device(input_data, device)
             result = session(**input_data) if isinstance(input_data, dict) else session(input_data)
             outputs = post_func(result) if post_func else result
-            # use the list.extend instead of list.append to avoid the different sub-array has different size when
-            # batch size is greater than 2 so that the residue array has different size with the batch size,
-            # which will result the exception like:
-            #  ValueError: expected sequence of length 128 at dim 1 (got 3)
-            preds.extend(outputs.tolist())
-            targets.extend(labels.data.tolist())
-        return preds, targets
+            # keep the outputs and results as torch tensor on cpu
+            # it is expensive to convert to list and then convert back to torch tensor
+            preds.append(outputs.cpu())
+            targets.append(labels.cpu())
+            logits.append(
+                result.logits.cpu()
+                if not isinstance(result, torch.Tensor) and getattr(result, "logits", None) is not None
+                else result.cpu()
+            )
+        # concatenate along the batch dimension
+        preds = torch.cat(preds, dim=0)
+        targets = torch.cat(targets, dim=0)
+        logits = torch.cat(logits, dim=0)
+        # move model to cpu
+        # don't want model to be kept on gpu since model persists and takes up gpu memory
+        if device:
+            session.to("cpu")
+        return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_accuracy(
         self,
         model: PyTorchModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        preds, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
-        return OliveEvaluator.compute_accuracy(metric, preds, targets)
-
+    @torch.no_grad()
     def _evaluate_latency(
         self,
         model: PyTorchModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -628,25 +692,43 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
 
         input_data, _ = next(iter(dataloader))
         device = PyTorchEvaluator._device_string_to_torch_device(device)
+        is_cuda = device == Device.GPU
         if device:
             session.to(device)
             input_data = tensor_data_to_device(input_data, device)
+        input_is_dict = isinstance(input_data, dict)
+
+        # warm up
+        for _ in range(warmup_num):
+            session(**input_data) if input_is_dict else session(input_data)
 
         latencies = []
-        if isinstance(input_data, dict):
-            for _ in range(warmup_num):
-                session(**input_data)
+        if not is_cuda:
             for _ in range(repeat_test_num):
                 t = time.perf_counter()
-                session(**input_data)
+                # TODO: do we care about the efficiency of if/else here?
+                # probably won't add much overhead compared to the inference time
+                # also we are doing the same for all models
+                session(**input_data) if input_is_dict else session(input_data)
                 latencies.append(time.perf_counter() - t)
         else:
-            for _ in range(warmup_num):
-                session(input_data)
+            # synchronize before starting the test
+            torch.cuda.synchronize()
+            # cuda events for measuring latency
+            starter = torch.cuda.Event(enable_timing=True)
+            ender = torch.cuda.Event(enable_timing=True)
             for _ in range(repeat_test_num):
-                t = time.perf_counter()
-                session(input_data)
-                latencies.append(time.perf_counter() - t)
+                starter.record()
+                session(**input_data) if input_is_dict else session(input_data)
+                ender.record()
+                # synchronize after forward pass
+                torch.cuda.synchronize()
+                # add time in seconds, originally in milliseconds
+                latencies.append(starter.elapsed_time(ender) * 1e-3)
+
+        # move model to cpu
+        if device:
+            session.to("cpu")
 
         return OliveEvaluator.compute_latency(metric, latencies)
 
@@ -663,12 +745,13 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ):
+    ) -> Tuple[OliveModelOutput, Any]:
         dataloader = self._prepare_dataloader(dataloader, model)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         preds = []
         targets = []
+        logits = []
         for data_dir, input_list, labels in dataloader:
             result = session(input_list, data_dir)
             if post_func:
@@ -677,24 +760,27 @@ class SNPEEvaluator(OliveEvaluator, framework=Framework.SNPE):
                 raise ValueError("Post processing function is required for SNPE model")
             preds.extend(outputs.tolist())
             targets.extend(labels.tolist())
-        return preds, targets
+            # TODO: verify if we need to return logits
+            logits.extend(result.tolist())
+        return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_accuracy(
         self,
         model: SNPEModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        preds, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
-
-        return OliveEvaluator.compute_accuracy(metric, preds, targets)
+        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     def _evaluate_latency(
         self,
         model: SNPEModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
@@ -730,11 +816,12 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
-    ):
+    ) -> Tuple[OliveModelOutput, Any]:
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 
         preds = []
         targets = []
+        logits = []
         for input_data, labels in dataloader:
             result = session.infer_new_request({0: input_data})
             outputs = post_func(result) if post_func else result
@@ -742,24 +829,26 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
                 labels = [labels]
             preds.extend(outputs)
             targets.extend(labels)
-        return preds, targets
+            logits.extend(result)
+        return OliveModelOutput(preds=preds, logits=logits), targets
 
     def _evaluate_accuracy(
         self,
         model: OpenVINOModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
-        preds, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
-
-        return OliveEvaluator.compute_accuracy(metric, preds, targets)
+        inference_output, targets = self._inference(model, metric, dataloader, post_func, device, execution_providers)
+        return OliveEvaluator.compute_accuracy(metric, inference_output, targets)
 
     def _evaluate_latency(
         self,
         model: OpenVINOModel,
+        data_root: str,
         metric: Metric,
         dataloader: Dataset,
         post_func=None,

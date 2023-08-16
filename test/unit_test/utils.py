@@ -70,13 +70,23 @@ def get_pytorch_model():
     )
 
 
-def get_pytorch_model_dummy_input():
+def get_hf_model_with_past():
+    return PyTorchModel(
+        hf_config={
+            "model_name": "hf-internal-testing/tiny-random-gptj",
+            "task": "text-generation",
+            "feature": "causal-lm-with-past",
+        }
+    )
+
+
+def get_pytorch_model_dummy_input(model):
     return torch.randn(1, 1)
 
 
 def create_onnx_model_file():
     pytorch_model = pytorch_model_loader(model_path=None)
-    dummy_input = get_pytorch_model_dummy_input()
+    dummy_input = get_pytorch_model_dummy_input(pytorch_model)
     torch.onnx.export(
         pytorch_model, dummy_input, ONNX_MODEL_PATH, opset_version=10, input_names=["input"], output_names=["output"]
     )
@@ -187,7 +197,7 @@ def get_onnx_dynamic_quantization_pass(disable_search=False):
 
 def get_data_config():
     @Registry.register_dataset("test_dataset")
-    def _test_dataset(test_value):
+    def _test_dataset(data_dir, test_value):
         ...
 
     @Registry.register_dataloader()

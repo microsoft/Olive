@@ -8,14 +8,15 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
-from olive.cache import get_local_path
+from olive.cache import get_local_path_from_root
 from olive.evaluator.metric import Metric, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
+from olive.exception import OlivePassException
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import PassConfigParam
+from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
@@ -119,7 +120,7 @@ _inc_quantization_config = {
 _inc_static_dataloader_config = {
     "data_dir": PassConfigParam(
         type_=OLIVE_RESOURCE_ANNOTATIONS,
-        is_path=True,
+        category=ParamCategory.DATA,
         description="""
             Path to the directory containing the dataset.
             For local data, it is required if approach is 'static'.
@@ -135,7 +136,7 @@ _inc_static_dataloader_config = {
     "dataloader_func": PassConfigParam(
         type_=Union[Callable, str],
         required=True,
-        is_object=True,
+        category=ParamCategory.OBJECT,
         description="""
             Function/function name to generate dataloader for calibration,
             required if approach is 'static'
@@ -214,6 +215,13 @@ class IncQuantization(Pass):
         super()._initialize()
 
     @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        """Override this method to return False by using the
+        accelerator spec information.
+        """
+        return False
+
+    @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "approach": PassConfigParam(
@@ -264,7 +272,7 @@ class IncQuantization(Pass):
         config.update(get_external_data_config())
         return config
 
-    def _set_eval_func(self, accuracy_metric, sub_type):
+    def _set_eval_func(self, accuracy_metric, sub_type, data_root):
         # set eval_func for INC according to Olive accuracy metric
         def eval_func(model):
             # eval_func for Intel® Neural Compressor quantization take model as input,
@@ -293,9 +301,10 @@ class IncQuantization(Pass):
             # evaluate model
             result = evaluator.evaluate(
                 olive_model,
+                data_root,
                 [accuracy_metric],
-                self._accelerator_spec.accelerator_type,
-                [self._accelerator_spec.execution_provider],
+                self.accelerator_spec.accelerator_type,
+                [self.accelerator_spec.execution_provider],
             )
             joint_key = joint_metric_key(accuracy_metric.name, sub_type.name)
             return result[joint_key].value
@@ -328,7 +337,7 @@ class IncQuantization(Pass):
 
         return higher_is_better, criterion, tolerable_loss
 
-    def _set_tuning_config(self, run_config):
+    def _set_tuning_config(self, run_config, data_root):
         # set criterion and eval func for INC
         # INC quantization without accuracy aware tuning situation:
         #  1. 'metric' is not set
@@ -370,7 +379,7 @@ class IncQuantization(Pass):
             if len(accuracy_metric.sub_types) != 0:
                 sub_type = accuracy_metric.sub_types[0]
             if sub_type is not None and sub_type.goal is not None:
-                eval_func = self._set_eval_func(accuracy_metric, sub_type)
+                eval_func = self._set_eval_func(accuracy_metric, sub_type, data_root)
 
                 higher_is_better, criterion, tolerable_loss = self._set_accuracy_criterion(sub_type)
                 accuracy_criterion = AccuracyCriterion(
@@ -388,7 +397,9 @@ class IncQuantization(Pass):
 
         return eval_func, accuracy_criterion, tuning_criterion
 
-    def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+    def _run_for_config(
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModel:
         try:
             from neural_compressor import quantization
             from neural_compressor.config import PostTrainingQuantConfig
@@ -403,7 +414,7 @@ class IncQuantization(Pass):
 
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
-        eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config)
+        eval_func, accuracy_criterion, tuning_criterion = self._set_tuning_config(run_config, data_root)
 
         # keys not needed for quantization
         to_delete = [
@@ -428,19 +439,20 @@ class IncQuantization(Pass):
         inc_calib_dataloader = None
         if is_static:
             if self._user_module_loader:
+                data_dir = get_local_path_from_root(data_root, config["data_dir"])
                 inc_calib_dataloader = self._user_module_loader.call_object(
-                    self._fixed_params["dataloader_func"],
-                    get_local_path(self._fixed_params["data_dir"]),
-                    self._fixed_params["batch_size"],
+                    config["dataloader_func"],
+                    data_dir,
+                    config["batch_size"],
                 )
             elif self._data_config:
-                inc_calib_dataloader = self._data_config.to_data_container().create_calibration_dataloader()
+                inc_calib_dataloader = self._data_config.to_data_container().create_calibration_dataloader(data_root)
 
         q_model = quantization.fit(
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
         )
         if eval_func is not None and q_model is None:
-            logger.error(
+            raise OlivePassException(
                 "Intel® Neural Compressor quantization does not "
                 "find any quantized model which meet accuracy goal. "
                 "Try to increase 'max_trials' in 'tuning_criterion'."

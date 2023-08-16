@@ -51,7 +51,7 @@ class OpenVINOConversion(Pass):
         }
 
     def _run_for_config(
-        self, model: Union[PyTorchModel, ONNXModel], config: Dict[str, Any], output_model_path: str
+        self, model: Union[PyTorchModel, ONNXModel], data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> OpenVINOModel:
         import torch
 

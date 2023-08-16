@@ -312,7 +312,6 @@ class ONNXModel(ONNXModelBase):
         return str(path)
 
     def load_model(self, rank: int = None) -> onnx.ModelProto:
-        # HACK: ASSUME no external data
         return onnx.load(self.model_path)
 
     def prepare_session(
@@ -580,7 +579,7 @@ class PyTorchModel(OliveModel):
                     input_types=self.io_config.get("input_types"),
                 )
                 .to_data_container()
-                .get_first_batch()
+                .get_first_batch(data_root_path=None)
             )
         elif self.hf_config and self.hf_config.model_name and self.hf_config.task:
             if self.hf_config.dataset:
@@ -592,7 +591,7 @@ class PyTorchModel(OliveModel):
                         **self.hf_config.dataset,
                     )
                     .to_data_container()
-                    .get_first_batch()
+                    .get_first_batch(data_root_path=None)
                 )
             elif not self.hf_config.components:
                 logger.debug("Using hf onnx_config to get dummy inputs")

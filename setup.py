@@ -79,5 +79,9 @@ setup(
     include_package_data=True,
     package_data={},
     data_files=[],
-    entry_points={},
+    entry_points={
+        "console_scripts": [
+            "olive.scripts.manage_compute_instance = olive.scripts.manage_compute_instance:main",
+        ],
+    },
 )
