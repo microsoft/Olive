@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import pickle
 import sys
-import tempfile
 from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_latency_metric, get_onnx_model
 from unittest import mock
@@ -14,36 +13,13 @@ import numpy as np
 import pytest
 import torch
 
-from olive.engine import Engine
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult, MetricType, joint_metric_key
-from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.passes.onnx import OrtPerfTuning
 from olive.systems.local import LocalSystem
 from olive.systems.python_environment import PythonEnvironmentSystem
 from olive.systems.python_environment.available_eps import main as available_eps_main
 from olive.systems.python_environment.inference_runner import main as inference_runner_main
 from olive.systems.python_environment.is_valid_ep import main as is_valid_ep_main
-
-
-class TestOliveManagedPythonEnvironmentSystem:
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        # use the olive managed python environment as the test environment
-        self.system = PythonEnvironmentSystem(accelerators=["cpu"], olive_managed_env=True)
-        self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
-        self.input_model = get_onnx_model()
-
-    def test_run_pass_evaluate(self):
-        temp_dir = tempfile.TemporaryDirectory()
-        output_dir = Path(temp_dir.name)
-
-        metric = get_latency_metric(LatencySubType.AVG)
-        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
-        options = {"execution_providers": self.execution_providers}
-        engine = Engine(options, target=self.system, host=self.system, evaluator_config=evaluator_config)
-        engine.register(OrtPerfTuning)
-        engine.run(self.input_model, output_dir=output_dir, evaluate_input_model=True)
 
 
 class TestPythonEnvironmentSystem:

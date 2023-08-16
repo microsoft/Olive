@@ -98,7 +98,9 @@ class DockerSystem(OliveSystem):
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
             metrics_res = None
-            metric_json = self._run_container(tempdir, model, data_root, metrics, container_root_path, str(accelerator.accelerator_type))
+            metric_json = self._run_container(
+                tempdir, model, data_root, metrics, container_root_path, str(accelerator.accelerator_type)
+            )
             if metric_json.is_file():
                 with metric_json.open() as f:
                     metrics_res = json.load(f)
