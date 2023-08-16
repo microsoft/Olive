@@ -77,7 +77,6 @@ class AzureMLSystem(OliveSystem):
         requirements_file: Union[Path, str] = None,
     ):
         super().__init__(accelerators, olive_managed_env=olive_managed_env)
-        # self._assert_not_none(aml_docker_config)
         self.instance_count = instance_count
         self.is_dev = is_dev
         self.requirements_file = requirements_file

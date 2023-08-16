@@ -325,9 +325,9 @@ class Engine:
         origin_target_system = self.target
         origin_host_system = self.host
         for accelerator_spec in self.accelerator_specs:
-            if origin_target_system.olive_managed_env:
+            if origin_target_system.olive_managed_env is True:
                 self.target = create_new_system(origin_target_system, accelerator_spec)
-            if origin_host_system.olive_managed_env:
+            if origin_host_system.olive_managed_env is True:
                 self.host = create_new_system(origin_host_system, accelerator_spec)
 
             # generate search space and initialize the passes for each hardware accelerator

@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import logging
 import os
 import pickle
@@ -23,7 +24,7 @@ from olive.evaluator.metric import (
 )
 from olive.evaluator.olive_evaluator import OliveEvaluator, OnnxEvaluator
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
-from olive.model import OliveModel, ONNXModel
+from olive.model import ModelConfig, OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
@@ -67,6 +68,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
         # path to inference script
         self.inference_path = Path(__file__).parent.resolve() / "inference_runner.py"
+        self.pass_path = Path(__file__).parent.resolve() / "pass_runner.py"
         self.device = self.accelerators[0] if self.accelerators else Device.CPU
 
     def run_pass(
@@ -80,7 +82,48 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         Run the pass on the model at a specific point in the search space.
         """
-        raise ValueError("PythonEnvironmentSystem does not support running passes.")
+        import importlib
+
+        try:
+            importlib.import_module("olive")
+        except ImportError:
+            raise ValueError("PythonEnvironmentSystem does not support running passes without olive installed.")
+
+        model_config = model.to_json()
+        pass_config = the_pass.to_json()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_dir_path = Path(tmp_dir)
+            model_json_path = tmp_dir_path / "model.json"
+            pass_json_path = tmp_dir_path / "pass.json"
+            output_model_json_path = tmp_dir_path / "output_model.json"
+
+            with model_json_path.open("w") as f:
+                json.dump(model_config, f, indent=4)
+            with pass_json_path.open("w") as f:
+                json.dump(pass_config, f, indent=4)
+
+            # run pass
+            command = (
+                f"python {self.pass_path} --model_json_path {model_json_path} --pass_json_path {pass_json_path}"
+                f" --output_model_path {output_model_path} --output_model_json_path {output_model_json_path}"
+            )
+            if point:
+                point_json_path = tmp_dir_path / "point.json"
+                with point_json_path.open("w") as f:
+                    point = point or {}
+                    json.dump(point, f, indent=4)
+                command += f" --point_json_path {point_json_path}"
+            if data_root:
+                command += f" --data_root {data_root}"
+
+            run_subprocess(command, env=self.environ, check=True)
+
+            with open(output_model_json_path, "r") as f:
+                model_json = json.load(f)
+                output_model = ModelConfig.from_json(model_json).create_model()
+
+        return output_model
 
     def evaluate_model(
         self, model: OliveModel, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
@@ -314,10 +357,11 @@ class PythonEnvironmentSystem(OliveSystem):
             check=True,
         )
 
-        # install onnxruntime
+        # install onnxruntime and olive
         onnxruntime_package = get_package_name(accelerator.execution_provider)
+        olive_package = "git+https://github.com/microsoft/Olive"
         run_subprocess(
-            f"pip install {onnxruntime_package}",
+            f"pip install {onnxruntime_package} {olive_package}",
             env=self.environ,
             check=True,
         )

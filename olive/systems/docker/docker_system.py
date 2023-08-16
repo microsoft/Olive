@@ -98,7 +98,7 @@ class DockerSystem(OliveSystem):
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
             metrics_res = None
-            metric_json = self._run_container(tempdir, model, data_root, metrics, container_root_path, accelerator)
+            metric_json = self._run_container(tempdir, model, data_root, metrics, container_root_path, str(accelerator.accelerator_type))
             if metric_json.is_file():
                 with metric_json.open() as f:
                     metrics_res = json.load(f)
@@ -111,7 +111,7 @@ class DockerSystem(OliveSystem):
         data_root: str,
         metrics: List[Metric],
         container_root_path: Path,
-        accelerator: AcceleratorSpec,
+        accelerator_type: str,
     ):
         eval_output_path = "eval_output"
         eval_output_name = "eval_res.json"
@@ -176,7 +176,7 @@ class DockerSystem(OliveSystem):
                 environment[k] = v
 
         logger.debug(f"Running container with eval command: {eval_command}")
-        if accelerator.accelerator_type == Device.GPU:
+        if accelerator_type == Device.GPU:
             container = self.docker_client.containers.run(
                 image=self.image,
                 command=eval_command,

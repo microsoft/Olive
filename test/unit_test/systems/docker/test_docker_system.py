@@ -13,6 +13,31 @@ from olive.evaluator.metric import AccuracySubType, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.common import LocalDockerConfig
 from olive.systems.docker.docker_system import DockerSystem
+from test.unit_test.utils import get_accuracy_metric, get_latency_metric, get_onnx_model
+from olive.evaluator.metric import AccuracySubType, LatencySubType, joint_metric_key
+from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
+from olive.passes.onnx import OrtPerfTuning
+from olive.engine import Engine
+
+
+class TestOliveManagedDockerSystem:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        # use the olive managed Docker system as the test environment
+        self.system = DockerSystem(accelerators=["cpu"], olive_managed_env=True)
+        self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
+        self.input_model = get_onnx_model()
+
+    def test_run_pass_evaluate(self):
+        temp_dir = tempfile.TemporaryDirectory()
+        output_dir = Path(temp_dir.name)
+
+        metric = get_latency_metric(LatencySubType.AVG)
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+        options = {"execution_providers": self.execution_providers}
+        engine = Engine(options, target=self.system, evaluator_config=evaluator_config)
+        engine.register(OrtPerfTuning)
+        engine.run(self.input_model, output_dir=output_dir)
 
 
 class TestDockerSystem:
