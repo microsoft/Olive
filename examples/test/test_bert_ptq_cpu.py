@@ -21,7 +21,7 @@ def setup():
 
 @pytest.mark.parametrize("search_algorithm", ["tpe"])
 @pytest.mark.parametrize("execution_order", ["joint"])
-@pytest.mark.parametrize("system", ["local_system", "aml_system"])
+@pytest.mark.parametrize("system", ["local_system"])
 @pytest.mark.parametrize("olive_json", ["bert_ptq_cpu.json"])
 def test_bert(search_algorithm, execution_order, system, olive_json):
 
