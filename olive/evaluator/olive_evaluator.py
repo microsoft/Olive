@@ -692,25 +692,39 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
 
         input_data, _ = next(iter(dataloader))
         device = PyTorchEvaluator._device_string_to_torch_device(device)
+        is_cuda = device == Device.GPU
         if device:
             session.to(device)
             input_data = tensor_data_to_device(input_data, device)
+        input_is_dict = isinstance(input_data, dict)
+
+        # warm up
+        for _ in range(warmup_num):
+            session(**input_data) if input_is_dict else session(input_data)
 
         latencies = []
-        if isinstance(input_data, dict):
-            for _ in range(warmup_num):
-                session(**input_data)
+        if not is_cuda:
             for _ in range(repeat_test_num):
                 t = time.perf_counter()
-                session(**input_data)
+                # TODO: do we care about the efficiency of if/else here?
+                # probably won't add much overhead compared to the inference time
+                # also we are doing the same for all models
+                session(**input_data) if input_is_dict else session(input_data)
                 latencies.append(time.perf_counter() - t)
         else:
-            for _ in range(warmup_num):
-                session(input_data)
+            # synchronize before starting the test
+            torch.cuda.synchronize()
+            # cuda events for measuring latency
+            starter = torch.cuda.Event(enable_timing=True)
+            ender = torch.cuda.Event(enable_timing=True)
             for _ in range(repeat_test_num):
-                t = time.perf_counter()
-                session(input_data)
-                latencies.append(time.perf_counter() - t)
+                starter.record()
+                session(**input_data) if input_is_dict else session(input_data)
+                ender.record()
+                # synchronize after forward pass
+                torch.cuda.synchronize()
+                # add time in seconds, originally in milliseconds
+                latencies.append(starter.elapsed_time(ender) * 1e-3)
 
         # move model to cpu
         if device:
