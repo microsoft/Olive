@@ -21,6 +21,7 @@ from olive.passes.pytorch.sparsegpt_utils import (
     get_layer_submodules,
     get_layers,
     layers_map,
+    validate_min_max_layers,
 )
 
 logger = logging.getLogger(__name__)
@@ -129,8 +130,7 @@ class SparseGPT(Pass):
         outputs = torch.zeros_like(inputs)
 
         # prune layers
-        min_layer = config["min_layer"] or 0
-        max_layer = config["max_layer"] or len(layers)
+        min_layer, max_layer = validate_min_max_layers(config["min_layer"], config["max_layer"], len(layers))
         layer_name_filter = config["layer_name_filter"] or []
         if isinstance(layer_name_filter, str):
             layer_name_filter = [layer_name_filter]

@@ -6,10 +6,13 @@
 # https://github.com/IST-DASLab/sparsegpt
 # https://arxiv.org/abs/2301.00774
 # -------------------------------------------------------------------------
+import logging
 import math
 
 import torch
 import transformers
+
+logger = logging.getLogger(__name__)
 
 # model_type -> name for layers
 layers_map = {
@@ -73,6 +76,7 @@ def get_layers(model, model_type):
 def get_layer_submodules(
     module, submodule_types=[torch.nn.Conv2d, torch.nn.Linear, transformers.Conv1D], layer_name_filter=None, name=""
 ):
+    """Get the submodules of a module based on the submodule types."""
     if type(module) in submodule_types:
         if layer_name_filter and not any([s in name for s in layer_name_filter]):
             # skip this layer
@@ -84,6 +88,24 @@ def get_layer_submodules(
         submodule_name = name + "." + submodule_name if name else submodule_name
         submodules.update(get_layer_submodules(submodule, submodule_types, layer_name_filter, submodule_name))
     return submodules
+
+
+def validate_min_max_layers(min_layer, max_layer, num_layers):
+    """Verify min_layer and max_layer are valid and return the valid range."""
+    min_layer = min_layer or 0
+    if min_layer < 0:
+        # if user specified min_layer < 0, set min_layer to 0
+        logger.warning(f"min_layer ({min_layer}) is less than 0. Setting to 0.")
+        min_layer = 0
+    max_layer = max_layer or num_layers
+    if max_layer > num_layers:
+        # if user specified max_layer > number of layers, set max_layer to number of layers
+        logger.warning(
+            f"max_layer ({max_layer}) is greater than number of layers ({num_layers}). Setting to {num_layers}."
+        )
+        max_layer = num_layers
+        # don't need to worry about min_layer since if min_layer >= max_layer, the range will be empty
+    return min_layer, max_layer
 
 
 @torch.no_grad()

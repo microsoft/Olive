@@ -13,7 +13,13 @@ from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import PyTorchModel
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
-from olive.passes.pytorch.sparsegpt_utils import _get_attr, get_layer_submodules, get_layers, seqlens
+from olive.passes.pytorch.sparsegpt_utils import (
+    _get_attr,
+    get_layer_submodules,
+    get_layers,
+    seqlens,
+    validate_min_max_layers,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -102,8 +108,7 @@ class TorchTRTConversion(Pass):
         layers = get_layers(pytorch_model, model_type)
 
         # get layer information
-        min_layer = config["min_layer"] or 0
-        max_layer = config["max_layer"] or len(layers)
+        min_layer, max_layer = validate_min_max_layers(config["min_layer"], config["max_layer"], len(layers))
         layer_name_filter = config["layer_name_filter"] or []
         if isinstance(layer_name_filter, str):
             layer_name_filter = [layer_name_filter]
