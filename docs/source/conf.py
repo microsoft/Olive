@@ -83,11 +83,3 @@ autodoc_pydantic_field_list_validators = False
 # disable the anchor check since https://github.com/sphinx-doc/sphinx/issues/9016
 # we could enable it when the issue is fixed
 linkcheck_anchors = False
-
-
-# .. toctree::
-#    :maxdepth: 1
-#    :caption: VERSION
-#    0.1.0 <https://microsoft.github.io/Olive/0.1.0/>
-#    0.2.0 <https://microsoft.github.io/Olive/0.2.0/>
-#    0.2.1 <https://microsoft.github.io/Olive/0.2.1/>
