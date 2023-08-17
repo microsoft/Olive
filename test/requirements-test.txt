@@ -1,7 +1,7 @@
 azure-ai-ml
 azure-identity
 azure-storage-blob
-azureml-fsspec
+azureml-fsspec<=1.1.1
 coverage
 docker
 neural-compressor
