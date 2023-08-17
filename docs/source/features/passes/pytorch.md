@@ -67,7 +67,7 @@ as 2:4 and 4:8 patterns.
 
 Please refer to the original paper linked above for more details on the algorithm and performance results for different models, sparsities and datasets.
 
-This pass only supports Hugging Face transformers PyTorch models. Please refer to [SparseGPT](sparse_gpt) for more details on the types of transformers models supported.
+This pass only supports Hugging Face transformers PyTorch models. Please refer to [SparseGPT](sparsegpt) for more details on the types of transformers models supported.
 
 **Note:** TensorRT can accelerate inference on 2:4 sparse models as described in [this blog](https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/).
 
