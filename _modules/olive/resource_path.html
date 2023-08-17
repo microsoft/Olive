@@ -518,7 +518,8 @@
             <span class="kn">from</span> <span class="nn">azureml.fsspec</span> <span class="kn">import</span> <span class="n">AzureMachineLearningFileSystem</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-                <span class="s2">&quot;azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path.&quot;</span>
+                <span class="s2">&quot;azureml-fsspec is not installed. Please install azureml-fsspec&lt;=1.1.1&quot;</span>
+                <span class="s2">&quot; to use AzureMLDatastore resource path.&quot;</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">fsspec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">fsspec</span> <span class="o">=</span> <span class="n">AzureMachineLearningFileSystem</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_path</span><span class="p">())</span>
@@ -549,7 +550,8 @@
             <span class="kn">from</span> <span class="nn">azureml.fsspec</span> <span class="kn">import</span> <span class="n">AzureMachineLearningFileSystem</span>
         <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-                <span class="s2">&quot;azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path.&quot;</span>
+                <span class="s2">&quot;azureml-fsspec is not installed. Please install azureml-fsspec&lt;=1.1.1&quot;</span>
+                <span class="s2">&quot; to use AzureMLDatastore resource path.&quot;</span>
             <span class="p">)</span>
 
         <span class="n">azureml_client_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_aml_client_config</span><span class="p">()</span>
