@@ -2,7 +2,7 @@
     "azureml": [
         "azure-ai-ml>=0.1.0b6",
         "azure-identity",
-        "azureml-fsspec"
+        "azureml-fsspec<=1.1.1"
     ],
     "docker": [
         "docker"
