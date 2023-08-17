@@ -31,6 +31,9 @@ class SparseGPT(Pass):
     """
     Run SparseGPT on a Hugging Face PyTorch model.
     See https://arxiv.org/abs/2301.00774 for more details on the algorithm.
+
+    This pass only supports PyTorchModel with hf_config. The transformers model type
+    must be one of [bloom, gpt2, gpt_neox, llama, opt].
     """
 
     _requires_data_config = True

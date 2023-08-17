@@ -31,6 +31,9 @@ class TorchTRTConversion(Pass):
 
     The entire model is saved using `torch.save` and can be loaded using `torch.load`. Loading the model requires
     `torch-tensorrt` and Olive to be installed.
+
+    This pass only supports PyTorchModel with hf_config. The transformers model type
+    must be one of [bloom, gpt2, gpt_neox, llama, opt].
     """
 
     _requires_data_config = True

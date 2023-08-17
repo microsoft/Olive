@@ -36,14 +36,17 @@ def mocked_torch_zeros(*args, **kwargs):
 @patch("torch.nn.Module.to", side_effect=lambda device: None)
 # replace device in kwargs with "cpu"
 @patch("torch.zeros", side_effect=mocked_torch_zeros)
-def test_sparsegpt(mock_is_cuda_available, mock_tensor_data_to_device, mock_module_to, mock_torch_zeros):
+def test_torch_trt_conversion_success(
+    mock_is_cuda_available, mock_tensor_data_to_device, mock_module_to, mock_torch_zeros
+):
     # setup
     # mock trt utils since we don't have tensorrt and torch-tensorrt installed
     mock_trt_utils = MagicMock()
     mock_compile_trt_model = MagicMock()
     mock_compile_trt_model.return_value = MockTRTLinearLayer()
     mock_trt_utils.compile_trt_model = mock_compile_trt_model
-
+    # we don't want to import trt_utils because of missing tensorrt and torch-tensorrt
+    # add mocked trt_utils to sys.modules
     sys.modules["olive.passes.pytorch.trt_utils"] = mock_trt_utils
     with tempfile.TemporaryDirectory() as tempdir:
         local_system = LocalSystem()
@@ -51,6 +54,7 @@ def test_sparsegpt(mock_is_cuda_available, mock_tensor_data_to_device, mock_modu
         task = "text-generation"
         model_type = "opt"
         input_model = PyTorchModel(hf_config={"model_name": model_name, "task": task})
+        # torch.nn.Linear submodules per layer in the original model
         original_submodules = list(
             sparsegpt_utils.get_layer_submodules(
                 sparsegpt_utils.get_layers(input_model.load_model(), model_type)[0], submodule_types=[torch.nn.Linear]
