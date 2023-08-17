@@ -15,7 +15,7 @@ OnnxConversion
 .. _device_specific_onnx_conversion:
 
 DeviceSpecificOnnxConversion
------------------
+----------------------------
 .. autoconfigclass:: olive.passes.DeviceSpecificOnnxConversion
 
 .. _onnx_model_optimizer:
@@ -137,6 +137,12 @@ SNPEtoONNXConversion
 SparseGPT
 --------------------
 .. autoconfigclass:: olive.passes.SparseGPT
+
+.. _torch_trt_conversion:
+
+TorchTRTConversion
+--------------------
+.. autoconfigclass:: olive.passes.TorchTRTConversion
 
 .. _vitis_ai_quantization:
 
