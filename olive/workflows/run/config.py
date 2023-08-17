@@ -66,7 +66,7 @@ class RunConfig(ConfigBase):
     evaluators: Dict[str, OliveEvaluatorConfig] = None
     pass_flows: List[List[str]] = None
     engine: RunEngineConfig
-    passes: Dict[str, RunPassConfig]
+    passes: Dict[str, RunPassConfig] = None
 
     @validator("input_model", pre=True)
     def insert_aml_client(cls, v, values):

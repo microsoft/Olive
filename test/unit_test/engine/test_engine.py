@@ -297,6 +297,47 @@ class TestEngine:
         assert result_json_path.is_file()
         assert MetricResult.parse_file(result_json_path) == actual_res
 
+    @patch("olive.systems.local.LocalSystem")
+    def test_run_no_pass(self, mock_local_system):
+        # setup
+        pytorch_model = get_pytorch_model()
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+        options = {
+            "cache_dir": "./cache",
+            "clean_cache": True,
+            "search_strategy": None,
+            "clean_evaluation_cache": True,
+        }
+        metric_result_dict = {
+            joint_metric_key(metric.name, sub_metric.name): {
+                "value": 0.998,
+                "priority": sub_metric.priority,
+                "higher_is_better": sub_metric.higher_is_better,
+            }
+            for sub_metric in metric.sub_types
+        }
+        mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        mock_local_system.accelerators = ["CPU"]
+
+        engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
+
+        # output model to output_dir
+        temp_dir = tempfile.TemporaryDirectory()
+        output_dir = Path(temp_dir.name)
+
+        expected_res = MetricResult.parse_obj(metric_result_dict)
+
+        # execute
+        actual_res = engine.run(pytorch_model, output_dir=output_dir, evaluate_input_model=True)
+        accelerator_spec = DEFAULT_CPU_ACCELERATOR
+        actual_res = actual_res[accelerator_spec]
+
+        assert expected_res == actual_res
+        result_json_path = Path(output_dir / f"{accelerator_spec}_input_model_metrics.json")
+        assert result_json_path.is_file()
+        assert MetricResult.parse_file(result_json_path) == actual_res
+
     @patch.object(Path, "glob", return_value=[Path("cache") / "output" / "100_model.json"])
     @patch.object(Path, "unlink")
     def test_model_path_suffix(self, mock_unlink, mock_glob):
