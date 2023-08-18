@@ -67,6 +67,8 @@ as 2:4 and 4:8 patterns.
 
 Please refer to the original paper linked above for more details on the algorithm and performance results for different models, sparsities and datasets.
 
+This pass only supports Hugging Face transformers PyTorch models. Please refer to [SparseGPT](sparsegpt) for more details on the types of transformers models supported.
+
 **Note:** TensorRT can accelerate inference on 2:4 sparse models as described in [this blog](https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/).
 
 ### Example Configuration
@@ -80,5 +82,19 @@ Please refer to the original paper linked above for more details on the algorith
 {
     "type": "SparseGPT",
     "config": {"sparsity": [2,4]}
+}
+```
+
+## TorchTRTConversion
+`TorchTRTConversion` converts the `torch.nn.Linear` modules in the transformer layers in a Hugging Face PyTorch model to `TRTModules` from `torch_tensorrt` with fp16 precision and sparse weights, if
+applicable. `torch_tensorrt` is an extension to `torch` where TensorRT compiled engines can be used like regular `torch.nn.Module`s. This pass can be used to accelerate inference on transformer models
+with sparse weights by taking advantage of the 2:4 structured sparsity pattern supported by TensorRT.
+
+This pass only supports Hugging Face transformers PyTorch models. Please refer to [TorchTRTConversion](torch_trt_conversion) for more details on the types of transformers models supported.
+
+### Example Configuration
+```json
+{
+    "type": "TorchTRTConversion"
 }
 ```
