@@ -61,6 +61,7 @@ stages:
           git checkout gh-pages
           git rm -rf ${{parameters.doc_version}}
           mkdir ${{parameters.doc_version}}
+          ls -d */ | grep -E "[0-9]+\.[0-9]+\.[0-9]+" | xargs -I {} cp ./_static/js/custom_version.js {}/_static/js/
         displayName: Checkout gh-pages branch
         condition: ne('${{parameters.doc_version}}', 'latest')
 
