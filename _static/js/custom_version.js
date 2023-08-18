@@ -30,7 +30,7 @@ $(document).ready(function () {
     keys.sort(function (a, b) {
         return b.localeCompare(a);
     });
-    
+
     for (var i = 0; i < keys.length; i++) {
         version = keys[i];
         $(".version").append(
