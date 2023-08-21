@@ -61,7 +61,6 @@ stages:
           git checkout gh-pages
           git rm -rf ${{parameters.doc_version}}
           mkdir ${{parameters.doc_version}}
-          ls -d */ | grep -E "[0-9]+\.[0-9]+\.[0-9]+" | xargs -I {} cp ./_static/js/custom_version.js {}/_static/js/
         displayName: Checkout gh-pages branch
         condition: ne('${{parameters.doc_version}}', 'latest')
 
@@ -76,6 +75,7 @@ stages:
 
       # commit and push the docs
       - script: |
+          ls -d */ | grep -E "[0-9]+\.[0-9]+\.[0-9]+" | xargs -I {} cp ./_static/js/custom_version.js {}_static/js/
           git add -A
           git commit -m "Update docs from $(Build.SourceVersion)"
           git push origin gh-pages
