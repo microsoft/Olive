@@ -11,6 +11,8 @@ from pathlib import Path
 
 import yaml
 
+from olive.systems.common import SystemType
+
 
 def parse_common_args(raw_args):
     parser = argparse.ArgumentParser("Olive model args")
@@ -58,10 +60,10 @@ def create_new_system(origin_system, accelerator):
     }
 
     # create a new system with the same type as the origin system
-    if origin_system.system_type == "LocalSystem":
+    if origin_system.system_type == SystemType.Local:
         raise NotImplementedError("olive_managed_env is not supported for LocalSystem")
 
-    elif origin_system.system_type == "PythonEnvironment":
+    elif origin_system.system_type == SystemType.PythonEnvironment:
         import tempfile
         import venv
 
@@ -78,9 +80,8 @@ def create_new_system(origin_system, accelerator):
             olive_managed_env=True,
             requirements_file=origin_system.config.requirements_file,
         )
-        new_system.install_requirements(accelerator)
 
-    elif origin_system.system_type == "Docker":
+    elif origin_system.system_type == SystemType.Docker:
         from olive.systems.docker import DockerSystem
 
         dockerfile = PROVIDER_DOCKERFILE_MAPPING.get(accelerator.execution_provider, "Dockerfile.cpu")
@@ -94,7 +95,7 @@ def create_new_system(origin_system, accelerator):
             accelerators=[accelerator.accelerator_type],
         )
 
-    elif origin_system.system_type == "AzureML":
+    elif origin_system.system_type == SystemType.AzureML:
         from olive.systems.azureml import AzureMLSystem
 
         dockerfile = PROVIDER_DOCKERFILE_MAPPING.get(accelerator.execution_provider, "Dockerfile.cpu")

@@ -61,7 +61,8 @@ class PythonEnvironmentSystem(OliveSystem):
             self.environ.update(self.config.environment_variables)
         if self.config.prepend_to_path:
             self.environ["PATH"] = os.pathsep.join(self.config.prepend_to_path) + os.pathsep + self.environ["PATH"]
-        self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
+        if self.config.python_environment_path:
+            self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
 
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
         # used for caching the available eps
@@ -71,6 +72,10 @@ class PythonEnvironmentSystem(OliveSystem):
         self.inference_path = Path(__file__).parent.resolve() / "inference_runner.py"
         self.pass_path = Path(__file__).parent.resolve() / "pass_runner.py"
         self.device = self.accelerators[0] if self.accelerators else Device.CPU
+
+        # install requirements
+        if self.config.python_environment_path and self.config.olive_managed_env:
+            self.install_requirements(self.device)
 
     def run_pass(
         self,
