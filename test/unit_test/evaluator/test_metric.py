@@ -66,4 +66,5 @@ class TestEvaluation:
 
         metrics = OliveEvaluatorConfig(metrics=metrics_config).metrics
         for metric in metrics:
+            assert metric.user_config, "user_config should not be None anytime"
             assert metric.name in ["accuracy", "hf_accuracy", "latency", "test"]
