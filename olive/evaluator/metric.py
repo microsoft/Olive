@@ -145,7 +145,7 @@ class Metric(ConfigBase):
 
         return v
 
-    @validator("user_config", pre=True)
+    @validator("user_config", pre=True, always=True)
     def validate_user_config(cls, v, values):
         if "type" not in values:
             raise ValueError("Invalid type")

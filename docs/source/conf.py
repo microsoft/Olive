@@ -63,6 +63,9 @@ html_static_path = ["_static"]
 html_css_files = [
     "css/width.css",
 ]
+html_js_files = [
+    "js/custom_version.js",
+]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"

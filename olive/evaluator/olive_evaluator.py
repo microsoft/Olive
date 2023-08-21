@@ -204,6 +204,7 @@ class OliveEvaluator(ABC):
 
     @staticmethod
     def get_user_config(framework: Framework, data_root: str, metric: Metric):
+        assert metric.user_config, "user_config is not specified in the metric config"
         user_module = UserModuleLoader(metric.user_config.user_script, metric.user_config.script_dir)
 
         post_processing_func = getattr(metric.user_config, "post_processing_func", None)

@@ -72,6 +72,7 @@ def dependency_setup(config):
             "IncStaticQuantization": EXTRAS.get("inc"),
             "OptimumConversion": EXTRAS.get("optimum"),
             "OptimumMerging": EXTRAS.get("optimum"),
+            "TorchTRTConversion": EXTRAS.get("torch-tensorrt"),
         },
     }
 
@@ -79,17 +80,18 @@ def dependency_setup(config):
     remote_packages = []
 
     # add dependencies for passes
-    for _, pass_config in config.passes.items():
-        host = pass_config.host or config.engine.host
-        if (host and host.type == SystemType.Local) or not host:
-            local_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type, []))
-        else:
-            remote_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type, []))
-        if pass_config.type in ["SNPEConversion", "SNPEQuantization", "SNPEtoONNXConversion"]:
-            logger.info(
-                "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html to install SNPE"
-                f" prerequisites for pass {pass_config.type}"
-            )
+    if config.passes:
+        for _, pass_config in config.passes.items():
+            host = pass_config.host or config.engine.host
+            if (host and host.type == SystemType.Local) or not host:
+                local_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type, []))
+            else:
+                remote_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type, []))
+            if pass_config.type in ["SNPEConversion", "SNPEQuantization", "SNPEtoONNXConversion"]:
+                logger.info(
+                    "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html to install SNPE"
+                    f" prerequisites for pass {pass_config.type}"
+                )
 
     # add dependencies for engine
     if config.engine.host and config.engine.host.type == SystemType.Local:
@@ -144,7 +146,7 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
     # engine
     engine = config.engine.create_engine()
 
-    if (config.passes is None or not config.passes) and (not config.engine.evaluate_input_model):
+    if not config.passes and not config.engine.evaluate_input_model:
         # TODO enhance this logic for more passes templates
         engine, config = automatically_insert_passes(config)
 
@@ -152,19 +154,20 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
         dependency_setup(config)
     else:
         # passes
-        for pass_name, pass_config in config.passes.items():
-            host = pass_config.host.create_system() if pass_config.host is not None else None
-            engine.register(
-                Pass.registry[pass_config.type.lower()],
-                config=pass_config.config,
-                disable_search=pass_config.disable_search,
-                name=pass_name,
-                host=host,
-                evaluator_config=pass_config.evaluator,
-                clean_run_cache=pass_config.clean_run_cache,
-                output_name=pass_config.output_name,
-            )
-        engine.set_pass_flows(config.pass_flows)
+        if config.passes:
+            for pass_name, pass_config in config.passes.items():
+                host = pass_config.host.create_system() if pass_config.host is not None else None
+                engine.register(
+                    Pass.registry[pass_config.type.lower()],
+                    config=pass_config.config,
+                    disable_search=pass_config.disable_search,
+                    name=pass_name,
+                    host=host,
+                    evaluator_config=pass_config.evaluator,
+                    clean_run_cache=pass_config.clean_run_cache,
+                    output_name=pass_config.output_name,
+                )
+            engine.set_pass_flows(config.pass_flows)
 
         if data_root is None:
             data_root = config.data_root
