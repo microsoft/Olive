@@ -8,7 +8,7 @@ dependencies:
       - azure-ai-ml
       - azure-identity
       - azureml-defaults
-      - azureml-dataprep==4.8.4
+      - azureml-dataprep>=4.12.1
       - onnxruntime
       - datasets
       - scipy
