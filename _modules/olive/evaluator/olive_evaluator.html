@@ -329,6 +329,7 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">get_user_config</span><span class="p">(</span><span class="n">framework</span><span class="p">:</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;user_config is not specified in the metric config&quot;</span>
         <span class="n">user_module</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">user_script</span><span class="p">,</span> <span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
 
         <span class="n">post_processing_func</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">user_config</span><span class="p">,</span> <span class="s2">&quot;post_processing_func&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
