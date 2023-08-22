@@ -80,6 +80,7 @@ def create_new_system(origin_system, accelerator):
             olive_managed_env=True,
             requirements_file=origin_system.config.requirements_file,
         )
+        new_system.install_requirements(accelerator)
 
     elif origin_system.system_type == SystemType.Docker:
         from olive.systems.docker import DockerSystem
