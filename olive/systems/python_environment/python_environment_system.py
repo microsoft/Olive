@@ -374,7 +374,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
         # install onnxruntime and olive
         onnxruntime_package = get_package_name(accelerator.execution_provider)
-        olive_package = "git+https://github.com/microsoft/Olive"
+        olive_package = "git+https://github.com/microsoft/Olive.git"
         run_subprocess(
             f"pip install {onnxruntime_package} {olive_package}",
             env=self.environ,
@@ -390,8 +390,12 @@ class PythonEnvironmentSystem(OliveSystem):
             )
 
     def remove(self):
+        import platform
         import shutil
 
-        vitual_env_path = str(self.config.python_environment_path)[:-3]
+        if platform.system() == "Windows":
+            vitual_env_path = str(self.config.python_environment_path)[:-7]
+        else:
+            vitual_env_path = str(self.config.python_environment_path)[:-3]
         shutil.rmtree(vitual_env_path)
         logger.info("Virtual environment '{}' removed.".format(vitual_env_path))

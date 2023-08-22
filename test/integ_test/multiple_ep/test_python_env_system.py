@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import tempfile
-from pathlib import Path
 from test.unit_test.utils import create_onnx_model_file, get_latency_metric, get_onnx_model
 
 import pytest
@@ -26,7 +25,7 @@ class TestOliveManagedPythonEnvironmentSystem:
 
     def test_run_pass_evaluate(self):
         temp_dir = tempfile.TemporaryDirectory()
-        output_dir = Path(temp_dir.name)
+        output_dir = temp_dir.name
 
         metric = get_latency_metric(LatencySubType.AVG)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])

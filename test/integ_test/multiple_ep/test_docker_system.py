@@ -2,8 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import platform
 import tempfile
-from pathlib import Path
 from test.integ_test.evaluator.azureml_eval.utils import get_latency_metric
 from test.unit_test.utils import create_onnx_model_file, get_onnx_model
 
@@ -24,9 +24,10 @@ class TestOliveManagedDockerSystem:
         create_onnx_model_file()
         self.input_model = get_onnx_model()
 
+    @pytest.mark.skipif(platform.system() == "Windows", reason="Docker target does not support windows")
     def test_run_pass_evaluate(self):
         temp_dir = tempfile.TemporaryDirectory()
-        output_dir = Path(temp_dir.name)
+        output_dir = temp_dir.name
 
         metric = get_latency_metric()
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])

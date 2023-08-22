@@ -72,8 +72,14 @@ def create_new_system(origin_system, accelerator):
         # Create the virtual environment
         venv_path = Path(tempfile.TemporaryDirectory(prefix="olive_python_env_").name)
         venv.create(venv_path, with_pip=True)
+        import platform
+
+        if platform.system() == "Windows":
+            python_environment_path = f"{venv_path}/Scripts"
+        else:
+            python_environment_path = f"{venv_path}/bin"
         new_system = PythonEnvironmentSystem(
-            python_environment_path=f"{venv_path}/bin",
+            python_environment_path=python_environment_path,
             accelerators=[accelerator.accelerator_type],
             environment_variables=origin_system.config.environment_variables,
             prepend_to_path=origin_system.config.prepend_to_path,

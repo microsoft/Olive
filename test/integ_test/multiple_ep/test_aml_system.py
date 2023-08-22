@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import tempfile
-from pathlib import Path
 from test.integ_test.evaluator.azureml_eval.utils import get_latency_metric
 from test.integ_test.utils import get_olive_workspace_config
 from test.unit_test.utils import create_onnx_model_file, get_onnx_model
@@ -29,6 +28,7 @@ class TestOliveAzureMLSystem:
             aml_compute=aml_compute,
             accelerators=["cpu"],
             olive_managed_env=True,
+            requirements_file="requirements.txt",
         )
 
         self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
@@ -37,7 +37,7 @@ class TestOliveAzureMLSystem:
 
     def test_run_pass_evaluate(self):
         temp_dir = tempfile.TemporaryDirectory()
-        output_dir = Path(temp_dir.name)
+        output_dir = temp_dir.name
 
         metric = get_latency_metric()
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])

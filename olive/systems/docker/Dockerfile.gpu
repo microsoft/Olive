@@ -18,4 +18,4 @@ RUN v="8.4.1-1+cuda11.6" &&\
 RUN python -m pip install --upgrade pip
 RUN python -m pip install pandas plotly psutil datasets transformers
 RUN python -m pip install onnxruntime-gpu==1.15.1
-RUN python -m pip install git+https://github.com/microsoft/Olive
+RUN python -m pip install git+https://github.com/microsoft/Olive.git
