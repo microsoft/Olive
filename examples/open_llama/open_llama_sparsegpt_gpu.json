@@ -13,8 +13,6 @@
             "name": "c4_train",
             "type": "HuggingfaceContainer",
             "params_config": {
-                "model_name": "openlm-research/open_llama_3b",
-                "task": "text-generation",
                 "data_name": "allenai/c4",
                 "subset": "allenai--c4",
                 "split": "train",
@@ -34,8 +32,6 @@
             "name": "wikitext2_test",
             "type": "HuggingfaceContainer",
             "params_config": {
-                "model_name": "openlm-research/open_llama_3b",
-                "task": "text-generation",
                 "data_name": "wikitext",
                 "subset": "wikitext-2-raw-v1",
                 "split": "test",
