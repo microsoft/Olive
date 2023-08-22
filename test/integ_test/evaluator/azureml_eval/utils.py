@@ -34,7 +34,7 @@ def get_accuracy_metric():
     accuracy_metric_config = {
         "user_script": user_script,
         "post_processing_func": "post_process",
-        "data_dir": data_dir,
+        "data_dir": str(data_dir),
         "dataloader_func": "create_dataloader",
     }
     accuracy_metric = Metric(
@@ -49,7 +49,7 @@ def get_accuracy_metric():
 def get_latency_metric():
     latency_metric_config = {
         "user_script": user_script,
-        "data_dir": data_dir,
+        "data_dir": str(data_dir),
         "dataloader_func": "create_dataloader",
     }
     latency_metric = Metric(
