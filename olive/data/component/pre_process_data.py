@@ -10,7 +10,7 @@ from enum import Enum
 import torch
 from pydantic import validator
 
-from olive.common.config_utils import ConfigBase
+from olive.common.config_utils import ConfigBase, validate_config
 from olive.data.component.dataset import BaseDataset
 from olive.data.registry import Registry
 
@@ -179,7 +179,7 @@ class TextGenParams(ConfigBase):
     source_max_len: int
     # TODO: currently only support padding to max length since we preprocess all data at once
     # might have to expose collator for dataloader to support dynamic padding of batches
-    # if false, cannot gaurantee all sequences are same length. data loader will have to handle this
+    # if false, cannot gaurantee all sequences are same length. data loader will have to handle this during collation
     pad_to_max_len: bool = True  # pad sequences to max_len, ignored for JOIN corpus strategy
     drop_short_sequences: bool = False  # drop sequences shorter than max_len. Mutually exclusive with pad_to_max_len
     add_special_tokens: bool = True  # add special tokens, ignored for JOIN corpus strategy
@@ -228,6 +228,22 @@ class TextGenCorpusParams(TextGenParams):
         return v
 
 
+class TextGenPairParams(TextGenParams):
+    pair_format: TextGenPairFormat = TextGenPairFormat.DEFAULT
+    input_col: str = None  # required when pair_format is CUSTOM
+    output_col: str = None  # required when pair_format is CUSTOM
+    target_max_len: int  # max length of target sequence
+    ignore_source_in_labels: bool = False  # set source tokens to ignore_index in labels
+
+    @validator("input_col", "output_col", always=True)
+    def _check_custom(cls, v, field, values):
+        if "pair_format" not in values:
+            raise ValueError("Invalid pair_format")
+        if values["pair_format"] == TextGenPairFormat.CUSTOM and v is None:
+            raise ValueError(f"{field.name} must be specified when pair_format is CUSTOM")
+        return v
+
+
 @Registry.register_pre_process()
 def text_generation_huggingface_pre_process(
     _dataset, model_name: str, dataset_type: TextGenDatasetType, source_max_len: int, max_samples=None, **kwargs
@@ -242,14 +258,15 @@ def text_generation_huggingface_pre_process(
     if dataset_type == TextGenDatasetType.CORPUS:
         return text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs)
     else:
-        raise NotImplementedError(f"dataset_type {dataset_type} not implemented yet")
+        return text_gen_pair_pre_process(_dataset, tokenizer, all_kwargs)
 
 
 def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
-    args = TextGenCorpusParams(**all_kwargs)
     from random import Random
 
     from datasets import Dataset as HFDataset
+
+    args = validate_config(all_kwargs, TextGenCorpusParams, warn_unused_keys=True)
 
     # gather text from all input columns
     text_list = []
@@ -259,9 +276,8 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
     tokenized_inputs = {
         "input_ids": [],
         "attention_mask": [],
-        "target_ids": [],
+        "labels": [],
     }
-
     if "join" in args.corpus_strategy:
         # delimiter between the text sequences
         text = args.joiner.join(text_list)
@@ -297,7 +313,6 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
             # randomization, sample random blocks of tokens
             rng = Random(args.random_seed)
             cache = {}
-
             for _ in range(args.max_samples):
                 resamples = 0
                 encodings = None
@@ -325,8 +340,8 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
 
     else:
         # each line is a sequence
-        num_samples = 0
         if args.corpus_strategy == TextGenCorpusStrategy.LINE_BY_LINE:
+            num_samples = 0
             for text in text_list:
                 encodings = tokenizer(
                     text,
@@ -375,7 +390,55 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
     hf_dataset.set_format("torch", output_all_columns=True)
 
     # return BaseDataset
-    return BaseDataset(hf_dataset, ["target_ids"], max_samples=args.max_samples)
+    return BaseDataset(hf_dataset, ["labels"], max_samples=args.max_samples)
+
+
+def text_gen_pair_pre_process(_dataset, tokenizer, all_kwargs):
+    from datasets import Dataset as HFDataset
+
+    args = validate_config(all_kwargs, TextGenPairParams, warn_unused_keys=True)
+
+    dataset = _format_pair_dataset(_dataset, args.pair_format, args.input_col, args.output_col)
+    if args.max_samples is not None:
+        # truncate dataset to max_samples
+        # makes tokenization faster
+        dataset = dataset.select(range(args.max_samples))
+
+    # based on https://github.com/artidoro/qlora/blob/main/qlora.py
+    # extract elements
+    sources = dataset["input"]
+    targets = dataset["output"]
+    if args.add_special_tokens:
+        sources = [f"{tokenizer.bos_token}{source}" for source in sources]
+        targets = [f"{target}{tokenizer.eos_token}" for target in targets]
+
+    # tokenize
+    tokenized_sources = tokenizer(sources, max_length=args.source_max_len, truncation=True, add_special_tokens=False)
+    tokenized_targets = tokenizer(targets, max_length=args.target_max_len, truncation=True, add_special_tokens=False)
+
+    # build tokenized_inputs
+    tokenized_inputs = {
+        "input_ids": [],
+        "attention_mask": [],
+        "labels": [],
+    }
+    max_len = args.source_max_len + args.target_max_len
+    for tokenized_source, tokenized_target in zip(tokenized_sources["input_ids"], tokenized_targets["input_ids"]):
+        input_ids = torch.tensor(tokenized_source + tokenized_target)
+        if args.drop_short_sequences and input_ids.shape[0] < max_len:
+            continue
+        if args.pad_to_max_len:
+            input_ids = torch.nn.functional.pad(
+                input_ids, (0, max_len - input_ids.shape[0]), value=tokenizer.pad_token_id
+            )
+        context = len(tokenized_source) if args.ignore_source_in_labels else None
+        _append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context=context)
+
+    # convert to HFDataset
+    hf_dataset = HFDataset.from_dict(tokenized_inputs)
+    hf_dataset.set_format("torch", output_all_columns=True)
+
+    return BaseDataset(hf_dataset, ["labels"], max_samples=args.max_samples)
 
 
 def _append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context: int = None, ignore_index=IGNORE_INDEX):
@@ -388,16 +451,72 @@ def _append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context: 
     )
     inputs["attention_mask"] = attention_mask
 
-    # create target_ids
+    # create labels
     # target is not shifted by 1 since causal lm models shifts internally when computing loss
-    target_ids = input_ids.clone()
+    labels = input_ids.clone()
     # set context to ignore_index
     if context is not None:
-        target_ids[:-context] = ignore_index
+        labels[:-context] = ignore_index
     # set padding to ignore_index
-    target_ids[attention_mask != 1] = ignore_index
-    inputs["target_ids"] = target_ids
+    labels[attention_mask != 1] = ignore_index
+    inputs["labels"] = labels
 
     # add to list
     for k, v in inputs.items():
         tokenized_inputs[k].append(v)
+
+
+# based on https://github.com/artidoro/qlora/blob/main/qlora.py
+def _format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
+    ALPACA_PROMPT_DICT = {
+        "prompt_input": (
+            "Below is an instruction that describes a task, paired with an input that provides further context. "
+            "Write a response that appropriately completes the request.\n\n"
+            "### Instruction:\n{instruction}\n\n### Input:\n{input}\n\n### Response: "
+        ),
+        "prompt_no_input": (
+            "Below is an instruction that describes a task. "
+            "Write a response that appropriately completes the request.\n\n"
+            "### Instruction:\n{instruction}\n\n### Response: "
+        ),
+    }
+
+    def extract_alpaca_dataset(example):
+        if example.get("input", "") != "":
+            prompt_format = ALPACA_PROMPT_DICT["prompt_input"]
+        else:
+            prompt_format = ALPACA_PROMPT_DICT["prompt_no_input"]
+        return {"input": prompt_format.format(**example)}
+
+    if pair_format == TextGenPairFormat.ALPACA:
+        dataset = dataset.map(extract_alpaca_dataset, remove_columns=["instruction"])
+    elif pair_format == TextGenPairFormat.CHIP2:
+        dataset = dataset.map(
+            lambda x: {
+                "input": x["text"].split("\n<bot>: ")[0].replace("<human>: ", ""),
+                "output": x["text"].split("\n<bot>: ")[1],
+            }
+        )
+    elif pair_format == TextGenPairFormat.SELF_INSTRUCT:
+        dataset = dataset.map(
+            lambda x: {
+                "input": x["prompt"],
+                "output": x["completion"],
+            }
+        )
+    elif pair_format == TextGenPairFormat.CUSTOM:
+        dataset = dataset.map(
+            lambda x: {
+                "input": x[input_col],
+                "output": x[output_col],
+            }
+        )
+    elif pair_format == TextGenPairFormat.DEFAULT:
+        # do nothing
+        pass
+    else:
+        raise ValueError(f"Invalid pair_format: {pair_format}")
+
+    # remove unused columns
+    dataset = dataset.remove_columns([col for col in dataset.column_names if col not in ["input", "output"]])
+    return dataset
