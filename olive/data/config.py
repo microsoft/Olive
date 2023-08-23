@@ -2,8 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import copy
 import logging
+from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Union
 
@@ -68,12 +68,16 @@ class DataConfig(ConfigBase):
         self._update_default_component_type()
         self._update_default_component()
         for k, v in self.default_components.items():
+            # do deepcopies here since we don't want to update the default_components
             if k not in self.components:
-                self.components[k] = v
+                # v is a DataComponentConfig object, so we deepcopy it
+                self.components[k] = deepcopy(v)
             else:
+                # both are strings, so we don't need to deepcopy
                 self.components[k].type = self.components[k].type or v.type
                 self.components[k].name = self.components[k].name or v.name
-                self.components[k].params = self.components[k].params or v.params
+                # v.params is a dict, so we deepcopy it
+                self.components[k].params = self.components[k].params or deepcopy(v.params)
 
     def _update_default_component_type(self):
         """
@@ -81,7 +85,7 @@ class DataConfig(ConfigBase):
         """
         dc_cls = Registry.get_container(self.type)
         # deepcopy dc_cls.default_components_type since we don't want to update dc_cls.default_components_type
-        self.default_components_type = copy.deepcopy(dc_cls.default_components_type) or {}
+        self.default_components_type = deepcopy(dc_cls.default_components_type) or {}
         # 1. update default_components_type with task_type for huggingface case
         self._update_default_component_type_with_task_type(dc_cls)
         # 2. update default_components_type with DefaultDataComponentCombos
