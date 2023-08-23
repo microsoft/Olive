@@ -396,8 +396,10 @@ class OnnxQuantization(Pass):
                     data_dir,
                     config["batch_size"],
                 )
-            elif config["data_config"]:
-                dataloader = config["data_config"].to_data_container().create_calibration_dataloader(data_root)
+            elif self._data_configs["data_config"]:
+                dataloader = (
+                    self._data_configs["data_config"].to_data_container().create_calibration_dataloader(data_root)
+                )
             try:
                 quantize_static(
                     model_input=model.model_path,

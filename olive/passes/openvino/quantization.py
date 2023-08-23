@@ -97,8 +97,8 @@ class OpenVINOQuantization(Pass):
             data_loader = self._user_module_loader.call_object(
                 config["dataloader_func"], data_dir, config["batch_size"]
             )
-        elif config["data_config"]:
-            common_dataloader = config["data_config"].to_data_container().create_dataloader(data_root)
+        elif self._data_configs["data_config"]:
+            common_dataloader = self._data_configs["data_config"].to_data_container().create_dataloader(data_root)
             data_loader = self._create_dataloader(common_dataloader)
 
         metric = self._user_module_loader.load_object(config["metric_func"])

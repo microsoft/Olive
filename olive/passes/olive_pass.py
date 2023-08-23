@@ -78,11 +78,12 @@ class Pass(ABC):
         if self._requires_user_script:
             self._user_module_loader = UserModuleLoader(self._config["user_script"], self._config["script_dir"])
 
+        self._data_configs = {}
         for k, v in self._config.items():
             if v is None or not k.endswith("data_config"):
                 continue
             # convert data_config to DataConfig
-            self._config[k] = v if isinstance(v, DataConfig) else DataConfig(**v)
+            self._data_configs[k] = v if isinstance(v, DataConfig) else DataConfig(**v)
 
         self._fixed_params = {}
         self._search_space = {}
