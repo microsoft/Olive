@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Union
 
 import torch
 
+from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModel
@@ -114,7 +115,8 @@ class SparseGPT(Pass):
         logger.debug(f"Running SparseGPT on {device} with model_type: {model_type}, mode: {mode}, sparsity: {sparsity}")
 
         # load_data
-        dataloader = self._data_configs["data_config"].to_data_container().create_dataloader(data_root)
+        data_config = validate_config(config["data_config"], DataConfig)
+        dataloader = data_config.to_data_container().create_dataloader(data_root)
         logger.debug(f"Data loaded. Number of batches: {len(dataloader)}")
 
         # load model

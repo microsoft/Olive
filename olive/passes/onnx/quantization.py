@@ -12,6 +12,7 @@ import onnx
 from packaging import version
 
 from olive.cache import get_local_path_from_root
+from olive.common.config_utils import validate_config
 from olive.common.utils import hash_string
 from olive.data.config import DataConfig
 from olive.exception import OlivePassException
@@ -396,10 +397,9 @@ class OnnxQuantization(Pass):
                     data_dir,
                     config["batch_size"],
                 )
-            elif self._data_configs["data_config"]:
-                dataloader = (
-                    self._data_configs["data_config"].to_data_container().create_calibration_dataloader(data_root)
-                )
+            elif config["data_config"]:
+                data_config = validate_config(config["data_config"], DataConfig)
+                dataloader = data_config.to_data_container().create_calibration_dataloader(data_root)
             try:
                 quantize_static(
                     model_input=model.model_path,

@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Union
 
 import torch
 
+from olive.common.config_utils import validate_config
 from olive.common.utils import tensor_data_to_device
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
@@ -90,7 +91,8 @@ class TorchTRTConversion(Pass):
         device = "cuda"
 
         # load_data
-        first_batch = self._data_configs["data_config"].to_data_container().get_first_batch(data_root_path=data_root)[0]
+        data_config = validate_config(config["data_config"], DataConfig)
+        first_batch = data_config.to_data_container().get_first_batch(data_root_path=data_root)[0]
         first_batch = tensor_data_to_device(first_batch, device=device)
         batch_size = first_batch["input_ids"].shape[0]
         seqlen = seqlens[model_type]

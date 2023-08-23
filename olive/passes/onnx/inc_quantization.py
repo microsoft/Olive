@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
 from olive.cache import get_local_path_from_root
+from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.evaluator.metric import Metric, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
@@ -452,10 +453,9 @@ class IncQuantization(Pass):
                     data_dir,
                     config["batch_size"],
                 )
-            elif self._data_configs["data_config"]:
-                inc_calib_dataloader = (
-                    self._data_configs["data_config"].to_data_container().create_calibration_dataloader(data_root)
-                )
+            elif config["data_config"]:
+                data_config = validate_config(config["data_config"], DataConfig)
+                inc_calib_dataloader = data_config.to_data_container().create_calibration_dataloader(data_root)
 
         q_model = quantization.fit(
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func

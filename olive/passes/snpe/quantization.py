@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
 from olive.cache import get_local_path_from_root
+from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import SNPEModel
@@ -88,8 +89,9 @@ class SNPEQuantization(Pass):
         if config["dataloader_func"]:
             data_dir = get_local_path_from_root(data_root, config["data_dir"])
             dataloader = self._user_module_loader.call_object(config["dataloader_func"], data_dir)
-        elif self._data_configs["data_config"]:
-            dataloader = self._data_configs["data_config"].to_data_container().create_dataloader(data_root)
+        elif config["data_config"]:
+            data_config = validate_config(config["data_config"], DataConfig)
+            dataloader = data_config.to_data_container().create_dataloader(data_root)
 
         # convert dataloader to SNPEDataLoader if it is not already
         if not isinstance(dataloader, SNPEDataLoader):
