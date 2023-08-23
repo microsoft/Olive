@@ -124,7 +124,7 @@ _inc_static_dataloader_config = {
         category=ParamCategory.DATA,
         description="""
             Path to the directory containing the dataset.
-            For local data, it is required if quant_mode is 'static' and dataloader_func is provided.
+            For local data, it is required if approach is 'static' and dataloader_func is provided.
         """,
     ),
     "batch_size": PassConfigParam(
@@ -140,13 +140,13 @@ _inc_static_dataloader_config = {
         category=ParamCategory.OBJECT,
         description="""
             Function/function name to generate dataloader for calibration,
-            required if quant_mode is 'static' and data_config is None.
+            required if approach is 'static' and data_config is None.
         """,
     ),
     "data_config": PassConfigParam(
         type_=Union[DataConfig, Dict],
         description="""
-            Data config for calibration, required if quant_mode is 'static' and
+            Data config for calibration, required if approach is 'static' and
             dataloader_func is None.
         """,
     ),
