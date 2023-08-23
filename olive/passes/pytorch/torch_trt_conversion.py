@@ -90,7 +90,7 @@ class TorchTRTConversion(Pass):
         device = "cuda"
 
         # load_data
-        first_batch = self._data_configs["data_config"].to_data_container().get_first_batch(data_root_path=data_root)[0]
+        first_batch = config["data_config"].to_data_container().get_first_batch(data_root_path=data_root)[0]
         first_batch = tensor_data_to_device(first_batch, device=device)
         batch_size = first_batch["input_ids"].shape[0]
         seqlen = seqlens[model_type]

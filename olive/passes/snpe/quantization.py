@@ -88,8 +88,8 @@ class SNPEQuantization(Pass):
         if config["dataloader_func"]:
             data_dir = get_local_path_from_root(data_root, config["data_dir"])
             dataloader = self._user_module_loader.call_object(config["dataloader_func"], data_dir)
-        elif self._data_configs["data_config"]:
-            dataloader = self._data_configs["data_config"].to_data_container().create_dataloader(data_root)
+        elif config["data_config"]:
+            dataloader = config["data_config"].to_data_container().create_dataloader(data_root)
 
         # convert dataloader to SNPEDataLoader if it is not already
         if not isinstance(dataloader, SNPEDataLoader):

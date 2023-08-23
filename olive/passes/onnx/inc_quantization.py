@@ -452,9 +452,9 @@ class IncQuantization(Pass):
                     data_dir,
                     config["batch_size"],
                 )
-            elif self._data_configs["data_config"]:
+            elif config["data_config"]:
                 inc_calib_dataloader = (
-                    self._data_configs["data_config"].to_data_container().create_calibration_dataloader(data_root)
+                    config["data_config"].to_data_container().create_calibration_dataloader(data_root)
                 )
 
         q_model = quantization.fit(

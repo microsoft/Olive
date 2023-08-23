@@ -50,7 +50,7 @@ class RunEngineConfig(EngineConfig):
         return Engine(config)
 
 
-INPUT_MODEL_DATA_CONFIG = "INPUT_MODEL_DATA_CONFIG"
+INPUT_MODEL_DATA_CONFIG = "__input_model_data_config__"
 
 
 class RunConfig(ConfigBase):

@@ -114,7 +114,7 @@ class SparseGPT(Pass):
         logger.debug(f"Running SparseGPT on {device} with model_type: {model_type}, mode: {mode}, sparsity: {sparsity}")
 
         # load_data
-        dataloader = self._data_configs["data_config"].to_data_container().create_dataloader(data_root)
+        dataloader = config["data_config"].to_data_container().create_dataloader(data_root)
         logger.debug(f"Data loaded. Number of batches: {len(dataloader)}")
 
         # load model
