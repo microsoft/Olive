@@ -4,12 +4,9 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
-import os
-import subprocess
+import shutil
 import tempfile
 from pathlib import Path
-
-import yaml
 
 from olive.systems.common import SystemType
 
@@ -64,7 +61,6 @@ def create_new_system(origin_system, accelerator):
         raise NotImplementedError("olive_managed_env is not supported for LocalSystem")
 
     elif origin_system.system_type == SystemType.PythonEnvironment:
-        import tempfile
         import venv
 
         from olive.systems.python_environment import PythonEnvironmentSystem
@@ -106,7 +102,14 @@ def create_new_system(origin_system, accelerator):
         from olive.systems.azureml import AzureMLSystem
 
         dockerfile = PROVIDER_DOCKERFILE_MAPPING.get(accelerator.execution_provider, "Dockerfile.cpu")
-        conda_file_path = export_conda_yaml_from_requirements(origin_system.requirements_file)
+        build_context_path = Path(__file__).parent / "docker"
+
+        if origin_system.requirements_file:
+            shutil.copyfile(origin_system.requirements_file, build_context_path / "requirements.txt")
+        else:
+            with open(build_context_path / "requirements.txt", "w"):
+                pass
+
         new_system = AzureMLSystem(
             azureml_client_config=origin_system.azureml_client_config,
             aml_compute=origin_system.compute,
@@ -114,8 +117,7 @@ def create_new_system(origin_system, accelerator):
             accelerators=[accelerator.accelerator_type],
             aml_docker_config={
                 "dockerfile": dockerfile,
-                "conda_file_path": conda_file_path,
-                "build_context_path": Path(__file__).parent / "docker",
+                "build_context_path": build_context_path,
             },
         )
 
@@ -123,15 +125,3 @@ def create_new_system(origin_system, accelerator):
         raise NotImplementedError(f"System type {origin_system.system_type} is not supported")
 
     return new_system
-
-
-def export_conda_yaml_from_requirements(requirements_file):
-    temp_dir = tempfile.TemporaryDirectory(prefix="olive_")
-    conda_file = os.path.join(temp_dir.name, "environment.yml")
-    subprocess.run(["conda", "env", "export", "-f", conda_file, "--no-builds"], check=True)
-    with open(conda_file) as f:
-        conda_env = yaml.safe_load(f)
-    conda_env["dependencies"] = conda_env["dependencies"] + [{"pip": requirements_file}]
-    with open(conda_file, "w") as f:
-        yaml.dump(conda_env, f)
-    return conda_file

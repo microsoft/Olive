@@ -35,3 +35,6 @@ RUN python -m pip install --upgrade pip
 RUN python -m pip install pandas plotly psutil datasets transformers
 RUN python -m pip install onnxruntime-openvino==1.15.0
 RUN python -m pip install git+https://github.com/microsoft/Olive.git
+
+ADD requirements.txt requirements.txt
+RUN pip install -r requirements.txt

@@ -69,7 +69,7 @@ class DockerSystem(OliveSystem):
                     with tempfile.TemporaryDirectory() as tempdir:
                         build_context_path = tempdir
                         shutil.copy2(dockerfile_path, build_context_path)
-                        shutil.copy2(local_docker_config.requirements_file_path, build_context_path)
+                        shutil.copy(local_docker_config.requirements_file_path, build_context_path / "requirements.txt")
                         self.image = self.docker_client.images.build(
                             path=build_context_path,
                             dockerfile=self.BASE_DOCKERFILE,
