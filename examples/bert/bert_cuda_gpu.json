@@ -59,7 +59,8 @@
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "enable_cuda_graph": true
+                "enable_cuda_graph": true,
+                "data_config": "__input_model_data_config__"
             }
         }
     },

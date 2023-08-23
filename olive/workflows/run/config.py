@@ -50,7 +50,7 @@ class RunEngineConfig(EngineConfig):
         return Engine(config)
 
 
-INPUT_MODEL_DATA_CONFIG_NAME = "olive_input_model_data_config"
+INPUT_MODEL_DATA_CONFIG = "__input_model_data_config__"
 
 
 class RunConfig(ConfigBase):
@@ -87,15 +87,15 @@ class RunConfig(ConfigBase):
             # if data_configs is None, create an empty dict
             v = {}
 
-        if INPUT_MODEL_DATA_CONFIG_NAME in v:
-            raise ValueError(f"Data config name {INPUT_MODEL_DATA_CONFIG_NAME} is reserved. Please use another name.")
+        if INPUT_MODEL_DATA_CONFIG in v:
+            raise ValueError(f"Data config name {INPUT_MODEL_DATA_CONFIG} is reserved. Please use another name.")
 
         # insert input model hf data config if present
         hf_config = values["input_model"].dict()["config"].get("hf_config", {})
         hf_config_dataset = hf_config.get("dataset", None)
         if hf_config_dataset:
-            v[INPUT_MODEL_DATA_CONFIG_NAME] = {
-                "name": INPUT_MODEL_DATA_CONFIG_NAME,
+            v[INPUT_MODEL_DATA_CONFIG] = {
+                "name": INPUT_MODEL_DATA_CONFIG,
                 "type": HuggingfaceContainer.__name__,
                 "params_config": {
                     "model_name": hf_config.get("model_name", None),
@@ -115,7 +115,7 @@ class RunConfig(ConfigBase):
         if isinstance(v, DataConfig):
             v = v.dict()
 
-        if v["name"] == INPUT_MODEL_DATA_CONFIG_NAME:
+        if v["name"] == INPUT_MODEL_DATA_CONFIG:
             # skip validation for input model data config
             return v
 
@@ -170,11 +170,16 @@ class RunConfig(ConfigBase):
 
         v["disable_search"] = disable_search
         pass_cls = Pass.registry.get(v["type"].lower(), None)
-        if pass_cls and pass_cls.requires_data_config():
-            v["config"] = _resolve_data_config(v.get("config", {}), values, "data_config")
-
-            if not v["config"]:
+        if pass_cls:
+            if not v.get("config"):
                 return v
+
+            for param_name in v["config"]:
+                if param_name.endswith("data_config"):
+                    # we won't auto insert the input model data config for pass
+                    # user must explicitly set the data config to INPUT_MODEL_DATA_CONFIG if needed
+                    v["config"] = _resolve_data_config(v["config"], values, param_name, auto_insert=False)
+
             data_dir_config = v["config"].get("data_dir", None)
             if isinstance(data_dir_config, dict):
                 if _have_aml_client(data_dir_config, values):
@@ -239,12 +244,12 @@ def _resolve_system(v, values, system_alias):
     return v
 
 
-def _resolve_data_config(v, values, data_config_alias):
+def _resolve_data_config(v, values, data_config_alias, auto_insert=True):
     # get the value for data_config_alias in v
     data_container_config = v.get(data_config_alias, None)
     # auto insert input model data config if data_container_config is None
-    if not data_container_config and INPUT_MODEL_DATA_CONFIG_NAME in values["data_configs"]:
-        v[data_config_alias] = INPUT_MODEL_DATA_CONFIG_NAME
+    if not data_container_config and INPUT_MODEL_DATA_CONFIG in values["data_configs"] and auto_insert:
+        v[data_config_alias] = INPUT_MODEL_DATA_CONFIG
     # resolve data_config_alias to data config
     return _resolve_config_str(v, values, data_config_alias, component_name="data_configs")
 

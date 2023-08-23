@@ -9,7 +9,6 @@ from typing import Callable, Dict, Optional, Type, Union
 from pydantic import create_model, validator
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object, validate_resource_path
-from olive.data.config import DataConfig
 from olive.strategy.search_parameter import SearchParameter, json_to_search_parameter
 
 
@@ -82,20 +81,6 @@ def get_user_script_config(
         ),
     }
     return user_script_config
-
-
-def get_data_config(required: Optional[bool] = False):
-    data_config = {
-        "data_config": PassConfigParam(
-            type_=Union[DataConfig, str],
-            required=required,
-            description="""
-                Data config for calibration, required if quant_mode is 'static'.
-                If not provided, a default DataConfig will be used.
-            """,
-        )
-    }
-    return data_config
 
 
 class PassConfigBase(ConfigBase):
