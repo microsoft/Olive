@@ -1,0 +1,30 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "huggyllama/llama-7b",
+                "task": "text-generation"
+            }
+        }
+    },
+    "passes": {
+        "sparsegpt": {
+            "type": "QLoRA"
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "search_strategy": false,
+        "evaluate_input_model": false,
+        "target": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["gpu"]
+            }
+        },
+        "execution_providers": ["CPUExecutionProvider"],
+        "cache_dir": "cache",
+        "output_dir" : "models/lora"
+    }
+}

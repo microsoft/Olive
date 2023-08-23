@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
 import sys
 
 _logger = logging.getLogger(__name__)
@@ -15,3 +16,8 @@ _logger.addHandler(_sc)
 _logger.propagate = False
 
 __version__ = "0.4.0"
+
+
+# set to 1,2 for development
+# incase I forget to set it in the terminal
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"

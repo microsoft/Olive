@@ -14,7 +14,7 @@ from pydantic import Field, validator
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
-from olive.model.hf_mappings import MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
+from olive.model.hf_mappings import FEATURE_TO_PEFT_TASK_TYPE, MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
 from olive.model.model_config import IOConfig
 
 logger = logging.getLogger(__name__)
@@ -247,6 +247,7 @@ def load_huggingface_model_from_task(task: str, name: str, **kwargs):
     class_tuple = class_tuple + model_class.get("pt", (AutoModel,))
 
     model = None
+    kwargs = kwargs or {}
     for model_class in class_tuple:
         try:
             model = model_class.from_pretrained(name, **kwargs)
@@ -368,6 +369,15 @@ def get_hf_model_dummy_input(model_name: str, task: str, feature: Optional[str] 
     model_config = get_onnx_config(model_name, task, feature)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     return model_config.generate_dummy_inputs(tokenizer, framework="pt")
+
+
+def get_peft_task_type_from_task(task: str, fail_on_not_found=False) -> str:
+    """Get peft task type from feature"""
+    feature = TASK_TO_FEATURE.get(task, None)
+    peft_task_type = FEATURE_TO_PEFT_TASK_TYPE.get(feature, None) if feature else None
+    if peft_task_type is None and fail_on_not_found:
+        raise ValueError(f"There is no peft task type for task {task}")
+    return peft_task_type
 
 
 def get_model_max_length(model_name: str, fail_on_not_found=False) -> int:
