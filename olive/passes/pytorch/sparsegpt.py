@@ -14,7 +14,7 @@ import torch
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModel
 from olive.passes import Pass
-from olive.passes.olive_pass import PassConfigParam
+from olive.passes.olive_pass import PassConfigParam, PassDataConfigParam
 from olive.passes.pytorch.sparsegpt_utils import (
     SparseGPTModule,
     catch_layer_inputs,
@@ -35,8 +35,6 @@ class SparseGPT(Pass):
     This pass only supports PyTorchModel with hf_config. The transformers model type
     must be one of [bloom, gpt2, gpt_neox, llama, opt].
     """
-
-    _requires_data_config = True
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -82,6 +80,18 @@ class SparseGPT(Pass):
             ),
         }
 
+    @staticmethod
+    def _data_configs() -> Dict[str, PassDataConfigParam]:
+        return {
+            "data_config": PassDataConfigParam(
+                required=True,
+                description=(
+                    "Data config to use for pruning weights. All samples in the data are expected to be of the"
+                    " same length, most likely the max sequence length of the model."
+                ),
+            )
+        }
+
     @torch.no_grad()
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
@@ -107,8 +117,7 @@ class SparseGPT(Pass):
         logger.debug(f"Running SparseGPT on {device} with model_type: {model_type}, mode: {mode}, sparsity: {sparsity}")
 
         # load_data
-        assert config["data_config"] is not None, "Data config is required for SparseGPT pass."
-        dataloader = self._data_config.to_data_container().create_dataloader(data_root)
+        dataloader = self._data_config_dict["data_config"].to_data_container().create_dataloader(data_root)
         logger.debug(f"Data loaded. Number of batches: {len(dataloader)}")
 
         # load model

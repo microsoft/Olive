@@ -12,7 +12,7 @@ from olive.common.utils import tensor_data_to_device
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import PyTorchModel
 from olive.passes import Pass
-from olive.passes.olive_pass import PassConfigParam
+from olive.passes.olive_pass import PassConfigParam, PassDataConfigParam
 from olive.passes.pytorch.sparsegpt_utils import (
     _get_attr,
     get_layer_submodules,
@@ -36,8 +36,6 @@ class TorchTRTConversion(Pass):
     must be one of [bloom, gpt2, gpt_neox, llama, opt].
     """
 
-    _requires_data_config = True
-
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
@@ -57,6 +55,18 @@ class TorchTRTConversion(Pass):
                 default_value=False,
                 description="Convert entire model to fp16. If False, only the sparse modules are converted to fp16.",
             ),
+        }
+
+    @staticmethod
+    def _data_configs() -> Dict[str, PassDataConfigParam]:
+        return {
+            "data_config": PassDataConfigParam(
+                required=True,
+                description=(
+                    "Data config to use for compiling module to TensorRT. The batch size of the compiled module is set"
+                    " to the batch size of the first batch of the dataloader."
+                ),
+            )
         }
 
     def validate_search_point(
@@ -83,8 +93,9 @@ class TorchTRTConversion(Pass):
         device = "cuda"
 
         # load_data
-        assert config["data_config"] is not None, "Data config is required for TorchTRTConversion."
-        first_batch = self._data_config.to_data_container().get_first_batch(data_root_path=data_root)[0]
+        first_batch = (
+            self._data_config_dict["data_config"].to_data_container().get_first_batch(data_root_path=data_root)[0]
+        )
         first_batch = tensor_data_to_device(first_batch, device=device)
         batch_size = first_batch["input_ids"].shape[0]
         seqlen = seqlens[model_type]

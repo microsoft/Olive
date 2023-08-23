@@ -9,7 +9,7 @@ from olive.cache import get_local_path_from_root
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import SNPEModel
 from olive.passes.olive_pass import Pass
-from olive.passes.pass_config import ParamCategory, PassConfigParam
+from olive.passes.pass_config import ParamCategory, PassConfigParam, PassDataConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.snpe import SNPECommonDataLoader, SNPEDataLoader
 from olive.snpe.tools.dev import quantize_dlc
@@ -23,7 +23,6 @@ class SNPEQuantization(Pass):
     """
 
     _requires_user_script = True
-    _requires_data_config = True
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -74,6 +73,14 @@ class SNPEQuantization(Pass):
             ),
         }
 
+    @staticmethod
+    def _data_configs() -> Dict[str, PassDataConfigParam]:
+        return {
+            "data_config": PassDataConfigParam(
+                description="Data config for calibration, required if 'dataloader_func' is not provided."
+            )
+        }
+
     def _run_for_config(
         self, model: SNPEModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> SNPEModel:
@@ -83,8 +90,8 @@ class SNPEQuantization(Pass):
         if config["dataloader_func"]:
             data_dir = get_local_path_from_root(data_root, config["data_dir"])
             dataloader = self._user_module_loader.call_object(config["dataloader_func"], data_dir)
-        elif self._data_config:
-            dataloader = self._data_config.to_data_container().create_dataloader(data_root)
+        elif self._data_config_dict["data_config"]:
+            dataloader = self._data_config_dict["data_config"].to_data_container().create_dataloader(data_root)
 
         # convert dataloader to SNPEDataLoader if it is not already
         if not isinstance(dataloader, SNPEDataLoader):

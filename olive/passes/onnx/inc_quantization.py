@@ -16,7 +16,7 @@ from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
-from olive.passes.pass_config import ParamCategory, PassConfigParam
+from olive.passes.pass_config import ParamCategory, PassConfigParam, PassDataConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
@@ -209,7 +209,6 @@ class IncQuantization(Pass):
     """
 
     _requires_user_script = True
-    _requires_data_config = True
 
     def _initialize(self):
         super()._initialize()
@@ -271,6 +270,17 @@ class IncQuantization(Pass):
         # external data config
         config.update(get_external_data_config())
         return config
+
+    @staticmethod
+    def _data_configs() -> Dict[str, PassDataConfigParam]:
+        return {
+            "data_config": PassDataConfigParam(
+                description=(
+                    "Data config for calibration, required if quant_mode is 'static' and 'dataloader_func' is not"
+                    " provided."
+                )
+            )
+        }
 
     def _set_eval_func(self, accuracy_metric, sub_type, data_root):
         # set eval_func for INC according to Olive accuracy metric
@@ -445,8 +455,10 @@ class IncQuantization(Pass):
                     data_dir,
                     config["batch_size"],
                 )
-            elif self._data_config:
-                inc_calib_dataloader = self._data_config.to_data_container().create_calibration_dataloader(data_root)
+            elif self._data_config_dict["data_config"]:
+                inc_calib_dataloader = (
+                    self._data_config_dict["data_config"].to_data_container().create_calibration_dataloader(data_root)
+                )
 
         q_model = quantization.fit(
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
@@ -464,7 +476,7 @@ class IncQuantization(Pass):
 class IncDynamicQuantization(IncQuantization):
     """Intel® Neural Compressor Dynamic Quantization Pass"""
 
-    _requires_user_script = True
+    _requires_user_script = False
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
@@ -482,11 +494,13 @@ class IncDynamicQuantization(IncQuantization):
         config.update(get_external_data_config())
         return config
 
+    @staticmethod
+    def _data_configs() -> Dict[str, PassDataConfigParam]:
+        return {}
+
 
 class IncStaticQuantization(IncQuantization):
     """Intel® Neural Compressor Static Quantization Pass"""
-
-    _requires_user_script = True
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:

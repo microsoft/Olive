@@ -170,16 +170,21 @@ class RunConfig(ConfigBase):
 
         v["disable_search"] = disable_search
         pass_cls = Pass.registry.get(v["type"].lower(), None)
-        if pass_cls and pass_cls.requires_data_config():
-            v["config"] = _resolve_data_config(v.get("config", {}), values, "data_config")
+        if not pass_cls:
+            return v
 
-            if not v["config"]:
-                return v
-            data_dir_config = v["config"].get("data_dir", None)
-            if isinstance(data_dir_config, dict):
-                if _have_aml_client(data_dir_config, values):
-                    data_dir_config["config"]["azureml_client"] = values["azureml_client"]
-                v["config"]["data_dir"] = data_dir_config
+        # resolve data config params
+        for data_config_alias, data_config_param in pass_cls.data_configs().items():
+            auto_insert = data_config_param.auto_insert
+            v["config"] = _resolve_data_config(v.get("config", {}), values, data_config_alias, auto_insert)
+
+        # auto insert azureml_client for resource path
+        data_dir_config = v.get("config", {}).get("data_dir", None)
+        if isinstance(data_dir_config, dict):
+            if _have_aml_client(data_dir_config, values):
+                data_dir_config["config"]["azureml_client"] = values["azureml_client"]
+            v["config"]["data_dir"] = data_dir_config
+
         return v
 
 
@@ -239,11 +244,11 @@ def _resolve_system(v, values, system_alias):
     return v
 
 
-def _resolve_data_config(v, values, data_config_alias):
+def _resolve_data_config(v, values, data_config_alias, auto_insert=True):
     # get the value for data_config_alias in v
     data_container_config = v.get(data_config_alias, None)
     # auto insert input model data config if data_container_config is None
-    if not data_container_config and INPUT_MODEL_DATA_CONFIG_NAME in values["data_configs"]:
+    if not data_container_config and INPUT_MODEL_DATA_CONFIG_NAME in values["data_configs"] and auto_insert:
         v[data_config_alias] = INPUT_MODEL_DATA_CONFIG_NAME
     # resolve data_config_alias to data config
     return _resolve_config_str(v, values, data_config_alias, component_name="data_configs")

@@ -84,18 +84,17 @@ def get_user_script_config(
     return user_script_config
 
 
-def get_data_config(required: Optional[bool] = False):
-    data_config = {
-        "data_config": PassConfigParam(
-            type_=Union[DataConfig, str],
-            required=required,
-            description="""
-                Data config for calibration, required if quant_mode is 'static'.
-                If not provided, a default DataConfig will be used.
-            """,
-        )
+class PassDataConfigParam(ConfigBase):
+    required: bool = False
+    description: str = None
+    auto_insert: bool = True
+
+
+def pass_data_configs_to_params(data_configs: Dict[str, PassDataConfigParam]) -> Dict[str, PassConfigParam]:
+    return {
+        k: PassConfigParam(type_=Union[DataConfig, str], required=v.required, description=v.description)
+        for k, v in data_configs.items()
     }
-    return data_config
 
 
 class PassConfigBase(ConfigBase):

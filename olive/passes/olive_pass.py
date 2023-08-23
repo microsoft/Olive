@@ -18,10 +18,11 @@ from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel
 from olive.passes.pass_config import (
     PassConfigBase,
     PassConfigParam,
+    PassDataConfigParam,
     PassParamDefault,
     create_config_class,
-    get_data_config,
     get_user_script_config,
+    pass_data_configs_to_params,
 )
 from olive.resource_path import ResourcePath
 from olive.strategy.search_parameter import (
@@ -46,8 +47,6 @@ class Pass(ABC):
     registry: Dict[str, Type["Pass"]] = {}
     # True if pass configuration requires user script for non-local host support
     _requires_user_script: bool = False
-    # True if pass configuration requires data configuration which will leverage data container for pass execution
-    _requires_data_config: bool = False
     # True if the pass processes a composite model at once. Otherwise, the components of the
     # composite model will be processed individually.
     _accepts_composite_model: bool = False
@@ -80,9 +79,11 @@ class Pass(ABC):
         self._config = config
         if self._requires_user_script:
             self._user_module_loader = UserModuleLoader(self._config["user_script"], self._config["script_dir"])
-        if self._requires_data_config:
-            data_config = self._config.get("data_config") or {}
-            self._data_config = DataConfig(**data_config)
+        if self._data_configs():
+            self._data_config_dict = {}
+            for k in self._data_configs():
+                value = config.get(k)
+                self._data_config_dict[k] = DataConfig(**value) if value else None
 
         self._fixed_params = {}
         self._search_space = {}
@@ -107,10 +108,6 @@ class Pass(ABC):
         accelerator spec information.
         """
         return True
-
-    @classmethod
-    def requires_data_config(cls):
-        return cls._requires_data_config
 
     @classmethod
     def generate_search_space(
@@ -152,8 +149,8 @@ class Pass(ABC):
         config = {}
         if cls._requires_user_script:
             config.update(get_user_script_config())
-        if cls.requires_data_config():
-            config.update(get_data_config())
+        if cls._data_configs():
+            config.update(pass_data_configs_to_params(cls._data_configs()))
         return {**config, **cls._default_config(accelerator_spec)}
 
     @staticmethod
@@ -213,6 +210,25 @@ class Pass(ABC):
             }
         """
         raise NotImplementedError()
+
+    @classmethod
+    def data_configs(cls) -> Dict[str, PassDataConfigParam]:
+        return cls._data_configs()
+
+    @staticmethod
+    def _data_configs() -> Dict[str, PassDataConfigParam]:
+        """
+        Get the config parameters that are olive data config.
+
+        Example:
+            return {
+                "data_config": PassDataConfigParam(
+                    required=False,
+                    description="Data config for calibration"
+                ),
+            }
+        """
+        return {}
 
     @classmethod
     def _resolve_defaults(cls, config: Dict[str, Any], default_config: Dict[str, PassConfigParam]) -> Dict[str, Any]:

@@ -12,7 +12,7 @@ from olive.evaluator.metric_config import get_user_config_properties_from_metric
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
-from olive.passes.pass_config import ParamCategory, PassConfigParam
+from olive.passes.pass_config import ParamCategory, PassConfigParam, PassDataConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
@@ -267,7 +267,6 @@ class OrtPerfTuning(Pass):
     """Optimize ONNX Runtime inference settings."""
 
     _requires_user_script = True
-    _requires_data_config = True
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
@@ -340,6 +339,14 @@ class OrtPerfTuning(Pass):
                 default_value=None,
                 description="Extra customized session options during tuning process.",
             ),
+        }
+
+    @staticmethod
+    def _data_configs() -> Dict[str, PassDataConfigParam]:
+        return {
+            "data_config": PassDataConfigParam(
+                description="Data config for calibration, required if 'dataloader_func' is not provided."
+            )
         }
 
     def _run_for_config(
