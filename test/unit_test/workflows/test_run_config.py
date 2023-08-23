@@ -9,7 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
-from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG_NAME, RunConfig
+from olive.data.config import DataConfig
+from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG, RunConfig
 
 
 class TestRunConfig:
@@ -182,13 +183,16 @@ class TestDataConfigValidation:
         assert run_config.data_configs["dummy_data_config2"].params_config["task"] == expected_task
 
     @pytest.mark.parametrize(
-        "data_config,expected_name",
-        [(None, INPUT_MODEL_DATA_CONFIG_NAME), ("dummy_data_config2", "dummy_data_config2")],
+        "data_config_str",
+        [None, INPUT_MODEL_DATA_CONFIG, "dummy_data_config2"],
     )
-    def test_str_to_data_config(self, data_config, expected_name):
+    def test_str_to_data_config(self, data_config_str):
         config_dict = self.template.copy()
-        config_dict["passes"]["tuning"]["config"] = {"data_config": data_config}
+        config_dict["passes"]["tuning"]["config"] = {"data_config": data_config_str}
 
         run_config = RunConfig.parse_obj(config_dict)
-        # print(run_config.passes["tuning"])
-        assert run_config.passes["tuning"].config["data_config"].name == expected_name
+        pass_data_config = run_config.passes["tuning"].config["data_config"]
+        if data_config_str is None:
+            assert pass_data_config is None
+        else:
+            assert isinstance(pass_data_config, DataConfig) and pass_data_config.name == data_config_str

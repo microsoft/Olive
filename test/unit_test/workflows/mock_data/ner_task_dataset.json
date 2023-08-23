@@ -60,10 +60,16 @@
             }
         },
         "quantization": {
-            "type": "OnnxQuantization"
+            "type": "OnnxQuantization",
+            "config": {
+                "data_config": "INPUT_MODEL_DATA_CONFIG"
+            }
         },
         "perf_tuning": {
-            "type": "OrtPerfTuning"
+            "type": "OrtPerfTuning",
+            "config": {
+                "data_config": "INPUT_MODEL_DATA_CONFIG"
+            }
         }
     },
     "engine": {

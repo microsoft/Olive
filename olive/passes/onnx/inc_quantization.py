@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
 
 from olive.cache import get_local_path_from_root
+from olive.data.config import DataConfig
 from olive.evaluator.metric import Metric, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
 from olive.exception import OlivePassException
@@ -123,23 +124,30 @@ _inc_static_dataloader_config = {
         category=ParamCategory.DATA,
         description="""
             Path to the directory containing the dataset.
-            For local data, it is required if approach is 'static'.
+            For local data, it is required if quant_mode is 'static' and dataloader_func is provided.
         """,
     ),
     "batch_size": PassConfigParam(
         type_=int,
         default_value=1,
         description="""
-            Batch size for calibration, required if approach is 'static'.
+            Batch size for calibration, only used if dataloader_func is provided.
         """,
     ),
+    # TODO: remove this option once we have a data config ready
     "dataloader_func": PassConfigParam(
         type_=Union[Callable, str],
-        required=True,
         category=ParamCategory.OBJECT,
         description="""
             Function/function name to generate dataloader for calibration,
-            required if approach is 'static'
+            required if quant_mode is 'static' and data_config is None.
+        """,
+    ),
+    "data_config": PassConfigParam(
+        type_=Union[DataConfig, Dict],
+        description="""
+            Data config for calibration, required if quant_mode is 'static' and
+            dataloader_func is None.
         """,
     ),
 }
@@ -209,7 +217,6 @@ class IncQuantization(Pass):
     """
 
     _requires_user_script = True
-    _requires_data_config = True
 
     def _initialize(self):
         super()._initialize()
@@ -445,8 +452,10 @@ class IncQuantization(Pass):
                     data_dir,
                     config["batch_size"],
                 )
-            elif self._data_config:
-                inc_calib_dataloader = self._data_config.to_data_container().create_calibration_dataloader(data_root)
+            elif self._data_configs["data_config"]:
+                inc_calib_dataloader = (
+                    self._data_configs["data_config"].to_data_container().create_calibration_dataloader(data_root)
+                )
 
         q_model = quantization.fit(
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
@@ -464,7 +473,7 @@ class IncQuantization(Pass):
 class IncDynamicQuantization(IncQuantization):
     """Intel® Neural Compressor Dynamic Quantization Pass"""
 
-    _requires_user_script = True
+    _requires_user_script = False
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
@@ -485,8 +494,6 @@ class IncDynamicQuantization(IncQuantization):
 
 class IncStaticQuantization(IncQuantization):
     """Intel® Neural Compressor Static Quantization Pass"""
-
-    _requires_user_script = True
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:

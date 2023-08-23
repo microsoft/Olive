@@ -51,7 +51,8 @@
             "type": "OrtPerfTuning",
             "config": {
                 "trt_fp16_enable": true,
-                "io_bind": true
+                "io_bind": true,
+                "data_config": "INPUT_MODEL_DATA_CONFIG"
             }
 
         }

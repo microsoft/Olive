@@ -67,7 +67,10 @@
             "config": {"model_type": "bert"}
         },
         "quantization": {
-            "type": "OnnxQuantization"
+            "type": "OnnxQuantization",
+            "config": {
+                "data_config": "INPUT_MODEL_DATA_CONFIG"
+            }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",

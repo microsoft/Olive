@@ -13,6 +13,7 @@ from packaging import version
 
 from olive.cache import get_local_path_from_root
 from olive.common.utils import hash_string
+from olive.data.config import DataConfig
 from olive.exception import OlivePassException
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
@@ -139,24 +140,30 @@ _static_dataloader_config = {
         category=ParamCategory.DATA,
         description="""
             Path to the directory containing the dataset.
-            For local data, it is required if quant_mode is 'static' and data_config is None.
+            For local data, it is required if quant_mode is 'static' and dataloader_func is provided.
         """,
     ),
     "batch_size": PassConfigParam(
         type_=int,
         default_value=1,
         description="""
-            Batch size for calibration, required if quant_mode is 'static' and data_config is None.
+            Batch size for calibration, only used if dataloader_func is provided.
         """,
     ),
     # TODO: remove this option once we have a data config ready
     "dataloader_func": PassConfigParam(
         type_=Union[Callable, str],
-        required=False,
         category=ParamCategory.OBJECT,
         description="""
             Function/function name to generate dataloader for calibration,
             required if quant_mode is 'static' and data_config is None.
+        """,
+    ),
+    "data_config": PassConfigParam(
+        type_=Union[DataConfig, Dict],
+        description="""
+            Data config for calibration, required if quant_mode is 'static' and
+            dataloader_func is None.
         """,
     ),
 }
@@ -211,7 +218,6 @@ class OnnxQuantization(Pass):
     """
 
     _requires_user_script = True
-    _requires_data_config = True
 
     def _initialize(self):
         super()._initialize()
@@ -390,8 +396,10 @@ class OnnxQuantization(Pass):
                     data_dir,
                     config["batch_size"],
                 )
-            elif self._data_config:
-                dataloader = self._data_config.to_data_container().create_calibration_dataloader(data_root)
+            elif self._data_configs["data_config"]:
+                dataloader = (
+                    self._data_configs["data_config"].to_data_container().create_calibration_dataloader(data_root)
+                )
             try:
                 quantize_static(
                     model_input=model.model_path,
@@ -474,8 +482,6 @@ class OnnxDynamicQuantization(OnnxQuantization):
 
 class OnnxStaticQuantization(OnnxQuantization):
     """ONNX Static Quantization Pass"""
-
-    _requires_user_script = True
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:

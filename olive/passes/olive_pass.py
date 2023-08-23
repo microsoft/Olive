@@ -6,7 +6,7 @@ import inspect
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, get_args
 
 from pydantic import validator
 
@@ -20,7 +20,6 @@ from olive.passes.pass_config import (
     PassConfigParam,
     PassParamDefault,
     create_config_class,
-    get_data_config,
     get_user_script_config,
 )
 from olive.resource_path import ResourcePath
@@ -46,8 +45,6 @@ class Pass(ABC):
     registry: Dict[str, Type["Pass"]] = {}
     # True if pass configuration requires user script for non-local host support
     _requires_user_script: bool = False
-    # True if pass configuration requires data configuration which will leverage data container for pass execution
-    _requires_data_config: bool = False
     # True if the pass processes a composite model at once. Otherwise, the components of the
     # composite model will be processed individually.
     _accepts_composite_model: bool = False
@@ -80,9 +77,12 @@ class Pass(ABC):
         self._config = config
         if self._requires_user_script:
             self._user_module_loader = UserModuleLoader(self._config["user_script"], self._config["script_dir"])
-        if self._requires_data_config:
-            data_config = self._config.get("data_config") or {}
-            self._data_config = DataConfig(**data_config)
+
+        self._data_configs = {}
+        for k, v in self._config.items():
+            if v is None or not k.endswith("data_config"):
+                continue
+            self._data_configs[k] = v if isinstance(v, DataConfig) else DataConfig(**v)
 
         self._fixed_params = {}
         self._search_space = {}
@@ -107,10 +107,6 @@ class Pass(ABC):
         accelerator spec information.
         """
         return True
-
-    @classmethod
-    def requires_data_config(cls):
-        return cls._requires_data_config
 
     @classmethod
     def generate_search_space(
@@ -151,10 +147,19 @@ class Pass(ABC):
         """
         config = {}
         if cls._requires_user_script:
+            # add user script related parameters
             config.update(get_user_script_config())
-        if cls.requires_data_config():
-            config.update(get_data_config())
-        return {**config, **cls._default_config(accelerator_spec)}
+        # add all other parameters
+        config.update(cls._default_config(accelerator_spec))
+        # validate that all parameters ending with data_config are of type DataConfig, Union[DataConfig, dict], ...
+        # this requirement is on the pass developer but we can only check it here
+        for param, param_config in config.items():
+            if param.endswith("data_config"):
+                param_type = param_config.type_
+                assert param_type == DataConfig or DataConfig in get_args(
+                    param_type
+                ), f"{param} ending with data_config must be of type DataConfig."
+        return config
 
     @staticmethod
     def _validators() -> Dict[str, Callable]:
