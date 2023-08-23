@@ -11,6 +11,8 @@ import pytest
 
 from olive.engine import Engine
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
+from olive.hardware import Device
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.passes.onnx import OrtPerfTuning
 from olive.systems.docker.docker_system import DockerSystem
 
@@ -34,4 +36,10 @@ class TestOliveManagedDockerSystem:
         options = {"execution_providers": self.execution_providers}
         engine = Engine(options, target=self.system, evaluator_config=evaluator_config)
         engine.register(OrtPerfTuning)
-        engine.run(self.input_model, output_dir=output_dir)
+        output = engine.run(self.input_model, output_dir=output_dir)
+        cpu_res = output[AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="CPUExecutionProvider")]
+        openvino_res = output[
+            AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="OpenVINOExecutionProvider")
+        ]
+        assert cpu_res[tuple(engine.pass_flows[0])]["metrics"]["latency-avg"]
+        assert openvino_res[tuple(engine.pass_flows[0])]["metrics"]["latency-avg"]
