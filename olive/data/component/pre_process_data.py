@@ -175,8 +175,14 @@ class TextGenPairFormat(str, Enum):
 
 
 class TextGenParams(ConfigBase):
-    max_samples: int = None
-    source_max_len: int
+    """
+    Common parameters for text generation tasks.
+
+    Base dataclass for text generation tasks.
+    """
+
+    max_samples: int = None  # max number of samples to use, None for all
+    source_max_len: int  # max length of source sequence
     # TODO: currently only support padding to max length since we preprocess all data at once
     # might have to expose collator for dataloader to support dynamic padding of batches
     # if false, cannot gaurantee all sequences are same length. data loader will have to handle this during collation
@@ -194,6 +200,8 @@ class TextGenParams(ConfigBase):
 
 
 class TextGenCorpusParams(TextGenParams):
+    """Parameters for text generation task with 'corpus' dataset type."""
+
     text_cols: list  # list of text columns
     corpus_strategy: TextGenCorpusStrategy = TextGenCorpusStrategy.LINE_BY_LINE
     stride: int = None  # required when corpus_strategy is JOIN_SLIDING_WINDOW
@@ -229,6 +237,8 @@ class TextGenCorpusParams(TextGenParams):
 
 
 class TextGenPairParams(TextGenParams):
+    """Parameters for text generation task with 'pair' dataset type."""
+
     pair_format: TextGenPairFormat = TextGenPairFormat.DEFAULT
     input_col: str = None  # required when pair_format is CUSTOM
     output_col: str = None  # required when pair_format is CUSTOM
@@ -248,6 +258,22 @@ class TextGenPairParams(TextGenParams):
 def text_generation_huggingface_pre_process(
     _dataset, model_name: str, dataset_type: TextGenDatasetType, source_max_len: int, max_samples=None, **kwargs
 ):
+    """
+    Pre-process data for text generation task.
+
+    Args:
+        _dataset (object): Data to be pre-processed.
+        model_name (str): Name of the huggingface model.
+        dataset_type (TextGenDatasetType): Type of the dataset. TextGenDatasetType enum.
+        source_max_len (int): Max length of source sequence. For corpus, this is the max length of each sequence.
+            For pair, this is the max length of the input sequence.
+        max_samples (int, optional): Max number of samples to use. Defaults to None.
+        **kwargs: Additional arguments.
+            The common arguments are the fields in TextGenParams.
+            'corpus' arguments are the fields in TextGenCorpusParams.
+            'pair' arguments are the fields in TextGenPairParams.
+            Note: the TextGenCorpusParams and TextGenPairParams subclasses already include the common arguments.
+    """
     from transformers import AutoTokenizer
 
     all_kwargs = deepcopy(kwargs)
@@ -262,6 +288,12 @@ def text_generation_huggingface_pre_process(
 
 
 def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
+    """
+    Pre-process data for text generation task with 'corpus' dataset type.
+
+    The input dataset is expected to have one or more text columns.
+    Depending on the corpus_strategy, the sequences are either joined together or processed individually.
+    """
     from random import Random
 
     from datasets import Dataset as HFDataset
@@ -292,12 +324,18 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
         if args.corpus_strategy != TextGenCorpusStrategy.JOIN_RANDOM:
             # no randomization, just use contiguous blocks of tokens
             if args.corpus_strategy == TextGenCorpusStrategy.JOIN_SLIDING_WINDOW:
+                # we use the stride as both the step between sequences and the context size
                 step, context = args.stride, args.stride
             else:
+                # JOIN corpus_strategy
+                # text is split into non-overlapping sequences and there is no context
                 step, context = seqlen, None
 
+            # only take as much text as needed
+            # assumes that num words > num tokens, so we can use num tokens as an upper bound
             max_text = args.max_samples * seqlen if args.max_samples is not None else num_text
             max_text = min(max_text, num_text)
+            # tokenize the text
             encodings = tokenizer(" ".join(split_text[:max_text]), add_special_tokens=False, return_tensors="pt")
 
             num_tokens = encodings.input_ids.shape[1]
@@ -317,6 +355,7 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
                 resamples = 0
                 encodings = None
                 while resamples < args.random_retries:
+                    # sample a random block of tokens by sampling a random starting location
                     # randint is inclusive, so we need to subtract 1
                     begin_loc = rng.randint(0, num_text - seqlen - 1)
                     # heuristic to make sure we don't get a sequence that is too short
@@ -334,6 +373,7 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
                         break
                     resamples += 1
                 if not encodings:
+                    # could not find a good sample after resampling
                     continue
                 input_ids = encodings.input_ids[0, :seqlen]
                 _append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
@@ -352,10 +392,12 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
                     return_tensors="pt",
                 )
                 if args.drop_short_sequences and encodings.input_ids.shape[1] < args.source_max_len:
+                    # skip short sequences if drop_short_sequences is True
                     continue
                 _append_text_gen_input_ids(tokenized_inputs, encodings.input_ids[0], tokenizer)
                 num_samples += 1
                 if args.max_samples is not None and num_samples >= args.max_samples:
+                    # reached max_samples
                     break
         else:
             # randomization, sample random lines
@@ -365,6 +407,8 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
                 resamples = 0
                 encodings = None
                 while resamples < args.random_retries:
+                    # sample a random line
+                    # randint is inclusive, so we need to subtract 1
                     i = rng.randint(0, len(text_list) - 1)
                     if i not in cache:
                         encodings = tokenizer(
@@ -379,9 +423,11 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
                     else:
                         encodings = cache[i]
                     if not args.drop_short_sequences or encodings.input_ids.shape[1] >= args.source_max_len:
+                        # found a good sample
                         break
                     resamples += 1
                 if not encodings:
+                    # could not find a good sample after resampling
                     continue
                 _append_text_gen_input_ids(tokenized_inputs, encodings.input_ids[0], tokenizer)
 
@@ -393,22 +439,34 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
     return BaseDataset(hf_dataset, ["labels"], max_samples=args.max_samples)
 
 
+# based on https://github.com/artidoro/qlora/blob/main/qlora.py
 def text_gen_pair_pre_process(_dataset, tokenizer, all_kwargs):
+    """
+    Pre-process data for text generation task with 'pair' dataset type.
+
+    Dataset is expected to have two text columns: input and output.
+    An example is a dataset with pairs of prompts and completions.
+
+    The input (truncate to source_max_len) and output (truncate to target_max_len) are concatenated together.
+    """
     from datasets import Dataset as HFDataset
 
     args = validate_config(all_kwargs, TextGenPairParams, warn_unused_keys=True)
 
+    # format dataset based on pair_format
+    # the formatted dataset has two columns: input and output
     dataset = _format_pair_dataset(_dataset, args.pair_format, args.input_col, args.output_col)
     if args.max_samples is not None:
         # truncate dataset to max_samples
         # makes tokenization faster
         dataset = dataset.select(range(args.max_samples))
 
-    # based on https://github.com/artidoro/qlora/blob/main/qlora.py
     # extract elements
     sources = dataset["input"]
     targets = dataset["output"]
     if args.add_special_tokens:
+        # add bos and eos tokens
+        # input and output are concatenated, so add the bos and eos tokens to the input and output respectively
         sources = [f"{tokenizer.bos_token}{source}" for source in sources]
         targets = [f"{target}{tokenizer.eos_token}" for target in targets]
 
@@ -422,15 +480,21 @@ def text_gen_pair_pre_process(_dataset, tokenizer, all_kwargs):
         "attention_mask": [],
         "labels": [],
     }
+    # max_len is the max length of the concatenated input and output
+    # if pad_to_max_len is True, max_len is the max length of the concatenated input and output
     max_len = args.source_max_len + args.target_max_len
     for tokenized_source, tokenized_target in zip(tokenized_sources["input_ids"], tokenized_targets["input_ids"]):
+        # concatenate input and output
         input_ids = torch.tensor(tokenized_source + tokenized_target)
         if args.drop_short_sequences and input_ids.shape[0] < max_len:
+            # skip short sequences if drop_short_sequences is True
             continue
         if args.pad_to_max_len:
+            # add padding to max_len
             input_ids = torch.nn.functional.pad(
                 input_ids, (0, max_len - input_ids.shape[0]), value=tokenizer.pad_token_id
             )
+        # if ignore_source_in_labels is True, the source tokens are treated as context and set to ignore_index in labels
         context = len(tokenized_source) if args.ignore_source_in_labels else None
         _append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context=context)
 
@@ -468,6 +532,10 @@ def _append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context: 
 
 # based on https://github.com/artidoro/qlora/blob/main/qlora.py
 def _format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
+    """Format dataset based on pair_format."""
+
+    # format for input in ALPACA pair format
+    # instruction, input (optional), output
     ALPACA_PROMPT_DICT = {
         "prompt_input": (
             "Below is an instruction that describes a task, paired with an input that provides further context. "
@@ -482,6 +550,7 @@ def _format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
     }
 
     def extract_alpaca_dataset(example):
+        # extract new input from instruction and input
         if example.get("input", "") != "":
             prompt_format = ALPACA_PROMPT_DICT["prompt_input"]
         else:
@@ -491,6 +560,7 @@ def _format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
     if pair_format == TextGenPairFormat.ALPACA:
         dataset = dataset.map(extract_alpaca_dataset, remove_columns=["instruction"])
     elif pair_format == TextGenPairFormat.CHIP2:
+        # separate the human and bot text into input and output
         dataset = dataset.map(
             lambda x: {
                 "input": x["text"].split("\n<bot>: ")[0].replace("<human>: ", ""),
@@ -498,6 +568,7 @@ def _format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
             }
         )
     elif pair_format == TextGenPairFormat.SELF_INSTRUCT:
+        # rename prompt and completion to input and output
         dataset = dataset.map(
             lambda x: {
                 "input": x["prompt"],
@@ -505,6 +576,7 @@ def _format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
             }
         )
     elif pair_format == TextGenPairFormat.CUSTOM:
+        # rename input_col and output_col to input and output
         dataset = dataset.map(
             lambda x: {
                 "input": x[input_col],
@@ -517,6 +589,6 @@ def _format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
     else:
         raise ValueError(f"Invalid pair_format: {pair_format}")
 
-    # remove unused columns
+    # remove unused columns, keep only input and output
     dataset = dataset.remove_columns([col for col in dataset.column_names if col not in ["input", "output"]])
     return dataset
