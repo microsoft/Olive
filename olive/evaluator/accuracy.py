@@ -12,7 +12,7 @@ import torchmetrics
 
 from olive.common.auto_config import AutoConfigClass, ConfigBase
 from olive.common.config_utils import ConfigParam
-from olive.data.component.pre_process_data import IGNORE_INDEX
+from olive.data.constants import IGNORE_INDEX
 
 logger = logging.getLogger(__name__)
 
