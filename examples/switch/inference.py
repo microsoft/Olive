@@ -16,9 +16,9 @@ def _run_non_distributed(filepath):
     session = onnxruntime.InferenceSession(filepath, providers=["CPUExecutionProvider", "CUDAExecutionProvider"])
     input_name = session.get_inputs()[0].name
     data = numpy.full((40, 40), 2, dtype=numpy.int64)
-    output = session.run(None, {input_name: data})[0]
+    outputs = session.run(None, {input_name: data})[0]
 
-    return output
+    return outputs
 
 
 def _mpipool_worker(args):
@@ -41,9 +41,9 @@ def _mpipool_worker(args):
     )
     input_name = session.get_inputs()[0].name
     data = numpy.full((40, 40), 2, dtype=numpy.int64)
-    output = session.run(None, {input_name: data})[0]
+    outputs = session.run(None, {input_name: data})[0]
 
-    return output
+    return outputs
 
 
 def _run_using_mpipool(filepath, world_size):
@@ -111,7 +111,9 @@ def _main():
                     distributed_session_outputs[0], distributed_session_outputs[i], atol=atol
                 )
 
-        pprint.pprint(results)
+        if not numpy.all(list(results.values())):
+            pprint.pprint(results)
+            raise "Inference tests failed!"
 
     return 0
 
@@ -121,14 +123,14 @@ if __name__ == "__main__":
 
 
 # python3 inference.py \
-#   --filepath model_4n_2l_8e.onnx
+#   --filepath model.onnx
 #
 # python3 inference.py \
-#   --filename-pattern model_4n_2l_8e_{:02d}.onnx \
+#   --filename-pattern model_{:02d}.onnx \
 #   --world-size 2
 #
 # python3 inference.py \
-#   --filepath model_4n_2l_8e.onnx \
-#   --filename-pattern model_4n_2l_8e_{:02d}.onnx \
-#   --world-size 2
+#   --filepath model.onnx \
+#   --filename-pattern model_{:02d}.onnx \
+#   --world-size 2 \
 #   --compare
