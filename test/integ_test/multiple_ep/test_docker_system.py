@@ -4,8 +4,7 @@
 # --------------------------------------------------------------------------
 import platform
 import tempfile
-from test.integ_test.evaluator.azureml_eval.utils import get_latency_metric
-from test.unit_test.utils import create_onnx_model_file, get_onnx_model
+from test.integ_test.multiple_ep.utils import download_data, download_models, get_latency_metric, get_onnx_model
 
 import pytest
 
@@ -13,6 +12,7 @@ from olive.engine import Engine
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import Device
 from olive.hardware.accelerator import AcceleratorSpec
+from olive.model import ONNXModel
 from olive.passes.onnx import OrtPerfTuning
 from olive.systems.docker.docker_system import DockerSystem
 
@@ -23,8 +23,9 @@ class TestOliveManagedDockerSystem:
         # use the olive managed Docker system as the test environment
         self.system = DockerSystem(accelerators=["cpu"], olive_managed_env=True)
         self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
-        create_onnx_model_file()
-        self.input_model = get_onnx_model()
+        download_models()
+        self.input_model = ONNXModel(model_path=get_onnx_model())
+        download_data()
 
     @pytest.mark.skipif(platform.system() == "Windows", reason="Docker target does not support windows")
     def test_run_pass_evaluate(self):

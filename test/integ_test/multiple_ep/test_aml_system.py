@@ -4,9 +4,8 @@
 # --------------------------------------------------------------------------
 import tempfile
 from pathlib import Path
-from test.integ_test.evaluator.azureml_eval.utils import get_latency_metric
+from test.integ_test.multiple_ep.utils import download_data, download_models, get_latency_metric, get_onnx_model
 from test.integ_test.utils import get_olive_workspace_config
-from test.unit_test.utils import create_onnx_model_file, get_onnx_model
 
 import pytest
 
@@ -15,6 +14,7 @@ from olive.engine import Engine
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import Device
 from olive.hardware.accelerator import AcceleratorSpec
+from olive.model import ONNXModel
 from olive.passes.onnx import OrtPerfTuning
 from olive.systems.azureml.aml_system import AzureMLSystem
 
@@ -35,8 +35,9 @@ class TestOliveAzureMLSystem:
         )
 
         self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
-        create_onnx_model_file()
-        self.input_model = get_onnx_model()
+        download_models()
+        self.input_model = ONNXModel(model_path=get_onnx_model())
+        download_data()
 
     def test_run_pass_evaluate(self):
         temp_dir = tempfile.TemporaryDirectory()

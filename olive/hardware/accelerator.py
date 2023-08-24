@@ -59,6 +59,7 @@ class AcceleratorLookup:
             "CUDAExecutionProvider",
             "TensorrtExecutionProvider",
             "CPUExecutionProvider",
+            "OpenVINOExecutionProvider",
         ],
         "npu": ["QNNExecutionProvider", "CPUExecutionProvider"],
     }
