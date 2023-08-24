@@ -2,8 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import platform
 import tempfile
+from pathlib import Path
 from test.integ_test.evaluator.azureml_eval.utils import get_latency_metric
 from test.integ_test.utils import get_olive_workspace_config
 from test.unit_test.utils import create_onnx_model_file, get_onnx_model
@@ -31,14 +31,13 @@ class TestOliveAzureMLSystem:
             aml_compute=aml_compute,
             accelerators=["cpu"],
             olive_managed_env=True,
-            requirements_file="requirements.txt",
+            requirements_file=Path(__file__).parent / "requirements.txt",
         )
 
         self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
         create_onnx_model_file()
         self.input_model = get_onnx_model()
 
-    @pytest.mark.skipif(platform.system() == "Windows", reason="OpenVINO does not support windows")
     def test_run_pass_evaluate(self):
         temp_dir = tempfile.TemporaryDirectory()
         output_dir = temp_dir.name
