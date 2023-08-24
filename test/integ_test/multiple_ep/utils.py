@@ -2,16 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import shutil
 from pathlib import Path
-from test.integ_test.utils import download_azure_blob, get_olive_workspace_config
+from test.integ_test.utils import download_azure_blob
 
 from torchvision import datasets
 from torchvision.transforms import ToTensor
 
-from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
-from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
+from olive.evaluator.metric import LatencySubType, Metric, MetricType
 
 
 def get_directories():
@@ -63,6 +60,7 @@ def download_models():
 
 def download_data():
     datasets.MNIST(data_dir, download=True, transform=ToTensor())
+
 
 def get_onnx_model():
     return str(models_dir / "model.onnx")
