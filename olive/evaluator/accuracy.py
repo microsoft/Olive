@@ -12,6 +12,7 @@ import torchmetrics
 
 from olive.common.auto_config import AutoConfigClass, ConfigBase
 from olive.common.config_utils import ConfigParam
+from olive.data.constants import IGNORE_INDEX
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +140,7 @@ class Perplexity(AccuracyBase):
         # update ignore_index if not set
         config = self.config_dict
         if config["ignore_index"] is None:
-            config["ignore_index"] = -100
+            config["ignore_index"] = IGNORE_INDEX
 
         # create perplexity metric
         perplexity = torchmetrics.text.perplexity.Perplexity(**config)
@@ -151,6 +152,9 @@ class Perplexity(AccuracyBase):
             logits, targets = self.prepare_tensors(model_output.preds[i], target[i], dtypes=[torch.float, torch.long])
             logits = logits.unsqueeze(0)
             targets = targets.unsqueeze(0)
+            # shift targets to the right by one, and drop the last token of logits
+            logits = logits[..., :-1, :]
+            targets = targets[..., 1:]
             perplexity.update(logits, targets)
         result = perplexity.compute()
         return result.item()

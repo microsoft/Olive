@@ -5,6 +5,9 @@
 
 from enum import Enum
 
+# index for targets that should be ignored when computing metrics
+IGNORE_INDEX = -100
+
 
 class DataComponentType(Enum):
     """

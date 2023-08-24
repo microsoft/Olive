@@ -65,8 +65,16 @@ def test_torch_trt_conversion_success(
             "data_name": "ptb_text_only",
             "subset": "penn_treebank",
             "split": "train",
-            "input_cols": ["sentence"],
-            "component_kwargs": {"pre_process_data": {"seqlen": 100, "max_samples": 1, "random_seed": 42}},
+            "component_kwargs": {
+                "pre_process_data": {
+                    "dataset_type": "corpus",
+                    "text_cols": ["sentence"],
+                    "corpus_strategy": "join-random",
+                    "source_max_len": 100,
+                    "max_samples": 1,
+                    "random_seed": 42,
+                }
+            },
         }
         data_config = huggingface_data_config_template(model_name=model_name, task=task, **dataset)
         config = {
