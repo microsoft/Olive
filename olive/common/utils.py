@@ -165,7 +165,8 @@ def tensor_data_to_device(data, device: str):
 
 
 def get_attr(module, attr, fail_on_not_found=False):
-    """Get attribute from module.
+    """
+    Get attribute from module.
 
     :param module: module to get attribute from
     :param attr: attribute name, can be a string with dot notation. If empty, return modulenot
