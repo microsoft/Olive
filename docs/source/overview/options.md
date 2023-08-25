@@ -129,7 +129,7 @@ case insensitive.
                 "batch_size": 1  # the batch size of the dataloader
                 "component_kwargs": {
                     "pre_process_data": {
-                        "remap_labels": true # whether to align the dataset labels to model
+                        "align_labels": true # whether to align the dataset labels with huggingface model config(label2id), more details in https://huggingface.co/docs/datasets/nlp_process#align
                         "model_config_path": "model_config.json" # model config used to process dataset, if not set, it will use the model name to fetch config from huggingface hub.
                     }
                 }

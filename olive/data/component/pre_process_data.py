@@ -77,7 +77,10 @@ def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, max_sa
         return tokenized_inputs
 
     model_config_path = kwargs.pop("model_config_path", None)
-    if kwargs.pop("remap_labels", False):
+    # TODO: add the complete data operation mapping like:
+    # align_labels -> align_labels_with_mapping
+    # Also to support customized operation arguments from users
+    if kwargs.pop("align_labels", False):
         model_hf_config = AutoConfig.from_pretrained(model_config_path or model_name)
         if model_hf_config and model_hf_config.label2id:
             _dataset = _dataset.align_labels_with_mapping(model_hf_config.label2id, label_cols[0])

@@ -47,13 +47,14 @@ def huggingface_data_config_template(model_name, task, **kwargs) -> DataConfig:
         and other arguments in
             - olive.data.component.load_dataset.huggingface_dataset
             - olive.data.component.pre_process_data.huggingface_pre_process
-                - `remap_labels`: true | false, whether to remap the labels with huggingface model config
+                - `align_labels`: true | false, whether to align the dataset labels with huggingface model config
+                more details in https://huggingface.co/docs/datasets/nlp_process#align
                 - `model_config_path`: str, path to the model config file
                 - others is used for huggingface tokenizer
                 e.g.:
                 "component_kwargs": {
                     "pre_process_data": {
-                        "remap_labels": true
+                        "align_labels": true
                     }
                 }
     """
