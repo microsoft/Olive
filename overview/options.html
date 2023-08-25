@@ -298,6 +298,12 @@ For instance, <code class="docutils literal notranslate"><span class="pre">&quot
     <span class="s2">&quot;input_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;sentence1&quot;</span><span class="p">,</span> <span class="s2">&quot;sentence2&quot;</span><span class="p">],</span>  <span class="c1"># the input columns of the dataset</span>
     <span class="s2">&quot;label_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">],</span>  <span class="c1"># the label columns of the dataset</span>
     <span class="s2">&quot;batch_size&quot;</span><span class="p">:</span> <span class="mi">1</span>  <span class="c1"># the batch size of the dataloader</span>
+    <span class="s2">&quot;component_kwargs&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;pre_process_data&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;align_labels&quot;</span><span class="p">:</span> <span class="n">true</span> <span class="c1"># whether to align the dataset labels with huggingface model config(label2id), more details in https://huggingface.co/docs/datasets/nlp_process#align</span>
+            <span class="s2">&quot;model_config_path&quot;</span><span class="p">:</span> <span class="s2">&quot;model_config.json&quot;</span> <span class="c1"># model config used to process dataset, if not set, it will use the model name to fetch config from huggingface hub.</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
 <span class="p">}</span>
 </pre></div>
 </div>
