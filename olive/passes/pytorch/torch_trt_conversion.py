@@ -9,17 +9,17 @@ from typing import Any, Dict, List, Union
 import torch
 
 from olive.common.config_utils import validate_config
-from olive.common.utils import tensor_data_to_device
+from olive.common.utils import get_attr, tensor_data_to_device
 from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import PyTorchModel
+from olive.model.hf_utils import get_model_max_length
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 from olive.passes.pytorch.sparsegpt_utils import (
-    _get_attr,
     get_layer_submodules,
     get_layers,
-    seqlens,
+    supported_models,
     validate_min_max_layers,
 )
 
@@ -83,8 +83,8 @@ class TorchTRTConversion(Pass):
 
         model_config = model.get_model_config()
         model_type = model_config.model_type
-        if model_type not in seqlens:
-            raise ValueError(f"Unsupported model type: {model_type}. Supported types: {seqlens.keys()}")
+        if model_type not in supported_models:
+            raise ValueError(f"Unsupported model type: {model_type}. Supported types: {supported_models}")
 
         if not torch.cuda.is_available():
             raise ValueError("TorchTRTConversion requires a GPU to run.")
@@ -95,7 +95,9 @@ class TorchTRTConversion(Pass):
         first_batch = data_config.to_data_container().get_first_batch(data_root_path=data_root)[0]
         first_batch = tensor_data_to_device(first_batch, device=device)
         batch_size = first_batch["input_ids"].shape[0]
-        seqlen = seqlens[model_type]
+        # get max sequence length
+        model_name = model.hf_config.model_name
+        seqlen = get_model_max_length(model_name, fail_on_not_found=True)
 
         # load model
         pytorch_model = model.load_model()
@@ -164,11 +166,7 @@ class TorchTRTConversion(Pass):
                 trt_module = compile_trt_model(info["submodules"][name], input, batch_size, seqlen)
                 # get parent module
                 parent_name = ".".join(name.split(".")[:-1])
-                parent_module = (
-                    _get_attr(layers[layer_index], ".".join(name.split(".")[:-1]))
-                    if parent_name
-                    else layers[layer_index]
-                )
+                parent_module = get_attr(layers[layer_index], parent_name)
                 # get submodule name
                 module_name = name.split(".")[-1]
                 # replace submodule with trt module
