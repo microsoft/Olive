@@ -70,7 +70,7 @@ def main(raw_args=None):
         # * https://github.com/microsoft/onnxruntime/pull/16531
         # * https://github.com/microsoft/onnxruntime/pull/16716
         # * https://github.com/microsoft/onnxruntime/pull/16912
-        # So, in 1.16.0 afterwords, we don't need to copy the model to a temp directory
+        # So, in 1.16.0 afterwards, we don't need to copy the model to a temp directory
 
         # Some passes create temporary files in the same directory as the model
         # original directory for model path is read only, so we need to copy the model to a temp directory
