@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import torch
 
 import olive.passes.pytorch.sparsegpt_utils as sparsegpt_utils
+from olive.common.utils import get_attr
 from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
@@ -92,6 +93,6 @@ def test_torch_trt_conversion_success(
         for layer in layers:
             for submodule_name in original_submodules:
                 # check that the submodule is replaced with MockTRTLinearLayer
-                assert isinstance(sparsegpt_utils._get_attr(layer, submodule_name), MockTRTLinearLayer)
+                assert isinstance(get_attr(layer, submodule_name), MockTRTLinearLayer)
     # cleanup
     del sys.modules["olive.passes.pytorch.trt_utils"]
