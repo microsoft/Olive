@@ -4,28 +4,34 @@ Copyright (c) Microsoft Corporation. All rights reserved.
 Licensed under the MIT License.
 --------------------------------------------------------------------------
 */
-using System;
-using System.IO;
+using Microsoft.ML.OnnxRuntime;
 using Newtonsoft.Json.Linq;
-using Onnxruntime;
 
 class Program
 {
-    static void UpdateSessOptions(InferenceSessionConfiguration sessOptions, JObject sessionOptions)
+    static void UpdateSessOptions(SessionOptions sessOptions, JObject sessionOptions)
     {
-        int interOpNumThreads = sessionOptions.Value<int>("inter_op_num_threads");
-        int intraOpNumThreads = sessionOptions.Value<int>("intra_op_num_threads");
+        int? interOpNumThreads = null;
+        if (sessionOptions.ContainsKey("inter_op_num_threads"))
+        {
+            interOpNumThreads = sessionOptions.Value<int?>("inter_op_num_threads");
+        }
+        int? intraOpNumThreads = null;
+        if (sessionOptions.ContainsKey("intra_op_num_threads"))
+        {
+            intraOpNumThreads = sessionOptions.Value<int?>("intra_op_num_threads");
+        }
         int executionMode = sessionOptions.Value<int>("execution_mode");
         int graphOptimizationLevel = sessionOptions.Value<int>("graph_optimization_level");
         JObject extraSessionConfig = sessionOptions.Value<JObject>("extra_session_config");
 
-        if (interOpNumThreads != -1)
+        if (interOpNumThreads.HasValue)
         {
-            sessOptions.InterOpNumThreads = interOpNumThreads;
+            sessOptions.InterOpNumThreads = interOpNumThreads.Value;
         }
-        if (intraOpNumThreads != -1)
+        if (intraOpNumThreads.HasValue)
         {
-            sessOptions.IntraOpNumThreads = intraOpNumThreads;
+            sessOptions.IntraOpNumThreads = intraOpNumThreads.Value;
         }
         if (executionMode != -1)
         {
@@ -46,51 +52,61 @@ class Program
         {
             foreach (var kvp in extraSessionConfig)
             {
-                sessOptions[kvp.Key] = kvp.Value.ToString();
+                sessOptions.AddSessionConfigEntry(kvp.Key, kvp.Value.ToString());
             }
         }
     }
 
-    static void UpdateExecutionProvider(InferenceSessionConfiguration sessOptions, JArray executionProviderJson)
+    static void UpdateExecutionProvider(SessionOptions sessOptions, JArray executionProviderJson)
     {
         // Please note that Onnxruntime for C# has limited support for execution providers.
         // Refer to the Onnxruntime documentation for more information.
-        executionProvider = (string)executionProviderJson[0][0];
-        epOptionsJson = (JObject)executionProviderJson[0][1]
+        // Please specify your device id to each provider if necessary
+        string executionProvider = (string)executionProviderJson[0][0];
+        JObject epOptionsJson = (JObject)executionProviderJson[0][1];
         Dictionary<string, string> epOptions = epOptionsJson.ToObject<Dictionary<string, string>>();
 
         if (executionProvider == "CUDAExecutionProvider")
         {
-            sessOptions.AppendExecutionProvider_CUDA(epOptions);
+            OrtCUDAProviderOptions providerOptions = new OrtCUDAProviderOptions();
+            providerOptions.UpdateOptions(epOptions);
+            sessOptions.AppendExecutionProvider_CUDA(providerOptions);
         }
 
         if (executionProvider == "TensorrtExecutionProvider")
         {
-            sessOptions.AppendExecutionProvider_Tensorrt(epOptions);
+            OrtTensorRTProviderOptions providerOptions = new OrtTensorRTProviderOptions();
+            providerOptions.UpdateOptions(epOptions);
+            sessOptions.AppendExecutionProvider_Tensorrt(providerOptions);
         }
 
         if (executionProvider == "OpenVINOExecutionProvider")
         {
-            sessOptions.AppendExecutionProvider_OpenVINO(epOptions);
+            sessOptions.AppendExecutionProvider_OpenVINO();
         }
 
         if (executionProvider == "SNPEExecutionProvider")
         {
             sessOptions.AppendExecutionProvider("SNPE", epOptions);
         }
-    }
 
+        if (executionProvider == "DmlExecutionProvider")
+        {
+            sessOptions.AppendExecutionProvider_DML();
+        }
+    }
     static void Main()
     {
-        string jsonString = File.ReadAllText("inference_config.json");
+        string path = @"c:\path\to\inference_config.json";
+        string jsonString = File.ReadAllText(path);
         JObject j = JObject.Parse(jsonString);
 
         InferenceSession session;
-
+        string modelPath = @"c:\path\to\model.onnx";
         if (j == null)
         {
             // Create inference session
-            session = new InferenceSession("model.onnx");
+            session = new InferenceSession(modelPath);
         }
         else
         {
@@ -101,19 +117,19 @@ class Program
             JObject sessOpts = (JObject)j["session_options"];
 
             // Create inference configuration
-            using InferenceSessionConfiguration options = new InferenceSessionConfiguration();
+            using SessionOptions options = new SessionOptions();
             UpdateSessOptions(options, sessOpts);
             UpdateExecutionProvider(options, executionProvider);
 
             // Create inference session
-            session = new InferenceSession("model.onnx", options);
+            session = new InferenceSession(modelPath, options);
         }
 
         // Run inference
-        // Replace inputNames, inputValues, outputNames with actual variable names
-        using var outputTensors = session.Run(new RunOptions(), inputNames, inputValues, outputNames);
+        // Replace inputs, outputNames with actual variable names
+        using var outputTensors = session.Run(<inputs>, <outputsNames>, new RunOptions());
 
-        // Get output tensor
+        // Update output logic here
         var outputTensor = outputTensors.First().AsTensor<float>();
 
         session.Dispose();
