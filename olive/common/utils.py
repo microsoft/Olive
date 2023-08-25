@@ -168,9 +168,9 @@ def get_attr(module, attr, fail_on_not_found=False):
     """
     Get attribute from module.
 
-    :param module: module to get attribute from
-    :param attr: attribute name, can be a string with dot notation. If empty, return modulenot
-    :param fail_on_not_found: if True, raise AttributeError if attribute is not found
+    :param module: module to get attribute from.
+    :param attr: attribute name, can be a string with dot notation. If empty, return module.
+    :param fail_on_not_found: if True, raise AttributeError if attribute is not found.
     :return: attribute
     """
     if not attr:
@@ -181,9 +181,9 @@ def get_attr(module, attr, fail_on_not_found=False):
     for a in attr:
         try:
             module = getattr(module, a)
-        except AttributeError:
+        except AttributeError as e:
             if fail_on_not_found:
-                raise AttributeError(f"Attribute {attr} not found.")
+                raise AttributeError(f"Attribute {attr} not found.") from e
             else:
                 return None
     return module
