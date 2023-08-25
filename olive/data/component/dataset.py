@@ -77,7 +77,7 @@ class BaseDataset(Dataset):
             for col_name in self.label_cols[1:]:
                 # label_cols is a list but we only use the first element for now
                 # remove the other label columns
-                hf_dataset.remove_columns(col_name)
+                hf_dataset = hf_dataset.remove_columns(col_name)
             # rename the label column
             if self.label_cols[0] != label_name:
                 if label_name in hf_dataset.column_names:
