@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 
+from copy import deepcopy
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -59,6 +60,49 @@ class BaseDataset(Dataset):
         This function is used to convert the dataset to snpe dataset
         """
         pass
+
+    def to_hf_dataset(self, label_name="label"):
+        """
+        This function is used to convert the dataset to huggingface dataset
+
+        :param label_name: The name of the label column in the new dataset. Default is "label".
+        """
+        from datasets import Dataset
+
+        if hasattr(self, "data") and isinstance(self.data, Dataset):
+            # some children classes may not have data attribute
+            # this part assumes the class follows the format of BaseDataset and has data and label_cols attributes
+            # deepcopy the dataset since we might modify it
+            hf_dataset = deepcopy(self.data)
+            for col_name in self.label_cols[1:]:
+                # label_cols is a list but we only use the first element for now
+                # remove the other label columns
+                hf_dataset = hf_dataset.remove_columns(col_name)
+            # rename the label column
+            if self.label_cols[0] != label_name:
+                if label_name in hf_dataset.column_names:
+                    raise ValueError(f"Cannot rename label column to {label_name} since it already exists")
+                hf_dataset = hf_dataset.rename_column(self.label_cols[0], label_name)
+            # truncate the dataset to len (happen when max_samples is not None)
+            # this is not costly since the dataset is sliced when selected with range
+            hf_dataset = hf_dataset.select(range(len(self)))
+        else:
+            first_input, _ = self[0]
+            if not isinstance(first_input, dict):
+                raise ValueError("Cannot convert to huggingface dataset since the input is not a dict")
+            # convert the dataset to dict of lists
+            data_dict = {k: [] for k in first_input.keys()}
+            data_dict[label_name] = []
+            # loop over the dataset
+            for i in range(len(self)):
+                data, label = deepcopy(self[i])
+                for k, v in data.items():
+                    data_dict[k].append(v)
+                data_dict[label_name].append(label)
+            # convert the dict of lists to huggingface dataset
+            hf_dataset = Dataset.from_dict(data_dict)
+            hf_dataset.set_format("torch", output_all_columns=True)
+        return hf_dataset
 
 
 class DummyDataset(BaseDataset):
