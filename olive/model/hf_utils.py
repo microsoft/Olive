@@ -45,7 +45,7 @@ class HFConfig(ConfigBase):
         return v
 
 
-def load_huggingface_model_from_task(task: str, name: str, kwargs: Dict[str, Any] = None):
+def load_huggingface_model_from_task(task: str, name: str):
     """Load huggingface model from task and name"""
     from transformers.pipelines import check_task
 
@@ -63,10 +63,9 @@ def load_huggingface_model_from_task(task: str, name: str, kwargs: Dict[str, Any
     class_tuple = class_tuple + model_class.get("pt", (AutoModel,))
 
     model = None
-    kwargs = kwargs or {}
     for model_class in class_tuple:
         try:
-            model = model_class.from_pretrained(name, **kwargs)
+            model = model_class.from_pretrained(name)
             logger.debug(f"Loaded model {model_class} with name_or_path {name}")
             return model
         except (OSError, ValueError):
