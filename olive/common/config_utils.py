@@ -207,7 +207,7 @@ def validate_resource_path(v, values, field):
 
     try:
         v = create_resource_path(v)
-    except Exception as e:
+    except ValueError as e:
         raise ValueError(f"Invalid resource path '{v}': {e}")
     return v
 

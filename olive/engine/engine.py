@@ -390,8 +390,10 @@ class Engine:
 
             if origin_target_system.olive_managed_env:
                 self.target.remove()
+                self.target = origin_target_system
             if origin_host_system.olive_managed_env:
                 self.host.remove()
+                self.host = origin_host_system
 
         if packaging_config:
             logger.info(f"Package top ranked {sum([len(f.nodes) for f in pf_footprints.values()])} models as artifacts")
