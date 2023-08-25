@@ -8,6 +8,9 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from onnxruntime import __version__ as ort_version
+from packaging import version
+
 from olive.common.config_utils import ParamCategory
 from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
@@ -62,18 +65,25 @@ def main(raw_args=None):
         pass_config = json.load(f)
     pass_type = pass_config["type"].lower()
 
-    # Some passes create temporary files in the same directory as the model
-    # original directory for model path is read only, so we need to copy the model to a temp directory
-    if common_args.model_path is not None:
-        tmp_dir = tempfile.TemporaryDirectory()
-        old_path = Path(common_args.model_path).resolve()
-        new_path = Path(tmp_dir.name).resolve() / old_path.name
-        if old_path.is_file():
-            shutil.copy(old_path, new_path)
-        else:
-            new_path.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(old_path, new_path, dirs_exist_ok=True)
-        common_args.model_path = str(new_path)
+    if version.parse(ort_version) < version.parse("1.16.0"):
+        # In onnxruntime, the following PRs will make the optimize_model save external data in the temporary folder
+        # * https://github.com/microsoft/onnxruntime/pull/16531
+        # * https://github.com/microsoft/onnxruntime/pull/16716
+        # * https://github.com/microsoft/onnxruntime/pull/16912
+        # So, in 1.16.0 afterwords, we don't need to copy the model to a temp directory
+
+        # Some passes create temporary files in the same directory as the model
+        # original directory for model path is read only, so we need to copy the model to a temp directory
+        if common_args.model_path is not None:
+            tmp_dir = tempfile.TemporaryDirectory()
+            old_path = Path(common_args.model_path).resolve()
+            new_path = Path(tmp_dir.name).resolve() / old_path.name
+            if old_path.is_file():
+                shutil.copy(old_path, new_path)
+            else:
+                new_path.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(old_path, new_path, dirs_exist_ok=True)
+            common_args.model_path = str(new_path)
 
     # pass specific args
     accelerator_spec = AcceleratorSpec(pass_config_arg.pass_accelerator_type, pass_config_arg.pass_execution_provider)
