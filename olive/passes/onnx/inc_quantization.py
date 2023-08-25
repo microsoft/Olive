@@ -419,6 +419,10 @@ class IncQuantization(Pass):
         # start with a copy of the config
         run_config = deepcopy(config)
         is_static = run_config["approach"] == "static"
+        if is_static:
+            assert (
+                config["dataloader_func"] or config["data_config"]
+            ), "dataloader_func or data_config is required for static quantization."
 
         output_model_path = ONNXModel.resolve_path(output_model_path)
 

@@ -48,7 +48,7 @@ class OpenVINOQuantization(Pass):
                 type_=OLIVE_RESOURCE_ANNOTATIONS,
                 category=ParamCategory.DATA,
                 description=(
-                    "Path to the directory containing the dataset. For local data, it is required if  dataloader_func"
+                    "Path to the directory containing the dataset. For local data, it is required if dataloader_func"
                     " is provided."
                 ),
             ),
@@ -59,7 +59,7 @@ class OpenVINOQuantization(Pass):
             ),
             "data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
-                description="Data config for calibration.",
+                description="Data config for calibration, required if dataloader_func is None.",
             ),
             "metric_func": PassConfigParam(
                 type_=Union[Callable, str],
@@ -89,6 +89,8 @@ class OpenVINOQuantization(Pass):
             from openvino.tools.pot import IEEngine, compress_model_weights, create_pipeline, save_model
         except ImportError:
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
+
+        assert config["dataloader_func"] or config["data_config"], "dataloader_func or data_config is required."
 
         # output model always has ov_model name stem
         model_name = "ov_model"
