@@ -7,9 +7,12 @@ from functools import partial
 from itertools import chain
 from typing import Any, Callable, Dict, List, Optional, Union
 
+import transformers
 from pydantic import validator
+from transformers import AutoConfig, AutoModel, AutoTokenizer
 
 from olive.common.config_utils import ConfigBase
+from olive.model.hf_mappings import MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
 from olive.model.model_config import IOConfig
 
 logger = logging.getLogger(__name__)
@@ -42,9 +45,8 @@ class HFConfig(ConfigBase):
         return v
 
 
-def load_huggingface_model_from_task(task: str, name: str):
+def load_huggingface_model_from_task(task: str, name: str, kwargs: Dict[str, Any] = None):
     """Load huggingface model from task and name"""
-    from transformers import AutoModel
     from transformers.pipelines import check_task
 
     task_results = check_task(task)
@@ -61,9 +63,10 @@ def load_huggingface_model_from_task(task: str, name: str):
     class_tuple = class_tuple + model_class.get("pt", (AutoModel,))
 
     model = None
+    kwargs = kwargs or {}
     for model_class in class_tuple:
         try:
-            model = model_class.from_pretrained(name)
+            model = model_class.from_pretrained(name, **kwargs)
             logger.debug(f"Loaded model {model_class} with name_or_path {name}")
             return model
         except (OSError, ValueError):
@@ -76,8 +79,6 @@ def load_huggingface_model_from_task(task: str, name: str):
 
 
 def huggingface_model_loader(model_loader):
-    import transformers
-
     if model_loader is None:
         model_loader = "AutoModel"
     if isinstance(model_loader, str):
@@ -95,8 +96,6 @@ def get_hf_model_config(model_name: str):
     """
     Get HF Config for the given model name
     """
-    from transformers import AutoConfig
-
     return AutoConfig.from_pretrained(model_name)
 
 
@@ -152,28 +151,9 @@ def get_onnx_config(model_name: str, task: str, feature: Optional[str] = None):
             *features, onnx_config_cls=onnx_config_cls
         )
 
-    # mapping from task to feature
-    task_to_feature = {
-        "automatic-speech-recognition": "speech2seq-lm",
-        "fill-mask": "masked-lm",
-        "image-classification": "image-classification",
-        "image-segmentation": "image-segmentation",
-        "image-to-text": "vision2seq-lm",
-        "multiple-choice": "multiple-choice",
-        "ner": "token-classification",
-        "object-detection": "object-detection",
-        "question-answering": "question-answering",
-        "sentiment-analysis": "sequence-classification",
-        "summarization": "seq2seq-lm",
-        "text2text-generation": "seq2seq-lm",
-        "text-classification": "sequence-classification",
-        "text-generation": "causal-lm",
-        "token-classification": "token-classification",
-        "translation": "seq2seq-lm",
-    }
     # if feature is not provided, try to get it from task
     # else use "default"
-    feature = feature or task_to_feature.get(task, "default")
+    feature = feature or TASK_TO_FEATURE.get(task, "default")
 
     # don't want to load the model here since all we need is the config
     # model loading is expensive computationally and memory-wise for large models
@@ -201,8 +181,33 @@ def get_hf_model_io_config(model_name: str, task: str, feature: Optional[str] = 
 
 
 def get_hf_model_dummy_input(model_name: str, task: str, feature: Optional[str] = None):
-    from transformers import AutoTokenizer
-
     model_config = get_onnx_config(model_name, task, feature)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     return model_config.generate_dummy_inputs(tokenizer, framework="pt")
+
+
+def get_model_max_length(model_name: str, fail_on_not_found=False) -> int:
+    """
+    Get max length of the model, extracted from the config
+    """
+    model_config = get_hf_model_config(model_name)
+    model_type = model_config.model_type
+
+    max_length = MODELS_TO_MAX_LENGTH_MAPPING.get(model_type, None)
+    if isinstance(max_length, int):
+        return max_length
+    elif isinstance(max_length, str):
+        return getattr(model_config, max_length)
+    else:
+        logger.debug(
+            f"No max length mapping found in MODELS_TO_MAX_LENGTH_MAPPING for model type {model_type}, trying"
+            " __default__"
+        )
+        default_max_length = MODELS_TO_MAX_LENGTH_MAPPING["__default__"]
+        try:
+            return getattr(model_config, default_max_length)
+        except AttributeError:
+            if fail_on_not_found:
+                raise ValueError(f"Could not find max length for model type {model_type}")
+            else:
+                return None

@@ -22,7 +22,7 @@ from olive.passes.pytorch.sparsegpt_utils import (
     catch_layer_inputs,
     get_layer_submodules,
     get_layers,
-    layers_map,
+    supported_models,
     validate_min_max_layers,
 )
 
@@ -96,8 +96,8 @@ class SparseGPT(Pass):
     ) -> PyTorchModel:
         model_config = model.get_model_config()
         model_type = model_config.model_type
-        if model_type not in layers_map:
-            raise ValueError(f"Unsupported model type: {model_type}. Supported types: {layers_map.keys()}")
+        if model_type not in supported_models:
+            raise ValueError(f"Unsupported model type: {model_type}. Supported types: {supported_models}")
 
         # get sparsity mode and parameters
         if isinstance(config["sparsity"], float):
