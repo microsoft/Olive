@@ -9,12 +9,13 @@ from datasets import Dataset as HFDataset
 from olive.data.component.dataset import BaseDataset, DummyDataset
 
 
-def get_dict_dataset(length=256, labels_name="labels", max_samples=None):
+def get_dict_dataset(length=256, max_samples=None):
+    label_name = "original_label"
     input_names = ["input_1", "input_2"]
     data = []
     for i in range(length):
-        data.append({input_names[0]: [i, i], input_names[1]: [i, i, i], labels_name: i})
-    return BaseDataset(data, ["labels"], max_samples)
+        data.append({input_names[0]: [i, i], input_names[1]: [i, i, i], label_name: i})
+    return BaseDataset(data, ["original_label"], max_samples)
 
 
 def get_dummy_dataset():
@@ -25,14 +26,14 @@ def get_dummy_dataset():
 
 def get_hf_dataset():
     length = 300
-    data = {"input_1": [], "input_2": [], "labels": []}
+    data = {"input_1": [], "input_2": [], "original_label": []}
     for i in range(length):
         data["input_1"].append([i, i])
         data["input_2"].append([i, i, i])
-        data["labels"].append(i)
+        data["original_label"].append(i)
     hf_dataset = HFDataset.from_dict(data)
     hf_dataset.set_format(type="torch", output_all_columns=True)
-    return BaseDataset(hf_dataset, ["labels"], max_samples=256)
+    return BaseDataset(hf_dataset, ["original_label"], max_samples=256)
 
 
 class TestDataset:
@@ -51,16 +52,19 @@ class TestDataset:
         assert len(dataset) == 256
 
     @pytest.mark.parametrize("dataset_func", [get_dict_dataset, get_dummy_dataset, get_hf_dataset])
-    @pytest.mark.parametrize("label_name", [None, "labels", "label"])
+    @pytest.mark.parametrize("label_name", [None, "original_label", "labels"])
     def test_dataset_to_hf_dataset(self, dataset_func, label_name):
         dataset = dataset_func()
-        hf_dataset = dataset.to_hf_dataset(label_name=label_name)
+        if label_name is None:
+            hf_dataset = dataset.to_hf_dataset()
+        else:
+            hf_dataset = dataset.to_hf_dataset(label_name=label_name)
         # assert the dataset is converted to HFDataset
         assert isinstance(hf_dataset, HFDataset)
         # assert length
         assert len(hf_dataset) == 256
         # ensure all input and label names are in the features
-        label_name = label_name or "labels"
+        label_name = label_name or "label"
         for key in ["input_1", "input_2", label_name]:
             assert key in hf_dataset.features
         # assert shape of the first sample

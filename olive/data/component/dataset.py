@@ -61,35 +61,31 @@ class BaseDataset(Dataset):
         """
         pass
 
-    def to_hf_dataset(self, label_name=None):
+    def to_hf_dataset(self, label_name="label"):
         """
         This function is used to convert the dataset to huggingface dataset
 
-        :param label_name: The name of the label column in the new dataset
+        :param label_name: The name of the label column in the new dataset. Default is "label".
         """
         from datasets import Dataset
 
-        # name for label column
-        label_cols = ["labels"]
-        if hasattr(self, "label_cols"):
-            label_cols = self.label_cols or ["labels"]  # some children classes may not have label_cols
-        label_name = label_name or label_cols[0]
-
         if hasattr(self, "data") and isinstance(self.data, Dataset):
+            # some children classes may not have data attribute
+            # this part assumes the class follows the format of BaseDataset and has data and label_cols attributes
             # deepcopy the dataset since we might modify it
             hf_dataset = deepcopy(self.data)
-            for col_name in label_cols[1:]:
-                # remove the other label columns
+            for col_name in self.label_cols[1:]:
                 # label_cols is a list but we only use the first element for now
+                # remove the other label columns
                 hf_dataset.remove_columns(col_name)
             # rename the label column
-            if label_cols[0] != label_name:
+            if self.label_cols[0] != label_name:
                 if label_name in hf_dataset.column_names:
                     raise ValueError(f"Cannot rename label column to {label_name} since it already exists")
-                hf_dataset = hf_dataset.rename_column(label_cols[0], label_name)
-            if self.max_samples is not None:
-                # truncate the dataset if max_samples is not None
-                hf_dataset = hf_dataset.select(range(len(self)))
+                hf_dataset = hf_dataset.rename_column(self.label_cols[0], label_name)
+            # truncate the dataset to len (happen when max_samples is not None)
+            # this is not costly since the dataset is sliced when selected with range
+            hf_dataset = hf_dataset.select(range(len(self)))
         else:
             first_input, _ = self[0]
             if not isinstance(first_input, dict):
