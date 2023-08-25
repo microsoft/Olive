@@ -14,12 +14,12 @@ class Program
         int? interOpNumThreads = null;
         if (sessionOptions.ContainsKey("inter_op_num_threads"))
         {
-			interOpNumThreads = sessionOptions.Value<int?>("inter_op_num_threads");
+            interOpNumThreads = sessionOptions.Value<int?>("inter_op_num_threads");
 		}
         int? intraOpNumThreads = null;
         if (sessionOptions.ContainsKey("intra_op_num_threads"))
         {
-			intraOpNumThreads = sessionOptions.Value<int?>("intra_op_num_threads");
+            intraOpNumThreads = sessionOptions.Value<int?>("intra_op_num_threads");
 		}
         int executionMode = sessionOptions.Value<int>("execution_mode");
         int graphOptimizationLevel = sessionOptions.Value<int>("graph_optimization_level");
@@ -97,8 +97,8 @@ class Program
     }
     static void Main()
     {
-	    string path = @"c:\path\to\inference_config.json";
-		string jsonString = File.ReadAllText(path);
+        string path = @"c:\path\to\inference_config.json";
+        string jsonString = File.ReadAllText(path);
         JObject j = JObject.Parse(jsonString);
 
         InferenceSession session;
