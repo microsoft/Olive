@@ -60,7 +60,7 @@ def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, max_sa
     Returns:
         object: Pre-processed data.
     """
-    from transformers import AutoTokenizer
+    from transformers import AutoConfig, AutoTokenizer
 
     def _tokenizer_and_align_labels(examples):
         tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -75,6 +75,12 @@ def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, max_sa
         tokenized_inputs["label"] = examples[label_cols[0]]
         # huggingface dataset api limit to return dict and arrow table
         return tokenized_inputs
+
+    model_config_path = kwargs.pop("model_config_path", None)
+    if kwargs.pop("remap_labels", False):
+        model_hf_config = AutoConfig.from_pretrained(model_config_path or model_name)
+        if model_hf_config and model_hf_config.label2id:
+            _dataset = _dataset.align_labels_with_mapping(model_hf_config.label2id, label_cols[0])
 
     tokenized_datasets = _huggingface_pre_process_helper(
         _dataset, model_name, input_cols, label_cols, _tokenizer_and_align_labels, **kwargs
