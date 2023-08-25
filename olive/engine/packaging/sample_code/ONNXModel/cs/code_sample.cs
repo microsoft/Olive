@@ -15,12 +15,12 @@ class Program
         if (sessionOptions.ContainsKey("inter_op_num_threads"))
         {
             interOpNumThreads = sessionOptions.Value<int?>("inter_op_num_threads");
-		}
+        }
         int? intraOpNumThreads = null;
         if (sessionOptions.ContainsKey("intra_op_num_threads"))
         {
             intraOpNumThreads = sessionOptions.Value<int?>("intra_op_num_threads");
-		}
+        }
         int executionMode = sessionOptions.Value<int>("execution_mode");
         int graphOptimizationLevel = sessionOptions.Value<int>("graph_optimization_level");
         JObject extraSessionConfig = sessionOptions.Value<JObject>("extra_session_config");
