@@ -86,6 +86,8 @@ class SNPEQuantization(Pass):
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 
+        assert config["dataloader_func"] or config["data_config"], "dataloader_func or data_config is required."
+
         if config["dataloader_func"]:
             data_dir = get_local_path_from_root(data_root, config["data_dir"])
             dataloader = self._user_module_loader.call_object(config["dataloader_func"], data_dir)
