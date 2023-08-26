@@ -520,7 +520,6 @@ class TestEngine:
         temp_dir = tempfile.TemporaryDirectory()
         output_dir = Path(temp_dir.name)
 
-        print(tmpdir)
         # setup
         if is_search:
             options = {
