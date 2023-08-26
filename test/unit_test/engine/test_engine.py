@@ -31,7 +31,7 @@ from olive.systems.local import LocalSystem
 # Please not your test case could still "pass" even if it throws exception to fail.
 # Please check log message to make sure your test case passes.
 class TestEngine:
-    def test_register(self):
+    def test_register(self, tmpdir):
         # setup
         p = get_onnxconversion_pass()
         name = p.__class__.__name__
@@ -39,9 +39,9 @@ class TestEngine:
         evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
 
         options = {
-            "output_dir": "./cache",
+            "output_dir": tmpdir,
             "output_name": "test",
-            "cache_dir": "./cache",
+            "cache_dir": tmpdir,
             "clean_cache": True,
             "search_strategy": {
                 "execution_order": "joint",
@@ -60,9 +60,11 @@ class TestEngine:
         assert engine.pass_config[name]["evaluator"] == evaluator_config
         assert engine.pass_config[name]["clean_run_cache"] is False
 
-    def test_register_no_search(self):
+    def test_register_no_search(self, tmpdir):
         # setup
         options = {
+            "cache_dir": tmpdir,
+            "clean_cache": True,
             "search_strategy": None,
         }
         engine = Engine(options)
@@ -73,12 +75,14 @@ class TestEngine:
         # assert
         assert "OnnxDynamicQuantization" in engine.pass_config
 
-    def test_register_no_search_fail(self):
+    def test_register_no_search_fail(self, tmpdir):
         name = "OnnxDynamicQuantization"
         # setup
         pytorch_model = get_pytorch_model()
 
         options = {
+            "cache_dir": tmpdir,
+            "clean_cache": True,
             "search_strategy": None,
         }
         engine = Engine(options)
@@ -91,7 +95,7 @@ class TestEngine:
         assert str(exc_info.value) == f"Search strategy is None but pass {name} has search space"
 
     @patch("olive.systems.local.LocalSystem")
-    def test_run(self, mock_local_system):
+    def test_run(self, mock_local_system, tmpdir):
         # setup
         pytorch_model = get_pytorch_model()
         input_model_id = hash_dict(pytorch_model.to_json())
@@ -99,9 +103,9 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "output_dir": "./cache",
+            "output_dir": tmpdir,
             "output_name": "test",
-            "cache_dir": "./cache",
+            "cache_dir": tmpdir,
             "clean_cache": True,
             "search_strategy": {
                 "execution_order": "joint",
@@ -165,15 +169,15 @@ class TestEngine:
         mock_local_system.evaluate_model.assert_called_with(onnx_model, None, [metric], accelerator_spec)
 
     @patch("olive.systems.local.LocalSystem")
-    def test_run_no_search(self, mock_local_system):
+    def test_run_no_search(self, mock_local_system, tmpdir):
         # setup
         pytorch_model = get_pytorch_model()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "output_dir": "./cache",
+            "output_dir": tmpdir,
             "output_name": "test",
-            "cache_dir": "./cache",
+            "cache_dir": tmpdir,
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
@@ -221,7 +225,7 @@ class TestEngine:
         with open(result_json_path, "r") as f:
             assert json.load(f) == actual_res["metrics"].__root__
 
-    def test_pass_exception(self, caplog):
+    def test_pass_exception(self, caplog, tmpdir):
         # Need explicitly set the propagate to allow the message to be logged into caplog
         # setup
         logger = logging.getLogger("olive")
@@ -232,7 +236,7 @@ class TestEngine:
             system = LocalSystem()
             evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
             options = {
-                "cache_dir": "./cache",
+                "cache_dir": tmpdir,
                 "clean_cache": True,
                 "search_strategy": {
                     "execution_order": "joint",
@@ -254,13 +258,13 @@ class TestEngine:
             # clean up: tempfile will be deleted automatically
 
     @patch("olive.systems.local.LocalSystem")
-    def test_run_evaluate_input_model(self, mock_local_system):
+    def test_run_evaluate_input_model(self, mock_local_system, tmpdir):
         # setup
         pytorch_model = get_pytorch_model()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "cache_dir": "./cache",
+            "cache_dir": tmpdir,
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
@@ -298,13 +302,13 @@ class TestEngine:
         assert MetricResult.parse_file(result_json_path) == actual_res
 
     @patch("olive.systems.local.LocalSystem")
-    def test_run_no_pass(self, mock_local_system):
+    def test_run_no_pass(self, mock_local_system, tmpdir):
         # setup
         pytorch_model = get_pytorch_model()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "cache_dir": "./cache",
+            "cache_dir": tmpdir,
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
@@ -340,12 +344,12 @@ class TestEngine:
 
     @patch.object(Path, "glob", return_value=[Path("cache") / "output" / "100_model.json"])
     @patch.object(Path, "unlink")
-    def test_model_path_suffix(self, mock_unlink, mock_glob):
+    def test_model_path_suffix(self, mock_unlink, mock_glob, tmpdir):
         # setup
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "cache_dir": "./cache",
+            "cache_dir": tmpdir,
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
@@ -359,12 +363,12 @@ class TestEngine:
         assert mock_unlink.call_count == 1
         assert mock_glob.call_count == 2
 
-    def test_model_path_suffix_with_exception(self):
+    def test_model_path_suffix_with_exception(self, tmpdir):
         # setup
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "cache_dir": "./cache",
+            "cache_dir": tmpdir,
             "clean_cache": True,
             "search_strategy": None,
             "clean_evaluation_cache": True,
@@ -380,7 +384,7 @@ class TestEngine:
 
     @patch("olive.systems.local.LocalSystem")
     @patch("onnxruntime.get_available_providers")
-    def test_pass_cache_reuse(self, mock_get_available_providers, mock_local_system, caplog):
+    def test_pass_cache_reuse(self, mock_get_available_providers, mock_local_system, caplog, tmpdir):
         logger = logging.getLogger("olive")
         logger.propagate = True
 
@@ -388,7 +392,7 @@ class TestEngine:
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "cache_dir": "./cache",
+            "cache_dir": tmpdir,
             "clean_cache": True,
             "search_strategy": {
                 "execution_order": "joint",
@@ -430,12 +434,12 @@ class TestEngine:
 
     @patch("olive.systems.local.LocalSystem")
     @patch("onnxruntime.get_available_providers")
-    def test_pass_cache(self, mock_get_available_providers, mock_local_system):
+    def test_pass_cache(self, mock_get_available_providers, mock_local_system, tmpdir):
         # setup
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
-            "cache_dir": "./cache",
+            "cache_dir": tmpdir,
             "clean_cache": True,
             "search_strategy": {
                 "execution_order": "joint",
@@ -476,7 +480,7 @@ class TestEngine:
             _ = engine.run(pytorch_model, output_dir=output_dir)
             mock_local_system.run_pass.call_count == 2
 
-    def test_pass_value_error(self, caplog):
+    def test_pass_value_error(self, caplog, tmpdir):
         # Need explicitly set the propagate to allow the message to be logged into caplog
         # setup
         logger = logging.getLogger("olive")
@@ -487,7 +491,7 @@ class TestEngine:
             system = LocalSystem()
             evaluator_config = OliveEvaluatorConfig(metrics=[get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)])
             options = {
-                "cache_dir": "./cache",
+                "cache_dir": tmpdir,
                 "clean_cache": True,
                 "search_strategy": {
                     "execution_order": "joint",
@@ -505,7 +509,7 @@ class TestEngine:
                 engine.run(model, output_dir=output_dir)
 
     @pytest.mark.parametrize("is_search", [True, False])
-    def test_pass_quantization_error(self, is_search, caplog):
+    def test_pass_quantization_error(self, is_search, caplog, tmpdir):
         # Need explicitly set the propagate to allow the message to be logged into caplog
         # setup
         logger = logging.getLogger("olive")
@@ -516,9 +520,11 @@ class TestEngine:
         temp_dir = tempfile.TemporaryDirectory()
         output_dir = Path(temp_dir.name)
 
+        print(tmpdir)
         # setup
         if is_search:
             options = {
+                "cache_dir": tmpdir,
                 "search_strategy": {
                     "execution_order": "joint",
                     "search_algorithm": "random",
@@ -527,7 +533,7 @@ class TestEngine:
             metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
             evaluator_config = OliveEvaluatorConfig(metrics=[metric])
             engine = Engine(options, evaluator_config=evaluator_config)
-            engine.register(OnnxStaticQuantization)
+            engine.register(OnnxStaticQuantization, {"dataloader_func": lambda x, y: None})
             with patch("onnxruntime.quantization.quantize_static") as mock_quantize_static:
                 mock_quantize_static.side_effect = AttributeError("test")
                 actual_res = engine.run(onnx_model, data_root=None, output_dir=output_dir)
@@ -535,6 +541,8 @@ class TestEngine:
                 assert not pf.nodes, "Expect empty dict when quantization fails"
         else:
             options = {
+                "cache_dir": tmpdir,
+                "clean_cache": True,
                 "search_strategy": None,
             }
             engine = Engine(options)
