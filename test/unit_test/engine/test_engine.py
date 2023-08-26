@@ -525,6 +525,7 @@ class TestEngine:
         if is_search:
             options = {
                 "cache_dir": tmpdir,
+                "clean_cache": True,
                 "search_strategy": {
                     "execution_order": "joint",
                     "search_algorithm": "random",
