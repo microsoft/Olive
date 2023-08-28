@@ -427,7 +427,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         data_root = config["data_root"]
         local_rank = config["local_rank"]
         world_size = config["world_size"]
-        inference_settings = config.get("inference_settings", {}) or {}
+        inference_settings = config["inference_settings"]
+        execution_providers = config["providers"]
         metric = Metric.from_json(config["metric"])
 
         import os
@@ -439,9 +440,11 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         local_rank = MPI.COMM_WORLD.Get_rank()
 
-        # TODO: EPs should be selected based on accelerator_spec param passed down from the engine
-        inference_settings["execution_provider"] = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-        inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
+        inference_settings["execution_provider"] = execution_providers
+        inference_settings["provider_options"] = [
+            {"device_id": str(local_rank)} if provider == "CUDAExecutionProvider" else {}
+            for provider in execution_providers
+        ]
 
         model = ONNXModel(model_path, inference_settings=inference_settings)
         dataloader, _, post_func = OnnxEvaluator.get_user_config(model.framework, data_root, metric)
@@ -467,7 +470,12 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         return model_output, targets
 
     def _evaluate_distributed_accuracy(
-        self, model: DistributedOnnxModel, data_root: str, metric: Metric
+        self,
+        model: DistributedOnnxModel,
+        data_root: str,
+        metric: Metric,
+        device: Device,
+        execution_providers: Union[str, List[str]],
     ) -> MetricResult:
         from copy import deepcopy
 
@@ -487,6 +495,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             cfg["local_rank"] = rank
             cfg["model_path"] = model.ranked_model_path(rank)
             cfg["data_root"] = data_root
+            cfg["device"] = device
+            cfg["providers"] = execution_providers
             args.append(cfg)
 
         with MPIPoolExecutor(max_workers=model.ranks) as executor:
@@ -505,7 +515,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         data_root = config["data_root"]
         local_rank = config["local_rank"]
         world_size = config["world_size"]
-        inference_settings = config.get("inference_settings", {}) or {}
+        inference_settings = config["inference_settings"]
+        execution_providers = config["providers"]
         metric = Metric.from_json(config["metric"])
 
         import os
@@ -517,9 +528,11 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         local_rank = MPI.COMM_WORLD.Get_rank()
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
-        # TODO: EPs should be selected based on accelerator_spec param passed down from the engine
-        inference_settings["execution_provider"] = ["CUDAExecutionProvider", "CPUExecutionProvider"]
-        inference_settings["provider_options"] = [{"device_id": str(local_rank)}, {}]
+        inference_settings["execution_provider"] = execution_providers
+        inference_settings["provider_options"] = [
+            {"device_id": str(local_rank)} if provider == "CUDAExecutionProvider" else {}
+            for provider in execution_providers
+        ]
 
         model = ONNXModel(model_path, inference_settings=inference_settings)
         dataloader, _, _ = OnnxEvaluator.get_user_config(model.framework, data_root, metric)
@@ -551,7 +564,12 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         return latencies
 
     def _evaluate_distributed_latency(
-        self, model: DistributedOnnxModel, data_root: str, metric: Metric
+        self,
+        model: DistributedOnnxModel,
+        data_root: str,
+        metric: Metric,
+        device,
+        execution_providers: Union[str, List[str]],
     ) -> MetricResult:
         from copy import deepcopy
 
@@ -571,6 +589,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             cfg["local_rank"] = rank
             cfg["model_path"] = model.ranked_model_path(rank)
             cfg["data_root"] = data_root
+            cfg["device"] = device
+            cfg["providers"] = execution_providers
             args.append(cfg)
 
         with MPIPoolExecutor(max_workers=model.ranks) as executor:
@@ -593,7 +613,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         if isinstance(model, ONNXModel):
             return self._evaluate_onnx_accuracy(model, metric, dataloader, post_func, device, execution_providers)
         elif isinstance(model, DistributedOnnxModel):
-            return self._evaluate_distributed_accuracy(model, data_root, metric)
+            if device != Device.GPU:
+                raise ValueError("Distributed inferencing is supported only on GPU")
+            return self._evaluate_distributed_accuracy(model, data_root, metric, device, execution_providers)
         else:
             raise TypeError(f"Cannot evaluate accuracy for model of type: {type(model)}")
 
@@ -610,7 +632,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         if isinstance(model, ONNXModel):
             return self._evaluate_onnx_latency(model, metric, dataloader, post_func, device, execution_providers)
         elif isinstance(model, DistributedOnnxModel):
-            return self._evaluate_distributed_latency(model, data_root, metric)
+            if device != Device.GPU:
+                raise ValueError("Distributed inferencing is supported only on GPU")
+            return self._evaluate_distributed_latency(model, data_root, metric, device, execution_providers)
         else:
             raise TypeError(f"Cannot evaluate latency for model of type: {type(model)}")
 
