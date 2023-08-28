@@ -111,7 +111,7 @@ class Engine:
                 )
                 accelerators = inferred_accelerators
 
-        not_supported_ep = set()
+        ep_to_process = list(set(self.execution_providers))
         self.accelerator_specs: List[AcceleratorSpec] = []
         is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
         for accelerator in accelerators:
@@ -120,13 +120,12 @@ class Engine:
             if self.target.system_type in (SystemType.AzureML, SystemType.Docker, SystemType.PythonEnvironment):
                 skip_get_available_ep = True
             supported_eps = AcceleratorLookup.get_execution_providers_for_device(device, skip_get_available_ep)
-            for ep in self.execution_providers:
-                if ep not in supported_eps:
-                    not_supported_ep.add(ep)
-                elif ep == "CPUExecutionProvider" and device != "cpu" and is_cpu_available:
+            for ep in ep_to_process.copy():
+                if ep == "CPUExecutionProvider" and device != "cpu" and is_cpu_available:
                     logger.info("ignore the CPUExecutionProvider for non-cpu device")
-                else:
+                elif ep in supported_eps:
                     self.accelerator_specs.append(AcceleratorSpec(device, ep))
+                    ep_to_process.remove(ep)
 
         assert self.accelerator_specs, (
             "No valid accelerator specified for target system. "
@@ -135,9 +134,9 @@ class Engine:
             f"Current accelerators: {accelerators}."
             f"Supported execution providers: {AcceleratorLookup.EXECUTION_PROVIDERS}."
         )
-        if not_supported_ep:
+        if ep_to_process:
             logger.warning(
-                f"The following execution provider is not supported: {','.join(not_supported_ep)}. "
+                f"The following execution provider is not supported: {','.join(ep_to_process)}. "
                 "Please consider installing an onnxruntime build that contains the relevant execution providers. "
             )
 
