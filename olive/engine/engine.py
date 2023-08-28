@@ -111,7 +111,7 @@ class Engine:
                 )
                 accelerators = inferred_accelerators
 
-        ep_to_process = list(set(self.execution_providers))
+        ep_to_process = set(self.execution_providers)
         self.accelerator_specs: List[AcceleratorSpec] = []
         is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
         for accelerator in accelerators:
