@@ -383,7 +383,7 @@ class Engine:
 
         for eps in self.footprints.keys():
             logger.info(f"Run history for {eps}:")
-            self.footprints[eps].summarize_run_history(output_dir / f"run_history_{eps}.json")
+            self.footprints[eps].summarize_run_history(output_dir / f"run_history_{eps}.txt")
 
         if packaging_config:
             logger.info(f"Package top ranked {sum([len(f.nodes) for f in pf_footprints.values()])} models as artifacts")
