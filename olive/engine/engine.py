@@ -6,6 +6,7 @@ import json
 import logging
 import time
 from collections import OrderedDict, defaultdict
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
@@ -322,77 +323,66 @@ class Engine:
         outputs = {}
         pf_footprints = {}
 
-        origin_target_system = self.target
-        origin_host_system = self.host
         for accelerator_spec in self.accelerator_specs:
-            if origin_target_system.olive_managed_env is True:
-                self.target = create_new_system(origin_target_system, accelerator_spec)
-            if origin_host_system.olive_managed_env is True:
-                self.host = create_new_system(origin_host_system, accelerator_spec)
+            with self.create_managed_environment(accelerator_spec):
+                # generate search space and initialize the passes for each hardware accelerator
+                self.setup_passes(accelerator_spec)
 
-            # generate search space and initialize the passes for each hardware accelerator
-            self.setup_passes(accelerator_spec)
+                # hash the input model
+                input_model_id = self._init_input_model(input_model)
+                self.footprints[accelerator_spec].record(model_id=input_model_id)
 
-            # hash the input model
-            input_model_id = self._init_input_model(input_model)
-            self.footprints[accelerator_spec].record(model_id=input_model_id)
-
-            try:
-                if evaluate_input_model:
-                    prefix_output_name = (
-                        f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
-                    )
-                    assert self.evaluator_config is not None, "evaluate_input_model is True but no evaluator provided"
-                    results = self._evaluate_model(
-                        input_model, input_model_id, data_root, self.evaluator_config, accelerator_spec
-                    )
-                    logger.info(f"Input model evaluation results: {results}")
-                    result_name = f"{prefix_output_name}_input_model_metrics"
-                    results_path = output_dir / f"{result_name}.json"
-                    with open(results_path, "w") as f:
-                        json.dump(results.to_json(), f, indent=4)
-                    logger.info(f"Saved evaluation results of input model to {results_path}")
-                    outputs[accelerator_spec] = results
-                    if not self.passes:
-                        logger.debug("No passes registered, return input model evaluation results.")
-                        return outputs
-
-                if self.no_search:
-                    output, model_ids = self.run_no_search(
-                        input_model,
-                        input_model_id,
-                        data_root,
-                        accelerator_spec,
-                        output_dir,
-                        output_name,
-                    )
-                    if output:
-                        outputs[accelerator_spec] = output
-                        pf_footprints[accelerator_spec] = self.footprints[accelerator_spec].get_footprints_by_model_ids(
-                            model_ids
+                try:
+                    if evaluate_input_model:
+                        prefix_output_name = (
+                            f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
                         )
-                else:
-                    footprint = self.run_search(
-                        input_model,
-                        input_model_id,
-                        data_root,
-                        accelerator_spec,
-                        output_dir,
-                        output_name,
-                    )
-                    outputs[accelerator_spec] = footprint
-                    pf_footprints[accelerator_spec] = footprint
-            except EXCEPTIONS_TO_RAISE:
-                raise
-            except Exception as e:
-                logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
+                        assert (
+                            self.evaluator_config is not None
+                        ), "evaluate_input_model is True but no evaluator provided"
+                        results = self._evaluate_model(
+                            input_model, input_model_id, data_root, self.evaluator_config, accelerator_spec
+                        )
+                        logger.info(f"Input model evaluation results: {results}")
+                        result_name = f"{prefix_output_name}_input_model_metrics"
+                        results_path = output_dir / f"{result_name}.json"
+                        with open(results_path, "w") as f:
+                            json.dump(results.to_json(), f, indent=4)
+                        logger.info(f"Saved evaluation results of input model to {results_path}")
+                        outputs[accelerator_spec] = results
+                        if not self.passes:
+                            logger.debug("No passes registered, return input model evaluation results.")
+                            return outputs
 
-            if origin_target_system.olive_managed_env:
-                self.target.remove()
-                self.target = origin_target_system
-            if origin_host_system.olive_managed_env:
-                self.host.remove()
-                self.host = origin_host_system
+                    if self.no_search:
+                        output, model_ids = self.run_no_search(
+                            input_model,
+                            input_model_id,
+                            data_root,
+                            accelerator_spec,
+                            output_dir,
+                            output_name,
+                        )
+                        if output:
+                            outputs[accelerator_spec] = output
+                            pf_footprints[accelerator_spec] = self.footprints[
+                                accelerator_spec
+                            ].get_footprints_by_model_ids(model_ids)
+                    else:
+                        footprint = self.run_search(
+                            input_model,
+                            input_model_id,
+                            data_root,
+                            accelerator_spec,
+                            output_dir,
+                            output_name,
+                        )
+                        outputs[accelerator_spec] = footprint
+                        pf_footprints[accelerator_spec] = footprint
+                except EXCEPTIONS_TO_RAISE:
+                    raise
+                except Exception as e:
+                    logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
 
         if packaging_config:
             logger.info(f"Package top ranked {sum([len(f.nodes) for f in pf_footprints.values()])} models as artifacts")
@@ -1144,3 +1134,21 @@ class Engine:
         )
         selected_footprint_nodes = sorted_footprint_node_list[:k]
         return selected_footprint_nodes
+
+    @contextmanager
+    def create_managed_environment(self, accelerator_spec):
+        origin_target = self.target
+        origin_host = self.host
+        if self.target.olive_managed_env:
+            self.target = create_new_system(origin_target, accelerator_spec)
+        if self.host.olive_managed_env:
+            self.host = create_new_system(origin_host, accelerator_spec)
+
+        yield
+
+        if self.host.olive_managed_env:
+            self.host.remove()
+            self.host = origin_host
+        if self.target.olive_managed_env:
+            self.target.remove()
+            self.target = origin_target
