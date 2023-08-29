@@ -297,7 +297,7 @@ class Footprint:
         for model_id, node in self.nodes.items():
             # get the run duration between current model and its parent model
             if node.parent_model_id is not None:
-                duration = node.end_time - node.start_time
+                duration = max(node.end_time - node.start_time, 0)
             else:
                 duration = None
             run_history = RunHistory(

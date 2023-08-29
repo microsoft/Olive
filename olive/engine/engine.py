@@ -994,10 +994,9 @@ class Engine:
         host = self.host_for_pass(pass_id)
         if host.system_type != SystemType.AzureML:
             input_model = self._prepare_non_local_model(input_model)
+        run_start_time = datetime.now().timestamp()
         try:
-            run_start_time = datetime.now().timestamp()
             output_model = host.run_pass(p, input_model, data_root, output_model_path, pass_search_point)
-            run_end_time = datetime.now().timestamp()
         except OlivePassException as e:
             logger.error(f"Pass run_pass failed: {e}", exc_info=True)
             output_model = FAILED_CONFIG
@@ -1013,6 +1012,7 @@ class Engine:
             if self.no_search:
                 raise  # rethrow the exception if no search is performed
 
+        run_end_time = datetime.now().timestamp()
         # cache model
         self._cache_model(output_model, output_model_id)
 
