@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 import tempfile
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Union
 
@@ -191,7 +192,7 @@ class OnnxConversion(Pass):
         # save the model to the output path and return the model
         olive_onnx_model = model_proto_to_olive_model(onnx_model, output_model_path, config)
         # inherit the hf_config from the original model
-        _hf_config = model.hf_config
+        _hf_config = deepcopy(model.hf_config)
         if _hf_config:
             _hf_config.config = _hf_config.config or {}
             if hasattr(pytorch_model, "config"):

@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Union
 
@@ -45,11 +46,13 @@ class OptimumConversion(Pass):
             opset=config["target_opset"],
             no_post_process=True,
         )
-        hf_config = model.hf_config or HFConfig()
-        hf_config.config = AutoConfig.from_pretrained(model.model_path).to_dict()
+        hf_config = deepcopy(model.hf_config) or HFConfig()
+        hf_config.config = hf_config.config or {}
+        hf_config.config.update(AutoConfig.from_pretrained(model.model_path).to_dict())
 
         onnx_model_components = [
-            ONNXModel(str(Path(output_model_path) / model_component)) for model_component in model.model_components
+            ONNXModel(str(Path(output_model_path) / model_component), hf_config=hf_config)
+            for model_component in model.model_components
         ]
         onnx_model_component_names = [Path(model_component).stem for model_component in model.model_components]
 

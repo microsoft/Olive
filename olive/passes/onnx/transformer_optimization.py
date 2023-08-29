@@ -155,7 +155,7 @@ class OrtTransformersOptimization(Pass):
         for key in get_external_data_config():
             del run_config[key]
 
-        if model.hf_config.config:
+        if model.hf_config and model.hf_config.config:
             input_model_type = model.hf_config.config.get("model_type", "")
             _model_type = self.MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
             assert _model_type in transformers_optimizer.MODEL_TYPES, (
