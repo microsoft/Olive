@@ -189,7 +189,15 @@ class OnnxConversion(Pass):
         if device != "cpu":
             pytorch_model.to("cpu")
         # save the model to the output path and return the model
-        return model_proto_to_olive_model(onnx_model, output_model_path, config)
+        olive_onnx_model = model_proto_to_olive_model(onnx_model, output_model_path, config)
+        # inherit the hf_config from the original model
+        _hf_config = model.hf_config
+        if _hf_config:
+            _hf_config.config = _hf_config.config or {}
+            if hasattr(pytorch_model, "config"):
+                _hf_config.config.update(pytorch_model.config.to_dict())
+            olive_onnx_model.hf_config = _hf_config
+        return olive_onnx_model
 
 
 class DeviceSpecificOnnxConversion(OnnxConversion):

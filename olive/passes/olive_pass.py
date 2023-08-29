@@ -393,7 +393,10 @@ class Pass(ABC):
                 component_names.append(model.get_model_component_name(cidx))
             return CompositeOnnxModel(components, component_names, hf_config=model.hf_config)
         else:
-            return self._run_for_config(model, data_root, config, output_model_path)
+            output_model = self._run_for_config(model, data_root, config, output_model_path)
+            if not getattr(output_model, "hf_config", None) and getattr(model, "hf_config", None):
+                output_model.hf_config = model.hf_config
+            return output_model
 
     def serialize_config(self, config: Dict[str, Any], check_object: bool = False) -> str:
         """

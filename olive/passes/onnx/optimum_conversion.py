@@ -7,6 +7,7 @@ from typing import Any, Dict, Union
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeOnnxModel, ONNXModel, OptimumModel
+from olive.model.hf_utils import HFConfig
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import PassConfigParam
@@ -33,6 +34,7 @@ class OptimumConversion(Pass):
         assert len(model.model_components) > 0
 
         from optimum.exporters.onnx import main_export as export_optimum_model
+        from transformers import AutoConfig
 
         # TODO: export into temp dir and then move to sub-dirs of output_model_path
         # so that we only keep the final model files in the output_model_path
@@ -43,6 +45,8 @@ class OptimumConversion(Pass):
             opset=config["target_opset"],
             no_post_process=True,
         )
+        hf_config = model.hf_config or HFConfig()
+        hf_config.config = AutoConfig.from_pretrained(model.model_path).to_dict()
 
         onnx_model_components = [
             ONNXModel(str(Path(output_model_path) / model_component)) for model_component in model.model_components
@@ -52,4 +56,4 @@ class OptimumConversion(Pass):
         if len(onnx_model_components) == 1:
             return ONNXModel(output_model_path / model.model_components[0])
 
-        return CompositeOnnxModel(onnx_model_components, onnx_model_component_names)
+        return CompositeOnnxModel(onnx_model_components, onnx_model_component_names, hf_config=hf_config)

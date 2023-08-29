@@ -21,6 +21,21 @@ class OrtTransformersOptimization(Pass):
     """Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time.
     It is based on onnxruntime.transformers.optimizer."""
 
+    # To extend following list/map from huggingface config
+    # there is the priority order: NUM_HEADS_NAMES[0] and HIDDEN_SIZE_NAMES[0] are the first choice
+    # which means user can override the value in config file or hf_config.config
+    NUM_HEADS_NAMES = ["num_heads", "num_attention_heads", "n_head", "encoder_attention_heads"]
+    HIDDEN_SIZE_NAMES = ["hidden_size", "d_model", "n_embd"]
+    MODEL_TYPE_MAPPING = {
+        "whisper": "bart",
+        "camembert": "bert",
+        "deberta": "bert",
+        "deberta-v2": "bert",
+        "gpt_neox": "gpt2",
+        "gpt-j": "gpt2",
+        "llama": "gpt2",
+    }
+
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         from onnxruntime.transformers.fusion_options import FusionOptions
@@ -30,7 +45,7 @@ class OrtTransformersOptimization(Pass):
         config = {
             "model_type": PassConfigParam(
                 type_=str,
-                required=True,
+                default_value=None,
                 description=(
                     "Transformer based model type, including bert (exported by PyTorch), gpt2 (exported by PyTorch), "
                     "bert_tf (BERT exported by tf2onnx), bert_keras (BERT exported by keras2onnx), and "
@@ -139,6 +154,25 @@ class OrtTransformersOptimization(Pass):
         )
         for key in get_external_data_config():
             del run_config[key]
+
+        if model.hf_config.config:
+            input_model_type = model.hf_config.config.get("model_type", "")
+            _model_type = self.MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
+            assert _model_type in transformers_optimizer.MODEL_TYPES, (
+                f"Unsupported model type: {_model_type}, please select one from {transformers_optimizer.MODEL_TYPES}"
+                " which need to be set under OrtTransformersOptimization.config or model.hf_config.config"
+            )
+            run_config["model_type"] = run_config["model_type"] or _model_type
+            if run_config["num_heads"] == 0:
+                for num_heads_name in self.NUM_HEADS_NAMES:
+                    if num_heads_name in model.hf_config.config:
+                        run_config["num_heads"] = model.hf_config.config[num_heads_name]
+                        break
+            if run_config["hidden_size"] == 0:
+                for hidden_size_name in self.HIDDEN_SIZE_NAMES:
+                    if hidden_size_name in model.hf_config.config:
+                        run_config["hidden_size"] = model.hf_config.config[hidden_size_name]
+                        break
 
         output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
 

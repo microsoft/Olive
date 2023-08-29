@@ -45,12 +45,9 @@
         "optimize": {
             "type": "OrtTransformersOptimization",
             "config": {
-                "model_type": "gpt2",
                 "float16": true,
                 "use_gpu": false,
                 "keep_io_types": true,
-                "num_heads": 32,
-                "hidden_size": 4096,
                 "optimization_options": {
                     "use_multi_head_attention": false
                 }
