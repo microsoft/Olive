@@ -17,7 +17,7 @@ class LocalSystem(OliveSystem):
     system_type = SystemType.Local
 
     def __init__(self, accelerators: List[str] = None):
-        super().__init__(accelerators=accelerators)
+        super().__init__(accelerators=accelerators, olive_managed_env=False)
 
     def run_pass(
         self,
