@@ -6,6 +6,7 @@ import argparse
 import json
 import shutil
 import tempfile
+from functools import lru_cache
 from pathlib import Path
 
 from olive.systems.common import SystemType
@@ -48,6 +49,7 @@ def get_package_name(execution_provider):
     return PROVIDER_PACKAGE_MAPPING.get(execution_provider, "onnxruntime")
 
 
+@lru_cache(maxsize=8)
 def create_new_system(origin_system, accelerator):
     PROVIDER_DOCKERFILE_MAPPING = {
         "CPUExecutionProvider": "Dockerfile.cpu",

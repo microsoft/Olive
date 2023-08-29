@@ -367,7 +367,7 @@ class PythonEnvironmentSystem(OliveSystem):
         # install common packages
         common_requirements_file = Path(__file__).parent.resolve() / "common_requirements.txt"
         run_subprocess(
-            f"pip install -r {common_requirements_file}",
+            f"pip install --no-cache-dir -r {common_requirements_file}",
             env=self.environ,
             check=True,
         )
@@ -376,7 +376,7 @@ class PythonEnvironmentSystem(OliveSystem):
         onnxruntime_package = get_package_name(accelerator.execution_provider)
         olive_package = "git+https://github.com/microsoft/Olive.git"
         run_subprocess(
-            f"pip install {onnxruntime_package} {olive_package}",
+            f"pip install --no-cache-dir {onnxruntime_package} {olive_package}",
             env=self.environ,
             check=True,
         )
@@ -384,7 +384,7 @@ class PythonEnvironmentSystem(OliveSystem):
         # install user requirements
         if self.config.requirements_file:
             run_subprocess(
-                f"pip install -r {self.config.requirements_file}",
+                f"pip install --no-cache-dir -r {self.config.requirements_file}",
                 env=self.environ,
                 check=True,
             )
@@ -397,5 +397,8 @@ class PythonEnvironmentSystem(OliveSystem):
             vitual_env_path = str(self.config.python_environment_path)[:-7]
         else:
             vitual_env_path = str(self.config.python_environment_path)[:-3]
-        shutil.rmtree(vitual_env_path)
-        logger.info("Virtual environment '{}' removed.".format(vitual_env_path))
+        try:
+            shutil.rmtree(vitual_env_path)
+            logger.info("Virtual environment '{}' removed.".format(vitual_env_path))
+        except FileNotFoundError:
+            pass
