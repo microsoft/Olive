@@ -508,6 +508,10 @@ class PyTorchModel(OliveModel):
             model = user_module_loader.call_object(self.model_loader, self.model_path)
         elif self.hf_config and (self.hf_config.model_class or self.hf_config.task):
             input_model = self.model_path or self.hf_config.model_name
+            # input_model can be model name in huggingface model hub or local folder to model
+            # if it is local folder, try to load model with huggingface method, if failed,
+            # fallback to local file load way.
+            # TODO: what if we have model_path as local model, but hf_config is not None
             if self.hf_config.task:
                 model = load_huggingface_model_from_task(self.hf_config.task, input_model)
             else:
@@ -520,7 +524,7 @@ class PyTorchModel(OliveModel):
             elif self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
                 model = self.load_mlflow_model()
             elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
-                raise ValueError("Please use customized model loader to load state dict model.")
+                raise ValueError("Please use customized model loader to load state dict of model.")
             else:
                 raise ValueError(f"Unsupported model file format: {self.model_file_format}")
 

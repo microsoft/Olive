@@ -14,7 +14,7 @@ from olive.common.config_utils import ConfigBase, ParamCategory, validate_config
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
-from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel
+from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel, PyTorchModel
 from olive.passes.pass_config import (
     PassConfigBase,
     PassConfigParam,
@@ -394,8 +394,11 @@ class Pass(ABC):
             return CompositeOnnxModel(components, component_names, hf_config=model.hf_config)
         else:
             output_model = self._run_for_config(model, data_root, config, output_model_path)
-            if not getattr(output_model, "hf_config", None) and getattr(model, "hf_config", None):
-                output_model.hf_config = model.hf_config
+            if hasattr(output_model, "hf_config") and not isinstance(output_model, PyTorchModel):
+                # not all models have hf_config
+                # Do not inherit hf_config from input model if output_model is PyTorchModel for time being.
+                if not output_model.hf_config and getattr(model, "hf_config", None):
+                    output_model.hf_config = model.hf_config
             return output_model
 
     def serialize_config(self, config: Dict[str, Any], check_object: bool = False) -> str:

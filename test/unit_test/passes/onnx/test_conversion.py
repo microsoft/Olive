@@ -21,7 +21,6 @@ def test_onnx_conversion_pass(input_model):
         # The conversion need torch version > 1.13.1, otherwise, it will complain
         # Unsupported ONNX opset version: 18
         onnx_model = local_system.run_pass(p, input_model, None, output_folder)
-        assert onnx_model.hf_config == input_model.hf_config
 
         # assert
         assert Path(onnx_model.model_path).exists()
