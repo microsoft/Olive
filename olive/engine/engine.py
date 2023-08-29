@@ -6,6 +6,7 @@ import json
 import logging
 import time
 from collections import OrderedDict, defaultdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
@@ -379,6 +380,10 @@ class Engine:
                 raise
             except Exception as e:
                 logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
+
+        for eps in self.footprints.keys():
+            logger.info(f"Run history for {eps}:")
+            self.footprints[eps].summarize_run_history(output_dir / f"run_history_{eps}.json")
 
         if packaging_config:
             logger.info(f"Package top ranked {sum([len(f.nodes) for f in pf_footprints.values()])} models as artifacts")
@@ -990,7 +995,9 @@ class Engine:
         if host.system_type != SystemType.AzureML:
             input_model = self._prepare_non_local_model(input_model)
         try:
+            run_start_time = datetime.now().timestamp()
             output_model = host.run_pass(p, input_model, data_root, output_model_path, pass_search_point)
+            run_end_time = datetime.now().timestamp()
         except OlivePassException as e:
             logger.error(f"Pass run_pass failed: {e}", exc_info=True)
             output_model = FAILED_CONFIG
@@ -1019,6 +1026,8 @@ class Engine:
             parent_model_id=input_model_id,
             from_pass=pass_name,
             pass_run_config=pass_config,
+            start_time=run_start_time,
+            end_time=run_end_time,
         )
         return output_model, output_model_id
 
