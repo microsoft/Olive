@@ -247,7 +247,6 @@ def load_huggingface_model_from_task(task: str, name: str, **kwargs):
     class_tuple = class_tuple + model_class.get("pt", (AutoModel,))
 
     model = None
-    kwargs = kwargs or {}
     for model_class in class_tuple:
         try:
             model = model_class.from_pretrained(name, **kwargs)
@@ -287,7 +286,6 @@ def load_huggingface_model_from_model_class(model_class: str, name: str, **kwarg
     """
     Load huggingface model from model_loader and name
     """
-    kwargs = kwargs or {}
     return huggingface_model_loader(model_class)(name, **kwargs)
 
 

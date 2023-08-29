@@ -20,4 +20,5 @@ __version__ = "0.4.0"
 
 # set to 1,2 for development
 # incase I forget to set it in the terminal
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
