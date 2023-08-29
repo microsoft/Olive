@@ -286,12 +286,12 @@ class Footprint:
 
     def summarize_run_history(self, output_path):
         """
-        Summarize the run history of a model with the order of
-        model_id -> parent_model_id1 -> parent_model_id2 -> ...
+        Summarize the run history of a model with the columns of
+        model_id, parent_model_id, from_pass, duration, metrics
         """
         from tabulate import tabulate
 
-        headers = ["model_id", "parent_model_id", "from_pass", "duration", "metrics"]
+        headers = ["model_id", "parent_model_id", "from_pass", "duration_sec", "metrics"]
         RunHistory = namedtuple("RunHistory", headers)
         rls = []
         for model_id, node in self.nodes.items():
@@ -305,7 +305,7 @@ class Footprint:
                 parent_model_id=node.parent_model_id,
                 from_pass=node.from_pass,
                 duration=duration,
-                metrics=str(node.metrics.value if node.metrics else None),
+                metrics=str(node.metrics.value) if node.metrics else None,
             )
             rls.append(tuple(run_history))
         tab_rls = tabulate(rls, headers=headers, tablefmt="grid")
