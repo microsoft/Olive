@@ -1139,16 +1139,16 @@ class Engine:
     def create_managed_environment(self, accelerator_spec):
         origin_target = self.target
         origin_host = self.host
-        if self.target.olive_managed_env:
+        if origin_target.olive_managed_env:
             self.target = create_new_system(origin_target, accelerator_spec)
-        if self.host.olive_managed_env:
+        if origin_host.olive_managed_env:
             self.host = create_new_system(origin_host, accelerator_spec)
 
         yield
 
-        if self.host.olive_managed_env:
+        if origin_host.olive_managed_env:
             self.host.remove()
             self.host = origin_host
-        if self.target.olive_managed_env:
+        if origin_target.olive_managed_env:
             self.target.remove()
             self.target = origin_target
