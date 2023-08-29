@@ -304,7 +304,7 @@ class Footprint:
                 model_id=model_id,
                 parent_model_id=node.parent_model_id,
                 from_pass=node.from_pass,
-                duration=duration,
+                duration_sec=duration,
                 metrics=str(node.metrics.value) if node.metrics else None,
             )
             rls.append(tuple(run_history))
