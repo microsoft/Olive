@@ -1,3 +1,5 @@
+trigger: none
+
 schedules:
 - cron: 0 6 * * 5
   displayName: Scheduled Build
