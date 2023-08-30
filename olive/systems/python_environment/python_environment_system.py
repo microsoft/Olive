@@ -64,8 +64,6 @@ class PythonEnvironmentSystem(OliveSystem):
             self.environ["PATH"] = os.pathsep.join(self.config.prepend_to_path) + os.pathsep + self.environ["PATH"]
         if self.config.python_environment_path:
             self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
-        if self.config.olive_managed_env and platform.system() == "Linux":
-            self.environ["TMPDIR"] = self.environ["HOME"] + "TMP"
 
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
         # used for caching the available eps

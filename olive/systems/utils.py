@@ -66,15 +66,22 @@ def create_new_system(origin_system, accelerator):
         raise NotImplementedError("olive_managed_env is not supported for LocalSystem")
 
     elif origin_system.system_type == SystemType.PythonEnvironment:
+        import os
+        import platform
         import venv
 
         from olive.systems.python_environment import PythonEnvironmentSystem
 
-        # Create the virtual environment
-        venv_path = Path(tempfile.TemporaryDirectory(prefix="olive_python_env_").name)
+        if platform.system() == "Linux":
+            destination_dir = os.environ.get("HOME", "") + "/TMP"
+            if not os.path.exists(destination_dir):
+                os.makedirs(destination_dir)
+            venv_path = Path(tempfile.TemporaryDirectory(prefix="olive_python_env_", dir=destination_dir).name)
+        else:
+            venv_path = Path(tempfile.TemporaryDirectory(prefix="olive_python_env_").name)
+
         venv.create(venv_path, with_pip=True, system_site_packages=True)
         logger.info("Virtual environment '{}' created.".format(venv_path))
-        import platform
 
         if platform.system() == "Windows":
             python_environment_path = f"{venv_path}/Scripts"
