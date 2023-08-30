@@ -638,7 +638,7 @@ class Engine:
             formatted_rls = tabulate([tuple(rh) for rh in run_history], headers=headers, tablefmt="grid")
             logger.info(f"run history:\n{formatted_rls}")
         except ImportError:
-            logger.warning("Please install tabulate for better run history output")
+            logger.info("Please install tabulate for better run history output")
             formatted_rls = run_history
         with open(output_path, "w") as f:
             f.write(f"{formatted_rls}")
