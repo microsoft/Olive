@@ -8,5 +8,6 @@ dependencies:
       - onnxruntime
       - pytorch-lightning
       - scipy
+      - tabulate
       - torchvision
       - git+https://github.com/microsoft/Olive.git

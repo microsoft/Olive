@@ -6,6 +6,7 @@ import json
 import logging
 import time
 from collections import OrderedDict, defaultdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
@@ -380,6 +381,11 @@ class Engine:
             except Exception as e:
                 logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
 
+        for accelerator_spec in self.footprints.keys():
+            logger.info(f"Run history for {accelerator_spec}:")
+            run_history = self.footprints[accelerator_spec].summarize_run_history()
+            self.dump_run_history(run_history, output_dir / f"run_history_{accelerator_spec}.txt")
+
         if packaging_config:
             logger.info(f"Package top ranked {sum([len(f.nodes) for f in pf_footprints.values()])} models as artifacts")
             generate_output_artifacts(
@@ -621,6 +627,22 @@ class Engine:
 
         return pf_footprints
 
+    def dump_run_history(self, run_history, output_path: str = None):
+        if not run_history:
+            logger.info("No run history to dump!")
+            return
+        headers = run_history[0]._fields
+        try:
+            from tabulate import tabulate
+
+            formatted_rls = tabulate([tuple(rh) for rh in run_history], headers=headers, tablefmt="grid")
+            logger.info(f"run history:\n{formatted_rls}")
+        except ImportError:
+            logger.info("Please install tabulate for better run history output")
+            formatted_rls = run_history
+        with open(output_path, "w") as f:
+            f.write(f"{formatted_rls}")
+
     def resolve_objectives(
         self,
         input_model: OliveModel,
@@ -847,6 +869,8 @@ class Engine:
         input_model_id: str,
         output_model_id: str,
         accelerator_spec: AcceleratorSpec,
+        run_start_time: float = 0,
+        run_end_time: float = 0,
     ):
         """
         Cache the run in the cache directory.
@@ -856,6 +880,8 @@ class Engine:
             "pass_config": pass_config,
             "input_model_id": input_model_id,
             "output_model_id": output_model_id,
+            "run_start_time": run_start_time,
+            "run_end_time": run_end_time,
         }
         input_model_number = input_model_id.split("_")[0]
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
@@ -871,17 +897,15 @@ class Engine:
         """
         input_model_number = input_model_id.split("_")[0]
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
+        run_json = {}
         if run_json_path.exists():
             try:
                 with open(run_json_path, "r") as f:
                     run_json = json.load(f)
-                output_model_id = run_json["output_model_id"]
             except Exception as e:
                 logger.error(f"Failed to load run: {e}", exc_info=True)
-                output_model_id = None
-            return output_model_id
-        else:
-            return None
+                run_json = {}
+        return run_json
 
     def _run_passes(
         self,
@@ -952,7 +976,8 @@ class Engine:
 
         # load run from cache if it exists
         run_accel = None if p.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
-        output_model_id = self._load_run(input_model_id, pass_name, pass_config, run_accel)
+        run_cache = self._load_run(input_model_id, pass_name, pass_config, run_accel)
+        output_model_id = run_cache.get("output_model_id", None)
         if output_model_id is not None:
             logger.debug("Loading model from cache ...")
             output_model = self._load_model(output_model_id)
@@ -964,6 +989,8 @@ class Engine:
                     parent_model_id=input_model_id,
                     from_pass=pass_name,
                     pass_run_config=pass_config,
+                    start_time=run_cache.get("run_start_time", 0),
+                    end_time=run_cache.get("run_end_time", 0),
                 )
                 return output_model, output_model_id
 
@@ -989,6 +1016,7 @@ class Engine:
         host = self.host_for_pass(pass_id)
         if host.system_type != SystemType.AzureML:
             input_model = self._prepare_non_local_model(input_model)
+        run_start_time = datetime.now().timestamp()
         try:
             output_model = host.run_pass(p, input_model, data_root, output_model_path, pass_search_point)
         except OlivePassException as e:
@@ -1006,11 +1034,14 @@ class Engine:
             if self.no_search:
                 raise  # rethrow the exception if no search is performed
 
+        run_end_time = datetime.now().timestamp()
         # cache model
         self._cache_model(output_model, output_model_id)
 
         # cache run
-        self._cache_run(pass_name, pass_config, input_model_id, output_model_id, run_accel)
+        self._cache_run(
+            pass_name, pass_config, input_model_id, output_model_id, run_accel, run_start_time, run_end_time
+        )
 
         # footprint model and run
         self.footprints[accelerator_spec].record(
@@ -1019,6 +1050,8 @@ class Engine:
             parent_model_id=input_model_id,
             from_pass=pass_name,
             pass_run_config=pass_config,
+            start_time=run_start_time,
+            end_time=run_end_time,
         )
         return output_model, output_model_id
 

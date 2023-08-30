@@ -6,4 +6,5 @@ docker
 neural-compressor
 scipy
 scikit-learn
+tabulate
 transformers
