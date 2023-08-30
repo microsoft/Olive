@@ -630,6 +630,7 @@ class Engine:
     def dump_run_history(self, run_history, output_path: str = None):
         if not run_history:
             logger.info("No run history to dump!")
+            return
         headers = run_history[0]._fields
         try:
             from tabulate import tabulate
@@ -890,34 +891,21 @@ class Engine:
         except Exception as e:
             logger.error(f"Failed to cache run: {e}", exc_info=True)
 
-    def _load_run_json(self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: AcceleratorSpec):
+    def _load_run(self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: AcceleratorSpec):
         """
         Load the run from the cache directory.
         """
         input_model_number = input_model_id.split("_")[0]
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
-        run_json = None
+        run_json = {}
         if run_json_path.exists():
             try:
                 with open(run_json_path, "r") as f:
                     run_json = json.load(f)
             except Exception as e:
                 logger.error(f"Failed to load run: {e}", exc_info=True)
-                run_json = None
+                run_json = {}
         return run_json
-
-    def _load_output_model_id_from_run(
-        self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: AcceleratorSpec
-    ):
-        """
-        Load the output_model_id from the cache directory.
-        """
-
-        output_model_id = None
-        run_json = self._load_run_json(input_model_id, pass_name, pass_config, accelerator_spec)
-        if run_json:
-            output_model_id = run_json.get("output_model_id", None)
-        return output_model_id
 
     def _run_passes(
         self,
@@ -988,11 +976,8 @@ class Engine:
 
         # load run from cache if it exists
         run_accel = None if p.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
-        run_cache = self._load_run_json(input_model_id, pass_name, pass_config, run_accel)
-        if run_cache:
-            output_model_id = run_cache.get("output_model_id", None)
-        else:
-            output_model_id = None
+        run_cache = self._load_run(input_model_id, pass_name, pass_config, run_accel)
+        output_model_id = run_cache.get("output_model_id", None)
         if output_model_id is not None:
             logger.debug("Loading model from cache ...")
             output_model = self._load_model(output_model_id)
@@ -1004,8 +989,8 @@ class Engine:
                     parent_model_id=input_model_id,
                     from_pass=pass_name,
                     pass_run_config=pass_config,
-                    start_time=run_cache["run_start_time"],
-                    end_time=run_cache["run_end_time"],
+                    start_time=run_cache.get("run_start_time", 0),
+                    end_time=run_cache.get("run_end_time", 0),
                 )
                 return output_model, output_model_id
 
