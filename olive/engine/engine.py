@@ -27,7 +27,7 @@ from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
-from olive.systems.utils import create_new_system
+from olive.systems.utils import create_new_system_with_cache
 
 logger = logging.getLogger(__name__)
 
@@ -1140,9 +1140,9 @@ class Engine:
         origin_target = self.target
         origin_host = self.host
         if origin_target.olive_managed_env:
-            self.target = create_new_system(origin_target, accelerator_spec)
+            self.target = create_new_system_with_cache(origin_target, accelerator_spec)
         if origin_host.olive_managed_env:
-            self.host = create_new_system(origin_host, accelerator_spec)
+            self.host = create_new_system_with_cache(origin_host, accelerator_spec)
 
         yield
 

@@ -53,6 +53,11 @@ def get_package_name(execution_provider):
 
 
 @lru_cache(maxsize=8)
+def create_new_system_with_cache(origin_system, accelerator):
+    new_system = create_new_system(origin_system, accelerator)
+    return new_system
+
+
 def create_new_system(origin_system, accelerator):
     PROVIDER_DOCKERFILE_MAPPING = {
         "CPUExecutionProvider": "Dockerfile.cpu",
