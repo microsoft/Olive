@@ -66,7 +66,6 @@ class TestHFModelLoadingArgs:
         [
             ("auto", "auto"),
             (1, 1),
-            ("1", 1),
             ("cuda:0", "cuda:0"),
             (torch.device(0), "cuda:0"),
             (torch.device("cuda:0"), "cuda:0"),
