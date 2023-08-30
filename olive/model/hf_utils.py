@@ -38,7 +38,7 @@ class HFModelLoadingArgs(ConfigBase):
     torch_dtype: str = None
     # A map that specifies where each submodule should go. Refer to link in class docstring
     # str suffices for torch.dtype, otherwise serializer won't recognize it
-    device_map: Union[int, str, Dict[str, Union[int, str]]] = None
+    device_map: Union[int, str, Dict] = None
     # A dictionary device identifier to maximum memory
     max_memory: Dict = None
     # quant method to use (transformers.QuantizationMethod), e.g. "bitsandbytes", "gptq"
@@ -184,9 +184,9 @@ class HFConfig(ConfigBase):
         model_name_or_path = model_path or self.model_name
         loading_args = self.model_loading_args.get_loading_args() if self.model_loading_args else {}
         if self.task:
-            model = load_huggingface_model_from_task(self.task, model_name_or_path, loading_args)
+            model = load_huggingface_model_from_task(self.task, model_name_or_path, **loading_args)
         elif self.model_class:
-            model = load_huggingface_model_from_model_class(self.model_class, model_name_or_path, loading_args)
+            model = load_huggingface_model_from_model_class(self.model_class, model_name_or_path, **loading_args)
         return model
 
     def load_model_config(self, model_path: str = None):
@@ -196,7 +196,7 @@ class HFConfig(ConfigBase):
         return get_hf_model_config(model_name_or_path)
 
 
-def load_huggingface_model_from_task(task: str, name: str, kwargs: Dict[str, Any] = None):
+def load_huggingface_model_from_task(task: str, name: str, **kwargs):
     """Load huggingface model from task and name"""
     from transformers.pipelines import check_task
 
@@ -214,7 +214,6 @@ def load_huggingface_model_from_task(task: str, name: str, kwargs: Dict[str, Any
     class_tuple = class_tuple + model_class.get("pt", (AutoModel,))
 
     model = None
-    kwargs = kwargs or {}
     for model_class in class_tuple:
         try:
             model = model_class.from_pretrained(name, **kwargs)
@@ -250,7 +249,7 @@ def get_hf_model_config(model_name: str):
     return AutoConfig.from_pretrained(model_name)
 
 
-def load_huggingface_model_from_model_class(model_class: str, name: str, kwargs: Dict[str, Any] = None):
+def load_huggingface_model_from_model_class(model_class: str, name: str, **kwargs):
     """
     Load huggingface model from model_loader and name
     """
