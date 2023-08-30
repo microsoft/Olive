@@ -148,14 +148,7 @@
 <span class="kn">from</span> <span class="nn">olive.common.user_module_loader</span> <span class="kn">import</span> <span class="n">UserModuleLoader</span>
 <span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">ModelFileFormat</span>
 <span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">AcceleratorLookup</span><span class="p">,</span> <span class="n">Device</span>
-<span class="kn">from</span> <span class="nn">olive.model.hf_utils</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">HFConfig</span><span class="p">,</span>
-    <span class="n">get_hf_model_config</span><span class="p">,</span>
-    <span class="n">get_hf_model_dummy_input</span><span class="p">,</span>
-    <span class="n">huggingface_model_loader</span><span class="p">,</span>
-    <span class="n">load_huggingface_model_from_model_class</span><span class="p">,</span>
-    <span class="n">load_huggingface_model_from_task</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">olive.model.hf_utils</span> <span class="kn">import</span> <span class="n">HFConfig</span><span class="p">,</span> <span class="n">get_hf_model_dummy_input</span><span class="p">,</span> <span class="n">huggingface_model_loader</span>
 <span class="kn">from</span> <span class="nn">olive.model.model_config</span> <span class="kn">import</span> <span class="n">IOConfig</span>
 <span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span>
@@ -632,11 +625,7 @@
             <span class="n">user_module_loader</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
             <span class="n">model</span> <span class="o">=</span> <span class="n">user_module_loader</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_loader</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">and</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_class</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">):</span>
-            <span class="n">input_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_path</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">:</span>
-                <span class="n">model</span> <span class="o">=</span> <span class="n">load_huggingface_model_from_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="n">input_model</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">model</span> <span class="o">=</span> <span class="n">load_huggingface_model_from_model_class</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_class</span><span class="p">,</span> <span class="n">input_model</span><span class="p">)</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_ENTIRE_MODEL</span><span class="p">:</span>
                 <span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
@@ -735,7 +724,7 @@
     <span class="k">def</span> <span class="nf">get_model_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;HF model_config is not available&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">get_hf_model_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">load_model_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">components</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
@@ -1058,7 +1047,7 @@
     <span class="k">def</span> <span class="nf">get_model_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;HF model_config is not available&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">get_hf_model_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">load_model_config</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
         <span class="n">json_dict</span> <span class="o">=</span> <span class="p">{</span>
