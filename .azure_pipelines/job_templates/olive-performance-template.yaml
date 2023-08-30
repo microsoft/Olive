@@ -41,14 +41,6 @@ jobs:
       alertWarningLevel: 'High'
     displayName: Component Detection
 
-  - task: PublishTestResults@2
-    condition: succeededOrFailed()      
-    inputs:
-      testResultsFiles: '**/*TestOlive*.xml'
-      testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
-    displayName: Upload pipeline run test results
-
-
   - script: make clean WINDOWS=$(WINDOWS)
     condition: always()
     displayName: Clean remaining artifacts
