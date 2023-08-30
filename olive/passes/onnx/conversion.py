@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import logging
 import tempfile
-from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Union
 
@@ -15,7 +14,7 @@ from olive.common.config_utils import validate_config
 from olive.common.utils import tensor_data_to_device
 from olive.hardware import AcceleratorSpec, Device
 from olive.model import CompositeOnnxModel, ONNXModel, PyTorchModel
-from olive.model.hf_utils import HFConfig, get_hf_model_io_config
+from olive.model.hf_utils import get_hf_model_io_config
 from olive.model.model_config import IOConfig
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
@@ -191,12 +190,8 @@ class OnnxConversion(Pass):
             pytorch_model.to("cpu")
         # save the model to the output path and return the model
         olive_onnx_model = model_proto_to_olive_model(onnx_model, output_model_path, config)
-        # inherit the hf_config from the original model
-        _hf_config = deepcopy(model.hf_config) or HFConfig()
-        _hf_config.config = _hf_config.config or {}
-        if hasattr(pytorch_model, "config"):
-            _hf_config.config.update(pytorch_model.config.to_dict())
-        olive_onnx_model.hf_config = _hf_config
+        # inherit the run_config from the original model
+        olive_onnx_model.auto_tune_config = model.fuse_auto_tune_with_hf_config()
         return olive_onnx_model
 
 

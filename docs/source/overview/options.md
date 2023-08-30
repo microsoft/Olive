@@ -114,10 +114,7 @@ case insensitive.
                 - `dummy_inputs_func: [str]`: The dummy input function name will be loaded from `model_script`.
 
         - `config: [dict]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
-        [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration). User can also overwrite any fields in this config.
-        Olive will try to merge the config from huggingface hub and user's config. If there is any conflict, the user's config will be used. For example,
-        For whisper model, the official value for `model_type` is `whisper`, but user can overwrite it to `bart` which can be leverage in the pass of [OnnxTransformersOptimization](onnx_transformers_optimization).
-        Similar config like `num_heads` and `hidden_size` which will be used in [OnnxTransformersOptimization](onnx_transformers_optimization) pass as well.
+        [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration).
 
         - `dataset: [dict]`: If you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading). Olive exposes the following configs(which will be extended in the future):
             ```python
@@ -139,6 +136,12 @@ case insensitive.
             }
             ```
             For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide `dataset` config only like above.
+
+    - `auto_tune_config: [dict]`: The config to guide pass config completion. User can also overwrite any passes config fields in this config.
+        Olive will try to merge the config from huggingface hub and user's config. If there is any conflict, the user's config will be used. For example,
+        For whisper model, the official value for `model_type` is `whisper`, but user can overwrite it to `bart` which can be leverage in the pass of [OnnxTransformersOptimization](onnx_transformers_optimization).
+        Similar config like `num_heads` and `hidden_size` which will be used in [OnnxTransformersOptimization](onnx_transformers_optimization) pass as well.
+
 
 Please find the detailed config options from following table for each model type:
 

@@ -215,6 +215,7 @@ class HFConfig(ConfigBase):
     # TODO: remove model_class and only use task
     model_class: str = None
     components: List[HFComponent] = None
+    # TODO: double check if we need this field
     config: Dict[str, Any] = None
     dataset: Dict[str, Any] = None
     model_loading_args: HFModelLoadingArgs = None
