@@ -21,8 +21,9 @@ from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.exception import OlivePassException
 from olive.hardware import AcceleratorLookup, AcceleratorSpec, Device
-from olive.model import ModelConfig, OliveModel
+from olive.model import ModelConfig, OliveModel, PyTorchModel
 from olive.passes.olive_pass import Pass
+from olive.resource_path import ResourcePath
 from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
@@ -812,25 +813,32 @@ class Engine:
 
     def _prepare_non_local_model(self, model: OliveModel) -> OliveModel:
         """
-        Prepare models with non-local model path for local run by downloading the model resource to cache
+        Prepare models with non-local model path for local run by downloading the model resources to cache
         """
         model_resource_path = model.model_resource_path
-        if (
-            model_resource_path is None
-            or model_resource_path.is_local_resource()
-            or model_resource_path.is_string_name()
-        ):
-            logger.debug("Model path is None, local or string name. No need to prepare")
-            return model
+        downloaded_model_resource_path = self._download_non_local_resource(model_resource_path)
+        if downloaded_model_resource_path:
+            # set local model resource path
+            model.set_local_model_path(downloaded_model_resource_path)
 
-        # download and cache the model resource
-        logger.debug("Downloading non local model resource to cache")
-        local_model_resource_path = cache_utils.download_resource(model_resource_path, self._config.cache_dir)
-
-        # set local model resource path
-        model.set_local_model_path(local_model_resource_path)
+        if isinstance(model, PyTorchModel):
+            adapter_resource_path = model.adapter_resource_path
+            downloaded_adapter_resource_path = self._download_non_local_resource(adapter_resource_path)
+            if downloaded_adapter_resource_path:
+                # set local adapter resource path
+                model.set_local_adapter_path(downloaded_adapter_resource_path)
 
         return model
+
+    def _download_non_local_resource(self, resource_path: ResourcePath) -> ResourcePath:
+        """
+        Download non local resource to cache
+        """
+        if resource_path is None or resource_path.is_local_resource() or resource_path.is_string_name():
+            return None
+        else:
+            # download and cache the resource
+            return cache_utils.download_resource(resource_path, self._config.cache_dir)
 
     def _init_input_model(self, input_model: OliveModel):
         """
