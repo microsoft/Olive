@@ -131,6 +131,7 @@
 <span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span><span class="p">,</span> <span class="n">defaultdict</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
 
@@ -505,6 +506,11 @@
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to run Olive on </span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
+        <span class="k">for</span> <span class="n">accelerator_spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Run history for </span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
+            <span class="n">run_history</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">summarize_run_history</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">dump_run_history</span><span class="p">(</span><span class="n">run_history</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;run_history_</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">.txt&quot;</span><span class="p">)</span>
+
         <span class="k">if</span> <span class="n">packaging_config</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package top ranked </span><span class="si">{</span><span class="nb">sum</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">pf_footprints</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span><span class="si">}</span><span class="s2"> models as artifacts&quot;</span><span class="p">)</span>
             <span class="n">generate_output_artifacts</span><span class="p">(</span>
@@ -746,6 +752,22 @@
 
         <span class="k">return</span> <span class="n">pf_footprints</span>
 
+    <span class="k">def</span> <span class="nf">dump_run_history</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">run_history</span><span class="p">,</span> <span class="n">output_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">run_history</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No run history to dump!&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="n">headers</span> <span class="o">=</span> <span class="n">run_history</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">_fields</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">tabulate</span> <span class="kn">import</span> <span class="n">tabulate</span>
+
+            <span class="n">formatted_rls</span> <span class="o">=</span> <span class="n">tabulate</span><span class="p">([</span><span class="nb">tuple</span><span class="p">(</span><span class="n">rh</span><span class="p">)</span> <span class="k">for</span> <span class="n">rh</span> <span class="ow">in</span> <span class="n">run_history</span><span class="p">],</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">,</span> <span class="n">tablefmt</span><span class="o">=</span><span class="s2">&quot;grid&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;run history:</span><span class="se">\n</span><span class="si">{</span><span class="n">formatted_rls</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Please install tabulate for better run history output&quot;</span><span class="p">)</span>
+            <span class="n">formatted_rls</span> <span class="o">=</span> <span class="n">run_history</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">formatted_rls</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
     <span class="k">def</span> <span class="nf">resolve_objectives</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">input_model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span>
@@ -972,6 +994,8 @@
         <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">output_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">,</span>
+        <span class="n">run_start_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="n">run_end_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Cache the run in the cache directory.</span>
@@ -981,6 +1005,8 @@
             <span class="s2">&quot;pass_config&quot;</span><span class="p">:</span> <span class="n">pass_config</span><span class="p">,</span>
             <span class="s2">&quot;input_model_id&quot;</span><span class="p">:</span> <span class="n">input_model_id</span><span class="p">,</span>
             <span class="s2">&quot;output_model_id&quot;</span><span class="p">:</span> <span class="n">output_model_id</span><span class="p">,</span>
+            <span class="s2">&quot;run_start_time&quot;</span><span class="p">:</span> <span class="n">run_start_time</span><span class="p">,</span>
+            <span class="s2">&quot;run_end_time&quot;</span><span class="p">:</span> <span class="n">run_end_time</span><span class="p">,</span>
         <span class="p">}</span>
         <span class="n">input_model_number</span> <span class="o">=</span> <span class="n">input_model_id</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">run_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_run_json_path</span><span class="p">(</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">input_model_number</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
@@ -996,17 +1022,15 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">input_model_number</span> <span class="o">=</span> <span class="n">input_model_id</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">run_json_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_run_json_path</span><span class="p">(</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">input_model_number</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
+        <span class="n">run_json</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">if</span> <span class="n">run_json_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">run_json_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                     <span class="n">run_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-                <span class="n">output_model_id</span> <span class="o">=</span> <span class="n">run_json</span><span class="p">[</span><span class="s2">&quot;output_model_id&quot;</span><span class="p">]</span>
             <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to load run: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                <span class="n">output_model_id</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="k">return</span> <span class="n">output_model_id</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="kc">None</span>
+                <span class="n">run_json</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">return</span> <span class="n">run_json</span>
 
     <span class="k">def</span> <span class="nf">_run_passes</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1077,7 +1101,8 @@
 
         <span class="c1"># load run from cache if it exists</span>
         <span class="n">run_accel</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">is_accelerator_agnostic</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">)</span> <span class="k">else</span> <span class="n">accelerator_spec</span>
-        <span class="n">output_model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_run</span><span class="p">(</span><span class="n">input_model_id</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">run_accel</span><span class="p">)</span>
+        <span class="n">run_cache</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_run</span><span class="p">(</span><span class="n">input_model_id</span><span class="p">,</span> <span class="n">pass_name</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">run_accel</span><span class="p">)</span>
+        <span class="n">output_model_id</span> <span class="o">=</span> <span class="n">run_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;output_model_id&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">output_model_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading model from cache ...&quot;</span><span class="p">)</span>
             <span class="n">output_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">output_model_id</span><span class="p">)</span>
@@ -1089,6 +1114,8 @@
                     <span class="n">parent_model_id</span><span class="o">=</span><span class="n">input_model_id</span><span class="p">,</span>
                     <span class="n">from_pass</span><span class="o">=</span><span class="n">pass_name</span><span class="p">,</span>
                     <span class="n">pass_run_config</span><span class="o">=</span><span class="n">pass_config</span><span class="p">,</span>
+                    <span class="n">start_time</span><span class="o">=</span><span class="n">run_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_start_time&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                    <span class="n">end_time</span><span class="o">=</span><span class="n">run_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_end_time&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
                 <span class="p">)</span>
                 <span class="k">return</span> <span class="n">output_model</span><span class="p">,</span> <span class="n">output_model_id</span>
 
@@ -1114,6 +1141,7 @@
         <span class="n">host</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_for_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">host</span><span class="o">.</span><span class="n">system_type</span> <span class="o">!=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span><span class="p">:</span>
             <span class="n">input_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_non_local_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">)</span>
+        <span class="n">run_start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">output_model</span> <span class="o">=</span> <span class="n">host</span><span class="o">.</span><span class="n">run_pass</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">input_model</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">OlivePassException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
@@ -1131,11 +1159,14 @@
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
                 <span class="k">raise</span>  <span class="c1"># rethrow the exception if no search is performed</span>
 
+        <span class="n">run_end_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
         <span class="c1"># cache model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">output_model</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">)</span>
 
         <span class="c1"># cache run</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_run</span><span class="p">(</span><span class="n">pass_name</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">,</span> <span class="n">run_accel</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_run</span><span class="p">(</span>
+            <span class="n">pass_name</span><span class="p">,</span> <span class="n">pass_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">,</span> <span class="n">run_accel</span><span class="p">,</span> <span class="n">run_start_time</span><span class="p">,</span> <span class="n">run_end_time</span>
+        <span class="p">)</span>
 
         <span class="c1"># footprint model and run</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record</span><span class="p">(</span>
@@ -1144,6 +1175,8 @@
             <span class="n">parent_model_id</span><span class="o">=</span><span class="n">input_model_id</span><span class="p">,</span>
             <span class="n">from_pass</span><span class="o">=</span><span class="n">pass_name</span><span class="p">,</span>
             <span class="n">pass_run_config</span><span class="o">=</span><span class="n">pass_config</span><span class="p">,</span>
+            <span class="n">start_time</span><span class="o">=</span><span class="n">run_start_time</span><span class="p">,</span>
+            <span class="n">end_time</span><span class="o">=</span><span class="n">run_end_time</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">output_model</span><span class="p">,</span> <span class="n">output_model_id</span>
 
