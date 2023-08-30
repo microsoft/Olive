@@ -29,7 +29,7 @@ class TestOliveManagedPythonEnvironmentSystem:
 
     @pytest.mark.skipif(platform.system() == "Windows", reason="OpenVINO does not support windows")
     @patch("olive.systems.utils.create_new_system")
-    def test_run_pass_evaluate(self, create_new_system):
+    def test_run_pass_evaluate(self, mock_create_new_system):
         temp_dir = tempfile.TemporaryDirectory()
         output_dir = temp_dir.name
 
@@ -43,6 +43,6 @@ class TestOliveManagedPythonEnvironmentSystem:
         openvino_res = output[
             AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="OpenVINOExecutionProvider")
         ]
-        create_new_system.assert_called_once()
+        assert mock_create_new_system.call_count == 2
         assert cpu_res[tuple(engine.pass_flows[0])]["metrics"]["latency-avg"]
         assert openvino_res[tuple(engine.pass_flows[0])]["metrics"]["latency-avg"]

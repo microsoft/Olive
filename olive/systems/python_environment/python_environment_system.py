@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import pickle
+import platform
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -63,6 +64,8 @@ class PythonEnvironmentSystem(OliveSystem):
             self.environ["PATH"] = os.pathsep.join(self.config.prepend_to_path) + os.pathsep + self.environ["PATH"]
         if self.config.python_environment_path:
             self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
+        if self.config.olive_managed_env and platform.system() == "Linux":
+            self.environ["TMPDIR"] = self.environ["HOME"] + "TMP"
 
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
         # used for caching the available eps
@@ -372,11 +375,10 @@ class PythonEnvironmentSystem(OliveSystem):
             check=True,
         )
 
-        # install onnxruntime and olive
+        # install onnxruntime package
         onnxruntime_package = get_package_name(accelerator.execution_provider)
-        olive_package = "git+https://github.com/microsoft/Olive.git"
         run_subprocess(
-            f"pip install --no-cache-dir {onnxruntime_package} {olive_package}",
+            f"pip install --no-cache-dir {onnxruntime_package}",
             env=self.environ,
             check=True,
         )
@@ -390,7 +392,6 @@ class PythonEnvironmentSystem(OliveSystem):
             )
 
     def remove(self):
-        import platform
         import shutil
 
         if platform.system() == "Windows":

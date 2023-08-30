@@ -4,12 +4,15 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+import logging
 import shutil
 import tempfile
 from functools import lru_cache
 from pathlib import Path
 
 from olive.systems.common import SystemType
+
+logger = logging.getLogger(__name__)
 
 
 def parse_common_args(raw_args):
@@ -69,7 +72,8 @@ def create_new_system(origin_system, accelerator):
 
         # Create the virtual environment
         venv_path = Path(tempfile.TemporaryDirectory(prefix="olive_python_env_").name)
-        venv.create(venv_path, with_pip=True)
+        venv.create(venv_path, with_pip=True, system_site_packages=True)
+        logger.info("Virtual environment '{}' created.".format(venv_path))
         import platform
 
         if platform.system() == "Windows":
