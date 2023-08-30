@@ -1,0 +1,16 @@
+{
+    "input_model":{
+        "type": "ONNXModel",
+        "config": {
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics":[]
+        }
+    },
+    "engine": {
+        "evaluator": "common_evaluator",
+        "clean_cache": true
+    }
+}
