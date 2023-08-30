@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 import mlflow
 import pandas as pd
 import pytest
+import torch
 import transformers
 from azureml.evaluate import mlflow as aml_mlflow
 
@@ -75,6 +76,7 @@ class TestPyTorchHFModel(unittest.TestCase):
         self.task = "text-classification"
         self.model_class = "BertForSequenceClassification"
         self.model_name = "Intel/bert-base-uncased-mrpc"
+        self.torch_dtype = "float16"
 
     def test_hf_config_task(self):
         self.setup()
@@ -91,6 +93,19 @@ class TestPyTorchHFModel(unittest.TestCase):
 
         pytorch_model = olive_model.load_model()
         assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
+
+    def test_hf_model_loading_args(self):
+        self.setup()
+
+        olive_model = PyTorchModel(
+            hf_config={
+                "task": self.task,
+                "model_name": self.model_name,
+                "model_loading_args": {"torch_dtype": self.torch_dtype},
+            }
+        )
+        pytorch_model = olive_model.load_model()
+        assert pytorch_model.dtype == getattr(torch, self.torch_dtype)
 
 
 class TestPytorchDummyInput:

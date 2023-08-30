@@ -23,14 +23,7 @@ from olive.common.ort_inference import get_ort_inference_session
 from olive.common.user_module_loader import UserModuleLoader
 from olive.constants import Framework, ModelFileFormat
 from olive.hardware import AcceleratorLookup, Device
-from olive.model.hf_utils import (
-    HFConfig,
-    get_hf_model_config,
-    get_hf_model_dummy_input,
-    huggingface_model_loader,
-    load_huggingface_model_from_model_class,
-    load_huggingface_model_from_task,
-)
+from olive.model.hf_utils import HFConfig, get_hf_model_dummy_input, huggingface_model_loader
 from olive.model.model_config import IOConfig
 from olive.resource_path import (
     OLIVE_RESOURCE_ANNOTATIONS,
@@ -507,11 +500,7 @@ class PyTorchModel(OliveModel):
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
         elif self.hf_config and (self.hf_config.model_class or self.hf_config.task):
-            input_model = self.model_path or self.hf_config.model_name
-            if self.hf_config.task:
-                model = load_huggingface_model_from_task(self.hf_config.task, input_model)
-            else:
-                model = load_huggingface_model_from_model_class(self.hf_config.model_class, input_model)
+            model = self.hf_config.load_model(self.model_path)
         else:
             if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
                 model = torch.load(self.model_path)
@@ -610,7 +599,7 @@ class PyTorchModel(OliveModel):
     def get_model_config(self):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
-        return get_hf_model_config(self.hf_config.model_name)
+        return self.hf_config.load_model_config(self.model_path)
 
     @property
     def components(self) -> List[str]:
@@ -933,7 +922,7 @@ class CompositeOnnxModel(ONNXModelBase):
     def get_model_config(self):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
-        return get_hf_model_config(self.hf_config.model_name)
+        return self.hf_config.load_model_config()
 
     def to_json(self, check_object: bool = False):
         json_dict = {
