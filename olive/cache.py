@@ -230,20 +230,33 @@ def save_model(
         logger.warning(f"Saving models of type '{model_json['type']}' is not supported yet.")
         return
 
-    model_path = model_json["config"]["model_path"]
-    if model_path:
-        # create resource path
-        model_resource_path = create_resource_path(model_path)
+    model_type = model_json["type"].lower()
+    for path_name in ["model_path", "adapter_path"]:
+        if path_name == "adapter_path" and model_type != "pytorchmodel":
+            # the adapter path is only relevant for PyTorch models
+            continue
+        if not model_json["config"][path_name]:
+            # Nothing to do if the path is empty
+            continue
 
+        resource_path = create_resource_path(model_json["config"][path_name])
         # get cached resource path if not local or string name
-        if not (model_resource_path.is_local_resource() or model_resource_path.is_string_name()):
-            model_resource_path = download_resource(model_resource_path, cache_dir)
+        if not (resource_path.is_local_resource() or resource_path.is_string_name()):
+            resource_path = download_resource(resource_path, cache_dir)
+
+        if model_type == "pytorchmodel":
+            # for PyTorch models, we will use output_dir/output_name as the save directory
+            # it will have model and adapter children
+            save_dir = (output_dir / output_name).with_suffix("")
+            save_name = path_name.replace("_path", "")
+        else:
+            save_dir = output_dir
+            save_name = output_name
 
         # save model to output directory
-        model_path = model_resource_path.save_to_dir(output_dir, output_name, overwrite)
+        model_json["config"][path_name] = resource_path.save_to_dir(save_dir, save_name, overwrite)
 
     # save model json
-    model_json["config"]["model_path"] = model_path
     with open(output_dir / f"{output_name}.json", "w") as f:
         json.dump(model_json, f, indent=4)
 
