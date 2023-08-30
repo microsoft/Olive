@@ -396,12 +396,6 @@ class AzureMLSystem(OliveSystem):
             if path_name == "adapter_path" and model_type != "pytorchmodel":
                 # only PyTorchModel has adapter_path
                 continue
-            if (
-                model_json["config"][path_name] is None
-                or model_json["config"][path_name]["type"] == ResourceType.StringName
-            ):
-                # nothing to do if the path is None or a string name
-                continue
             same_as_input = model_json.pop(f"same_{path_name}_as_input")
             if same_as_input:
                 # get the resource path from the input model
@@ -410,6 +404,12 @@ class AzureMLSystem(OliveSystem):
                 model_json["config"][path_name] = getattr(
                     input_model, path_name.replace("_path", "_resource_path"), None
                 )
+                continue
+            if (
+                model_json["config"][path_name] is None
+                or model_json["config"][path_name]["type"] == ResourceType.StringName
+            ):
+                # nothing to do if the path is None or a string name
                 continue
             # can only be local file or folder
             resource_type = model_json["config"][path_name]["type"]
