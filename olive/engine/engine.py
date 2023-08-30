@@ -381,10 +381,10 @@ class Engine:
             except Exception as e:
                 logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
 
-        for eps in self.footprints.keys():
-            logger.info(f"Run history for {eps}:")
-            run_history = self.footprints[eps].summarize_run_history()
-            self.dump_run_history(run_history, output_dir / f"run_history_{eps}.txt")
+        for accelerator_spec in self.footprints.keys():
+            logger.info(f"Run history for {accelerator_spec}:")
+            run_history = self.footprints[accelerator_spec].summarize_run_history()
+            self.dump_run_history(run_history, output_dir / f"run_history_{accelerator_spec}.txt")
 
         if packaging_config:
             logger.info(f"Package top ranked {sum([len(f.nodes) for f in pf_footprints.values()])} models as artifacts")
@@ -638,7 +638,7 @@ class Engine:
             formatted_rls = tabulate([tuple(rh) for rh in run_history], headers=headers, tablefmt="grid")
             logger.info(f"run history:\n{formatted_rls}")
         except ImportError:
-            logger.error("Please install tabulate for better run history output")
+            logger.warning("Please install tabulate for better run history output")
             formatted_rls = run_history
         with open(output_path, "w") as f:
             f.write(f"{formatted_rls}")
