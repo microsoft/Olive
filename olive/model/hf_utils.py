@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 import torch
 import transformers
-from pydantic import validator
+from pydantic import Field, validator
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 
 from olive.common.config_utils import ConfigBase
@@ -34,20 +34,56 @@ class HFModelLoadingArgs(ConfigBase):
     Refer to https://github.com/huggingface/transformers/blob/main/src/transformers/modeling_utils.py#L2074
     """
 
-    # load model under a specific torch dtype
-    torch_dtype: str = None
-    # A map that specifies where each submodule should go. Refer to link in class docstring
+    torch_dtype: str = Field(
+        None,
+        description=(
+            "torch dtype to load the model under. Refer to `torch_dtype` in the docstring of"
+            " `transformers.PreTrainedModel.from_pretrained` for more details."
+        ),
+    )
     # str suffices for torch.dtype, otherwise serializer won't recognize it
-    device_map: Union[int, str, Dict] = None
+    device_map: Union[int, str, Dict] = Field(
+        None,
+        description=(
+            "A map that specifies where each submodule should go. Refer to `device_map` in the docstring of"
+            " `transformers.PreTrainedModel.from_pretrained` for more details."
+        ),
+    )
     # A dictionary device identifier to maximum memory
-    max_memory: Dict = None
-    # quant method to use (transformers.QuantizationMethod), e.g. "bitsandbytes", "gptq"
-    # must be provided if quantization_config is provided
-    quantization_method: str = None
+    max_memory: Dict = Field(
+        None,
+        description=(
+            "A dictionary that specifies the maximum memory that can be used by each device. Refer to `max_memory`"
+            " in the docstring of `transformers.PreTrainedModel.from_pretrained` for more details."
+        ),
+    )
+    # analog to transformers.utils.quantization_config.QuantizationMethod
+    quantization_method: str = Field(
+        None,
+        description=(
+            "Quantization method to use. Currently supported methods are ['bitsandbytes', 'gptq']. Must be provided if"
+            " quantization_config is provided."
+        ),
+    )
     # A dictionary of configuration parameters for quantization
-    quantization_config: Dict = None
-    # other kwargs
-    extra_args: Dict = None
+    quantization_config: Dict = Field(
+        None,
+        description=(
+            "A dictionary of configuration parameters for quantization. Must be provided if quantization_config is"
+            " provided. Please refer to `transformers.BitsAndBytesConfig` and `transformers.GPTQConfig` for more"
+            " details for the supported parameters."
+        ),
+    )
+    # other kwargs to pass during model loading
+    extra_args: Dict = Field(
+        None,
+        description=(
+            "Other kwargs to pass to the .from_pretrained method of the model class. Parameters already specified in"
+            " the config will be ignored. Please refer to the docstring of"
+            " `transformers.PreTrainedModel.from_pretrained` for more details on the supported parameters. Eg."
+            " {'use_safetensors': True}"
+        ),
+    )
 
     @validator("torch_dtype", pre=True)
     def validate_torch_dtype(cls, v):
@@ -82,6 +118,18 @@ class HFModelLoadingArgs(ConfigBase):
                 " validation"
             )
             return v
+
+    @validator("extra_args", pre=True)
+    def validate_extra_args(cls, v, values):
+        # remove args that are already specified in the config
+        args_to_del = []
+        for k, v in v.items():
+            if k in values:
+                logger.warning(f"extra_arg {k} is already specified in the config. Ignoring it")
+                args_to_del.append(k)
+        for k in args_to_del:
+            del v[k]
+        return v
 
     def get_loading_args(self):
         loading_args = {}
