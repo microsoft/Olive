@@ -235,13 +235,8 @@ def run(world_size: int, input_filepath: str, output_dirpath: str, debug: bool =
     return output_filepaths
 
 
-def _validate_distributor_config(v, values, field):
-    if v is None:
-        return v
-
-    if "world_size" not in values:
-        raise ValueError("Missing world_size")
-    if int(values["world_size"]) < 2:
+def _validate_world_size(v):
+    if int(v) < 2:
         raise ValueError("world_size should be >= 2")
 
     return v
@@ -268,8 +263,10 @@ class MoEExpertsDistributor(Pass):
 
     @staticmethod
     def _validators() -> Dict[str, Callable]:
-        return {"validate_distributor_config": validator("world_size")(_validate_distributor_config)}
+        return {"validate_distributor_config": validator("world_size", allow_reuse=True)(_validate_world_size)}
 
-    def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> DistributedOnnxModel:
+    def _run_for_config(
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> DistributedOnnxModel:
         output_filepaths = run(config["world_size"], model.model_path, output_model_path)
         return DistributedOnnxModel(output_filepaths)
