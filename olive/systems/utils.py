@@ -12,6 +12,7 @@ def parse_common_args(raw_args):
     # model args
     parser.add_argument("--model_config", type=str, help="model config", required=True)
     parser.add_argument("--model_path", type=str, help="model path")
+    parser.add_argument("--adapter_path", type=str, help="adapter path")
     parser.add_argument("--model_script", type=str, help="model script")
     parser.add_argument("--model_script_dir", type=str, help="model script dir")
 

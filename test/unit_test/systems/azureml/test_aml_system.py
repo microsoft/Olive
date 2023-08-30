@@ -117,14 +117,15 @@ class TestAzureMLSystem:
         onnx_conversion_config = {}
         p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
         olive_model = get_pytorch_model()
-        output_model_path = tmp_dir_path / "output_folder" / "output_model_path.onnx"
-        output_model_path.parent.mkdir(parents=True, exist_ok=True)
+        output_model_path = tmp_dir_path / "output_folder" / "output_model_path"
+        output_model_path.mkdir(parents=True, exist_ok=True)
         # create dummy output model so that ONNXModel can be created with the same path
-        with open(output_model_path, "w") as f:
+        expected_model_path = output_model_path / "model.onnx"
+        with open(expected_model_path, "w") as f:
             f.write("dummy")
         output_folder = tmp_dir_path
 
-        expected_model = ONNXModel(model_path=output_model_path)
+        expected_model = ONNXModel(model_path=expected_model_path)
         ml_client = MagicMock()
         self.system.azureml_client_config.create_client.return_value = ml_client
         self.system.azureml_client_config.max_operation_retries = 3
@@ -186,6 +187,7 @@ class TestAzureMLSystem:
         expected_res = {
             "model_config": expected_model_config,
             "model_path": expected_model_path,
+            "adapter_path": None,
             "model_script": expected_model_script,
             "model_script_dir": expected_model_script_dir,
         }
@@ -257,6 +259,7 @@ class TestAzureMLSystem:
             "model_path": Input(type=AssetTypes.CUSTOM_MODEL, optional=True)
             if model_resource_type == ResourceType.AzureMLModel
             else Input(type=AssetTypes.URI_FILE, optional=True),
+            "adapter_path": Input(type=AssetTypes.URI_FILE, optional=True),
             "model_script": Input(type=AssetTypes.URI_FILE, optional=True),
             "model_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
@@ -291,8 +294,9 @@ class TestAzureMLSystem:
             )
         else:
             model_resource_path = create_resource_path(ONNX_MODEL_PATH)
+        adapter_resource_path = None
         actual_res = self.system._create_metric_component(
-            None, tem_dir, metric, model_args, model_resource_path, accelerator_config_path
+            None, tem_dir, metric, model_args, model_resource_path, adapter_resource_path, accelerator_config_path
         )
 
         # assert
