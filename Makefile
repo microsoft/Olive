@@ -5,8 +5,8 @@ EXAMPLE_FOLDER             ?=
 EXAMPLE_NAME               ?=
 INSTALL_EXTRAS             ?=
 VERSION                    ?=
-MODEL_NAME				   ?=
-DEVICE					   ?=
+MODEL_NAME                 ?=
+DEVICE                     ?=
 ifeq ($(WINDOWS), True)
 	CURRENT_DIR             = "$(subst /,\\,${CURDIR})"
 	MKDIR_LOG_CMD           = mkdir logs | exit 0
@@ -14,7 +14,7 @@ ifeq ($(WINDOWS), True)
 	TEST_CMD                = "scripts\\test.bat"
 	TEST_EXAMPLES_CMD       = "scripts\\test_examples.bat"
 	OVERWRITE_VERSION       = "python scripts\\overwrite_version.py --version $(VERSION)"
-	PERF_CHECK_CMD     		= "scripts\\run_performance_check.bat"
+	PERF_CHECK_CMD          = "scripts\\run_performance_check.bat"
 else
 	CURRENT_DIR             = ${CURDIR}
 	MKDIR_LOG_CMD           = mkdir -p logs
@@ -22,7 +22,7 @@ else
 	TEST_CMD                = bash scripts/test.sh
 	TEST_EXAMPLES_CMD       = bash scripts/test_examples.sh
 	OVERWRITE_VERSION       = python scripts/overwrite_version.py --version $(VERSION)
-	PERF_CHECK_CMD     		= bash scripts/run_performance_check.sh
+	PERF_CHECK_CMD          = bash scripts/run_performance_check.sh
 endif
 
 .PHONY: all

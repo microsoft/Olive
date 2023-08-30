@@ -4,15 +4,15 @@ parameters:
   device: 'cpu'
 
 jobs:
-- job: ${{ parameters.device}}_Model_Performance
+- job: ${{ parameters.device }}_Model_Performance
   timeoutInMinutes: 300
   pool:
-    name: ${{ parameters.pool}}
+    name: ${{ parameters.pool }}
   strategy:
     matrix:
       ${{ insert }}: ${{ parameters.examples }}
   variables:
-    WINDOWS: ${{ parameters.windows}}
+    WINDOWS: ${{ parameters.windows }}
     runCodesignValidationInjection: false
     device: ${{ parameters.device }}
 
@@ -25,7 +25,7 @@ jobs:
   - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[$(device)]
     displayName: Install Olive
 
-  - script: make performance PIPELINE=True MODEL_NAME=$(MODEL_NAME) DEVICE=${{parameters.device}}
+  - script: make performance PIPELINE=True MODEL_NAME=$(MODEL_NAME) DEVICE=${{ parameters.device }}
     displayName: Run performance comparison
 
   - task: CredScan@3

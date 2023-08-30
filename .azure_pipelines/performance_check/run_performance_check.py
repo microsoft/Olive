@@ -170,7 +170,7 @@ def export_optimum_dynamic_quantization(onnx_model_path, model_root_path):
 
 def run_with_config(tool, olive_config, metric_res):
     outputs = olive_run(olive_config)
-    if tool == "olive" or tool == "inc":
+    if tool == "olive":
         metric = str(list(list(outputs.values())[0].nodes.values())[0].metrics.value)
     else:
         metric = str(list(outputs.values())[0])
@@ -180,28 +180,6 @@ def run_with_config(tool, olive_config, metric_res):
         if metric_name not in metric_res[tool]:
             metric_res[tool][metric_name] = []
         metric_res[tool][metric_name].append(metric_value)
-
-
-def run_bert_inc(cur_dir, metric_res, test_num):
-    metric_res["inc"] = {}
-    for _ in range(test_num):
-        olive_config = "bert_inc.json"
-        olive_config_path = cur_dir / "configs" / olive_config
-        user_script_path = str(cur_dir / "user_scripts" / "bert_inc.py")
-        with open(olive_config_path, "r") as fin:
-            olive_config = json.load(fin)
-            olive_config["input_model"]["config"]["model_script"] = user_script_path
-            olive_config["evaluators"]["common_evaluator"]["metrics"][0]["user_config"][
-                "user_script"
-            ] = user_script_path
-            olive_config["evaluators"]["common_evaluator"]["metrics"][1]["user_config"][
-                "user_script"
-            ] = user_script_path
-            olive_config["passes"]["quantization"]["config"]["user_script"] = user_script_path
-            olive_config["passes"]["quantization"]["config"]["metric"]["user_config"]["user_script"] = user_script_path
-            run_with_config("inc", olive_config, metric_res)
-
-    return metric_res
 
 
 def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
@@ -265,9 +243,6 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
         olive_config = f"{model_name}.json" if device == "cpu" else f"{model_name}_gpu.json"
         olive_config_path = cur_dir / "configs" / olive_config
         run_with_config("olive", olive_config_path, metric_res)
-
-        if model_name == "bert" and device == "cpu":
-            metric_res = run_bert_inc(cur_dir, metric_res, test_num)
     print(metric_res)
     for model, v in metric_res.items():
         for metric_name, metric_value_list in v.items():
