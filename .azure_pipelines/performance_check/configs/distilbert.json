@@ -77,8 +77,8 @@
                 "num_samples": 3,
                 "seed": 0
             }
-        },    
-        "clean_cache": true,    
+        },
+        "clean_cache": true,
         "evaluator": "common_evaluator",
         "execution_providers": ["CPUExecutionProvider"],
         "cache_dir": "cache",
