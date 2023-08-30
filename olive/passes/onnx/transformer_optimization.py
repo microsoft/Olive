@@ -97,6 +97,23 @@ class OrtTransformersOptimization(Pass):
         if search_point.get("use_gpu") and accelerator_spec.execution_provider == "CPUExecutionProvider":
             logger.info("CPUExecutionProvider does not support GPU inference, please avoid to use use_gpu.")
             return False
+        if search_point.get("only_onnxruntime") and search_point.get("opt_level") <= 0:
+            logger.info("Please specify a positive value for opt_level when only_onnxruntime is True")
+            return False
+        if (
+            search_point.get("opt_level") == 0
+            and search_point.get("only_onnxruntime")
+            and search_point.get("num_heads") == 0
+            and search_point.get("hidden_size") == 0
+        ):
+            from onnxruntime import __version__ as OrtVersion
+            from packaging import version
+
+            if version.parse(OrtVersion) <= version.parse("1.16.0"):
+                logger.info(
+                    "Ignore this search point because the issue https://github.com/microsoft/onnxruntime/issues/17254"
+                )
+            return False
         return True
 
     @staticmethod

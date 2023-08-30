@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Union
 
 from olive.cache import get_local_path_from_root
+from olive.common.config_utils import validate_config
+from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import SNPEModel
 from olive.passes.olive_pass import Pass
@@ -23,7 +25,6 @@ class SNPEQuantization(Pass):
     """
 
     _requires_user_script = True
-    _requires_data_config = True
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -43,6 +44,11 @@ class SNPEQuantization(Pass):
                     " directory as an argument and return a olive.snpe.SNPEDataLoader or torch.data.DataLoader-like"
                     " object. Required if data_config is None."
                 ),
+            ),
+            "data_config": PassConfigParam(
+                type_=Union[DataConfig, Dict],
+                required=True,
+                description="Data config for quantization, required if dataloader_func is None",
             ),
             "use_enhanced_quantizer": PassConfigParam(
                 type_=bool,
@@ -80,11 +86,14 @@ class SNPEQuantization(Pass):
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"
 
+        assert config["dataloader_func"] or config["data_config"], "dataloader_func or data_config is required."
+
         if config["dataloader_func"]:
             data_dir = get_local_path_from_root(data_root, config["data_dir"])
             dataloader = self._user_module_loader.call_object(config["dataloader_func"], data_dir)
-        elif self._data_config:
-            dataloader = self._data_config.to_data_container().create_dataloader(data_root)
+        elif config["data_config"]:
+            data_config = validate_config(config["data_config"], DataConfig)
+            dataloader = data_config.to_data_container().create_dataloader(data_root)
 
         # convert dataloader to SNPEDataLoader if it is not already
         if not isinstance(dataloader, SNPEDataLoader):

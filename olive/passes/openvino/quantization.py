@@ -8,6 +8,8 @@ from typing import Any, Callable, Dict, List, Union
 import numpy as np
 
 from olive.cache import get_local_path_from_root
+from olive.common.config_utils import validate_config
+from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OpenVINOModel
 from olive.passes import Pass
@@ -22,7 +24,6 @@ class OpenVINOQuantization(Pass):
     """
 
     _requires_user_script = True
-    _requires_data_config = True
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -40,16 +41,26 @@ class OpenVINOQuantization(Pass):
                 required=False,
                 category=ParamCategory.OBJECT,
                 description=(
-                    "A callable function or a str of the function name from 'user_script'"
-                    " for the instance of the dataloader."
+                    "Function/function name to generate dataloader for calibration, required if data_config is None."
                 ),
             ),
             "data_dir": PassConfigParam(
                 type_=OLIVE_RESOURCE_ANNOTATIONS,
                 category=ParamCategory.DATA,
-                description="Dataset path. 'data_dir' can be by a str or Pathlib.Path.",
+                description=(
+                    "Path to the directory containing the dataset. For local data, it is required if dataloader_func"
+                    " is provided."
+                ),
             ),
-            "batch_size": PassConfigParam(type_=int, default_value=1, description="Batch size for the dataloader."),
+            "batch_size": PassConfigParam(
+                type_=int,
+                default_value=1,
+                description="Data config for calibration, required if dataloader_func is None.",
+            ),
+            "data_config": PassConfigParam(
+                type_=Union[DataConfig, Dict],
+                description="Data config for calibration, required if dataloader_func is None.",
+            ),
             "metric_func": PassConfigParam(
                 type_=Union[Callable, str],
                 required=False,
@@ -79,6 +90,8 @@ class OpenVINOQuantization(Pass):
         except ImportError:
             raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
 
+        assert config["dataloader_func"] or config["data_config"], "dataloader_func or data_config is required."
+
         # output model always has ov_model name stem
         model_name = "ov_model"
 
@@ -87,8 +100,9 @@ class OpenVINOQuantization(Pass):
             data_loader = self._user_module_loader.call_object(
                 config["dataloader_func"], data_dir, config["batch_size"]
             )
-        elif self._data_config:
-            common_dataloader = self._data_config.to_data_container().create_dataloader(data_root)
+        elif config["data_config"]:
+            data_config = validate_config(config["data_config"], DataConfig)
+            common_dataloader = data_config.to_data_container().create_dataloader(data_root)
             data_loader = self._create_dataloader(common_dataloader)
 
         metric = self._user_module_loader.load_object(config["metric_func"])

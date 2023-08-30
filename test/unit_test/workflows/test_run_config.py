@@ -9,7 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
-from olive.workflows.run.config import RunConfig
+from olive.data.config import DataConfig
+from olive.workflows.run.config import INPUT_MODEL_DATA_CONFIG, RunConfig
 
 
 class TestRunConfig:
@@ -129,3 +130,69 @@ class TestRunConfig:
 
         cfg = RunConfig.parse_obj(user_script_config)
         assert cfg.engine.target.config.accelerators == ["GPU"]
+
+
+class TestDataConfigValidation:
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.template = {
+            "input_model": {
+                "type": "PyTorchModel",
+                "config": {
+                    "hf_config": {
+                        "model_name": "dummy_model",
+                        "task": "dummy_task",
+                        "dataset": {"name": "dumy_dataset"},
+                    }
+                },
+            },
+            "data_configs": {
+                "dummy_data_config2": {
+                    "name": "dummy_data_config2",
+                    "type": "HuggingfaceContainer",
+                    "params_config": {
+                        "model_name": "dummy_model2",
+                        "task": "dummy_task2",
+                        "dataset_name": "dumy_dataset2",
+                    },
+                }
+            },
+            "passes": {"tuning": {"type": "OrtPerfTuning"}},
+            "engine": {"evaluate_input_model": False},
+        }
+
+    @pytest.mark.parametrize(
+        "model_name,task,expected_model_name,expected_task",
+        [
+            ("dummy_model2", "dummy_task2", "dummy_model2", "dummy_task2"),  # no auto insert
+            ("dummy_model2", None, "dummy_model2", "dummy_task"),  # auto insert task
+            (None, "dummy_task2", "dummy_model", "dummy_task2"),  # auto insert model_name
+            (None, None, "dummy_model", "dummy_task"),  # auto insert model_name and task
+        ],
+    )
+    def test_auto_insert_model_name_and_task(self, model_name, task, expected_model_name, expected_task):
+        config_dict = self.template.copy()
+        config_dict["data_configs"]["dummy_data_config2"]["params_config"] = {
+            "model_name": model_name,
+            "task": task,
+            "dataset_name": "dummy_dataset2",
+        }
+
+        run_config = RunConfig.parse_obj(config_dict)
+        assert run_config.data_configs["dummy_data_config2"].params_config["model_name"] == expected_model_name
+        assert run_config.data_configs["dummy_data_config2"].params_config["task"] == expected_task
+
+    @pytest.mark.parametrize(
+        "data_config_str",
+        [None, INPUT_MODEL_DATA_CONFIG, "dummy_data_config2"],
+    )
+    def test_str_to_data_config(self, data_config_str):
+        config_dict = self.template.copy()
+        config_dict["passes"]["tuning"]["config"] = {"data_config": data_config_str}
+
+        run_config = RunConfig.parse_obj(config_dict)
+        pass_data_config = run_config.passes["tuning"].config["data_config"]
+        if data_config_str is None:
+            assert pass_data_config is None
+        else:
+            assert isinstance(pass_data_config, DataConfig) and pass_data_config.name == data_config_str

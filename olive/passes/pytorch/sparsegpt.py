@@ -11,6 +11,8 @@ from typing import Any, Dict, List, Union
 
 import torch
 
+from olive.common.config_utils import validate_config
+from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModel
 from olive.passes import Pass
@@ -20,7 +22,7 @@ from olive.passes.pytorch.sparsegpt_utils import (
     catch_layer_inputs,
     get_layer_submodules,
     get_layers,
-    layers_map,
+    supported_models,
     validate_min_max_layers,
 )
 
@@ -35,8 +37,6 @@ class SparseGPT(Pass):
     This pass only supports PyTorchModel with hf_config. The transformers model type
     must be one of [bloom, gpt2, gpt_neox, llama, opt].
     """
-
-    _requires_data_config = True
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -80,6 +80,14 @@ class SparseGPT(Pass):
                     " will use cuda if available. Does not affect the final model."
                 ),
             ),
+            "data_config": PassConfigParam(
+                type_=Union[DataConfig, Dict],
+                required=True,
+                description=(
+                    "Data config to use for pruning weights. All samples in the data are expected to be of the"
+                    " same length, most likely the max sequence length of the model."
+                ),
+            ),
         }
 
     @torch.no_grad()
@@ -88,8 +96,8 @@ class SparseGPT(Pass):
     ) -> PyTorchModel:
         model_config = model.get_model_config()
         model_type = model_config.model_type
-        if model_type not in layers_map:
-            raise ValueError(f"Unsupported model type: {model_type}. Supported types: {layers_map.keys()}")
+        if model_type not in supported_models:
+            raise ValueError(f"Unsupported model type: {model_type}. Supported types: {supported_models}")
 
         # get sparsity mode and parameters
         if isinstance(config["sparsity"], float):
@@ -107,8 +115,8 @@ class SparseGPT(Pass):
         logger.debug(f"Running SparseGPT on {device} with model_type: {model_type}, mode: {mode}, sparsity: {sparsity}")
 
         # load_data
-        assert config["data_config"] is not None, "Data config is required for SparseGPT pass."
-        dataloader = self._data_config.to_data_container().create_dataloader(data_root)
+        data_config = validate_config(config["data_config"], DataConfig)
+        dataloader = data_config.to_data_container().create_dataloader(data_root)
         logger.debug(f"Data loaded. Number of batches: {len(dataloader)}")
 
         # load model

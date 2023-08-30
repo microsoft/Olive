@@ -31,6 +31,7 @@ def automatically_insert_passes(config):
     # insert transformer opt
     to_config = {"type": "OrtTransformersOptimization"}
     to_config["config"] = {"model_type": "bert"}
+    to_config["disable_search"] = True
     new_passes["transformers_optimization"] = to_config
 
     # insert quantization

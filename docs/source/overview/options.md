@@ -127,6 +127,12 @@ case insensitive.
                 "input_cols": ["sentence1", "sentence2"],  # the input columns of the dataset
                 "label_cols": ["label"],  # the label columns of the dataset
                 "batch_size": 1  # the batch size of the dataloader
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "align_labels": true # whether to align the dataset labels with huggingface model config(label2id), more details in https://huggingface.co/docs/datasets/nlp_process#align
+                        "model_config_path": "model_config.json" # model config used to process dataset, if not set, it will use the model name to fetch config from huggingface hub.
+                    }
+                }
             }
             ```
             For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide `dataset` config only like above.

@@ -9,10 +9,12 @@
                     "data_name": "ptb_text_only",
                     "subset": "penn_treebank",
                     "split": "train",
-                    "input_cols": ["sentence"],
                     "component_kwargs": {
                         "pre_process_data": {
-                            "seqlen": 1024,
+                            "dataset_type": "corpus",
+                            "text_cols": ["sentence"],
+                            "corpus_strategy": "join-random",
+                            "source_max_len": 1024,
                             "max_samples": 5,
                             "random_seed": 42
                         }
@@ -39,10 +41,16 @@
             "type": "OnnxConversion"
         },
         "quantization": {
-            "type": "OnnxQuantization"
+            "type": "OnnxQuantization",
+            "config": {
+                "data_config": "__input_model_data_config__"
+            }
         },
         "perf_tuning": {
-            "type": "OrtPerfTuning"
+            "type": "OrtPerfTuning",
+            "config": {
+                "data_config": "__input_model_data_config__"
+            }
         }
     },
     "engine": {

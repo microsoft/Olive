@@ -12,65 +12,23 @@ import math
 import torch
 import transformers
 
+from olive.common.utils import get_attr
+from olive.model.hf_mappings import MODELS_TO_EMBEDDINGS_MAPPING, MODELS_TO_LAYERS_MAPPING
+
 logger = logging.getLogger(__name__)
 
-# model_type -> name for layers
-layers_map = {
-    "bloom": "transformer.h",
-    "gpt2": "transformer.h",
-    "gpt_neox": "gpt_neox.layers",
-    "llama": "model.layers",
-    "opt": "model.decoder.layers",
-}
-
-# model_type -> name for embedding, these are the modules before the first layer
-embedding_map = {
-    "bloom": ["transformer.word_embeddings", "transformer.word_embeddings_layernorm"],
-    "gpt2": ["transformer.wte", "transformer.wpe"],
-    "gpt_neox": ["gpt_neox.embed_in"],
-    "llama": ["model.embed_tokens", "model.norm"],
-    "opt": [
-        "model.decoder.embed_tokens",
-        "model.decoder.embed_positions",
-        "model.model.decoder.project_out",
-        "model.model.decoder.project_in",
-    ],
-}
+# model types supported by SparseGPT
+supported_models = ["bloom", "gpt2", "gpt_neox", "llama", "opt"]
 
 # additional inputs to the layers for each model type
 # all model types are expected to have "input_ids" and "attention_mask"
 additional_inputs = {"bloom": ["alibi"], "gpt_neox": ["position_ids"]}
 
-# max sequence length for each model type
-seqlens = {
-    "bloom": 2048,
-    "gpt2": 1024,
-    "gpt_neox": 2048,
-    "llama": 2048,
-    "opt": 2048,
-}
-
-
-def _get_attr(module, attr):
-    """Get attribute from module.
-
-    :param module: module to get attribute from
-    :param attr: attribute name, can be a string with dot notation
-    :return: attribute
-    """
-    attr = attr.split(".")
-    for a in attr:
-        if hasattr(module, a):
-            module = getattr(module, a)
-        else:
-            return None
-    return module
-
 
 def get_layers(model, model_type):
     """Get the layers from model based on model type."""
-    layers = layers_map[model_type]
-    return _get_attr(model, layers)
+    layers = MODELS_TO_LAYERS_MAPPING[model_type]
+    return get_attr(model, layers)
 
 
 def get_layer_submodules(
@@ -150,8 +108,8 @@ def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
             raise ValueError("Stop forward propagation")
 
     # put all modules until the first layer on the device
-    for name in embedding_map[model_type]:
-        module = _get_attr(model, name)
+    for name in MODELS_TO_EMBEDDINGS_MAPPING[model_type]:
+        module = get_attr(model, name)
         if module:
             module.to(device)
 
@@ -173,8 +131,8 @@ def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
     layers[0] = layers[0].module
 
     # put all modules until the first layer back on the CPU
-    for name in embedding_map[model_type]:
-        module = _get_attr(model, name)
+    for name in MODELS_TO_EMBEDDINGS_MAPPING[model_type]:
+        module = get_attr(model, name)
         if module:
             module.to("cpu")
 

@@ -394,8 +394,7 @@ class AzureMLDatastore(ResourcePath):
             from azureml.fsspec import AzureMachineLearningFileSystem
         except ImportError:
             raise ImportError(
-                "azureml-fsspec is not installed. Please install azureml-fsspec<=1.1.1"
-                " to use AzureMLDatastore resource path."
+                "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
             )
         if fsspec is None:
             fsspec = AzureMachineLearningFileSystem(self.get_path())
@@ -426,8 +425,7 @@ class AzureMLDatastore(ResourcePath):
             from azureml.fsspec import AzureMachineLearningFileSystem
         except ImportError:
             raise ImportError(
-                "azureml-fsspec is not installed. Please install azureml-fsspec<=1.1.1"
-                " to use AzureMLDatastore resource path."
+                "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
             )
 
         azureml_client_config = self.get_aml_client_config()

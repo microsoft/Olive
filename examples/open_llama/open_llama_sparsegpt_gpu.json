@@ -13,34 +13,37 @@
             "name": "c4_train",
             "type": "HuggingfaceContainer",
             "params_config": {
-                "model_name": "openlm-research/open_llama_3b",
-                "task": "text-generation",
                 "data_name": "allenai/c4",
                 "subset": "allenai--c4",
                 "split": "train",
                 "data_files": {"train": "en/c4-train.00000-of-01024.json.gz"},
-                "input_cols": ["text"],
                 "component_kwargs": {
                     "pre_process_data": {
-                        "seqlen": 2048,
+                        "dataset_type": "corpus",
+                        "text_cols": ["text"],
+                        "corpus_strategy": "join-random",
+                        "source_max_len": 2048,
                         "max_samples": 128,
                         "random_seed": 42
                     }
                 }
-
             }
         },
         "wikitext2_test": {
             "name": "wikitext2_test",
             "type": "HuggingfaceContainer",
             "params_config": {
-                "model_name": "openlm-research/open_llama_3b",
-                "task": "text-generation",
                 "data_name": "wikitext",
                 "subset": "wikitext-2-raw-v1",
                 "split": "test",
-                "input_cols": ["text"],
-                "seqlen": 2048
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "dataset_type": "corpus",
+                        "text_cols": ["text"],
+                        "corpus_strategy": "join",
+                        "source_max_len": 2048
+                    }
+                }
             }
         }
     },

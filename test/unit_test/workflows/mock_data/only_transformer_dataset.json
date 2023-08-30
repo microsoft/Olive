@@ -13,7 +13,12 @@
                     "split": "validation",
                     "input_cols": ["sentence1", "sentence2"],
                     "label_cols": ["label"],
-                    "batch_size": 1
+                    "batch_size": 1,
+                    "component_kwargs": {
+                        "pre_process_data": {
+                            "align_labels": true
+                        }
+                    }
                 }
             },
             "io_config" : {
@@ -96,7 +101,10 @@
             }
         },
         "quantization": {
-            "type": "OnnxQuantization"
+            "type": "OnnxQuantization",
+            "config": {
+                "data_config": "__input_model_data_config__"
+            }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",

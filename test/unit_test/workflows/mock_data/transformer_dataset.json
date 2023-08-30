@@ -64,10 +64,14 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
+            "disable_search": true,
             "config": {"model_type": "bert"}
         },
         "quantization": {
-            "type": "OnnxQuantization"
+            "type": "OnnxQuantization",
+            "config": {
+                "data_config": "__input_model_data_config__"
+            }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",

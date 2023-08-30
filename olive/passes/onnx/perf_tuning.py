@@ -7,6 +7,7 @@ import itertools
 import logging
 from typing import Any, Callable, Dict, Union
 
+from olive.data.config import DataConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_metric_key
 from olive.evaluator.metric_config import get_user_config_properties_from_metric_type
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec
@@ -267,7 +268,6 @@ class OrtPerfTuning(Pass):
     """Optimize ONNX Runtime inference settings."""
 
     _requires_user_script = True
-    _requires_data_config = True
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
@@ -290,6 +290,10 @@ class OrtPerfTuning(Pass):
                 description="Dataloader function to load data from given data_dir with given batch size.",
             ),
             "batch_size": PassConfigParam(type_=int, description="Batch size for inference."),
+            "data_config": PassConfigParam(
+                type_=Union[DataConfig, Dict],
+                description="Data config to load data for computing latency.",
+            ),
             "input_names": PassConfigParam(
                 type_=list, default_value=None, description="Input names list for ONNX model."
             ),

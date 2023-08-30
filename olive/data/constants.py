@@ -5,7 +5,8 @@
 
 from enum import Enum
 
-DEFAULT_HF_DATA_CONTAINER_NAME = "_default_huggingface_dc"
+# index for targets that should be ignored when computing metrics
+IGNORE_INDEX = -100
 
 
 class DataComponentType(Enum):
