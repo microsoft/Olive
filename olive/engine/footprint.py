@@ -163,7 +163,7 @@ class Footprint:
         self.mark_pareto_frontier()
         rls = {k: v for k, v in self.nodes.items() if v.is_pareto_frontier}
         for _, v in rls.items():
-            logger.info(f"pareto frontier points: {v.model_id} {v.metrics.value}")
+            logger.info(f"pareto frontier points: {v.model_id} \n{v.metrics.value}")
 
         # restructure the pareto frontier points to instance of Footprints node for further analysis
         return Footprint(nodes=rls, objective_dict=self.objective_dict, is_marked_pareto_frontier=True)
@@ -284,13 +284,11 @@ class Footprint:
         if is_show:
             fig.show()
 
-    def summarize_run_history(self, output_path):
+    def summarize_run_history(self):
         """
         Summarize the run history of a model with the columns of
         model_id, parent_model_id, from_pass, duration, metrics
         """
-        from tabulate import tabulate
-
         headers = ["model_id", "parent_model_id", "from_pass", "duration_sec", "metrics"]
         RunHistory = namedtuple("RunHistory", headers)
         rls = []
@@ -307,11 +305,8 @@ class Footprint:
                 duration_sec=duration,
                 metrics=str(node.metrics.value) if node.metrics else None,
             )
-            rls.append(tuple(run_history))
-        tab_rls = tabulate(rls, headers=headers, tablefmt="grid")
-        logger.info(f"run history:\n{tab_rls}")
-        with open(output_path, "w") as f:
-            f.write(f"{tab_rls}")
+            rls.append(run_history)
+        return rls
 
     def trace_back_run_history(self, model_id):
         """

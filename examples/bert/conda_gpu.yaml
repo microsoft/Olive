@@ -10,5 +10,6 @@ dependencies:
       - psutil
       - scipy
       - scikit-learn
+      - tabulate
       - transformers
       - git+https://github.com/microsoft/Olive#egg=olive-ai[gpu]

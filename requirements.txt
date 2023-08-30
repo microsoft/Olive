@@ -5,7 +5,6 @@ pandas
 pydantic<2.0.0
 protobuf<4.0.0
 pyyaml
-tabulate
 torch
 torchmetrics~=0.10.0
 transformers

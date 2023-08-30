@@ -383,7 +383,8 @@ class Engine:
 
         for eps in self.footprints.keys():
             logger.info(f"Run history for {eps}:")
-            self.footprints[eps].summarize_run_history(output_dir / f"run_history_{eps}.txt")
+            run_history = self.footprints[eps].summarize_run_history()
+            self.dump_run_history(run_history, output_dir / f"run_history_{eps}.txt")
 
         if packaging_config:
             logger.info(f"Package top ranked {sum([len(f.nodes) for f in pf_footprints.values()])} models as artifacts")
@@ -626,6 +627,21 @@ class Engine:
 
         return pf_footprints
 
+    def dump_run_history(self, run_history, output_path: str = None):
+        if not run_history:
+            logger.info("No run history to dump!")
+        headers = run_history[0]._fields
+        try:
+            from tabulate import tabulate
+
+            formatted_rls = tabulate([tuple(rh) for rh in run_history], headers=headers, tablefmt="grid")
+            logger.info(f"run history:\n{formatted_rls}")
+        except ImportError:
+            logger.error("Please install tabulate for better run history output")
+            formatted_rls = run_history
+        with open(output_path, "w") as f:
+            f.write(f"{formatted_rls}")
+
     def resolve_objectives(
         self,
         input_model: OliveModel,
@@ -852,6 +868,8 @@ class Engine:
         input_model_id: str,
         output_model_id: str,
         accelerator_spec: AcceleratorSpec,
+        run_start_time: float = 0,
+        run_end_time: float = 0,
     ):
         """
         Cache the run in the cache directory.
@@ -861,6 +879,8 @@ class Engine:
             "pass_config": pass_config,
             "input_model_id": input_model_id,
             "output_model_id": output_model_id,
+            "run_start_time": run_start_time,
+            "run_end_time": run_end_time,
         }
         input_model_number = input_model_id.split("_")[0]
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
@@ -870,23 +890,34 @@ class Engine:
         except Exception as e:
             logger.error(f"Failed to cache run: {e}", exc_info=True)
 
-    def _load_run(self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: AcceleratorSpec):
+    def _load_run_json(self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: AcceleratorSpec):
         """
         Load the run from the cache directory.
         """
         input_model_number = input_model_id.split("_")[0]
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
+        run_json = None
         if run_json_path.exists():
             try:
                 with open(run_json_path, "r") as f:
                     run_json = json.load(f)
-                output_model_id = run_json["output_model_id"]
             except Exception as e:
                 logger.error(f"Failed to load run: {e}", exc_info=True)
-                output_model_id = None
-            return output_model_id
-        else:
-            return None
+                run_json = None
+        return run_json
+
+    def _load_output_model_id_from_run(
+        self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: AcceleratorSpec
+    ):
+        """
+        Load the output_model_id from the cache directory.
+        """
+
+        output_model_id = None
+        run_json = self._load_run_json(input_model_id, pass_name, pass_config, accelerator_spec)
+        if run_json:
+            output_model_id = run_json.get("output_model_id", None)
+        return output_model_id
 
     def _run_passes(
         self,
@@ -957,7 +988,11 @@ class Engine:
 
         # load run from cache if it exists
         run_accel = None if p.is_accelerator_agnostic(accelerator_spec) else accelerator_spec
-        output_model_id = self._load_run(input_model_id, pass_name, pass_config, run_accel)
+        run_cache = self._load_run_json(input_model_id, pass_name, pass_config, run_accel)
+        if run_cache:
+            output_model_id = run_cache.get("output_model_id", None)
+        else:
+            output_model_id = None
         if output_model_id is not None:
             logger.debug("Loading model from cache ...")
             output_model = self._load_model(output_model_id)
@@ -969,6 +1004,8 @@ class Engine:
                     parent_model_id=input_model_id,
                     from_pass=pass_name,
                     pass_run_config=pass_config,
+                    start_time=run_cache["run_start_time"],
+                    end_time=run_cache["run_end_time"],
                 )
                 return output_model, output_model_id
 
@@ -1017,7 +1054,9 @@ class Engine:
         self._cache_model(output_model, output_model_id)
 
         # cache run
-        self._cache_run(pass_name, pass_config, input_model_id, output_model_id, run_accel)
+        self._cache_run(
+            pass_name, pass_config, input_model_id, output_model_id, run_accel, run_start_time, run_end_time
+        )
 
         # footprint model and run
         self.footprints[accelerator_spec].record(
