@@ -114,12 +114,10 @@ class DockerSystem(OliveSystem):
             volumes_list.append(dev_mount_str)
 
         model_copy = copy.deepcopy(model)
-        model_mount_path = None
-        if model_copy.model_path:
-            model_mount_path, model_mount_str_list = docker_utils.create_model_mount(
-                model=model_copy, container_root_path=container_root_path
-            )
-            volumes_list += model_mount_str_list
+        model_mounts, model_mount_str_list = docker_utils.create_model_mount(
+            model=model_copy, container_root_path=container_root_path
+        )
+        volumes_list += model_mount_str_list
 
         metrics_copy = copy.deepcopy(metrics)
         volumes_list = docker_utils.create_metric_volumes_list(
@@ -134,7 +132,7 @@ class DockerSystem(OliveSystem):
             model=model_copy,
             metrics=metrics_copy,
             container_root_path=container_root_path,
-            model_mount_path=model_mount_path,
+            model_mounts=model_mounts,
         )
         volumes_list.append(config_file_mount_str)
 
@@ -148,7 +146,6 @@ class DockerSystem(OliveSystem):
 
         eval_command = docker_utils.create_evaluate_command(
             eval_script_path=eval_file_mount_path,
-            model_path=model_mount_path,
             config_path=config_mount_path,
             output_path=output_mount_path,
             output_name=eval_output_name,
