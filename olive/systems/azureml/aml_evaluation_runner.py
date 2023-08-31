@@ -11,7 +11,7 @@ from olive.hardware import AcceleratorSpec
 from olive.model import ModelConfig
 from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
-from olive.systems.utils import get_model_config, parse_common_args
+from olive.systems.utils import get_common_args
 
 
 def parse_metric_args(raw_args):
@@ -45,7 +45,7 @@ def create_metric(metric_config, metric_args):
 
 
 def main(raw_args=None):
-    common_args, extra_args = parse_common_args(raw_args)
+    model_config, pipeline_output, extra_args = get_common_args(raw_args)
     metric_args, extra_args = parse_metric_args(extra_args)
     accelerator_args = parse_accelerator_args(extra_args)
 
@@ -55,7 +55,6 @@ def main(raw_args=None):
     metric = create_metric(metric_config, metric_args)
 
     # load model
-    model_config = get_model_config(common_args)
     model = ModelConfig.from_json(model_config).create_model()
 
     with open(accelerator_args.accelerator_config) as f:
@@ -68,7 +67,7 @@ def main(raw_args=None):
     metric_result = target.evaluate_model(model, None, [metric], accelerator_spec)
 
     # save metric result json
-    with open(Path(common_args.pipeline_output) / "metric_result.json", "w") as f:
+    with open(Path(pipeline_output) / "metric_result.json", "w") as f:
         f.write(metric_result.json())
 
 
