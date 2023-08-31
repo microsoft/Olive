@@ -195,6 +195,10 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if the resource is a string name.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">StringName</span>
 
+    <span class="k">def</span> <span class="nf">is_local_resource_or_string_name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True if the resource is a local resource or a string name.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_local_resource</span><span class="p">()</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_string_name</span><span class="p">()</span>
+
     <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">json_data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">to_json</span><span class="p">()}</span>
         <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">json_data</span><span class="p">)</span>
@@ -271,6 +275,33 @@
 
     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Resource path </span><span class="si">{</span><span class="n">resource_path</span><span class="si">}</span><span class="s2"> is inferred to be of type </span><span class="si">{</span><span class="nb">type</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">ResourcePathConfig</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="nb">type</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="n">config_key</span><span class="p">:</span> <span class="n">resource_path</span><span class="p">})</span><span class="o">.</span><span class="n">create_resource_path</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">resolve_local_resource</span><span class="p">(</span><span class="n">resource_path</span><span class="p">:</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">local_resource_path</span><span class="p">:</span> <span class="n">ResourcePath</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get a local instance of the resource</span>
+<span class="sd">    If the resource is already a local resource, return the path of the resource.</span>
+<span class="sd">    Otherwise, check if the resource is already saved to the local resource path.</span>
+<span class="sd">    If it is, return the path of the resource. Otherwise, return None.</span>
+<span class="sd">    It is the caller&#39;s responsibility to save the resource to the local resource path and</span>
+<span class="sd">    handle unsaved resources.</span>
+
+<span class="sd">    :param resource_path: A resource path.</span>
+<span class="sd">    :param local_resource_path: Resource path of the local resource.</span>
+<span class="sd">    :return: Path of the local resource.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">resource_path</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="c1"># return local path if resource_path is local or string name</span>
+    <span class="k">if</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">is_local_resource_or_string_name</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">get_path</span><span class="p">()</span>
+
+    <span class="c1"># return local path if resource_path is already saved to local_resource_path</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">local_resource_path</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">local_resource_path</span><span class="o">.</span><span class="n">is_local_resource_or_string_name</span><span class="p">():</span>
+        <span class="c1"># local_resource_path is not specified or is not a local resource or a string name</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">local_resource_path</span><span class="o">.</span><span class="n">get_path</span><span class="p">()</span>
 
 
 <span class="k">def</span> <span class="nf">_overwrite_helper</span><span class="p">(</span><span class="n">new_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>

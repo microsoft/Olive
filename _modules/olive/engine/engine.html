@@ -937,23 +937,15 @@
 
     <span class="k">def</span> <span class="nf">_prepare_non_local_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OliveModel</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Prepare models with non-local model path for local run by downloading the model resource to cache</span>
+<span class="sd">        Prepare models with non-local model path for local run by downloading the model resources to cache</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">model_resource_path</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">model_resource_path</span>
-        <span class="k">if</span> <span class="p">(</span>
-            <span class="n">model_resource_path</span> <span class="ow">is</span> <span class="kc">None</span>
-            <span class="ow">or</span> <span class="n">model_resource_path</span><span class="o">.</span><span class="n">is_local_resource</span><span class="p">()</span>
-            <span class="ow">or</span> <span class="n">model_resource_path</span><span class="o">.</span><span class="n">is_string_name</span><span class="p">()</span>
-        <span class="p">):</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Model path is None, local or string name. No need to prepare&quot;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">model</span>
-
-        <span class="c1"># download and cache the model resource</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Downloading non local model resource to cache&quot;</span><span class="p">)</span>
-        <span class="n">local_model_resource_path</span> <span class="o">=</span> <span class="n">cache_utils</span><span class="o">.</span><span class="n">download_resource</span><span class="p">(</span><span class="n">model_resource_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
-
-        <span class="c1"># set local model resource path</span>
-        <span class="n">model</span><span class="o">.</span><span class="n">set_local_model_path</span><span class="p">(</span><span class="n">local_model_resource_path</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">resource_name</span><span class="p">,</span> <span class="n">resource_path</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">resource_paths</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">resource_path</span> <span class="ow">or</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">is_local_resource_or_string_name</span><span class="p">():</span>
+                <span class="k">continue</span>
+            <span class="n">downloaded_resource_path</span> <span class="o">=</span> <span class="n">cache_utils</span><span class="o">.</span><span class="n">download_resource</span><span class="p">(</span><span class="n">resource_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">downloaded_resource_path</span><span class="p">:</span>
+                <span class="c1"># set local resource path</span>
+                <span class="n">model</span><span class="o">.</span><span class="n">set_local_resource</span><span class="p">(</span><span class="n">resource_name</span><span class="p">,</span> <span class="n">downloaded_resource_path</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">model</span>
 

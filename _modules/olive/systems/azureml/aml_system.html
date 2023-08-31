@@ -175,7 +175,9 @@
 
 
 <span class="k">def</span> <span class="nf">get_asset_type_from_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">:</span> <span class="n">ResourcePath</span><span class="p">):</span>
+    <span class="n">resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span>  <span class="c1"># just in case</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">resource_path</span><span class="p">:</span>
+        <span class="c1"># this is a placeholder for optional input</span>
         <span class="k">return</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span>
 
     <span class="k">if</span> <span class="n">RESOURCE_TYPE_TO_ASSET_TYPE</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">resource_path</span><span class="o">.</span><span class="n">type</span><span class="p">):</span>
@@ -184,6 +186,7 @@
     <span class="k">if</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLDatastore</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span> <span class="k">if</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span>
 
+    <span class="c1"># these won&#39;t be uploaded to azureml, so we use URI_FILE as a placeholder</span>
     <span class="k">return</span> <span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span>
 
 
@@ -272,16 +275,19 @@
 
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pipeline_output_path</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_create_model_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_path_type</span><span class="p">:</span> <span class="n">AssetTypes</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;model_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">),</span>
-            <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">model_path_type</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-            <span class="s2">&quot;model_script&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-            <span class="s2">&quot;model_script_dir&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-        <span class="p">}</span>
+    <span class="k">def</span> <span class="nf">_create_model_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_resource_paths</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">]):</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;model_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)}</span>
+        <span class="c1"># loop through all the model resource paths</span>
+        <span class="c1"># create an input for each one using the resource type, with the name model_&lt;resource_name&gt;</span>
+        <span class="k">for</span> <span class="n">path_name</span><span class="p">,</span> <span class="n">resource_path</span> <span class="ow">in</span> <span class="n">model_resource_paths</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">inputs</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;model_</span><span class="si">{</span><span class="n">path_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">get_asset_type_from_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">),</span> <span class="n">optional</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">inputs</span>
 
     <span class="k">def</span> <span class="nf">_create_args_from_resource_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rp</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">):</span>
         <span class="n">model_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">rp</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">model_resource_path</span><span class="p">:</span>
+            <span class="c1"># no argument for this resource, placeholder for optional input</span>
+            <span class="k">return</span> <span class="kc">None</span>
         <span class="n">asset_type</span> <span class="o">=</span> <span class="n">get_asset_type_from_resource_path</span><span class="p">(</span><span class="n">model_resource_path</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">model_resource_path</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">AzureMLDatastore</span><span class="p">:</span>
@@ -335,34 +341,25 @@
 
         <span class="k">return</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="nf">_create_model_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_json</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
-        <span class="n">model_script</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_script&quot;</span><span class="p">):</span>
-            <span class="n">model_script</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_script&quot;</span><span class="p">])</span>
-            <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_script&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">def</span> <span class="nf">_create_model_args</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_json</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">model_resource_paths</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">],</span> <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="c1"># keep track of resource names in model_json that are uploaded/mounted</span>
+        <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;resource_names&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 
-        <span class="n">model_script_dir</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;script_dir&quot;</span><span class="p">):</span>
-            <span class="n">model_script_dir</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;script_dir&quot;</span><span class="p">])</span>
-            <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;script_dir&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">resource_name</span><span class="p">,</span> <span class="n">resource_path</span> <span class="ow">in</span> <span class="n">model_resource_paths</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">arg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_args_from_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">arg</span><span class="p">:</span>
+                <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;resource_names&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">resource_name</span><span class="p">)</span>
+            <span class="n">args</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;model_</span><span class="si">{</span><span class="n">resource_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">arg</span>
 
-        <span class="n">model_path</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_path&quot;</span><span class="p">):</span>
-            <span class="n">model_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_args_from_resource_path</span><span class="p">(</span><span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_path&quot;</span><span class="p">])</span>
-            <span class="k">if</span> <span class="n">model_path</span><span class="p">:</span>
-                <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-
+        <span class="c1"># save the model json to a file</span>
         <span class="n">model_config_path</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;model_config.json&quot;</span>
         <span class="k">with</span> <span class="n">model_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">sort_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-        <span class="n">model_config</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">model_config_path</span><span class="p">)</span>
+        <span class="n">args</span><span class="p">[</span><span class="s2">&quot;model_config&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">model_config_path</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="p">{</span>
-            <span class="s2">&quot;model_config&quot;</span><span class="p">:</span> <span class="n">model_config</span><span class="p">,</span>
-            <span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="n">model_path</span><span class="p">,</span>
-            <span class="s2">&quot;model_script&quot;</span><span class="p">:</span> <span class="n">model_script</span><span class="p">,</span>
-            <span class="s2">&quot;model_script_dir&quot;</span><span class="p">:</span> <span class="n">model_script_dir</span><span class="p">,</span>
-        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">args</span>
 
     <span class="k">def</span> <span class="nf">_create_pass_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_path_params</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">ParamCategory</span><span class="p">]]):</span>
         <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pass_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)}</span>
@@ -453,7 +450,7 @@
         <span class="p">}</span>
         <span class="c1"># prepare inputs</span>
         <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_inputs</span><span class="p">(</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">CUSTOM_MODEL</span><span class="p">),</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_inputs</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">),</span>
             <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_pass_inputs</span><span class="p">(</span><span class="n">pass_path_params</span><span class="p">),</span>
             <span class="o">**</span><span class="n">accelerator_info</span><span class="p">,</span>
         <span class="p">}</span>
@@ -479,7 +476,7 @@
 
         <span class="c1"># input argument values</span>
         <span class="n">args</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_args</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">),</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_args</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">),</span>
             <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_pass_args</span><span class="p">(</span><span class="n">pass_config</span><span class="p">,</span> <span class="n">pass_path_params</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">),</span>
             <span class="o">**</span><span class="n">accelerator_info</span><span class="p">,</span>
         <span class="p">}</span>
@@ -500,33 +497,39 @@
         <span class="k">with</span> <span class="n">model_json_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">model_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
 
-        <span class="c1"># resolve model path</span>
-        <span class="c1"># this is to handle passes like OrtPerfTuning that use the same model file as input</span>
-        <span class="n">same_model_path_as_input</span> <span class="o">=</span> <span class="n">model_json</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;same_model_path_as_input&quot;</span><span class="p">)</span>
-        <span class="n">model_path</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">same_model_path_as_input</span><span class="p">:</span>
-            <span class="n">model_path</span> <span class="o">=</span> <span class="n">input_model</span><span class="o">.</span><span class="n">model_resource_path</span>
-        <span class="k">elif</span> <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_path&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">resource_type</span> <span class="o">=</span> <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_path&quot;</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span>
-            <span class="c1"># we currently only have passes that generate local files or folders</span>
-            <span class="c1"># check that this is true</span>
+        <span class="c1"># set the resources that are the same as the input model</span>
+        <span class="n">same_resources_as_input</span> <span class="o">=</span> <span class="n">model_json</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;same_resources_as_input&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">resource_name</span> <span class="ow">in</span> <span class="n">same_resources_as_input</span><span class="p">:</span>
+            <span class="c1"># get the resource path from the input model</span>
+            <span class="c1"># do direct indexing to catch errors, should never happen</span>
+            <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">input_model</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span>
+        <span class="c1"># resolve resource names that are relative paths and save them to the output folder</span>
+        <span class="n">relative_resource_names</span> <span class="o">=</span> <span class="n">model_json</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;resource_names&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">resource_name</span> <span class="ow">in</span> <span class="n">relative_resource_names</span><span class="p">:</span>
+            <span class="n">resource_json</span> <span class="o">=</span> <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">resource_name</span><span class="p">]</span>
+            <span class="c1"># can only be local file or folder</span>
+            <span class="n">resource_type</span> <span class="o">=</span> <span class="n">resource_json</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span>
             <span class="k">assert</span> <span class="n">resource_type</span> <span class="ow">in</span> <span class="n">LOCAL_RESOURCE_TYPES</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Expected local file or folder, got </span><span class="si">{</span><span class="n">resource_type</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="c1"># to be safe when downloading we will use the whole of output_model_path as a directory</span>
+            <span class="c1"># and create subfolders for each resource</span>
+            <span class="c1"># this is fine since the engine calls the system with a unique output_model_path which is a folder</span>
+            <span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">)</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="n">output_name</span> <span class="o">=</span> <span class="n">resource_name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_path&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
             <span class="c1"># if the model is downloaded from job, we need to copy it to the output folder</span>
             <span class="c1"># get the downloaded model path</span>
-            <span class="n">download_model_path</span> <span class="o">=</span> <span class="n">pipeline_output_path</span> <span class="o">/</span> <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_path&quot;</span><span class="p">][</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;path&quot;</span><span class="p">]</span>
-            <span class="c1"># create a resource path object for the downloaded model</span>
-            <span class="n">downloaded_resource_path</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_path&quot;</span><span class="p">])</span>
-            <span class="n">downloaded_resource_path</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">download_model_path</span><span class="p">)</span>
+            <span class="n">downloaded_path</span> <span class="o">=</span> <span class="n">pipeline_output_path</span> <span class="o">/</span> <span class="n">resource_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;path&quot;</span><span class="p">]</span>
+            <span class="c1"># create a resource path object for the downloaded path</span>
+            <span class="n">downloaded_resource_path</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">resource_json</span><span class="p">)</span>
+            <span class="n">downloaded_resource_path</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">downloaded_path</span><span class="p">)</span>
             <span class="n">downloaded_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">downloaded_resource_path</span><span class="p">)</span>
             <span class="c1"># save the downloaded model to the output folder</span>
-            <span class="n">output_model_path</span> <span class="o">=</span> <span class="n">downloaded_resource_path</span><span class="o">.</span><span class="n">save_to_dir</span><span class="p">(</span>
-                <span class="n">Path</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="kc">True</span>
-            <span class="p">)</span>
+            <span class="n">output_path</span> <span class="o">=</span> <span class="n">downloaded_resource_path</span><span class="o">.</span><span class="n">save_to_dir</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
             <span class="c1"># create a resource path object for the output model</span>
-            <span class="n">output_model_resource_path</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_path&quot;</span><span class="p">])</span>
-            <span class="n">output_model_resource_path</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">)</span>
-            <span class="n">model_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">output_model_resource_path</span><span class="p">)</span>
-        <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_path</span>
+            <span class="n">output_resource_path</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">resource_json</span><span class="p">)</span>
+            <span class="n">output_resource_path</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span>
+            <span class="n">output_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">output_resource_path</span><span class="p">)</span>
+            <span class="n">model_json</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_resource_path</span>
+
         <span class="k">return</span> <span class="n">ModelConfig</span><span class="p">(</span><span class="o">**</span><span class="n">model_json</span><span class="p">)</span><span class="o">.</span><span class="n">create_model</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_create_metric_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -624,7 +627,7 @@
         <span class="n">model_json</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># model args</span>
-        <span class="n">model_args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_model_args</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">)</span>
+        <span class="n">model_args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_model_args</span><span class="p">(</span><span class="n">model_json</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">)</span>
 
         <span class="n">accelerator_config_path</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">tmp_dir</span> <span class="o">/</span> <span class="s2">&quot;accelerator.json&quot;</span>
         <span class="k">with</span> <span class="n">accelerator_config_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
@@ -640,7 +643,7 @@
                     <span class="n">metric_tmp_dir</span><span class="p">,</span>
                     <span class="n">metric</span><span class="p">,</span>
                     <span class="n">model_args</span><span class="p">,</span>
-                    <span class="n">model</span><span class="o">.</span><span class="n">model_resource_path</span><span class="p">,</span>
+                    <span class="n">model</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">,</span>
                     <span class="n">accelerator_config_path</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">outputs</span><span class="p">[</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric_component</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">pipeline_output</span>
@@ -657,7 +660,7 @@
         <span class="n">tmp_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
         <span class="n">metric</span><span class="p">:</span> <span class="n">Metric</span><span class="p">,</span>
         <span class="n">model_args</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Input</span><span class="p">],</span>
-        <span class="n">model_resource_path</span><span class="p">:</span> <span class="n">ResourcePath</span><span class="p">,</span>
+        <span class="n">model_resource_paths</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">],</span>
         <span class="n">accelerator_config_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="n">metric_json</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -679,7 +682,7 @@
 
         <span class="c1"># prepare inputs</span>
         <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_inputs</span><span class="p">(</span><span class="n">get_asset_type_from_resource_path</span><span class="p">(</span><span class="n">model_resource_path</span><span class="p">)),</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_inputs</span><span class="p">(</span><span class="n">model_resource_paths</span><span class="p">),</span>
             <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_metric_inputs</span><span class="p">(),</span>
             <span class="o">**</span><span class="p">{</span><span class="s2">&quot;accelerator_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)},</span>
         <span class="p">}</span>
