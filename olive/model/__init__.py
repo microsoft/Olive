@@ -67,13 +67,13 @@ class OliveModel(ABC):
         # store resource paths
         self.resource_paths = {}
         # this is for storing local instances of resource paths
-        self._local_resource_paths = {}
+        self.local_resource_paths = {}
         resources = resources or {}
         resources["model_path"] = model_path
         for resource_name, resource_path in resources.items():
             self.resource_paths[resource_name] = create_resource_path(resource_path)
             # initialize local resource paths to None
-            self._local_resource_paths[resource_name] = None
+            self.local_resource_paths[resource_name] = None
 
     @property
     def model_path(self) -> str:
@@ -89,7 +89,7 @@ class OliveModel(ABC):
         """
         assert resource_name in self.resource_paths, f"{resource_name} is not a valid resource name."
         resource_path = self.resource_paths[resource_name]
-        local_resource_path = self._local_resource_paths[resource_name]
+        local_resource_path = self.local_resource_paths[resource_name]
         local_path = resolve_local_resource(resource_path, local_resource_path)
         if not local_path and resource_path:
             raise ValueError(
@@ -111,7 +111,7 @@ class OliveModel(ABC):
         assert (
             local_resource_path.is_local_resource() or local_resource_path.is_string_name()
         ), f"{resource_name} must be local path."
-        self._local_resource_paths[resource_name] = local_resource_path
+        self.local_resource_paths[resource_name] = local_resource_path
 
     @abstractmethod
     def load_model(self, rank: int = None) -> object:
@@ -477,14 +477,12 @@ class PyTorchModel(OliveModel):
             )
 
         self.model_loader = model_loader
-        self.model_script = model_script
-        self.script_dir = script_dir
         self.model = None
         super().__init__(
             framework=Framework.PYTORCH,
             model_file_format=model_file_format,
             model_path=model_path,
-            resources={"adapter_path": adapter_path},
+            resources={"adapter_path": adapter_path, "script_dir": script_dir, "model_script": model_script},
         )
 
         # io config for conversion to onnx
@@ -495,6 +493,14 @@ class PyTorchModel(OliveModel):
 
         # huggingface config
         self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
+
+    @property
+    def script_dir(self) -> str:
+        return self.get_local_resource("script_dir")
+
+    @property
+    def model_script(self) -> str:
+        return self.get_local_resource("model_script")
 
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
@@ -659,8 +665,6 @@ class PyTorchModel(OliveModel):
             {
                 "model_file_format": self.model_file_format,
                 "model_loader": self.model_loader,
-                "model_script": Path(self.model_script) if self.model_script else None,
-                "script_dir": Path(self.script_dir) if self.script_dir else None,
                 "io_config": self.io_config,
                 "dummy_inputs_func": self.dummy_inputs_func,
                 "hf_config": self.hf_config,

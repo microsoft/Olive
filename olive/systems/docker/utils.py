@@ -10,8 +10,8 @@ from typing import List
 
 from olive.cache import get_local_path_from_root
 from olive.evaluator.metric import Metric
-from olive.model import OliveModel, PyTorchModel
-from olive.resource_path import ResourcePath, create_resource_path
+from olive.model import OliveModel
+from olive.resource_path import ResourcePath
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +94,7 @@ def create_resource_path_mount(
     if resource_path.is_local_resource():
         relevant_resource_path = resource_path
     else:
-        assert local_resource_path, "local resource path not set"
+        assert local_resource_path and local_resource_path.is_local_resource(), "local resource path not set"
         relevant_resource_path = local_resource_path
     relevant_path = relevant_resource_path.get_path()
 
@@ -106,36 +106,17 @@ def create_resource_path_mount(
 def create_model_mount(model: OliveModel, container_root_path: Path):
     mounts = {}
     mount_strs = []
-
-    # mount model resource path
-    model_path_mount_path, model_path_mount_str = create_resource_path_mount(
-        resource_path=model.model_resource_path,
-        local_resource_path=model.local_model_path,
-        container_root_path=container_root_path,
-    )
-    if model_path_mount_path:
-        mounts["model_path"] = model_path_mount_path
-        mount_strs.append(model_path_mount_str)
-
-    if isinstance(model, PyTorchModel):
-        adapter_path_mount_path, adapter_path_mount_str = create_resource_path_mount(
-            resource_path=model.adapter_resource_path,
-            local_resource_path=model.local_adapter_path,
+    for resource_name, resource_path in model.resource_paths.items():
+        local_resource_path = model.local_resource_paths[resource_name]
+        resource_path_mount_path, resource_path_mount_str = create_resource_path_mount(
+            resource_path=resource_path,
+            local_resource_path=local_resource_path,
             container_root_path=container_root_path,
         )
-        if adapter_path_mount_path:
-            mounts["adapter_path"] = adapter_path_mount_path
-            mount_strs.append(adapter_path_mount_str)
-
-        if model.script_dir:
-            script_dir_mount_path, script_dir_mount_str = create_resource_path_mount(
-                resource_path=create_resource_path(model.script_dir),
-                local_resource_path=None,
-                container_root_path=container_root_path,
-            )
-            if script_dir_mount_path:
-                mounts["script_dir"] = script_dir_mount_path
-                mount_strs.append(script_dir_mount_str)
+        if resource_path_mount_path:
+            # if the resource path is not None or string name, we need to mount it
+            mounts[resource_name] = resource_path_mount_path
+            mount_strs.append(resource_path_mount_str)
     return mounts, mount_strs
 
 
