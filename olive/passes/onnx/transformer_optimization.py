@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Union
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
+from olive.model.hf_mappings import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_HEADS_NAMES
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -20,21 +21,6 @@ logger = logging.getLogger(__name__)
 class OrtTransformersOptimization(Pass):
     """Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time.
     It is based on onnxruntime.transformers.optimizer."""
-
-    # To extend following list/map from huggingface config
-    # there is the priority order: NUM_HEADS_NAMES[0] and HIDDEN_SIZE_NAMES[0] are the first choice
-    # which means user can override the value in config file
-    NUM_HEADS_NAMES = ["num_heads", "num_attention_heads", "n_head", "encoder_attention_heads"]
-    HIDDEN_SIZE_NAMES = ["hidden_size", "d_model", "n_embd"]
-    MODEL_TYPE_MAPPING = {
-        "whisper": "bart",
-        "camembert": "bert",
-        "deberta": "bert",
-        "deberta-v2": "bert",
-        "gpt_neox": "gpt2",
-        "gpt-j": "gpt2",
-        "llama": "gpt2",
-    }
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -158,19 +144,19 @@ class OrtTransformersOptimization(Pass):
         if model.hf_config:
             model_config = model.hf_config.load_model_config().to_dict()
             input_model_type = model_config.get("model_type", "")
-            _model_type = self.MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
+            _model_type = MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
             assert _model_type in transformers_optimizer.MODEL_TYPES, (
                 f"Unsupported model type: {_model_type}, please select one from {transformers_optimizer.MODEL_TYPES}"
                 " which need to be set under OrtTransformersOptimization.config"
             )
             run_config["model_type"] = run_config["model_type"] or _model_type
             if run_config["num_heads"] == 0:
-                for num_heads_name in self.NUM_HEADS_NAMES:
+                for num_heads_name in NUM_HEADS_NAMES:
                     if num_heads_name in model_config:
                         run_config["num_heads"] = model_config[num_heads_name]
                         break
             if run_config["hidden_size"] == 0:
-                for hidden_size_name in self.HIDDEN_SIZE_NAMES:
+                for hidden_size_name in HIDDEN_SIZE_NAMES:
                     if hidden_size_name in model_config:
                         run_config["hidden_size"] = model_config[hidden_size_name]
                         break
