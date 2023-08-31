@@ -113,9 +113,6 @@ case insensitive.
                 - `component_func: [str]`: The component function name will be loaded from `model_script`.
                 - `dummy_inputs_func: [str]`: The dummy input function name will be loaded from `model_script`.
 
-        - `config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
-        [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
-
         - `dataset: [dict]`: If you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading). Olive exposes the following configs(which will be extended in the future):
             ```python
             "dataset": {

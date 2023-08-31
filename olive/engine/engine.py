@@ -816,23 +816,15 @@ class Engine:
 
     def _prepare_non_local_model(self, model: OliveModel) -> OliveModel:
         """
-        Prepare models with non-local model path for local run by downloading the model resource to cache
+        Prepare models with non-local model path for local run by downloading the model resources to cache
         """
-        model_resource_path = model.model_resource_path
-        if (
-            model_resource_path is None
-            or model_resource_path.is_local_resource()
-            or model_resource_path.is_string_name()
-        ):
-            logger.debug("Model path is None, local or string name. No need to prepare")
-            return model
-
-        # download and cache the model resource
-        logger.debug("Downloading non local model resource to cache")
-        local_model_resource_path = cache_utils.download_resource(model_resource_path, self._config.cache_dir)
-
-        # set local model resource path
-        model.set_local_model_path(local_model_resource_path)
+        for resource_name, resource_path in model.resource_paths.items():
+            if not resource_path or resource_path.is_local_resource_or_string_name():
+                continue
+            downloaded_resource_path = cache_utils.download_resource(resource_path, self._config.cache_dir)
+            if downloaded_resource_path:
+                # set local resource path
+                model.set_local_resource(resource_name, downloaded_resource_path)
 
         return model
 

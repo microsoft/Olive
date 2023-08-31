@@ -58,11 +58,8 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
+            "disable_search": true,
             "config": {
-                "model_type": "bart",
-                "disable_search": true,
-                "num_heads": "<place_holder>",
-                "hidden_size": "<place_holder>",
                 "optimization_options": {"use_multi_head_attention": true},
                 "use_gpu": "<place_holder>"
             }

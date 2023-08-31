@@ -49,15 +49,6 @@ def test_aml_model_pass_run():
         assert Path(onnx_model.model_path).is_file()
 
 
-def test_aml_model_download():
-    pytorch_model = get_pytorch_model()
-    tmp_dir = tempfile.TemporaryDirectory()
-    tmp_dir_path = Path(tmp_dir.name).resolve()
-
-    download_path = pytorch_model.download_model(tmp_dir_path)
-    assert Path(download_path).is_file()
-
-
 def get_pytorch_model():
     workspace_config = get_olive_workspace_config()
     azureml_client_config = AzureMLClientConfig(**workspace_config)

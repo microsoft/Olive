@@ -150,9 +150,9 @@ class TestDockerSystem:
         eval_file_mount_str = "eval_file_mount_str"
         self.mock_create_eval_script_mount.return_value = [eval_file_mount_path, eval_file_mount_str]
 
-        model_mount_path = "model_mount_path"
+        model_mounts = {"model_path": "model_mount_path"}
         model_mount_str_list = ["model_mount_str_list"]
-        self.mock_create_model_mount.return_value = [model_mount_path, model_mount_str_list]
+        self.mock_create_model_mount.return_value = [model_mounts, model_mount_str_list]
 
         volumes_list = ["volumes_list"]
         self.mock_create_metric_volumes_list.return_value = volumes_list
@@ -185,10 +185,12 @@ class TestDockerSystem:
             self.mock_create_model_mount.called_once_with(mock_copy, container_root_path)
             vol_list = [eval_file_mount_str] + model_mount_str_list
             self.mock_create_metric_volumes_list.called_once_with(data_root, mock_copy, container_root_path, vol_list)
-            self.mock_create_config_file.called_once_with(tempdir, mock_copy, mock_copy, container_root_path)
+            self.mock_create_config_file.called_once_with(
+                tempdir, mock_copy, mock_copy, container_root_path, model_mounts
+            )
             self.mock_create_output_mount.called_once_with(tempdir, eval_output_path, container_root_path)
             self.mock_create_evaluate_command.called_once_with(
-                eval_file_mount_path, model_mount_path, config_mount_path, output_mount_path, eval_output_name
+                eval_file_mount_path, config_mount_path, output_mount_path, eval_output_name
             )
             self.mock_create_run_command.called_once_with(docker_system.run_params)
             volumes_list.append(config_file_mount_str)

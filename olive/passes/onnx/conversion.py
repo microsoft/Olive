@@ -72,7 +72,10 @@ class OnnxConversion(Pass):
             for component_name in model.components:
                 component_model = model.get_component(component_name)
                 component_output_path = Path(output_model_path).with_suffix("") / component_name
-                onnx_models.append(self._run_for_config(component_model, data_root, config, str(component_output_path)))
+                output_model_components = self._run_for_config(
+                    component_model, data_root, config, str(component_output_path)
+                )
+                onnx_models.append(self.inherit_hf_config_from_input_model(component_model, output_model_components))
                 component_names.append(component_name)
             return CompositeOnnxModel(onnx_models, component_names, hf_config=model.hf_config)
 

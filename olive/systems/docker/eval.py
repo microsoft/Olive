@@ -14,14 +14,12 @@ from olive.model import ModelConfig
 logger = logging.getLogger(__name__)
 
 
-def evaluate_entry(config, model_path, output_path, output_name):
+def evaluate_entry(config, output_path, output_name):
     with open(config, "r") as f:
         config_json = json.load(f)
     evaluator_config = OliveEvaluatorConfig(metrics=config_json["metrics"])
     model_json = config_json["model"]
 
-    if model_path != "None":
-        model_json["config"]["model_path"] = model_path
     model = ModelConfig.from_json(model_json).create_model()
 
     evaluator: OliveEvaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
@@ -35,8 +33,8 @@ def evaluate_entry(config, model_path, output_path, output_name):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
+    # no need to get model_path since it's already updated in config file
     parser.add_argument("--config", type=str, help="evaluation config")
-    parser.add_argument("--model_path", help="The input directory.")
     parser.add_argument("--output_path", help="Path of output model")
     parser.add_argument("--output_name", help="Name of output json file")
 
@@ -44,4 +42,4 @@ if __name__ == "__main__":
     logger = logging.getLogger("module")
     logger.info("command line arguments: ", sys.argv)
 
-    evaluate_entry(args.config, args.model_path, args.output_path, args.output_name)
+    evaluate_entry(args.config, args.output_path, args.output_name)
