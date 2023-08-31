@@ -2,11 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Union
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeOnnxModel, ONNXModel, OptimumModel
+from olive.model.hf_utils import HFConfig
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config
 from olive.passes.pass_config import PassConfigParam
@@ -43,13 +45,15 @@ class OptimumConversion(Pass):
             opset=config["target_opset"],
             no_post_process=True,
         )
+        hf_config = deepcopy(model.hf_config) or HFConfig()
 
         onnx_model_components = [
-            ONNXModel(str(Path(output_model_path) / model_component)) for model_component in model.model_components
+            ONNXModel(str(Path(output_model_path) / model_component), hf_config=hf_config)
+            for model_component in model.model_components
         ]
         onnx_model_component_names = [Path(model_component).stem for model_component in model.model_components]
 
         if len(onnx_model_components) == 1:
             return ONNXModel(output_model_path / model.model_components[0])
 
-        return CompositeOnnxModel(onnx_model_components, onnx_model_component_names)
+        return CompositeOnnxModel(onnx_model_components, onnx_model_component_names, hf_config=hf_config)

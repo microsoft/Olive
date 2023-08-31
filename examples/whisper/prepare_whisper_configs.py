@@ -10,7 +10,6 @@ from urllib import request
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
-from transformers import WhisperConfig
 
 SUPPORTED_WORKFLOWS = {
     ("cpu", "fp32"): ["conversion", "transformers_optimization", "insert_beam_search", "prepost"],
@@ -64,8 +63,6 @@ def main(raw_args=None):
     template_json = json.load(open("whisper_template.json", "r"))
     model_name = args.model_name
 
-    whisper_config = WhisperConfig.from_pretrained(model_name)
-
     # update model name
     template_json["input_model"]["config"]["hf_config"]["model_name"] = model_name
 
@@ -73,10 +70,6 @@ def main(raw_args=None):
     template_json["evaluators"]["common_evaluator"]["metrics"][0]["user_config"]["dataloader_func"] = (
         "whisper_audio_decoder_dataloader" if not args.no_audio_decoder else "whisper_no_audio_decoder_dataloader"
     )
-
-    # update model specific values for transformer optimization pass
-    template_json["passes"]["transformers_optimization"]["config"]["num_heads"] = whisper_config.encoder_attention_heads
-    template_json["passes"]["transformers_optimization"]["config"]["hidden_size"] = whisper_config.d_model
 
     # update multi-lingual support
     template_json["passes"]["insert_beam_search"]["config"]["use_forced_decoder_ids"] = args.multilingual

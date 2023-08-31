@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Union
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
+from olive.model.hf_mappings import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_HEADS_NAMES
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
@@ -30,7 +31,7 @@ class OrtTransformersOptimization(Pass):
         config = {
             "model_type": PassConfigParam(
                 type_=str,
-                required=True,
+                default_value=None,
                 description=(
                     "Transformer based model type, including bert (exported by PyTorch), gpt2 (exported by PyTorch), "
                     "bert_tf (BERT exported by tf2onnx), bert_keras (BERT exported by keras2onnx), and "
@@ -139,6 +140,26 @@ class OrtTransformersOptimization(Pass):
         )
         for key in get_external_data_config():
             del run_config[key]
+
+        if model.hf_config:
+            model_config = model.hf_config.load_model_config().to_dict()
+            input_model_type = model_config.get("model_type", "")
+            _model_type = MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
+            run_config["model_type"] = run_config["model_type"] or _model_type
+            assert run_config["model_type"] in transformers_optimizer.MODEL_TYPES, (
+                f"Unsupported model type: {run_config['model_type']}, please select one from "
+                "{transformers_optimizer.MODEL_TYPES} which need to be set under OrtTransformersOptimization.config"
+            )
+            if run_config["num_heads"] == 0:
+                for num_heads_name in NUM_HEADS_NAMES:
+                    if num_heads_name in model_config:
+                        run_config["num_heads"] = model_config[num_heads_name]
+                        break
+            if run_config["hidden_size"] == 0:
+                for hidden_size_name in HIDDEN_SIZE_NAMES:
+                    if hidden_size_name in model_config:
+                        run_config["hidden_size"] = model_config[hidden_size_name]
+                        break
 
         output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
 

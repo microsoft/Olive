@@ -14,7 +14,7 @@ from olive.common.config_utils import ConfigBase, ParamCategory, validate_config
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
-from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel
+from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel, PyTorchModel
 from olive.passes.pass_config import (
     PassConfigBase,
     PassConfigParam,
@@ -240,6 +240,7 @@ class Pass(ABC):
             if default_config[key].category == ParamCategory.OBJECT and isinstance(value, str):
                 assert user_module_loader.user_script, f"'user_script' must be specified if a {key} is a string."
         # TODO: once convention for user_script and script dir is finalized, let config class handle
+        # currently, Olive cannot have other types of pytorch models (entire model, custom loader, etc) + hf_config
         # the resolution during serialization
         if config["user_script"] is not None:
             config["user_script"] = str(Path(config["user_script"]).resolve())
@@ -389,11 +390,22 @@ class Pass(ABC):
             component_names = []
             for cidx, child in enumerate(model.get_model_components()):
                 component_output_path = Path(output_model_path).with_suffix("") / str(cidx)
-                components.append(self._run_for_config(child, data_root, config, str(component_output_path)))
+                output_model_components = self._run_for_config(child, data_root, config, str(component_output_path))
+                components.append(self.inherit_hf_config_from_input_model(model, output_model_components))
                 component_names.append(model.get_model_component_name(cidx))
             return CompositeOnnxModel(components, component_names, hf_config=model.hf_config)
         else:
-            return self._run_for_config(model, data_root, config, output_model_path)
+            output_model = self._run_for_config(model, data_root, config, output_model_path)
+            return self.inherit_hf_config_from_input_model(model, output_model)
+
+    def inherit_hf_config_from_input_model(self, input_model: OliveModel, output_model: OliveModel) -> OliveModel:
+        # TODO: handle the case with local model path and huggingface model config for torch model
+        if hasattr(output_model, "hf_config") and not isinstance(output_model, PyTorchModel):
+            # not all models have hf_config
+            # Do not inherit hf_config from input model if output_model is PyTorchModel for time being.
+            if not output_model.hf_config and getattr(input_model, "hf_config", None):
+                output_model.hf_config = input_model.hf_config
+        return output_model
 
     def serialize_config(self, config: Dict[str, Any], check_object: bool = False) -> str:
         """

@@ -106,8 +106,8 @@ def main(raw_args=None):
     # save model json
     model_json = output_model.to_json()
 
-    # Replace output model HF config with input model HF config
-    if input_model_config["config"].get("hf_config"):
+    # Replace output model HF config with input model HF config only if the output model HF config is empty
+    if not model_json["config"].get("hf_config", None) and input_model_config["config"].get("hf_config"):
         model_json["config"]["hf_config"] = input_model_config["config"]["hf_config"]
 
     # this is to handle passes like OrtPerfTuning that use the same model file as input

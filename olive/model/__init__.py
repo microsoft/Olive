@@ -509,7 +509,7 @@ class PyTorchModel(OliveModel):
             elif self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
                 model = self.load_mlflow_model()
             elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
-                raise ValueError("Please use customized model loader to load state dict model.")
+                raise ValueError("Please use customized model loader to load state dict of model.")
             else:
                 raise ValueError(f"Unsupported model file format: {self.model_file_format}")
 
@@ -634,12 +634,16 @@ class PyTorchModel(OliveModel):
         def model_loader(_):
             return model_component
 
+        component_hf_config = deepcopy(self.hf_config).dict()
+        component_hf_config.pop("components", None)
+
         return PyTorchModel(
             model_loader=model_loader,
             io_config=io_config,
             dummy_inputs_func=hf_component.dummy_inputs_func,
             model_script=self.model_script,
             script_dir=self.script_dir,
+            hf_config=HFConfig.parse_obj(component_hf_config),
         )
 
     def to_json(self, check_object: bool = False):
