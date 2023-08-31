@@ -237,8 +237,9 @@ class ONNXModel(ONNXModelBase):
         self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
 
         # if model_path is local folder, check for onnx file name
-        if self.model_resource_path and self.model_resource_path.type == ResourceType.LocalFolder:
-            self.get_onnx_file_path(self.model_resource_path.get_path(), self.onnx_file_name)
+        model_resource_path = self.resource_paths["model_path"]
+        if model_resource_path and model_resource_path.type == ResourceType.LocalFolder:
+            self.get_onnx_file_path(model_resource_path.get_path(), self.onnx_file_name)
 
     @staticmethod
     def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) -> str:
@@ -757,7 +758,7 @@ class OpenVINOModel(OliveModel):
             model_path=model_path, framework=Framework.OPENVINO, model_file_format=ModelFileFormat.OPENVINO_IR
         )
         # check if the model files (xml, bin) are in the same directory
-        if self.model_resource_path.is_local_resource():
+        if self.resource_paths["model_path"].is_local_resource():
             _ = self.model_config
 
     @property
