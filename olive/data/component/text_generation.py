@@ -65,7 +65,7 @@ class TextGenParams(ConfigBase):
     # if false, cannot gaurantee all sequences are same length. data loader will have to handle this during collation
     pad_to_max_len: bool = True  # pad sequences to max_len, ignored for JOIN corpus strategy
     drop_short_sequences: bool = False  # drop sequences shorter than max_len. Mutually exclusive with pad_to_max_len
-    add_special_tokens: bool = True  # add special tokens, ignored for JOIN corpus strategy
+    add_special_tokens: bool = True  # add bos and eos tokens
 
     @validator("drop_short_sequences", always=True)
     def _check_padding(cls, v, values):
@@ -222,26 +222,39 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
                 append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
 
     else:
+        if args.add_special_tokens:
+            # add bos and eos tokens before tokenizing
+            # some tokenizers like LlamaTokenizer do not add eos token
+            text_list = [f"{tokenizer.bos_token} {text} {tokenizer.eos_token}" for text in text_list]
+
         # each line is a sequence
         if args.corpus_strategy == TextGenCorpusStrategy.LINE_BY_LINE:
-            num_samples = 0
-            for text in text_list:
-                encodings = tokenizer(
-                    text,
-                    max_length=args.source_max_len,
-                    truncation=True,
-                    padding="max_length" if args.pad_to_max_len else False,
-                    add_special_tokens=args.add_special_tokens,
-                    return_tensors="pt",
-                )
-                if args.drop_short_sequences and encodings.input_ids.shape[1] < args.source_max_len:
-                    # skip short sequences if drop_short_sequences is True
-                    continue
-                append_text_gen_input_ids(tokenized_inputs, encodings.input_ids[0], tokenizer)
-                num_samples += 1
-                if args.max_samples is not None and num_samples >= args.max_samples:
-                    # reached max_samples
-                    break
+            # batched tokenization might be faster so lets tokenize all the text at once
+            if not args.max_samples:
+                batched_input_ids = batch_tokenize_text(text_list, tokenizer, args)
+                for input_ids in batched_input_ids:
+                    input_ids = torch.tensor(input_ids)
+                    append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
+            else:
+                total_samples = len(text_list)
+                num_samples = 0
+                begin_loc = 0
+                while True:
+                    if num_samples >= args.max_samples or begin_loc >= total_samples:
+                        # we have reached max_samples or the end of the text_list
+                        break
+                    # get as many samples as possible without going over max_samples
+                    samples_to_get = min(args.max_samples - num_samples, total_samples - begin_loc)
+                    # batch tokenize
+                    batched_input_ids = batch_tokenize_text(
+                        text_list[begin_loc : begin_loc + samples_to_get], tokenizer, args  # noqa E203
+                    )
+                    for input_ids in batched_input_ids:
+                        input_ids = torch.tensor(input_ids)
+                        append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
+                    # update counters
+                    num_samples += len(batched_input_ids)
+                    begin_loc += samples_to_get
         else:
             # randomization, sample random lines
             rng = Random(args.random_seed)
@@ -259,7 +272,7 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
                             max_length=args.source_max_len,
                             truncation=True,
                             padding="max_length" if args.pad_to_max_len else False,
-                            add_special_tokens=args.add_special_tokens,
+                            add_special_tokens=False,
                             return_tensors="pt",
                         )
                         cache[i] = encodings
@@ -280,6 +293,21 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
 
     # return BaseDataset
     return BaseDataset(hf_dataset, ["labels"], max_samples=args.max_samples)
+
+
+def batch_tokenize_text(text_list, tokenizer, args):
+    """Batch tokenize text."""
+    batched_encodings = tokenizer(
+        text_list,
+        max_length=args.source_max_len,
+        truncation=True,
+        padding="max_length" if args.pad_to_max_len else False,
+        add_special_tokens=False,
+    )
+    batched_input_ids = batched_encodings.input_ids
+    if args.drop_short_sequences:
+        batched_input_ids = [input_ids for input_ids in batched_input_ids if len(input_ids) >= args.source_max_len]
+    return batched_input_ids
 
 
 # based on https://github.com/artidoro/qlora/blob/main/qlora.py
@@ -310,8 +338,8 @@ def text_gen_pair_pre_process(_dataset, tokenizer, all_kwargs):
     if args.add_special_tokens:
         # add bos and eos tokens
         # input and output are concatenated, so add the bos and eos tokens to the input and output respectively
-        sources = [f"{tokenizer.bos_token}{source}" for source in sources]
-        targets = [f"{target}{tokenizer.eos_token}" for target in targets]
+        sources = [f"{tokenizer.bos_token} {source}" for source in sources]
+        targets = [f"{target} {tokenizer.eos_token}" for target in targets]
 
     # tokenize
     tokenized_sources = tokenizer(sources, max_length=args.source_max_len, truncation=True, add_special_tokens=False)

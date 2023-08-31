@@ -4,3 +4,4 @@ onnxruntime-extensions>=0.8.0
 torch>=1.13.1
 transformers>=4.23.1
 neural-compressor
+tabulate
