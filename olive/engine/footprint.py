@@ -4,8 +4,7 @@
 # --------------------------------------------------------------------------
 
 import logging
-from collections import OrderedDict, defaultdict
-from datetime import datetime
+from collections import OrderedDict, defaultdict, namedtuple
 from typing import DefaultDict, Dict
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
@@ -38,7 +37,8 @@ class FootprintNode(ConfigBase):
     # TODO add EP/accelerators for same_model_id metrics
     metrics: FootprintNodeMetric = None
 
-    date_time: float = datetime.now().timestamp()
+    start_time: float = 0
+    end_time: float = 0
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
@@ -163,7 +163,7 @@ class Footprint:
         self.mark_pareto_frontier()
         rls = {k: v for k, v in self.nodes.items() if v.is_pareto_frontier}
         for _, v in rls.items():
-            logger.info(f"pareto frontier points: {v.model_id} {v.metrics.value}")
+            logger.info(f"pareto frontier points: {v.model_id} \n{v.metrics.value}")
 
         # restructure the pareto frontier points to instance of Footprints node for further analysis
         return Footprint(nodes=rls, objective_dict=self.objective_dict, is_marked_pareto_frontier=True)
@@ -283,6 +283,30 @@ class Footprint:
 
         if is_show:
             fig.show()
+
+    def summarize_run_history(self):
+        """
+        Summarize the run history of a model with the columns of
+        model_id, parent_model_id, from_pass, duration, metrics
+        """
+        headers = ["model_id", "parent_model_id", "from_pass", "duration_sec", "metrics"]
+        RunHistory = namedtuple("RunHistory", headers)
+        rls = []
+        for model_id, node in self.nodes.items():
+            # get the run duration between current model and its parent model
+            if node.parent_model_id is not None:
+                duration = max(node.end_time - node.start_time, 0)
+            else:
+                duration = None
+            run_history = RunHistory(
+                model_id=model_id,
+                parent_model_id=node.parent_model_id,
+                from_pass=node.from_pass,
+                duration_sec=duration,
+                metrics=str(node.metrics.value) if node.metrics else None,
+            )
+            rls.append(run_history)
+        return rls
 
     def trace_back_run_history(self, model_id):
         """
