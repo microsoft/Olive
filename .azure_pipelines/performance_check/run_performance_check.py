@@ -229,6 +229,9 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
                 olive_config["engine"]["execution_providers"] = (
                     ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider"]
                 )
+                olive_config["systems"]["local_system"]["config"]["accelerators"] = (
+                    ["cpu"] if device == "cpu" else ["gpu"]
+                )
                 olive_config["evaluators"]["common_evaluator"]["metrics"].append(ACC_METRIC)
                 olive_config["evaluators"]["common_evaluator"]["metrics"].append(LAT_METRIC)
                 olive_config["evaluators"]["common_evaluator"]["metrics"][0]["user_config"][

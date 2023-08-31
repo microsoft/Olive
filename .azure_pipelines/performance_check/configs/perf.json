@@ -4,6 +4,14 @@
         "config": {
         }
     },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["CPU"]
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator": {
             "metrics":[]
@@ -11,6 +19,8 @@
     },
     "engine": {
         "evaluator": "common_evaluator",
+        "host": "local_system",
+        "target": "local_system",
         "clean_cache": true
     }
 }
