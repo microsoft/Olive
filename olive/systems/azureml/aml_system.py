@@ -160,6 +160,9 @@ class AzureMLSystem(OliveSystem):
 
     def _create_args_from_resource_path(self, rp: OLIVE_RESOURCE_ANNOTATIONS):
         model_resource_path = create_resource_path(rp)
+        if not model_resource_path:
+            # no argument for this resource, placeholder for optional input
+            return None
         asset_type = get_asset_type_from_resource_path(model_resource_path)
 
         if model_resource_path.type == ResourceType.AzureMLDatastore:
