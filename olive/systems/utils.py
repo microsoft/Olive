@@ -78,7 +78,7 @@ def create_new_system(origin_system, accelerator):
         from olive.systems.python_environment import PythonEnvironmentSystem
 
         if platform.system() == "Linux":
-            destination_dir = os.environ.get("HOME", "") + "/TMP"
+            destination_dir = os.path.join(os.environ.get("HOME", ""), "TMP")
             if not os.path.exists(destination_dir):
                 os.makedirs(destination_dir)
             venv_path = Path(tempfile.TemporaryDirectory(prefix="olive_python_env_", dir=destination_dir).name)

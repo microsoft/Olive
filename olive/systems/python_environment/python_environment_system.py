@@ -65,7 +65,7 @@ class PythonEnvironmentSystem(OliveSystem):
         if self.config.python_environment_path:
             self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
         if self.config.olive_managed_env and platform.system() == "Linux":
-            temp_dir = os.environ.get("HOME", "") + "/TMP"
+            temp_dir = os.path.join(os.environ.get("HOME", ""), "TMP")
             if not os.path.exists(temp_dir):
                 os.makedirs(temp_dir)
             self.environ["TMPDIR"] = temp_dir
