@@ -31,8 +31,8 @@ RUN wget "https://github.com/intel/compute-runtime/releases/download/21.48.21782
     wget "https://github.com/intel/compute-runtime/releases/download/21.48.21782/intel-level-zero-gpu_1.2.21782_amd64.deb" && \
     dpkg -i *.deb && rm -rf *.deb
 
-RUN python -m pip install --no-cache-dir --upgrade pip
-RUN python -m pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime-openvino==1.15.0 olive-ai
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime-openvino==1.15.0 olive-ai
 
 ADD requirements.txt requirements.txt
 RUN pip install -r requirements.txt
