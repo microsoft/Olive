@@ -160,7 +160,7 @@ def get_local_path(resource_path: Optional[ResourcePath], cache_dir: Union[str, 
     if resource_path is None:
         return None
 
-    if resource_path.is_local_resource() or resource_path.is_string_name():
+    if resource_path.is_local_resource_or_string_name():
         return resource_path.get_path()
     elif resource_path.is_azureml_resource():
         return download_resource(resource_path, cache_dir).get_path()
@@ -241,7 +241,7 @@ def save_model(
 
         resource_path = create_resource_path(model_json["config"][path_name])
         # get cached resource path if not local or string name
-        if not (resource_path.is_local_resource() or resource_path.is_string_name()):
+        if not resource_path.is_local_resource_or_string_name():
             resource_path = download_resource(resource_path, cache_dir)
 
         if model_type == "pytorchmodel":
