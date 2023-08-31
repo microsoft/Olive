@@ -286,8 +286,6 @@ For instance, <code class="docutils literal notranslate"><span class="pre">&quot
 </li>
 </ul>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">config:</span> <span class="pre">[str]</span></code>: The config of the model can be provided as well. Such as <code class="docutils literal notranslate"><span class="pre">WhisperConfig</span></code>. See
-<a class="reference external" href="https://huggingface.co/docs/transformers/main_classes/configuration">huggingface configurations</a></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">dataset:</span> <span class="pre">[dict]</span></code>: If you want to use the huggingface dataset, you need to provide the dataset config. See <a class="reference external" href="https://huggingface.co/docs/datasets/loading">huggingface datasets</a>. Olive exposes the following configs(which will be extended in the future):</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;dataset&quot;</span><span class="p">:</span> <span class="p">{</span>
     <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="s2">&quot;distilbert-base-uncased&quot;</span><span class="p">,</span>  <span class="c1"># the model name of the huggingface model, if not provided, it will use the model_name in hf_config</span>

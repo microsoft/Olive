@@ -634,7 +634,7 @@
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_MLFLOW_MODEL</span><span class="p">:</span>
                 <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_mlflow_model</span><span class="p">()</span>
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_STATE_DICT</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Please use customized model loader to load state dict model.&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Please use customized model loader to load state dict of model.&quot;</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported model file format: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
@@ -759,12 +759,16 @@
         <span class="k">def</span> <span class="nf">model_loader</span><span class="p">(</span><span class="n">_</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">model_component</span>
 
+        <span class="n">component_hf_config</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="p">)</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
+        <span class="n">component_hf_config</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;components&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
         <span class="k">return</span> <span class="n">PyTorchModel</span><span class="p">(</span>
             <span class="n">model_loader</span><span class="o">=</span><span class="n">model_loader</span><span class="p">,</span>
             <span class="n">io_config</span><span class="o">=</span><span class="n">io_config</span><span class="p">,</span>
             <span class="n">dummy_inputs_func</span><span class="o">=</span><span class="n">hf_component</span><span class="o">.</span><span class="n">dummy_inputs_func</span><span class="p">,</span>
             <span class="n">model_script</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span>
             <span class="n">script_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">,</span>
+            <span class="n">hf_config</span><span class="o">=</span><span class="n">HFConfig</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">component_hf_config</span><span class="p">),</span>
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
