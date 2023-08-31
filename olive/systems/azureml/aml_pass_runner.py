@@ -13,11 +13,11 @@ from packaging import version
 
 from olive.common.config_utils import ParamCategory
 from olive.hardware import AcceleratorSpec
-from olive.model import ModelConfig, PyTorchModel
+from olive.model import ModelConfig
 from olive.passes import REGISTRY as PASS_REGISTRY
 from olive.passes import FullPassConfig
 from olive.resource_path import create_resource_path
-from olive.systems.utils import get_model_config, parse_common_args
+from olive.systems.utils import get_common_args
 
 
 def parse_pass_config_arg(raw_args):
@@ -49,7 +49,8 @@ def parse_pass_args(pass_type, accelerator_spec, raw_args):
 def create_pass(pass_config, pass_args):
     for key, value in vars(pass_args).items():
         if value is not None:
-            key = key.replace("pass_", "")
+            # remove the pass_ prefix, the 1 is to only replace the first occurrence
+            key = key.replace("pass_", "", 1)
             pass_config["config"][key] = value
 
     p = FullPassConfig.from_json(pass_config).create_pass()
@@ -57,7 +58,7 @@ def create_pass(pass_config, pass_args):
 
 
 def main(raw_args=None):
-    common_args, extra_args = parse_common_args(raw_args)
+    input_model_config, pipeline_output, extra_args = get_common_args(raw_args)
     pass_config_arg, extra_args = parse_pass_config_arg(extra_args)
 
     # pass config
@@ -74,30 +75,30 @@ def main(raw_args=None):
 
         # Some passes create temporary files in the same directory as the model
         # original directory for model path is read only, so we need to copy the model to a temp directory
-        if common_args.model_path is not None:
+        input_model_path = input_model_config["config"]["model_path"]
+        if input_model_path is not None:
             tmp_dir = tempfile.TemporaryDirectory()
-            old_path = Path(common_args.model_path).resolve()
+            old_path = Path(input_model_path).resolve()
             new_path = Path(tmp_dir.name).resolve() / old_path.name
             if old_path.is_file():
                 shutil.copy(old_path, new_path)
             else:
                 new_path.mkdir(parents=True, exist_ok=True)
                 shutil.copytree(old_path, new_path, dirs_exist_ok=True)
-            common_args.model_path = str(new_path)
+            input_model_config["config"]["model_path"] = str(new_path)
 
     # pass specific args
     accelerator_spec = AcceleratorSpec(pass_config_arg.pass_accelerator_type, pass_config_arg.pass_execution_provider)
     pass_args = parse_pass_args(pass_type, accelerator_spec, extra_args)
 
     # load input_model
-    input_model_config = get_model_config(common_args)
     input_model = ModelConfig.from_json(input_model_config).create_model()
 
     # load pass
     p = create_pass(pass_config, pass_args)
 
     # output model path
-    output_model_path = str(Path(common_args.pipeline_output) / "output_model")
+    output_model_path = str(Path(pipeline_output) / "output_model")
 
     # run pass
     output_model = p.run(input_model, None, output_model_path)
@@ -109,38 +110,40 @@ def main(raw_args=None):
     if input_model_config["config"].get("hf_config"):
         model_json["config"]["hf_config"] = input_model_config["config"]["hf_config"]
 
-    for path_name in ["model_path", "adapter_path"]:
-        if path_name == "adapter_path" and not isinstance(output_model, PyTorchModel):
-            # only PyTorchModel has adapter_path
-            continue
-        # this will help us set the same value as input model, no need to keep a copy
-        model_json[f"same_{path_name}_as_input"] = False
-        # create a resource path from the path
-        path_resource = create_resource_path(model_json["config"][path_name])
-        if not path_resource or path_resource.is_string_name():
+    # Replace local paths with relative paths
+    # keep track of the resource names that are relative paths
+    # during download in aml system, the relative paths will be resolved to the pipeline output
+    model_json["resource_names"] = []
+    # keep track of the resource names that are the same as the input model
+    model_json["same_resources_as_input"] = []
+    for resource_name, resource_path in output_model.resource_paths.items():
+        resource_path = create_resource_path(resource_path)  # just in case
+        if not resource_path or resource_path.is_string_name():
             # nothing to do if the path is None or a string name
             continue
-        if getattr(input_model, path_name, None) == getattr(output_model, path_name, None):
+        # check if the path is the same as the input model's path
+        resource_path_str = resource_path.get_path()
+        # input model might not have the resource, e.g. pytorch model -> onnx model
+        input_resource_path = create_resource_path(input_model.resource_paths.get(resource_name))
+        input_resource_path_str = input_resource_path.get_path() if input_resource_path else None
+        if input_resource_path_str == resource_path_str:
             # if the path is the same as the input path, set the path to None
-            # and set same_path_as_input to True
-            # Note: we getattr here since `model.model_path` for ONNXModel might not be same as
-            # model_resource_path if it's a folder
-            # so it's safer to check the property of the model
-            model_json["config"][path_name] = None
-            model_json[f"same_{path_name}_as_input"] = True
+            # and add the resource name to the same_resources_as_input list
+            model_json["config"][resource_name] = None
+            model_json["same_resources_as_input"].append(resource_name)
             continue
         # need to ensure that the path is a local resource
-        assert path_resource.is_local_resource(), f"Expected local resource, got {path_resource.type}"
-        path_str = path_resource.get_path()
+        assert resource_path.is_local_resource(), f"Expected local resource, got {resource_path.type}"
         # if the model is a local file or folder, set the model path to be relative to the pipeline output
         # the aml system will resolve the relative path to the pipeline output during download
-        relative_path = str(Path(path_str).relative_to(Path(common_args.pipeline_output)))
-        path_json = path_resource.to_json()
+        relative_path = str(Path(resource_path_str).relative_to(Path(pipeline_output)))
+        path_json = resource_path.to_json()
         path_json["config"]["path"] = relative_path
-        model_json["config"][path_name] = path_json
+        model_json["config"][resource_name] = path_json
+        model_json["resource_names"].append(resource_name)
 
     # save model json
-    with open(Path(common_args.pipeline_output) / "output_model_config.json", "w") as f:
+    with open(Path(pipeline_output) / "output_model_config.json", "w") as f:
         json.dump(model_json, f, indent=4)
 
 

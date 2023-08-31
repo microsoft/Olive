@@ -160,7 +160,7 @@ def get_local_path(resource_path: Optional[ResourcePath], cache_dir: Union[str, 
     if resource_path is None:
         return None
 
-    if resource_path.is_local_resource() or resource_path.is_string_name():
+    if resource_path.is_local_resource_or_string_name():
         return resource_path.get_path()
     elif resource_path.is_azureml_resource():
         return download_resource(resource_path, cache_dir).get_path()
@@ -214,6 +214,10 @@ def save_model(
     """
     Saves a model from the cache to a given path.
     """
+    # This function should probably be outside of the cache module
+    # just to be safe, import lazily to avoid any future circular imports
+    from olive.model import ModelConfig
+
     model_number = model_number.split("_")[0]
     output_dir = Path(output_dir) if output_dir else Path.cwd()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -230,31 +234,27 @@ def save_model(
         logger.warning(f"Saving models of type '{model_json['type']}' is not supported yet.")
         return
 
-    model_type = model_json["type"].lower()
-    for path_name in ["model_path", "adapter_path"]:
-        if path_name == "adapter_path" and model_type != "pytorchmodel":
-            # the adapter path is only relevant for PyTorch models
+    # create model object so that we can get the resource paths
+    model = ModelConfig.from_json(model_json).create_model()
+    resource_path_names = list(model.resource_paths.keys())
+    for resource_name in resource_path_names:
+        resource_path = create_resource_path(model_json["config"][resource_name])
+        if not resource_path or resource_path.is_string_name():
+            # Nothing to do if the path is empty or a string name
             continue
-        if not model_json["config"][path_name]:
-            # Nothing to do if the path is empty
-            continue
-
-        resource_path = create_resource_path(model_json["config"][path_name])
         # get cached resource path if not local or string name
-        if not (resource_path.is_local_resource() or resource_path.is_string_name()):
+        if not resource_path.is_local_resource():
             resource_path = download_resource(resource_path, cache_dir)
-
-        if model_type == "pytorchmodel":
-            # for PyTorch models, we will use output_dir/output_name as the save directory
-            # it will have model and adapter children
+        # if there are multiple resource paths, we will save them to a subdirectory of output_dir/output_name
+        if len(resource_path_names) > 1:
             save_dir = (output_dir / output_name).with_suffix("")
-            save_name = path_name.replace("_path", "")
+            save_name = resource_name.replace("_path", "")
         else:
             save_dir = output_dir
             save_name = output_name
 
-        # save model to output directory
-        model_json["config"][path_name] = resource_path.save_to_dir(save_dir, save_name, overwrite)
+        # save resource to output directory
+        model_json["config"][resource_name] = resource_path.save_to_dir(save_dir, save_name, overwrite)
 
     # save model json
     with open(output_dir / f"{output_name}.json", "w") as f:
