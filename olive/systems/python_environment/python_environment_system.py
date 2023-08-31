@@ -64,6 +64,11 @@ class PythonEnvironmentSystem(OliveSystem):
             self.environ["PATH"] = os.pathsep.join(self.config.prepend_to_path) + os.pathsep + self.environ["PATH"]
         if self.config.python_environment_path:
             self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
+        if self.config.olive_managed_env and platform.system() == "Linux":
+            temp_dir = os.environ.get("HOME", "") + "/TMP"
+            if not os.path.exists(temp_dir):
+                os.makedirs(temp_dir)
+            self.environ["TMPDIR"] = temp_dir
 
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
         # used for caching the available eps
@@ -368,7 +373,7 @@ class PythonEnvironmentSystem(OliveSystem):
         # install common packages
         common_requirements_file = Path(__file__).parent.resolve() / "common_requirements.txt"
         run_subprocess(
-            f"pip install --no-cache-dir -r {common_requirements_file}",
+            f"pip install --cache-dir {self.environ['TMPDIR']} -r {common_requirements_file}",
             env=self.environ,
             check=True,
         )
@@ -376,7 +381,7 @@ class PythonEnvironmentSystem(OliveSystem):
         # install onnxruntime package
         onnxruntime_package = get_package_name(accelerator.execution_provider)
         run_subprocess(
-            f"pip install --no-cache-dir {onnxruntime_package}",
+            f"pip install --cache-dir {self.environ['TMPDIR']} {onnxruntime_package}",
             env=self.environ,
             check=True,
         )
@@ -384,7 +389,7 @@ class PythonEnvironmentSystem(OliveSystem):
         # install user requirements
         if self.config.requirements_file:
             run_subprocess(
-                f"pip install --no-cache-dir -r {self.config.requirements_file}",
+                f"pip install --cache-dir {self.environ['TMPDIR']} -r {self.config.requirements_file}",
                 env=self.environ,
                 check=True,
             )
@@ -401,3 +406,10 @@ class PythonEnvironmentSystem(OliveSystem):
             logger.info("Virtual environment '{}' removed.".format(vitual_env_path))
         except FileNotFoundError:
             pass
+
+        if platform.system() == "Linux":
+            try:
+                shutil.rmtree(self.environ["TMPDIR"])
+                logger.info("Temporary directory '{}' removed.".format(self.environ["TMPDIR"]))
+            except FileNotFoundError:
+                pass
