@@ -32,7 +32,7 @@ RUN wget "https://github.com/intel/compute-runtime/releases/download/21.48.21782
     dpkg -i *.deb && rm -rf *.deb
 
 RUN python -m pip install --no-cache-dir --upgrade pip
-RUN python -m pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime-openvino==1.15.0 olive-ai==0.3.1
+RUN python -m pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime-openvino==1.15.0 olive-ai
 
 ADD requirements.txt requirements.txt
 RUN pip install -r requirements.txt

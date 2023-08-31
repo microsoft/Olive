@@ -8,7 +8,7 @@ RUN apt-get install -y --no-install-recommends wget python3-dev python3-pip gnup
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
 RUN python -m pip install --no-cache-dir --upgrade pip
-RUN python -m pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime==1.15.1 olive-ai==0.3.1
+RUN python -m pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime==1.15.1 olive-ai
 
 ADD requirements.txt requirements.txt
 RUN pip install -r requirements.txt
