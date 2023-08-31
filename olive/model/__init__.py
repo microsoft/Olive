@@ -63,7 +63,6 @@ class OliveModel(ABC):
         self.local_model_path = None
         self.composite_parent = None
         self.io_config = None
-        self.auto_tune_config = None
 
     @property
     def model_path(self) -> str:
@@ -151,9 +150,6 @@ class OliveModel(ABC):
     def get_io_config(self) -> Dict[str, Any]:
         return self.io_config
 
-    def get_auto_tune_config(self) -> Dict[str, Any]:
-        return self.auto_tune_config
-
     def to_json(self, check_object: bool = False):
         config = {
             "type": self.__class__.__name__,
@@ -186,12 +182,10 @@ class ONNXModelBase(OliveModel):
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
-        auto_tune_config: Dict[str, Any] = None,
     ):
         super().__init__(framework=Framework.ONNX, model_file_format=ModelFileFormat.ONNX, model_path=model_path)
         self.inference_settings = inference_settings
         self.use_ort_extensions = use_ort_extensions
-        self.auto_tune_config = auto_tune_config
 
     def _is_valid_ep(self, filepath: str, ep: str = None):
         # TODO: should be remove if future accelerators is implemented
@@ -231,13 +225,11 @@ class ONNXModel(ONNXModelBase):
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
-        auto_tune_config: Dict[str, Any] = None,
     ):
         super().__init__(
             model_path=model_path,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
-            auto_tune_config=auto_tune_config,
         )
         self.onnx_file_name = onnx_file_name
         self.io_config = None
@@ -399,7 +391,6 @@ class ONNXModel(ONNXModelBase):
                 "inference_settings": self.inference_settings,
                 "use_ort_extensions": self.use_ort_extensions,
                 "hf_config": self.hf_config,
-                "auto_tune_config": self.auto_tune_config,
             }
         )
         return serialize_to_json(config, check_object)
@@ -475,7 +466,6 @@ class PyTorchModel(OliveModel):
         io_config: Union[Dict[str, Any], IOConfig] = None,
         dummy_inputs_func: Union[str, Callable] = None,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
-        auto_tune_config: Dict[str, Any] = None,
     ):
         if not (
             isinstance(model_loader, Callable)
@@ -495,7 +485,6 @@ class PyTorchModel(OliveModel):
 
         # io config for conversion to onnx
         self.io_config = validate_config(io_config, IOConfig).dict() if io_config else None
-        self.auto_tune_config = auto_tune_config
         self.dummy_inputs_func = dummy_inputs_func
 
         self.dummy_inputs = None
@@ -612,17 +601,6 @@ class PyTorchModel(OliveModel):
             raise ValueError("HF model_config is not available")
         return self.hf_config.load_model_config(self.model_path)
 
-    def fuse_auto_tune_with_hf_config(self):
-        try:
-            hf_model_config = self.get_model_config().to_dict()
-        except ValueError:
-            # hf model config is not available
-            logger.warning("Will ignore to fuse auto_tune_config with hf_config as hf_config is not available")
-            hf_model_config = {}
-        rls = self.auto_tune_config or {}
-        hf_model_config.update(rls)
-        return hf_model_config
-
     @property
     def components(self) -> List[str]:
         """
@@ -676,7 +654,6 @@ class PyTorchModel(OliveModel):
                 "io_config": self.io_config,
                 "dummy_inputs_func": self.dummy_inputs_func,
                 "hf_config": self.hf_config,
-                "auto_tune_config": self.auto_tune_config,
             }
         )
         return serialize_to_json(config, check_object)
@@ -828,13 +805,11 @@ class DistributedOnnxModel(ONNXModelBase):
         model_filepaths: List[Union[Path, str]] = [],
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
-        auto_tune_config: Dict[str, Any] = None,
     ):
         super().__init__(
             model_path=None,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
-            auto_tune_config=auto_tune_config,
         )
         self.model_filepaths = model_filepaths
 
@@ -898,9 +873,8 @@ class CompositeOnnxModel(ONNXModelBase):
         model_components: List[Union[ONNXModel, Dict[str, Any]]],
         model_component_names: List[str],
         hf_config: Union[Dict[str, Any], HFConfig] = None,
-        auto_tune_config: Dict[str, Any] = None,
     ):
-        super().__init__(model_path=None, auto_tune_config=auto_tune_config)
+        super().__init__(model_path=None)
 
         if isinstance(model_components[0], dict):
             assert all(
@@ -951,25 +925,10 @@ class CompositeOnnxModel(ONNXModelBase):
             raise ValueError("HF model_config is not available")
         return self.hf_config.load_model_config()
 
-    def fuse_auto_tune_with_hf_config(self):
-        try:
-            hf_model_config = self.get_model_config().to_dict()
-        except ValueError:
-            # hf model config is not available
-            logger.warning("Will ignore to fuse auto_tune_config with hf_config as hf_config is not available")
-            hf_model_config = {}
-        rls = self.auto_tune_config or {}
-        hf_model_config.update(rls)
-        return hf_model_config
-
     def to_json(self, check_object: bool = False):
         json_dict = {
             "type": self.__class__.__name__,
-            "config": {
-                "hf_config": self.hf_config,
-                "model_component_names": self.model_component_names,
-                "auto_tune_config": self.auto_tune_config,
-            },
+            "config": {"hf_config": self.hf_config, "model_component_names": self.model_component_names},
         }
         json_dict["config"]["model_components"] = []
         for m in self.model_components:

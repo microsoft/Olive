@@ -23,7 +23,7 @@ class OrtTransformersOptimization(Pass):
 
     # To extend following list/map from huggingface config
     # there is the priority order: NUM_HEADS_NAMES[0] and HIDDEN_SIZE_NAMES[0] are the first choice
-    # which means user can override the value in config file or auto_tune_config
+    # which means user can override the value in config file or hf_config.config
     NUM_HEADS_NAMES = ["num_heads", "num_attention_heads", "n_head", "encoder_attention_heads"]
     HIDDEN_SIZE_NAMES = ["hidden_size", "d_model", "n_embd"]
     MODEL_TYPE_MAPPING = {
@@ -155,23 +155,23 @@ class OrtTransformersOptimization(Pass):
         for key in get_external_data_config():
             del run_config[key]
 
-        if model.auto_tune_config:
-            input_model_type = model.auto_tune_config.get("model_type", "")
+        if model.hf_config and model.hf_config.config:
+            input_model_type = model.hf_config.config.get("model_type", "")
             _model_type = self.MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
             assert _model_type in transformers_optimizer.MODEL_TYPES, (
                 f"Unsupported model type: {_model_type}, please select one from {transformers_optimizer.MODEL_TYPES}"
-                " which need to be set under OrtTransformersOptimization.config or model.auto_tune_config"
+                " which need to be set under OrtTransformersOptimization.config or model.hf_config.config"
             )
             run_config["model_type"] = run_config["model_type"] or _model_type
             if run_config["num_heads"] == 0:
                 for num_heads_name in self.NUM_HEADS_NAMES:
-                    if num_heads_name in model.auto_tune_config:
-                        run_config["num_heads"] = model.auto_tune_config[num_heads_name]
+                    if num_heads_name in model.hf_config.config:
+                        run_config["num_heads"] = model.hf_config.config[num_heads_name]
                         break
             if run_config["hidden_size"] == 0:
                 for hidden_size_name in self.HIDDEN_SIZE_NAMES:
-                    if hidden_size_name in model.auto_tune_config:
-                        run_config["hidden_size"] = model.auto_tune_config[hidden_size_name]
+                    if hidden_size_name in model.hf_config.config:
+                        run_config["hidden_size"] = model.hf_config.config[hidden_size_name]
                         break
 
         output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
