@@ -145,11 +145,11 @@ class OrtTransformersOptimization(Pass):
             model_config = model.hf_config.load_model_config().to_dict()
             input_model_type = model_config.get("model_type", "")
             _model_type = MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
-            assert _model_type in transformers_optimizer.MODEL_TYPES, (
-                f"Unsupported model type: {_model_type}, please select one from {transformers_optimizer.MODEL_TYPES}"
-                " which need to be set under OrtTransformersOptimization.config"
-            )
             run_config["model_type"] = run_config["model_type"] or _model_type
+            assert run_config["model_type"] in transformers_optimizer.MODEL_TYPES, (
+                f"Unsupported model type: {run_config['model_type']}, please select one from "
+                "{transformers_optimizer.MODEL_TYPES} which need to be set under OrtTransformersOptimization.config"
+            )
             if run_config["num_heads"] == 0:
                 for num_heads_name in NUM_HEADS_NAMES:
                     if num_heads_name in model_config:
