@@ -634,13 +634,16 @@ class PyTorchModel(OliveModel):
         def model_loader(_):
             return model_component
 
+        component_hf_config = deepcopy(self.hf_config).dict()
+        component_hf_config.pop("components", None)
+
         return PyTorchModel(
             model_loader=model_loader,
             io_config=io_config,
             dummy_inputs_func=hf_component.dummy_inputs_func,
             model_script=self.model_script,
             script_dir=self.script_dir,
-            auto_tune_config=self.fuse_auto_tune_with_hf_config(),
+            hf_config=HFConfig.parse_obj(component_hf_config),
         )
 
     def to_json(self, check_object: bool = False):

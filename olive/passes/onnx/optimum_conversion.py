@@ -35,7 +35,6 @@ class OptimumConversion(Pass):
         assert len(model.model_components) > 0
 
         from optimum.exporters.onnx import main_export as export_optimum_model
-        from transformers import AutoConfig
 
         # TODO: export into temp dir and then move to sub-dirs of output_model_path
         # so that we only keep the final model files in the output_model_path
@@ -47,8 +46,6 @@ class OptimumConversion(Pass):
             no_post_process=True,
         )
         hf_config = deepcopy(model.hf_config) or HFConfig()
-        hf_config.config = hf_config.config or {}
-        hf_config.config.update(AutoConfig.from_pretrained(model.model_path).to_dict())
 
         onnx_model_components = [
             ONNXModel(str(Path(output_model_path) / model_component), hf_config=hf_config)

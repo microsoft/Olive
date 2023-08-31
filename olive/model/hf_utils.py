@@ -215,7 +215,6 @@ class HFConfig(ConfigBase):
     # TODO: remove model_class and only use task
     model_class: str = None
     components: List[HFComponent] = None
-    config: Dict[str, Any] = None
     dataset: Dict[str, Any] = None
     model_loading_args: HFModelLoadingArgs = None
 
@@ -228,7 +227,6 @@ class HFConfig(ConfigBase):
 
     def load_model(self, model_path: str = None):
         """Load model from model_path or model_name"""
-        # TODO: handle self.config, probably need to pass it as part of loading_args
         model_name_or_path = model_path or self.model_name
         loading_args = self.model_loading_args.get_loading_args() if self.model_loading_args else {}
         if self.task:
@@ -239,7 +237,6 @@ class HFConfig(ConfigBase):
 
     def load_model_config(self, model_path: str = None):
         """Load model config from model_path or model_name"""
-        # TODO: handle self.config, probably need to pass it as kwargs
         model_name_or_path = model_path or self.model_name
         return get_hf_model_config(model_name_or_path)
 
