@@ -81,16 +81,19 @@ class TestCache:
             model_folder = model_cache_dir / model_path
             model_folder.mkdir(parents=True, exist_ok=True)
             model_p = str(model_folder)
+            # create a dummy .onnx file in the folder
+            onnx_file = model_folder / "dummy.onnx"
+            onnx_file.touch()
         else:
             model_p = str(model_cache_dir / model_path)
-            open(model_p, "w")
+            Path(model_p).touch()
 
         # cache model to cache_dir
         model_id = "0"
         model_cache_dir = cache_dir / "models"
         model_cache_dir.mkdir(parents=True, exist_ok=True)
         model_cache_file_path = str((model_cache_dir / f"{model_id}_p(･◡･)p.json").resolve())
-        model_json = {"type": "onnx", "config": {"model_path": model_p}}
+        model_json = {"type": "onnxmodel", "config": {"model_path": model_p}}
         json.dump(model_json, open(model_cache_file_path, "w"))
 
         # output model to output_dir

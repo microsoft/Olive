@@ -108,7 +108,8 @@ class TestAzureMLSystem:
                 "model_path": {"type": "file", "config": {"path": "output_model.onnx"}},
                 "inference_settings": None,
             },
-            "same_model_path_as_input": False,
+            "same_resources_as_input": [],
+            "resource_names": ["model_path"],
         }
         dummy_config_path = pipeline_output_path / "output_model_config.json"
         with open(dummy_config_path, "w") as f:
@@ -117,14 +118,15 @@ class TestAzureMLSystem:
         onnx_conversion_config = {}
         p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
         olive_model = get_pytorch_model()
-        output_model_path = tmp_dir_path / "output_folder" / "output_model_path.onnx"
-        output_model_path.parent.mkdir(parents=True, exist_ok=True)
+        output_model_path = tmp_dir_path / "output_folder" / "output_model_path"
+        output_model_path.mkdir(parents=True, exist_ok=True)
         # create dummy output model so that ONNXModel can be created with the same path
-        with open(output_model_path, "w") as f:
+        expected_model_path = output_model_path / "model.onnx"
+        with open(expected_model_path, "w") as f:
             f.write("dummy")
         output_folder = tmp_dir_path
 
-        expected_model = ONNXModel(model_path=output_model_path)
+        expected_model = ONNXModel(model_path=expected_model_path)
         ml_client = MagicMock()
         self.system.azureml_client_config.create_client.return_value = ml_client
         self.system.azureml_client_config.max_operation_retries = 3
@@ -143,7 +145,7 @@ class TestAzureMLSystem:
 
     @pytest.mark.parametrize(
         "model_resource_type",
-        [ResourceType.AzureMLModel, ResourceType.LocalFile],
+        [ResourceType.AzureMLModel, ResourceType.LocalFile, ResourceType.StringName],
     )
     def test__create_model_args(self, model_resource_type):
         # setup
@@ -164,12 +166,11 @@ class TestAzureMLSystem:
                 },
             },
             ResourceType.LocalFile: temp_model.name,
+            ResourceType.StringName: "model_name",
         }
         model_json = {
-            "type": "onnxmodel",
+            "type": "pytorchmodel",
             "config": {
-                "model_script": "model_script",
-                "script_dir": "script_dir",
                 "model_path": resource_paths[model_resource_type],
             },
         }
@@ -178,26 +179,24 @@ class TestAzureMLSystem:
         model_config_path = tem_dir_path / "model_config.json"
         if model_resource_type == ResourceType.AzureMLModel:
             expected_model_path = Input(type=AssetTypes.CUSTOM_MODEL, path="azureml:model_name:version")
-        else:
+        elif model_resource_type == ResourceType.LocalFile:
             expected_model_path = Input(type=AssetTypes.URI_FILE, path=Path(temp_model.name).resolve())
-        expected_model_script = Input(type=AssetTypes.URI_FILE, path="model_script")
-        expected_model_script_dir = Input(type=AssetTypes.URI_FOLDER, path="script_dir")
+        else:
+            expected_model_path = None
         expected_model_config = Input(type=AssetTypes.URI_FILE, path=model_config_path)
-        expected_res = {
-            "model_config": expected_model_config,
-            "model_path": expected_model_path,
-            "model_script": expected_model_script,
-            "model_script_dir": expected_model_script_dir,
-        }
+        expected_res = {"model_config": expected_model_config, "model_model_path": expected_model_path}
 
         # execute
-        actual_res = self.system._create_model_args(model_json, tem_dir_path)
+        actual_res = self.system._create_model_args(
+            model_json, {"model_path": create_resource_path(model_json["config"]["model_path"])}, tem_dir_path
+        )
 
         # assert
         assert actual_res == expected_res
-        assert model_json["config"]["model_script"] is None
-        assert model_json["config"]["script_dir"] is None
-        assert model_json["config"]["model_path"] is None
+        if model_resource_type != ResourceType.StringName:
+            assert model_json["config"]["model_path"] is None
+        else:
+            assert model_json["config"]["model_path"] == resource_paths[model_resource_type]
 
     def test__create_metric_args(self):
         # setup
@@ -254,11 +253,9 @@ class TestAzureMLSystem:
         metric_type = f"{metric.type}-{sub_type_name}"
         model_inputs = {
             "model_config": Input(type=AssetTypes.URI_FILE),
-            "model_path": Input(type=AssetTypes.CUSTOM_MODEL, optional=True)
+            "model_model_path": Input(type=AssetTypes.CUSTOM_MODEL, optional=True)
             if model_resource_type == ResourceType.AzureMLModel
             else Input(type=AssetTypes.URI_FILE, optional=True),
-            "model_script": Input(type=AssetTypes.URI_FILE, optional=True),
-            "model_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
         metric_inputs = {
             "metric_config": Input(type=AssetTypes.URI_FILE),
@@ -292,7 +289,7 @@ class TestAzureMLSystem:
         else:
             model_resource_path = create_resource_path(ONNX_MODEL_PATH)
         actual_res = self.system._create_metric_component(
-            None, tem_dir, metric, model_args, model_resource_path, accelerator_config_path
+            None, tem_dir, metric, model_args, {"model_path": model_resource_path}, accelerator_config_path
         )
 
         # assert
@@ -370,6 +367,7 @@ class TestAzureMLSystem:
                 "script_dir": None,
             },
             "type": "PyTorchModel",
+            "resource_names": [],
         }
 
         with open(tmp_path / "model_config.json", "w") as f:
@@ -522,6 +520,7 @@ class TestAzureMLSystem:
                 "script_dir": None,
             },
             "type": "PyTorchModel",
+            "resource_names": [],
         }
         pass_config = {
             "accelerator": {"accelerator_type": "cpu", "execution_provider": "CPUExecutionProvider"},

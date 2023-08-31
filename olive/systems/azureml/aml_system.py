@@ -50,7 +50,9 @@ RESOURCE_TYPE_TO_ASSET_TYPE = {
 
 
 def get_asset_type_from_resource_path(resource_path: ResourcePath):
+    resource_path = create_resource_path(resource_path)  # just in case
     if not resource_path:
+        # this is a placeholder for optional input
         return AssetTypes.URI_FILE
 
     if RESOURCE_TYPE_TO_ASSET_TYPE.get(resource_path.type):
@@ -59,6 +61,7 @@ def get_asset_type_from_resource_path(resource_path: ResourcePath):
     if resource_path.type == ResourceType.AzureMLDatastore:
         return AssetTypes.URI_FILE if resource_path.is_file() else AssetTypes.URI_FOLDER
 
+    # these won't be uploaded to azureml, so we use URI_FILE as a placeholder
     return AssetTypes.URI_FILE
 
 
@@ -147,16 +150,19 @@ class AzureMLSystem(OliveSystem):
 
             return self._load_model(model, output_model_path, pipeline_output_path)
 
-    def _create_model_inputs(self, model_path_type: AssetTypes):
-        return {
-            "model_config": Input(type=AssetTypes.URI_FILE),
-            "model_path": Input(type=model_path_type, optional=True),
-            "model_script": Input(type=AssetTypes.URI_FILE, optional=True),
-            "model_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
-        }
+    def _create_model_inputs(self, model_resource_paths: Dict[str, ResourcePath]):
+        inputs = {"model_config": Input(type=AssetTypes.URI_FILE)}
+        # loop through all the model resource paths
+        # create an input for each one using the resource type, with the name model_<resource_name>
+        for path_name, resource_path in model_resource_paths.items():
+            inputs[f"model_{path_name}"] = Input(type=get_asset_type_from_resource_path(resource_path), optional=True)
+        return inputs
 
     def _create_args_from_resource_path(self, rp: OLIVE_RESOURCE_ANNOTATIONS):
         model_resource_path = create_resource_path(rp)
+        if not model_resource_path:
+            # no argument for this resource, placeholder for optional input
+            return None
         asset_type = get_asset_type_from_resource_path(model_resource_path)
 
         if model_resource_path.type == ResourceType.AzureMLDatastore:
@@ -210,34 +216,25 @@ class AzureMLSystem(OliveSystem):
 
         return None
 
-    def _create_model_args(self, model_json: dict, tmp_dir: Path):
-        model_script = None
-        if model_json["config"].get("model_script"):
-            model_script = Input(type=AssetTypes.URI_FILE, path=model_json["config"]["model_script"])
-            model_json["config"]["model_script"] = None
+    def _create_model_args(self, model_json: dict, model_resource_paths: Dict[str, ResourcePath], tmp_dir: Path):
+        args = {}
+        # keep track of resource names in model_json that are uploaded/mounted
+        model_json["resource_names"] = []
 
-        model_script_dir = None
-        if model_json["config"].get("script_dir"):
-            model_script_dir = Input(type=AssetTypes.URI_FOLDER, path=model_json["config"]["script_dir"])
-            model_json["config"]["script_dir"] = None
+        for resource_name, resource_path in model_resource_paths.items():
+            arg = self._create_args_from_resource_path(resource_path)
+            if arg:
+                model_json["config"][resource_name] = None
+                model_json["resource_names"].append(resource_name)
+            args[f"model_{resource_name}"] = arg
 
-        model_path = None
-        if model_json["config"].get("model_path"):
-            model_path = self._create_args_from_resource_path(model_json["config"]["model_path"])
-            if model_path:
-                model_json["config"]["model_path"] = None
-
+        # save the model json to a file
         model_config_path = tmp_dir / "model_config.json"
         with model_config_path.open("w") as f:
             json.dump(model_json, f, sort_keys=True, indent=4)
-        model_config = Input(type=AssetTypes.URI_FILE, path=model_config_path)
+        args["model_config"] = Input(type=AssetTypes.URI_FILE, path=model_config_path)
 
-        return {
-            "model_config": model_config,
-            "model_path": model_path,
-            "model_script": model_script,
-            "model_script_dir": model_script_dir,
-        }
+        return args
 
     def _create_pass_inputs(self, pass_path_params: List[Tuple[str, bool, ParamCategory]]):
         inputs = {"pass_config": Input(type=AssetTypes.URI_FILE)}
@@ -328,7 +325,7 @@ class AzureMLSystem(OliveSystem):
         }
         # prepare inputs
         inputs = {
-            **self._create_model_inputs(AssetTypes.CUSTOM_MODEL),
+            **self._create_model_inputs(model.resource_paths),
             **self._create_pass_inputs(pass_path_params),
             **accelerator_info,
         }
@@ -354,7 +351,7 @@ class AzureMLSystem(OliveSystem):
 
         # input argument values
         args = {
-            **self._create_model_args(model_json, tmp_dir),
+            **self._create_model_args(model_json, model.resource_paths, tmp_dir),
             **self._create_pass_args(pass_config, pass_path_params, data_root, tmp_dir),
             **accelerator_info,
         }
@@ -375,33 +372,39 @@ class AzureMLSystem(OliveSystem):
         with model_json_path.open("r") as f:
             model_json = json.load(f)
 
-        # resolve model path
-        # this is to handle passes like OrtPerfTuning that use the same model file as input
-        same_model_path_as_input = model_json.pop("same_model_path_as_input")
-        model_path = None
-        if same_model_path_as_input:
-            model_path = input_model.model_resource_path
-        elif model_json["config"]["model_path"] is not None:
-            resource_type = model_json["config"]["model_path"]["type"]
-            # we currently only have passes that generate local files or folders
-            # check that this is true
+        # set the resources that are the same as the input model
+        same_resources_as_input = model_json.pop("same_resources_as_input")
+        for resource_name in same_resources_as_input:
+            # get the resource path from the input model
+            # do direct indexing to catch errors, should never happen
+            model_json["config"][resource_name] = input_model.resource_paths[resource_name]
+        # resolve resource names that are relative paths and save them to the output folder
+        relative_resource_names = model_json.pop("resource_names")
+        for resource_name in relative_resource_names:
+            resource_json = model_json["config"][resource_name]
+            # can only be local file or folder
+            resource_type = resource_json["type"]
             assert resource_type in LOCAL_RESOURCE_TYPES, f"Expected local file or folder, got {resource_type}"
+            # to be safe when downloading we will use the whole of output_model_path as a directory
+            # and create subfolders for each resource
+            # this is fine since the engine calls the system with a unique output_model_path which is a folder
+            output_dir = Path(output_model_path).with_suffix("")
+            output_name = resource_name.replace("_path", "")
             # if the model is downloaded from job, we need to copy it to the output folder
             # get the downloaded model path
-            download_model_path = pipeline_output_path / model_json["config"]["model_path"]["config"]["path"]
-            # create a resource path object for the downloaded model
-            downloaded_resource_path = deepcopy(model_json["config"]["model_path"])
-            downloaded_resource_path["config"]["path"] = str(download_model_path)
+            downloaded_path = pipeline_output_path / resource_json["config"]["path"]
+            # create a resource path object for the downloaded path
+            downloaded_resource_path = deepcopy(resource_json)
+            downloaded_resource_path["config"]["path"] = str(downloaded_path)
             downloaded_resource_path = create_resource_path(downloaded_resource_path)
             # save the downloaded model to the output folder
-            output_model_path = downloaded_resource_path.save_to_dir(
-                Path(output_model_path).parent, Path(output_model_path).name, True
-            )
+            output_path = downloaded_resource_path.save_to_dir(output_dir, output_name, True)
             # create a resource path object for the output model
-            output_model_resource_path = deepcopy(model_json["config"]["model_path"])
-            output_model_resource_path["config"]["path"] = str(output_model_path)
-            model_path = create_resource_path(output_model_resource_path)
-        model_json["config"]["model_path"] = model_path
+            output_resource_path = deepcopy(resource_json)
+            output_resource_path["config"]["path"] = str(output_path)
+            output_resource_path = create_resource_path(output_resource_path)
+            model_json["config"][resource_name] = output_resource_path
+
         return ModelConfig(**model_json).create_model()
 
     def _create_metric_inputs(self):
@@ -499,7 +502,7 @@ class AzureMLSystem(OliveSystem):
         model_json = model.to_json(check_object=True)
 
         # model args
-        model_args = self._create_model_args(model_json, tmp_dir)
+        model_args = self._create_model_args(model_json, model.resource_paths, tmp_dir)
 
         accelerator_config_path: Path = tmp_dir / "accelerator.json"
         with accelerator_config_path.open("w") as f:
@@ -515,7 +518,7 @@ class AzureMLSystem(OliveSystem):
                     metric_tmp_dir,
                     metric,
                     model_args,
-                    model.model_resource_path,
+                    model.resource_paths,
                     accelerator_config_path,
                 )
                 outputs[metric.name] = metric_component.outputs.pipeline_output
@@ -532,7 +535,7 @@ class AzureMLSystem(OliveSystem):
         tmp_dir: Path,
         metric: Metric,
         model_args: Dict[str, Input],
-        model_resource_path: ResourcePath,
+        model_resource_paths: Dict[str, ResourcePath],
         accelerator_config_path: str,
     ):
         metric_json = metric.to_json(check_object=True)
@@ -554,7 +557,7 @@ class AzureMLSystem(OliveSystem):
 
         # prepare inputs
         inputs = {
-            **self._create_model_inputs(get_asset_type_from_resource_path(model_resource_path)),
+            **self._create_model_inputs(model_resource_paths),
             **self._create_metric_inputs(),
             **{"accelerator_config": Input(type=AssetTypes.URI_FILE)},
         }

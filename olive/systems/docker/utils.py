@@ -9,18 +9,19 @@ from pathlib import Path
 from typing import List
 
 from olive.cache import get_local_path_from_root
-from olive.constants import Framework
 from olive.evaluator.metric import Metric
 from olive.model import OliveModel
+from olive.resource_path import ResourcePath
 
 logger = logging.getLogger(__name__)
 
 
 def create_config_file(
-    tempdir, model: OliveModel, metrics: List[Metric], container_root_path: Path, model_mount_path: str
+    tempdir, model: OliveModel, metrics: List[Metric], container_root_path: Path, model_mounts: dict
 ):
     model_json = model.to_json(check_object=True)
-    model_json["config"]["model_path"] = model_mount_path
+    for k, v in model_mounts.items():
+        model_json["config"][k] = v
 
     config_file_path = Path(tempdir) / "config.json"
     data = {"metrics": [k.dict() for k in metrics], "model": model_json}
@@ -33,12 +34,10 @@ def create_config_file(
     return config_mount_path, config_file_mount_str
 
 
-def create_evaluate_command(
-    eval_script_path: str, model_path: str, config_path: str, output_path: str, output_name: str
-):
+def create_evaluate_command(eval_script_path: str, config_path: str, output_path: str, output_name: str):
+    # no need to pass model_path since it's already updated in config file
     parameters = [
         f"--config {config_path}",
-        f"--model_path {model_path}",
         f"--output_path {output_path}",
         f"--output_name {output_name}",
     ]
@@ -84,26 +83,41 @@ def create_metric_volumes_list(
     return mount_list
 
 
-def create_model_mount(model: OliveModel, container_root_path: Path):
-    model_resource_path = None
-    if not model.model_resource_path:
-        model_resource_path = None
-    elif model.model_resource_path.is_local_resource() or model.model_resource_path.is_string_name():
-        model_resource_path = model.model_resource_path
+def create_resource_path_mount(
+    resource_path: ResourcePath, local_resource_path: ResourcePath, container_root_path: Path
+) -> (str, str):
+    # no need to mount if resource path is None or string name
+    if not resource_path or resource_path.is_string_name():
+        return None, None
+    # the resource we want to mount should be local resource
+    relevant_resource_path = None
+    if resource_path.is_local_resource():
+        relevant_resource_path = resource_path
     else:
-        assert model.local_model_path, "local model path not set"
-        model_resource_path = model.local_model_path
-    model_path = model_resource_path.get_path()
-    model_mount_path = str(container_root_path / Path(model_path).name)
-    model_mount_str = f"{str(Path(model_path).resolve())}:{model_mount_path}"
-    model_mount_str_list = [model_mount_str]
+        assert local_resource_path and local_resource_path.is_local_resource(), "local resource path not set"
+        relevant_resource_path = local_resource_path
+    relevant_path = relevant_resource_path.get_path()
 
-    if model.framework == Framework.PYTORCH:
-        if model.script_dir:
-            script_dir_mount = f"{model.script_dir}:{container_root_path}"
-            model.script_dir = container_root_path
-            model_mount_str_list.append(script_dir_mount)
-    return model_mount_path, model_mount_str_list
+    mount_path = str(container_root_path / Path(relevant_path).name)
+    mount_str = f"{str(Path(relevant_path).resolve())}:{mount_path}"
+    return mount_path, mount_str
+
+
+def create_model_mount(model: OliveModel, container_root_path: Path):
+    mounts = {}
+    mount_strs = []
+    for resource_name, resource_path in model.resource_paths.items():
+        local_resource_path = model.local_resource_paths[resource_name]
+        resource_path_mount_path, resource_path_mount_str = create_resource_path_mount(
+            resource_path=resource_path,
+            local_resource_path=local_resource_path,
+            container_root_path=container_root_path,
+        )
+        if resource_path_mount_path:
+            # if the resource path is not None or string name, we need to mount it
+            mounts[resource_name] = resource_path_mount_path
+            mount_strs.append(resource_path_mount_str)
+    return mounts, mount_strs
 
 
 def create_eval_script_mount(container_root_path: Path):
