@@ -23,7 +23,7 @@ from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import PyTorchModel
-from olive.model.hf_utils import get_peft_task_type_from_task, load_huggingface_model_from_task
+from olive.model.hf_utils import HFModelLoadingArgs, get_peft_task_type_from_task, load_huggingface_model_from_task
 from olive.passes import Pass
 from olive.passes.olive_pass import PassConfigParam
 
@@ -195,7 +195,7 @@ class QLoRA(Pass):
         )
 
         # get model and tokenizer
-        pytorch_model, tokenizer = self.get_model_tokenizer(model, config)
+        pytorch_model, model_loading_args, tokenizer = self.get_model_tokenizer(model, config)
 
         # # get datasets
         train_dataset, eval_dataset = self.get_datasets(config, data_root)
@@ -214,7 +214,7 @@ class QLoRA(Pass):
             training_args_dict["evaluation_strategy"] = "no"
         training_args_extra_args = training_args_dict.pop("extra_args")
         training_output_dir = config["training_output_dir"]
-        # TODO: Use tempfile context manager instead of TemporaryDirectory
+        # TODO: consider using a tempfile context manager instead of a temp dir
         temp_dir = None
         if not training_output_dir:
             logger.info("No training_output_dir provided. Using a temp dir.")
@@ -243,21 +243,40 @@ class QLoRA(Pass):
         train_result = trainer.train()
         logger.debug(f"train_result: {train_result}")
 
+        # no need to keep the temp dir anymore
+        if temp_dir:
+            temp_dir.cleanup()
+
         if torch.cuda.is_available():
             torch.backends.cuda.matmul.allow_tf32 = allow_tf32
 
-        # save model
-        # TODO: Only save adapter weights and quantization configs when supported
-        # using trainer.save_model for now
-        Path(output_model_path).mkdir(parents=True, exist_ok=True)
-        trainer.save_model(output_model_path)
-        return PyTorchModel(model_path=output_model_path)
+        # save adapter weights
+        adapter_path = Path(output_model_path) / "adapter"
+        adapter_path.mkdir(parents=True, exist_ok=True)
+        pytorch_model.save_pretrained(adapter_path)
+
+        # get model loading args without device_map
+        # remove the device map since we don't want "auto" device map
+        new_model_loading_args = model_loading_args.dict()
+        new_model_loading_args.pop("device_map")
+        # get new hf_config, will reset the model_loading_args and components
+        new_hf_config = model.hf_config.dict()
+        new_hf_config.pop("components")
+        new_hf_config["model_loading_args"] = new_model_loading_args
+
+        # get model path if any from the input model
+        # will access the model_path resource directly in case it is not local
+        model_path = model.resource_paths["model_path"]
+
+        # the output model is the same transformer pytorch model, but with the adapter_path and
+        # model_loading_args updated
+        return PyTorchModel(model_path=model_path, hf_config=new_hf_config, adapter_path=adapter_path)
 
     @classmethod
     def get_model_tokenizer(cls, model: PyTorchModel, config: Dict[str, Any]) -> torch.nn.Module:
         from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
         from peft.tuners.lora import LoraLayer
-        from transformers import AutoTokenizer, BitsAndBytesConfig
+        from transformers import AutoTokenizer
 
         if not model.hf_config:
             raise ValueError("QLoRA pass only supports PyTorchModel with hf_config.")
@@ -281,19 +300,26 @@ class QLoRA(Pass):
         compute_dtype = supported_dtypes[config["compute_dtype"]]
 
         # load model
-        pytorch_model = load_huggingface_model_from_task(
-            task=task,
-            name=model_path or model_name,
+        if model.hf_config.model_loading_args:
+            logger.warning(
+                "Input model has model_loading_args. Ignoring. QLoRA will use its own model_loading_args based on the"
+                " pass config."
+            )
+        model_loading_args = HFModelLoadingArgs(
+            torch_dtype=compute_dtype,
             # TODO: Worry about `use_multi_gpu` and distributed training later
             # this uses all available GPUs, model parallel
             device_map="auto",
-            quantization_config=BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_compute_dtype=compute_dtype,
-                bnb_4bit_use_double_quant=config["double_quant"],
-                bnb_4bit_quant_type=config["quant_type"],
-            ),
-            torch_dtype=compute_dtype,
+            quantization_method="bitsandbytes",
+            quantization_config={
+                "load_in_4bit": True,
+                "bnb_4bit_compute_dtype": compute_dtype,
+                "bnb_4bit_use_double_quant": config["double_quant"],
+                "bnb_4bit_quant_type": config["quant_type"],
+            },
+        )
+        pytorch_model = load_huggingface_model_from_task(
+            task=task, name=model_path or model_name, **model_loading_args.get_loading_args()
         )
         # set model_parallel and is_parallelizable to True
         # we are using "auto" device_map, so model_parallel is True or doing DDP
@@ -347,7 +373,7 @@ class QLoRA(Pass):
                 # TODO: why only cast for bfloat16? https://github.com/artidoro/qlora/blob/main/qlora.py#L397
                 module.to(compute_dtype)
 
-        return pytorch_model, tokenizer
+        return pytorch_model, model_loading_args, tokenizer
 
     @staticmethod
     def smart_tokenizer_and_embedding_resize(
