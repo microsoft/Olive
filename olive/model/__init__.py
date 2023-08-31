@@ -460,8 +460,8 @@ class PyTorchModel(OliveModel):
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_file_format: ModelFileFormat = ModelFileFormat.PYTORCH_ENTIRE_MODEL,
         model_loader: Union[str, Callable] = None,
-        model_script: OLIVE_RESOURCE_ANNOTATIONS = None,
-        script_dir: OLIVE_RESOURCE_ANNOTATIONS = None,
+        model_script: Union[str, Path] = None,
+        script_dir: Union[str, Path] = None,
         io_config: Union[Dict[str, Any], IOConfig] = None,
         dummy_inputs_func: Union[str, Callable] = None,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
@@ -485,6 +485,12 @@ class PyTorchModel(OliveModel):
             model_path=model_path,
             resources={"adapter_path": adapter_path, "script_dir": script_dir, "model_script": model_script},
         )
+        # ensure that model_script and script_dirs are local
+        for resource_name in ["script_dir", "model_script"]:
+            if self.resource_paths[resource_name]:
+                assert self.resource_paths[
+                    resource_name
+                ].is_local_resource(), f"{resource_name} must be local file or directory."
 
         # io config for conversion to onnx
         self.io_config = validate_config(io_config, IOConfig).dict() if io_config else None
@@ -671,6 +677,11 @@ class PyTorchModel(OliveModel):
                 "hf_config": self.hf_config,
             }
         )
+        # convert script_dir and model_script to string
+        # the original config has them as serialized ResourcePath
+        for resource_name in ["script_dir", "model_script"]:
+            if self.resource_paths[resource_name]:
+                config["config"][resource_name] = self.resource_paths[resource_name].get_path()
         return serialize_to_json(config, check_object)
 
 
