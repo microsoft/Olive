@@ -46,7 +46,8 @@ def get_common_args(raw_args):
     model_resource_args, extra_args = parse_model_resources(model_resource_names, extra_args)
 
     for key, value in vars(model_resource_args).items():
-        key = key.replace("model_", "")
+        # remove the model_ prefix, the 1 is to only replace the first occurrence
+        key = key.replace("model_", "", 1)
         model_json["config"][key] = value
 
     return model_json, common_args.pipeline_output, extra_args

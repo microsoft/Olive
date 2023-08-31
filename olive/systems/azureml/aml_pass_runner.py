@@ -49,7 +49,8 @@ def parse_pass_args(pass_type, accelerator_spec, raw_args):
 def create_pass(pass_config, pass_args):
     for key, value in vars(pass_args).items():
         if value is not None:
-            key = key.replace("pass_", "")
+            # remove the pass_ prefix, the 1 is to only replace the first occurrence
+            key = key.replace("pass_", "", 1)
             pass_config["config"][key] = value
 
     p = FullPassConfig.from_json(pass_config).create_pass()
@@ -127,7 +128,7 @@ def main(raw_args=None):
         input_resource_path_str = input_resource_path.get_path() if input_resource_path else None
         if input_resource_path_str == resource_path_str:
             # if the path is the same as the input path, set the path to None
-            # and set same_path_as_input to True
+            # and add the resource name to the same_resources_as_input list
             model_json["config"][resource_name] = None
             model_json["same_resources_as_input"].append(resource_name)
             continue
