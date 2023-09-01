@@ -13,7 +13,7 @@ import transformers
 from pydantic import Field, validator
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 
-from olive.common.config_utils import ConfigBase
+from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
 from olive.model.hf_mappings import MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
 from olive.model.model_config import IOConfig
 
@@ -27,7 +27,7 @@ class HFComponent(ConfigBase):
     dummy_inputs_func: Union[str, Callable]
 
 
-class HFModelLoadingArgs(ConfigBase):
+class HFModelLoadingArgs(ConfigWithExtraArgs):
     """
     Arguments to pass to the `from_pretrained` method of the model class.
 
@@ -78,8 +78,8 @@ class HFModelLoadingArgs(ConfigBase):
     extra_args: Dict = Field(
         None,
         description=(
-            "Other kwargs to pass to the .from_pretrained method of the model class. Parameters already specified in"
-            " the config will be ignored. Please refer to the docstring of"
+            "Other kwargs to pass to the .from_pretrained method of the model class. Values can be provided directly to"
+            " this field as a dict or as keyword arguments to the config. Please refer to the docstring of"
             " `transformers.PreTrainedModel.from_pretrained` for more details on the supported parameters. Eg."
             " {'use_safetensors': True}"
         ),
@@ -118,18 +118,6 @@ class HFModelLoadingArgs(ConfigBase):
                 " validation"
             )
             return v
-
-    @validator("extra_args", pre=True)
-    def validate_extra_args(cls, v, values):
-        # remove args that are already specified in the config
-        args_to_del = []
-        for k, v in v.items():
-            if k in values:
-                logger.warning(f"extra_arg {k} is already specified in the config. Ignoring it")
-                args_to_del.append(k)
-        for k in args_to_del:
-            del v[k]
-        return v
 
     def get_loading_args(self):
         loading_args = {}
