@@ -7,7 +7,6 @@ parameters:
 
 jobs:
 - template: olive-test-template.yaml
-  condition: false
   parameters:
     name: ${{parameters.name}}_Unit_Test_Olive
     pool: ${{parameters.pool}}
@@ -16,7 +15,6 @@ jobs:
     test_type: 'unit_test'
 
 - template: olive-test-template.yaml
-  condition: false
   parameters:
     name: ${{parameters.name}}_Integration_Test_Olive
     pool: ${{parameters.pool}}
@@ -25,7 +23,6 @@ jobs:
     test_type: 'integ_test'
 
 - job: ${{parameters.name}}_Test_Examples
-  condition: false
   timeoutInMinutes: 300
   pool:
     name: ${{ parameters.pool}}
