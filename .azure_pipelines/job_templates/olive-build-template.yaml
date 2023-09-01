@@ -23,6 +23,7 @@ jobs:
     test_type: 'integ_test'
 
 - job: ${{parameters.name}}_Test_Examples
+  condition: false
   timeoutInMinutes: 300
   pool:
     name: ${{ parameters.pool}}

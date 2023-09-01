@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import platform
 import tempfile
-from pathlib import Path
 from test.unit_test.utils import create_onnx_model_file, get_latency_metric, get_onnx_model
 
 import pytest
@@ -25,7 +24,6 @@ class TestOliveManagedPythonEnvironmentSystem:
         self.system = PythonEnvironmentSystem(
             accelerators=["cpu"],
             olive_managed_env=True,
-            requirements_file=Path(__file__).parent / "requirements.txt",
         )
         self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
         create_onnx_model_file()

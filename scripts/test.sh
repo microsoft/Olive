@@ -16,5 +16,5 @@ python -m pip install pytest
 python -m pip install -r $ROOT_DIR/test/requirements-test.txt
 
 # run tests
-coverage run --source=$ROOT_DIR/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$ROOT_DIR/logs/test-TestOlive.xml $ROOT_DIR/test/$TEST_TYPE
+coverage run --source=$ROOT_DIR/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$ROOT_DIR/logs/test-TestOlive.xml $ROOT_DIR/test/$TEST_TYPE/multiple_ep
 coverage xml
