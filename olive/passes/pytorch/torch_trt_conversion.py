@@ -183,4 +183,4 @@ class TorchTRTConversion(Pass):
         # save save entire model to output_model_path
         output_model_path = Path(output_model_path).with_suffix(".pt")
         torch.save(pytorch_model, output_model_path)
-        return PyTorchModel(model_path=output_model_path)
+        return PyTorchModel(model_path=output_model_path, is_complete_hf_folder=False)

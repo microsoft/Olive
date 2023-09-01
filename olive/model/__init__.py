@@ -466,6 +466,7 @@ class PyTorchModel(OliveModel):
         dummy_inputs_func: Union[str, Callable] = None,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        is_complete_hf_folder: bool = True,
     ):
         if not (
             isinstance(model_loader, Callable)
@@ -500,6 +501,10 @@ class PyTorchModel(OliveModel):
 
         # huggingface config
         self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
+        # if model_path is huggingface model name or complete huggingface model structure which
+        # contains model, config, tokenizer, and optionally adapter. That can be loaded by
+        # transformers.XXXForXXX.from_pretrained(model_path, ...)
+        self.is_complete_hf_folder = is_complete_hf_folder
 
     @property
     def script_dir(self) -> str:
@@ -516,7 +521,7 @@ class PyTorchModel(OliveModel):
         if self.model_loader is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
-        elif self.hf_config and (self.hf_config.model_class or self.hf_config.task):
+        elif self.is_complete_hf_folder and self.hf_config and (self.hf_config.model_class or self.hf_config.task):
             model = self.hf_config.load_model(self.model_path)
         else:
             if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:

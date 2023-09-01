@@ -212,7 +212,6 @@ class HFConfig(ConfigBase):
     # feature is optional if task is specified and don't need past
     # else, provide feature such as "causal-lm-with-past"
     feature: str = None
-    # TODO: remove model_class and only use task
     model_class: str = None
     components: List[HFComponent] = None
     dataset: Dict[str, Any] = None
@@ -302,7 +301,7 @@ def load_huggingface_model_from_model_class(model_class: str, name: str, **kwarg
     return huggingface_model_loader(model_class)(name, **kwargs)
 
 
-# patched version of transforrmers.onnx.features.supported_features_mapping
+# patched version of transformers.onnx.features.supported_features_mapping
 # to support additional models in olive
 def patched_supported_features_mapping(*supported_features: str, onnx_config_cls: str = None) -> Dict[str, Callable]:
     """

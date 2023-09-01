@@ -141,7 +141,11 @@ class OrtTransformersOptimization(Pass):
         for key in get_external_data_config():
             del run_config[key]
 
-        if model.hf_config:
+        if run_config["model_type"] and run_config["num_heads"] and run_config["hidden_size"]:
+            logger.debug("Skip searching for model_type, num_heads, and hidden_size as they are already set.")
+        elif not model.hf_config:
+            logger.debug("Skip searching for model_type, num_heads, and hidden_size as hf_config is not available.")
+        elif model.hf_config:
             model_config = model.hf_config.load_model_config().to_dict()
             input_model_type = model_config.get("model_type", "")
             _model_type = MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)

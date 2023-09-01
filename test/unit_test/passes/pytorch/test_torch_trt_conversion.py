@@ -88,6 +88,9 @@ def test_torch_trt_conversion_success(
         # execute
         model = local_system.run_pass(p, input_model, None, output_folder)
 
+        # assert that the model is not complete huggingface model which is pass-specific
+        assert model.is_complete_hf_folder is False
+
         pytorch_model = model.load_model()
         layers = sparsegpt_utils.get_layers(pytorch_model, model_type)
         for layer in layers:

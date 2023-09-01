@@ -14,7 +14,7 @@ from olive.common.config_utils import ConfigBase, ParamCategory, validate_config
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
-from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel, PyTorchModel
+from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel
 from olive.passes.pass_config import (
     PassConfigBase,
     PassConfigParam,
@@ -399,8 +399,7 @@ class Pass(ABC):
             return self.inherit_hf_config_from_input_model(model, output_model)
 
     def inherit_hf_config_from_input_model(self, input_model: OliveModel, output_model: OliveModel) -> OliveModel:
-        # TODO: handle the case with local model path and huggingface model config for torch model
-        if hasattr(output_model, "hf_config") and not isinstance(output_model, PyTorchModel):
+        if hasattr(output_model, "hf_config"):
             # not all models have hf_config
             # Do not inherit hf_config from input model if output_model is PyTorchModel for time being.
             if not output_model.hf_config and getattr(input_model, "hf_config", None):
