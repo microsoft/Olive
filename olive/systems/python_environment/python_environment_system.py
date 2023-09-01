@@ -113,7 +113,8 @@ class PythonEnvironmentSystem(OliveSystem):
 
             # run pass
             command = (
-                f"python {self.pass_path} --model_json_path {model_json_path} --pass_json_path {pass_json_path}"
+                f"{self.config.python_environment_path}/python {self.pass_path}"
+                f" --model_json_path {model_json_path} --pass_json_path {pass_json_path}"
                 f" --output_model_path {output_model_path} --output_model_json_path {output_model_json_path}"
             )
             if point:

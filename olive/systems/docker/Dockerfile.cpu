@@ -1,13 +1,7 @@
 # mcr image https://github.com/microsoft/mcr
 # tag list https://mcr.microsoft.com/v2/azureml/openmpi4.1.0-ubuntu20.04/tags/list
-FROM mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04:20230727.v1
+FROM mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04
 
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get -y update && apt-get -y upgrade
-RUN apt-get install -y --no-install-recommends wget python3-dev python3-pip gnupg
-RUN ln -s /usr/bin/python3 /usr/bin/python
-
-RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime==1.15.1 olive-ai
 
 ADD requirements.txt requirements.txt
