@@ -52,10 +52,8 @@
                     "evaluation_strategy": "steps",
                     "eval_steps": 187,
                     "group_by_length": true,
-                    "extra_args": {
-                        "adam_beta2": 0.999,
-                        "max_grad_norm": 0.3
-                    }
+                    "adam_beta2": 0.999,
+                    "max_grad_norm": 0.3
                 },
                 "training_output_dir": "models/checkpoints"
             }

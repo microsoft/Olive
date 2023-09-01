@@ -18,7 +18,7 @@ import transformers
 from packaging import version
 from pydantic import Field, validator
 
-from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.config_utils import ConfigWithExtraArgs, validate_config
 from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_PAD_TOKEN = "[PAD]"
 
 
-class HFTrainingArguments(ConfigBase):
+class HFTrainingArguments(ConfigWithExtraArgs):
     seed: int = Field(42, description="Random seed for initialization.")
     data_seed: int = Field(42, description="Random seed to be used with data samplers.")
     optim: str = Field("paged_adamw_32bit", description="The optimizer to use.")
@@ -68,34 +68,37 @@ class HFTrainingArguments(ConfigBase):
     group_by_length: bool = Field(
         True, description="Whether or not to group samples of roughly the same length together when batching."
     )
+    output_dir: str = Field(None, description="The output dir for logs and checkpoints. If None, will use a temp dir.")
     extra_args: Dict[str, Any] = Field(
         None,
         description=(
-            "Extra arguments to pass to the trainer. See transformers.TrainingArguments for more details. Args already"
-            " part of this config will be ignored."
+            "Extra arguments to pass to the trainer. Values can be provided directly to this field as a dict or as"
+            " keyword arguments to the config. See transformers.TrainingArguments for more details on the available"
+            " arguments."
         ),
     )
 
     @validator("extra_args", pre=True)
-    def validate_extra_args(cls, v, values):
+    def validate_extra_args(cls, v):
         if v is None:
             v = {}
         # make sure extra args are fields of transformers.Trainer
         training_args_fields = {f.name for f in dataclasses.fields(transformers.TrainingArguments) if f.init}
-        fields_to_del = []
-        for k in v:
-            if k in values:
-                logger.warning(f"Extra arg {k} is already defined in this config. Ignoring.")
-                fields_to_del.append(k)
+        for k in list(v):  # need a copy of the keys since we are mutating the dict
+            if k == "output_dir":
+                logger.warning(f"Extra arg {k} is not allowed. Please use `training_output_dir` instead.")
+                del v[k]
             elif k not in training_args_fields:
                 logger.warning(f"Extra arg {k} is not a field of transformers.TrainingArguments. Ignoring.")
-                fields_to_del.append(k)
-            elif k == "output_dir":
-                logger.warning(f"Extra arg {k} is not allowed. Please use `training_output_dir` instead.")
-                fields_to_del.append(k)
-        for k in fields_to_del:
-            del v[k]
+                del v[k]
         return v
+
+    def create_training_args(self) -> transformers.TrainingArguments:
+        args = self.dict()
+        if not args["output_dir"]:
+            raise ValueError("output_dir must be provided.")
+        extra_args = args.pop("extra_args")
+        return transformers.TrainingArguments(**args, **extra_args)
 
 
 class QLoRA(Pass):
@@ -170,11 +173,6 @@ class QLoRA(Pass):
                     "Training arguments. If None, will use default arguments. See HFTrainingArguments for more details."
                 ),
             ),
-            "training_output_dir": PassConfigParam(
-                type_=str,
-                default_value=None,
-                description="The output dir for logs and checkpoints. If None, will use a temp dir.",
-            ),
         }
 
     def _run_for_config(
@@ -201,35 +199,30 @@ class QLoRA(Pass):
         train_dataset, eval_dataset = self.get_datasets(config, data_root)
 
         # get training arguments
-        training_args_dict = config["training_args"].dict()
-        if training_args_dict["evaluation_strategy"] is None and eval_dataset is not None:
+        if config["training_args"].evaluation_strategy is None and eval_dataset is not None:
             logger.info(
                 "evaluation_strategy is None, but eval_dataset is not None. Please set evaluation_strategy if"
                 " evaluation is needed while training."
             )
-        elif training_args_dict["evaluation_strategy"] is not None and eval_dataset is None:
+        elif config["training_args"].evaluation_strategy is not None and eval_dataset is None:
             logger.warning(
                 "evaluation_strategy is not None, but eval_dataset is None. Setting evaluation_strategy to 'no'."
             )
-            training_args_dict["evaluation_strategy"] = "no"
-        training_args_extra_args = training_args_dict.pop("extra_args")
-        training_output_dir = config["training_output_dir"]
+            config["training_args"].evaluation_strategy = "no"
         # TODO: consider using a tempfile context manager instead of a temp dir
         temp_dir = None
-        if not training_output_dir:
+        if not config["training_args"].output_dir:
             logger.info("No training_output_dir provided. Using a temp dir.")
-            temp_dir = tempfile.TemporaryDirectory()
-            training_output_dir = temp_dir.name
+            temp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+            config["training_args"].output_dir = temp_dir.name
             # set save_total_limit to 1 since the temp dir will be deleted after training
-            training_args_extra_args["save_total_limit"] = 1
-        training_args_dict["output_dir"] = training_output_dir
-        training_args = transformers.TrainingArguments(**training_args_dict, **training_args_extra_args)
+            config["training_args"].extra_args["save_total_limit"] = 1
 
         # get trainer
         trainer = transformers.Trainer(
             model=pytorch_model,
             tokenizer=tokenizer,
-            args=training_args,
+            args=config["training_args"].create_training_args(),
             train_dataset=train_dataset,
             eval_dataset=eval_dataset,
             data_collator=partial(self.collate_batch, tokenizer=tokenizer),
