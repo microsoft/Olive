@@ -23,7 +23,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="ONNX" href="passes/onnx.html" />
+    <link rel="next" title="PyTorch" href="passes/pytorch.html" />
     <link rel="prev" title="Acceleration on CPU" href="../examples.html" /> 
 </head>
 
@@ -70,8 +70,8 @@
 <p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Model Transformations and Optimizations</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html">ONNX</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html">PyTorch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="passes/onnx.html">ONNX</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/openvino.html">OpenVINO</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/snpe.html">SNPE</a></li>
 </ul>
@@ -132,9 +132,23 @@
              
   <section id="model-transformations-and-optimizations">
 <h1>Model Transformations and Optimizations<a class="headerlink" href="#model-transformations-and-optimizations" title="Permalink to this heading">¶</a></h1>
-<p>Olive provides multiple transformations and optimizations to improve model performance.</p>
+<p>Olive provides multiple transformations and optimizations, also known as Olive Passes, to improve
+model performance. Typically, the input model goes through series of transformations before it is
+ready for the production. The Olive Passes are designed to receive an input model that is the output
+of another Olive Pass.</p>
+<p>PyTorch transformations can be applied on the PyTorch model before it is converted to ONNX. After
+applying series of ONNX transformations the model could be converted, if needed, to the format
+preferred by the native hardware specific SDK.</p>
+<p>Olive receives PyTorch or ONNX model as an input. Olive can produce PyTorch or ONNX or hardware
+native model as an output.</p>
 <div class="toctree-wrapper compound">
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="passes/pytorch.html">PyTorch</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#quantization-aware-training">Quantization Aware Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#sparsegpt">SparseGPT</a></li>
+<li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#torchtrtconversion">TorchTRTConversion</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="passes/onnx.html">ONNX</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#model-conversion">Model Conversion</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#model-optimizer">Model Optimizer</a></li>
@@ -145,12 +159,6 @@
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#ort-performance-tuning">ORT Performance Tuning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#float16-conversion">Float16 Conversion</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passes/onnx.html#mixed-precision-conversion">Mixed Precision Conversion</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="passes/pytorch.html">PyTorch</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#quantization-aware-training">Quantization Aware Training</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#sparsegpt">SparseGPT</a></li>
-<li class="toctree-l2"><a class="reference internal" href="passes/pytorch.html#torchtrtconversion">TorchTRTConversion</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="passes/openvino.html">OpenVINO</a><ul>
@@ -174,7 +182,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="../examples.html" class="btn btn-neutral float-left" title="Acceleration on CPU" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="passes/onnx.html" class="btn btn-neutral float-right" title="ONNX" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="passes/pytorch.html" class="btn btn-neutral float-right" title="PyTorch" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
