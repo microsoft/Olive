@@ -32,6 +32,7 @@ class TestOliveAzureMLSystem:
             accelerators=["cpu"],
             olive_managed_env=True,
             requirements_file=Path(__file__).parent / "requirements.txt",
+            is_dev=True,
         )
 
         self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]

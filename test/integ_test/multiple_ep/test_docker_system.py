@@ -21,7 +21,7 @@ class TestOliveManagedDockerSystem:
     @pytest.fixture(autouse=True)
     def setup(self):
         # use the olive managed Docker system as the test environment
-        self.system = DockerSystem(accelerators=["cpu"], olive_managed_env=True)
+        self.system = DockerSystem(accelerators=["cpu"], olive_managed_env=True, is_dev=True)
         self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
         download_models()
         self.input_model = ONNXModel(model_path=get_onnx_model())
