@@ -11,12 +11,6 @@ TEST_TYPE=$3
 
 echo "Running tests in $TEST_TYPE"
 
-if [[ "$PIPELINE" == "True" ]]; then
-    set +x
-    source olive-venv/bin/activate
-    set -x
-fi
-
 # install pytest
 python -m pip install pytest
 python -m pip install -r $ROOT_DIR/test/requirements-test.txt

@@ -9,10 +9,6 @@ set ROOT_DIR=%2
 set EXAMPLE_FOLDER=%3
 set EXAMPLE_NAME=%4
 
-if "%PIPELINE%"=="True" (
-    call olive-venv\\Scripts\\activate.bat || goto :error
-)
-
 rem install pytest
 call python -m pip install pytest
 

@@ -8,10 +8,6 @@ set PIPELINE=%1
 set ROOT_DIR=%2
 set TEST_TYPE=%3
 
-if "%PIPELINE%"=="True" (
-    call olive-venv\\Scripts\\activate.bat || goto :error
-)
-
 rem install pytest
 call python -m pip install pytest
 call python -m pip install -r %ROOT_DIR%\\test\\requirements-test.txt || goto :error

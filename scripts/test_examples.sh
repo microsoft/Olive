@@ -10,13 +10,6 @@ ROOT_DIR=$2
 EXAMPLE_FOLDER=$3
 EXAMPLE_NAME=$4
 
-echo $PIPELINE
-if [[ "$PIPELINE" == "True" ]]; then
-    set +x
-    source olive-venv/bin/activate
-    set -x
-fi
-
 # install pytest
 python -m pip install pytest
 
