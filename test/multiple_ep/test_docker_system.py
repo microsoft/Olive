@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import platform
 import tempfile
-from test.integ_test.multiple_ep.utils import download_data, download_models, get_latency_metric, get_onnx_model
+from test.multiple_ep.utils import download_data, download_models, get_latency_metric, get_onnx_model
 
 import pytest
 

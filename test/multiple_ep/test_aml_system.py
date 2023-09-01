@@ -4,8 +4,8 @@
 # --------------------------------------------------------------------------
 import tempfile
 from pathlib import Path
-from test.integ_test.multiple_ep.utils import download_data, download_models, get_latency_metric, get_onnx_model
 from test.integ_test.utils import get_olive_workspace_config
+from test.multiple_ep.utils import download_data, download_models, get_latency_metric, get_onnx_model
 
 import pytest
 
