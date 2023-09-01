@@ -209,36 +209,38 @@ class QLoRA(Pass):
                 "evaluation_strategy is not None, but eval_dataset is None. Setting evaluation_strategy to 'no'."
             )
             config["training_args"].evaluation_strategy = "no"
-        # TODO: consider using a tempfile context manager instead of a temp dir
-        temp_dir = None
-        if not config["training_args"].output_dir:
-            logger.info("No training_output_dir provided. Using a temp dir.")
-            temp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
-            config["training_args"].output_dir = temp_dir.name
-            # set save_total_limit to 1 since the temp dir will be deleted after training
-            config["training_args"].extra_args["save_total_limit"] = 1
 
-        # get trainer
-        trainer = transformers.Trainer(
-            model=pytorch_model,
-            tokenizer=tokenizer,
-            args=config["training_args"].create_training_args(),
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
-            data_collator=partial(self.collate_batch, tokenizer=tokenizer),
-        )
+        # We always create a temp dir even if output_dir is provided because we want the temp dir to be deleted
+        # after training or if there is an error
+        # With a context manager, the temp dir will be deleted automatically as soon as the context is exited or
+        # there is an error
+        # If we do `tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")` and there is an error before
+        # cleanup or run returns (tmp_dir goes out of scopt), the temp dir will not be deleted until the the exception
+        # is handled by the caller (after try except) or the program exits
+        # Plus the cleanup after error doesn't work as expected with notebooks
+        with tempfile.TemporaryDirectory(prefix="olive_tmp") as temp_dir:
+            if not config["training_args"].output_dir:
+                logger.info("No training_output_dir provided. Using a temp dir.")
+                config["training_args"].output_dir = temp_dir
+                # set save_total_limit to 1 since the temp dir will be deleted after training
+                config["training_args"].extra_args["save_total_limit"] = 1
 
-        # TODO: trainer callback for saving might be needed for DDP training
-        # worry about this later
+            # get trainer
+            trainer = transformers.Trainer(
+                model=pytorch_model,
+                tokenizer=tokenizer,
+                args=config["training_args"].create_training_args(),
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                data_collator=partial(self.collate_batch, tokenizer=tokenizer),
+            )
+            # TODO: trainer callback for saving might be needed for DDP training
+            # worry about this later
 
-        # train
-        logger.info("Running QLoRA fine-tuning")
-        train_result = trainer.train()
-        logger.debug(f"train_result: {train_result}")
-
-        # no need to keep the temp dir anymore
-        if temp_dir:
-            temp_dir.cleanup()
+            # train
+            logger.info("Running QLoRA fine-tuning")
+            train_result = trainer.train()
+            logger.debug(f"train_result: {train_result}")
 
         if torch.cuda.is_available():
             torch.backends.cuda.matmul.allow_tf32 = allow_tf32
