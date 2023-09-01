@@ -99,7 +99,7 @@ for :code:`"conda.yaml"`.
 
 .. important::
 
-    The AzureML environment must have :code:`olive-ai` installed!
+    The AzureML environment must have :code:`olive-ai` installed, or Olive can manage the environment by setting :code:`olive_managed_env = True`
 
 Please refer to :ref:`azureml_system_config` for more details on the config options.
 
@@ -175,6 +175,7 @@ System Configuration
             )
             docker_system = DockerSystem(local_docker_config=local_docker_config)
 
+Olive can manage the environment by setting :code:`olive_managed_env = True`
 Please refer to this `example <https://github.com/microsoft/Olive/tree/main/examples/bert/docker>`__
 for :code:`"docker"` and :code:`"Dockerfile"`.
 
@@ -215,5 +216,6 @@ Python Environment System
 .. important::
 
     The python environment system can only be used to evaluate onnx models. It must have :code:`onnxruntime` installed!
+    Or Olive can manage the environment by setting :code:`olive_managed_env = True`. This feature works best when used from Conda.
 
 Please refer to :ref:`python_environment_system_config` for more details on the config options.

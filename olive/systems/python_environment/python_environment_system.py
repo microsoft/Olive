@@ -113,8 +113,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
             # run pass
             command = (
-                f"{self.config.python_environment_path}/python {self.pass_path}"
-                f" --model_json_path {model_json_path} --pass_json_path {pass_json_path}"
+                f"python {self.pass_path} --model_json_path {model_json_path} --pass_json_path {pass_json_path}"
                 f" --output_model_path {output_model_path} --output_model_json_path {output_model_json_path}"
             )
             if point:
@@ -398,10 +397,8 @@ class PythonEnvironmentSystem(OliveSystem):
     def remove(self):
         import shutil
 
-        if platform.system() == "Windows":
-            vitual_env_path = str(self.config.python_environment_path)[:-7]
-        else:
-            vitual_env_path = str(self.config.python_environment_path)[:-3]
+        vitual_env_path = Path(self.config.python_environment_path).resolve().parent
+
         try:
             shutil.rmtree(vitual_env_path)
             logger.info("Virtual environment '{}' removed.".format(vitual_env_path))

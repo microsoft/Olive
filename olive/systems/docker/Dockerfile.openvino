@@ -8,6 +8,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get -y update && apt-get -y upgrade
 RUN apt-get install -y --no-install-recommends wget gnupg
 
+RUN pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime-openvino==1.15.0 olive-ai
+
 ENV INTEL_OPENVINO_DIR /opt/intel/openvino_${OPENVINO_VERSION}
 ENV LD_LIBRARY_PATH $INTEL_OPENVINO_DIR/runtime/lib/intel64:$INTEL_OPENVINO_DIR/runtime/3rdparty/tbb/lib:/usr/local/openblas/lib:$LD_LIBRARY_PATH
 ENV InferenceEngine_DIR $INTEL_OPENVINO_DIR/runtime/cmake
@@ -29,8 +31,6 @@ RUN wget "https://github.com/intel/compute-runtime/releases/download/21.48.21782
     wget "https://github.com/intel/compute-runtime/releases/download/21.48.21782/intel-opencl-icd_21.48.21782_amd64.deb" && \
     wget "https://github.com/intel/compute-runtime/releases/download/21.48.21782/intel-level-zero-gpu_1.2.21782_amd64.deb" && \
     dpkg -i *.deb && rm -rf *.deb
-
-RUN pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime-openvino==1.15.0 olive-ai
 
 ADD requirements.txt requirements.txt
 RUN pip install -r requirements.txt
