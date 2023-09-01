@@ -90,13 +90,6 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         Run the pass on the model at a specific point in the search space.
         """
-        import importlib
-
-        try:
-            importlib.import_module("olive")
-        except ImportError:
-            raise ValueError("PythonEnvironmentSystem does not support running passes without olive installed.")
-
         model_config = model.to_json()
         pass_config = the_pass.to_json()
 
