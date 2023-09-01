@@ -6,7 +6,7 @@ model performance. Typically, the input model goes through series of transformat
 ready for the production. The Olive Passes are designed to receive an input model that is the output
 of another Olive Pass.
 
-A PyTorch transformations can be applied on a PyTorch model before it is converted to ONNX. After
+PyTorch transformations can be applied on the PyTorch model before it is converted to ONNX. After
 applying series of ONNX transformations the model could be converted, if needed, to the format
 preferred by the native hardware specific SDK.
 
