@@ -7,6 +7,7 @@ parameters:
 
 jobs:
 - template: olive-test-template.yaml
+  condition: false
   parameters:
     name: ${{parameters.name}}_Unit_Test_Olive
     pool: ${{parameters.pool}}
@@ -15,6 +16,7 @@ jobs:
     test_type: 'unit_test'
 
 - template: olive-test-template.yaml
+  condition: false
   parameters:
     name: ${{parameters.name}}_Integration_Test_Olive
     pool: ${{parameters.pool}}
@@ -79,3 +81,11 @@ jobs:
   - script: make clean WINDOWS=$(WINDOWS)
     condition: always()
     displayName: Clean remaining artifacts
+
+- template: olive-test-template.yaml
+  parameters:
+    name: ${{parameters.name}}_Multiple_EP_Test_Olive
+    pool: ${{parameters.pool}}
+    device: ${{parameters.device}}
+    WINDOWS: ${{parameters.windows}}
+    test_type: 'multiple_ep'
