@@ -32,12 +32,12 @@ def test_import_user_module_user_script_is_file(mock_importlib_util, mock_sys_pa
 
     # assert
     script_dir_path = Path(script_dir).resolve()
-    mock_sys_path.append.called_once_with(str(script_dir_path))
+    mock_sys_path.append.assert_called_once_with(str(script_dir_path))
     assert actual_res == expected_res
 
     user_script_path = Path(user_script).resolve()
-    mock_importlib_util.spec_from_file_location.called_once_with("user_script", user_script_path)
-    mock_importlib_util.module_from_spec.called_once_with(mock_spec)
+    mock_importlib_util.spec_from_file_location.assert_called_once_with("user_script", user_script_path)
+    mock_importlib_util.module_from_spec.assert_called_once_with(mock_spec)
 
     # cleanup
     if os.path.exists(script_dir_path):
@@ -66,13 +66,13 @@ def test_import_user_module_user_script_is_dir(mock_importlib_util, mock_sys_pat
 
     # assert
     script_dir_path = Path(script_dir).resolve()
-    mock_sys_path.append.called_once_with(str(script_dir_path))
+    mock_sys_path.append.assert_called_once_with(str(script_dir_path))
     assert actual_res == expected_res
 
     user_script_path = Path(user_script).resolve()
     user_script_path_init = user_script_path / "__init__.py"
-    mock_importlib_util.spec_from_file_location.called_once_with("user_script", user_script_path_init)
-    mock_importlib_util.module_from_spec.called_once_with(mock_spec)
+    mock_importlib_util.spec_from_file_location.assert_called_once_with("user_script", user_script_path_init)
+    mock_importlib_util.module_from_spec.assert_called_once_with(mock_spec)
 
     # cleanup
     if os.path.exists(script_dir_path):

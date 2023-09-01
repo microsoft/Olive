@@ -5,7 +5,7 @@
 import tempfile
 from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_pytorch_model
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -36,7 +36,7 @@ class TestDockerSystem:
 
         # assert
         assert docker_system.image == mock_image
-        mock_docker_client.images.get.called_once_with(docker_config.image_name)
+        mock_docker_client.images.get.assert_called_once_with(docker_config.image_name)
 
     @patch("olive.systems.docker.docker_system.docker.from_env")
     def test__init_image_dockerfile_build(self, mock_from_env):
@@ -55,11 +55,11 @@ class TestDockerSystem:
         DockerSystem(docker_config, is_dev=True)
 
         # assert
-        mock_docker_client.images.build.called_once_with(
-            docker_config.build_context_path,
-            docker_config.dockerfile,
-            docker_config.image_name,
-            docker_config.build_args,
+        mock_docker_client.images.build.assert_called_once_with(
+            path=docker_config.build_context_path,
+            dockerfile=docker_config.dockerfile,
+            tag=docker_config.image_name,
+            buildargs=docker_config.build_args,
         )
 
     @patch("olive.systems.docker.docker_system.shutil.copy2")
@@ -84,8 +84,11 @@ class TestDockerSystem:
         docker_system = DockerSystem(docker_config, is_dev=True)
 
         # assert
-        mock_docker_client.images.build.called_once_with(
-            tempdir, docker_system.BASE_DOCKERFILE, docker_config.image_name, docker_config.build_args
+        mock_docker_client.images.build.assert_called_once_with(
+            path=tempdir,
+            dockerfile=docker_system.BASE_DOCKERFILE,
+            tag=docker_config.image_name,
+            buildargs=docker_config.build_args,
         )
 
     @pytest.fixture
@@ -139,12 +142,11 @@ class TestDockerSystem:
             image_name="image_name", build_context_path="build_context_path", dockerfile="dockerfile"
         )
         docker_system = DockerSystem(docker_config, is_dev=True)
-        container_root_path = Path("/olive/")
+        container_root_path = Path("/olive-ws/")
         eval_output_path = "eval_output"
         eval_output_name = "eval_res.json"
         data_root = None
-        mock_copy = MagicMock()
-        mock_copy.return_value = mock_copy
+        self.mock_copy.side_effect = lambda x: x
 
         eval_file_mount_path = "eval_file_mount_path"
         eval_file_mount_str = "eval_file_mount_str"
@@ -181,22 +183,41 @@ class TestDockerSystem:
         else:
             actual_res = docker_system.evaluate_model(olive_model, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
             # assert
-            self.mock_create_eval_script_mount.called_once_with(container_root_path)
-            self.mock_create_model_mount.called_once_with(mock_copy, container_root_path)
-            vol_list = [eval_file_mount_str] + model_mount_str_list
-            self.mock_create_metric_volumes_list.called_once_with(data_root, mock_copy, container_root_path, vol_list)
-            self.mock_create_config_file.called_once_with(
-                tempdir, mock_copy, mock_copy, container_root_path, model_mounts
+            self.mock_create_eval_script_mount.assert_called_once_with(container_root_path)
+            self.mock_create_model_mount.assert_called_once_with(
+                model=olive_model, container_root_path=container_root_path
             )
-            self.mock_create_output_mount.called_once_with(tempdir, eval_output_path, container_root_path)
-            self.mock_create_evaluate_command.called_once_with(
-                eval_file_mount_path, config_mount_path, output_mount_path, eval_output_name
+            dev_mount_path = f"{Path(tempdir) / 'olive'}:{container_root_path / 'olive'}"
+            vol_list = [eval_file_mount_str, dev_mount_path] + model_mount_str_list
+            self.mock_create_metric_volumes_list.assert_called_once_with(
+                data_root=data_root, metrics=[metric], container_root_path=container_root_path, mount_list=vol_list
             )
-            self.mock_create_run_command.called_once_with(docker_system.run_params)
+            self.mock_create_config_file.assert_called_once_with(
+                tempdir=tempdir,
+                model=olive_model,
+                metrics=[metric],
+                container_root_path=container_root_path,
+                model_mounts=model_mounts,
+            )
+            self.mock_create_output_mount.assert_called_once_with(
+                tempdir=tempdir, docker_eval_output_path=eval_output_path, container_root_path=container_root_path
+            )
+            self.mock_create_evaluate_command.assert_called_once_with(
+                eval_script_path=eval_file_mount_path,
+                config_path=config_mount_path,
+                output_path=output_mount_path,
+                output_name=eval_output_name,
+            )
+            self.mock_create_run_command.assert_called_once_with(run_params=docker_system.run_params)
             volumes_list.append(config_file_mount_str)
             volumes_list.append(output_mount_str)
-            mock_docker_client.containers.run.call_once_with(
-                docker_system.image, eval_command, volumes_list, **run_command
+            mock_docker_client.containers.run.assert_called_once_with(
+                image=docker_system.image,
+                command=eval_command,
+                volumes=volumes_list,
+                detach=True,
+                environment=ANY,
+                **run_command,
             )
 
             for sub_type in metric.sub_types:
