@@ -32,7 +32,16 @@ logger = logging.getLogger(__name__)
 DEFAULT_PAD_TOKEN = "[PAD]"
 
 
+# creating a Config class since transformers.TrainingArguments is a dataclass
+# pydantic handles dataclasses differently and causes issues with validation
+# this also allows us to handle and validate extra_args better
 class HFTrainingArguments(ConfigWithExtraArgs):
+    """
+    Training arguments for transformers.Trainer.
+
+    Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.
+    """
+
     seed: int = Field(42, description="Random seed for initialization.")
     data_seed: int = Field(42, description="Random seed to be used with data samplers.")
     optim: str = Field("paged_adamw_32bit", description="The optimizer to use.")
