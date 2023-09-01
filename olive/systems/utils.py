@@ -134,6 +134,7 @@ def create_new_system(origin_system, accelerator):
                 "build_context_path": Path(__file__).parent / "docker",
             },
             accelerators=[accelerator.accelerator_type],
+            is_dev=origin_system.is_dev,
         )
 
     elif origin_system.system_type == SystemType.AzureML:
@@ -157,6 +158,7 @@ def create_new_system(origin_system, accelerator):
                 "dockerfile": dockerfile,
                 "build_context_path": build_context_path,
             },
+            is_dev=origin_system.is_dev,
         )
 
     else:
