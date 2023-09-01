@@ -22,6 +22,11 @@ jobs:
         versionSpec: 3.8
       displayName: Use Python 3.8
 
+    - script: docker system df && docker system prune -a -f && docker system df
+      displayName: Clean docker images
+      condition: and(eq(variables.WINDOWS, 'False'), eq(variables.testType, 'integ_test'))
+      continueOnError: true
+
     - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[$(device)]
       displayName: Install Olive
 
