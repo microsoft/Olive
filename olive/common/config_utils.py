@@ -175,7 +175,7 @@ class ConfigWithExtraArgs(ConfigBase):
                 if name != "extra_args":
                     other_fields.add(name)
 
-        extra_args = values.pop("extra_args", {})
+        extra_args = values.pop("extra_args") or {}
         # ensure that extra_args does not contain any field names
         for name in list(extra_args):  # need a copy of the keys since we are mutating the dict
             if name in other_fields:
@@ -193,7 +193,8 @@ class ConfigWithExtraArgs(ConfigBase):
                 logger.warning(f"kwarg '{name}' is already defined in 'extra_args'. Ignoring.")
             else:
                 extra_args[name] = values.pop(name)
-        values["extra_args"] = extra_args or None
+        if extra_args:
+            values["extra_args"] = extra_args
         return values
 
 
