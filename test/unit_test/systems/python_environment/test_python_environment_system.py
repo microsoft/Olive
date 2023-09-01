@@ -36,7 +36,12 @@ class TestPythonEnvironmentSystem:
 
     @patch("olive.systems.python_environment.PythonEnvironmentSystem.evaluate_accuracy")
     @patch("olive.systems.python_environment.PythonEnvironmentSystem.evaluate_latency")
-    def test_evaluate_model(self, mock_evaluate_latency, mock_evaluate_accuracy):
+    # mock generate_metric_user_config_with_model_io to return the input metric
+    @patch(
+        "olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io",
+        side_effect=lambda x, _: x,
+    )
+    def test_evaluate_model(self, _, mock_evaluate_latency, mock_evaluate_accuracy):
         # setup
         model = get_onnx_model()
         metrics = [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE), get_latency_metric(LatencySubType.AVG)]
@@ -68,8 +73,8 @@ class TestPythonEnvironmentSystem:
         # assert
         assert res[metrics_key[0]].value == 0.9
         assert res[metrics_key[1]].value == 10
-        assert mock_evaluate_accuracy.call_once_with(model, metrics[0], DEFAULT_CPU_ACCELERATOR)
-        assert mock_evaluate_latency.call_once_with(model, metrics[1], DEFAULT_CPU_ACCELERATOR)
+        mock_evaluate_accuracy.assert_called_once_with(model, None, metrics[0], DEFAULT_CPU_ACCELERATOR)
+        mock_evaluate_latency.assert_called_once_with(model, None, metrics[1], DEFAULT_CPU_ACCELERATOR)
 
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy")
     def test_evaluate_accuracy(self, mock_compute_accuracy):
@@ -222,7 +227,7 @@ class TestPythonEnvironmentSystem:
         inference_runner_main(args)
 
         # assert
-        assert mock_get_session.call_once_with(model, inference_settings)
+        mock_get_session.assert_called_once_with(model, inference_settings)
         assert mock_inference_session.run.call_count == num_batches
         assert mock_inference_session.run.mock_calls == [
             mock.call(input_feed={"input": np.array([i])}, output_names=None) for i in range(num_batches)
@@ -283,7 +288,7 @@ class TestPythonEnvironmentSystem:
 
         # assert
         total_num = warmup_num + repeat_test_num
-        assert mock_get_session.call_once_with(model, inference_settings)
+        mock_get_session.assert_called_once_with(model, inference_settings)
         if not io_bind:
             assert mock_inference_session.run.call_count == total_num
             assert mock_inference_session.run.mock_calls == [

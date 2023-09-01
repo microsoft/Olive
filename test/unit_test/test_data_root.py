@@ -228,16 +228,5 @@ def test_data_root_for_dataset(mock_get_local_path, data_config):
     mock.assert_called_with(data_dir=concat_data_dir(data_root, "data"))
 
     data_dir_expected = concat_data_dir(data_root, "perfdata")
-    found = mock_called_with(mock, data_dir=data_dir_expected)
-    assert found
-
+    mock.assert_any_call(data_dir=data_dir_expected)
     assert best is not None
-
-
-def mock_called_with(mock, **expected_kwargs):
-    for call in mock.call_args_list:
-        for key, value in expected_kwargs.items():
-            if key in call.kwargs:
-                if call.kwargs[key] == value:
-                    return True
-    return False

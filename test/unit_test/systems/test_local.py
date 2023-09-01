@@ -28,7 +28,7 @@ class TestLocalSystem:
         self.system.run_pass(p, olive_model, None, output_model_path)
 
         # assert
-        p.run.called_once_with(olive_model, output_model_path, None)
+        p.run.assert_called_once_with(olive_model, None, output_model_path, None)
 
     METRIC_TEST_CASE = [
         (get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)),
@@ -56,8 +56,12 @@ class TestLocalSystem:
     @patch("olive.evaluator.olive_evaluator.OnnxEvaluator._evaluate_accuracy")
     @patch("olive.evaluator.olive_evaluator.OnnxEvaluator._evaluate_latency")
     @patch("olive.evaluator.olive_evaluator.OnnxEvaluator._evaluate_custom")
+    @patch(
+        "olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io",
+        side_effect=lambda x, _: x,
+    )
     def test_evaluate_model(
-        self, mock_evaluate_custom, mock_evaluate_latency, mock_evaluate_accuracy, mock_get_user_config, metric
+        self, _, mock_evaluate_custom, mock_evaluate_latency, mock_evaluate_accuracy, mock_get_user_config, metric
     ):
         # setup
         olive_model = MagicMock()
@@ -79,14 +83,19 @@ class TestLocalSystem:
 
         # execute
         actual_res = self.system.evaluate_model(olive_model, None, [metric], DEFAULT_CPU_ACCELERATOR)
-
         # assert
         if metric.type == MetricType.ACCURACY:
-            mock_evaluate_accuracy.called_once_with(olive_model, metric, None, "cpu", "CPUExecutionProvider")
+            mock_evaluate_accuracy.assert_called_once_with(
+                olive_model, None, metric, None, None, "cpu", "CPUExecutionProvider"
+            )
         if metric.type == MetricType.LATENCY:
-            mock_evaluate_latency.called_once_with(olive_model, metric, None, "cpu", "CPUExecutionProvider")
+            mock_evaluate_latency.assert_called_once_with(
+                olive_model, None, metric, None, None, "cpu", "CPUExecutionProvider"
+            )
         if metric.type == MetricType.CUSTOM:
-            mock_evaluate_custom.called_once_with(olive_model, metric, None, None, "cpu", "CPUExecutionProvider")
+            mock_evaluate_custom.assert_called_once_with(
+                olive_model, None, metric, None, None, None, "cpu", "CPUExecutionProvider"
+            )
 
         joint_keys = [joint_metric_key(metric.name, sub_metric.name) for sub_metric in metric.sub_types]
         for joint_key in joint_keys:

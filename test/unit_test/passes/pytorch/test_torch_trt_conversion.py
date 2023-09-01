@@ -38,7 +38,7 @@ def mocked_torch_zeros(*args, **kwargs):
 # replace device in kwargs with "cpu"
 @patch("torch.zeros", side_effect=mocked_torch_zeros)
 def test_torch_trt_conversion_success(
-    mock_is_cuda_available, mock_tensor_data_to_device, mock_module_to, mock_torch_zeros
+    mock_torch_zeros, mock_torch_nn_module_to, mock_tensor_data_to_device, mock_torch_cuda_is_available
 ):
     # setup
     # mock trt utils since we don't have tensorrt and torch-tensorrt installed
