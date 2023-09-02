@@ -14,6 +14,7 @@ from pydantic import Field, validator
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
+from olive.hardware.accelerator import Device
 from olive.model.hf_mappings import FEATURE_TO_PEFT_TASK_TYPE, MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
 from olive.model.model_config import IOConfig
 
@@ -213,14 +214,14 @@ class HFConfig(ConfigBase):
                 raise ValueError("Either task or model_class must be specified")
         return v
 
-    def load_model(self, model_path: str = None):
+    def load_model(self, model_path: str = None, device: Device = Device.CPU):
         """Load model from model_path or model_name"""
         model_name_or_path = model_path or self.model_name
         loading_args = self.model_loading_args.get_loading_args() if self.model_loading_args else {}
         if self.task:
-            model = load_huggingface_model_from_task(self.task, model_name_or_path, **loading_args)
+            model = load_huggingface_model_from_task(self.task, model_name_or_path, device, **loading_args)
         elif self.model_class:
-            model = load_huggingface_model_from_model_class(self.model_class, model_name_or_path, **loading_args)
+            model = load_huggingface_model_from_model_class(self.model_class, model_name_or_path, device, **loading_args)
         return model
 
     def load_model_config(self, model_path: str = None):
@@ -229,7 +230,7 @@ class HFConfig(ConfigBase):
         return get_hf_model_config(model_name_or_path)
 
 
-def load_huggingface_model_from_task(task: str, name: str, **kwargs):
+def load_huggingface_model_from_task(task: str, name: str, device: Device = Device.CPU, **kwargs):
     """Load huggingface model from task and name"""
     from transformers.pipelines import check_task
 
@@ -249,7 +250,11 @@ def load_huggingface_model_from_task(task: str, name: str, **kwargs):
     model = None
     for model_class in class_tuple:
         try:
-            model = model_class.from_pretrained(name, **kwargs)
+            model = (
+                model_class.from_pretrained(name, **kwargs).to("cuda")
+                if device == Device.GPU
+                else model_class.from_pretrained(name, **kwargs)
+            )
             logger.debug(f"Loaded model {model_class} with name_or_path {name}")
             return model
         except (OSError, ValueError):

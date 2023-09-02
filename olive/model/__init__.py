@@ -523,7 +523,7 @@ class PyTorchModel(OliveModel):
     def model_script(self) -> str:
         return self.get_local_resource("model_script")
 
-    def load_model(self, rank: int = None) -> torch.nn.Module:
+    def load_model(self, rank: int = None, device: Device = Device.CPU) -> torch.nn.Module:
         if self.model is not None:
             return self.model
 
@@ -531,7 +531,7 @@ class PyTorchModel(OliveModel):
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
         elif self.hf_config and (self.hf_config.model_class or self.hf_config.task):
-            model = self.hf_config.load_model(self.model_path)
+            model = self.hf_config.load_model(self.model_path, device)
         else:
             if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
                 model = torch.load(self.model_path)
@@ -602,7 +602,7 @@ class PyTorchModel(OliveModel):
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
-        return self.load_model().eval()
+        return self.load_model(device).eval()
 
     def get_dummy_inputs(self):
         """

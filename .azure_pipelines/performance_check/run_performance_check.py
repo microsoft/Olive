@@ -29,69 +29,11 @@ MODEL_NAME_MAP = {
     "roberta_large": "roberta-large-mnli",
 }
 
-BERT_CONFIG = {
-    "model_name": "Intel/bert-base-uncased-mrpc",
-    "task": "text-classification",
-    "dataset": {
-        "data_name": "glue",
-        "subset": "mrpc",
-        "split": "validation",
-        "input_cols": ["sentence1", "sentence2"],
-        "label_cols": ["label"],
-        "batch_size": 1,
-        "max_samples": 100,
-    },
-}
-
-DEBERTA_CONFIG = {
-    "model_name": "microsoft/deberta-base-mnli",
-    "task": "text-classification",
-    "dataset": {
-        "data_name": "glue",
-        "subset": "mnli_matched",
-        "split": "validation",
-        "input_cols": ["premise", "hypothesis"],
-        "label_cols": ["label"],
-        "batch_size": 1,
-        "max_samples": 100,
-        "component_kwargs": {"pre_process_data": {"align_labels": True}},
-    },
-}
-
-DISTILBERT_CONFIG = {
-    "model_name": "distilbert-base-uncased-finetuned-sst-2-english",
-    "task": "text-classification",
-    "dataset": {
-        "data_name": "glue",
-        "subset": "sst2",
-        "split": "validation",
-        "input_cols": ["sentence"],
-        "label_cols": ["label"],
-        "batch_size": 1,
-        "max_samples": 100,
-    },
-}
-
-ROBERTA_LARGE_CONFIG = {
-    "model_name": "roberta-large-mnli",
-    "task": "text-classification",
-    "dataset": {
-        "data_name": "glue",
-        "subset": "mnli_matched",
-        "split": "validation",
-        "input_cols": ["premise", "hypothesis"],
-        "label_cols": ["label"],
-        "batch_size": 1,
-        "max_samples": 100,
-        "component_kwargs": {"pre_process_data": {"align_labels": True}},
-    },
-}
-
 MODEL_NAME_TO_CONFIG_MAP = {
-    "bert": BERT_CONFIG,
-    "deberta": DEBERTA_CONFIG,
-    "distilbert": DISTILBERT_CONFIG,
-    "roberta_large": ROBERTA_LARGE_CONFIG,
+    "bert": {"model_name": "Intel/bert-base-uncased-mrpc", "task": "text-classification"},
+    "deberta": {"model_name": "microsoft/deberta-base-mnli", "task": "text-classification"},
+    "distilbert": {"model_name": "distilbert-base-uncased-finetuned-sst-2-english", "task": "text-classification"},
+    "roberta_large": {"model_name": "roberta-large-mnli", "task": "text-classification"},
 }
 
 ACC_METRIC = {
@@ -221,16 +163,14 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
                     olive_config["input_model"]["type"] = "PyTorchModel"
                     olive_config["input_model"]["config"]["model_script"] = user_script_path
                     olive_config["input_model"]["config"]["model_loader"] = "torch_complied_model"
-                    hf_config = {"hf_config": MODEL_NAME_TO_CONFIG_MAP[model_name]}
-                    olive_config["input_model"]["config"] = hf_config
 
+                olive_config["systems"]["local_system"]["config"]["accelerators"] = (
+                    ["cpu"] if device == "cpu" else ["gpu"]
+                )
                 olive_config["engine"]["cache_dir"] = str(Path(model_root_path / optimized_model / "cache"))
                 olive_config["engine"]["output_dir"] = str(Path(model_root_path / optimized_model / "output"))
                 olive_config["engine"]["execution_providers"] = (
                     ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider"]
-                )
-                olive_config["systems"]["local_system"]["config"]["accelerators"] = (
-                    ["cpu"] if device == "cpu" else ["gpu"]
                 )
                 olive_config["evaluators"]["common_evaluator"]["metrics"].append(ACC_METRIC)
                 olive_config["evaluators"]["common_evaluator"]["metrics"].append(LAT_METRIC)
@@ -294,10 +234,10 @@ def main():
 
     if device == "cpu":
         lscpu = subprocess.check_output(["lscpu"])
-        print(lscpu)
+        print(lscpu.decode("utf-8"))
     elif device == "gpu":
         nvidia_smi = subprocess.check_output(["nvidia-smi"])
-        print(nvidia_smi)
+        print(nvidia_smi.decode("utf-8"))
     print_perf_table(metric_res, device)
 
 
