@@ -86,7 +86,7 @@ case insensitive.
 
     - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is either a string name
     used by the model loader or the path to the model file/directory. If it is a dictionary, it contains information about the model path.
-    Please refer to [Configuring Model Path](configuring_model_path) for the more information of the model path dictionary.
+    Please refer to [Configuring Model Path](../tutorials/configure_model_path.md) for the more information of the model path dictionary.
 
     - `model_loader: [str]` The name of the function provided by the user to load the model. The function should take the model path as
     input and return the loaded model.
