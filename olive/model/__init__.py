@@ -551,14 +551,21 @@ class PyTorchModel(OliveModel):
 
         with open(os.path.join(self.model_path, "MLmodel"), "r") as fp:
             mlflow_data = yaml.safe_load(fp)
-            # default flavor is "hftransformersv2" name from azureml.evaluate.mlflow>=0.0.8
-            # "hftransformers" is the name from azureml.evaluate.mlflow<0.0.8
+            # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
+            # "hftransformers" from azureml.evaluate.mlflow<0.0.8
             # TODO: let user specify flavor name if needed
+            hf_pretrained_class = None
             flavors_names = ["hftransformersv2", "hftransformers"]
             for flavors_name in flavors_names:
-                if flavors_name in mlflow_data["flavors"]:
-                    hf_pretrained_class = mlflow_data["flavors"][flavors_name]["hf_pretrained_class"]
+                if flavors_name in mlflow_data.get("flavors", {}):
+                    hf_pretrained_class = mlflow_data["flavors"][flavors_name].get("hf_pretrained_class", None)
                     break
+            if not hf_pretrained_class:
+                raise ValueError(
+                    "Invalid MLFlow model format. Please make sure the saved model"
+                    " format is same with mlflow.transformers.save_model,"
+                    " or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow"
+                )
 
         model_loader = huggingface_model_loader(hf_pretrained_class)
         loaded_model = model_loader(tmp_dir_path)
