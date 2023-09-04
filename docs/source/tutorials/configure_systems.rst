@@ -95,6 +95,7 @@ System Configuration
             )
 
 Olive can also manage the environment by setting :code:`olive_managed_env = True`
+
 .. tabs::
     .. tab:: Config JSON
 
@@ -204,6 +205,7 @@ System Configuration
             docker_system = DockerSystem(local_docker_config=local_docker_config)
 
 Olive can manage the environment by setting :code:`olive_managed_env = True`
+
 .. tabs::
     .. tab:: Config JSON
 
@@ -269,9 +271,12 @@ Python Environment System
             )
 
 Olive can also manage the environment by setting :code:`olive_managed_env = True`. This feature works best when used from Conda.
+
 .. tabs::
     .. tab:: Config JSON
+
         .. code-block:: json
+
             {
                 "type": "PythonEnvironment",
                 "config": {
@@ -293,4 +298,5 @@ Olive can also manage the environment by setting :code:`olive_managed_env = True
 .. important::
 
     The python environment system can only be used to evaluate onnx models. It must have :code:`onnxruntime` installed if :code:`olive_managed_env = False` !
+
 Please refer to :ref:`python_environment_system_config` for more details on the config options.
