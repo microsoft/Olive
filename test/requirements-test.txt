@@ -21,9 +21,7 @@ azureml-evaluate-mlflow
 mlflow
 # newest version mlflow-skinny==2.4.0 is not compatible with the test
 # issue: https://github.com/mlflow/mlflow/issues/8629
-# azureml-evaluate-mlflow 0.0.25 depends on mlflow-skinny==2.3.1
-# The user requested mlflow-skinny==2.3.2
-mlflow-skinny==2.3.1
+mlflow-skinny==2.3.2
 evaluate
 sentencepiece
 protobuf==3.20.3
