@@ -42,6 +42,8 @@ class DockerSystem(OliveSystem):
         logger.info("Initializing Docker System...")
         self.is_dev = is_dev
         self.requirements_file = requirements_file
+        if local_docker_config and olive_managed_env:
+            raise ValueError("Olive managed environment is not supported if local_docker_config is provided.")
         if local_docker_config:
             self.docker_client = docker.from_env()
             local_docker_config = validate_config(local_docker_config, LocalDockerConfig)

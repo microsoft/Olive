@@ -86,6 +86,8 @@ class AzureMLSystem(OliveSystem):
         self.compute = aml_compute
         azureml_client_config = validate_config(azureml_client_config, AzureMLClientConfig)
         self.azureml_client_config = azureml_client_config
+        if aml_docker_config and olive_managed_env:
+            raise ValueError("Olive managed environment is not supported if aml_docker_config is provided.")
         if aml_docker_config:
             aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
             self.environment = self._create_environment(aml_docker_config)
