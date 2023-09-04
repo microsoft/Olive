@@ -558,7 +558,7 @@ class PyTorchModel(OliveModel):
             flavors_names = ["hftransformersv2", "hftransformers"]
             for flavors_name in flavors_names:
                 if flavors_name in mlflow_data.get("flavors", {}):
-                    hf_pretrained_class = mlflow_data["flavors"][flavors_name].get("hf_pretrained_class", None)
+                    hf_pretrained_class = mlflow_data["flavors"].get(flavors_name, {}).get("hf_pretrained_class", None)
                     break
             if not hf_pretrained_class:
                 raise ValueError(
