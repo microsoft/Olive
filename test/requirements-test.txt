@@ -16,7 +16,8 @@ pytorch_lightning
 tabulate
 torchvision
 datasets
-azureml-evaluate-mlflow
+# azureml-evaluate-mlflow>=0.0.14 will pin mlflow/mlflow-skinny to 2.3.1
+azureml-evaluate-mlflow>=0.0.14
 evaluate
 sentencepiece
 protobuf==3.20.3
