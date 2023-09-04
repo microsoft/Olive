@@ -1177,3 +1177,5 @@ class Engine:
         if origin_target.olive_managed_env:
             self.target.remove()
             self.target = origin_target
+
+        create_new_system_with_cache.cache_clear()

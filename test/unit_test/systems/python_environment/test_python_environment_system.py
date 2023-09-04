@@ -308,3 +308,5 @@ class TestPythonEnvironmentSystem:
         create_new_system_with_cache(origin_system, DEFAULT_CPU_ACCELERATOR)
         create_new_system_with_cache(origin_system, DEFAULT_CPU_ACCELERATOR)
         assert mock_create_new_system.call_count == 1
+        create_new_system_with_cache.cache_clear()
+        assert create_new_system_with_cache.cache_info().currsize == 0
