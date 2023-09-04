@@ -551,7 +551,10 @@ class PyTorchModel(OliveModel):
 
         with open(os.path.join(self.model_path, "MLmodel"), "r") as fp:
             mlflow_data = yaml.safe_load(fp)
-            hf_pretrained_class = mlflow_data["flavors"]["hftransformers"]["hf_pretrained_class"]
+            # default flavor name from azureml.evaluate.mlflow>=0.0.14
+            # TODO: let user specify flavor name
+            flavors_name = "hftransformersv2"
+            hf_pretrained_class = mlflow_data["flavors"][flavors_name]["hf_pretrained_class"]
 
         model_loader = huggingface_model_loader(hf_pretrained_class)
         loaded_model = model_loader(tmp_dir_path)
