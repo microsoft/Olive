@@ -86,3 +86,4 @@ jobs:
     device: ${{parameters.device}}
     WINDOWS: ${{parameters.windows}}
     test_type: 'multiple_ep'
+    python_version: '3.10'

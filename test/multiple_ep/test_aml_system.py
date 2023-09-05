@@ -2,27 +2,31 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import platform
 import tempfile
 from pathlib import Path
-from test.integ_test.utils import get_olive_workspace_config
-from test.multiple_ep.utils import download_data, download_models, get_latency_metric, get_onnx_model
 
 import pytest
 
-from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.engine import Engine
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import Device
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes.onnx import OrtPerfTuning
-from olive.systems.azureml.aml_system import AzureMLSystem
 
 
+@pytest.mark.skipif(platform.system() == "Windows", reason="Skip test on Windows.")
 class TestOliveAzureMLSystem:
     @pytest.fixture(autouse=True)
     def setup(self):
         # use the olive managed AzureML system as the test environment
+        from test.integ_test.utils import get_olive_workspace_config
+        from test.multiple_ep.utils import download_data, download_models, get_onnx_model
+
+        from olive.azureml.azureml_client import AzureMLClientConfig
+        from olive.systems.azureml.aml_system import AzureMLSystem
+
         aml_compute = "cpu-cluster"
         azureml_client_config = AzureMLClientConfig(**get_olive_workspace_config())
 
@@ -41,6 +45,8 @@ class TestOliveAzureMLSystem:
         download_data()
 
     def test_run_pass_evaluate(self):
+        from test.multiple_ep.utils import get_latency_metric
+
         temp_dir = tempfile.TemporaryDirectory()
         output_dir = temp_dir.name
 

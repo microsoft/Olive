@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import platform
 import tempfile
-from test.multiple_ep.utils import download_data, download_models, get_latency_metric, get_onnx_model
 
 import pytest
 
@@ -14,12 +13,16 @@ from olive.hardware import Device
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes.onnx import OrtPerfTuning
-from olive.systems.docker.docker_system import DockerSystem
 
 
+@pytest.mark.skipif(platform.system() == "Windows", reason="Docker target does not support windows")
 class TestOliveManagedDockerSystem:
     @pytest.fixture(autouse=True)
     def setup(self):
+        from test.multiple_ep.utils import download_data, download_models, get_onnx_model
+
+        from olive.systems.docker.docker_system import DockerSystem
+
         # use the olive managed Docker system as the test environment
         self.system = DockerSystem(accelerators=["cpu"], olive_managed_env=True, is_dev=True)
         self.execution_providers = ["CPUExecutionProvider", "OpenVINOExecutionProvider"]
@@ -27,8 +30,9 @@ class TestOliveManagedDockerSystem:
         self.input_model = ONNXModel(model_path=get_onnx_model())
         download_data()
 
-    @pytest.mark.skipif(platform.system() == "Windows", reason="Docker target does not support windows")
     def test_run_pass_evaluate(self):
+        from test.multiple_ep.utils import get_latency_metric
+
         temp_dir = tempfile.TemporaryDirectory()
         output_dir = temp_dir.name
 

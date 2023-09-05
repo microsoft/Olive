@@ -10,12 +10,14 @@ set TEST_TYPE=%3
 
 rem install pytest
 call python -m pip install pytest
-call python -m pip install -r %ROOT_DIR%\\test\\requirements-test.txt --use-deprecated=legacy-resolver || goto :error
 
-if %TEST_TYPE% == "multiple_ep" (
+if %TEST_TYPE% == multiple_ep (
     call curl --output openvino_toolkit https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.0.1/windows/w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64.zip
     call tar -xf openvino_toolkit
-    call w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64>setupvars.bat
+    call w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64\\setupvars.bat
+    call python -m pip install numpy psutil coverage protobuf==3.20.3 || goto :error
+) else (
+    call python -m pip install -r %ROOT_DIR%\\test\\requirements-test.txt || goto :error
 )
 
 rem run tests

@@ -3,6 +3,7 @@ parameters:
   pool: ''
   test_type: ''
   device: 'cpu'
+  python_version: '3.8'
 
 jobs:
 - ${{ if eq(parameters.device, 'cpu') }}:
@@ -15,12 +16,13 @@ jobs:
       runCodesignValidationInjection: false
       device: ${{ parameters.device }}
       testType: ${{ parameters.test_type }}
+      python_version: ${{ parameters.python_version }}
 
     steps:
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: 3.10
-      displayName: Use Python 3.10
+        versionSpec: $(python_version)
+      displayName: Use Python $(python_version)
 
     - script: docker system df && docker system prune -a -f && docker system df
       displayName: Clean docker images
