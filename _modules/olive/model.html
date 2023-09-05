@@ -676,7 +676,27 @@
 
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;MLmodel&quot;</span><span class="p">),</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
             <span class="n">mlflow_data</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
-            <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="n">mlflow_data</span><span class="p">[</span><span class="s2">&quot;flavors&quot;</span><span class="p">][</span><span class="s2">&quot;hftransformers&quot;</span><span class="p">][</span><span class="s2">&quot;hf_pretrained_class&quot;</span><span class="p">]</span>
+            <span class="c1"># default flavor is &quot;hftransformersv2&quot; from azureml.evaluate.mlflow&gt;=0.0.8</span>
+            <span class="c1"># &quot;hftransformers&quot; from azureml.evaluate.mlflow&lt;0.0.8</span>
+            <span class="c1"># TODO: let user specify flavor name if needed</span>
+            <span class="c1"># TODO: to support other flavors in mlflow not only hftransformers</span>
+            <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">flavors</span> <span class="o">=</span> <span class="n">mlflow_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;flavors&quot;</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">flavors</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Invalid MLFlow model format. Please make sure the input model&quot;</span>
+                    <span class="s2">&quot; format is same with the result of mlflow.transformers.save_model,&quot;</span>
+                    <span class="s2">&quot; or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow&quot;</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="s2">&quot;hftransformersv2&quot;</span> <span class="ow">in</span> <span class="n">flavors</span><span class="p">:</span>
+                <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="n">flavors</span><span class="p">[</span><span class="s2">&quot;hftransformersv2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;hf_pretrained_class&quot;</span><span class="p">,</span> <span class="s2">&quot;AutoModel&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="s2">&quot;hftransformers&quot;</span> <span class="ow">in</span> <span class="n">flavors</span><span class="p">:</span>
+                <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="n">flavors</span><span class="p">[</span><span class="s2">&quot;hftransformers&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;hf_pretrained_class&quot;</span><span class="p">,</span> <span class="s2">&quot;AutoModel&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers.&quot;</span>
+                <span class="p">)</span>
 
         <span class="n">model_loader</span> <span class="o">=</span> <span class="n">huggingface_model_loader</span><span class="p">(</span><span class="n">hf_pretrained_class</span><span class="p">)</span>
         <span class="n">loaded_model</span> <span class="o">=</span> <span class="n">model_loader</span><span class="p">(</span><span class="n">tmp_dir_path</span><span class="p">)</span>
