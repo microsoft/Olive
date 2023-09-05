@@ -16,7 +16,10 @@ jobs:
       runCodesignValidationInjection: false
       device: ${{ parameters.device }}
       testType: ${{ parameters.test_type }}
-      python_version: ${{ if eq(parameters.windows, 'True') }}${{ parameters.python_version }}{{ else }}3.8{{ endif }}
+      ${{ if ${{ parameters.windows }} == 'True' }}:
+        python_version: ${{ parameters.python_version }}
+      ${{ else }}:
+        python_version: '3.8'
 
     steps:
     - task: UsePythonVersion@0
