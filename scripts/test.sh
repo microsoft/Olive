@@ -13,7 +13,7 @@ echo "Running tests in $TEST_TYPE"
 
 # install pytest
 python -m pip install pytest
-python -m pip install -r $ROOT_DIR/test/requirements-test.txt
+python -m pip install -r $ROOT_DIR/test/requirements-test.txt --use-deprecated=legacy-resolver
 
 # run tests
 coverage run --source=$ROOT_DIR/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$ROOT_DIR/logs/test-TestOlive.xml $ROOT_DIR/test/$TEST_TYPE
