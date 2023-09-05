@@ -39,13 +39,13 @@ class OptimumConversion(Pass):
         # TODO: export into temp dir and then move to sub-dirs of output_model_path
         # so that we only keep the final model files in the output_model_path
         # and track external data if present
+        hf_config = deepcopy(model.hf_config) or HFConfig()
         export_optimum_model(
-            model.model_path,
+            model.model_path or hf_config.model_name,
             output_model_path,
             opset=config["target_opset"],
             no_post_process=True,
         )
-        hf_config = deepcopy(model.hf_config) or HFConfig()
 
         onnx_model_components = [
             ONNXModel(str(Path(output_model_path) / model_component), hf_config=hf_config)
@@ -54,6 +54,6 @@ class OptimumConversion(Pass):
         onnx_model_component_names = [Path(model_component).stem for model_component in model.model_components]
 
         if len(onnx_model_components) == 1:
-            return ONNXModel(output_model_path / model.model_components[0])
+            return ONNXModel(Path(output_model_path) / model.model_components[0])
 
         return CompositeOnnxModel(onnx_model_components, onnx_model_component_names, hf_config=hf_config)
