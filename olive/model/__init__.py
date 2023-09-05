@@ -554,17 +554,23 @@ class PyTorchModel(OliveModel):
             # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
             # "hftransformers" from azureml.evaluate.mlflow<0.0.8
             # TODO: let user specify flavor name if needed
+            # TODO: to support other flavors in mlflow not only hftransformers
             hf_pretrained_class = None
-            flavors_names = ["hftransformersv2", "hftransformers"]
-            for flavors_name in flavors_names:
-                if flavors_name in mlflow_data.get("flavors", {}):
-                    hf_pretrained_class = mlflow_data["flavors"].get(flavors_name, {}).get("hf_pretrained_class", None)
-                    break
-            if not hf_pretrained_class:
+            flavors = mlflow_data.get("flavors", {})
+            if not flavors:
                 raise ValueError(
-                    "Invalid MLFlow model format. Please make sure the saved model"
-                    " format is same with mlflow.transformers.save_model,"
+                    "Invalid MLFlow model format. Please make sure the input model"
+                    " format is same with the result of mlflow.transformers.save_model,"
                     " or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow"
+                )
+
+            if "hftransformersv2" in flavors:
+                hf_pretrained_class = flavors["hftransformersv2"].get("hf_pretrained_class", "AutoModel")
+            elif "hftransformers" in flavors:
+                hf_pretrained_class = flavors["hftransformers"].get("hf_pretrained_class", "AutoModel")
+            else:
+                raise ValueError(
+                    "Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers."
                 )
 
         model_loader = huggingface_model_loader(hf_pretrained_class)
