@@ -68,6 +68,7 @@ def get_package_name(execution_provider):
         "CUDAExecutionProvider": "onnxruntime-gpu",
         "TensorrtExecutionProvider": "onnxruntime-gpu",
         "OpenVINOExecutionProvider": "onnxruntime-openvino",
+        "DmlExecutionProvider": "onnxruntime-directml",
     }
     return PROVIDER_PACKAGE_MAPPING.get(execution_provider, "onnxruntime")
 

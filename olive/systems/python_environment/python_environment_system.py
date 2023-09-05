@@ -64,11 +64,14 @@ class PythonEnvironmentSystem(OliveSystem):
             self.environ["PATH"] = os.pathsep.join(self.config.prepend_to_path) + os.pathsep + self.environ["PATH"]
         if self.config.python_environment_path:
             self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
-        if self.config.olive_managed_env and platform.system() == "Linux":
-            temp_dir = os.path.join(os.environ.get("HOME", ""), "tmp")
-            if not os.path.exists(temp_dir):
-                os.makedirs(temp_dir)
-            self.environ["TMPDIR"] = temp_dir
+        if self.config.olive_managed_env:
+            if platform.system() == "Linux":
+                temp_dir = os.path.join(os.environ.get("HOME", ""), "tmp")
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
+                self.environ["TMPDIR"] = temp_dir
+            else:
+                self.environ["TMPDIR"] = tempfile.TemporaryDirectory().name
 
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
         # used for caching the available eps

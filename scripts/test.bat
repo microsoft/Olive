@@ -12,6 +12,12 @@ rem install pytest
 call python -m pip install pytest
 call python -m pip install -r %ROOT_DIR%\\test\\requirements-test.txt || goto :error
 
+if %TEST_TYPE% == "multiple_ep" (
+    call curl --output openvino_toolkit https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.0.1/windows/w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64.zip
+    call tar -xf openvino_toolkit
+    call w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64>setupvars.bat
+)
+
 rem run tests
 call coverage run --source=%ROOT_DIR%\\olive -m pytest -v -s --log-cli-level=WARNING --junitxml=%ROOT_DIR%\\logs\\test-TestOlive.xml^
  %ROOT_DIR%\\test\\%TEST_TYPE% || goto :error
