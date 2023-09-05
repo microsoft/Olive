@@ -12,8 +12,8 @@ rem install pytest
 call python -m pip install pytest
 
 if %TEST_TYPE% == multiple_ep (
-    call curl --output openvino_toolkit https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.0.1/windows/w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64.zip
-    call tar -xf openvino_toolkit
+    call curl --output openvino_toolkit.zip https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.0.1/windows/w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64.zip
+    call 7z x openvino_toolkit.zip
     call w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64\\setupvars.bat
     call python -m pip install numpy psutil coverage protobuf==3.20.3 || goto :error
 ) else (
