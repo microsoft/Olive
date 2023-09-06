@@ -65,6 +65,7 @@ class OnnxConversion(Pass):
         output_model_path: str,
         device: str,
     ):
+        model.extend_model_attributes_from_hf_config()
         # check if the model has components
         if model.components:
             onnx_models = []

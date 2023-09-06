@@ -502,15 +502,9 @@ class PyTorchModel(OliveModel):
             model_file_format=model_file_format,
             model_path=model_path,
             resources={"adapter_path": adapter_path, "script_dir": script_dir, "model_script": model_script},
+            model_attributes=model_attributes,
         )
         self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
-        if self.hf_config:
-            # priority: model_attributes < hf_config
-            # need call get_hf_model_config() after self.model_path is set
-            hf_model_config = self.get_hf_model_config().to_dict()
-            hf_model_config.update(model_attributes or {})
-            model_attributes = hf_model_config
-        self.model_attributes = model_attributes
 
         # ensure that model_script and script_dirs are local
         for resource_name in ["script_dir", "model_script"]:
@@ -532,6 +526,16 @@ class PyTorchModel(OliveModel):
     @property
     def model_script(self) -> str:
         return self.get_local_resource("model_script")
+
+    def extend_model_attributes_from_hf_config(self) -> Dict[str, Any]:
+        hf_model_config = {}
+        if self.hf_config:
+            # priority: model_attributes > hf_config
+            # need call get_hf_model_config() after self.model_path is set
+            # but if the input model_path is not local, we can't call get_hf_model_config()
+            hf_model_config = self.get_hf_model_config().to_dict()
+        hf_model_config.update(self.model_attributes)
+        self.model_attributes = hf_model_config
 
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
@@ -712,6 +716,7 @@ class PyTorchModel(OliveModel):
             model_script=self.model_script,
             script_dir=self.script_dir,
             hf_config=HFConfig.parse_obj(component_hf_config),
+            model_attributes=self.model_attributes,
         )
 
     def to_json(self, check_object: bool = False):
