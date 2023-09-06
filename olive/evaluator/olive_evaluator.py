@@ -647,6 +647,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
     @staticmethod
     def disable_ort_fallback(session, execution_providers):
         if execution_providers:
+            assert isinstance(execution_providers, (str, list))
+            execution_providers = [execution_providers] if isinstance(execution_providers, str) else execution_providers
             if session.get_providers() == execution_providers:
                 session.disable_fallback()
             else:
