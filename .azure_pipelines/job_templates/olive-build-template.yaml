@@ -86,4 +86,7 @@ jobs:
     device: ${{parameters.device}}
     WINDOWS: ${{parameters.windows}}
     test_type: 'multiple_ep'
-    python_version: '3.10'
+    ${{ if eq(parameters.windows, 'True') }}:
+      python_version: '3.10'
+    ${{ else }}:
+      python_version: '3.8'
