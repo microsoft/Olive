@@ -32,6 +32,7 @@ from olive.evaluator.metric import (
     joint_metric_key,
 )
 from olive.evaluator.metric_backend import MetricBackend
+from olive.exception import OliveEvaluationException
 from olive.hardware import Device
 from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
 from olive.model.model_config import is_io_config_static
@@ -327,6 +328,9 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             device=device,
             execution_providers=execution_providers,
         )
+
+        OnnxEvaluator.disable_ort_fallback(session, execution_providers)
+
         io_config = model.get_io_config()
 
         preds = []
@@ -388,6 +392,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             device=device,
             execution_providers=execution_providers,
         )
+        OnnxEvaluator.disable_ort_fallback(session, execution_providers)
+
         io_config = model.get_io_config()
 
         input_data, _ = next(iter(dataloader))
@@ -637,6 +643,21 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             return self._evaluate_distributed_latency(model, data_root, metric, device, execution_providers)
         else:
             raise TypeError(f"Cannot evaluate latency for model of type: {type(model)}")
+
+    @staticmethod
+    def disable_ort_fallback(session, execution_providers):
+        if execution_providers:
+            assert isinstance(execution_providers, (str, list))
+            execution_providers = [execution_providers] if isinstance(execution_providers, str) else execution_providers
+            session_providers = session.get_providers()
+            for ep in execution_providers:
+                if ep not in session_providers:
+                    raise OliveEvaluationException(
+                        f"The onnxruntime fallback happens. {ep} is not in the session providers {session_providers}."
+                        f" session._enable_fallback = {session._enable_fallback}"
+                    )
+            else:
+                session.disable_fallback()
 
 
 class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
