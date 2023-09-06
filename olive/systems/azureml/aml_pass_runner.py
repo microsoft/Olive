@@ -106,10 +106,6 @@ def main(raw_args=None):
     # save model json
     model_json = output_model.to_json()
 
-    # Replace output model HF config with input model HF config only if the output model HF config is empty
-    if not model_json["config"].get("hf_config", None) and input_model_config["config"].get("hf_config"):
-        model_json["config"]["hf_config"] = input_model_config["config"]["hf_config"]
-
     # Replace local paths with relative paths
     # keep track of the resource names that are relative paths
     # during download in aml system, the relative paths will be resolved to the pipeline output

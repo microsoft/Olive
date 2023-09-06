@@ -48,7 +48,7 @@ class OptimumConversion(Pass):
         )
 
         onnx_model_components = [
-            ONNXModel(str(Path(output_model_path) / model_component), hf_config=hf_config)
+            ONNXModel(str(Path(output_model_path) / model_component), model_attributes=model.model_attributes)
             for model_component in model.model_components
         ]
         onnx_model_component_names = [Path(model_component).stem for model_component in model.model_components]
@@ -56,4 +56,4 @@ class OptimumConversion(Pass):
         if len(onnx_model_components) == 1:
             return ONNXModel(Path(output_model_path) / model.model_components[0])
 
-        return CompositeOnnxModel(onnx_model_components, onnx_model_component_names, hf_config=hf_config)
+        return CompositeOnnxModel(onnx_model_components, onnx_model_component_names)

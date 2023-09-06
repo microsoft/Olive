@@ -43,6 +43,12 @@ class TestPyTorchMLflowModel(unittest.TestCase):
             hf_conf=self.hf_conf,
         )
 
+    def test_hf_model_attributes(self):
+        self.setup()
+
+        olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.architecture})
+        assert olive_model.model_attributes == olive_model.get_hf_model_config().to_dict()
+
     def test_load_model(self):
         self.setup()
 
