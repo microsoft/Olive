@@ -124,9 +124,7 @@ class Pass(ABC):
         return config
 
     @classmethod
-    def get_config_class(
-        cls, accelerator_spec: AcceleratorSpec, disable_search: Optional[bool] = False
-    ) -> Type[PassConfigBase]:
+    def get_config_class(cls, accelerator_spec: AcceleratorSpec, disable_search: Optional[bool] = False):
         """
         Get the configuration class for the pass.
         """
