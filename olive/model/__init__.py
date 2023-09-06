@@ -65,9 +65,9 @@ class OliveModel(ABC):
         self.composite_parent = None
         self.io_config = None
         # store resource paths
-        self.resource_paths = {}
+        self.resource_paths: Dict[str, ResourcePath] = {}
         # this is for storing local instances of resource paths
-        self.local_resource_paths = {}
+        self.local_resource_paths: Dict[str, ResourcePath] = {}
         resources = resources or {}
         resources["model_path"] = model_path
         for resource_name, resource_path in resources.items():
