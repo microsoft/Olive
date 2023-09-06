@@ -11,6 +11,9 @@ rem Upgrade pip
 call echo "Upgrading pip"
 call python -m pip install --upgrade pip || goto :error
 
+rem install torch cpu version for test
+call python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
 rem Install olive
 if "%INSTALL_DEV_MODE%"=="True" (
     call echo "Installing olive in dev mode"

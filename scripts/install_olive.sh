@@ -12,6 +12,9 @@ INSTALL_DEV_MODE=$2
 echo "Upgrading pip"
 python -m pip install --upgrade pip
 
+# install torch cpu version for test
+python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
 # Install olive
 if [[ "$INSTALL_DEV_MODE" == "True" ]]; then
     echo "Installing olive in dev mode"
