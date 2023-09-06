@@ -649,14 +649,15 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         if execution_providers:
             assert isinstance(execution_providers, (str, list))
             execution_providers = [execution_providers] if isinstance(execution_providers, str) else execution_providers
-            if session.get_providers() == execution_providers:
-                session.disable_fallback()
+            session_providers = session.get_providers()
+            for ep in execution_providers:
+                if ep not in session_providers:
+                    raise OliveEvaluationException(
+                        f"The onnxruntime fallback happens. {ep} is not in the session providers {session_providers}."
+                        f" session._enable_fallback = {session._enable_fallback}"
+                    )
             else:
-                raise OliveEvaluationException(
-                    f"The onnxruntime fallback happens. The original execution provider is {execution_providers}, but"
-                    f" the actual execution provider is {session.get_providers()}, and the"
-                    f" session._enable_fallback = {session._enable_fallback}"
-                )
+                session.disable_fallback()
 
 
 class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
