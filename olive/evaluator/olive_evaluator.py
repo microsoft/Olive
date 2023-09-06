@@ -654,7 +654,8 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             else:
                 raise OliveEvaluationException(
                     f"The onnxruntime fallback happens. The original execution provider is {execution_providers}, but"
-                    f" the actual execution provider is {session.get_providers()}"
+                    f" the actual execution provider is {session.get_providers()}, and the"
+                    f" session._enable_fallback = {session._enable_fallback}"
                 )
 
 
