@@ -53,9 +53,9 @@
                     "eval_steps": 187,
                     "group_by_length": true,
                     "adam_beta2": 0.999,
-                    "max_grad_norm": 0.3
-                },
-                "training_output_dir": "models/checkpoints"
+                    "max_grad_norm": 0.3,
+                    "output_dir": "models/checkpoints"
+                }
             }
         }
     },
