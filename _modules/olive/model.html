@@ -190,9 +190,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">composite_parent</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="c1"># store resource paths</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="c1"># this is for storing local instances of resource paths</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">local_resource_paths</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">local_resource_paths</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">resources</span> <span class="o">=</span> <span class="n">resources</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="n">resources</span><span class="p">[</span><span class="s2">&quot;model_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_path</span>
         <span class="k">for</span> <span class="n">resource_name</span><span class="p">,</span> <span class="n">resource_path</span> <span class="ow">in</span> <span class="n">resources</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
