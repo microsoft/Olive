@@ -96,6 +96,12 @@ InsertBeamSearch
 --------------------
 .. autoconfigclass:: olive.passes.InsertBeamSearch
 
+.. _qlora:
+
+QLoRA
+-------------------------
+.. autoconfigclass:: olive.passes.QLoRA
+
 .. _quantization_aware_training:
 
 QuantizationAwareTraining

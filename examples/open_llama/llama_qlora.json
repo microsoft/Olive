@@ -1,0 +1,76 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "huggyllama/llama-7b",
+                "task": "text-generation"
+            }
+        }
+    },
+    "data_configs": {
+        "oasst1_train": {
+            "name": "oasst1",
+            "type": "HuggingfaceContainer",
+            "params_config": {
+                "data_name": "timdettmers/openassistant-guanaco",
+                "split": "train",
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "dataset_type": "corpus",
+                        "text_cols": ["text"],
+                        "corpus_strategy": "line-by-line",
+                        "source_max_len": 512,
+                        "pad_to_max_len": false
+                    }
+                }
+            }
+        }
+    },
+    "passes": {
+        "qlora": {
+            "type": "QLoRA",
+            "config": {
+                "compute_dtype": "bfloat16",
+                "quant_type": "nf4",
+                "double_quant": true,
+                "lora_r": 64,
+                "lora_alpha": 16,
+                "lora_dropout": 0.1,
+                "train_data_config": "oasst1_train",
+                "eval_dataset_size": 1024,
+                "training_args": {
+                    "seed": 0,
+                    "data_seed": 42,
+                    "per_device_train_batch_size": 16,
+                    "per_device_eval_batch_size": 16,
+                    "gradient_accumulation_steps": 1,
+                    "gradient_checkpointing": true,
+                    "learning_rate": 0.0002,
+                    "max_steps": 1875,
+                    "logging_steps": 10,
+                    "evaluation_strategy": "steps",
+                    "eval_steps": 187,
+                    "group_by_length": true,
+                    "adam_beta2": 0.999,
+                    "max_grad_norm": 0.3,
+                    "output_dir": "models/checkpoints"
+                }
+            }
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "search_strategy": false,
+        "evaluate_input_model": false,
+        "target": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["gpu"]
+            }
+        },
+        "execution_providers": ["CPUExecutionProvider"],
+        "cache_dir": "cache",
+        "output_dir" : "models/qlora"
+    }
+}
