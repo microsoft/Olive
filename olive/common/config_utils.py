@@ -9,7 +9,7 @@ from enum import Enum
 from functools import partial
 from pathlib import Path
 from types import FunctionType, MethodType
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel, Field, create_model, root_validator, validator
 
@@ -264,7 +264,7 @@ def create_config_class(
     default_config: Dict[str, ConfigParam],
     base: type = ConfigBase,
     validators: Dict[str, Callable] = None,
-):
+) -> Type[ConfigBase]:
     """
     Create a Pydantic model class from a configuration dictionary.
     """
@@ -293,12 +293,15 @@ def create_config_class(
     return create_model(class_name, **config, __base__=base, __validators__=validators)
 
 
+T = TypeVar("T", bound=ConfigBase)
+
+
 def validate_config(
     config: Union[Dict[str, Any], ConfigBase, None],
-    base_class: ConfigBase,
-    instance_class: Optional[ConfigBase] = None,
+    base_class: Type[T],
+    instance_class: Optional[Type[T]] = None,
     warn_unused_keys: bool = True,
-):
+) -> T:
     """
     Validate a config dictionary or object against a base class and instance class.
     instance class is a subclass of base class.
