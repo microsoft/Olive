@@ -77,6 +77,9 @@ class HFTrainingArguments(ConfigWithExtraArgs):
     group_by_length: bool = Field(
         True, description="Whether or not to group samples of roughly the same length together when batching."
     )
+    report_to: Union[str, List[str]] = Field(
+        "none", description="The list of integrations to report the results and logs to."
+    )
     output_dir: str = Field(None, description="The output dir for logs and checkpoints. If None, will use a temp dir.")
     extra_args: Dict[str, Any] = Field(
         None,
@@ -87,7 +90,7 @@ class HFTrainingArguments(ConfigWithExtraArgs):
         ),
     )
 
-    @validator("extra_args", pre=True)
+    @validator("extra_args", pre=True, always=True)
     def validate_extra_args(cls, v):
         if v is None:
             v = {}
@@ -115,8 +118,7 @@ class QLoRA(Pass):
     Run QLoRA fine-tuning on a Hugging Face PyTorch model.
     See https://arxiv.org/abs/2305.14314 for more details on the method.
 
-    This pass only supports PyTorchModel with hf_config. The transformers model type
-    must be one of [gpt_neox]
+    This pass only supports PyTorchModel with hf_config.
     """
 
     @staticmethod
