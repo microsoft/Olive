@@ -221,7 +221,9 @@ class HFConfig(ConfigBase):
         if self.task:
             model = load_huggingface_model_from_task(self.task, model_name_or_path, device, **loading_args)
         elif self.model_class:
-            model = load_huggingface_model_from_model_class(self.model_class, model_name_or_path, device, **loading_args)
+            model = load_huggingface_model_from_model_class(
+                self.model_class, model_name_or_path, device, **loading_args
+            )
         return model
 
     def load_model_config(self, model_path: str = None):
