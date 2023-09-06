@@ -112,8 +112,9 @@ def set_aml_system(olive_config, is_gpu=False):
                 "accelerators": ["CPU"],
                 "aml_compute": "cpu-cluster",
                 "aml_docker_config": {
-                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-                    "conda_file_path": "conda.yaml",
+                    "image_name": "olive-image",
+                    "build_context_path": "docker",
+                    "dockerfile": "Dockerfile",
                 },
                 "is_dev": True,
             },
