@@ -10,6 +10,7 @@ from typing import List
 
 from olive.cache import get_local_path_from_root
 from olive.evaluator.metric import Metric
+from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OliveModel
 from olive.resource_path import ResourcePath
 
@@ -34,12 +35,16 @@ def create_config_file(
     return config_mount_path, config_file_mount_str
 
 
-def create_evaluate_command(eval_script_path: str, config_path: str, output_path: str, output_name: str):
+def create_evaluate_command(
+    eval_script_path: str, config_path: str, output_path: str, output_name: str, accelerator: AcceleratorSpec
+):
     # no need to pass model_path since it's already updated in config file
     parameters = [
         f"--config {config_path}",
         f"--output_path {output_path}",
         f"--output_name {output_name}",
+        f"--accelerator_type {accelerator.type}",
+        f"--execution_provider {accelerator.execution_provider}",
     ]
     cmd_line = f"python {eval_script_path} {' '.join(parameters)}"
     return cmd_line
