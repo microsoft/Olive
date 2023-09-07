@@ -202,6 +202,10 @@ class QLoRA(Pass):
         # this will validate the config and convert to the correct types
         config = self._config_class(**config)
 
+        # check if bf16 is supported
+        if config.compute_dtype == "bfloat16" and not torch.cuda.is_bf16_supported():
+            raise RuntimeError("bfloat16 is not supported on this device. Please use a different compute_dtype.")
+
         # use default training args if not provided
         config.training_args = config.training_args or HFTrainingArguments()
 

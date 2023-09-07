@@ -63,7 +63,7 @@ def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, max_sa
     from transformers import AutoConfig, AutoTokenizer
 
     def _tokenizer_and_align_labels(examples):
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side=kwargs.get("padding_side", "right"))
         tokenized_inputs = tokenizer(
             *[examples[input_col] for input_col in input_cols],
             padding=kwargs.get("padding", True),
@@ -121,7 +121,7 @@ def ner_huggingface_preprocess(_dataset, model_name, input_cols, label_cols, max
         return new_labels
 
     def _tokenizer_and_align_labels(examples):
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side=kwargs.get("padding_side", "right"))
         tokenized_inputs = tokenizer(
             *[examples[input_col] for input_col in input_cols],
             padding=kwargs.get("padding", True),
@@ -164,14 +164,11 @@ def text_generation_huggingface_pre_process(
             'pair' arguments are the fields in olive.data.component.text_generation.TextGenPairParams.
             Note: the TextGenCorpusParams and TextGenPairParams subclasses already include the common arguments.
     """
-    from transformers import AutoTokenizer
 
     all_kwargs = deepcopy(kwargs)
     all_kwargs.update({"max_samples": max_samples, "source_max_len": source_max_len})
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-
     if dataset_type == TextGenDatasetType.CORPUS:
-        return text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs)
+        return text_gen_corpus_pre_process(_dataset, model_name, all_kwargs)
     else:
-        return text_gen_pair_pre_process(_dataset, tokenizer, all_kwargs)
+        return text_gen_pair_pre_process(_dataset, model_name, all_kwargs)
