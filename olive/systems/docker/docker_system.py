@@ -93,14 +93,20 @@ class DockerSystem(OliveSystem):
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
             metrics_res = None
-            metric_json = self._run_container(tempdir, model, data_root, metrics, container_root_path)
+            metric_json = self._run_container(tempdir, model, data_root, metrics, accelerator, container_root_path)
             if metric_json.is_file():
                 with metric_json.open() as f:
                     metrics_res = json.load(f)
             return MetricResult.parse_obj(metrics_res)
 
     def _run_container(
-        self, tempdir, model: OliveModel, data_root: str, metrics: List[Metric], container_root_path: Path
+        self,
+        tempdir,
+        model: OliveModel,
+        data_root: str,
+        metrics: List[Metric],
+        accelerator: AcceleratorSpec,
+        container_root_path: Path,
     ):
         eval_output_path = "eval_output"
         eval_output_name = "eval_res.json"
@@ -149,6 +155,7 @@ class DockerSystem(OliveSystem):
             config_path=config_mount_path,
             output_path=output_mount_path,
             output_name=eval_output_name,
+            accelerator=accelerator,
         )
 
         run_command = docker_utils.create_run_command(run_params=self.run_params)
