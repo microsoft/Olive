@@ -18,7 +18,7 @@ import transformers
 from packaging import version
 from pydantic import Field, validator
 
-from olive.common.config_utils import ConfigWithExtraArgs, validate_config
+from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
 from olive.data.config import DataConfig
 from olive.data.constants import IGNORE_INDEX
 from olive.hardware.accelerator import AcceleratorSpec
@@ -197,11 +197,12 @@ class QLoRA(Pass):
             allow_tf32 = torch.backends.cuda.matmul.allow_tf32
             torch.backends.cuda.matmul.allow_tf32 = True
 
-        # convert training args to HFTrainingArguments
-        config["training_args"] = (
-            validate_config(config["training_args"], HFTrainingArguments, warn_unused_keys=True)
-            or HFTrainingArguments()
-        )
+        # convert config to pass config class
+        # this will validate the config and convert to the correct types
+        config = self._config_class(**config)
+
+        # use default training args if not provided
+        config.training_args = config.training_args or HFTrainingArguments()
 
         # get model and tokenizer
         pytorch_model, model_loading_args, tokenizer = self.get_model_tokenizer(model, config)
@@ -210,16 +211,16 @@ class QLoRA(Pass):
         train_dataset, eval_dataset = self.get_datasets(config, data_root)
 
         # get training arguments
-        if config["training_args"].evaluation_strategy is None and eval_dataset is not None:
+        if config.training_args.evaluation_strategy is None and eval_dataset is not None:
             logger.info(
                 "evaluation_strategy is None, but eval_dataset is not None. Please set evaluation_strategy if"
                 " evaluation is needed while training."
             )
-        elif config["training_args"].evaluation_strategy is not None and eval_dataset is None:
+        elif config.training_args.evaluation_strategy is not None and eval_dataset is None:
             logger.warning(
                 "evaluation_strategy is not None, but eval_dataset is None. Setting evaluation_strategy to 'no'."
             )
-            config["training_args"].evaluation_strategy = "no"
+            config.training_args.evaluation_strategy = "no"
 
         # We always create a temp dir even if output_dir is provided because we want the temp dir to be deleted
         # after training or if there is an error
@@ -230,17 +231,17 @@ class QLoRA(Pass):
         # is handled by the caller (after try except) or the program exits
         # Plus the cleanup after error doesn't work as expected with notebooks
         with tempfile.TemporaryDirectory(prefix="olive_tmp") as temp_dir:
-            if not config["training_args"].output_dir:
+            if not config.training_args.output_dir:
                 logger.info("No training_output_dir provided. Using a temp dir.")
-                config["training_args"].output_dir = temp_dir
+                config.training_args.output_dir = temp_dir
                 # set save_total_limit to 1 since the temp dir will be deleted after training
-                config["training_args"].extra_args["save_total_limit"] = 1
+                config.training_args.extra_args["save_total_limit"] = 1
 
             # get trainer
             trainer = transformers.Trainer(
                 model=pytorch_model,
                 tokenizer=tokenizer,
-                args=config["training_args"].create_training_args(),
+                args=config.training_args.create_training_args(),
                 train_dataset=train_dataset,
                 eval_dataset=eval_dataset,
                 data_collator=partial(self.collate_batch, tokenizer=tokenizer),
@@ -279,7 +280,7 @@ class QLoRA(Pass):
         return PyTorchModel(model_path=model_path, hf_config=new_hf_config, adapter_path=adapter_path)
 
     @classmethod
-    def get_model_tokenizer(cls, model: PyTorchModel, config: Dict[str, Any]) -> torch.nn.Module:
+    def get_model_tokenizer(cls, model: PyTorchModel, config: ConfigBase) -> torch.nn.Module:
         from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
         from peft.tuners.lora import LoraLayer
         from transformers import AutoTokenizer
@@ -301,9 +302,9 @@ class QLoRA(Pass):
             "float32": torch.float32,
         }
         assert (
-            config["compute_dtype"] in supported_dtypes
+            config.compute_dtype in supported_dtypes
         ), f"compute_dtype must be one of {list(supported_dtypes.keys())} but got {config['compute_dtype']}"
-        compute_dtype = supported_dtypes[config["compute_dtype"]]
+        compute_dtype = supported_dtypes[config.compute_dtype]
 
         # load model
         if model.hf_config.model_loading_args:
@@ -320,8 +321,8 @@ class QLoRA(Pass):
             quantization_config={
                 "load_in_4bit": True,
                 "bnb_4bit_compute_dtype": compute_dtype,
-                "bnb_4bit_use_double_quant": config["double_quant"],
-                "bnb_4bit_quant_type": config["quant_type"],
+                "bnb_4bit_use_double_quant": config.double_quant,
+                "bnb_4bit_quant_type": config.quant_type,
             },
         )
         pytorch_model = load_huggingface_model_from_task(
@@ -351,7 +352,7 @@ class QLoRA(Pass):
         # prepare model for kbit training
         # Note: this also converts all float16 and bfloat16 parameters to float32
         pytorch_model = prepare_model_for_kbit_training(
-            pytorch_model, use_gradient_checkpointing=config["training_args"].gradient_checkpointing
+            pytorch_model, use_gradient_checkpointing=config.training_args.gradient_checkpointing
         )
 
         # TODO: should we make this optional? fp16 is unstable?
@@ -368,9 +369,9 @@ class QLoRA(Pass):
         # this is good since we don't want to touch those, LoRA might not work with input output embedding layers
         modules = cls.find_all_linear_names(pytorch_model)
         lora_config = LoraConfig(
-            r=config["lora_r"],
-            lora_alpha=config["lora_alpha"],
-            lora_dropout=config["lora_dropout"],
+            r=config.lora_r,
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
             target_modules=modules,
             bias="none",
             task_type=peft_task_type,
@@ -424,14 +425,13 @@ class QLoRA(Pass):
         return list(lora_module_names)
 
     @staticmethod
-    def get_datasets(config: Dict[str, Any], data_root: str) -> tuple:
+    def get_datasets(config: ConfigBase, data_root: str) -> tuple:
         """
         Load training and evaluation datasets.
         """
-        train_data_config = validate_config(config["train_data_config"], DataConfig)
-        eval_data_config = config["eval_data_config"]
-        eval_data_config = validate_config(eval_data_config, DataConfig) if eval_data_config else None
-        eval_dataset_size = config["eval_dataset_size"]
+        train_data_config = config.train_data_config
+        eval_data_config = config.eval_data_config
+        eval_dataset_size = config.eval_dataset_size
 
         # load training dataset
         train_data_container = train_data_config.to_data_container()
@@ -450,7 +450,7 @@ class QLoRA(Pass):
                 eval_dataset_size = int(eval_dataset_size)
             # eval data config has not been provided, but eval_dataset_size has been provided
             split_data = train_dataset.train_test_split(
-                test_size=eval_dataset_size, shuffle=True, seed=config["training_args"].data_seed
+                test_size=eval_dataset_size, shuffle=True, seed=config.training_args.data_seed
             )
             train_dataset = split_data["train"]
             eval_dataset = split_data["test"]

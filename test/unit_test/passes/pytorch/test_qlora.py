@@ -40,7 +40,8 @@ def test_qlora(patched_model_loading_args, patched_find_all_linear_names, tmpdir
             }
         },
     }
-    data_config = huggingface_data_config_template(model_name=model_name, task=task, **dataset)
+    # convert to json to ensure the pass can handle serialized data config
+    data_config = huggingface_data_config_template(model_name=model_name, task=task, **dataset).to_json()
     config = {
         "train_data_config": data_config,
         "eval_dataset_size": 2,

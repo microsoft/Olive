@@ -182,8 +182,10 @@ def get_attr(module, attr, fail_on_not_found=False):
         try:
             module = getattr(module, a)
         except AttributeError as e:
+            not_found_message = f"Attribute {attr} not found."
             if fail_on_not_found:
-                raise AttributeError(f"Attribute {attr} not found.") from e
+                raise AttributeError(not_found_message) from e
             else:
+                logger.warning(not_found_message)
                 return None
     return module

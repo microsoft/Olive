@@ -24,6 +24,7 @@ TASK_TO_FEATURE = {
 }
 
 # mapping from feature to peft task type
+# refer to peft.utils.peft_types.TaskType for all possible values
 FEATURE_TO_PEFT_TASK_TYPE = {
     "sequence-classification": "SEQ_CLS",
     "seq2seq-lm": "SEQ_2_SEQ_LM",
