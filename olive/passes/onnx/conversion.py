@@ -75,7 +75,9 @@ class OnnxConversion(Pass):
                 output_model_components = self._run_for_config(
                     component_model, data_root, config, str(component_output_path)
                 )
-                output_model_components.extend_model_attributes(component_model.model_attributes)
+                output_model_components.model_attributes = (
+                    output_model_components.model_attributes or model.model_attributes
+                )
                 onnx_models.append(output_model_components)
                 component_names.append(component_name)
             return CompositeOnnxModel(onnx_models, component_names)

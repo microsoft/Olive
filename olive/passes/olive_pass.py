@@ -367,8 +367,11 @@ class Pass(ABC):
         """
         Run the pass on the model at a specific point in the search space.
         """
-        if isinstance(model, PyTorchModel):
-            model.extend_model_attributes_from_hf_config()
+        if isinstance(model, PyTorchModel) and model.hf_config:
+            hf_config = model.get_hf_model_config().to_dict()
+            input_model_attr = model.model_attributes or {}
+            hf_config.update(input_model_attr)
+            model.model_attributes = hf_config
 
         point = point or {}
         config = self.config_at_search_point(point)
@@ -392,13 +395,15 @@ class Pass(ABC):
             for cidx, child in enumerate(model.get_model_components()):
                 component_output_path = Path(output_model_path).with_suffix("") / str(cidx)
                 output_model_components = self._run_for_config(child, data_root, config, str(component_output_path))
-                output_model_components.extend_model_attributes(child.model_attributes)
+                output_model.model_attributes = output_model.model_attributes or child.model_attributes
                 components.append(output_model_components)
                 component_names.append(model.get_model_component_name(cidx))
             output_model = CompositeOnnxModel(components, component_names)
         else:
             output_model = self._run_for_config(model, data_root, config, output_model_path)
-        output_model.extend_model_attributes(model.model_attributes)
+        # assumption: the model attributes from passes, if any, are more important than
+        # the input model attributes, we should not update/extend anymore outside of the pass run
+        output_model.model_attributes = output_model.model_attributes or model.model_attributes
         return output_model
 
     def serialize_config(self, config: Dict[str, Any], check_object: bool = False) -> str:

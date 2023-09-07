@@ -64,7 +64,7 @@ class OliveModel(ABC):
         self.framework = framework
         self.model_file_format = model_file_format
         self.composite_parent = None
-        self.model_attributes = model_attributes or {}
+        self.model_attributes = model_attributes
         self.io_config = None
         # store resource paths
         self.resource_paths: Dict[str, ResourcePath] = {}
@@ -81,19 +81,6 @@ class OliveModel(ABC):
     def model_path(self) -> str:
         """Return local model path."""
         return self.get_local_resource("model_path")
-
-    def extend_model_attributes(self, model_attr) -> Dict[str, Any]:
-        # self.model_attributes > model_attr, should respect self.model_attributes when there is conflict
-        # this method is mainly called by resulted model to extend model attributes from input_model.
-        # also resulted model config > input model config
-        self.model_attributes = self.model_attributes or {}
-        model_attr = model_attr or {}
-        model_attr.update(self.model_attributes)
-        self.model_attributes = model_attr
-
-    def update_model_attributes(self, model_attr) -> Dict[str, Any]:
-        self.model_attributes = self.model_attributes or {}
-        self.model_attributes.update(model_attr or {})
 
     def get_local_resource(self, resource_name: str) -> str:
         """
@@ -530,15 +517,6 @@ class PyTorchModel(OliveModel):
     @property
     def model_script(self) -> str:
         return self.get_local_resource("model_script")
-
-    def extend_model_attributes_from_hf_config(self) -> Dict[str, Any]:
-        if self.hf_config:
-            # priority: model_attributes > hf_config
-            # need call get_hf_model_config() after self.model_path is set
-            # but if the input model_path is not local, we can't call get_hf_model_config()
-            hf_model_config = self.get_hf_model_config().to_dict()
-            hf_model_config.update(self.model_attributes)
-            self.model_attributes = hf_model_config
 
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
