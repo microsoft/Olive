@@ -528,14 +528,13 @@ class PyTorchModel(OliveModel):
         return self.get_local_resource("model_script")
 
     def extend_model_attributes_from_hf_config(self) -> Dict[str, Any]:
-        hf_model_config = {}
         if self.hf_config:
             # priority: model_attributes > hf_config
             # need call get_hf_model_config() after self.model_path is set
             # but if the input model_path is not local, we can't call get_hf_model_config()
             hf_model_config = self.get_hf_model_config().to_dict()
-        hf_model_config.update(self.model_attributes)
-        self.model_attributes = hf_model_config
+            hf_model_config.update(self.model_attributes)
+            self.model_attributes = hf_model_config
 
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:

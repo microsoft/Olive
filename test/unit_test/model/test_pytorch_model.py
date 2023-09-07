@@ -47,6 +47,7 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         self.setup()
 
         olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.architecture})
+        olive_model.extend_model_attributes_from_hf_config()
         assert olive_model.model_attributes == olive_model.get_hf_model_config().to_dict()
 
     def test_load_model(self):
