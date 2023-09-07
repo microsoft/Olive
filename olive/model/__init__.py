@@ -91,6 +91,10 @@ class OliveModel(ABC):
         model_attr.update(self.model_attributes)
         self.model_attributes = model_attr
 
+    def update_model_attributes(self, model_attr) -> Dict[str, Any]:
+        self.model_attributes = self.model_attributes or {}
+        self.model_attributes.update(model_attr or {})
+
     def get_local_resource(self, resource_name: str) -> str:
         """
         Get local path of a resource.
