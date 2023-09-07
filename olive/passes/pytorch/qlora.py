@@ -153,7 +153,7 @@ class QLoRA(Pass):
             # data parameters
             "train_data_config": PassConfigParam(
                 type_=Union[DataConfig, Dict],
-                # required=True,
+                required=True,
                 description=(
                     "Data config for fine-tuning training. If `eval_data_config` is not provided and"
                     " `eval_dataset_size` is not None, the data will be split into train and eval. Otherwise, the data"
