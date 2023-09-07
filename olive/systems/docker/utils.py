@@ -43,7 +43,7 @@ def create_evaluate_command(
         f"--config {config_path}",
         f"--output_path {output_path}",
         f"--output_name {output_name}",
-        f"--accelerator_type {accelerator.type}",
+        f"--accelerator_type {accelerator.accelerator_type}",
         f"--execution_provider {accelerator.execution_provider}",
     ]
     cmd_line = f"python {eval_script_path} {' '.join(parameters)}"
