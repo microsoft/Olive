@@ -30,10 +30,60 @@ MODEL_NAME_MAP = {
 }
 
 MODEL_NAME_TO_CONFIG_MAP = {
-    "bert": {"model_name": "Intel/bert-base-uncased-mrpc", "task": "text-classification"},
-    "deberta": {"model_name": "microsoft/deberta-base-mnli", "task": "text-classification"},
-    "distilbert": {"model_name": "distilbert-base-uncased-finetuned-sst-2-english", "task": "text-classification"},
-    "roberta_large": {"model_name": "roberta-large-mnli", "task": "text-classification"},
+    "bert": {
+        "model_name": "Intel/bert-base-uncased-mrpc",
+        "task": "text-classification",
+        "dataset": {
+            "data_name": "glue",
+            "subset": "mrpc",
+            "split": "validation",
+            "input_cols": ["sentence1", "sentence2"],
+            "label_cols": ["label"],
+            "batch_size": 1,
+            "max_samples": 500,
+        },
+    },
+    "deberta": {
+        "model_name": "microsoft/deberta-base-mnli",
+        "task": "text-classification",
+        "dataset": {
+            "data_name": "glue",
+            "subset": "mnli_matched",
+            "split": "validation",
+            "input_cols": ["premise", "hypothesis"],
+            "label_cols": ["label"],
+            "batch_size": 1,
+            "max_samples": 500,
+            "component_kwargs": {"pre_process_data": {"align_labels": True}},
+        },
+    },
+    "distilbert": {
+        "model_name": "distilbert-base-uncased-finetuned-sst-2-english",
+        "task": "text-classification",
+        "dataset": {
+            "data_name": "glue",
+            "subset": "sst2",
+            "split": "validation",
+            "input_cols": ["sentence"],
+            "label_cols": ["label"],
+            "batch_size": 1,
+            "max_samples": 500,
+        },
+    },
+    "roberta_large": {
+        "model_name": "roberta-large-mnli",
+        "task": "text-classification",
+        "dataset": {
+            "data_name": "glue",
+            "subset": "mnli_matched",
+            "split": "validation",
+            "input_cols": ["premise", "hypothesis"],
+            "label_cols": ["label"],
+            "batch_size": 1,
+            "max_samples": 500,
+            "component_kwargs": {"pre_process_data": {"align_labels": True}},
+        },
+    },
 }
 
 ACC_METRIC = {
@@ -41,19 +91,12 @@ ACC_METRIC = {
     "type": "accuracy",
     "backend": "huggingface_metrics",
     "sub_types": [{"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}}],
-    "user_config": {
-        "post_processing_func": "post_process",
-        "dataloader_func": "create_dataloader",
-        "data_dir": "data",
-        "batch_size": 1,
-    },
 }
 
 LAT_METRIC = {
     "name": "latency",
     "type": "latency",
     "sub_types": [{"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}}],
-    "user_config": {"dataloader_func": "create_dataloader", "data_dir": "data", "batch_size": 1},
 }
 
 
@@ -174,12 +217,6 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
                 )
                 olive_config["evaluators"]["common_evaluator"]["metrics"].append(ACC_METRIC)
                 olive_config["evaluators"]["common_evaluator"]["metrics"].append(LAT_METRIC)
-                olive_config["evaluators"]["common_evaluator"]["metrics"][0]["user_config"][
-                    "user_script"
-                ] = user_script_path
-                olive_config["evaluators"]["common_evaluator"]["metrics"][1]["user_config"][
-                    "user_script"
-                ] = user_script_path
 
             run_with_config(optimized_model, olive_config, metric_res)
 

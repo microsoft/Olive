@@ -12,7 +12,7 @@
                     "input_cols": ["sentence1", "sentence2"],
                     "label_cols": ["label"],
                     "batch_size": 1,
-                    "max_samples": 100
+                    "max_samples": 500
                 }
             }
         }
