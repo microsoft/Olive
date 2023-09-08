@@ -8,10 +8,10 @@ from olive.passes.onnx.conversion import OnnxConversion
 
 
 @pytest.mark.parametrize("input_model", [get_pytorch_model(), get_hf_model_with_past()])
-def test_onnx_conversion_pass(input_model, tmpdir):
+def test_onnx_conversion_pass(input_model, tmp_path):
     # setup
     p = create_pass_from_dict(OnnxConversion, {}, disable_search=True)
-    output_folder = str(Path(tmpdir) / "onnx")
+    output_folder = str(tmp_path / "onnx")
 
     # The conversion need torch version > 1.13.1, otherwise, it will complain
     # Unsupported ONNX opset version: 18

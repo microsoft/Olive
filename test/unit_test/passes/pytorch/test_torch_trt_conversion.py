@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import sys
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import torch
@@ -36,7 +35,7 @@ def mocked_torch_zeros(*args, **kwargs):
 # replace device in kwargs with "cpu"
 @patch("torch.zeros", side_effect=mocked_torch_zeros)
 def test_torch_trt_conversion_success(
-    mock_torch_zeros, mock_torch_nn_module_to, mock_tensor_data_to_device, mock_torch_cuda_is_available, tmpdir
+    mock_torch_zeros, mock_torch_nn_module_to, mock_tensor_data_to_device, mock_torch_cuda_is_available, tmp_path
 ):
     # setup
     # mock trt utils since we don't have tensorrt and torch-tensorrt installed
@@ -79,7 +78,7 @@ def test_torch_trt_conversion_success(
     }
 
     p = create_pass_from_dict(TorchTRTConversion, config, disable_search=True)
-    output_folder = str(Path(tmpdir) / "sparse")
+    output_folder = str(tmp_path / "sparse")
 
     # execute
     model = p.run(input_model, None, output_folder)

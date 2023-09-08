@@ -34,18 +34,18 @@ def dummy_calibration_reader(data_dir=None, batch_size=1, *args, **kwargs):
     return RandomDataReader()
 
 
-def test_vitis_ai_quantization_pass(tmpdir):
+def test_vitis_ai_quantization_pass(tmp_path):
     # setup
     input_model = get_onnx_model()
-    dummy_user_script = str(Path(tmpdir) / "dummy_user_script.py")
-    dummy_data = str(Path(tmpdir) / "dummy_data")
+    dummy_user_script = str(tmp_path / "dummy_user_script.py")
+    dummy_data = str(tmp_path / "dummy_data")
     with open(dummy_user_script, "w") as f:
         f.write(" ")
     if not os.path.exists(dummy_data):
         os.mkdir(dummy_data)
 
     config = {"user_script": dummy_user_script, "data_dir": dummy_data, "dataloader_func": dummy_calibration_reader}
-    output_folder = str(Path(tmpdir) / "vitis_ai_quantized")
+    output_folder = str(tmp_path / "vitis_ai_quantized")
 
     # create VitisAIQuantization pass
     p = create_pass_from_dict(VitisAIQuantization, config, disable_search=True)

@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from pathlib import Path
 from test.unit_test.utils import get_onnx_model
 
 import pytest
@@ -37,14 +36,14 @@ def test_fusion_options():
     assert vars(olive_fusion_options) == vars(ort_fusion_options)
 
 
-def test_ort_transformer_optimization_pass(tmpdir):
+def test_ort_transformer_optimization_pass(tmp_path):
     # setup
     input_model = get_onnx_model()
     config = {"model_type": "bert"}
 
     config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
     p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
-    output_folder = str(Path(tmpdir) / "onnx")
+    output_folder = str(tmp_path / "onnx")
 
     # execute
     p.run(input_model, None, output_folder)
@@ -55,7 +54,7 @@ def test_ort_transformer_optimization_pass(tmpdir):
 @pytest.mark.parametrize(
     "accelerator_spec", [DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, DEFAULT_GPU_TRT_ACCELERATOR]
 )
-def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, tmpdir):
+def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, tmp_path):
     input_model = get_onnx_model()
     config = {"model_type": "bert", "use_gpu": use_gpu, "float16": fp16}
     config = OrtTransformersOptimization.generate_search_space(accelerator_spec, config, disable_search=True)
@@ -74,5 +73,5 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, tmpdir):
         )
 
     if not is_pruned:
-        output_folder = str(Path(tmpdir) / "onnx")
+        output_folder = str(tmp_path / "onnx")
         p.run(input_model, None, output_folder)

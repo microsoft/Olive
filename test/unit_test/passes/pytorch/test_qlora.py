@@ -18,7 +18,7 @@ def patched_find_all_linear_names(model):
 # quantization requires gpu so we will patch the model loading args with no quantization
 @patch("olive.passes.pytorch.qlora.HFModelLoadingArgs")
 @patch("olive.passes.pytorch.qlora.QLoRA.find_all_linear_names", side_effect=patched_find_all_linear_names)
-def test_qlora(patched_model_loading_args, patched_find_all_linear_names, tmpdir):
+def test_qlora(patched_model_loading_args, patched_find_all_linear_names, tmp_path):
     # setup
     model_name = "hf-internal-testing/tiny-random-OPTForCausalLM"
     task = "text-generation"
@@ -54,7 +54,7 @@ def test_qlora(patched_model_loading_args, patched_find_all_linear_names, tmpdir
     }
 
     p = create_pass_from_dict(QLoRA, config, disable_search=True)
-    output_folder = str(Path(tmpdir) / "qlora")
+    output_folder = str(tmp_path / "qlora")
 
     # execute
     out = p.run(input_model, None, output_folder)

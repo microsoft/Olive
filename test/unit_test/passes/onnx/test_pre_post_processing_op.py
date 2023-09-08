@@ -1,12 +1,10 @@
-from pathlib import Path
-
 from olive.model import ONNXModel, PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.append_pre_post_processing_ops import AppendPrePostProcessingOps
 from olive.passes.onnx.conversion import OnnxConversion
 
 
-def test_pre_post_processing_op(tmpdir):
+def test_pre_post_processing_op(tmp_path):
     # setup
     p = create_pass_from_dict(
         AppendPrePostProcessingOps,
@@ -15,14 +13,14 @@ def test_pre_post_processing_op(tmpdir):
     )
 
     pytorch_model = get_superresolution_model()
-    input_model = convert_superresolution_model(pytorch_model, tmpdir)
-    output_folder = str(Path(tmpdir) / "onnx")
+    input_model = convert_superresolution_model(pytorch_model, tmp_path)
+    output_folder = str(tmp_path / "onnx")
 
     # execute
     p.run(input_model, None, output_folder)
 
 
-def test_pre_post_pipeline(tmpdir):
+def test_pre_post_pipeline(tmp_path):
     config = {
         "pre": [
             {"ConvertImageToBGR": {}},
@@ -105,10 +103,10 @@ def test_pre_post_pipeline(tmpdir):
     assert p is not None
 
     pytorch_model = get_superresolution_model()
-    input_model = convert_superresolution_model(pytorch_model, tmpdir)
+    input_model = convert_superresolution_model(pytorch_model, tmp_path)
     input_model_graph = input_model.get_graph()
     assert input_model_graph.node[0].op_type == "Conv"
-    output_folder = str(Path(tmpdir) / "onnx_pre_post")
+    output_folder = str(tmp_path / "onnx_pre_post")
 
     # execute
     model = p.run(input_model, None, output_folder)
@@ -182,8 +180,8 @@ def get_superresolution_model():
     return pytorch_model
 
 
-def convert_superresolution_model(pytorch_model, tmpdir):
+def convert_superresolution_model(pytorch_model, tmp_path):
     onnx_conversion_pass = create_pass_from_dict(OnnxConversion, {"target_opset": 15}, disable_search=True)
-    onnx_model = onnx_conversion_pass.run(pytorch_model, None, str(Path(tmpdir) / "onnx"))
+    onnx_model = onnx_conversion_pass.run(pytorch_model, None, str(tmp_path / "onnx"))
 
     return onnx_model
