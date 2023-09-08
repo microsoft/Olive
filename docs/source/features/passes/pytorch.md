@@ -9,7 +9,7 @@ the QLoRA [paper](https://arxiv.org/abs/2305.14314) and [code](https://github.co
 The output model is the input transformers model along with the quantization config and the fine-tuned LoRA adapters. The adapters can be loaded and/or merged into the original model using the
 `peft` library from Hugging Face.
 
-This pass only supports Hugging Face transformers PyTorch models.
+This pass only supports Hugging Face transformers PyTorch models. Please refer to [QLoRA](qlora) for more details about the pass and its config parameters.
 
 **Note:** QLoRA requires a GPU to run.
 
@@ -20,14 +20,15 @@ This pass only supports Hugging Face transformers PyTorch models.
     "config": {
         "compute_dtype": "bfloat16",
         "quant_type": "nf4",
-        "train_data_config": ...,
+        "train_data_config": // ...,
         "training_args": {
             "learning_rate": 0.0002,
-            ...
+            // ...
         }
     }
 }
 ```
+Please refer to [QLoRA HFTrainingArguments](qlora_hf_training_arguments) for more details on supported the `"training_args"` and their default values.
 
 ## Quantization Aware Training
 The Quantization Aware Training (QAT) technique is used to improve the performance and efficiency of deep learning models by quantizing their

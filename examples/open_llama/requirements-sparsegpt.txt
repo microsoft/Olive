@@ -1,3 +1,2 @@
-datasets
-sentencepiece
+-r requirements.txt
 torch-tensorrt
