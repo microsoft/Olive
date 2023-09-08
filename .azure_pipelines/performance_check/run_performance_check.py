@@ -11,6 +11,7 @@
 
 import argparse
 import ast
+import copy
 import json
 import subprocess
 from pathlib import Path
@@ -183,6 +184,8 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
     for i in range(test_num):
         print(f"Start running {i} time...")
         for optimized_model in model_list:
+            accuracy_metric = copy.deepcopy(ACC_METRIC)
+            latency_metric = copy.deepcopy(LAT_METRIC)
             print(f"Start evaluating {optimized_model} model")
             with open(config_json_path, "r") as fin:
                 olive_config = json.load(fin)
@@ -217,8 +220,8 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
                 olive_config["engine"]["execution_providers"] = (
                     ["CPUExecutionProvider"] if device == "cpu" else ["CUDAExecutionProvider"]
                 )
-                olive_config["evaluators"]["common_evaluator"]["metrics"].append(ACC_METRIC)
-                olive_config["evaluators"]["common_evaluator"]["metrics"].append(LAT_METRIC)
+                olive_config["evaluators"]["common_evaluator"]["metrics"].append(accuracy_metric)
+                olive_config["evaluators"]["common_evaluator"]["metrics"].append(latency_metric)
                 olive_config["evaluators"]["common_evaluator"]["metrics"][0][
                     "data_config"
                 ] = huggingface_data_config_template(

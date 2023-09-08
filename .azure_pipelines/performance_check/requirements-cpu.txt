@@ -1,9 +1,9 @@
 apache_beam
 datasets
-onnxruntime
-tabulate
-scikit-learn
-transformers
-neural-compressor
 evaluate
+neural-compressor
+onnxruntime
 optimum
+scikit-learn
+tabulate
+transformers
