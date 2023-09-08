@@ -48,4 +48,3 @@ It may take several minutes to link the cluster to Azure Arc. Then you should be
 - You should be able to use attached computes for your machine learning jobs here:
 
 <img align="center" alt="olive-design" width="500px" src="../images/azure_arc/attach-suc.png">
-
