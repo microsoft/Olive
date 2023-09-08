@@ -177,6 +177,15 @@ class QLoRA(Pass):
                     " ignored."
                 ),
             ),
+            "use_eos_token_as_pad_token": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description=(
+                    "Use eos_token as pad_token if the tokenizer does not have a pad_token. Recommended. Otherwise, the"
+                    " tokenizer and model embedding layer will be resized to add a pad_token (final model won't have"
+                    " this new token). Only valid if the tokenizer does not have a pad_token."
+                ),
+            ),
             # training parameters
             "training_args": PassConfigParam(
                 type_=Union[HFTrainingArguments, Dict],
@@ -349,14 +358,20 @@ class QLoRA(Pass):
         # tokenizer
         tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-        # if there is no pad token, add to tokenizer and model
-        # TODO: Do this in a better way since the embedding size might become unoptimal (not a multiple of 64, etc)
-        # perhaps use eos_token as pad_token, but need to ensure the actual eos_token at the end of the sequence is
-        # not masked (both in attention mask and loss calculation)
+        # if there is no pad token, add to tokenizer and/or model
         if not tokenizer.pad_token_id:
-            cls.smart_tokenizer_and_embedding_resize(
-                special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN}, tokenizer=tokenizer, model=pytorch_model
-            )
+            if config.use_eos_token_as_pad_token:
+                # this is recommened since the model's embedding layer will not be resized
+                # the actual eos_token won't be masked, it's already in the preprocessed data
+                # there is no training loss for padding tokens so it should not matter what the pad_token is
+                # huggingface also uses eos_token as pad_token if there is no pad_token
+                logger.debug("Using eos_token as pad_token")
+                tokenizer.pad_token = tokenizer.eos_token
+            else:
+                # keeping this to be consistent with the original implementation
+                cls.smart_tokenizer_and_embedding_resize(
+                    special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN}, tokenizer=tokenizer, model=pytorch_model
+                )
         # TODO: need to see if we still need this line https://github.com/artidoro/qlora/blob/main/qlora.py#L362
 
         # prepare model for kbit training
@@ -402,6 +417,9 @@ class QLoRA(Pass):
     ):
         """
         Resize the tokenizer and the model embedding layer to take into account new special tokens.
+
+        Note: This is unoptimized since the embedding size may not be a multiple of 64 (or a number optimal for
+        the training device).
         """
         # resize tokenizer
         num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
