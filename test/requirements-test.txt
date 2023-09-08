@@ -1,9 +1,13 @@
 azure-ai-ml
 azure-identity
 azure-storage-blob
+# azureml-evaluate-mlflow>=0.0.14 will pin mlflow/mlflow-skinny to 2.3.1
+azureml-evaluate-mlflow>=0.0.14
 azureml-fsspec
 coverage
+datasets
 docker
+evaluate
 neural-compressor
 onnxconverter_common
 onnxruntime-extensions
@@ -12,13 +16,9 @@ openvino-dev==2022.3.0
 optimum
 pandas
 plotly
+protobuf==3.20.3
 psutil
 pytorch_lightning
+sentencepiece
 tabulate
 torchvision
-datasets
-# azureml-evaluate-mlflow>=0.0.14 will pin mlflow/mlflow-skinny to 2.3.1
-azureml-evaluate-mlflow>=0.0.14
-evaluate
-sentencepiece
-protobuf==3.20.3

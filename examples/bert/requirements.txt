@@ -1,10 +1,10 @@
 azure-ai-ml
 azure-identity
 datasets
-evaluate
 docker
+evaluate
 neural-compressor
-scipy
 scikit-learn
+scipy
 tabulate
 transformers
