@@ -32,23 +32,23 @@ def dummy_inputs(batch_size, torch_dtype, model_framework=Framework.PYTORCH):
         "input_ids": torch.randint(10, (batch_size, sequence_length), dtype=torch.int64),
         "attention_mask": torch.randint(10, (batch_size, attention_mask_sequence_length), dtype=torch.int64),
     }
-
+    rand_kv_tensor = torch.rand(
+        (
+            batch_size,
+            config.num_attention_heads,
+            past_sequence_length,
+            int(config.hidden_size / config.num_attention_heads),
+        ),
+        dtype=torch_dtype,
+    )
     if model_framework == Framework.ONNX:
-        rand_kv_tensor = torch.rand(
-            (
-                batch_size,
-                config.num_attention_heads,
-                past_sequence_length,
-                int(config.hidden_size / config.num_attention_heads),
-            ),
-            dtype=torch_dtype,
-        )
         for layer_index in range(config.num_hidden_layers):
             inputs[f"past_key_values.{layer_index}.key"] = rand_kv_tensor
             inputs[f"past_key_values.{layer_index}.value"] = rand_kv_tensor
-
         inputs["use_cache_branch"] = torch.ones((1,), dtype=torch.bool)
-
+    elif model_framework == Framework.PYTORCH:
+        inputs["use_cache"] = True
+        inputs["past_key_values"] = [torch.stack((rand_kv_tensor, rand_kv_tensor))] * config.num_hidden_layers
     return inputs
 
 
