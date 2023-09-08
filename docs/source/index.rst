@@ -36,6 +36,7 @@ This document introduces Olive and provides some examples to get you started.
    features/huggingface_model_optimization
    features/packaging_output_models
    features/custom_scripts
+   features/azureml_integration
 
 .. toctree::
    :maxdepth: 1
