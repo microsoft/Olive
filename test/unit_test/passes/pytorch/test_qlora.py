@@ -9,7 +9,6 @@ from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch import QLoRA
-from olive.systems.local import LocalSystem
 
 
 def patched_find_all_linear_names(model):
@@ -21,7 +20,6 @@ def patched_find_all_linear_names(model):
 @patch("olive.passes.pytorch.qlora.QLoRA.find_all_linear_names", side_effect=patched_find_all_linear_names)
 def test_qlora(patched_model_loading_args, patched_find_all_linear_names, tmpdir):
     # setup
-    local_system = LocalSystem()
     model_name = "hf-internal-testing/tiny-random-OPTForCausalLM"
     task = "text-generation"
     input_model = PyTorchModel(hf_config={"model_name": model_name, "task": task})
@@ -59,5 +57,5 @@ def test_qlora(patched_model_loading_args, patched_find_all_linear_names, tmpdir
     output_folder = str(Path(tmpdir) / "qlora")
 
     # execute
-    out = local_system.run_pass(p, input_model, None, output_folder)
+    out = p.run(input_model, None, output_folder)
     assert Path(out.get_local_resource("adapter_path")).exists()
