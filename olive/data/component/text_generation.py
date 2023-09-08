@@ -120,7 +120,7 @@ class TextGenPairParams(TextGenParams):
     input_col: str = None  # required when pair_format is CUSTOM
     output_col: str = None  # required when pair_format is CUSTOM
     target_max_len: int  # max length of target sequence
-    ignore_source_in_labels: bool = False  # set source tokens to ignore_index in labels
+    ignore_source_in_labels: bool = True  # set source tokens to ignore_index in labels
 
     @validator("input_col", "output_col", always=True)
     def _check_custom(cls, v, field, values):
@@ -391,7 +391,7 @@ def append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context: i
     labels = input_ids.clone()
     # set context to ignore_index
     if context is not None:
-        labels[:-context] = ignore_index
+        labels[:context] = ignore_index
     # set padding to ignore_index
     labels[attention_mask != 1] = ignore_index
     inputs["labels"] = labels

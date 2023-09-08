@@ -80,6 +80,20 @@ class OliveModel(ABC):
         """Return local model path."""
         return self.get_local_resource("model_path")
 
+    def set_resource(self, resource_name: str, resource_path: Union[Path, str, ResourcePath, ResourcePathConfig]):
+        """
+        Set resource path.
+
+        :param resource_name: name of the resource.
+        :param resource_path: resource path.
+        """
+        if resource_name not in self.resource_paths:
+            raise ValueError(f"{resource_name} is not a valid resource name.")
+        if self.resource_paths[resource_name]:
+            logger.debug(f"Overriding {resource_name} from {self.resource_paths[resource_name]} to {resource_path}.")
+        self.resource_paths[resource_name] = create_resource_path(resource_path)
+        self.local_resource_paths[resource_name] = None
+
     def get_local_resource(self, resource_name: str) -> str:
         """
         Get local path of a resource.
