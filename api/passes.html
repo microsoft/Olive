@@ -112,6 +112,13 @@
 <li class="toctree-l2"><a class="reference internal" href="#incquantization">IncQuantization</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#appendprepostprocessingops">AppendPrePostProcessingOps</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#insertbeamsearch">InsertBeamSearch</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#qlora">QLoRA</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#qlora-hftrainingarguments">QLoRA HFTrainingArguments</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#olive.passes.pytorch.qlora.HFTrainingArguments"><code class="docutils literal notranslate"><span class="pre">HFTrainingArguments</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="#quantizationawaretraining">QuantizationAwareTraining</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#openvinoconversion">OpenVINOConversion</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#openvinoquantization">OpenVINOQuantization</a></li>
@@ -2320,6 +2327,234 @@
 </dd></dl>
 
 </section>
+<section id="qlora">
+<span id="id2"></span><h2>QLoRA<a class="headerlink" href="#qlora" title="Permalink to this heading">¶</a></h2>
+<p>
+    Run QLoRA fine-tuning on a Hugging Face PyTorch model.
+    See <a class="reference external" href="https://arxiv.org/abs/2305.14314">https://arxiv.org/abs/2305.14314</a> for more details on the method.
+
+    This pass only supports PyTorchModel with hf_config.</p>
+<p><strong>Input:</strong> PyTorchModel</p>
+<p><strong>Output:</strong> PyTorchModel</p>
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-compute_dtype">
+<span class="sig-name descname"><span class="pre">compute_dtype</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-compute_dtype" title="Permalink to this definition">¶</a></dt>
+<dd><p>The computation data type used by the quantized model. It is also the data type used for the LoRA weights. Should be one of <cite>bfloat16</cite>, <cite>float16</cite> or <cite>float32</cite>.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> bfloat16</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-double_quant">
+<span class="sig-name descname"><span class="pre">double_quant</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-double_quant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether tonested quantization where the quantization constants from the first quantization are quantized again</p>
+<p><strong>type:</strong> bool</p>
+<p><strong>default_value:</strong> True</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-quant_type">
+<span class="sig-name descname"><span class="pre">quant_type</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-quant_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Quantization data type to use. Should be one of <cite>fp4</cite> or <cite>nf4</cite>.</p>
+<p><strong>type:</strong> str</p>
+<p><strong>default_value:</strong> nf4</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-lora_r">
+<span class="sig-name descname"><span class="pre">lora_r</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-lora_r" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lora r</p>
+<p><strong>type:</strong> int</p>
+<p><strong>default_value:</strong> 64</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-lora_alpha">
+<span class="sig-name descname"><span class="pre">lora_alpha</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-lora_alpha" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lora alpha</p>
+<p><strong>type:</strong> float</p>
+<p><strong>default_value:</strong> 16</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-lora_dropout">
+<span class="sig-name descname"><span class="pre">lora_dropout</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-lora_dropout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lora dropout</p>
+<p><strong>type:</strong> float</p>
+<p><strong>default_value:</strong> 0.0</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-train_data_config">
+<span class="sig-name descname"><span class="pre">train_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-train_data_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Data config for fine-tuning training. If <cite>eval_data_config</cite> is not provided and <cite>eval_dataset_size</cite> is not None, the data will be split into train and eval. Otherwise, the data will be used for training only.</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>required:</strong> True</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-eval_data_config">
+<span class="sig-name descname"><span class="pre">eval_data_config</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-eval_data_config" title="Permalink to this definition">¶</a></dt>
+<dd><p>Data config for fine-tuning evaluation. Optional if <cite>eval_dataset_size</cite> is provided or evaluation is not needed.</p>
+<p><strong>type:</strong> olive.data.config.DataConfig | Dict</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-eval_dataset_size">
+<span class="sig-name descname"><span class="pre">eval_dataset_size</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-eval_dataset_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Size of the validation dataset. Should be either positive and smaller than the number of train sample or a float in the (0, 1) range. If <cite>eval_data_config</cite> is provided, this parameter will be ignored.</p>
+<p><strong>type:</strong> float</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<dl class="std option">
+<dt class="sig sig-object std" id="cmdoption-arg-training_args">
+<span class="sig-name descname"><span class="pre">training_args</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-training_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.</p>
+<p><strong>type:</strong> olive.passes.pytorch.qlora.HFTrainingArguments | Dict</p>
+<p><strong>default_value:</strong> None</p>
+<p><strong>searchable_values:</strong> None</p>
+</dd></dl>
+
+<section id="qlora-hftrainingarguments">
+<span id="qlora-hf-training-arguments"></span><h3>QLoRA HFTrainingArguments<a class="headerlink" href="#qlora-hftrainingarguments" title="Permalink to this heading">¶</a></h3>
+<dl class="py class pydantic_settings">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments">
+<em class="property"><span class="pre">pydantic</span> <span class="pre">settings</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.passes.pytorch.qlora.</span></span><span class="sig-name descname"><span class="pre">HFTrainingArguments</span></span><a class="reference internal" href="../_modules/olive/passes/pytorch/qlora.html#HFTrainingArguments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments" title="Permalink to this definition">¶</a></dt>
+<dd><p>Training arguments for transformers.Trainer.</p>
+<p>Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.</p>
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.seed">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">seed</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">42</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.seed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Random seed for initialization.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.data_seed">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">data_seed</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">42</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.data_seed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Random seed to be used with data samplers.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.optim">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">optim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'paged_adamw_32bit'</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.optim" title="Permalink to this definition">¶</a></dt>
+<dd><p>The optimizer to use.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.per_device_train_batch_size">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">per_device_train_batch_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.per_device_train_batch_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>The batch size per GPU for training.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.per_device_eval_batch_size">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">per_device_eval_batch_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.per_device_eval_batch_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>The batch size per GPU for evaluation.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.gradient_accumulation_steps">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">gradient_accumulation_steps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">16</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.gradient_accumulation_steps" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of updates steps to accumulate the gradients for, before performing a backward/update pass.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.max_steps">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">max_steps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10000</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.max_steps" title="Permalink to this definition">¶</a></dt>
+<dd><p>The total number of training steps to perform.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.weight_decay">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">weight_decay</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.weight_decay" title="Permalink to this definition">¶</a></dt>
+<dd><p>The L2 weight decay rate of AdamW</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.learning_rate">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">learning_rate</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.0002</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.learning_rate" title="Permalink to this definition">¶</a></dt>
+<dd><p>The initial learning rate for AdamW.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.gradient_checkpointing">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">gradient_checkpointing</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.gradient_checkpointing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use gradient checkpointing. Recommended.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.lr_scheduler_type">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">lr_scheduler_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'constant'</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.lr_scheduler_type" title="Permalink to this definition">¶</a></dt>
+<dd><p>Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.warmup_ratio">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">warmup_ratio</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0.03</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.warmup_ratio" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fraction of steps to do a warmup for.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.logging_steps">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">logging_steps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">10</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.logging_steps" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of update steps between two logs.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.evaluation_strategy">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">evaluation_strategy</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'no'</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.evaluation_strategy" title="Permalink to this definition">¶</a></dt>
+<dd><p>The evaluation strategy to use. Will be forced to ‘no’ if there is no eval dataset.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.eval_steps">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">eval_steps</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.eval_steps" title="Permalink to this definition">¶</a></dt>
+<dd><p>Number of update steps between two evaluations if <cite>evaluation_strategy=’steps’</cite>. Will default to the same value as <cite>logging_steps</cite> if not set</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.group_by_length">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">group_by_length</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">True</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.group_by_length" title="Permalink to this definition">¶</a></dt>
+<dd><p>Whether or not to group samples of roughly the same length together when batching.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.report_to">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">report_to</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'none'</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.report_to" title="Permalink to this definition">¶</a></dt>
+<dd><p>The list of integrations to report the results and logs to.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.output_dir">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">output_dir</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.output_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>The output dir for logs and checkpoints. If None, will use a temp dir.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.extra_args">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">extra_args</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.extra_args" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extra arguments to pass to the trainer. Values can be provided directly to this field as a dict or as keyword arguments to the config. See transformers.TrainingArguments for more details on the available arguments.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="olive.passes.pytorch.qlora.HFTrainingArguments.create_training_args">
+<span class="sig-name descname"><span class="pre">create_training_args</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">TrainingArguments</span></span></span><a class="reference internal" href="../_modules/olive/passes/pytorch/qlora.html#HFTrainingArguments.create_training_args"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.passes.pytorch.qlora.HFTrainingArguments.create_training_args" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
 <section id="quantizationawaretraining">
 <span id="quantization-aware-training"></span><h2>QuantizationAwareTraining<a class="headerlink" href="#quantizationawaretraining" title="Permalink to this heading">¶</a></h2>
 <p>Run quantization aware training on PyTorch model.</p>
@@ -2810,7 +3045,7 @@
 
 </section>
 <section id="sparsegpt">
-<span id="id2"></span><h2>SparseGPT<a class="headerlink" href="#sparsegpt" title="Permalink to this heading">¶</a></h2>
+<span id="id3"></span><h2>SparseGPT<a class="headerlink" href="#sparsegpt" title="Permalink to this heading">¶</a></h2>
 <p>
     Run SparseGPT on a Hugging Face PyTorch model.
     See <a class="reference external" href="https://arxiv.org/abs/2301.00774">https://arxiv.org/abs/2301.00774</a> for more details on the algorithm.

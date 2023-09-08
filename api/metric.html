@@ -97,12 +97,12 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Metric</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#id2">Metric</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#olive.evaluator.metric.Metric"><code class="docutils literal notranslate"><span class="pre">Metric</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.backend"><code class="docutils literal notranslate"><span class="pre">Metric.backend</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.data_config"><code class="docutils literal notranslate"><span class="pre">Metric.data_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.name"><code class="docutils literal notranslate"><span class="pre">Metric.name</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.sub_types"><code class="docutils literal notranslate"><span class="pre">Metric.sub_types</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.type"><code class="docutils literal notranslate"><span class="pre">Metric.type</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.backend"><code class="docutils literal notranslate"><span class="pre">Metric.backend</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.sub_types"><code class="docutils literal notranslate"><span class="pre">Metric.sub_types</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.user_config"><code class="docutils literal notranslate"><span class="pre">Metric.user_config</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.data_config"><code class="docutils literal notranslate"><span class="pre">Metric.data_config</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.evaluator.metric.Metric.get_sub_type_info"><code class="docutils literal notranslate"><span class="pre">Metric.get_sub_type_info()</span></code></a></li>
 </ul>
 </li>
@@ -163,23 +163,8 @@
 <dt class="sig sig-object py" id="olive.evaluator.metric.Metric">
 <em class="property"><span class="pre">pydantic</span> <span class="pre">settings</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.evaluator.metric.</span></span><span class="sig-name descname"><span class="pre">Metric</span></span><a class="reference internal" href="../_modules/olive/evaluator/metric.html#Metric"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.evaluator.metric.Metric" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.evaluator.metric.Metric.backend">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">backend</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'torch_metrics'</span></em><a class="headerlink" href="#olive.evaluator.metric.Metric.backend" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.evaluator.metric.Metric.data_config">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">data_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">DataConfig</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.evaluator.metric.Metric.data_config" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute pydantic_field">
 <dt class="sig sig-object py" id="olive.evaluator.metric.Metric.name">
 <em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"> <span class="pre">[Required]</span></em><a class="headerlink" href="#olive.evaluator.metric.Metric.name" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.evaluator.metric.Metric.sub_types">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sub_types</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">SubMetric</span><span class="p"><span class="pre">]</span></span></em><em class="property"> <span class="pre">[Required]</span></em><a class="headerlink" href="#olive.evaluator.metric.Metric.sub_types" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute pydantic_field">
@@ -188,8 +173,23 @@
 <dd></dd></dl>
 
 <dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.evaluator.metric.Metric.backend">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">backend</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'torch_metrics'</span></em><a class="headerlink" href="#olive.evaluator.metric.Metric.backend" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.evaluator.metric.Metric.sub_types">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sub_types</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">SubMetric</span><span class="p"><span class="pre">]</span></span></em><em class="property"> <span class="pre">[Required]</span></em><a class="headerlink" href="#olive.evaluator.metric.Metric.sub_types" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
 <dt class="sig sig-object py" id="olive.evaluator.metric.Metric.user_config">
 <em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">user_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ConfigBase</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.evaluator.metric.Metric.user_config" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.evaluator.metric.Metric.data_config">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">data_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">DataConfig</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.evaluator.metric.Metric.data_config" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">

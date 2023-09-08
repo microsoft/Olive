@@ -257,15 +257,33 @@
 <dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig">
 <em class="property"><span class="pre">pydantic</span> <span class="pre">settings</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">olive.azureml.azureml_client.</span></span><span class="sig-name descname"><span class="pre">AzureMLClientConfig</span></span><a class="reference internal" href="../_modules/olive/azureml/azureml_client.html#AzureMLClientConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.subscription_id">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">subscription_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.subscription_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>Azure subscription id. Required if aml_config_path is not provided.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.resource_group">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">resource_group</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.resource_group" title="Permalink to this definition">¶</a></dt>
+<dd><p>Azure resource group. Required if aml_config_path is not provided.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.workspace_name">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">workspace_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.workspace_name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Azure workspace name. Required if aml_config_path is not provided.</p>
+</dd></dl>
+
+<dl class="py attribute pydantic_field">
 <dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.aml_config_path">
 <em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">aml_config_path</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.aml_config_path" title="Permalink to this definition">¶</a></dt>
 <dd><p>Path to AzureML config file. If provided, other fields are ignored.</p>
 </dd></dl>
 
 <dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.default_auth_params">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">default_auth_params</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.default_auth_params" title="Permalink to this definition">¶</a></dt>
-<dd><p>Default auth config for AzureML client. Please refer to <a class="reference external" href="https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters">https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters</a> for more details.</p>
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.read_timeout">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">read_timeout</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.read_timeout" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read timeout in seconds for HTTP requests.</p>
 </dd></dl>
 
 <dl class="py attribute pydantic_field">
@@ -281,39 +299,21 @@
 </dd></dl>
 
 <dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.read_timeout">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">read_timeout</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">60</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.read_timeout" title="Permalink to this definition">¶</a></dt>
-<dd><p>Read timeout in seconds for HTTP requests.</p>
-</dd></dl>
-
-<dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.resource_group">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">resource_group</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.resource_group" title="Permalink to this definition">¶</a></dt>
-<dd><p>Azure resource group. Required if aml_config_path is not provided.</p>
-</dd></dl>
-
-<dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.subscription_id">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">subscription_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.subscription_id" title="Permalink to this definition">¶</a></dt>
-<dd><p>Azure subscription id. Required if aml_config_path is not provided.</p>
-</dd></dl>
-
-<dl class="py attribute pydantic_field">
-<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.workspace_name">
-<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">workspace_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.workspace_name" title="Permalink to this definition">¶</a></dt>
-<dd><p>Azure workspace name. Required if aml_config_path is not provided.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.create_client">
-<span class="sig-name descname"><span class="pre">create_client</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/azureml/azureml_client.html#AzureMLClientConfig.create_client"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.create_client" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create an MLClient instance.</p>
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.default_auth_params">
+<em class="property"><span class="pre">field</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">default_auth_params</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.default_auth_params" title="Permalink to this definition">¶</a></dt>
+<dd><p>Default auth config for AzureML client. Please refer to <a class="reference external" href="https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters">https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters</a> for more details.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.get_workspace_config">
 <span class="sig-name descname"><span class="pre">get_workspace_config</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/olive/azureml/azureml_client.html#AzureMLClientConfig.get_workspace_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.get_workspace_config" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get the workspace config as a dict.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.create_client">
+<span class="sig-name descname"><span class="pre">create_client</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/azureml/azureml_client.html#AzureMLClientConfig.create_client"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.create_client" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create an MLClient instance.</p>
 </dd></dl>
 
 </dd></dl>
