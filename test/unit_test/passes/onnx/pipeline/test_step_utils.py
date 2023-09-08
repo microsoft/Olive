@@ -17,11 +17,11 @@ class CustomizedParam:
         self.params = params
 
 
-def test_step_parser(tmpdir):
+def test_step_parser(tmp_path):
     from onnxruntime_extensions.tools.pre_post_processing import TokenizerParam
 
     pytorch_model = get_superresolution_model()
-    input_model = convert_superresolution_model(pytorch_model, tmpdir)
+    input_model = convert_superresolution_model(pytorch_model, tmp_path)
     model = input_model.load_model()
 
     step_config = Path(__file__).parent / "step_config.json"

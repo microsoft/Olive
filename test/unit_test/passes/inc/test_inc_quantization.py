@@ -19,12 +19,12 @@ from olive.passes.onnx.inc_quantization import IncDynamicQuantization, IncQuanti
 @pytest.mark.skipif(
     platform.system() == "Windows", reason="Skip test on Windows. neural-compressor import is hanging on Windows."
 )
-def test_inc_quantization(tmpdir):
-    ov_model = get_onnx_model(tmpdir)
-    data_dir = Path(tmpdir) / "data"
+def test_inc_quantization(tmp_path):
+    ov_model = get_onnx_model(tmp_path)
+    data_dir = tmp_path / "data"
     data_dir.mkdir(exist_ok=True)
     config = {"data_dir": data_dir, "dataloader_func": create_dataloader}
-    output_folder = str(Path(tmpdir) / "quantized")
+    output_folder = str(tmp_path / "quantized")
 
     # create IncQuantization pass
     p = create_pass_from_dict(IncQuantization, config, disable_search=True)
@@ -61,10 +61,10 @@ def test_inc_quantization(tmpdir):
     assert "QLinearConv" in [node.op_type for node in quantized_model.load_model().graph.node]
 
 
-def get_onnx_model(tmpdir):
+def get_onnx_model(tmp_path):
     torch_hub_model_path = "chenyaofo/pytorch-cifar-models"
     pytorch_hub_model_name = "cifar10_mobilenetv2_x1_0"
-    torch.hub.set_dir(tmpdir)
+    torch.hub.set_dir(tmp_path)
     pytorch_model = PyTorchModel(
         model_loader=lambda torch_hub_model_path: torch.hub.load(torch_hub_model_path, pytorch_hub_model_name),
         model_path=torch_hub_model_path,
@@ -73,7 +73,7 @@ def get_onnx_model(tmpdir):
     onnx_conversion_config = {}
 
     p = create_pass_from_dict(OnnxConversion, onnx_conversion_config, disable_search=True)
-    output_folder = str(Path(tmpdir) / "onnx")
+    output_folder = str(tmp_path / "onnx")
 
     # execute
     onnx_model = p.run(pytorch_model, None, output_folder)

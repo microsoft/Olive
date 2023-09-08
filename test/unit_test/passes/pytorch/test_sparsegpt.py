@@ -2,15 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from pathlib import Path
-
 from olive.data.template import huggingface_data_config_template
 from olive.model import PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.pytorch import SparseGPT
 
 
-def test_sparsegpt(tmpdir):
+def test_sparsegpt(tmp_path):
     # setup
     model_name = "sshleifer/tiny-gpt2"
     task = "text-generation"
@@ -37,7 +35,7 @@ def test_sparsegpt(tmpdir):
     }
 
     p = create_pass_from_dict(SparseGPT, config, disable_search=True)
-    output_folder = str(Path(tmpdir) / "sparse")
+    output_folder = str(tmp_path / "sparse")
 
     # execute
     p.run(input_model, None, output_folder)

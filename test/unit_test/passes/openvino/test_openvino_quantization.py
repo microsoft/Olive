@@ -19,10 +19,10 @@ from olive.passes.openvino.quantization import OpenVINOQuantization
 
 
 @pytest.mark.parametrize("data_source", ["dataloader_func", "data_config"])
-def test_openvino_quantization(data_source, tmpdir):
+def test_openvino_quantization(data_source, tmp_path):
     # setup
-    ov_model = get_openvino_model(tmpdir)
-    data_dir = Path(tmpdir) / "data"
+    ov_model = get_openvino_model(tmp_path)
+    data_dir = tmp_path / "data"
     data_dir.mkdir(exist_ok=True)
     config = {
         "engine_config": {"device": "CPU"},
@@ -60,7 +60,7 @@ def test_openvino_quantization(data_source, tmpdir):
         disable_search=True,
         accelerator_spec=AcceleratorSpec("cpu", "OpenVINOExecutionProvider"),
     )
-    output_folder = str(Path(tmpdir) / "quantized")
+    output_folder = str(tmp_path / "quantized")
 
     # execute
     quantized_model = p.run(ov_model, None, output_folder)
@@ -72,10 +72,10 @@ def test_openvino_quantization(data_source, tmpdir):
     assert (Path(quantized_model.model_path) / "ov_model.mapping").is_file()
 
 
-def get_openvino_model(tmpdir):
+def get_openvino_model(tmp_path):
     torch_hub_model_path = "chenyaofo/pytorch-cifar-models"
     pytorch_hub_model_name = "cifar10_mobilenetv2_x1_0"
-    torch.hub.set_dir(tmpdir)
+    torch.hub.set_dir(tmp_path)
     pytorch_model = PyTorchModel(
         model_loader=lambda torch_hub_model_path: torch.hub.load(torch_hub_model_path, pytorch_hub_model_name),
         model_path=torch_hub_model_path,
@@ -90,7 +90,7 @@ def get_openvino_model(tmpdir):
         disable_search=True,
         accelerator_spec=AcceleratorSpec("cpu", "OpenVINOExecutionProvider"),
     )
-    output_folder = str(Path(tmpdir) / "openvino")
+    output_folder = str(tmp_path / "openvino")
 
     # execute
     openvino_model = p.run(pytorch_model, None, output_folder)
