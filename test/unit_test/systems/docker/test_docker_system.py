@@ -207,6 +207,7 @@ class TestDockerSystem:
                 config_path=config_mount_path,
                 output_path=output_mount_path,
                 output_name=eval_output_name,
+                accelerator=DEFAULT_CPU_ACCELERATOR,
             )
             self.mock_create_run_command.assert_called_once_with(run_params=docker_system.run_params)
             volumes_list.append(config_file_mount_str)

@@ -119,7 +119,10 @@ class Engine:
         for accelerator in accelerators:
             device = Device(accelerator.lower())
             skip_get_available_ep = False
-            if self.target.system_type in (SystemType.AzureML, SystemType.Docker, SystemType.PythonEnvironment):
+            if (
+                self.target.system_type in (SystemType.AzureML, SystemType.Docker, SystemType.PythonEnvironment)
+                and self.target.olive_managed_env
+            ):
                 skip_get_available_ep = True
             supported_eps = AcceleratorLookup.get_execution_providers_for_device(device, skip_get_available_ep)
             for ep in ep_to_process.copy():
