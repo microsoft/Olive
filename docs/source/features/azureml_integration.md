@@ -1,6 +1,6 @@
 # Azure ML integration
 
-This documents outlines the integrations between Olive and Azure Machine Learning. Discover how to optimize your Azure Machine Learning assets within Olive.
+This documents outlines the integrations between Olive and Azure Machine Learning. Discover how to use your Azure Machine Learning assets within Olive.
 
 ## Olive Core
 ### Using AzureML registered model
@@ -14,7 +14,7 @@ You can run Olive workflow with your AML workspace registered model. In the inpu
     }
  }
 ```
-Olive will automatically download the model and run the workflow with this model as input model.
+Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.
 
 ### Using model stored in AzureML datastore
 You can specify your model path from an AzureML datastore as:
