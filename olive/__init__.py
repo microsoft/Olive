@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+import os
 import sys
 
 _logger = logging.getLogger(__name__)
@@ -15,3 +16,6 @@ _logger.addHandler(_sc)
 _logger.propagate = False
 
 __version__ = "0.4.0"
+
+# Set the environment variable to enable the use of the GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
