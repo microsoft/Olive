@@ -12,6 +12,7 @@ from olive.data.component.text_generation import (
     text_gen_corpus_pre_process,
     text_gen_pair_pre_process,
 )
+from olive.data.component.utils import map_pre_process
 from olive.data.registry import Registry
 
 
@@ -27,26 +28,6 @@ def pre_process(_dataset):
         object: Pre-processed data.
     """
     return _dataset
-
-
-def _huggingface_pre_process_helper(dataset, model_name, input_cols, label_cols, map_func, **kwargs):
-    """Pre-process data.
-
-    Args:
-        data (object): Data to be pre-processed.
-        **kwargs: Additional arguments.
-
-    Returns:
-        object: Pre-processed data.
-    """
-    # output type is list
-    tokenized_datasets = dataset.map(
-        map_func,
-        batched=kwargs.get("batched", True),
-        remove_columns=dataset.column_names,
-    )
-    tokenized_datasets.set_format("torch", output_all_columns=True)
-    return tokenized_datasets
 
 
 @Registry.register_pre_process()
@@ -85,9 +66,7 @@ def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, max_sa
         if model_hf_config and model_hf_config.label2id:
             _dataset = _dataset.align_labels_with_mapping(model_hf_config.label2id, label_cols[0])
 
-    tokenized_datasets = _huggingface_pre_process_helper(
-        _dataset, model_name, input_cols, label_cols, _tokenizer_and_align_labels, **kwargs
-    )
+    tokenized_datasets = map_pre_process(_dataset, _tokenizer_and_align_labels, batched=True, remove_cols=True)
     # label_cols is ["label"] since we added label_cols[0] as "label" to tokenized_inputs
     return BaseDataset(tokenized_datasets, label_cols=["label"], max_samples=max_samples)
 
@@ -138,9 +117,7 @@ def ner_huggingface_preprocess(_dataset, model_name, input_cols, label_cols, max
         tokenized_inputs["label"] = new_labels
         return tokenized_inputs
 
-    tokenized_datasets = _huggingface_pre_process_helper(
-        _dataset, model_name, input_cols, label_cols, _tokenizer_and_align_labels, **kwargs
-    )
+    tokenized_datasets = map_pre_process(_dataset, _tokenizer_and_align_labels, batched=True, remove_cols=True)
     return BaseDataset(tokenized_datasets, label_cols=["label"], max_samples=max_samples)
 
 

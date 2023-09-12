@@ -138,7 +138,7 @@ class TextGenPairParams(TextGenParams):
         return v
 
 
-def text_gen_corpus_pre_process(_dataset, model_name, all_kwargs):
+def text_gen_corpus_pre_process(dataset, model_name, all_kwargs):
     """
     Pre-process data for text generation task with 'corpus' dataset type.
 
@@ -156,7 +156,7 @@ def text_gen_corpus_pre_process(_dataset, model_name, all_kwargs):
     # gather text from all input columns
     text_list = []
     for input_col in args.text_cols:
-        text_list += _dataset[input_col]
+        text_list += dataset[input_col]
 
     tokenized_inputs = {
         "input_ids": [],
@@ -329,7 +329,7 @@ def batch_tokenize_text(text_list, tokenizer, args):
 
 
 # based on https://github.com/artidoro/qlora/blob/main/qlora.py
-def text_gen_pair_pre_process(_dataset, model_name, all_kwargs):
+def text_gen_pair_pre_process(dataset, model_name, all_kwargs):
     """
     Pre-process data for text generation task with 'pair' dataset type.
 
@@ -346,7 +346,7 @@ def text_gen_pair_pre_process(_dataset, model_name, all_kwargs):
 
     # format dataset based on pair_format
     # the formatted dataset has two columns: input and output
-    dataset = format_pair_dataset(_dataset, args.pair_format, args.input_col, args.output_col)
+    dataset = format_pair_dataset(dataset, args.pair_format, args.input_col, args.output_col)
     if args.max_samples is not None:
         # truncate dataset to max_samples
         # makes tokenization faster
