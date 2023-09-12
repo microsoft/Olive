@@ -79,7 +79,12 @@ class TextGenParams(ConfigBase):
 class TextGenCorpusParams(TextGenParams):
     """Parameters for text generation task with 'corpus' dataset type."""
 
-    text_cols: list  # list of text columns
+    # list of text columns, for each row, columns are concatenated together using template
+    # for join corpus_strategy, all rows are then concatenated together using joiner
+    text_cols: list
+    # a python f-string template for the text, the text in each column is replaced with {column_name}
+    # is not provided, the text in each column is joined with a space
+    text_template: str = None
     corpus_strategy: TextGenCorpusStrategy = TextGenCorpusStrategy.LINE_BY_LINE
     stride: int = None  # required when corpus_strategy is JOIN_SLIDING_WINDOW
     joiner: str = " "  # delimiter to use when joining the rows of the input columns.
@@ -118,7 +123,9 @@ class TextGenPairParams(TextGenParams):
 
     pair_format: TextGenPairFormat = TextGenPairFormat.DEFAULT
     input_col: str = None  # required when pair_format is CUSTOM
+    input_template: str = None  # a python f-string template for the input, input is replaced with {input}
     output_col: str = None  # required when pair_format is CUSTOM
+    output_template: str = None  # a python f-string template for the output, output is replaced with {output}
     target_max_len: int  # max length of target sequence
     ignore_source_in_labels: bool = True  # set source tokens to ignore_index in labels
 
@@ -144,9 +151,11 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
     args = validate_config(all_kwargs, TextGenCorpusParams, warn_unused_keys=True)
 
     # gather text from all input columns
-    text_list = []
-    for input_col in args.text_cols:
-        text_list += _dataset[input_col]
+    text_template = args.text_template
+    if text_template is None:
+        text_template = " ".join(["{" + col + "}" for col in args.text_cols])
+    _dataset = apply_template(_dataset, args.text_cols, "text", text_template)
+    text_list = _dataset["text"]
 
     tokenized_inputs = {
         "input_ids": [],
@@ -331,6 +340,12 @@ def text_gen_pair_pre_process(_dataset, tokenizer, all_kwargs):
         # truncate dataset to max_samples
         # makes tokenization faster
         dataset = dataset.select(range(args.max_samples))
+    if args.input_template is not None:
+        # apply input template
+        dataset = apply_template(dataset, ["input"], "input", args.input_template)
+    if args.output_template is not None:
+        # apply output template
+        dataset = apply_template(dataset, ["output"], "output", args.output_template)
 
     # extract elements
     sources = dataset["input"]
@@ -424,12 +439,15 @@ def format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
         # extract new input from instruction and input
         if example.get("input", "") != "":
             prompt_format = ALPACA_PROMPT_DICT["prompt_input"]
+            cols = ["instruction", "input"]
         else:
             prompt_format = ALPACA_PROMPT_DICT["prompt_no_input"]
-        return {"input": prompt_format.format(**example)}
+            cols = ["instruction"]
+        return apply_template(example, cols, "input", prompt_format, remove_cols=True)
 
     if pair_format == TextGenPairFormat.ALPACA:
-        dataset = dataset.map(extract_alpaca_dataset, remove_columns=["instruction"])
+        # extract new input from instruction and input
+        dataset = extract_alpaca_dataset(dataset)
     elif pair_format == TextGenPairFormat.CHIP2:
         # separate the human and bot text into input and output
         dataset = dataset.map(
@@ -462,4 +480,13 @@ def format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
 
     # remove unused columns, keep only input and output
     dataset = dataset.remove_columns([col for col in dataset.column_names if col not in ["input", "output"]])
+    return dataset
+
+
+def apply_template(dataset, cols, new_col, template, remove_cols=False):
+    """Apply template to column in dataset."""
+    dataset = dataset.map(lambda x: {new_col: template.format(**{col: x[col] for col in cols})})
+    if remove_cols:
+        cols = [col for col in cols if col != new_col]
+        dataset = dataset.remove_columns(cols)
     return dataset
