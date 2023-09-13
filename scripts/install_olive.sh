@@ -8,20 +8,12 @@ set -eoux pipefail
 PIPELINE=$1
 INSTALL_DEV_MODE=$2
 
-# Create virtual environment
-if [[ "$PIPELINE" == "True" ]]; then
-    echo "Creating virtual environment for pipeline"
-    set +x
-    python -m venv olive-venv
-    source olive-venv/bin/activate
-    set -x
-else
-    echo "Using active python environment"
-fi
-
 # Upgrade pip
 echo "Upgrading pip"
 python -m pip install --upgrade pip
+
+# install torch cpu version for test
+python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 # Install olive
 if [[ "$INSTALL_DEV_MODE" == "True" ]]; then

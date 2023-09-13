@@ -78,3 +78,15 @@ jobs:
   - script: make clean WINDOWS=$(WINDOWS)
     condition: always()
     displayName: Clean remaining artifacts
+
+- template: olive-test-template.yaml
+  parameters:
+    name: ${{parameters.name}}_Multiple_EP_Test_Olive
+    pool: ${{parameters.pool}}
+    device: ${{parameters.device}}
+    WINDOWS: ${{parameters.windows}}
+    test_type: 'multiple_ep'
+    ${{ if eq(parameters.windows, 'True') }}:
+      python_version: '3.10'
+    ${{ else }}:
+      python_version: '3.8'

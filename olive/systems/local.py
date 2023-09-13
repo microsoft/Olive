@@ -17,7 +17,7 @@ class LocalSystem(OliveSystem):
     system_type = SystemType.Local
 
     def __init__(self, accelerators: List[str] = None):
-        super().__init__(accelerators=accelerators)
+        super().__init__(accelerators=accelerators, olive_managed_env=False)
 
     def run_pass(
         self,
@@ -52,3 +52,6 @@ class LocalSystem(OliveSystem):
         import onnxruntime as ort
 
         return ort.get_available_providers()
+
+    def remove(self):
+        raise ValueError("Local system does not support system removal")

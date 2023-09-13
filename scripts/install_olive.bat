@@ -7,18 +7,12 @@ REM --------------------------------------------------------------------------
 set PIPELINE=%1
 set INSTALL_DEV_MODE=%2
 
-rem Create virtual environment
-if "%PIPELINE%"=="True" (
-    call echo "Creating virtual environment for pipeline"
-    call python -m venv olive-venv || goto :error
-    call olive-venv\\Scripts\\activate.bat || goto :error
-) else (
-    call echo "Using active python environment"
-)
-
 rem Upgrade pip
 call echo "Upgrading pip"
 call python -m pip install --upgrade pip || goto :error
+
+rem install torch cpu version for test
+call python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 rem Install olive
 if "%INSTALL_DEV_MODE%"=="True" (

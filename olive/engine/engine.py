@@ -6,6 +6,7 @@ import json
 import logging
 import time
 from collections import OrderedDict, defaultdict
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
@@ -27,6 +28,7 @@ from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 from olive.systems.olive_system import OliveSystem
+from olive.systems.utils import create_new_system_with_cache
 
 logger = logging.getLogger(__name__)
 
@@ -111,23 +113,24 @@ class Engine:
                 )
                 accelerators = inferred_accelerators
 
-        not_supported_ep = set()
-        processed_ep = set()
+        ep_to_process = set(self.execution_providers)
         self.accelerator_specs: List[AcceleratorSpec] = []
         is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
         for accelerator in accelerators:
             device = Device(accelerator.lower())
-            supported_eps = AcceleratorLookup.get_execution_providers_for_device(device)
-            eps = [e for e in self.execution_providers if e not in processed_ep]
-            for ep in eps:
-                if ep not in supported_eps:
-                    not_supported_ep.add(ep)
-                    processed_ep.add(ep)
-                elif ep == "CPUExecutionProvider" and device != "cpu" and is_cpu_available:
+            skip_get_available_ep = False
+            if (
+                self.target.system_type in (SystemType.AzureML, SystemType.Docker, SystemType.PythonEnvironment)
+                and self.target.olive_managed_env
+            ):
+                skip_get_available_ep = True
+            supported_eps = AcceleratorLookup.get_execution_providers_for_device(device, skip_get_available_ep)
+            for ep in ep_to_process.copy():
+                if ep == "CPUExecutionProvider" and device != "cpu" and is_cpu_available:
                     logger.info("ignore the CPUExecutionProvider for non-cpu device")
-                else:
+                elif ep in supported_eps:
                     self.accelerator_specs.append(AcceleratorSpec(device, ep))
-                    processed_ep.add(ep)
+                    ep_to_process.remove(ep)
 
         assert self.accelerator_specs, (
             "No valid accelerator specified for target system. "
@@ -136,9 +139,9 @@ class Engine:
             f"Current accelerators: {accelerators}."
             f"Supported execution providers: {AcceleratorLookup.EXECUTION_PROVIDERS}."
         )
-        if not_supported_ep:
+        if ep_to_process:
             logger.warning(
-                f"The following execution provider is not supported: {','.join(not_supported_ep)}. "
+                f"The following execution provider is not supported: {','.join(ep_to_process)}. "
                 "Please consider installing an onnxruntime build that contains the relevant execution providers. "
             )
 
@@ -323,63 +326,67 @@ class Engine:
 
         outputs = {}
         pf_footprints = {}
+
         for accelerator_spec in self.accelerator_specs:
-            # generate search space and initialize the passes for each hardware accelerator
-            self.setup_passes(accelerator_spec)
+            with self.create_managed_environment(accelerator_spec):
+                # generate search space and initialize the passes for each hardware accelerator
+                self.setup_passes(accelerator_spec)
 
-            # hash the input model
-            input_model_id = self._init_input_model(input_model)
-            self.footprints[accelerator_spec].record(model_id=input_model_id)
+                # hash the input model
+                input_model_id = self._init_input_model(input_model)
+                self.footprints[accelerator_spec].record(model_id=input_model_id)
 
-            try:
-                if evaluate_input_model:
-                    prefix_output_name = (
-                        f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
-                    )
-                    assert self.evaluator_config is not None, "evaluate_input_model is True but no evaluator provided"
-                    results = self._evaluate_model(
-                        input_model, input_model_id, data_root, self.evaluator_config, accelerator_spec
-                    )
-                    logger.info(f"Input model evaluation results: {results}")
-                    result_name = f"{prefix_output_name}_input_model_metrics"
-                    results_path = output_dir / f"{result_name}.json"
-                    with open(results_path, "w") as f:
-                        json.dump(results.to_json(), f, indent=4)
-                    logger.info(f"Saved evaluation results of input model to {results_path}")
-                    outputs[accelerator_spec] = results
-                    if not self.passes:
-                        logger.debug("No passes registered, return input model evaluation results.")
-                        return outputs
-
-                if self.no_search:
-                    output, model_ids = self.run_no_search(
-                        input_model,
-                        input_model_id,
-                        data_root,
-                        accelerator_spec,
-                        output_dir,
-                        output_name,
-                    )
-                    if output:
-                        outputs[accelerator_spec] = output
-                        pf_footprints[accelerator_spec] = self.footprints[accelerator_spec].get_footprints_by_model_ids(
-                            model_ids
+                try:
+                    if evaluate_input_model:
+                        prefix_output_name = (
+                            f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
                         )
-                else:
-                    footprint = self.run_search(
-                        input_model,
-                        input_model_id,
-                        data_root,
-                        accelerator_spec,
-                        output_dir,
-                        output_name,
-                    )
-                    outputs[accelerator_spec] = footprint
-                    pf_footprints[accelerator_spec] = footprint
-            except EXCEPTIONS_TO_RAISE:
-                raise
-            except Exception as e:
-                logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
+                        assert (
+                            self.evaluator_config is not None
+                        ), "evaluate_input_model is True but no evaluator provided"
+                        results = self._evaluate_model(
+                            input_model, input_model_id, data_root, self.evaluator_config, accelerator_spec
+                        )
+                        logger.info(f"Input model evaluation results: {results}")
+                        result_name = f"{prefix_output_name}_input_model_metrics"
+                        results_path = output_dir / f"{result_name}.json"
+                        with open(results_path, "w") as f:
+                            json.dump(results.to_json(), f, indent=4)
+                        logger.info(f"Saved evaluation results of input model to {results_path}")
+                        outputs[accelerator_spec] = results
+                        if not self.passes:
+                            logger.debug("No passes registered, return input model evaluation results.")
+                            return outputs
+
+                    if self.no_search:
+                        output, model_ids = self.run_no_search(
+                            input_model,
+                            input_model_id,
+                            data_root,
+                            accelerator_spec,
+                            output_dir,
+                            output_name,
+                        )
+                        if output:
+                            outputs[accelerator_spec] = output
+                            pf_footprints[accelerator_spec] = self.footprints[
+                                accelerator_spec
+                            ].get_footprints_by_model_ids(model_ids)
+                    else:
+                        footprint = self.run_search(
+                            input_model,
+                            input_model_id,
+                            data_root,
+                            accelerator_spec,
+                            output_dir,
+                            output_name,
+                        )
+                        outputs[accelerator_spec] = footprint
+                        pf_footprints[accelerator_spec] = footprint
+                except EXCEPTIONS_TO_RAISE:
+                    raise
+                except Exception as e:
+                    logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
 
         for accelerator_spec in self.footprints.keys():
             logger.info(f"Run history for {accelerator_spec}:")
@@ -1155,3 +1162,23 @@ class Engine:
         )
         selected_footprint_nodes = sorted_footprint_node_list[:k]
         return selected_footprint_nodes
+
+    @contextmanager
+    def create_managed_environment(self, accelerator_spec):
+        origin_target = self.target
+        origin_host = self.host
+        if origin_target.olive_managed_env:
+            self.target = create_new_system_with_cache(origin_target, accelerator_spec)
+        if origin_host.olive_managed_env:
+            self.host = create_new_system_with_cache(origin_host, accelerator_spec)
+
+        yield
+
+        if origin_host.olive_managed_env:
+            self.host.remove()
+            self.host = origin_host
+        if origin_target.olive_managed_env:
+            self.target.remove()
+            self.target = origin_target
+
+        create_new_system_with_cache.cache_clear()

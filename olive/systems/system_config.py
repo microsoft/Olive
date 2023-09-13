@@ -24,24 +24,30 @@ class LocalTargetUserConfig(TargetUserConfig):
 
 
 class DockerTargetUserConfig(TargetUserConfig):
-    local_docker_config: LocalDockerConfig
+    local_docker_config: LocalDockerConfig = None
     is_dev: bool = False
+    olive_managed_env: bool = False
+    requirements_file: Union[Path, str] = None
 
 
 class AzureMLTargetUserConfig(TargetUserConfig):
     azureml_client_config: AzureMLClientConfig = None
     aml_compute: str
-    aml_docker_config: AzureMLDockerConfig
+    aml_docker_config: AzureMLDockerConfig = None
     instance_count: int = 1
     is_dev: bool = False
+    olive_managed_env: bool = False
+    requirements_file: Union[Path, str] = None
 
 
 class PythonEnvironmentTargetUserConfig(TargetUserConfig):
     python_environment_path: Union[
         Path, str
-    ]  # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv
+    ] = None  # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv
     environment_variables: Dict[str, str] = None  # os.environ will be updated with these variables
     prepend_to_path: List[str] = None  # paths to prepend to os.environ["PATH"]
+    olive_managed_env: bool = False  # if True, the environment will be created and managed by Olive
+    requirements_file: Union[Path, str] = None  # path to the requirements.txt file
 
     @validator("python_environment_path", "prepend_to_path", pre=True, each_item=True)
     def _get_abspath(cls, v):
@@ -49,14 +55,15 @@ class PythonEnvironmentTargetUserConfig(TargetUserConfig):
 
     @validator("python_environment_path")
     def _validate_python_environment_path(cls, v):
-        # check if the path exists
-        if not Path(v).exists():
-            raise ValueError(f"Python path {v} does not exist")
+        if v:
+            # check if the path exists
+            if not Path(v).exists():
+                raise ValueError(f"Python path {v} does not exist")
 
-        # check if python exists in the path
-        python_path = shutil.which("python", path=v)
-        if not python_path:
-            raise ValueError(f"Python executable not found in the path {v}")
+            # check if python exists in the path
+            python_path = shutil.which("python", path=v)
+            if not python_path:
+                raise ValueError(f"Python executable not found in the path {v}")
         return v
 
 

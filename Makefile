@@ -48,6 +48,10 @@ unit_test:
 integ_test:
 	$(TEST_CMD) $(PIPELINE) $(CURRENT_DIR) integ_test
 
+.PHONY: multiple_ep
+multiple_ep:
+	$(TEST_CMD) $(PIPELINE) $(CURRENT_DIR) multiple_ep
+
 .PHONY: test-examples
 test-examples: logs/
 test-examples:

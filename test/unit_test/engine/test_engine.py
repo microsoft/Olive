@@ -125,6 +125,7 @@ class TestEngine:
         mock_local_system.run_pass.return_value = onnx_model
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
+        mock_local_system.olive_managed_env = False
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, clean_run_cache=True)
@@ -194,6 +195,7 @@ class TestEngine:
         mock_local_system.run_pass.return_value = onnx_model
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
+        mock_local_system.olive_managed_env = False
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, disable_search=True, clean_run_cache=True)
@@ -281,6 +283,7 @@ class TestEngine:
         mock_local_system.run_pass.return_value = onnx_model
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
+        mock_local_system.olive_managed_env = False
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
         engine.register(OnnxConversion, clean_run_cache=True)
@@ -323,6 +326,7 @@ class TestEngine:
         }
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
+        mock_local_system.olive_managed_env = False
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
 
@@ -409,6 +413,7 @@ class TestEngine:
         ]
         mock_get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         mock_local_system.run_pass.return_value = get_onnx_model()
+        mock_local_system.olive_managed_env = False
         metric_result_dict = {
             joint_metric_key(metric.name, sub_metric.name): {
                 "value": 0.998,
@@ -455,6 +460,7 @@ class TestEngine:
         ]
         mock_get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         mock_local_system.run_pass.return_value = get_onnx_model()
+        mock_local_system.olive_managed_env = False
         metric_result_dict = {
             joint_metric_key(metric.name, sub_metric.name): {
                 "value": 0.998,

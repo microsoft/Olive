@@ -2,16 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import shutil
 from pathlib import Path
-from test.integ_test.utils import download_azure_blob, get_olive_workspace_config
+from test.integ_test.utils import download_azure_blob
 
 from torchvision import datasets
 from torchvision.transforms import ToTensor
 
-from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricType
-from olive.systems.azureml import AzureMLDockerConfig, AzureMLSystem
+from olive.evaluator.metric import LatencySubType, Metric, MetricType
 
 
 def get_directories():
@@ -28,22 +25,6 @@ def get_directories():
 
 current_dir, models_dir, data_dir = get_directories()
 user_script = str(current_dir / "user_script.py")
-
-
-def get_accuracy_metric():
-    accuracy_metric_config = {
-        "user_script": user_script,
-        "post_processing_func": "post_process",
-        "data_dir": str(data_dir),
-        "dataloader_func": "create_dataloader",
-    }
-    accuracy_metric = Metric(
-        name="accuracy",
-        type=MetricType.ACCURACY,
-        sub_types=[{"name": AccuracySubType.ACCURACY_SCORE}],
-        user_config=accuracy_metric_config,
-    )
-    return accuracy_metric
 
 
 def get_latency_metric():
@@ -81,31 +62,5 @@ def download_data():
     datasets.MNIST(data_dir, download=True, transform=ToTensor())
 
 
-def get_pytorch_model():
-    return str(models_dir / "model.pt")
-
-
 def get_onnx_model():
     return str(models_dir / "model.onnx")
-
-
-def delete_directories():
-    shutil.rmtree(data_dir)
-    shutil.rmtree(models_dir)
-
-
-def get_aml_target():
-    aml_compute = "cpu-cluster"
-    current_path = Path(__file__).absolute().parent
-    conda_file_location = current_path / "conda.yaml"
-    azureml_client_config = AzureMLClientConfig(**get_olive_workspace_config())
-    docker_config = AzureMLDockerConfig(
-        base_image="mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
-        conda_file_path=conda_file_location,
-    )
-    return AzureMLSystem(
-        azureml_client_config=azureml_client_config,
-        aml_compute=aml_compute,
-        aml_docker_config=docker_config,
-        is_dev=True,
-    )

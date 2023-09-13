@@ -8,13 +8,17 @@ set PIPELINE=%1
 set ROOT_DIR=%2
 set TEST_TYPE=%3
 
-if "%PIPELINE%"=="True" (
-    call olive-venv\\Scripts\\activate.bat || goto :error
-)
-
 rem install pytest
 call python -m pip install pytest
-call python -m pip install -r %ROOT_DIR%\\test\\requirements-test.txt || goto :error
+
+if %TEST_TYPE% == multiple_ep (
+    call curl --output openvino_toolkit.zip https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.0.1/windows/w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64.zip
+    call 7z x openvino_toolkit.zip
+    call w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64\\setupvars.bat
+    call python -m pip install numpy psutil coverage protobuf==3.20.3 || goto :error
+) else (
+    call python -m pip install -r %ROOT_DIR%\\test\\requirements-test.txt || goto :error
+)
 
 rem run tests
 call coverage run --source=%ROOT_DIR%\\olive -m pytest -v -s --log-cli-level=WARNING --junitxml=%ROOT_DIR%\\logs\\test-TestOlive.xml^

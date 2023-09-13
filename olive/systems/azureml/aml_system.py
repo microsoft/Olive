@@ -72,20 +72,25 @@ class AzureMLSystem(OliveSystem):
         self,
         azureml_client_config: AzureMLClientConfig,
         aml_compute: str,
-        aml_docker_config: Union[Dict[str, Any], AzureMLDockerConfig],
+        aml_docker_config: Union[Dict[str, Any], AzureMLDockerConfig] = None,
         instance_count: int = 1,
         is_dev: bool = False,
         accelerators: List[str] = None,
+        olive_managed_env: bool = False,
+        requirements_file: Union[Path, str] = None,
     ):
-        super().__init__(accelerators)
-        self._assert_not_none(aml_docker_config)
-        aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
-        azureml_client_config = validate_config(azureml_client_config, AzureMLClientConfig)
-        self.azureml_client_config = azureml_client_config
-        self.compute = aml_compute
-        self.environment = self._create_environment(aml_docker_config)
+        super().__init__(accelerators, olive_managed_env=olive_managed_env)
         self.instance_count = instance_count
         self.is_dev = is_dev
+        self.requirements_file = requirements_file
+        self.compute = aml_compute
+        azureml_client_config = validate_config(azureml_client_config, AzureMLClientConfig)
+        self.azureml_client_config = azureml_client_config
+        if aml_docker_config and olive_managed_env:
+            raise ValueError("Olive managed environment is not supported if aml_docker_config is provided.")
+        if aml_docker_config:
+            aml_docker_config = validate_config(aml_docker_config, AzureMLDockerConfig)
+            self.environment = self._create_environment(aml_docker_config)
 
     def _create_environment(self, docker_config: AzureMLDockerConfig):
         if docker_config.build_context_path:
@@ -592,3 +597,6 @@ class AzureMLSystem(OliveSystem):
         metric_component = cmd(**args)
 
         return metric_component
+
+    def remove(self):
+        logger.info("AzureML system does not need system removal")

@@ -4,6 +4,15 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
+import logging
+import shutil
+import tempfile
+from functools import lru_cache
+from pathlib import Path
+
+from olive.systems.common import SystemType
+
+logger = logging.getLogger(__name__)
 
 
 def parse_common_args(raw_args):
@@ -51,3 +60,109 @@ def get_common_args(raw_args):
         model_json["config"][key] = value
 
     return model_json, common_args.pipeline_output, extra_args
+
+
+def get_package_name(execution_provider):
+    PROVIDER_PACKAGE_MAPPING = {
+        "CPUExecutionProvider": "onnxruntime",
+        "CUDAExecutionProvider": "onnxruntime-gpu",
+        "TensorrtExecutionProvider": "onnxruntime-gpu",
+        "OpenVINOExecutionProvider": "onnxruntime-openvino",
+        "DmlExecutionProvider": "onnxruntime-directml",
+    }
+    return PROVIDER_PACKAGE_MAPPING.get(execution_provider, "onnxruntime")
+
+
+@lru_cache(maxsize=8)
+def create_new_system_with_cache(origin_system, accelerator):
+    new_system = create_new_system(origin_system, accelerator)
+    return new_system
+
+
+def create_new_system(origin_system, accelerator):
+    PROVIDER_DOCKERFILE_MAPPING = {
+        "CPUExecutionProvider": "Dockerfile.cpu",
+        "CUDAExecutionProvider": "Dockerfile.gpu",
+        "TensorrtExecutionProvider": "Dockerfile.gpu",
+        "OpenVINOExecutionProvider": "Dockerfile.openvino",
+    }
+
+    # create a new system with the same type as the origin system
+    if origin_system.system_type == SystemType.Local:
+        raise NotImplementedError("olive_managed_env is not supported for LocalSystem")
+
+    elif origin_system.system_type == SystemType.PythonEnvironment:
+        import os
+        import platform
+        import venv
+
+        from olive.systems.python_environment import PythonEnvironmentSystem
+
+        if platform.system() == "Linux":
+            destination_dir = os.path.join(os.environ.get("HOME", ""), "tmp")
+            if not os.path.exists(destination_dir):
+                os.makedirs(destination_dir)
+            venv_path = Path(tempfile.TemporaryDirectory(prefix="olive_python_env_", dir=destination_dir).name)
+        else:
+            venv_path = Path(tempfile.TemporaryDirectory(prefix="olive_python_env_").name)
+
+        venv.create(venv_path, with_pip=True, system_site_packages=True)
+        logger.info("Virtual environment '{}' created.".format(venv_path))
+
+        if platform.system() == "Windows":
+            python_environment_path = f"{venv_path}/Scripts"
+        else:
+            python_environment_path = f"{venv_path}/bin"
+        new_system = PythonEnvironmentSystem(
+            python_environment_path=python_environment_path,
+            accelerators=[accelerator.accelerator_type],
+            environment_variables=origin_system.config.environment_variables,
+            prepend_to_path=origin_system.config.prepend_to_path,
+            olive_managed_env=True,
+            requirements_file=origin_system.config.requirements_file,
+        )
+        new_system.install_requirements(accelerator)
+
+    elif origin_system.system_type == SystemType.Docker:
+        from olive.systems.docker import DockerSystem
+
+        dockerfile = PROVIDER_DOCKERFILE_MAPPING.get(accelerator.execution_provider, "Dockerfile.cpu")
+        new_system = DockerSystem(
+            local_docker_config={
+                "image_name": f"olive_{accelerator.execution_provider[:-17].lower()}",
+                "requirements_file_path": str(origin_system.requirements_file),
+                "dockerfile": dockerfile,
+                "build_context_path": Path(__file__).parent / "docker",
+            },
+            accelerators=[accelerator.accelerator_type],
+            is_dev=origin_system.is_dev,
+        )
+
+    elif origin_system.system_type == SystemType.AzureML:
+        from olive.systems.azureml import AzureMLSystem
+
+        dockerfile = PROVIDER_DOCKERFILE_MAPPING.get(accelerator.execution_provider, "Dockerfile.cpu")
+        build_context_path = Path(__file__).parent / "docker"
+
+        if origin_system.requirements_file:
+            shutil.copyfile(origin_system.requirements_file, build_context_path / "requirements.txt")
+        else:
+            with open(build_context_path / "requirements.txt", "w"):
+                pass
+
+        new_system = AzureMLSystem(
+            azureml_client_config=origin_system.azureml_client_config,
+            aml_compute=origin_system.compute,
+            instance_count=origin_system.instance_count,
+            accelerators=[accelerator.accelerator_type],
+            aml_docker_config={
+                "dockerfile": dockerfile,
+                "build_context_path": build_context_path,
+            },
+            is_dev=origin_system.is_dev,
+        )
+
+    else:
+        raise NotImplementedError(f"System type {origin_system.system_type} is not supported")
+
+    return new_system

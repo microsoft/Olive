@@ -3,9 +3,11 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import collections
+import json
 import logging
 import os
 import pickle
+import platform
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -24,11 +26,12 @@ from olive.evaluator.metric import (
 )
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluator
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
-from olive.model import OliveModel, ONNXModel
+from olive.model import ModelConfig, OliveModel, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
+from olive.systems.utils import get_package_name
 
 logger = logging.getLogger(__name__)
 
@@ -38,24 +41,37 @@ class PythonEnvironmentSystem(OliveSystem):
 
     def __init__(
         self,
-        python_environment_path: Union[Path, str],
+        python_environment_path: Union[Path, str] = None,
         environment_variables: Dict[str, str] = None,
         prepend_to_path: List[str] = None,
         accelerators: List[str] = None,
+        olive_managed_env: bool = False,
+        requirements_file: Union[Path, str] = None,
     ):
-        super().__init__(accelerators=accelerators)
+        super().__init__(accelerators=accelerators, olive_managed_env=olive_managed_env)
         self.config = PythonEnvironmentTargetUserConfig(
             python_environment_path=python_environment_path,
             environment_variables=environment_variables,
             prepend_to_path=prepend_to_path,
             accelerators=accelerators,
+            olive_managed_env=olive_managed_env,
+            requirements_file=requirements_file,
         )
         self.environ = deepcopy(os.environ)
         if self.config.environment_variables:
             self.environ.update(self.config.environment_variables)
         if self.config.prepend_to_path:
             self.environ["PATH"] = os.pathsep.join(self.config.prepend_to_path) + os.pathsep + self.environ["PATH"]
-        self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
+        if self.config.python_environment_path:
+            self.environ["PATH"] = str(self.config.python_environment_path) + os.pathsep + self.environ["PATH"]
+        if self.config.olive_managed_env:
+            if platform.system() == "Linux":
+                temp_dir = os.path.join(os.environ.get("HOME", ""), "tmp")
+                if not os.path.exists(temp_dir):
+                    os.makedirs(temp_dir)
+                self.environ["TMPDIR"] = temp_dir
+            else:
+                self.environ["TMPDIR"] = tempfile.TemporaryDirectory().name
 
         # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
         # used for caching the available eps
@@ -63,6 +79,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
         # path to inference script
         self.inference_path = Path(__file__).parent.resolve() / "inference_runner.py"
+        self.pass_path = Path(__file__).parent.resolve() / "pass_runner.py"
         self.device = self.accelerators[0] if self.accelerators else Device.CPU
 
     def run_pass(
@@ -76,7 +93,41 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         Run the pass on the model at a specific point in the search space.
         """
-        raise ValueError("PythonEnvironmentSystem does not support running passes.")
+        model_config = model.to_json()
+        pass_config = the_pass.to_json()
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_dir_path = Path(tmp_dir)
+            model_json_path = tmp_dir_path / "model.json"
+            pass_json_path = tmp_dir_path / "pass.json"
+            output_model_json_path = tmp_dir_path / "output_model.json"
+
+            with model_json_path.open("w") as f:
+                json.dump(model_config, f, indent=4)
+            with pass_json_path.open("w") as f:
+                json.dump(pass_config, f, indent=4)
+
+            # run pass
+            command = (
+                f"python {self.pass_path} --model_json_path {model_json_path} --pass_json_path {pass_json_path}"
+                f" --output_model_path {output_model_path} --output_model_json_path {output_model_json_path}"
+            )
+            if point:
+                point_json_path = tmp_dir_path / "point.json"
+                with point_json_path.open("w") as f:
+                    point = point or {}
+                    json.dump(point, f, indent=4)
+                command += f" --point_json_path {point_json_path}"
+            if data_root:
+                command += f" --data_root {data_root}"
+
+            run_subprocess(command, env=self.environ, check=True)
+
+            with open(output_model_json_path, "r") as f:
+                model_json = json.load(f)
+                output_model = ModelConfig.from_json(model_json).create_model()
+
+        return output_model
 
     def evaluate_model(
         self, model: OliveModel, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
@@ -310,3 +361,49 @@ class PythonEnvironmentSystem(OliveSystem):
                     + f"Please make sure the environment with {ep} has the required dependencies."
                 )
                 return False
+
+    def install_requirements(self, accelerator: AcceleratorSpec):
+        """
+        Install required packages.
+        """
+        # install common packages
+        common_requirements_file = Path(__file__).parent.resolve() / "common_requirements.txt"
+        run_subprocess(
+            f"pip install --cache-dir {self.environ['TMPDIR']} -r {common_requirements_file}",
+            env=self.environ,
+            check=True,
+        )
+
+        # install onnxruntime package
+        onnxruntime_package = get_package_name(accelerator.execution_provider)
+        run_subprocess(
+            f"pip install --cache-dir {self.environ['TMPDIR']} {onnxruntime_package}",
+            env=self.environ,
+            check=True,
+        )
+
+        # install user requirements
+        if self.config.requirements_file:
+            run_subprocess(
+                f"pip install --cache-dir {self.environ['TMPDIR']} -r {self.config.requirements_file}",
+                env=self.environ,
+                check=True,
+            )
+
+    def remove(self):
+        import shutil
+
+        vitual_env_path = Path(self.config.python_environment_path).resolve().parent
+
+        try:
+            shutil.rmtree(vitual_env_path)
+            logger.info("Virtual environment '{}' removed.".format(vitual_env_path))
+        except FileNotFoundError:
+            pass
+
+        if platform.system() == "Linux":
+            try:
+                shutil.rmtree(self.environ["TMPDIR"])
+                logger.info("Temporary directory '{}' removed.".format(self.environ["TMPDIR"]))
+            except FileNotFoundError:
+                pass
