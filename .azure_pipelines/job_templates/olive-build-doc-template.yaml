@@ -30,15 +30,12 @@ jobs:
     - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
       displayName: Install Olive
 
-    - template: run-olive-script.yaml
-      parameters:
-        displayName: Make Docs
-        script: |
-          cd docs
-          python -m pip install -r requirements.txt
-          make html
-          make linkcheck
-        windows: False
+    - script: |
+        cd docs
+        python -m pip install -r requirements.txt
+        make html
+        make linkcheck
+      displayName: Make Docs
 
     - task:  PublishPipelineArtifact@1
       inputs:
