@@ -141,8 +141,8 @@ class OrtTransformersOptimization(Pass):
         for key in get_external_data_config():
             del run_config[key]
 
-        if model.hf_config:
-            model_config = model.hf_config.load_model_config().to_dict()
+        if model.model_attributes:
+            model_config = model.model_attributes
             input_model_type = model_config.get("model_type", "")
             _model_type = MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
             run_config["model_type"] = run_config["model_type"] or _model_type

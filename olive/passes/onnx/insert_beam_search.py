@@ -75,9 +75,9 @@ class InsertBeamSearch(Pass):
         node.domain = "com.microsoft"
         node.attribute.extend(
             [
-                helper.make_attribute("eos_token_id", model_config.eos_token_id),
-                helper.make_attribute("pad_token_id", model_config.pad_token_id),
-                helper.make_attribute("decoder_start_token_id", model_config.decoder_start_token_id),
+                helper.make_attribute("eos_token_id", model_config["eos_token_id"]),
+                helper.make_attribute("pad_token_id", model_config["pad_token_id"]),
+                helper.make_attribute("decoder_start_token_id", model_config["decoder_start_token_id"]),
                 helper.make_attribute("no_repeat_ngram_size", options["no_repeat_ngram_size"]),
                 helper.make_attribute("early_stopping", True),
                 helper.make_attribute("model_type", 2),
@@ -188,7 +188,7 @@ class InsertBeamSearch(Pass):
             self.add_attention_mask(model_proto_B)
 
         combined_model = self.chain_model(
-            model_proto_A, model_A_name, model_proto_B, model_B_name, model.get_model_config(), config
+            model_proto_A, model_A_name, model_proto_B, model_B_name, model.model_attributes, config
         )
 
         # save the model to the output path and return the model

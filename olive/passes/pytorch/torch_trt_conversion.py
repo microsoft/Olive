@@ -81,8 +81,7 @@ class TorchTRTConversion(Pass):
     ) -> PyTorchModel:
         from olive.passes.pytorch.trt_utils import compile_trt_model
 
-        model_config = model.get_model_config()
-        model_type = model_config.model_type
+        model_type = model.model_attributes["model_type"]
         if model_type not in supported_models:
             raise ValueError(f"Unsupported model type: {model_type}. Supported types: {supported_models}")
 

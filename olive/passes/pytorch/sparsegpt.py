@@ -94,8 +94,7 @@ class SparseGPT(Pass):
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModel:
-        model_config = model.get_model_config()
-        model_type = model_config.model_type
+        model_type = model.model_attributes["model_type"]
         if model_type not in supported_models:
             raise ValueError(f"Unsupported model type: {model_type}. Supported types: {supported_models}")
 

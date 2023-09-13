@@ -57,12 +57,14 @@ class OliveModel(ABC):
         framework: Framework,
         model_file_format: ModelFileFormat,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
-        # resources other than model_path
+        # resources other than model_path, e.g.: path to model adapter
         resources: Optional[Dict[str, OLIVE_RESOURCE_ANNOTATIONS]] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         self.framework = framework
         self.model_file_format = model_file_format
         self.composite_parent = None
+        self.model_attributes = model_attributes
         self.io_config = None
         # store resource paths
         self.resource_paths: Dict[str, ResourcePath] = {}
@@ -167,6 +169,7 @@ class OliveModel(ABC):
                 for resource_name, resource_path in self.resource_paths.items()
             },
         }
+        config["config"].update({"model_attributes": self.model_attributes})
         return serialize_to_json(config, check_object)
 
 
@@ -194,8 +197,14 @@ class ONNXModelBase(OliveModel):
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(framework=Framework.ONNX, model_file_format=ModelFileFormat.ONNX, model_path=model_path)
+        super().__init__(
+            framework=Framework.ONNX,
+            model_file_format=ModelFileFormat.ONNX,
+            model_path=model_path,
+            model_attributes=model_attributes,
+        )
         self.inference_settings = inference_settings
         self.use_ort_extensions = use_ort_extensions
 
@@ -236,19 +245,18 @@ class ONNXModel(ONNXModelBase):
         onnx_file_name: Optional[str] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
-        hf_config: Union[Dict[str, Any], HFConfig] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             model_path=model_path,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
+            model_attributes=model_attributes,
         )
         self.onnx_file_name = onnx_file_name
         self.io_config = None
         self.graph = None
         self.all_graphs: Optional[List[GraphProto]] = None
-        # huggingface config
-        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
 
         # if model_path is local folder, check for onnx file name
         model_resource_path = self.resource_paths["model_path"]
@@ -403,7 +411,6 @@ class ONNXModel(ONNXModelBase):
                 "onnx_file_name": self.onnx_file_name,
                 "inference_settings": self.inference_settings,
                 "use_ort_extensions": self.use_ort_extensions,
-                "hf_config": self.hf_config,
             }
         )
         return serialize_to_json(config, check_object)
@@ -480,6 +487,7 @@ class PyTorchModel(OliveModel):
         dummy_inputs_func: Union[str, Callable] = None,
         hf_config: Union[Dict[str, Any], HFConfig] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         if not (
             isinstance(model_loader, Callable)
@@ -498,7 +506,10 @@ class PyTorchModel(OliveModel):
             model_file_format=model_file_format,
             model_path=model_path,
             resources={"adapter_path": adapter_path, "script_dir": script_dir, "model_script": model_script},
+            model_attributes=model_attributes,
         )
+        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
+
         # ensure that model_script and script_dirs are local
         for resource_name in ["script_dir", "model_script"]:
             if self.resource_paths[resource_name]:
@@ -511,9 +522,6 @@ class PyTorchModel(OliveModel):
         self.dummy_inputs_func = dummy_inputs_func
 
         self.dummy_inputs = None
-
-        # huggingface config
-        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
 
     @property
     def script_dir(self) -> str:
@@ -654,7 +662,7 @@ class PyTorchModel(OliveModel):
 
         return dummy_inputs
 
-    def get_model_config(self):
+    def get_hf_model_config(self):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
         return self.hf_config.load_model_config(self.model_path)
@@ -702,6 +710,7 @@ class PyTorchModel(OliveModel):
             model_script=self.model_script,
             script_dir=self.script_dir,
             hf_config=HFConfig.parse_obj(component_hf_config),
+            model_attributes=self.model_attributes,
         )
 
     def to_json(self, check_object: bool = False):
@@ -745,8 +754,14 @@ class SNPEModel(OliveModel):
         output_names: List[str],
         output_shapes: List[List[int]],
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(framework=Framework.SNPE, model_file_format=ModelFileFormat.SNPE_DLC, model_path=model_path)
+        super().__init__(
+            framework=Framework.SNPE,
+            model_file_format=ModelFileFormat.SNPE_DLC,
+            model_path=model_path,
+            model_attributes=model_attributes,
+        )
         self.io_config = {
             "input_names": input_names,
             "input_shapes": input_shapes,
@@ -785,8 +800,14 @@ class TensorFlowModel(OliveModel):
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_file_format: ModelFileFormat = ModelFileFormat.TENSORFLOW_SAVED_MODEL,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(model_path=model_path, framework=Framework.TENSORFLOW, model_file_format=model_file_format)
+        super().__init__(
+            model_path=model_path,
+            framework=Framework.TENSORFLOW,
+            model_file_format=model_file_format,
+            model_attributes=model_attributes,
+        )
 
     def load_model(self, rank: int = None):
         raise NotImplementedError()
@@ -802,9 +823,12 @@ class TensorFlowModel(OliveModel):
 
 
 class OpenVINOModel(OliveModel):
-    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS):
+    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS, model_attributes: Optional[Dict[str, Any]] = None):
         super().__init__(
-            model_path=model_path, framework=Framework.OPENVINO, model_file_format=ModelFileFormat.OPENVINO_IR
+            model_path=model_path,
+            framework=Framework.OPENVINO,
+            model_file_format=ModelFileFormat.OPENVINO_IR,
+            model_attributes=model_attributes,
         )
         # check if the model files (xml, bin) are in the same directory
         if self.resource_paths["model_path"].is_local_resource():
@@ -869,11 +893,13 @@ class DistributedOnnxModel(ONNXModelBase):
         model_filepaths: List[Union[Path, str]] = [],
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             model_path=None,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
+            model_attributes=model_attributes,
         )
         self.model_filepaths = model_filepaths
 
@@ -920,6 +946,7 @@ class DistributedOnnxModel(ONNXModelBase):
                 "model_filepaths": self.model_filepaths,
                 "inference_settings": self.inference_settings,
                 "use_ort_extensions": self.use_ort_extensions,
+                "model_attributes": self.model_attributes,
             },
         }
         return serialize_to_json(config, check_object=check_object)
@@ -936,9 +963,9 @@ class CompositeOnnxModel(ONNXModelBase):
         self,
         model_components: List[Union[ONNXModel, Dict[str, Any]]],
         model_component_names: List[str],
-        hf_config: Union[Dict[str, Any], HFConfig] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(model_path=None)
+        super().__init__(model_path=None, model_attributes=model_attributes)
 
         if isinstance(model_components[0], dict):
             assert all(
@@ -954,8 +981,6 @@ class CompositeOnnxModel(ONNXModelBase):
 
         for m in self.model_components:
             m.set_composite_parent(self)
-
-        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
 
     def load_model(self, rank: int = None):
         raise NotImplementedError()
@@ -984,15 +1009,10 @@ class CompositeOnnxModel(ONNXModelBase):
     def get_model_component_name(self, idx):
         return self.model_component_names[idx]
 
-    def get_model_config(self):
-        if self.hf_config is None:
-            raise ValueError("HF model_config is not available")
-        return self.hf_config.load_model_config()
-
     def to_json(self, check_object: bool = False):
         json_dict = {
             "type": self.__class__.__name__,
-            "config": {"hf_config": self.hf_config, "model_component_names": self.model_component_names},
+            "config": {"model_attributes": self.model_attributes, "model_component_names": self.model_component_names},
         }
         json_dict["config"]["model_components"] = []
         for m in self.model_components:
