@@ -5,10 +5,9 @@
 # --------------------------------------------------------------------------
 set -eoux pipefail
 
-PIPELINE=$1
-ROOT_DIR=$2
-EXAMPLE_FOLDER=$3
-EXAMPLE_NAME=$4
+ROOT_DIR=$1
+EXAMPLE_FOLDER=$2
+EXAMPLE_NAME=$3
 
 # install pytest
 python -m pip install pytest

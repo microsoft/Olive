@@ -5,15 +5,11 @@
 # --------------------------------------------------------------------------
 set -eoux pipefail
 
-PIPELINE=$1
-INSTALL_DEV_MODE=$2
+INSTALL_DEV_MODE=$1
 
 # Upgrade pip
 echo "Upgrading pip"
 python -m pip install --upgrade pip
-
-# install torch cpu version for test
-python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 # Install olive
 if [[ "$INSTALL_DEV_MODE" == "True" ]]; then

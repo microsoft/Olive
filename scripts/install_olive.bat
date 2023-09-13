@@ -4,15 +4,11 @@ REM Licensed under the MIT License.
 REM --------------------------------------------------------------------------
 @echo off
 
-set PIPELINE=%1
-set INSTALL_DEV_MODE=%2
+set INSTALL_DEV_MODE=%1
 
 rem Upgrade pip
 call echo "Upgrading pip"
 call python -m pip install --upgrade pip || goto :error
-
-rem install torch cpu version for test
-call python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
 rem Install olive
 if "%INSTALL_DEV_MODE%"=="True" (
