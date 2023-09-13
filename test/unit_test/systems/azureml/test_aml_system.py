@@ -6,7 +6,6 @@ import json
 import os
 import shutil
 import tempfile
-from copy import deepcopy
 from pathlib import Path
 from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_latency_metric, get_pytorch_model_config
 from unittest.mock import MagicMock, Mock, patch
@@ -18,10 +17,10 @@ from azure.ai.ml.constants import AssetTypes
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.model import ModelConfig, ONNXModel
+from olive.model import ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
-from olive.resource_path import AzureMLModel, ResourceType, create_resource_path
+from olive.resource_path import AzureMLModel, ResourcePath, ResourceType, create_resource_path
 from olive.systems.azureml.aml_evaluation_runner import main as aml_evaluation_runner_main
 from olive.systems.azureml.aml_pass_runner import main as aml_pass_runner_main
 from olive.systems.azureml.aml_system import AzureMLSystem
@@ -127,11 +126,6 @@ class TestAzureMLSystem:
             f.write("dummy")
         output_folder = tmp_dir_path
 
-        config = deepcopy(dummy_config)
-        config.pop("same_resources_as_input")
-        config.pop("resource_names")
-        config["config"]["model_path"]["config"]["path"] = str(expected_model_path)
-        expected_model_config = ModelConfig.parse_obj(config)
         ml_client = MagicMock()
         self.system.azureml_client_config.create_client.return_value = ml_client
         self.system.azureml_client_config.max_operation_retries = 3
@@ -146,7 +140,10 @@ class TestAzureMLSystem:
         mock_create_pipeline.assert_called_once_with(None, output_folder, model_config, p.to_json(), p.path_params)
         assert mock_retry_func.call_count == 2
         ml_client.jobs.stream.assert_called_once()
-        assert expected_model_config.to_json() == actual_res.to_json()
+        output_model_file = actual_res.config["model_path"]
+        if isinstance(output_model_file, ResourcePath):
+            output_model_file = output_model_file.get_path()
+        assert Path(output_model_file).samefile(expected_model_path)
 
     @pytest.mark.parametrize(
         "model_resource_type",

@@ -833,8 +833,9 @@ class OpenVINOModel(OliveModel):
             model_attributes=model_attributes,
         )
         # check if the model files (xml, bin) are in the same directory
-        if self.resource_paths["model_path"].is_local_resource():
-            _ = self.model_config
+        model_path = create_resource_path(self.resource_paths["model_path"])
+        assert model_path.is_local_resource(), "OpenVINO model_path must be local file or directory."
+        _ = self.model_config
 
     @property
     def model_config(self) -> Dict[str, str]:
