@@ -4,9 +4,8 @@ REM Licensed under the MIT License.
 REM --------------------------------------------------------------------------
 @echo off
 
-set PIPELINE=%1
-set ROOT_DIR=%2
-set TEST_TYPE=%3
+set ROOT_DIR=%1
+set TEST_TYPE=%2
 
 rem install pytest
 call python -m pip install pytest

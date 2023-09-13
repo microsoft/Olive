@@ -5,9 +5,8 @@
 # --------------------------------------------------------------------------
 set -eoux pipefail
 
-PIPELINE=$1
-INSTALL_DEV_MODE=$2
-DEVICE=$3
+INSTALL_DEV_MODE=$1
+DEVICE=$2
 
 # Upgrade pip
 echo "Upgrading pip"

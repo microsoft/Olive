@@ -40,7 +40,7 @@ jobs:
       versionSpec: 3.8
     displayName: Use Python 3.8
 
-  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[$(device)] DEVICE=$(device)
+  - script: make install-olive INSTALL_EXTRAS=[$(device)] DEVICE=$(device)
     displayName: Install Olive
 
   - task: AzureCLI@1
@@ -57,7 +57,6 @@ jobs:
       AZURE_TENANT_ID: $(azure-tenant-id)
       AZURE_CLIENT_ID: $(olive-rg-sp-id)
       AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
-      PIPELINE: True
       EXAMPLE_FOLDER: $(exampleFolder)
       EXAMPLE_NAME: $(exampleName)
 
