@@ -26,7 +26,7 @@ from olive.evaluator.metric import (
 )
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluator
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
-from olive.model import ModelConfig, OliveModel, ONNXModel
+from olive.model import ModelConfig, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
@@ -93,7 +93,7 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         Run the pass on the model at a specific point in the search space.
         """
-        model_config = model.to_json()
+        model_config_json = model_config.to_json()
         pass_config = the_pass.to_json()
 
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -103,7 +103,7 @@ class PythonEnvironmentSystem(OliveSystem):
             output_model_json_path = tmp_dir_path / "output_model.json"
 
             with model_json_path.open("w") as f:
-                json.dump(model_config, f, indent=4)
+                json.dump(model_config_json, f, indent=4)
             with pass_json_path.open("w") as f:
                 json.dump(pass_config, f, indent=4)
 
