@@ -34,6 +34,7 @@ class AzureMLTargetUserConfig(TargetUserConfig):
     azureml_client_config: AzureMLClientConfig = None
     aml_compute: str
     aml_docker_config: AzureMLDockerConfig = None
+    resources: Dict = None
     instance_count: int = 1
     is_dev: bool = False
     olive_managed_env: bool = False

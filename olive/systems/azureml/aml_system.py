@@ -73,6 +73,7 @@ class AzureMLSystem(OliveSystem):
         azureml_client_config: AzureMLClientConfig,
         aml_compute: str,
         aml_docker_config: Union[Dict[str, Any], AzureMLDockerConfig] = None,
+        resources: Dict = None,
         instance_count: int = 1,
         is_dev: bool = False,
         accelerators: List[str] = None,
@@ -81,6 +82,7 @@ class AzureMLSystem(OliveSystem):
     ):
         super().__init__(accelerators, olive_managed_env=olive_managed_env)
         self.instance_count = instance_count
+        self.resources = resources
         self.is_dev = is_dev
         self.requirements_file = requirements_file
         self.compute = aml_compute
@@ -272,7 +274,17 @@ class AzureMLSystem(OliveSystem):
         return {"pass_config": Input(type=AssetTypes.URI_FILE, path=pass_config_path), **pass_args}
 
     def _create_step(
-        self, name, display_name, description, aml_environment, code, compute, instance_count, inputs, script_name
+        self,
+        name,
+        display_name,
+        description,
+        aml_environment,
+        code,
+        compute,
+        resources,
+        instance_count,
+        inputs,
+        script_name,
     ):
         parameters = []
         for param, input in inputs.items():
@@ -283,12 +295,12 @@ class AzureMLSystem(OliveSystem):
         parameters.append("--pipeline_output ${{outputs.pipeline_output}}")
 
         cmd_line = f"python {script_name} {' '.join(parameters)}"
-
         component = command(
             name=name,
             display_name=display_name,
             description=description,
             command=cmd_line,
+            resources=resources,
             environment=aml_environment,
             code=str(code),
             inputs=inputs,
@@ -346,6 +358,7 @@ class AzureMLSystem(OliveSystem):
             aml_environment=self.environment,
             code=str(code_root),
             compute=self.compute,
+            resources=self.resources,
             instance_count=self.instance_count,
             inputs=inputs,
             script_name=script_name,
@@ -581,6 +594,7 @@ class AzureMLSystem(OliveSystem):
             aml_environment=self.environment,
             code=str(code_root),
             compute=self.compute,
+            resources=self.resources,
             instance_count=self.instance_count,
             inputs=inputs,
             script_name=script_name,
