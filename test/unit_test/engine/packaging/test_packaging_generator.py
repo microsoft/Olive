@@ -150,7 +150,7 @@ def test_generate_zipfile_artifacts_mlflow():
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
     assert (output_dir / "ONNXRuntimePackages").exists()
-    assert (output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1" / "mlmodel").exists()
+    assert (output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1" / "mlflow_model").exists()
 
 
 def test_generate_zipfile_artifacts_none_nodes():

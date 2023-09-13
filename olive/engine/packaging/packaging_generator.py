@@ -178,7 +178,7 @@ def _generate_onnx_mlflow_model(model_dir, inference_config):
     # There will be an aphanumeric file generated in the same folder as the model file
     mlflow.onnx.save_model(
         model_proto,
-        model_dir / "mlmodel",
+        model_dir / "mlflow_model",
         onnx_execution_providers=inference_config.get("execution_provider"),
         onnx_session_options=session_dict,
     )
