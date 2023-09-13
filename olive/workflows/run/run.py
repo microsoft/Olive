@@ -195,9 +195,11 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
 
 
 def check_local_ort_installation(ep_mapping: Dict[str, str], package_name: str):
-    # check if onnxruntime is installed
+    # Don't need try except since olive itself cannot be imported and run without onnxruntime
+    # there are onnxruntime imports in many places
     import onnxruntime as ort
 
+    # check for expected ep as a heuristic to see if the correct ort package is installed
     if ep_mapping[package_name] in ort.get_available_providers():
         logger.info(f"onnxruntime installation has {ep_mapping[package_name]} as expected.")
         return
