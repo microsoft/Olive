@@ -198,6 +198,67 @@ class TestAzureMLSystem:
         else:
             assert model_json["config"]["model_path"] == resource_paths[model_resource_type]
 
+    @patch("olive.systems.azureml.aml_system.command")
+    def test__create_step(self, mock_command):
+        # setup
+        name = "name"
+        display_name = "display_name"
+        description = "description"
+        aml_environment = MagicMock()
+        code = "code"
+        compute = "compute"
+        instance_count = 1
+        inputs = {
+            "dummy_input": Input(type=AssetTypes.URI_FILE),
+        }
+        script_name = "aml_evaluation_runner.py"
+        resources = {
+            "instance_type": "instance_type",
+            "properties": {
+                "AISuperComputer": {
+                    "interactive": True,
+                    "imageVersion": "imageVersion",
+                    "slaTier": "slaTier",
+                    "priority": "priority",
+                    "tensorboardLogDirectory": "tensorboardLogDirectory",
+                    "enableAzmlInt": True,
+                }
+            },
+        }
+
+        expected_res = MagicMock()
+        mock_command.return_value = expected_res
+
+        # execute
+        actual_res = self.system._create_step(
+            name,
+            display_name,
+            description,
+            aml_environment,
+            code,
+            compute,
+            resources,
+            instance_count,
+            inputs,
+            script_name,
+        )
+
+        # assert
+        assert actual_res == expected_res
+        mock_command.assert_called_once_with(
+            name=name,
+            display_name=display_name,
+            description=description,
+            command=self.create_command(inputs),
+            resources=resources,
+            environment=aml_environment,
+            code=code,
+            inputs=inputs,
+            outputs=dict(pipeline_output=Output(type=AssetTypes.URI_FOLDER)),
+            instance_count=1,
+            compute=compute,
+        )
+
     def test__create_metric_args(self):
         # setup
         # the reason why we need resolve: sometimes, windows system would change c:\\ to C:\\ when calling resolve.
@@ -299,6 +360,7 @@ class TestAzureMLSystem:
             display_name=metric_type,
             description=f"Run olive {metric_type} evaluation",
             command=self.create_command(inputs),
+            resources=None,
             environment=self.system.environment,
             code=str(code_path),
             inputs=inputs,
