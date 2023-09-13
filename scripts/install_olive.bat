@@ -6,13 +6,20 @@ REM --------------------------------------------------------------------------
 
 set PIPELINE=%1
 set INSTALL_DEV_MODE=%2
+set DEVICE=%3
 
 rem Upgrade pip
 call echo "Upgrading pip"
 call python -m pip install --upgrade pip || goto :error
 
-rem install torch cpu version for test
-call python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+rem install torch cpu or gpu
+if "%DEVICE%"=="cpu" (
+    call echo "Installing torch cpu"
+    call python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+) else (
+    call echo "Installing torch gpu"
+    call python -m pip install torch torchvision torchaudio
+)
 
 rem Install olive
 if "%INSTALL_DEV_MODE%"=="True" (

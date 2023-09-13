@@ -22,7 +22,7 @@ jobs:
       versionSpec: 3.8
     displayName: Use Python 3.8
 
-  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[$(device)]
+  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[$(device)] DEVICE=$(device)
     displayName: Install Olive
 
   - script: make performance PIPELINE=True MODEL_NAME=$(MODEL_NAME) DEVICE=${{ parameters.device }}
