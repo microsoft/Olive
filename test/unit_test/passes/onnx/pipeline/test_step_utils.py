@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import json
-import tempfile
 from pathlib import Path
 from test.unit_test.passes.onnx.test_pre_post_processing_op import (
     convert_superresolution_model,
@@ -11,7 +10,6 @@ from test.unit_test.passes.onnx.test_pre_post_processing_op import (
 )
 
 from olive.passes.onnx.pipeline.step_utils import parse_steps
-from olive.systems.local import LocalSystem
 
 
 class CustomizedParam:
@@ -19,13 +17,12 @@ class CustomizedParam:
         self.params = params
 
 
-def test_step_parser():
+def test_step_parser(tmp_path):
     from onnxruntime_extensions.tools.pre_post_processing import TokenizerParam
 
     pytorch_model = get_superresolution_model()
-    with tempfile.TemporaryDirectory() as tempdir:
-        input_model = convert_superresolution_model(pytorch_model, tempdir, LocalSystem())
-        model = input_model.load_model()
+    input_model = convert_superresolution_model(pytorch_model, tmp_path)
+    model = input_model.load_model()
 
     step_config = Path(__file__).parent / "step_config.json"
     with step_config.open() as f:

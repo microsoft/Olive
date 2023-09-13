@@ -2,9 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import tempfile
 from copy import deepcopy
-from pathlib import Path
 from test.unit_test.utils import get_onnx_model
 
 import pytest
@@ -13,7 +11,6 @@ from onnxruntime.transformers.fusion_options import FusionOptions
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, DEFAULT_GPU_TRT_ACCELERATOR
 from olive.passes.onnx import OrtTransformersOptimization
 from olive.passes.onnx.common import get_external_data_config
-from olive.systems.local import LocalSystem
 
 
 def test_fusion_options():
@@ -39,19 +36,17 @@ def test_fusion_options():
     assert vars(olive_fusion_options) == vars(ort_fusion_options)
 
 
-def test_ort_transformer_optimization_pass():
+def test_ort_transformer_optimization_pass(tmp_path):
     # setup
-    local_system = LocalSystem()
     input_model = get_onnx_model()
     config = {"model_type": "bert"}
 
     config = OrtTransformersOptimization.generate_search_space(DEFAULT_CPU_ACCELERATOR, config, disable_search=True)
     p = OrtTransformersOptimization(DEFAULT_CPU_ACCELERATOR, config, True)
-    with tempfile.TemporaryDirectory() as tempdir:
-        output_folder = str(Path(tempdir) / "onnx")
+    output_folder = str(tmp_path / "onnx")
 
-        # execute
-        local_system.run_pass(p, input_model, None, output_folder)
+    # execute
+    p.run(input_model, None, output_folder)
 
 
 @pytest.mark.parametrize("use_gpu", [True, False])
@@ -59,8 +54,7 @@ def test_ort_transformer_optimization_pass():
 @pytest.mark.parametrize(
     "accelerator_spec", [DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR, DEFAULT_GPU_TRT_ACCELERATOR]
 )
-def test_invalid_ep_config(use_gpu, fp16, accelerator_spec):
-    local_system = LocalSystem()
+def test_invalid_ep_config(use_gpu, fp16, accelerator_spec, tmp_path):
     input_model = get_onnx_model()
     config = {"model_type": "bert", "use_gpu": use_gpu, "float16": fp16}
     config = OrtTransformersOptimization.generate_search_space(accelerator_spec, config, disable_search=True)
@@ -79,6 +73,5 @@ def test_invalid_ep_config(use_gpu, fp16, accelerator_spec):
         )
 
     if not is_pruned:
-        with tempfile.TemporaryDirectory() as tempdir:
-            output_folder = str(Path(tempdir) / "onnx")
-            local_system.run_pass(p, input_model, None, output_folder)
+        output_folder = str(tmp_path / "onnx")
+        p.run(input_model, None, output_folder)

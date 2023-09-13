@@ -79,6 +79,7 @@ autodoc_pydantic_settings_show_validator_members = False
 autodoc_pydantic_settings_show_field_summary = False
 autodoc_pydantic_settings_show_json = False
 autodoc_pydantic_field_list_validators = False
+autodoc_pydantic_settings_member_order = "bysource"  # is groupwise and alphabetical otherwise
 
 # disable the anchor check since https://github.com/sphinx-doc/sphinx/issues/9016
 # we could enable it when the issue is fixed

@@ -17,6 +17,7 @@ Note that this example config uses [openlm-research/open_llama_3b](https://huggi
 | [openlm-research/open_llama_7b](https://huggingface.co/openlm-research/open_llama_7b) | 32 | 32 | 4096 |
 | [openlm-research/open_llama_13b](https://huggingface.co/openlm-research/open_llama_13b) | 40 | 40 | 5120 |
 
+Requirements file: [requirements.txt](requirements.txt)
 
 When you run the example config for other larger models, you may need
 1. change the `model_path` to the one you use in `open_llama_config.json` and `user_script.py`.
@@ -70,11 +71,21 @@ Inference is done like a normal pytorch model.
 
 The relevant config file is [open_llama_sparsegpt_gpu.json](open_llama_sparsegpt_gpu.json)
 
+Requirements file: [requirements-sparsegpt.txt](requirements-sparsegpt.txt)
+
+### Fine-tune Llama Model using QLoRA
+This workflow fine-tunes LLaMA model using [QLoRA](https://arxiv.org/abs/2305.14314). The output model is still the input transformers model along with a quantization config and
+LoRA adapters that were fine-tuned on the training dataset.
+
+The relevant configfile is [llama_qlora.json](llama_qlora.json). It corresponds to the [guqnaco 7b example in the original qlora implementation](https://github.com/artidoro/qlora/blob/main/scripts/finetune_guanaco_7b.sh).
+
+Requirements file: [requirements-qlora.txt](requirements-qlora.txt)
+
 ## How to run
 ### Pip requirements
-Install the necessary python packages:
+Install the necessary python packages using the corresponding requirements file.
 ```
-python -m pip install -r requirements.txt
+python -m pip install -r <requirements_file>.txt
 ```
 
 ### Run sample using config

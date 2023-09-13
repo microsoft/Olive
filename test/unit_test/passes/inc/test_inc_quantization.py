@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import platform
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -15,62 +14,57 @@ from olive.model import PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.passes.onnx.inc_quantization import IncDynamicQuantization, IncQuantization, IncStaticQuantization
-from olive.systems.local import LocalSystem
 
 
 @pytest.mark.skipif(
     platform.system() == "Windows", reason="Skip test on Windows. neural-compressor import is hanging on Windows."
 )
-def test_inc_quantization():
-    with tempfile.TemporaryDirectory() as tempdir:
-        # setup
-        ov_model = get_onnx_model(tempdir)
-        local_system = LocalSystem()
-        data_dir = Path(tempdir) / "data"
-        data_dir.mkdir(exist_ok=True)
-        config = {"data_dir": data_dir, "dataloader_func": create_dataloader}
-        output_folder = str(Path(tempdir) / "quantized")
+def test_inc_quantization(tmp_path):
+    ov_model = get_onnx_model(tmp_path)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir(exist_ok=True)
+    config = {"data_dir": data_dir, "dataloader_func": create_dataloader}
+    output_folder = str(tmp_path / "quantized")
 
-        # create IncQuantization pass
-        p = create_pass_from_dict(IncQuantization, config, disable_search=True)
-        # execute
-        quantized_model = local_system.run_pass(p, ov_model, None, output_folder)
-        # assert
-        assert quantized_model.model_path.endswith(".onnx")
-        assert Path(quantized_model.model_path).exists()
-        assert Path(quantized_model.model_path).is_file()
-        assert "QLinearConv" in [node.op_type for node in quantized_model.load_model().graph.node]
+    # create IncQuantization pass
+    p = create_pass_from_dict(IncQuantization, config, disable_search=True)
+    # execute
+    quantized_model = p.run(ov_model, None, output_folder)
+    # assert
+    assert quantized_model.model_path.endswith(".onnx")
+    assert Path(quantized_model.model_path).exists()
+    assert Path(quantized_model.model_path).is_file()
+    assert "QLinearConv" in [node.op_type for node in quantized_model.load_model().graph.node]
 
-        # clean
-        del p
-        # create IncDynamicQuantization pass
-        p = create_pass_from_dict(IncDynamicQuantization, config, disable_search=True)
-        # execute
-        quantized_model = local_system.run_pass(p, ov_model, None, output_folder)
-        # assert
-        assert quantized_model.model_path.endswith(".onnx")
-        assert Path(quantized_model.model_path).exists()
-        assert Path(quantized_model.model_path).is_file()
-        assert "DynamicQuantizeLinear" in [node.op_type for node in quantized_model.load_model().graph.node]
+    # clean
+    del p
+    # create IncDynamicQuantization pass
+    p = create_pass_from_dict(IncDynamicQuantization, config, disable_search=True)
+    # execute
+    quantized_model = p.run(ov_model, None, output_folder)
+    # assert
+    assert quantized_model.model_path.endswith(".onnx")
+    assert Path(quantized_model.model_path).exists()
+    assert Path(quantized_model.model_path).is_file()
+    assert "DynamicQuantizeLinear" in [node.op_type for node in quantized_model.load_model().graph.node]
 
-        # clean
-        del p
-        # create IncStaticQuantization pass
-        p = create_pass_from_dict(IncStaticQuantization, config, disable_search=True)
-        # execute
-        quantized_model = local_system.run_pass(p, ov_model, None, output_folder)
-        # assert
-        assert quantized_model.model_path.endswith(".onnx")
-        assert Path(quantized_model.model_path).exists()
-        assert Path(quantized_model.model_path).is_file()
-        assert "QLinearConv" in [node.op_type for node in quantized_model.load_model().graph.node]
+    # clean
+    del p
+    # create IncStaticQuantization pass
+    p = create_pass_from_dict(IncStaticQuantization, config, disable_search=True)
+    # execute
+    quantized_model = p.run(ov_model, None, output_folder)
+    # assert
+    assert quantized_model.model_path.endswith(".onnx")
+    assert Path(quantized_model.model_path).exists()
+    assert Path(quantized_model.model_path).is_file()
+    assert "QLinearConv" in [node.op_type for node in quantized_model.load_model().graph.node]
 
 
-def get_onnx_model(tempdir):
-    local_system = LocalSystem()
+def get_onnx_model(tmp_path):
     torch_hub_model_path = "chenyaofo/pytorch-cifar-models"
     pytorch_hub_model_name = "cifar10_mobilenetv2_x1_0"
-    torch.hub.set_dir(tempdir)
+    torch.hub.set_dir(tmp_path)
     pytorch_model = PyTorchModel(
         model_loader=lambda torch_hub_model_path: torch.hub.load(torch_hub_model_path, pytorch_hub_model_name),
         model_path=torch_hub_model_path,
@@ -79,10 +73,10 @@ def get_onnx_model(tempdir):
     onnx_conversion_config = {}
 
     p = create_pass_from_dict(OnnxConversion, onnx_conversion_config, disable_search=True)
-    output_folder = str(Path(tempdir) / "onnx")
+    output_folder = str(tmp_path / "onnx")
 
     # execute
-    onnx_model = local_system.run_pass(p, pytorch_model, None, output_folder)
+    onnx_model = p.run(pytorch_model, None, output_folder)
     return onnx_model
 
 

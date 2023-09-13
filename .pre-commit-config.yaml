@@ -6,6 +6,7 @@ repos:
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
       - id: check-yaml
+      - id: requirements-txt-fixer
 
   - repo: https://github.com/psf/black
     rev: 22.3.0

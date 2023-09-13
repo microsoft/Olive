@@ -14,7 +14,7 @@ from pydantic import Field, validator
 from transformers import AutoConfig, AutoModel, AutoTokenizer
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
-from olive.model.hf_mappings import MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
+from olive.model.hf_mappings import FEATURE_TO_PEFT_TASK_TYPE, MODELS_TO_MAX_LENGTH_MAPPING, TASK_TO_FEATURE
 from olive.model.model_config import IOConfig
 
 logger = logging.getLogger(__name__)
@@ -286,7 +286,6 @@ def load_huggingface_model_from_model_class(model_class: str, name: str, **kwarg
     """
     Load huggingface model from model_loader and name
     """
-    kwargs = kwargs or {}
     return huggingface_model_loader(model_class)(name, **kwargs)
 
 
@@ -370,6 +369,18 @@ def get_hf_model_dummy_input(model_name: str, task: str, feature: Optional[str] 
     return model_config.generate_dummy_inputs(tokenizer, framework="pt")
 
 
+def get_peft_task_type_from_task(task: str, fail_on_not_found=False) -> str:
+    """Get peft task type from feature"""
+    feature = TASK_TO_FEATURE.get(task, None)
+    peft_task_type = FEATURE_TO_PEFT_TASK_TYPE.get(feature, None) if feature else None
+    not_found_msg = f"There is no peft task type for task {task}"
+    if peft_task_type is None and fail_on_not_found:
+        raise ValueError(not_found_msg)
+    elif peft_task_type is None:
+        logger.warning(not_found_msg)
+    return peft_task_type
+
+
 def get_model_max_length(model_name: str, fail_on_not_found=False) -> int:
     """
     Get max length of the model, extracted from the config
@@ -391,7 +402,9 @@ def get_model_max_length(model_name: str, fail_on_not_found=False) -> int:
         try:
             return getattr(model_config, default_max_length)
         except AttributeError:
+            not_found_msg = f"Could not find max length for model type {model_type}"
             if fail_on_not_found:
-                raise ValueError(f"Could not find max length for model type {model_type}")
+                raise ValueError(not_found_msg)
             else:
+                logger.warning(not_found_msg)
                 return None

@@ -23,6 +23,17 @@ TASK_TO_FEATURE = {
     "translation": "seq2seq-lm",
 }
 
+# mapping from feature to peft task type
+# refer to peft.utils.peft_types.TaskType for all possible values
+FEATURE_TO_PEFT_TASK_TYPE = {
+    "sequence-classification": "SEQ_CLS",
+    "seq2seq-lm": "SEQ_2_SEQ_LM",
+    "causal-lm": "CAUSAL_LM",
+    "token-classification": "TOKEN_CLS",
+    "question-answering": "QUESTION_ANS",
+    # TODO: see if we need feature extraction
+}
+
 # model_type -> name for layers
 MODELS_TO_LAYERS_MAPPING = {
     "bloom": "transformer.h",

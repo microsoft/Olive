@@ -1,4 +1,4 @@
+onnxruntime-gpu>=1.15.1
+optimum>=1.11.0
 torch>=2.0.0
 transformers>=4.31.0
-optimum>=1.11.0
-onnxruntime-gpu>=1.15.1

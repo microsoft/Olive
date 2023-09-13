@@ -1,16 +1,11 @@
-import tempfile
-from pathlib import Path
-
 from olive.model import ONNXModel, PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.append_pre_post_processing_ops import AppendPrePostProcessingOps
 from olive.passes.onnx.conversion import OnnxConversion
-from olive.systems.local import LocalSystem
 
 
-def test_pre_post_processing_op():
+def test_pre_post_processing_op(tmp_path):
     # setup
-    local_system = LocalSystem()
     p = create_pass_from_dict(
         AppendPrePostProcessingOps,
         {"tool_command": "superresolution", "tool_command_args": {"output_format": "png"}},
@@ -18,15 +13,14 @@ def test_pre_post_processing_op():
     )
 
     pytorch_model = get_superresolution_model()
-    with tempfile.TemporaryDirectory() as tempdir:
-        input_model = convert_superresolution_model(pytorch_model, tempdir, local_system)
-        output_folder = str(Path(tempdir) / "onnx")
+    input_model = convert_superresolution_model(pytorch_model, tmp_path)
+    output_folder = str(tmp_path / "onnx")
 
-        # execute
-        local_system.run_pass(p, input_model, None, output_folder)
+    # execute
+    p.run(input_model, None, output_folder)
 
 
-def test_pre_post_pipeline():
+def test_pre_post_pipeline(tmp_path):
     config = {
         "pre": [
             {"ConvertImageToBGR": {}},
@@ -108,23 +102,21 @@ def test_pre_post_pipeline():
     )
     assert p is not None
 
-    local_system = LocalSystem()
     pytorch_model = get_superresolution_model()
-    with tempfile.TemporaryDirectory() as tempdir:
-        input_model = convert_superresolution_model(pytorch_model, tempdir, local_system)
-        input_model_graph = input_model.get_graph()
-        assert input_model_graph.node[0].op_type == "Conv"
-        output_folder = str(Path(tempdir) / "onnx_pre_post")
+    input_model = convert_superresolution_model(pytorch_model, tmp_path)
+    input_model_graph = input_model.get_graph()
+    assert input_model_graph.node[0].op_type == "Conv"
+    output_folder = str(tmp_path / "onnx_pre_post")
 
-        # execute
-        model = local_system.run_pass(p, input_model, None, output_folder)
-        assert model is not None
-        assert isinstance(model, ONNXModel)
-        graph = model.get_graph()
+    # execute
+    model = p.run(input_model, None, output_folder)
+    assert model is not None
+    assert isinstance(model, ONNXModel)
+    graph = model.get_graph()
 
-        # assert the first node is ConvertImageToBGR
-        assert graph.node[0].op_type == "DecodeImage"
-        assert graph.node[0].domain == "com.microsoft.extensions"
+    # assert the first node is ConvertImageToBGR
+    assert graph.node[0].op_type == "DecodeImage"
+    assert graph.node[0].domain == "com.microsoft.extensions"
 
 
 def get_superresolution_model():
@@ -188,8 +180,8 @@ def get_superresolution_model():
     return pytorch_model
 
 
-def convert_superresolution_model(pytorch_model, tempdir, local_system):
+def convert_superresolution_model(pytorch_model, tmp_path):
     onnx_conversion_pass = create_pass_from_dict(OnnxConversion, {"target_opset": 15}, disable_search=True)
-    onnx_model = local_system.run_pass(onnx_conversion_pass, pytorch_model, None, str(Path(tempdir) / "onnx"))
+    onnx_model = onnx_conversion_pass.run(pytorch_model, None, str(tmp_path / "onnx"))
 
     return onnx_model
