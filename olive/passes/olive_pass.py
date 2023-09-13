@@ -394,11 +394,11 @@ class Pass(ABC):
             component_names = []
             for cidx, child in enumerate(model.get_model_components()):
                 component_output_path = Path(output_model_path).with_suffix("") / str(cidx)
-                output_model_components = self._run_for_config(child, data_root, config, str(component_output_path))
-                output_model_components.model_attributes = (
-                    output_model_components.model_attributes or child.model_attributes
+                output_model_component = self._run_for_config(child, data_root, config, str(component_output_path))
+                output_model_component.model_attributes = (
+                    output_model_component.model_attributes or child.model_attributes
                 )
-                components.append(output_model_components)
+                components.append(output_model_component)
                 component_names.append(model.get_model_component_name(cidx))
             output_model = CompositeOnnxModel(components, component_names)
         else:

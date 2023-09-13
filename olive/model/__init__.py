@@ -397,7 +397,6 @@ class ONNXModel(ONNXModelBase):
                 "onnx_file_name": self.onnx_file_name,
                 "inference_settings": self.inference_settings,
                 "use_ort_extensions": self.use_ort_extensions,
-                "model_attributes": self.model_attributes,
             }
         )
         return serialize_to_json(config, check_object)
@@ -709,7 +708,6 @@ class PyTorchModel(OliveModel):
                 "io_config": self.io_config,
                 "dummy_inputs_func": self.dummy_inputs_func,
                 "hf_config": self.hf_config,
-                "model_attributes": self.model_attributes,
             }
         )
         # convert script_dir and model_script to string
