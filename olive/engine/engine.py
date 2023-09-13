@@ -333,59 +333,61 @@ class Engine:
                 # generate search space and initialize the passes for each hardware accelerator
                 self.setup_passes(accelerator_spec)
 
-            # hash the input model
-            input_model_id = self._init_input_model(input_model_config)
-            self.footprints[accelerator_spec].record(model_id=input_model_id)
+                # hash the input model
+                input_model_id = self._init_input_model(input_model_config)
+                self.footprints[accelerator_spec].record(model_id=input_model_id)
 
-            try:
-                if evaluate_input_model:
-                    prefix_output_name = (
-                        f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
-                    )
-                    assert self.evaluator_config is not None, "evaluate_input_model is True but no evaluator provided"
-                    results = self._evaluate_model(
-                        input_model_config, input_model_id, data_root, self.evaluator_config, accelerator_spec
-                    )
-                    logger.info(f"Input model evaluation results: {results}")
-                    result_name = f"{prefix_output_name}_input_model_metrics"
-                    results_path = output_dir / f"{result_name}.json"
-                    with open(results_path, "w") as f:
-                        json.dump(results.to_json(), f, indent=4)
-                    logger.info(f"Saved evaluation results of input model to {results_path}")
-                    outputs[accelerator_spec] = results
-                    if not self.passes:
-                        logger.debug("No passes registered, return input model evaluation results.")
-                        return outputs
-
-                if self.no_search:
-                    output, model_ids = self.run_no_search(
-                        input_model_config,
-                        input_model_id,
-                        data_root,
-                        accelerator_spec,
-                        output_dir,
-                        output_name,
-                    )
-                    if output:
-                        outputs[accelerator_spec] = output
-                        pf_footprints[accelerator_spec] = self.footprints[accelerator_spec].get_footprints_by_model_ids(
-                            model_ids
+                try:
+                    if evaluate_input_model:
+                        prefix_output_name = (
+                            f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}"
                         )
-                else:
-                    footprint = self.run_search(
-                        input_model_config,
-                        input_model_id,
-                        data_root,
-                        accelerator_spec,
-                        output_dir,
-                        output_name,
-                    )
-                    outputs[accelerator_spec] = footprint
-                    pf_footprints[accelerator_spec] = footprint
-            except EXCEPTIONS_TO_RAISE:
-                raise
-            except Exception as e:
-                logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
+                        assert (
+                            self.evaluator_config is not None
+                        ), "evaluate_input_model is True but no evaluator provided"
+                        results = self._evaluate_model(
+                            input_model_config, input_model_id, data_root, self.evaluator_config, accelerator_spec
+                        )
+                        logger.info(f"Input model evaluation results: {results}")
+                        result_name = f"{prefix_output_name}_input_model_metrics"
+                        results_path = output_dir / f"{result_name}.json"
+                        with open(results_path, "w") as f:
+                            json.dump(results.to_json(), f, indent=4)
+                        logger.info(f"Saved evaluation results of input model to {results_path}")
+                        outputs[accelerator_spec] = results
+                        if not self.passes:
+                            logger.debug("No passes registered, return input model evaluation results.")
+                            return outputs
+
+                    if self.no_search:
+                        output, model_ids = self.run_no_search(
+                            input_model_config,
+                            input_model_id,
+                            data_root,
+                            accelerator_spec,
+                            output_dir,
+                            output_name,
+                        )
+                        if output:
+                            outputs[accelerator_spec] = output
+                            pf_footprints[accelerator_spec] = self.footprints[
+                                accelerator_spec
+                            ].get_footprints_by_model_ids(model_ids)
+                    else:
+                        footprint = self.run_search(
+                            input_model_config,
+                            input_model_id,
+                            data_root,
+                            accelerator_spec,
+                            output_dir,
+                            output_name,
+                        )
+                        outputs[accelerator_spec] = footprint
+                        pf_footprints[accelerator_spec] = footprint
+                except EXCEPTIONS_TO_RAISE:
+                    raise
+                except Exception as e:
+                    logger.warning(f"Failed to run Olive on {accelerator_spec}: {e}", exc_info=True)
 
         for accelerator_spec in self.footprints.keys():
             logger.info(f"Run history for {accelerator_spec}:")
@@ -1103,7 +1105,7 @@ class Engine:
 
     def _evaluate_model(
         self,
-        model: ModelConfig,
+        model_config: ModelConfig,
         model_id: str,
         data_root: str,
         evaluator_config: OliveEvaluatorConfig,
@@ -1137,8 +1139,8 @@ class Engine:
         # evaluate model
         metrics = evaluator_config.metrics if evaluator_config else []
         if self.target.system_type != SystemType.AzureML:
-            model = self._prepare_non_local_model(model)
-        signal = self.target.evaluate_model(model, data_root, metrics, accelerator_spec)
+            model_config = self._prepare_non_local_model(model_config)
+        signal = self.target.evaluate_model(model_config, data_root, metrics, accelerator_spec)
 
         # cache evaluation
         self._cache_evaluation(model_id_with_accelerator, signal)
