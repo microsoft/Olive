@@ -85,11 +85,11 @@ class PythonEnvironmentSystem(OliveSystem):
     def run_pass(
         self,
         the_pass: Pass,
-        model: OliveModel,
+        model_config: ModelConfig,
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> OliveModel:
+    ) -> ModelConfig:
         """
         Run the pass on the model at a specific point in the search space.
         """
@@ -130,18 +130,19 @@ class PythonEnvironmentSystem(OliveSystem):
         return output_model
 
     def evaluate_model(
-        self, model: OliveModel, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
     ) -> MetricResult:
         """
         Evaluate the model
         """
-        if not isinstance(model, ONNXModel):
+        if not model_config.type == "ONNXModel":
             raise ValueError("PythonEnvironmentSystem can only evaluate ONNXModel.")
 
         # check if custom metric is present
         if any(metric.type == MetricType.CUSTOM for metric in metrics):
             raise ValueError("PythonEnvironmentSystem does not support custom metrics.")
 
+        model = model_config.create_model()
         metrics_res = {}
         for original_metric in metrics:
             metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)

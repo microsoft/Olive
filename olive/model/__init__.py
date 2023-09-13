@@ -31,7 +31,6 @@ from olive.resource_path import (
     ResourcePathConfig,
     ResourceType,
     create_resource_path,
-    resolve_local_resource,
 )
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
@@ -46,6 +45,8 @@ class OliveModel(ABC):
     Each technique accepts Model as input, return Model as output.
     """
 
+    resource_keys = ["model_path"]
+
     @classmethod
     def __init_subclass__(cls, **kwargs) -> None:
         """Register the model."""
@@ -57,8 +58,6 @@ class OliveModel(ABC):
         framework: Framework,
         model_file_format: ModelFileFormat,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
-        # resources other than model_path, e.g.: path to model adapter
-        resources: Optional[Dict[str, OLIVE_RESOURCE_ANNOTATIONS]] = None,
         model_attributes: Optional[Dict[str, Any]] = None,
     ):
         self.framework = framework
@@ -68,19 +67,25 @@ class OliveModel(ABC):
         self.io_config = None
         # store resource paths
         self.resource_paths: Dict[str, ResourcePath] = {}
-        # this is for storing local instances of resource paths
-        self.local_resource_paths: Dict[str, ResourcePath] = {}
-        resources = resources or {}
+        resources = {}
         resources["model_path"] = model_path
-        for resource_name, resource_path in resources.items():
-            self.resource_paths[resource_name] = create_resource_path(resource_path)
-            # initialize local resource paths to None
-            self.local_resource_paths[resource_name] = None
+        self.set_resources(resources)
 
     @property
     def model_path(self) -> str:
         """Return local model path."""
-        return self.get_local_resource("model_path")
+        return self.get_resource("model_path")
+
+    def set_resources(self, resources: Dict[str, OLIVE_RESOURCE_ANNOTATIONS]):
+        for resource_name, resource_path in resources.items():
+            if resource_path is not None:
+                resolved_resource_path = create_resource_path(resource_path)
+                assert (
+                    resolved_resource_path.is_local_resource_or_string_name()
+                ), f"{resource_name} must be local path or string name."
+                self.resource_paths[resource_name] = resolved_resource_path.get_path()
+            else:
+                self.resource_paths[resource_name] = None
 
     def set_resource(self, resource_name: str, resource_path: Union[Path, str, ResourcePath, ResourcePathConfig]):
         """
@@ -93,10 +98,17 @@ class OliveModel(ABC):
             raise ValueError(f"{resource_name} is not a valid resource name.")
         if self.resource_paths[resource_name]:
             logger.debug(f"Overriding {resource_name} from {self.resource_paths[resource_name]} to {resource_path}.")
-        self.resource_paths[resource_name] = create_resource_path(resource_path)
-        self.local_resource_paths[resource_name] = None
 
-    def get_local_resource(self, resource_name: str) -> str:
+        if resource_path is not None:
+            resolved_resource_path = create_resource_path(resource_path)
+            assert (
+                resolved_resource_path.is_local_resource_or_string_name()
+            ), f"{resource_name} must be local path or string name."
+            resource_path = resolved_resource_path.get_path()
+
+        self.resource_paths[resource_name] = resource_path
+
+    def get_resource(self, resource_name: str) -> str:
         """
         Get local path of a resource.
 
@@ -104,30 +116,7 @@ class OliveModel(ABC):
         :return: local path.
         """
         assert resource_name in self.resource_paths, f"{resource_name} is not a valid resource name."
-        resource_path = self.resource_paths[resource_name]
-        local_resource_path = self.local_resource_paths[resource_name]
-        local_path = resolve_local_resource(resource_path, local_resource_path)
-        if not local_path and resource_path:
-            raise ValueError(
-                f"{resource_name} is not local and not downloaded yet. Please call download_model() or"
-                f" set_local_resource for {resource_name} first."
-            )
-        return local_path
-
-    def set_local_resource(self, resource_name: str, local_path: Union[Path, str, ResourcePath, ResourcePathConfig]):
-        """
-        Set local path of a resource.
-
-        :param resource_name: name of the resource.
-        :param local_path: local path.
-        """
-        if resource_name not in self.resource_paths:
-            raise ValueError(f"{resource_name} is not a valid resource name.")
-        local_resource_path = create_resource_path(local_path)
-        assert (
-            local_resource_path.is_local_resource() or local_resource_path.is_string_name()
-        ), f"{resource_name} must be local path."
-        self.local_resource_paths[resource_name] = local_resource_path
+        return self.resource_paths[resource_name]
 
     @abstractmethod
     def load_model(self, rank: int = None) -> object:
@@ -165,7 +154,7 @@ class OliveModel(ABC):
             "type": self.__class__.__name__,
             "config": {
                 # serialize resource paths
-                resource_name: resource_path.to_json() if resource_path else None
+                resource_name: resource_path if resource_path else None
                 for resource_name, resource_path in self.resource_paths.items()
             },
         }
@@ -182,6 +171,14 @@ class ModelConfig(ConfigBase):
         if v.lower() not in REGISTRY:
             raise ValueError(f"Unknown model type {v}")
         return v
+
+    def get_resource_keys(self):
+        cls = REGISTRY[self.type.lower()]
+        return cls.resource_keys
+
+    def get_resource_paths(self):
+        resource_keys = self.get_resource_keys()
+        return {k: create_resource_path(v) for k, v in self.config.items() if k in resource_keys}
 
     def create_model(self):
         return REGISTRY[self.type.lower()](**self.config)
@@ -260,8 +257,11 @@ class ONNXModel(ONNXModelBase):
 
         # if model_path is local folder, check for onnx file name
         model_resource_path = self.resource_paths["model_path"]
-        if model_resource_path and model_resource_path.type == ResourceType.LocalFolder:
-            self.get_onnx_file_path(model_resource_path.get_path(), self.onnx_file_name)
+        if model_resource_path:
+            if isinstance(model_resource_path, ResourcePath) and model_resource_path.type == ResourceType.LocalFolder:
+                self.get_onnx_file_path(model_resource_path.get_path(), self.onnx_file_name)
+            else:
+                self.get_onnx_file_path(model_resource_path, self.onnx_file_name)
 
     @staticmethod
     def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) -> str:
@@ -476,6 +476,8 @@ class ONNXModel(ONNXModelBase):
 
 
 class PyTorchModel(OliveModel):
+    resource_keys = ["model_path", "script_dir", "model_script", "adapter_path"]
+
     def __init__(
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
@@ -505,11 +507,12 @@ class PyTorchModel(OliveModel):
             framework=Framework.PYTORCH,
             model_file_format=model_file_format,
             model_path=model_path,
-            resources={"adapter_path": adapter_path, "script_dir": script_dir, "model_script": model_script},
             model_attributes=model_attributes,
         )
-        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
+        resources = {"adapter_path": adapter_path, "script_dir": script_dir, "model_script": model_script}
+        self.set_resources(resources)
 
+        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
         # ensure that model_script and script_dirs are local
         for resource_name in ["script_dir", "model_script"]:
             if self.resource_paths[resource_name]:
@@ -525,11 +528,11 @@ class PyTorchModel(OliveModel):
 
     @property
     def script_dir(self) -> str:
-        return self.get_local_resource("script_dir")
+        return self.get_resource("script_dir")
 
     @property
     def model_script(self) -> str:
-        return self.get_local_resource("model_script")
+        return self.get_resource("model_script")
 
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
@@ -553,7 +556,7 @@ class PyTorchModel(OliveModel):
                 raise ValueError(f"Unsupported model file format: {self.model_file_format}")
 
         # we only have peft adapters for now
-        adapter_path = self.get_local_resource("adapter_path")
+        adapter_path = self.get_resource("adapter_path")
         if adapter_path:
             from peft import PeftModel
 

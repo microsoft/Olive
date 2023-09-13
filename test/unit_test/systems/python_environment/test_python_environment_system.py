@@ -5,7 +5,7 @@
 import pickle
 import sys
 from pathlib import Path
-from test.unit_test.utils import get_accuracy_metric, get_latency_metric, get_onnx_model
+from test.unit_test.utils import get_accuracy_metric, get_latency_metric, get_onnx_model, get_onnx_model_config
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -44,6 +44,9 @@ class TestPythonEnvironmentSystem:
     def test_evaluate_model(self, _, mock_evaluate_latency, mock_evaluate_accuracy):
         # setup
         model = get_onnx_model()
+        model_config = MagicMock()
+        model_config.type = "ONNXModel"
+        model_config.create_model.return_value = model
         metrics = [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE), get_latency_metric(LatencySubType.AVG)]
 
         metrics_key = [
@@ -68,7 +71,7 @@ class TestPythonEnvironmentSystem:
         )
 
         # execute
-        res = self.system.evaluate_model(model, None, metrics, DEFAULT_CPU_ACCELERATOR)
+        res = self.system.evaluate_model(model_config, None, metrics, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         assert res[metrics_key[0]].value == 0.9
@@ -79,7 +82,7 @@ class TestPythonEnvironmentSystem:
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy")
     def test_evaluate_accuracy(self, mock_compute_accuracy):
         # setup
-        model = get_onnx_model()
+        model_config = get_onnx_model_config()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, random_dataloader=False)
         mock_value = MetricResult.parse_obj(
             {
@@ -94,12 +97,12 @@ class TestPythonEnvironmentSystem:
 
         # expected result
         local_system = LocalSystem()
-        expected_res = local_system.evaluate_model(model, None, [metric], DEFAULT_CPU_ACCELERATOR)[
+        expected_res = local_system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)[
             "accuracy-accuracy_score"
         ]
 
         # execute
-        actual_res = self.system.evaluate_model(model, None, [metric], DEFAULT_CPU_ACCELERATOR)[
+        actual_res = self.system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)[
             "accuracy-accuracy_score"
         ]
 
@@ -118,7 +121,7 @@ class TestPythonEnvironmentSystem:
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_latency")
     def test_evaluate_latency(self, mock_compute_latency):
         # setup
-        model = get_onnx_model()
+        model_config = get_onnx_model_config()
         metric = get_latency_metric(LatencySubType.AVG)
         metric_config = metric.sub_types[0].metric_config
         metric_config.repeat_test_num = 5
@@ -138,7 +141,7 @@ class TestPythonEnvironmentSystem:
         expected_res = 10
 
         # execute
-        actual_res = self.system.evaluate_latency(model, None, metric, DEFAULT_CPU_ACCELERATOR)
+        actual_res = self.system.evaluate_latency(model_config.create_model(), None, metric, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         assert actual_res[LatencySubType.AVG].value == expected_res

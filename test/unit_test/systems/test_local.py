@@ -10,6 +10,7 @@ import pytest
 from olive.constants import Framework
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult, MetricType, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
+from olive.model import PyTorchModel
 from olive.systems.local import LocalSystem
 
 
@@ -21,6 +22,7 @@ class TestLocalSystem:
     def test_run_pass(self):
         # setup
         p = MagicMock()
+        p.run.return_value = PyTorchModel("model_path")
         olive_model = MagicMock()
         output_model_path = "output_model_path"
 
@@ -28,7 +30,7 @@ class TestLocalSystem:
         self.system.run_pass(p, olive_model, None, output_model_path)
 
         # assert
-        p.run.assert_called_once_with(olive_model, None, output_model_path, None)
+        p.run.assert_called_once_with(olive_model.create_model(), None, output_model_path, None)
 
     METRIC_TEST_CASE = [
         (get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)),
@@ -64,8 +66,11 @@ class TestLocalSystem:
         self, _, mock_evaluate_custom, mock_evaluate_latency, mock_evaluate_accuracy, mock_get_user_config, metric
     ):
         # setup
-        olive_model = MagicMock()
+        olive_model_config = MagicMock()
+        olive_model = olive_model_config.create_model()
         olive_model.framework = Framework.ONNX
+
+        # olive_model.framework = Framework.ONNX
         expected_res = MetricResult.parse_obj(
             {
                 sub_metric.name: {
@@ -82,7 +87,7 @@ class TestLocalSystem:
         mock_get_user_config.return_value = (None, None, None)
 
         # execute
-        actual_res = self.system.evaluate_model(olive_model, None, [metric], DEFAULT_CPU_ACCELERATOR)
+        actual_res = self.system.evaluate_model(olive_model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)
         # assert
         if metric.type == MetricType.ACCURACY:
             mock_evaluate_accuracy.assert_called_once_with(

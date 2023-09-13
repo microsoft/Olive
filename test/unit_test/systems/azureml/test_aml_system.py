@@ -6,8 +6,9 @@ import json
 import os
 import shutil
 import tempfile
+from copy import deepcopy
 from pathlib import Path
-from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_latency_metric, get_pytorch_model
+from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_latency_metric, get_pytorch_model_config
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -17,7 +18,7 @@ from azure.ai.ml.constants import AssetTypes
 from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
-from olive.model import ONNXModel
+from olive.model import ModelConfig, ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
 from olive.resource_path import AzureMLModel, ResourceType, create_resource_path
@@ -64,7 +65,7 @@ class TestAzureMLSystem:
     @patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory")
     def test_evaluate_model(self, mock_tempdir, mock_create_pipeline, mock_retry_func, metric):
         # setup
-        olive_model = get_pytorch_model()
+        model_config = get_pytorch_model_config()
         output_folder = Path(__file__).absolute().parent / "output_metrics"
         mock_tempdir.return_value.__enter__.return_value = output_folder
         ml_client = MagicMock()
@@ -73,11 +74,11 @@ class TestAzureMLSystem:
         self.system.azureml_client_config.operation_retry_interval = 5
 
         # execute
-        res = self.system.evaluate_model(olive_model, None, [metric], DEFAULT_CPU_ACCELERATOR)
+        res = self.system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
         mock_create_pipeline.assert_called_once_with(
-            None, output_folder, olive_model, [metric], DEFAULT_CPU_ACCELERATOR
+            None, output_folder, model_config, [metric], DEFAULT_CPU_ACCELERATOR
         )
         ml_client.jobs.stream.assert_called_once()
         assert mock_retry_func.call_count == 2
@@ -117,7 +118,7 @@ class TestAzureMLSystem:
 
         onnx_conversion_config = {}
         p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
-        olive_model = get_pytorch_model()
+        model_config = get_pytorch_model_config()
         output_model_path = tmp_dir_path / "output_folder" / "output_model_path"
         output_model_path.mkdir(parents=True, exist_ok=True)
         # create dummy output model so that ONNXModel can be created with the same path
@@ -126,7 +127,11 @@ class TestAzureMLSystem:
             f.write("dummy")
         output_folder = tmp_dir_path
 
-        expected_model = ONNXModel(model_path=expected_model_path)
+        config = deepcopy(dummy_config)
+        config.pop("same_resources_as_input")
+        config.pop("resource_names")
+        config["config"]["model_path"]["config"]["path"] = str(expected_model_path)
+        expected_model_config = ModelConfig.parse_obj(config)
         ml_client = MagicMock()
         self.system.azureml_client_config.create_client.return_value = ml_client
         self.system.azureml_client_config.max_operation_retries = 3
@@ -135,13 +140,13 @@ class TestAzureMLSystem:
         with patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory") as mock_tempdir:
             mock_tempdir.return_value.__enter__.return_value = output_folder
             # execute
-            actual_res = self.system.run_pass(p, olive_model, None, output_model_path)
+            actual_res = self.system.run_pass(p, model_config, None, output_model_path)
 
         # assert
-        mock_create_pipeline.assert_called_once_with(None, output_folder, olive_model, p.to_json(), p.path_params)
+        mock_create_pipeline.assert_called_once_with(None, output_folder, model_config, p.to_json(), p.path_params)
         assert mock_retry_func.call_count == 2
         ml_client.jobs.stream.assert_called_once()
-        assert expected_model.to_json() == actual_res.to_json()
+        assert expected_model_config.to_json() == actual_res.to_json()
 
     @pytest.mark.parametrize(
         "model_resource_type",

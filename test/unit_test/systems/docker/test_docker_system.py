@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import tempfile
 from pathlib import Path
-from test.unit_test.utils import get_accuracy_metric, get_pytorch_model
+from test.unit_test.utils import get_accuracy_metric, get_pytorch_model_config
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -136,7 +136,7 @@ class TestDockerSystem:
             self.mock_from_env.return_value.containers.run.return_value.logs.return_value = [b"mock_error"]
         tempdir = self.tmp_dir.name
         self.mock_tempdir.return_value.__enter__.return_value = tempdir
-        olive_model = get_pytorch_model()
+        model_config = get_pytorch_model_config()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         docker_config = LocalDockerConfig(
             image_name="image_name", build_context_path="build_context_path", dockerfile="dockerfile"
@@ -179,13 +179,13 @@ class TestDockerSystem:
                 docker.errors.ContainerError,
                 match=r".*returned non-zero exit status 1: Docker container evaluation failed with: mock_error",
             ):
-                actual_res = docker_system.evaluate_model(olive_model, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
+                actual_res = docker_system.evaluate_model(model_config, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
         else:
-            actual_res = docker_system.evaluate_model(olive_model, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
+            actual_res = docker_system.evaluate_model(model_config, data_root, [metric], DEFAULT_CPU_ACCELERATOR)
             # assert
             self.mock_create_eval_script_mount.assert_called_once_with(container_root_path)
             self.mock_create_model_mount.assert_called_once_with(
-                model=olive_model, container_root_path=container_root_path
+                model_config=model_config, container_root_path=container_root_path
             )
             dev_mount_path = f"{Path(tempdir) / 'olive'}:{container_root_path / 'olive'}"
             vol_list = [eval_file_mount_str, dev_mount_path] + model_mount_str_list
@@ -194,7 +194,7 @@ class TestDockerSystem:
             )
             self.mock_create_config_file.assert_called_once_with(
                 tempdir=tempdir,
-                model=olive_model,
+                model_config=model_config,
                 metrics=[metric],
                 container_root_path=container_root_path,
                 model_mounts=model_mounts,

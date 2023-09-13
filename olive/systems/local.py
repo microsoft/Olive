@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from olive.evaluator.metric import Metric, MetricResult
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory
 from olive.hardware.accelerator import AcceleratorSpec, Device
-from olive.model import CompositeOnnxModel, OliveModel
+from olive.model import ModelConfig
 from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
@@ -22,28 +22,31 @@ class LocalSystem(OliveSystem):
     def run_pass(
         self,
         the_pass: Pass,
-        model: OliveModel,
+        model_config: ModelConfig,
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> OliveModel:
+    ) -> ModelConfig:
         """
         Run the pass on the model at a specific point in the search space.
         """
-        return the_pass.run(model, data_root, output_model_path, point)
+        model = model_config.create_model()
+        output_model = the_pass.run(model, data_root, output_model_path, point)
+        return ModelConfig.from_json(output_model.to_json())
 
     def evaluate_model(
-        self, model: OliveModel, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
     ) -> MetricResult:
         """
         Evaluate the model
         """
-        if isinstance(model, CompositeOnnxModel):
+        if model_config.type == "CompositeOnnxModel":
             raise NotImplementedError()
 
         device = accelerator.accelerator_type if accelerator else Device.CPU
         execution_providers = accelerator.execution_provider if accelerator else None
 
+        model = model_config.create_model()
         evaluator: OliveEvaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
         return evaluator.evaluate(model, data_root, metrics, device=device, execution_providers=execution_providers)
 

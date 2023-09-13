@@ -152,33 +152,6 @@ def create_resource_path(
     return ResourcePathConfig(type=type, config={config_key: resource_path}).create_resource_path()
 
 
-def resolve_local_resource(resource_path: ResourcePath, local_resource_path: ResourcePath) -> str:
-    """
-    Get a local instance of the resource
-    If the resource is already a local resource, return the path of the resource.
-    Otherwise, check if the resource is already saved to the local resource path.
-    If it is, return the path of the resource. Otherwise, return None.
-    It is the caller's responsibility to save the resource to the local resource path and
-    handle unsaved resources.
-
-    :param resource_path: A resource path.
-    :param local_resource_path: Resource path of the local resource.
-    :return: Path of the local resource.
-    """
-    if not resource_path:
-        return None
-
-    # return local path if resource_path is local or string name
-    if resource_path.is_local_resource_or_string_name():
-        return resource_path.get_path()
-
-    # return local path if resource_path is already saved to local_resource_path
-    if not local_resource_path or not local_resource_path.is_local_resource_or_string_name():
-        # local_resource_path is not specified or is not a local resource or a string name
-        return None
-    return local_resource_path.get_path()
-
-
 def _overwrite_helper(new_path: Union[Path, str], overwrite: bool):
     new_path = Path(new_path).resolve()
 
