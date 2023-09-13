@@ -151,24 +151,30 @@
 
 
 <div class="viewcode-block" id="DockerTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.DockerTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">DockerTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
-    <span class="n">local_docker_config</span><span class="p">:</span> <span class="n">LocalDockerConfig</span>
-    <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
+    <span class="n">local_docker_config</span><span class="p">:</span> <span class="n">LocalDockerConfig</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">olive_managed_env</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">requirements_file</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
 <div class="viewcode-block" id="AzureMLTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.AzureMLTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">AzureMLTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
     <span class="n">azureml_client_config</span><span class="p">:</span> <span class="n">AzureMLClientConfig</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">aml_compute</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">aml_docker_config</span><span class="p">:</span> <span class="n">AzureMLDockerConfig</span>
+    <span class="n">aml_docker_config</span><span class="p">:</span> <span class="n">AzureMLDockerConfig</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">instance_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
-    <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span></div>
+    <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">olive_managed_env</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">requirements_file</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span></div>
 
 
 <div class="viewcode-block" id="PythonEnvironmentTargetUserConfig"><a class="viewcode-back" href="../../../api/systems.html#olive.systems.system_config.PythonEnvironmentTargetUserConfig">[docs]</a><span class="k">class</span> <span class="nc">PythonEnvironmentTargetUserConfig</span><span class="p">(</span><span class="n">TargetUserConfig</span><span class="p">):</span>
     <span class="n">python_environment_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
         <span class="n">Path</span><span class="p">,</span> <span class="nb">str</span>
-    <span class="p">]</span>  <span class="c1"># path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv</span>
     <span class="n">environment_variables</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># os.environ will be updated with these variables</span>
     <span class="n">prepend_to_path</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># paths to prepend to os.environ[&quot;PATH&quot;]</span>
+    <span class="n">olive_managed_env</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># if True, the environment will be created and managed by Olive</span>
+    <span class="n">requirements_file</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># path to the requirements.txt file</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;python_environment_path&quot;</span><span class="p">,</span> <span class="s2">&quot;prepend_to_path&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">each_item</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">_get_abspath</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
@@ -176,14 +182,15 @@
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;python_environment_path&quot;</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">_validate_python_environment_path</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
-        <span class="c1"># check if the path exists</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">Path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python path </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> does not exist&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">v</span><span class="p">:</span>
+            <span class="c1"># check if the path exists</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">Path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python path </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2"> does not exist&quot;</span><span class="p">)</span>
 
-        <span class="c1"># check if python exists in the path</span>
-        <span class="n">python_path</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">v</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">python_path</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python executable not found in the path </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="c1"># check if python exists in the path</span>
+            <span class="n">python_path</span> <span class="o">=</span> <span class="n">shutil</span><span class="o">.</span><span class="n">which</span><span class="p">(</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">v</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">python_path</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Python executable not found in the path </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">v</span></div>
 
 

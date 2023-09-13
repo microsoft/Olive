@@ -142,6 +142,7 @@
 <span class="kn">import</span> <span class="nn">olive.systems.docker.utils</span> <span class="k">as</span> <span class="nn">docker_utils</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">validate_config</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric</span> <span class="kn">import</span> <span class="n">Metric</span><span class="p">,</span> <span class="n">MetricResult</span>
+<span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">Device</span>
 <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">OliveModel</span>
 <span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">Pass</span>
@@ -158,47 +159,53 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">local_docker_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">LocalDockerConfig</span><span class="p">],</span>
+        <span class="n">local_docker_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">LocalDockerConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">olive_managed_env</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">requirements_file</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">accelerators</span><span class="o">=</span><span class="n">accelerators</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">accelerators</span><span class="o">=</span><span class="n">accelerators</span><span class="p">,</span> <span class="n">olive_managed_env</span><span class="o">=</span><span class="n">olive_managed_env</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing Docker System...&quot;</span><span class="p">)</span>
-        <span class="n">local_docker_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">local_docker_config</span><span class="p">,</span> <span class="n">LocalDockerConfig</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span> <span class="o">=</span> <span class="n">is_dev</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span> <span class="o">=</span> <span class="n">docker</span><span class="o">.</span><span class="n">from_env</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">run_params</span> <span class="o">=</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">run_params</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Image </span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="si">}</span><span class="s2"> found&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">requirements_file</span> <span class="o">=</span> <span class="n">requirements_file</span>
+        <span class="k">if</span> <span class="n">local_docker_config</span> <span class="ow">and</span> <span class="n">olive_managed_env</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Olive managed environment is not supported if local_docker_config is provided.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">local_docker_config</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span> <span class="o">=</span> <span class="n">docker</span><span class="o">.</span><span class="n">from_env</span><span class="p">()</span>
+            <span class="n">local_docker_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">local_docker_config</span><span class="p">,</span> <span class="n">LocalDockerConfig</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">run_params</span> <span class="o">=</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">run_params</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Image </span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="si">}</span><span class="s2"> found&quot;</span><span class="p">)</span>
 
-        <span class="k">except</span> <span class="n">docker</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">ImageNotFound</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_context_path</span> <span class="ow">and</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">dockerfile</span><span class="p">:</span>
-                <span class="n">build_context_path</span> <span class="o">=</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_context_path</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Building image from Dockerfile </span><span class="si">{</span><span class="n">build_context_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">dockerfile</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
-                    <span class="n">path</span><span class="o">=</span><span class="n">build_context_path</span><span class="p">,</span>
-                    <span class="n">dockerfile</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">dockerfile</span><span class="p">,</span>
-                    <span class="n">tag</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="p">,</span>
-                    <span class="n">buildargs</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_args</span><span class="p">,</span>
-                <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="k">elif</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">requirements_file_path</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Building image from Olive default Dockerfile with buildargs </span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_args</span><span class="si">}</span><span class="s2"> &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;requirements.txt </span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">requirements_file_path</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="p">)</span>
-                <span class="n">dockerfile_path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">BASE_DOCKERFILE</span><span class="p">)</span>
-                <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tempdir</span><span class="p">:</span>
-                    <span class="n">build_context_path</span> <span class="o">=</span> <span class="n">tempdir</span>
-                    <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">dockerfile_path</span><span class="p">,</span> <span class="n">build_context_path</span><span class="p">)</span>
-                    <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">requirements_file_path</span><span class="p">,</span> <span class="n">build_context_path</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">docker</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">ImageNotFound</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_context_path</span> <span class="ow">and</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">dockerfile</span><span class="p">:</span>
+                    <span class="n">build_context_path</span> <span class="o">=</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_context_path</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Building image from Dockerfile </span><span class="si">{</span><span class="n">build_context_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">dockerfile</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
                         <span class="n">path</span><span class="o">=</span><span class="n">build_context_path</span><span class="p">,</span>
-                        <span class="n">dockerfile</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">BASE_DOCKERFILE</span><span class="p">,</span>
+                        <span class="n">dockerfile</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">dockerfile</span><span class="p">,</span>
                         <span class="n">tag</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="p">,</span>
                         <span class="n">buildargs</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_args</span><span class="p">,</span>
                     <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Image </span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="si">}</span><span class="s2"> build successfully.&quot;</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">requirements_file_path</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Building image from Olive default Dockerfile with buildargs </span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_args</span><span class="si">}</span><span class="s2"> &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;requirements.txt </span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">requirements_file_path</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="p">)</span>
+                    <span class="n">dockerfile_path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">BASE_DOCKERFILE</span><span class="p">)</span>
+                    <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tempdir</span><span class="p">:</span>
+                        <span class="n">build_context_path</span> <span class="o">=</span> <span class="n">tempdir</span>
+                        <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">dockerfile_path</span><span class="p">,</span> <span class="n">build_context_path</span><span class="p">)</span>
+                        <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">requirements_file_path</span><span class="p">,</span> <span class="n">build_context_path</span><span class="p">)</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+                            <span class="n">path</span><span class="o">=</span><span class="n">build_context_path</span><span class="p">,</span>
+                            <span class="n">dockerfile</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">BASE_DOCKERFILE</span><span class="p">,</span>
+                            <span class="n">tag</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="p">,</span>
+                            <span class="n">buildargs</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_args</span><span class="p">,</span>
+                        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Image </span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="si">}</span><span class="s2"> build successfully.&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">run_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -296,14 +303,25 @@
                 <span class="n">environment</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Running container with eval command: </span><span class="si">{</span><span class="n">eval_command</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="n">container</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">containers</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-            <span class="n">image</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span>
-            <span class="n">command</span><span class="o">=</span><span class="n">eval_command</span><span class="p">,</span>
-            <span class="n">volumes</span><span class="o">=</span><span class="n">volumes_list</span><span class="p">,</span>
-            <span class="n">detach</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">environment</span><span class="o">=</span><span class="n">environment</span><span class="p">,</span>
-            <span class="o">**</span><span class="n">run_command</span><span class="p">,</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">accelerator</span><span class="o">.</span><span class="n">accelerator_type</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">:</span>
+            <span class="n">container</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">containers</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="n">image</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span>
+                <span class="n">command</span><span class="o">=</span><span class="n">eval_command</span><span class="p">,</span>
+                <span class="n">volumes</span><span class="o">=</span><span class="n">volumes_list</span><span class="p">,</span>
+                <span class="n">detach</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">environment</span><span class="o">=</span><span class="n">environment</span><span class="p">,</span>
+                <span class="n">device_requests</span><span class="o">=</span><span class="p">[</span><span class="n">docker</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">DeviceRequest</span><span class="p">(</span><span class="n">capabilities</span><span class="o">=</span><span class="p">[[</span><span class="s2">&quot;gpu&quot;</span><span class="p">]])],</span>
+                <span class="o">**</span><span class="n">run_command</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">container</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">containers</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="n">image</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span>
+                <span class="n">command</span><span class="o">=</span><span class="n">eval_command</span><span class="p">,</span>
+                <span class="n">volumes</span><span class="o">=</span><span class="n">volumes_list</span><span class="p">,</span>
+                <span class="n">detach</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">environment</span><span class="o">=</span><span class="n">environment</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">run_command</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="n">docker_logs</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">container</span><span class="o">.</span><span class="n">logs</span><span class="p">(</span><span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
             <span class="c1"># containers.logs can accept stdout/stderr as arguments, but it doesn&#39;t work</span>
@@ -322,7 +340,11 @@
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Docker container evaluation completed successfully&quot;</span><span class="p">)</span>
 
         <span class="n">metric_json</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_local_path</span><span class="p">)</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">eval_output_name</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="k">return</span> <span class="n">metric_json</span></div>
+        <span class="k">return</span> <span class="n">metric_json</span>
+
+    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Image </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> removed successfully.&quot;</span><span class="p">)</span></div>
 </pre></div>
 
            </div>

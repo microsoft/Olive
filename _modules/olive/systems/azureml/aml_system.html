@@ -199,20 +199,25 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">azureml_client_config</span><span class="p">:</span> <span class="n">AzureMLClientConfig</span><span class="p">,</span>
         <span class="n">aml_compute</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">aml_docker_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">AzureMLDockerConfig</span><span class="p">],</span>
+        <span class="n">aml_docker_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">AzureMLDockerConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">instance_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
         <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">olive_managed_env</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">requirements_file</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">accelerators</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_assert_not_none</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">)</span>
-        <span class="n">aml_docker_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">,</span> <span class="n">AzureMLDockerConfig</span><span class="p">)</span>
-        <span class="n">azureml_client_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">azureml_client_config</span><span class="p">,</span> <span class="n">AzureMLClientConfig</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span> <span class="o">=</span> <span class="n">azureml_client_config</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">compute</span> <span class="o">=</span> <span class="n">aml_compute</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_environment</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">accelerators</span><span class="p">,</span> <span class="n">olive_managed_env</span><span class="o">=</span><span class="n">olive_managed_env</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">instance_count</span> <span class="o">=</span> <span class="n">instance_count</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span> <span class="o">=</span> <span class="n">is_dev</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">requirements_file</span> <span class="o">=</span> <span class="n">requirements_file</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compute</span> <span class="o">=</span> <span class="n">aml_compute</span>
+        <span class="n">azureml_client_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">azureml_client_config</span><span class="p">,</span> <span class="n">AzureMLClientConfig</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span> <span class="o">=</span> <span class="n">azureml_client_config</span>
+        <span class="k">if</span> <span class="n">aml_docker_config</span> <span class="ow">and</span> <span class="n">olive_managed_env</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Olive managed environment is not supported if aml_docker_config is provided.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">aml_docker_config</span><span class="p">:</span>
+            <span class="n">aml_docker_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">,</span> <span class="n">AzureMLDockerConfig</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">environment</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_environment</span><span class="p">(</span><span class="n">aml_docker_config</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_create_environment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">docker_config</span><span class="p">:</span> <span class="n">AzureMLDockerConfig</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">docker_config</span><span class="o">.</span><span class="n">build_context_path</span><span class="p">:</span>
@@ -718,7 +723,10 @@
         <span class="c1"># metric component</span>
         <span class="n">metric_component</span> <span class="o">=</span> <span class="n">cmd</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">metric_component</span></div>
+        <span class="k">return</span> <span class="n">metric_component</span>
+
+    <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;AzureML system does not need system removal&quot;</span><span class="p">)</span></div>
 </pre></div>
 
            </div>
