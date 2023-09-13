@@ -5,7 +5,7 @@ EXAMPLE_NAME               ?=
 INSTALL_EXTRAS             ?=
 VERSION                    ?=
 MODEL_NAME                 ?=
-DEVICE                     ?= cpu
+DEVICE                     ?=
 ifeq ($(WINDOWS), True)
 	CURRENT_DIR             = "$(subst /,\\,${CURDIR})"
 	MKDIR_LOG_CMD           = mkdir logs | exit 0
@@ -37,7 +37,7 @@ overwrite-version:
 
 .PHONY: install-olive
 install-olive:
-	$(INSTALL_OLIVE_CMD) $(INSTALL_DEV_MODE) $(DEVICE)
+	$(INSTALL_OLIVE_CMD) $(INSTALL_DEV_MODE)
 
 .PHONY: unit_test
 unit_test:

@@ -6,20 +6,10 @@
 set -eoux pipefail
 
 INSTALL_DEV_MODE=$1
-DEVICE=$2
 
 # Upgrade pip
 echo "Upgrading pip"
 python -m pip install --upgrade pip
-
-# install torch cpu or gpu
-if [[ "$DEVICE" == "cpu" ]]; then
-    echo "Installing torch cpu"
-    python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-else
-    echo "Installing torch gpu"
-    python -m pip install torch torchvision torchaudio
-fi
 
 # Install olive
 if [[ "$INSTALL_DEV_MODE" == "True" ]]; then

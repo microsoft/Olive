@@ -22,7 +22,7 @@ jobs:
       versionSpec: 3.8
     displayName: Use Python 3.8
 
-  - script: make install-olive INSTALL_EXTRAS=[$(device)] DEVICE=$(device)
+  - script: make install-olive INSTALL_EXTRAS=[$(device)]
     displayName: Install Olive
 
   - script: make performance MODEL_NAME=$(MODEL_NAME) DEVICE=${{ parameters.device }}
