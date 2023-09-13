@@ -93,8 +93,13 @@ def main(raw_args=None):
         task=args.task,
     )
 
+    # get device and ep
+    device = config["systems"]["local_system"]["config"]["accelerators"][0]
+    ep = config["engine"]["execution_providers"]
+    print(f"Using device: {device}, ep: {ep}")
+
     # create inference session
-    session = olive_model.prepare_session(None, "cpu")
+    session = olive_model.prepare_session(None, device, ep)
 
     # get output
     input, _ = dataset[0]

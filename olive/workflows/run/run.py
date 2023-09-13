@@ -7,7 +7,7 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Union
+from typing import Dict, Union
 
 import onnxruntime as ort
 
@@ -76,6 +76,12 @@ def dependency_setup(config):
             "TorchTRTConversion": EXTRAS.get("torch-tensorrt"),
         },
     }
+    ORT_PACKAGE_TO_EP_MAPPING = {
+        "onnxruntime": "CPUExecutionProvider",
+        "onnxruntime-gpu": "CUDAExecutionProvider",
+        "onnxruntime-directml": "DmlExecutionProvider",
+        "onnxruntime-openvino": "OpenVINOExecutionProvider",
+    }
 
     local_packages = []
     remote_packages = []
@@ -111,13 +117,16 @@ def dependency_setup(config):
     # install missing packages to local or tell user to install packages in their environment
     logger.info(f"The following packages are required in the local environment: {local_packages}")
     for package in set(local_packages):
-        try:
-            __import__(package)
-            logger.info(f"{package} is already installed.")
-        except ImportError:
-            logger.info(f"Installing {package}...")
-            subprocess.check_call(["python", "-m", "pip", "install", "{}".format(package)])
-            logger.info(f"Successfully installed {package}.")
+        if package in ORT_PACKAGE_TO_EP_MAPPING:
+            check_local_ort_installation(ORT_PACKAGE_TO_EP_MAPPING, package)
+        else:
+            try:
+                __import__(package)
+                logger.info(f"{package} is already installed.")
+            except ImportError:
+                logger.info(f"Installing {package}...")
+                subprocess.check_call(["python", "-m", "pip", "install", "{}".format(package)])
+                logger.info(f"Successfully installed {package}.")
     if remote_packages:
         logger.info(
             "Please make sure the following packages are installed in {} environment: {}".format(
@@ -183,3 +192,30 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
             config.engine.evaluate_input_model,
         )
         return best_execution
+
+
+def check_local_ort_installation(ep_mapping: Dict[str, str], package_name: str):
+    # check if onnxruntime is installed
+    import onnxruntime as ort
+
+    if ep_mapping[package_name] in ort.get_available_providers():
+        logger.info(f"onnxruntime installation has {ep_mapping[package_name]} as expected.")
+        return
+
+    # uninstall all ort packages
+    all_packages = list(ep_mapping.keys())
+    all_nightly_packages = []
+    for package in all_packages:
+        nightly_package_parts = ["ort-nightly"]
+        if "-" in package:
+            nightly_package_parts.append(package.split("-")[1])
+        all_nightly_packages.append("-".join(nightly_package_parts))
+    all_packages.extend(all_nightly_packages)
+    logger.info(f"Uninstalling all onnxruntime packages: {all_packages}")
+    subprocess.check_call(["python", "-m", "pip", "uninstall", "-y"] + all_packages)
+    logger.info("Successfully uninstalled all onnxruntime packages.")
+
+    # install the package
+    logger.info(f"Installing {package_name}...")
+    subprocess.check_call(["python", "-m", "pip", "install", package_name])
+    logger.info(f"Successfully installed {package_name}.")

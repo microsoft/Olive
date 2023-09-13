@@ -106,6 +106,7 @@
         "target": "local_system",
         "evaluator": "common_evaluator",
         "evaluate_input_model": false,
+        "execution_providers": "<place_holder>",
         "clean_cache": false,
         "cache_dir": "cache",
         "output_dir": "models",

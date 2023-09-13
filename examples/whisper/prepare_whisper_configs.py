@@ -31,6 +31,10 @@ SUPPORTED_WORKFLOWS = {
     ("gpu", "fp16"): ["conversion", "transformers_optimization", "mixed_precision", "insert_beam_search", "prepost"],
     ("gpu", "int8"): ["conversion", "onnx_dynamic_quantization", "insert_beam_search", "prepost"],
 }
+DEVICE_TO_EP = {
+    "cpu": "CPUExecutionProvider",
+    "gpu": "CUDAExecutionProvider",
+}
 
 
 def get_args(raw_args):
@@ -88,6 +92,9 @@ def main(raw_args=None):
         # set output name
         config["engine"]["output_name"] = f"whisper_{device}_{precision}"
         config["engine"]["packaging_config"]["name"] = f"whisper_{device}_{precision}"
+
+        # set ep
+        config["engine"]["execution_providers"] = [DEVICE_TO_EP[device]]
 
         # set device for system
         config["systems"]["local_system"]["config"]["accelerators"] = [device]
