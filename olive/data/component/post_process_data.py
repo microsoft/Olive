@@ -52,7 +52,7 @@ def ner_post_process(_output_data, **kwargs):
 
 
 @Registry.register_post_process()
-def text_generatation_post_process(_output_data, **kwargs):
+def text_generation_post_process(_output_data, **kwargs):
     """Post-process data for text generation task.
 
     Args:
