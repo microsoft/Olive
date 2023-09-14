@@ -7,12 +7,13 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Dict, Union
+from typing import Union
 
+import importlib_metadata
 import onnxruntime as ort
 
 from olive.hardware import Device
-from olive.logging import set_default_logger_severity
+from olive.logging import set_default_logger_severity, set_verbosity_info
 from olive.passes import Pass
 from olive.systems.common import SystemType
 from olive.workflows.run.config import RunConfig
@@ -76,12 +77,7 @@ def dependency_setup(config):
             "TorchTRTConversion": EXTRAS.get("torch-tensorrt"),
         },
     }
-    ORT_PACKAGE_TO_EP_MAPPING = {
-        "onnxruntime": "CPUExecutionProvider",
-        "onnxruntime-gpu": "CUDAExecutionProvider",
-        "onnxruntime-directml": "DmlExecutionProvider",
-        "onnxruntime-openvino": "OpenVINOExecutionProvider",
-    }
+    ORT_PACKAGES = ["onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino"]
 
     local_packages = []
     remote_packages = []
@@ -117,8 +113,8 @@ def dependency_setup(config):
     # install missing packages to local or tell user to install packages in their environment
     logger.info(f"The following packages are required in the local environment: {local_packages}")
     for package in set(local_packages):
-        if package in ORT_PACKAGE_TO_EP_MAPPING:
-            check_local_ort_installation(ORT_PACKAGE_TO_EP_MAPPING, package)
+        if package in ORT_PACKAGES:
+            check_local_ort_installation(package)
         else:
             try:
                 __import__(package)
@@ -161,6 +157,8 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
         engine, config = automatically_insert_passes(config)
 
     if setup:
+        # set the log level to INFO for setup
+        set_verbosity_info()
         dependency_setup(config)
     else:
         # passes
@@ -194,30 +192,38 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
         return best_execution
 
 
-def check_local_ort_installation(ep_mapping: Dict[str, str], package_name: str):
-    # Don't need try except since olive itself cannot be imported and run without onnxruntime
-    # there are onnxruntime imports in many places
-    import onnxruntime as ort
+def check_local_ort_installation(package_name: str):
+    # onnxruntime should always be present since we cannot import olive without onnxruntime
+    # use .get just in case
+    local_ort_packages = importlib_metadata.packages_distributions().get("onnxruntime")
 
-    # check for expected ep as a heuristic to see if the correct ort package is installed
-    if ep_mapping[package_name] in ort.get_available_providers():
-        logger.info(f"onnxruntime installation has {ep_mapping[package_name]} as expected.")
+    if not local_ort_packages:
+        # this case should not happen right now, for future proofing
+        logger.info(f"Installing {package_name}...")
+        subprocess.check_call(["python", "-m", "pip", "install", package_name])
+        logger.info(f"Successfully installed {package_name}.")
+        return
+
+    if "-" in package_name:
+        night_package_name = f"ort-nightly-{package_name.split('-')[-1]}"
+    else:
+        night_package_name = "ort-nightly"
+
+    if len(local_ort_packages) == 1 and local_ort_packages[0] in [package_name, night_package_name]:
+        # only if one ort package is installed and it is the one we want
+        # can be the stable or nightly version
+        logger.info(f"{local_ort_packages[0]} is already installed.")
         return
 
     # uninstall all ort packages
-    all_packages = list(ep_mapping.keys())
-    all_nightly_packages = []
-    for package in all_packages:
-        nightly_package_parts = ["ort-nightly"]
-        if "-" in package:
-            nightly_package_parts.append(package.split("-")[1])
-        all_nightly_packages.append("-".join(nightly_package_parts))
-    all_packages.extend(all_nightly_packages)
-    logger.info(f"Uninstalling all onnxruntime packages: {all_packages}")
-    subprocess.check_call(["python", "-m", "pip", "uninstall", "-y"] + all_packages)
-    logger.info("Successfully uninstalled all onnxruntime packages.")
+    logger.info("There are one or more onnxruntime packages installed in your environment.")
+    uninstall_command = ["python", "-m", "pip", "uninstall", "-y"] + local_ort_packages
+    uninstall_command = " ".join(uninstall_command)
+    logger.info(f"Please run '{uninstall_command}' to uninstall all existing onnxruntime packages.")
 
     # install the package
-    logger.info(f"Installing {package_name}...")
-    subprocess.check_call(["python", "-m", "pip", "install", package_name])
-    logger.info(f"Successfully installed {package_name}.")
+    logger.info(f"Then install {package_name} by running 'python -m pip install {package_name}'.")
+    logger.info(
+        "You can also instead install the corresponding nightly version following the instructions at"
+        " https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages"
+    )
