@@ -637,7 +637,14 @@
         <span class="n">resources</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">:</span> <span class="n">adapter_path</span><span class="p">,</span> <span class="s2">&quot;script_dir&quot;</span><span class="p">:</span> <span class="n">script_dir</span><span class="p">,</span> <span class="s2">&quot;model_script&quot;</span><span class="p">:</span> <span class="n">model_script</span><span class="p">}</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">add_resources</span><span class="p">(</span><span class="n">resources</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">hf_config</span><span class="p">,</span> <span class="n">HFConfig</span><span class="p">)</span> <span class="k">if</span> <span class="n">hf_config</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">hf_config</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">hf_config</span><span class="p">,</span> <span class="n">HFConfig</span><span class="p">)</span>
+            <span class="n">hf_model_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_hf_model_config</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+            <span class="n">model_attr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span> <span class="ow">or</span> <span class="p">{}</span>
+            <span class="n">hf_model_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">model_attr</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span> <span class="o">=</span> <span class="n">hf_model_config</span>
+
         <span class="c1"># ensure that model_script and script_dirs are local</span>
         <span class="k">for</span> <span class="n">resource_name</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;script_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;model_script&quot;</span><span class="p">]:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]:</span>
