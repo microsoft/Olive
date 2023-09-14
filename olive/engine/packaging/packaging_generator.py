@@ -174,7 +174,7 @@ def _generate_onnx_mlflow_model(model_dir, inference_config):
     onnx_model_path.unlink()
 
     # MLFlow will save models with default config save_as_external_data=True
-    # https://github.com/mlflow/mlflow/blob/master/mlflow/onnx.py#L175
+    # https://github.com/mlflow/mlflow/blob/1d6eaaa65dca18688d9d1efa3b8b96e25801b4e9/mlflow/onnx.py#L175
     # There will be an aphanumeric file generated in the same folder as the model file
     mlflow.onnx.save_model(
         model_proto,
