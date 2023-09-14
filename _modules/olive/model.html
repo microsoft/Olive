@@ -193,7 +193,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span> <span class="o">=</span> <span class="n">model_attributes</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="c1"># store resource paths</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">resources</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="n">resources</span><span class="p">[</span><span class="s2">&quot;model_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_path</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">add_resources</span><span class="p">(</span><span class="n">resources</span><span class="p">)</span>
@@ -244,8 +244,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="n">resource_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource_name</span><span class="si">}</span><span class="s2"> is not a valid resource name.&quot;</span>
         <span class="n">resource</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">resource</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resource</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">):</span>
-            <span class="n">resource</span> <span class="o">=</span> <span class="n">resource</span><span class="o">.</span><span class="n">get_path</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">resource</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resource</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">resource</span>
 
     <span class="nd">@abstractmethod</span>
@@ -645,11 +644,18 @@
             <span class="n">hf_model_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">model_attr</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span> <span class="o">=</span> <span class="n">hf_model_config</span>
 
-        <span class="c1"># ensure that model_script and script_dirs are local</span>
-        <span class="k">for</span> <span class="n">resource_name</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;script_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;model_script&quot;</span><span class="p">]:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]:</span>
-                <span class="n">relavant_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">])</span>
-                <span class="k">assert</span> <span class="n">relavant_path</span><span class="o">.</span><span class="n">is_local_resource</span><span class="p">(),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource_name</span><span class="si">}</span><span class="s2"> must be local file or directory.&quot;</span>
+        <span class="c1"># ensure that script_dirs are local folder</span>
+        <span class="n">script_dir_resource</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">script_dir_resource</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">script_dir_resource</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFolder</span><span class="p">,</span> <span class="s2">&quot;script_dir must be a local directory.&quot;</span>
+
+        <span class="c1"># ensure that model_script is local file or string name</span>
+        <span class="n">model_script_resource</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">model_script_resource</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">model_script_resource</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">(</span>
+                <span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFile</span><span class="p">,</span>
+                <span class="n">ResourceType</span><span class="o">.</span><span class="n">StringName</span><span class="p">,</span>
+            <span class="p">),</span> <span class="s2">&quot;model_script must be a local file or a string name.&quot;</span>
 
         <span class="c1"># io config for conversion to onnx</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">io_config</span><span class="p">,</span> <span class="n">IOConfig</span><span class="p">)</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">if</span> <span class="n">io_config</span> <span class="k">else</span> <span class="kc">None</span>
@@ -862,7 +868,7 @@
         <span class="c1"># the original config has them as serialized ResourcePath</span>
         <span class="k">for</span> <span class="n">resource_name</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;script_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;model_script&quot;</span><span class="p">]:</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]:</span>
-                <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span><span class="o">.</span><span class="n">get_path</span><span class="p">()</span>
+                <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="n">resource_name</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span></div>
 
 
