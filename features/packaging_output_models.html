@@ -166,6 +166,27 @@
 <h4>CandidateModels<a class="headerlink" href="#candidatemodels" title="Permalink to this heading">¶</a></h4>
 <p><code class="docutils literal notranslate"><span class="pre">CandidateModels</span></code> includes k folders where k is the number of output models, with name <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_1</span></code>, <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_2</span></code>, … and <code class="docutils literal notranslate"><span class="pre">BestCandidateModel_k</span></code>. The order is ranked by metrics priorities. e.g., if you have 3 metrics <code class="docutils literal notranslate"><span class="pre">metric_1</span></code>, <code class="docutils literal notranslate"><span class="pre">metric_2</span></code> and <code class="docutils literal notranslate"><span class="pre">metric_3</span></code> with priority <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">2</span></code> and <code class="docutils literal notranslate"><span class="pre">3</span></code>. The output models will be sorted firstly by <code class="docutils literal notranslate"><span class="pre">metric_1</span></code>. If the value of <code class="docutils literal notranslate"><span class="pre">metric_1</span></code> of 2 output models are same, they will be sorted by <code class="docutils literal notranslate"><span class="pre">metric_2</span></code>, and followed by next lower priority metric.</p>
 <p>Each <code class="docutils literal notranslate"><span class="pre">BestCandidateModel</span></code> folder will include model file/folder. The folder also includes a json file which includes the Olive Pass run history configurations since input model, a json file with performance metrics and a json file for inference settings for the candidate model if the candidate model is an ONNX model.</p>
+<section id="inference-config-file">
+<h5>Inference config file<a class="headerlink" href="#inference-config-file" title="Permalink to this heading">¶</a></h5>
+<p>The inference config file is a json file including <code class="docutils literal notranslate"><span class="pre">execution_provider</span></code> and <code class="docutils literal notranslate"><span class="pre">session_options</span></code>. e.g.:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+    <span class="s2">&quot;execution_provider&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="p">[</span>
+            <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">,</span>
+            <span class="p">{}</span>
+        <span class="p">]</span>
+    <span class="p">],</span>
+    <span class="s2">&quot;session_options&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;execution_mode&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;graph_optimization_level&quot;</span><span class="p">:</span> <span class="mi">99</span><span class="p">,</span>
+        <span class="s2">&quot;extra_session_config&quot;</span><span class="p">:</span> <span class="n">null</span><span class="p">,</span>
+        <span class="s2">&quot;inter_op_num_threads&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="s2">&quot;intra_op_num_threads&quot;</span><span class="p">:</span> <span class="mi">64</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
 </section>
 <section id="samplecode">
 <h4>SampleCode<a class="headerlink" href="#samplecode" title="Permalink to this heading">¶</a></h4>
@@ -183,6 +204,8 @@
 Olive packaging type. Olive will package different artifacts based on <code class="docutils literal notranslate"><span class="pre">type</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">name</span> <span class="pre">[str]</span></code>:
 For <code class="docutils literal notranslate"><span class="pre">PackagingType.Zipfile</span></code> type, Olive will generate a ZIP file with <code class="docutils literal notranslate"><span class="pre">name</span></code> prefix: <code class="docutils literal notranslate"><span class="pre">&lt;name&gt;.zip</span></code>. By default, the output artifacts will be named as <code class="docutils literal notranslate"><span class="pre">OutputModels.zip</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">export_in_mlflow_format</span> <span class="pre">[bool]</span></code>:
+Export model in mlflow format. This is <code class="docutils literal notranslate"><span class="pre">false</span></code> by default.</p></li>
 </ul>
 </li>
 </ul>
