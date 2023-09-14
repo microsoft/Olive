@@ -25,13 +25,7 @@ from olive.constants import Framework, ModelFileFormat
 from olive.hardware import AcceleratorLookup, Device
 from olive.model.hf_utils import HFConfig, get_hf_model_dummy_input, huggingface_model_loader
 from olive.model.model_config import IOConfig
-from olive.resource_path import (
-    OLIVE_RESOURCE_ANNOTATIONS,
-    ResourcePath,
-    ResourcePathConfig,
-    ResourceType,
-    create_resource_path,
-)
+from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourcePath, ResourcePathConfig, create_resource_path
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
 
@@ -735,7 +729,7 @@ class PyTorchModel(OliveModel):
         # the original config has them as serialized ResourcePath
         for resource_name in ["script_dir", "model_script"]:
             if self.resource_paths[resource_name]:
-                config["config"][resource_name] = self.resource_paths[resource_name].get_path()
+                config["config"][resource_name] = self.get_resource(resource_name)
         return serialize_to_json(config, check_object)
 
 
