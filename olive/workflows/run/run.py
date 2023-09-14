@@ -117,9 +117,11 @@ def dependency_setup(config):
             check_local_ort_installation(package)
         else:
             try:
-                __import__(package)
+                # use importlib_metadata to check if package is installed
+                # better than __import__ since the package name can be different from the import name
+                importlib_metadata.distribution(package)
                 logger.info(f"{package} is already installed.")
-            except ImportError:
+            except importlib_metadata.PackageNotFoundError:
                 logger.info(f"Installing {package}...")
                 subprocess.check_call(["python", "-m", "pip", "install", "{}".format(package)])
                 logger.info(f"Successfully installed {package}.")
