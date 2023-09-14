@@ -20,17 +20,21 @@ Start by creating an instance of an OliveModel to represent the model to be opti
 model can be loaded from file or using a model loader function. For a complete of available models and their initialization options, refer to [OliveModels api reference](models).
 
 ```python
-from olive.models import PytorchModel
+from olive.models import Modelconfig
 
-input_model = PyTorchModel(
-    model_path="resnet.pt",
-    io_config={
-        "input_names": ["input"],
-        "input_shapes": [[1, 3, 32, 32]],
-        "output_names": ["output"],
-        "dynamic_axes": {"input": {0: "batch_size"}, "output": {0: "batch_size"}}
+config = {
+    "type": "PyTorchModel",
+    "config": {
+        "model_path": "resnet.pt",
+        "io_config": {
+            "input_names": ["input"],
+            "input_shapes": [[1, 3, 32, 32]],
+            "output_names": ["output"],
+            "dynamic_axes": {"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+        }
     }
-)
+}
+input_model = ModelConfig.parse_obj(config)
 ```
 
 ## Host and Target Systems

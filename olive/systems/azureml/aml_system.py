@@ -471,9 +471,9 @@ class AzureMLSystem(OliveSystem):
     def evaluate_model(
         self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
     ) -> MetricResult:
-        if model_config.type == "SNPEModel":
+        if model_config.type.lower() == "SNPEModel".lower():
             raise NotImplementedError("SNPE model does not support azureml evaluation")
-        if model_config.type == "OpenVINOModel":
+        if model_config.type.lower() == "OpenVINOModel".lower():
             raise NotImplementedError("OpenVINO model does not support azureml evaluation")
 
         with tempfile.TemporaryDirectory() as tempdir:

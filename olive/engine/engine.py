@@ -24,7 +24,6 @@ from olive.exception import OlivePassException
 from olive.hardware import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig
 from olive.passes.olive_pass import Pass
-from olive.resource_path import create_resource_path
 from olive.strategy.search_strategy import SearchStrategy
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
@@ -822,10 +821,9 @@ class Engine:
         """
         Prepare models with non-local model path for local run by downloading the model resources to cache
         """
-        resource_keys = model_config.get_resource_keys()
-        for resource_name in resource_keys:
-            resource_path = model_config.config.get(resource_name)
-            resource_path = create_resource_path(resource_path)
+        # TODO: maybe we can move this method into OliveSystem?
+        resource_paths = model_config.get_resource_paths()
+        for resource_name, resource_path in resource_paths.items():
             if not resource_path or resource_path.is_local_resource_or_string_name():
                 continue
             downloaded_resource_path = cache_utils.download_resource(resource_path, self._config.cache_dir)
