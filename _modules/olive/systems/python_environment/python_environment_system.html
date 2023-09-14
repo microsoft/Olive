@@ -153,7 +153,7 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">OliveModelOutput</span><span class="p">,</span> <span class="n">OnnxEvaluator</span>
 <span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorLookup</span><span class="p">,</span> <span class="n">AcceleratorSpec</span><span class="p">,</span> <span class="n">Device</span>
-<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">ONNXModel</span>
+<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">ONNXModel</span>
 <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
 <span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>
 <span class="kn">from</span> <span class="nn">olive.systems.olive_system</span> <span class="kn">import</span> <span class="n">OliveSystem</span>
@@ -212,15 +212,15 @@
     <span class="k">def</span> <span class="nf">run_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">the_pass</span><span class="p">:</span> <span class="n">Pass</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span>
+        <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">point</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OliveModel</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelConfig</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Run the pass on the model at a specific point in the search space.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">model_config</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>
+        <span class="n">model_config_json</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>
         <span class="n">pass_config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>
 
         <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">tmp_dir</span><span class="p">:</span>
@@ -230,7 +230,7 @@
             <span class="n">output_model_json_path</span> <span class="o">=</span> <span class="n">tmp_dir_path</span> <span class="o">/</span> <span class="s2">&quot;output_model.json&quot;</span>
 
             <span class="k">with</span> <span class="n">model_json_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">model_config_json</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
             <span class="k">with</span> <span class="n">pass_json_path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">pass_config</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
@@ -252,23 +252,24 @@
 
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_model_json_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="n">model_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-                <span class="n">output_model</span> <span class="o">=</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">model_json</span><span class="p">)</span><span class="o">.</span><span class="n">create_model</span><span class="p">()</span>
+                <span class="n">output_model</span> <span class="o">=</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">model_json</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">output_model</span>
 
     <span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">accelerator</span><span class="p">:</span> <span class="n">AcceleratorSpec</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span> <span class="n">accelerator</span><span class="p">:</span> <span class="n">AcceleratorSpec</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Evaluate the model</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">ONNXModel</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">model_config</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;ONNXModel&quot;</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;PythonEnvironmentSystem can only evaluate ONNXModel.&quot;</span><span class="p">)</span>
 
         <span class="c1"># check if custom metric is present</span>
         <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">metric</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">CUSTOM</span> <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;PythonEnvironmentSystem does not support custom metrics.&quot;</span><span class="p">)</span>
 
+        <span class="n">model</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">create_model</span><span class="p">()</span>
         <span class="n">metrics_res</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">original_metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
             <span class="n">metric</span> <span class="o">=</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">generate_metric_user_config_with_model_io</span><span class="p">(</span><span class="n">original_metric</span><span class="p">,</span> <span class="n">model</span><span class="p">)</span>

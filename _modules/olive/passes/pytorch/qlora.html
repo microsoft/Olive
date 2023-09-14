@@ -455,7 +455,7 @@
                 <span class="s2">&quot;bnb_4bit_quant_type&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">quant_type</span><span class="p">,</span>
             <span class="p">},</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="n">new_model</span><span class="o">.</span><span class="n">get_local_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">new_model</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">):</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="s2">&quot;Input model has adapter_path. Ignoring. QLoRA will save the adapter weights to its own adapter_path.&quot;</span>
             <span class="p">)</span>

@@ -149,7 +149,7 @@
 <span class="kn">from</span> <span class="nn">olive.evaluator.olive_evaluator</span> <span class="kn">import</span> <span class="n">OliveEvaluatorConfig</span>
 <span class="kn">from</span> <span class="nn">olive.exception</span> <span class="kn">import</span> <span class="n">OlivePassException</span>
 <span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">AcceleratorLookup</span><span class="p">,</span> <span class="n">AcceleratorSpec</span><span class="p">,</span> <span class="n">Device</span>
-<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">OliveModel</span>
+<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">ModelConfig</span>
 <span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">Pass</span>
 <span class="kn">from</span> <span class="nn">olive.strategy.search_strategy</span> <span class="kn">import</span> <span class="n">SearchStrategy</span>
 <span class="kn">from</span> <span class="nn">olive.systems.common</span> <span class="kn">import</span> <span class="n">SystemType</span>
@@ -415,7 +415,7 @@
 
 <div class="viewcode-block" id="Engine.run"><a class="viewcode-back" href="../../../api/engine.html#olive.engine.Engine.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">input_model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span>
+        <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">packaging_config</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PackagingConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -426,7 +426,7 @@
 <span class="sd">        Run all the registered Olive passes on the input model and produce one or more candidate models.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            input_model: input Olive model</span>
+<span class="sd">            input_model_config: input Olive model configuration</span>
 <span class="sd">            packaging_config: packaging configuration, if packaging_config is provided, the output</span>
 <span class="sd">                model will be packaged into a zip file.</span>
 <span class="sd">            output_dir: output directory for the output model</span>
@@ -460,7 +460,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">setup_passes</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">)</span>
 
                 <span class="c1"># hash the input model</span>
-                <span class="n">input_model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_input_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">)</span>
+                <span class="n">input_model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_init_input_model</span><span class="p">(</span><span class="n">input_model_config</span><span class="p">)</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record</span><span class="p">(</span><span class="n">model_id</span><span class="o">=</span><span class="n">input_model_id</span><span class="p">)</span>
 
                 <span class="k">try</span><span class="p">:</span>
@@ -472,7 +472,7 @@
                             <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
                         <span class="p">),</span> <span class="s2">&quot;evaluate_input_model is True but no evaluator provided&quot;</span>
                         <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_model</span><span class="p">(</span>
-                            <span class="n">input_model</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span>
+                            <span class="n">input_model_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span>
                         <span class="p">)</span>
                         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Input model evaluation results: </span><span class="si">{</span><span class="n">results</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                         <span class="n">result_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">_input_model_metrics&quot;</span>
@@ -487,7 +487,7 @@
 
                     <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
                         <span class="n">output</span><span class="p">,</span> <span class="n">model_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_no_search</span><span class="p">(</span>
-                            <span class="n">input_model</span><span class="p">,</span>
+                            <span class="n">input_model_config</span><span class="p">,</span>
                             <span class="n">input_model_id</span><span class="p">,</span>
                             <span class="n">data_root</span><span class="p">,</span>
                             <span class="n">accelerator_spec</span><span class="p">,</span>
@@ -501,7 +501,7 @@
                             <span class="p">]</span><span class="o">.</span><span class="n">get_footprints_by_model_ids</span><span class="p">(</span><span class="n">model_ids</span><span class="p">)</span>
                     <span class="k">else</span><span class="p">:</span>
                         <span class="n">footprint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_search</span><span class="p">(</span>
-                            <span class="n">input_model</span><span class="p">,</span>
+                            <span class="n">input_model_config</span><span class="p">,</span>
                             <span class="n">input_model_id</span><span class="p">,</span>
                             <span class="n">data_root</span><span class="p">,</span>
                             <span class="n">accelerator_spec</span><span class="p">,</span>
@@ -558,7 +558,7 @@
 
     <span class="k">def</span> <span class="nf">run_no_search</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">input_model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span>
+        <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">,</span>
@@ -583,7 +583,7 @@
             <span class="n">objective_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;dummy&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;higher_is_better&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;goal&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}}</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">objective_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolve_objectives</span><span class="p">(</span>
-                <span class="n">input_model</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator_spec</span>
+                <span class="n">input_model_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator_spec</span>
             <span class="p">)</span>
 
         <span class="c1"># initialize the search strategy</span>
@@ -608,9 +608,9 @@
             <span class="c1"># get the model id of the first input model</span>
             <span class="n">model_id</span> <span class="o">=</span> <span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;model_id&quot;</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">model_id</span> <span class="o">==</span> <span class="n">input_model_id</span><span class="p">:</span>
-                <span class="n">model</span> <span class="o">=</span> <span class="n">input_model</span>
+                <span class="n">model_config</span> <span class="o">=</span> <span class="n">input_model_config</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
+                <span class="n">model_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
 
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step no search with search point </span><span class="si">{</span><span class="n">next_step</span><span class="p">[</span><span class="s1">&#39;search_point&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> ...&quot;</span><span class="p">)</span>
 
@@ -619,7 +619,7 @@
                 <span class="n">should_prune</span><span class="p">,</span>
                 <span class="n">signal</span><span class="p">,</span>
                 <span class="n">model_ids</span><span class="p">,</span>
-            <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_passes</span><span class="p">(</span><span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">],</span> <span class="n">model</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
+            <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_passes</span><span class="p">(</span><span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">],</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
             <span class="n">pass_flow</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span><span class="p">[</span><span class="n">iter_num</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
 
             <span class="k">if</span> <span class="n">should_prune</span><span class="p">:</span>
@@ -675,7 +675,7 @@
 
     <span class="k">def</span> <span class="nf">run_search</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">input_model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span>
+        <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">,</span>
@@ -695,7 +695,7 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No evaluator provided for the last pass&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">objective_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolve_objectives</span><span class="p">(</span>
-                <span class="n">input_model</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator_spec</span>
+                <span class="n">input_model_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator_spec</span>
             <span class="p">)</span>
 
         <span class="c1"># initialize the search strategy</span>
@@ -718,15 +718,15 @@
             <span class="c1"># get the model id of the first input model</span>
             <span class="n">model_id</span> <span class="o">=</span> <span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;model_id&quot;</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">model_id</span> <span class="o">==</span> <span class="n">input_model_id</span><span class="p">:</span>
-                <span class="n">model</span> <span class="o">=</span> <span class="n">input_model</span>
+                <span class="n">model_config</span> <span class="o">=</span> <span class="n">input_model_config</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
+                <span class="n">model_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
 
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step </span><span class="si">{</span><span class="n">iter_num</span><span class="si">}</span><span class="s2"> with search point </span><span class="si">{</span><span class="n">next_step</span><span class="p">[</span><span class="s1">&#39;search_point&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> ...&quot;</span><span class="p">)</span>
 
             <span class="c1"># run all the passes in the step</span>
             <span class="n">should_prune</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="n">model_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_passes</span><span class="p">(</span>
-                <span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">],</span> <span class="n">model</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span>
+                <span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">],</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span>
             <span class="p">)</span>
 
             <span class="c1"># record feedback signal</span>
@@ -779,7 +779,7 @@
 
     <span class="k">def</span> <span class="nf">resolve_objectives</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">input_model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span>
+        <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
@@ -790,7 +790,7 @@
 
 <span class="sd">        {objective_name: {&quot;higher_is_better&quot;: bool, &quot;goal&quot;: float}}</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">goals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolve_goals</span><span class="p">(</span><span class="n">input_model</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
+        <span class="n">goals</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolve_goals</span><span class="p">(</span><span class="n">input_model_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
         <span class="n">objective_dict</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">sub_type</span> <span class="ow">in</span> <span class="n">metric</span><span class="o">.</span><span class="n">sub_types</span><span class="p">:</span>
@@ -808,7 +808,7 @@
 
     <span class="k">def</span> <span class="nf">resolve_goals</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">input_model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span>
+        <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">],</span>
@@ -840,7 +840,7 @@
                     <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Default evaluator must be provided to resolve goals&quot;</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Computing baseline for metrics ...&quot;</span><span class="p">)</span>
                     <span class="n">baseline</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_model</span><span class="p">(</span>
-                        <span class="n">input_model</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span>
+                        <span class="n">input_model_config</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span>
                     <span class="p">)</span>
                     <span class="n">_evaluated</span> <span class="o">=</span> <span class="kc">True</span>
                     <span class="k">break</span>
@@ -910,7 +910,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_model_cache_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">model_id</span><span class="si">}</span><span class="s2">.json&quot;</span>
 
-    <span class="k">def</span> <span class="nf">_cache_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">OliveModel</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_cache_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">ModelConfig</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Cache the model in the cache directory.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -926,7 +926,7 @@
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to cache model: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">OliveModel</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">_load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">ModelConfig</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Load the model from the cache directory.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -941,31 +941,33 @@
         <span class="k">if</span> <span class="n">model_json</span> <span class="o">==</span> <span class="p">{}:</span>
             <span class="k">return</span> <span class="n">FAILED_CONFIG</span>
 
-        <span class="n">model</span> <span class="o">=</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">model_json</span><span class="p">)</span><span class="o">.</span><span class="n">create_model</span><span class="p">()</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">model_json</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">model</span>
 
-    <span class="k">def</span> <span class="nf">_prepare_non_local_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">OliveModel</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_prepare_non_local_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelConfig</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Prepare models with non-local model path for local run by downloading the model resources to cache</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">resource_name</span><span class="p">,</span> <span class="n">resource_path</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">resource_paths</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c1"># TODO: maybe we can move this method into OliveSystem?</span>
+        <span class="n">resource_paths</span> <span class="o">=</span> <span class="n">model_config</span><span class="o">.</span><span class="n">get_resource_paths</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">resource_name</span><span class="p">,</span> <span class="n">resource_path</span> <span class="ow">in</span> <span class="n">resource_paths</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">resource_path</span> <span class="ow">or</span> <span class="n">resource_path</span><span class="o">.</span><span class="n">is_local_resource_or_string_name</span><span class="p">():</span>
                 <span class="k">continue</span>
             <span class="n">downloaded_resource_path</span> <span class="o">=</span> <span class="n">cache_utils</span><span class="o">.</span><span class="n">download_resource</span><span class="p">(</span><span class="n">resource_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">downloaded_resource_path</span><span class="p">:</span>
                 <span class="c1"># set local resource path</span>
-                <span class="n">model</span><span class="o">.</span><span class="n">set_local_resource</span><span class="p">(</span><span class="n">resource_name</span><span class="p">,</span> <span class="n">downloaded_resource_path</span><span class="p">)</span>
+                <span class="n">model_config</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">downloaded_resource_path</span>
 
-        <span class="k">return</span> <span class="n">model</span>
+        <span class="k">return</span> <span class="n">model_config</span>
 
-    <span class="k">def</span> <span class="nf">_init_input_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_init_input_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize the input model.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">model_hash</span> <span class="o">=</span> <span class="n">hash_dict</span><span class="p">(</span><span class="n">input_model</span><span class="o">.</span><span class="n">to_json</span><span class="p">())</span>
+        <span class="n">model_hash</span> <span class="o">=</span> <span class="n">hash_dict</span><span class="p">(</span><span class="n">input_model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">())</span>
 
         <span class="c1"># cache the model</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">,</span> <span class="n">model_hash</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">input_model_config</span><span class="p">,</span> <span class="n">model_hash</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">model_hash</span>
 
@@ -1036,7 +1038,7 @@
     <span class="k">def</span> <span class="nf">_run_passes</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">passes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]],</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span>
+        <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">,</span>
@@ -1049,8 +1051,10 @@
         <span class="c1"># run all the passes in the step</span>
         <span class="n">model_ids</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_search_point</span> <span class="ow">in</span> <span class="n">passes</span><span class="p">:</span>
-            <span class="n">model</span><span class="p">,</span> <span class="n">model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">PRUNED_CONFIGS</span><span class="p">:</span>
+            <span class="n">model_config</span><span class="p">,</span> <span class="n">model_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_pass</span><span class="p">(</span>
+                <span class="n">pass_id</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">,</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">model_config</span> <span class="ow">in</span> <span class="n">PRUNED_CONFIGS</span><span class="p">:</span>
                 <span class="n">should_prune</span> <span class="o">=</span> <span class="kc">True</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Pruned&quot;</span><span class="p">)</span>
                 <span class="k">break</span>
@@ -1063,7 +1067,7 @@
                 <span class="c1"># skip evaluation if no search and no evaluator</span>
                 <span class="n">signal</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">signal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
+                <span class="n">signal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_evaluate_model</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">evaluator_config</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Signal: </span><span class="si">{</span><span class="n">signal</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">signal</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1075,7 +1079,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">pass_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">pass_search_point</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">input_model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span>
+        <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">input_model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">,</span>
@@ -1093,12 +1097,12 @@
         <span class="c1"># check whether the config is valid</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">p</span><span class="o">.</span><span class="n">validate_search_point</span><span class="p">(</span><span class="n">pass_search_point</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">with_fixed_value</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Invalid search point, prune&quot;</span><span class="p">)</span>
-            <span class="n">output_model</span> <span class="o">=</span> <span class="n">INVALID_CONFIG</span>
+            <span class="n">output_model_config</span> <span class="o">=</span> <span class="n">INVALID_CONFIG</span>
             <span class="c1"># no need to record in footprint since there was no run and thus no valid/failed model</span>
             <span class="c1"># invalid configs are also not cached since the same config can be valid for other accelerator specs</span>
             <span class="c1"># a pass can be accelerator agnostic but still have accelerator specific invalid configs</span>
             <span class="c1"># this helps reusing cached models for different accelerator specs</span>
-            <span class="k">return</span> <span class="n">output_model</span><span class="p">,</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="n">output_model_config</span><span class="p">,</span> <span class="kc">None</span>
 
         <span class="c1"># load run from cache if it exists</span>
         <span class="n">run_accel</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">is_accelerator_agnostic</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">)</span> <span class="k">else</span> <span class="n">accelerator_spec</span>
@@ -1106,19 +1110,21 @@
         <span class="n">output_model_id</span> <span class="o">=</span> <span class="n">run_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;output_model_id&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">output_model_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading model from cache ...&quot;</span><span class="p">)</span>
-            <span class="n">output_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">output_model_id</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">output_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">output_model_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_model</span><span class="p">(</span><span class="n">output_model_id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">output_model_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="c1"># footprint model and run</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record</span><span class="p">(</span>
                     <span class="n">model_id</span><span class="o">=</span><span class="n">output_model_id</span><span class="p">,</span>
-                    <span class="n">model_config</span><span class="o">=</span><span class="n">output_model</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span> <span class="k">if</span> <span class="n">output_model</span> <span class="o">!=</span> <span class="n">FAILED_CONFIG</span> <span class="k">else</span> <span class="p">{</span><span class="s2">&quot;is_pruned&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+                    <span class="n">model_config</span><span class="o">=</span><span class="n">output_model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span>
+                    <span class="k">if</span> <span class="n">output_model_config</span> <span class="o">!=</span> <span class="n">FAILED_CONFIG</span>
+                    <span class="k">else</span> <span class="p">{</span><span class="s2">&quot;is_pruned&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
                     <span class="n">parent_model_id</span><span class="o">=</span><span class="n">input_model_id</span><span class="p">,</span>
                     <span class="n">from_pass</span><span class="o">=</span><span class="n">pass_name</span><span class="p">,</span>
                     <span class="n">pass_run_config</span><span class="o">=</span><span class="n">pass_config</span><span class="p">,</span>
                     <span class="n">start_time</span><span class="o">=</span><span class="n">run_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_start_time&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
                     <span class="n">end_time</span><span class="o">=</span><span class="n">run_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_end_time&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
                 <span class="p">)</span>
-                <span class="k">return</span> <span class="n">output_model</span><span class="p">,</span> <span class="n">output_model_id</span>
+                <span class="k">return</span> <span class="n">output_model_config</span><span class="p">,</span> <span class="n">output_model_id</span>
 
         <span class="c1"># new model id</span>
         <span class="n">input_model_number</span> <span class="o">=</span> <span class="n">input_model_id</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
@@ -1141,18 +1147,19 @@
         <span class="c1"># run pass</span>
         <span class="n">host</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">host_for_pass</span><span class="p">(</span><span class="n">pass_id</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">host</span><span class="o">.</span><span class="n">system_type</span> <span class="o">!=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span><span class="p">:</span>
-            <span class="n">input_model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_non_local_model</span><span class="p">(</span><span class="n">input_model</span><span class="p">)</span>
+            <span class="n">input_model_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_non_local_model</span><span class="p">(</span><span class="n">input_model_config</span><span class="p">)</span>
+
         <span class="n">run_start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">output_model</span> <span class="o">=</span> <span class="n">host</span><span class="o">.</span><span class="n">run_pass</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">input_model</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">)</span>
+            <span class="n">output_model_config</span> <span class="o">=</span> <span class="n">host</span><span class="o">.</span><span class="n">run_pass</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pass_search_point</span><span class="p">)</span>
         <span class="k">except</span> <span class="n">OlivePassException</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pass run_pass failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="n">output_model</span> <span class="o">=</span> <span class="n">FAILED_CONFIG</span>
+            <span class="n">output_model_config</span> <span class="o">=</span> <span class="n">FAILED_CONFIG</span>
         <span class="k">except</span> <span class="n">EXCEPTIONS_TO_RAISE</span><span class="p">:</span>
             <span class="c1"># Don&#39;t catch these errors since most of time, it is caused by the user errors and need not retry.</span>
             <span class="k">raise</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="n">output_model</span> <span class="o">=</span> <span class="n">FAILED_CONFIG</span>
+            <span class="n">output_model_config</span> <span class="o">=</span> <span class="n">FAILED_CONFIG</span>
             <span class="c1"># TODO: from the time being, we need to catch all exceptions to make the</span>
             <span class="c1">#      search process robust. We need rethrow the exception only when</span>
             <span class="c1">#      it is not pass specific. For example, for olive bugs and user errors</span>
@@ -1162,7 +1169,7 @@
 
         <span class="n">run_end_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span>
         <span class="c1"># cache model</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">output_model</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_model</span><span class="p">(</span><span class="n">output_model_config</span><span class="p">,</span> <span class="n">output_model_id</span><span class="p">)</span>
 
         <span class="c1"># cache run</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache_run</span><span class="p">(</span>
@@ -1172,14 +1179,14 @@
         <span class="c1"># footprint model and run</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">record</span><span class="p">(</span>
             <span class="n">model_id</span><span class="o">=</span><span class="n">output_model_id</span><span class="p">,</span>
-            <span class="n">model_config</span><span class="o">=</span><span class="n">output_model</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span> <span class="k">if</span> <span class="n">output_model</span> <span class="o">!=</span> <span class="n">FAILED_CONFIG</span> <span class="k">else</span> <span class="p">{</span><span class="s2">&quot;is_pruned&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
+            <span class="n">model_config</span><span class="o">=</span><span class="n">output_model_config</span><span class="o">.</span><span class="n">to_json</span><span class="p">()</span> <span class="k">if</span> <span class="n">output_model_config</span> <span class="o">!=</span> <span class="n">FAILED_CONFIG</span> <span class="k">else</span> <span class="p">{</span><span class="s2">&quot;is_pruned&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
             <span class="n">parent_model_id</span><span class="o">=</span><span class="n">input_model_id</span><span class="p">,</span>
             <span class="n">from_pass</span><span class="o">=</span><span class="n">pass_name</span><span class="p">,</span>
             <span class="n">pass_run_config</span><span class="o">=</span><span class="n">pass_config</span><span class="p">,</span>
             <span class="n">start_time</span><span class="o">=</span><span class="n">run_start_time</span><span class="p">,</span>
             <span class="n">end_time</span><span class="o">=</span><span class="n">run_end_time</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">output_model</span><span class="p">,</span> <span class="n">output_model_id</span>
+        <span class="k">return</span> <span class="n">output_model_config</span><span class="p">,</span> <span class="n">output_model_id</span>
 
     <span class="k">def</span> <span class="nf">get_evaluation_json_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -1223,7 +1230,7 @@
 
     <span class="k">def</span> <span class="nf">_evaluate_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">OliveModel</span><span class="p">,</span>
+        <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">model_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">evaluator_config</span><span class="p">:</span> <span class="n">OliveEvaluatorConfig</span><span class="p">,</span>
@@ -1257,8 +1264,8 @@
         <span class="c1"># evaluate model</span>
         <span class="n">metrics</span> <span class="o">=</span> <span class="n">evaluator_config</span><span class="o">.</span><span class="n">metrics</span> <span class="k">if</span> <span class="n">evaluator_config</span> <span class="k">else</span> <span class="p">[]</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">system_type</span> <span class="o">!=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span><span class="p">:</span>
-            <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_non_local_model</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
-        <span class="n">signal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">evaluate_model</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
+            <span class="n">model_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_non_local_model</span><span class="p">(</span><span class="n">model_config</span><span class="p">)</span>
+        <span class="n">signal</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">evaluate_model</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">metrics</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
 
         <span class="c1"># cache evaluation</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_cache_evaluation</span><span class="p">(</span><span class="n">model_id_with_accelerator</span><span class="p">,</span> <span class="n">signal</span><span class="p">)</span>
