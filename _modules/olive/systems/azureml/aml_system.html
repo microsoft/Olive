@@ -200,6 +200,7 @@
         <span class="n">azureml_client_config</span><span class="p">:</span> <span class="n">AzureMLClientConfig</span><span class="p">,</span>
         <span class="n">aml_compute</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">aml_docker_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">AzureMLDockerConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">resources</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">instance_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
         <span class="n">is_dev</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -208,6 +209,7 @@
     <span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">accelerators</span><span class="p">,</span> <span class="n">olive_managed_env</span><span class="o">=</span><span class="n">olive_managed_env</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">instance_count</span> <span class="o">=</span> <span class="n">instance_count</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resources</span> <span class="o">=</span> <span class="n">resources</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span> <span class="o">=</span> <span class="n">is_dev</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">requirements_file</span> <span class="o">=</span> <span class="n">requirements_file</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">compute</span> <span class="o">=</span> <span class="n">aml_compute</span>
@@ -399,7 +401,17 @@
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;pass_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">pass_config_path</span><span class="p">),</span> <span class="o">**</span><span class="n">pass_args</span><span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">_create_step</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">display_name</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">aml_environment</span><span class="p">,</span> <span class="n">code</span><span class="p">,</span> <span class="n">compute</span><span class="p">,</span> <span class="n">instance_count</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">script_name</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">,</span>
+        <span class="n">display_name</span><span class="p">,</span>
+        <span class="n">description</span><span class="p">,</span>
+        <span class="n">aml_environment</span><span class="p">,</span>
+        <span class="n">code</span><span class="p">,</span>
+        <span class="n">compute</span><span class="p">,</span>
+        <span class="n">resources</span><span class="p">,</span>
+        <span class="n">instance_count</span><span class="p">,</span>
+        <span class="n">inputs</span><span class="p">,</span>
+        <span class="n">script_name</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="n">parameters</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="nb">input</span> <span class="ow">in</span> <span class="n">inputs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -410,12 +422,12 @@
         <span class="n">parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;--pipeline_output ${{outputs.pipeline_output}}&quot;</span><span class="p">)</span>
 
         <span class="n">cmd_line</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;python </span><span class="si">{</span><span class="n">script_name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-
         <span class="n">component</span> <span class="o">=</span> <span class="n">command</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
             <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span>
             <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
             <span class="n">command</span><span class="o">=</span><span class="n">cmd_line</span><span class="p">,</span>
+            <span class="n">resources</span><span class="o">=</span><span class="n">resources</span><span class="p">,</span>
             <span class="n">environment</span><span class="o">=</span><span class="n">aml_environment</span><span class="p">,</span>
             <span class="n">code</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">code</span><span class="p">),</span>
             <span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
@@ -473,6 +485,7 @@
             <span class="n">aml_environment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span>
             <span class="n">code</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">code_root</span><span class="p">),</span>
             <span class="n">compute</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">compute</span><span class="p">,</span>
+            <span class="n">resources</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="p">,</span>
             <span class="n">instance_count</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">instance_count</span><span class="p">,</span>
             <span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
             <span class="n">script_name</span><span class="o">=</span><span class="n">script_name</span><span class="p">,</span>
@@ -708,6 +721,7 @@
             <span class="n">aml_environment</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environment</span><span class="p">,</span>
             <span class="n">code</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">code_root</span><span class="p">),</span>
             <span class="n">compute</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">compute</span><span class="p">,</span>
+            <span class="n">resources</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">resources</span><span class="p">,</span>
             <span class="n">instance_count</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">instance_count</span><span class="p">,</span>
             <span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span>
             <span class="n">script_name</span><span class="o">=</span><span class="n">script_name</span><span class="p">,</span>
