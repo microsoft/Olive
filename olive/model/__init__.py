@@ -299,8 +299,7 @@ class ONNXModel(ONNXModelBase):
     @property
     def model_path(self) -> str:
         model_path = super().model_path
-        if model_path and Path(model_path).is_dir():
-            model_path = self.get_onnx_file_path(model_path, self.onnx_file_name)
+        model_path = self.get_onnx_file_path(model_path, self.onnx_file_name) if model_path else None
         return model_path
 
     @staticmethod
