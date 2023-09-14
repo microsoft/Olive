@@ -17,7 +17,7 @@ from olive.common.config_utils import validate_config
 from olive.evaluator.metric import Metric, MetricResult
 from olive.hardware import Device
 from olive.hardware.accelerator import AcceleratorSpec
-from olive.model import OliveModel
+from olive.model import ModelConfig
 from olive.passes import Pass
 from olive.systems.common import LocalDockerConfig, SystemType
 from olive.systems.olive_system import OliveSystem
@@ -83,11 +83,11 @@ class DockerSystem(OliveSystem):
     def run_pass(
         self,
         the_pass: Pass,
-        model: OliveModel,
+        model: ModelConfig,
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> OliveModel:
+    ) -> ModelConfig:
         """
         Run the pass on the model at a specific point in the search space.
         """
@@ -95,12 +95,14 @@ class DockerSystem(OliveSystem):
         raise NotImplementedError()
 
     def evaluate_model(
-        self, model: OliveModel, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
     ) -> Dict[str, Any]:
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
             metrics_res = None
-            metric_json = self._run_container(tempdir, model, data_root, metrics, accelerator, container_root_path)
+            metric_json = self._run_container(
+                tempdir, model_config, data_root, metrics, accelerator, container_root_path
+            )
             if metric_json.is_file():
                 with metric_json.open() as f:
                     metrics_res = json.load(f)
@@ -109,7 +111,7 @@ class DockerSystem(OliveSystem):
     def _run_container(
         self,
         tempdir,
-        model: OliveModel,
+        model_config: ModelConfig,
         data_root: str,
         metrics: List[Metric],
         accelerator: AcceleratorSpec,
@@ -126,9 +128,9 @@ class DockerSystem(OliveSystem):
             dev_mount_path, dev_mount_str = docker_utils.create_dev_mount(tempdir, container_root_path)
             volumes_list.append(dev_mount_str)
 
-        model_copy = copy.deepcopy(model)
+        model_config_copy = copy.deepcopy(model_config)
         model_mounts, model_mount_str_list = docker_utils.create_model_mount(
-            model=model_copy, container_root_path=container_root_path
+            model_config=model_config_copy, container_root_path=container_root_path
         )
         volumes_list += model_mount_str_list
 
@@ -142,7 +144,7 @@ class DockerSystem(OliveSystem):
 
         config_mount_path, config_file_mount_str = docker_utils.create_config_file(
             tempdir=tempdir,
-            model=model_copy,
+            model_config=model_config_copy,
             metrics=metrics_copy,
             container_root_path=container_root_path,
             model_mounts=model_mounts,

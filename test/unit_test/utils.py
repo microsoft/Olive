@@ -16,7 +16,7 @@ from olive.data.config import DataComponentConfig, DataConfig
 from olive.data.registry import Registry
 from olive.evaluator.metric import Metric, MetricType
 from olive.evaluator.metric_config import MetricGoal
-from olive.model import ONNXModel, OptimumModel, PyTorchModel
+from olive.model import ModelConfig, ONNXModel, OptimumModel, PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization
 
@@ -62,6 +62,17 @@ def pytorch_model_loader(model_path):
     return DummyModel().eval()
 
 
+def get_pytorch_model_config():
+    config = {
+        "type": "PyTorchModel",
+        "config": {
+            "model_loader": pytorch_model_loader,
+            "io_config": {"input_names": ["input"], "output_names": ["output"], "input_shapes": [(1, 1)]},
+        },
+    }
+    return ModelConfig.parse_obj(config)
+
+
 def get_pytorch_model():
     return PyTorchModel(
         model_loader=pytorch_model_loader,
@@ -105,6 +116,10 @@ def create_onnx_model_file():
     torch.onnx.export(
         pytorch_model, dummy_input, ONNX_MODEL_PATH, opset_version=10, input_names=["input"], output_names=["output"]
     )
+
+
+def get_onnx_model_config():
+    return ModelConfig.parse_obj({"type": "ONNXModel", "config": {"model_path": str(ONNX_MODEL_PATH)}})
 
 
 def get_onnx_model():

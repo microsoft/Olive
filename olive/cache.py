@@ -235,10 +235,9 @@ def save_model(
         return
 
     # create model object so that we can get the resource paths
-    model = ModelConfig.from_json(model_json).create_model()
-    resource_path_names = list(model.resource_paths.keys())
-    for resource_name in resource_path_names:
-        resource_path = create_resource_path(model_json["config"][resource_name])
+    model_config: ModelConfig = ModelConfig.from_json(model_json)
+    resource_paths = model_config.get_resource_paths()
+    for resource_name, resource_path in resource_paths.items():
         if not resource_path or resource_path.is_string_name():
             # Nothing to do if the path is empty or a string name
             continue
@@ -246,7 +245,7 @@ def save_model(
         if not resource_path.is_local_resource():
             resource_path = download_resource(resource_path, cache_dir)
         # if there are multiple resource paths, we will save them to a subdirectory of output_dir/output_name
-        if len(resource_path_names) > 1:
+        if len(resource_paths) > 1:
             save_dir = (output_dir / output_name).with_suffix("")
             save_name = resource_name.replace("_path", "")
         else:

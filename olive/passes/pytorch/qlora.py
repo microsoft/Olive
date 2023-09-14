@@ -328,7 +328,7 @@ class QLoRA(Pass):
                 "bnb_4bit_quant_type": config.quant_type,
             },
         )
-        if new_model.get_local_resource("adapter_path"):
+        if new_model.get_resource("adapter_path"):
             logger.warning(
                 "Input model has adapter_path. Ignoring. QLoRA will save the adapter weights to its own adapter_path."
             )

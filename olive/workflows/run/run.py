@@ -138,7 +138,7 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
     ort.set_default_logger_severity(config.engine.ort_log_severity_level)
 
     # input model
-    input_model = config.input_model.create_model()
+    input_model = config.input_model
 
     # Azure ML Client
     if config.azureml_client:

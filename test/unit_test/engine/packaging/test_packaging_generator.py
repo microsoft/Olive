@@ -6,7 +6,7 @@ import json
 import tempfile
 import zipfile
 from pathlib import Path
-from test.unit_test.utils import get_accuracy_metric, get_pytorch_model
+from test.unit_test.utils import get_accuracy_metric, get_pytorch_model_config
 from unittest.mock import patch
 
 import onnx
@@ -45,7 +45,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
     engine = Engine(options, evaluator_config=evaluator_config)
     engine.register(OnnxConversion, {"save_as_external_data": save_as_external_data})
 
-    input_model = get_pytorch_model()
+    input_model_config = get_pytorch_model_config()
 
     packaging_config = PackagingConfig()
     packaging_config.type = PackagingType.Zipfile
@@ -55,7 +55,9 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
     output_dir = Path(tempdir.name) / "outputs"
 
     # execute
-    engine.run(input_model=input_model, data_root=None, packaging_config=packaging_config, output_dir=output_dir)
+    engine.run(
+        input_model_config=input_model_config, data_root=None, packaging_config=packaging_config, output_dir=output_dir
+    )
 
     # assert
     artifacts_path = output_dir / "OutputModels.zip"
@@ -93,7 +95,7 @@ def test_generate_zipfile_artifacts_no_search():
     engine = Engine(options)
     engine.register(OnnxConversion)
 
-    input_model = get_pytorch_model()
+    input_model_config = get_pytorch_model_config()
 
     packaging_config = PackagingConfig()
     packaging_config.type = PackagingType.Zipfile
@@ -104,7 +106,10 @@ def test_generate_zipfile_artifacts_no_search():
 
     # execute
     engine.run(
-        input_model=input_model, packaging_config=packaging_config, output_dir=output_dir, evaluate_input_model=False
+        input_model_config=input_model_config,
+        packaging_config=packaging_config,
+        output_dir=output_dir,
+        evaluate_input_model=False,
     )
 
     # assert

@@ -58,4 +58,4 @@ def test_qlora(patched_model_loading_args, patched_find_all_linear_names, tmp_pa
 
     # execute
     out = p.run(input_model, None, output_folder)
-    assert Path(out.get_local_resource("adapter_path")).exists()
+    assert Path(out.get_resource("adapter_path")).exists()

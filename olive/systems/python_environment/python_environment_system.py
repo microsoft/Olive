@@ -26,7 +26,7 @@ from olive.evaluator.metric import (
 )
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveModelOutput, OnnxEvaluator
 from olive.hardware.accelerator import AcceleratorLookup, AcceleratorSpec, Device
-from olive.model import ModelConfig, OliveModel, ONNXModel
+from olive.model import ModelConfig, ONNXModel
 from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
@@ -85,15 +85,15 @@ class PythonEnvironmentSystem(OliveSystem):
     def run_pass(
         self,
         the_pass: Pass,
-        model: OliveModel,
+        model_config: ModelConfig,
         data_root: str,
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
-    ) -> OliveModel:
+    ) -> ModelConfig:
         """
         Run the pass on the model at a specific point in the search space.
         """
-        model_config = model.to_json()
+        model_config_json = model_config.to_json()
         pass_config = the_pass.to_json()
 
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -103,7 +103,7 @@ class PythonEnvironmentSystem(OliveSystem):
             output_model_json_path = tmp_dir_path / "output_model.json"
 
             with model_json_path.open("w") as f:
-                json.dump(model_config, f, indent=4)
+                json.dump(model_config_json, f, indent=4)
             with pass_json_path.open("w") as f:
                 json.dump(pass_config, f, indent=4)
 
@@ -125,23 +125,24 @@ class PythonEnvironmentSystem(OliveSystem):
 
             with open(output_model_json_path, "r") as f:
                 model_json = json.load(f)
-                output_model = ModelConfig.from_json(model_json).create_model()
+                output_model = ModelConfig.from_json(model_json)
 
         return output_model
 
     def evaluate_model(
-        self, model: OliveModel, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
     ) -> MetricResult:
         """
         Evaluate the model
         """
-        if not isinstance(model, ONNXModel):
+        if not model_config.type.lower() == "ONNXModel".lower():
             raise ValueError("PythonEnvironmentSystem can only evaluate ONNXModel.")
 
         # check if custom metric is present
         if any(metric.type == MetricType.CUSTOM for metric in metrics):
             raise ValueError("PythonEnvironmentSystem does not support custom metrics.")
 
+        model = model_config.create_model()
         metrics_res = {}
         for original_metric in metrics:
             metric = OliveEvaluator.generate_metric_user_config_with_model_io(original_metric, model)

@@ -4,6 +4,12 @@ OliveModels
 =================================
 The following models are available in Olive.
 
+.. _model_config:
+
+Model Configuration
+-------------------
+.. autoclass:: olive.model.ModelConfig
+
 .. _onnx_model:
 
 ONNX Model
