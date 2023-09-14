@@ -510,7 +510,14 @@ class PyTorchModel(OliveModel):
         resources = {"adapter_path": adapter_path, "script_dir": script_dir, "model_script": model_script}
         self.add_resources(resources)
 
-        self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
+        self.hf_config = None
+        if hf_config:
+            self.hf_config = validate_config(hf_config, HFConfig)
+            hf_model_config = self.get_hf_model_config().to_dict()
+            model_attr = self.model_attributes or {}
+            hf_model_config.update(model_attr)
+            self.model_attributes = hf_model_config
+
         # ensure that model_script and script_dirs are local
         for resource_name in ["script_dir", "model_script"]:
             if self.resource_paths[resource_name]:

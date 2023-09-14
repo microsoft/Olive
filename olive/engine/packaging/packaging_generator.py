@@ -51,7 +51,13 @@ def _generate_zipfile_output(
         _package_sample_code(cur_path, tempdir)
         for accelerator_spec, pf_footprint in pf_footprints.items():
             if pf_footprint.nodes and footprints[accelerator_spec].nodes:
-                _package_candidate_models(tempdir, footprints[accelerator_spec], pf_footprint, accelerator_spec)
+                _package_candidate_models(
+                    tempdir,
+                    footprints[accelerator_spec],
+                    pf_footprint,
+                    accelerator_spec,
+                    packaging_config.export_in_mlflow_format,
+                )
         _package_onnxruntime_packages(tempdir, next(iter(pf_footprints.values())))
         shutil.make_archive(packaging_config.name, "zip", tempdir)
         shutil.move(f"{packaging_config.name}.zip", output_dir / f"{packaging_config.name}.zip")
@@ -62,7 +68,11 @@ def _package_sample_code(cur_path, tempdir):
 
 
 def _package_candidate_models(
-    tempdir, footprint: Footprint, pf_footprint: Footprint, accelerator_spec: AcceleratorSpec
+    tempdir,
+    footprint: Footprint,
+    pf_footprint: Footprint,
+    accelerator_spec: AcceleratorSpec,
+    export_in_mlflow_format=False,
 ) -> None:
     candidate_models_dir = tempdir / "CandidateModels"
     model_rank = 1
@@ -71,6 +81,19 @@ def _package_candidate_models(
         model_dir = candidate_models_dir / f"{accelerator_spec}" / f"BestCandidateModel_{model_rank}"
         model_dir.mkdir(parents=True, exist_ok=True)
         model_rank += 1
+
+        # Copy inference config
+        inference_config_path = str(model_dir / "inference_config.json")
+        inference_config = pf_footprint.get_model_inference_config(model_id) or {}
+
+        # Add use_ort_extensions to inference config if needed
+        use_ort_extensions = pf_footprint.get_use_ort_extensions(model_id)
+        if use_ort_extensions:
+            inference_config["use_ort_extensions"] = True
+
+        with open(inference_config_path, "w") as f:
+            json.dump(inference_config, f)
+
         # Copy model file
         model_path = pf_footprint.get_model_path(model_id)
         model_resource_path = create_resource_path(model_path) if model_path else None
@@ -96,23 +119,25 @@ def _package_candidate_models(
                         else:
                             file_name = file.name
                         Path(file).rename(model_dir / file_name)
+                if export_in_mlflow_format:
+                    try:
+                        import mlflow
+                    except ImportError:
+                        raise ImportError("Exporting model in MLflow format requires mlflow>=2.4.0")
+                    from packaging.version import Version
+
+                    if Version(mlflow.__version__) < Version("2.4.0"):
+                        logger.warning(
+                            "Exporting model in MLflow format requires mlflow>=2.4.0. "
+                            "Skip exporting model in MLflow format."
+                        )
+                    else:
+                        _generate_onnx_mlflow_model(model_dir, inference_config)
+
         elif model_type == "OpenVINOModel":
             model_resource_path.save_to_dir(model_dir, "model", True)
         else:
             raise ValueError(f"Unsupported model type: {model_type} for packaging")
-
-        # Copy inference config
-        inference_config_path = str(model_dir / "inference_config.json")
-        inference_config = pf_footprint.get_model_inference_config(model_id)
-
-        # Add use_ort_extensions to inference config if needed
-        use_ort_extensions = pf_footprint.get_use_ort_extensions(model_id)
-        if use_ort_extensions:
-            inference_config = inference_config or {}
-            inference_config["use_ort_extensions"] = True
-
-        with open(inference_config_path, "w") as f:
-            json.dump(inference_config, f)
 
         # Copy Passes configurations
         configuration_path = str(model_dir / "configurations.json")
@@ -129,6 +154,34 @@ def _package_candidate_models(
                     "candidate_model_metrics": node.metrics.value.to_json(),
                 }
                 json.dump(metrics, f, indent=4)
+
+
+def _generate_onnx_mlflow_model(model_dir, inference_config):
+    import mlflow
+    import onnx
+
+    logger.info("Exporting model in MLflow format")
+    execution_mode_mappping = {0: "SEQUENTIAL", 1: "PARALLEL"}
+
+    session_dict = {}
+    if inference_config.get("session_options"):
+        session_dict = {k: v for k, v in inference_config.get("session_options").items() if v is not None}
+        if "execution_mode" in session_dict:
+            session_dict["execution_mode"] = execution_mode_mappping[session_dict["execution_mode"]]
+
+    onnx_model_path = model_dir / "model.onnx"
+    model_proto = onnx.load(onnx_model_path)
+    onnx_model_path.unlink()
+
+    # MLFlow will save models with default config save_as_external_data=True
+    # https://github.com/mlflow/mlflow/blob/1d6eaaa65dca18688d9d1efa3b8b96e25801b4e9/mlflow/onnx.py#L175
+    # There will be an aphanumeric file generated in the same folder as the model file
+    mlflow.onnx.save_model(
+        model_proto,
+        model_dir / "mlflow_model",
+        onnx_execution_providers=inference_config.get("execution_provider"),
+        onnx_session_options=session_dict,
+    )
 
 
 def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):

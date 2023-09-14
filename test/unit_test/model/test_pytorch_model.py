@@ -48,7 +48,7 @@ class TestPyTorchMLflowModel(unittest.TestCase):
 
         olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.architecture})
         # model_attributes will be delayed loaded until pass run
-        assert not olive_model.model_attributes
+        assert olive_model.model_attributes == transformers.AutoConfig.from_pretrained(self.architecture).to_dict()
 
     def test_load_model(self):
         self.setup()
