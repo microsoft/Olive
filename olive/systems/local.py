@@ -40,7 +40,7 @@ class LocalSystem(OliveSystem):
         """
         Evaluate the model
         """
-        if model_config.type == "CompositeOnnxModel":
+        if model_config.type.lower() == "CompositeOnnxModel".lower():
             raise NotImplementedError()
 
         device = accelerator.accelerator_type if accelerator else Device.CPU

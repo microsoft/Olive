@@ -125,7 +125,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
             with open(output_model_json_path, "r") as f:
                 model_json = json.load(f)
-                output_model = ModelConfig.from_json(model_json).create_model()
+                output_model = ModelConfig.from_json(model_json)
 
         return output_model
 
@@ -135,7 +135,7 @@ class PythonEnvironmentSystem(OliveSystem):
         """
         Evaluate the model
         """
-        if not model_config.type == "ONNXModel":
+        if not model_config.type.lower() == "ONNXModel".lower():
             raise ValueError("PythonEnvironmentSystem can only evaluate ONNXModel.")
 
         # check if custom metric is present

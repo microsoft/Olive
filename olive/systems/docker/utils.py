@@ -92,13 +92,15 @@ def create_model_mount(model_config: ModelConfig, container_root_path: Path):
     mount_strs = []
     resource_paths = model_config.get_resource_paths()
     for resource_name, resource_path in resource_paths.items():
+        # if the resource path is None or string name, we need not to mount it
+        if not resource_path or resource_path.is_string_name():
+            continue
+
         relevant_path = resource_path.get_path()
         resource_path_mount_path = str(container_root_path / Path(relevant_path).name)
         resource_path_mount_str = f"{str(Path(relevant_path).resolve())}:{resource_path_mount_path}"
-        if resource_path_mount_path:
-            # if the resource path is not None or string name, we need to mount it
-            mounts[resource_name] = resource_path_mount_path
-            mount_strs.append(resource_path_mount_str)
+        mounts[resource_name] = resource_path_mount_path
+        mount_strs.append(resource_path_mount_str)
     return mounts, mount_strs
 
 

@@ -69,14 +69,14 @@ class OliveModel(ABC):
         self.resource_paths: Dict[str, ResourcePath] = {}
         resources = {}
         resources["model_path"] = model_path
-        self.set_resources(resources)
+        self.add_resources(resources)
 
     @property
     def model_path(self) -> str:
         """Return local model path."""
         return self.get_resource("model_path")
 
-    def set_resources(self, resources: Dict[str, OLIVE_RESOURCE_ANNOTATIONS]):
+    def add_resources(self, resources: Dict[str, OLIVE_RESOURCE_ANNOTATIONS]):
         for resource_name, resource_path in resources.items():
             if resource_path is not None:
                 resolved_resource_path = create_resource_path(resource_path)
@@ -116,7 +116,10 @@ class OliveModel(ABC):
         :return: local path.
         """
         assert resource_name in self.resource_paths, f"{resource_name} is not a valid resource name."
-        return self.resource_paths[resource_name]
+        resource = self.resource_paths[resource_name]
+        if resource and isinstance(resource, ResourcePath):
+            resource = resource.get_path()
+        return resource
 
     @abstractmethod
     def load_model(self, rank: int = None) -> object:
@@ -255,13 +258,8 @@ class ONNXModel(ONNXModelBase):
         self.graph = None
         self.all_graphs: Optional[List[GraphProto]] = None
 
-        # if model_path is local folder, check for onnx file name
-        model_resource_path = self.resource_paths["model_path"]
-        if model_resource_path:
-            if isinstance(model_resource_path, ResourcePath) and model_resource_path.type == ResourceType.LocalFolder:
-                self.get_onnx_file_path(model_resource_path.get_path(), self.onnx_file_name)
-            else:
-                self.get_onnx_file_path(model_resource_path, self.onnx_file_name)
+        # check for onnx file name since it will do validation
+        _ = self.model_path
 
     @staticmethod
     def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) -> str:
@@ -301,7 +299,8 @@ class ONNXModel(ONNXModelBase):
     @property
     def model_path(self) -> str:
         model_path = super().model_path
-        model_path = self.get_onnx_file_path(model_path, self.onnx_file_name) if model_path else None
+        if model_path and Path(model_path).is_dir():
+            model_path = self.get_onnx_file_path(model_path, self.onnx_file_name)
         return model_path
 
     @staticmethod
@@ -510,7 +509,7 @@ class PyTorchModel(OliveModel):
             model_attributes=model_attributes,
         )
         resources = {"adapter_path": adapter_path, "script_dir": script_dir, "model_script": model_script}
-        self.set_resources(resources)
+        self.add_resources(resources)
 
         self.hf_config = validate_config(hf_config, HFConfig) if hf_config else None
         # ensure that model_script and script_dirs are local
@@ -833,7 +832,7 @@ class OpenVINOModel(OliveModel):
             model_attributes=model_attributes,
         )
         # check if the model files (xml, bin) are in the same directory
-        model_path = create_resource_path(self.resource_paths["model_path"])
+        model_path = create_resource_path(self.model_path)
         assert model_path.is_local_resource(), "OpenVINO model_path must be local file or directory."
         _ = self.model_config
 
