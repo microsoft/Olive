@@ -66,7 +66,7 @@ class OliveModel(ABC):
         self.model_attributes = model_attributes
         self.io_config = None
         # store resource paths
-        self.resource_paths: Dict[str, ResourcePath] = {}
+        self.resource_paths: Dict[str, str] = {}
         resources = {}
         resources["model_path"] = model_path
         self.add_resources(resources)
@@ -117,6 +117,7 @@ class OliveModel(ABC):
         """
         assert resource_name in self.resource_paths, f"{resource_name} is not a valid resource name."
         resource = self.resource_paths[resource_name]
+        assert resource is None or isinstance(resource, str)
         if resource and isinstance(resource, ResourcePath):
             resource = resource.get_path()
         return resource
