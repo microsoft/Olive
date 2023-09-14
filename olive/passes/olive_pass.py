@@ -14,7 +14,7 @@ from olive.common.config_utils import ConfigBase, ParamCategory, validate_config
 from olive.common.user_module_loader import UserModuleLoader
 from olive.data.config import DataConfig
 from olive.hardware import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
-from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel, PyTorchModel
+from olive.model import CompositeOnnxModel, DistributedOnnxModel, OliveModel
 from olive.passes.pass_config import (
     PassConfigBase,
     PassConfigParam,
@@ -367,11 +367,6 @@ class Pass(ABC):
         """
         Run the pass on the model at a specific point in the search space.
         """
-        if isinstance(model, PyTorchModel) and model.hf_config:
-            hf_config = model.get_hf_model_config().to_dict()
-            input_model_attr = model.model_attributes or {}
-            hf_config.update(input_model_attr)
-            model.model_attributes = hf_config
 
         point = point or {}
         config = self.config_at_search_point(point)
