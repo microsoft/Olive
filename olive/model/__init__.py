@@ -517,7 +517,6 @@ class PyTorchModel(OliveModel):
             hf_model_config.update(model_attr)
             self.model_attributes = hf_model_config
 
-
         # ensure that script_dirs are local folder
         script_dir_resource = create_resource_path(self.script_dir)
         if script_dir_resource:
