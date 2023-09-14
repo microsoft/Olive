@@ -152,6 +152,14 @@ class TokenizerConfig(ConfigBase):
         return tokenizer, kwargs
 
 
+def truncate_dataset(dataset, max_samples=None):
+    """Truncate dataset to max_samples."""
+    if max_samples is not None:
+        num_samples = min(max_samples, len(dataset))
+        dataset = dataset.select(range(num_samples))
+    return dataset
+
+
 def map_pre_process(dataset, pre_process_func, batched=True, remove_cols=True):
     """
     Apply pre-process function to dataset and set format to torch.

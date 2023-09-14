@@ -12,6 +12,7 @@ from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.data.component.dataset import BaseDataset
+from olive.data.component.hf.utils import truncate_dataset
 from olive.data.constants import IGNORE_INDEX
 
 logger = logging.getLogger(__name__)
@@ -344,13 +345,13 @@ def text_gen_pair_pre_process(dataset, model_name, all_kwargs):
 
     tokenizer = get_tokenizer(model_name, args)
 
+    # truncate dataset to max_samples
+    # makes tokenization faster
+    dataset = truncate_dataset(dataset, args.max_samples)
+
     # format dataset based on pair_format
     # the formatted dataset has two columns: input and output
     dataset = format_pair_dataset(dataset, args.pair_format, args.input_col, args.output_col)
-    if args.max_samples is not None:
-        # truncate dataset to max_samples
-        # makes tokenization faster
-        dataset = dataset.select(range(args.max_samples))
 
     # extract elements
     sources = dataset["input"]
