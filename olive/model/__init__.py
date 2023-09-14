@@ -25,7 +25,13 @@ from olive.constants import Framework, ModelFileFormat
 from olive.hardware import AcceleratorLookup, Device
 from olive.model.hf_utils import HFConfig, get_hf_model_dummy_input, huggingface_model_loader
 from olive.model.model_config import IOConfig
-from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, ResourcePath, ResourcePathConfig, create_resource_path
+from olive.resource_path import (
+    OLIVE_RESOURCE_ANNOTATIONS,
+    ResourcePath,
+    ResourcePathConfig,
+    ResourceType,
+    create_resource_path,
+)
 from olive.snpe import SNPEDevice, SNPEInferenceSession, SNPESessionOptions
 from olive.snpe.tools.dev import get_dlc_metrics
 
@@ -512,11 +518,19 @@ class PyTorchModel(OliveModel):
             hf_model_config.update(model_attr)
             self.model_attributes = hf_model_config
 
-        # ensure that model_script and script_dirs are local
-        for resource_name in ["script_dir", "model_script"]:
-            if self.resource_paths[resource_name]:
-                relavant_path = create_resource_path(self.resource_paths[resource_name])
-                assert relavant_path.is_local_resource(), f"{resource_name} must be local file or directory."
+
+        # ensure that script_dirs are local folder
+        script_dir_resource = create_resource_path(self.script_dir)
+        if script_dir_resource:
+            assert script_dir_resource.type == ResourceType.LocalFolder, "script_dir must be a local directory."
+
+        # ensure that model_script is local file or string name
+        model_script_resource = create_resource_path(self.model_script)
+        if model_script_resource:
+            assert model_script_resource.type in (
+                ResourceType.LocalFile,
+                ResourceType.StringName,
+            ), "model_script must be a local file or a string name."
 
         # io config for conversion to onnx
         self.io_config = validate_config(io_config, IOConfig).dict() if io_config else None
