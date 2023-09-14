@@ -132,7 +132,7 @@ def test_generate_zipfile_artifacts_mlflow():
     engine = Engine(options)
     engine.register(OnnxConversion)
 
-    input_model = get_pytorch_model()
+    input_model_config = get_pytorch_model_config()
 
     packaging_config = PackagingConfig()
     packaging_config.type = PackagingType.Zipfile
@@ -144,7 +144,10 @@ def test_generate_zipfile_artifacts_mlflow():
 
     # execute
     engine.run(
-        input_model=input_model, packaging_config=packaging_config, output_dir=output_dir, evaluate_input_model=False
+        input_model_config=input_model_config,
+        packaging_config=packaging_config,
+        output_dir=output_dir,
+        evaluate_input_model=False,
     )
 
     # assert
