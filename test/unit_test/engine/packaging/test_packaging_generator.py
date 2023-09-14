@@ -122,6 +122,42 @@ def test_generate_zipfile_artifacts_no_search():
     assert (output_dir / "ONNXRuntimePackages").exists()
 
 
+def test_generate_zipfile_artifacts_mlflow():
+    # setup
+    options = {
+        "cache_dir": "./cache",
+        "clean_cache": True,
+        "clean_evaluation_cache": True,
+    }
+    engine = Engine(options)
+    engine.register(OnnxConversion)
+
+    input_model = get_pytorch_model()
+
+    packaging_config = PackagingConfig()
+    packaging_config.type = PackagingType.Zipfile
+    packaging_config.name = "OutputModels"
+    packaging_config.export_in_mlflow_format = True
+
+    tempdir = tempfile.TemporaryDirectory()
+    output_dir = Path(tempdir.name) / "outputs"
+
+    # execute
+    engine.run(
+        input_model=input_model, packaging_config=packaging_config, output_dir=output_dir, evaluate_input_model=False
+    )
+
+    # assert
+    artifacts_path = output_dir / "OutputModels.zip"
+    assert artifacts_path.exists()
+    with zipfile.ZipFile(artifacts_path, "r") as zip_ref:
+        zip_ref.extractall(output_dir)
+    assert (output_dir / "SampleCode").exists()
+    assert (output_dir / "CandidateModels").exists()
+    assert (output_dir / "ONNXRuntimePackages").exists()
+    assert (output_dir / "CandidateModels" / "cpu-cpu" / "BestCandidateModel_1" / "mlflow_model").exists()
+
+
 def test_generate_zipfile_artifacts_none_nodes():
     # setup
     packaging_config = PackagingConfig()
