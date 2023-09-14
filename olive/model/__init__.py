@@ -521,8 +521,8 @@ class PyTorchModel(OliveModel):
         # ensure that model_script and script_dirs are local
         for resource_name in ["script_dir", "model_script"]:
             if self.resource_paths[resource_name]:
-                relevant_path = create_resource_path(self.resource_paths[resource_name])
-                assert relevant_path.is_local_resource(), f"{resource_name} must be local file or directory."
+                relavant_path = create_resource_path(self.resource_paths[resource_name])
+                assert relavant_path.is_local_resource(), f"{resource_name} must be local file or directory."
 
         # io config for conversion to onnx
         self.io_config = validate_config(io_config, IOConfig).dict() if io_config else None
