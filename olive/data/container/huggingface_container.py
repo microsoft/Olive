@@ -29,6 +29,6 @@ class HuggingfaceContainer(DataContainer):
         },
         "text-generation": {
             DataComponentType.PRE_PROCESS_DATA.value: "text_generation_huggingface_pre_process",
-            DataComponentType.POST_PROCESS_DATA.value: "text_generatation_post_process",
+            DataComponentType.POST_PROCESS_DATA.value: "text_generation_post_process",
         },
     }
