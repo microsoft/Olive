@@ -66,7 +66,7 @@ class OliveModel(ABC):
         self.model_attributes = model_attributes
         self.io_config = None
         # store resource paths
-        self.resource_paths: Dict[str, ResourcePath] = {}
+        self.resource_paths: Dict[str, str] = {}
         resources = {}
         resources["model_path"] = model_path
         self.add_resources(resources)
@@ -117,8 +117,7 @@ class OliveModel(ABC):
         """
         assert resource_name in self.resource_paths, f"{resource_name} is not a valid resource name."
         resource = self.resource_paths[resource_name]
-        if resource and isinstance(resource, ResourcePath):
-            resource = resource.get_path()
+        assert resource is None or isinstance(resource, str)
         return resource
 
     @abstractmethod
@@ -518,11 +517,18 @@ class PyTorchModel(OliveModel):
             hf_model_config.update(model_attr)
             self.model_attributes = hf_model_config
 
-        # ensure that model_script and script_dirs are local
-        for resource_name in ["script_dir", "model_script"]:
-            if self.resource_paths[resource_name]:
-                relavant_path = create_resource_path(self.resource_paths[resource_name])
-                assert relavant_path.is_local_resource(), f"{resource_name} must be local file or directory."
+        # ensure that script_dirs are local folder
+        script_dir_resource = create_resource_path(self.script_dir)
+        if script_dir_resource:
+            assert script_dir_resource.type == ResourceType.LocalFolder, "script_dir must be a local directory."
+
+        # ensure that model_script is local file or string name
+        model_script_resource = create_resource_path(self.model_script)
+        if model_script_resource:
+            assert model_script_resource.type in (
+                ResourceType.LocalFile,
+                ResourceType.StringName,
+            ), "model_script must be a local file or a string name."
 
         # io config for conversion to onnx
         self.io_config = validate_config(io_config, IOConfig).dict() if io_config else None
@@ -735,7 +741,7 @@ class PyTorchModel(OliveModel):
         # the original config has them as serialized ResourcePath
         for resource_name in ["script_dir", "model_script"]:
             if self.resource_paths[resource_name]:
-                config["config"][resource_name] = self.resource_paths[resource_name].get_path()
+                config["config"][resource_name] = self.get_resource(resource_name)
         return serialize_to_json(config, check_object)
 
 

@@ -195,3 +195,15 @@ class TestPytorchDummyInput:
 
         get_hf_model_dummy_input.assert_called_once_with(self.model_name, self.task, None)
         assert dummy_inputs == 1
+
+
+class TestPyTorchModel:
+    def test_model_to_json(self, tmp_path):
+        script_dir = tmp_path / "model"
+        script_dir.mkdir(exist_ok=True)
+        model = PyTorchModel(model_path="test_path", script_dir=script_dir)
+        model.set_resource("model_script", "model_script")
+        model_json = model.to_json()
+        assert model_json["config"]["model_path"] == "test_path"
+        assert model_json["config"]["script_dir"] == str(script_dir)
+        assert model_json["config"]["model_script"] == "model_script"
