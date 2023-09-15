@@ -87,7 +87,12 @@ class TextGenCorpusParams(TextGenParams):
     text_template: str = None
     corpus_strategy: TextGenCorpusStrategy = TextGenCorpusStrategy.LINE_BY_LINE
     stride: int = None  # required when corpus_strategy is JOIN_SLIDING_WINDOW
-    joiner: str = " "  # delimiter to use when joining the rows of the input columns.
+    # text to join the rows of input columns when corpus_strategy is JOIN
+    # joined as "{text_col1} {joiner} {text_col2} ..."
+    # if None, joined with a space
+    # can also provide __eos_token__ to use eos_token as the joiner
+    joiner: str = None
+    processing_batch_size: int = 1024  # number of examples to process at a time
     random_seed: int = None  # random seed for LINE_BY_LINE_RANDOM and JOIN_RANDOM
     random_retries: int = (
         10  # number of resamples to try before giving up when a sample is too short for RANDOM strategies
@@ -154,8 +159,9 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
     text_template = args.text_template
     if text_template is None:
         text_template = " ".join(["{" + col + "}" for col in args.text_cols])
-    _dataset = apply_template(_dataset, args.text_cols, "text", text_template)
+    _dataset = apply_template(_dataset, args.text_cols, "text", text_template, remove_cols=True)
     text_list = _dataset["text"]
+    total_examples = len(text_list)  # total number of examples
 
     tokenized_inputs = {
         "input_ids": [],
@@ -163,73 +169,98 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
         "labels": [],
     }
     if "join" in args.corpus_strategy:
-        # delimiter between the text sequences
-        text = args.joiner.join(text_list)
-
-        # in order to make processing faster we will only tokenize as much as needed
-        # assumes that num words > num tokens
-        split_text = text.split(" ")
-        num_text = len(split_text)
-
-        seqlen = args.source_max_len
+        joiner_tokens = []
+        if args.joiner is not None:
+            # if joiner is __eos_token__, use eos_token as the joiner
+            if args.joiner == "__eos_token__":
+                joiner_tokens = [tokenizer.eos_token_id]
+            else:
+                joiner_tokens = tokenizer.encode(args.joiner, add_special_tokens=False)
 
         if args.corpus_strategy != TextGenCorpusStrategy.JOIN_RANDOM:
             # no randomization, just use contiguous blocks of tokens
             if args.corpus_strategy == TextGenCorpusStrategy.JOIN_SLIDING_WINDOW:
                 # we use the stride as both the step between sequences and the context size
-                step, context = args.stride, seqlen - args.stride
+                step, context = args.stride, args.source_max_len - args.stride
             else:
                 # JOIN corpus_strategy
                 # text is split into non-overlapping sequences and there is no context
-                step, context = seqlen, None
+                step, context = args.source_max_len, None
 
-            # only take as much text as needed
-            # assumes that num words > num tokens, so we can use num tokens as an upper bound
-            max_text = args.max_samples * seqlen if args.max_samples is not None else num_text
-            max_text = min(max_text, num_text)
-            # tokenize the text
-            encodings = tokenizer(" ".join(split_text[:max_text]), add_special_tokens=False, return_tensors="pt")
+            example_idx = 0  # index of the first example in the current batch
+            num_samples = 0  # samples processed so far
+            overflow = []  # tokens overflowed from the previous batch of examples
+            # we will process in batches to make tokenization faster
+            # better than joining all text together and tokenizing all at once
+            while True:
+                if args.max_samples is not None and num_samples >= args.max_samples:
+                    # we have reached max_samples
+                    break
+                if example_idx >= total_examples:
+                    # we have reached the end of the text_list
+                    break
 
-            num_tokens = encodings.input_ids.shape[1]
-            # loop over the number of tokens
-            # all inputs must be seqlen long
-            for begin_loc in range(0, num_tokens - seqlen, step):
-                # end_loc is the beginning of the next sequence
-                end_loc = begin_loc + seqlen
-                # get the input sequence
-                input_ids = encodings.input_ids[0, begin_loc:end_loc].clone()
-                append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context=context)
+                examples_to_get = min(args.processing_batch_size, total_examples - example_idx)
+                # batch tokenize
+                batched_input_ids = tokenizer(
+                    text_list[example_idx : example_idx + examples_to_get],  # noqa E203
+                    add_special_tokens=False,
+                    truncation=False,
+                )["input_ids"]
+
+                # join all the input_ids together with joiner_tokens
+                joined_input_ids = overflow
+                for input_ids in batched_input_ids:
+                    joined_input_ids += input_ids + joiner_tokens
+
+                end_loc = 0  # position of unused token in joined_input_ids
+                # '- args.source_max_len' is used to make sure we don't get a sequence that is too short
+                for begin_loc in range(0, len(joined_input_ids) - args.source_max_len, step):
+                    # end_loc is the beginning of the next sequence
+                    end_loc = begin_loc + args.source_max_len
+                    # get the input sequence
+                    input_ids = torch.tensor(joined_input_ids[begin_loc:end_loc])
+                    append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context=context)
+                    num_samples += 1
+                    if args.max_samples is not None and num_samples >= args.max_samples:
+                        # we have reached max_samples
+                        break
+                # update counters
+                example_idx += examples_to_get
+                overflow = joined_input_ids[end_loc:]
         else:
             # randomization, sample random blocks of tokens
             rng = Random(args.random_seed)
+            # cache to store tokenized examples
             cache = {}
             for _ in range(args.max_samples):
                 resamples = 0
-                encodings = None
+                # will try to sample sequences random_retries times before giving up
                 while resamples < args.random_retries:
-                    # sample a random block of tokens by sampling a random starting location
+                    # sample a beginning example
                     # randint is inclusive, so we need to subtract 1
-                    begin_loc = rng.randint(0, num_text - seqlen - 1)
-                    # heuristic to make sure we don't get a sequence that is too short
-                    if begin_loc not in cache:
-                        encodings = tokenizer(
-                            " ".join(split_text[begin_loc : begin_loc + seqlen]),  # noqa E203
-                            add_special_tokens=False,
-                            return_tensors="pt",
-                        )
-                        cache[begin_loc] = encodings
-                    else:
-                        encodings = cache[begin_loc]
-                    if encodings.input_ids.shape[1] >= seqlen:
-                        # found a good sample
+                    begin_example_idx = rng.randint(0, total_examples - 1)
+                    joined_input_ids = []
+                    # loop through the examples until we have enough tokens
+                    for i in range(begin_example_idx, total_examples):
+                        # get the input_ids
+                        if i not in cache:
+                            cache[i] = tokenizer(
+                                text_list[i],
+                                add_special_tokens=False,
+                                truncation=False,
+                            )["input_ids"]
+                        joined_input_ids += cache[i] + joiner_tokens
+                        # stop if we have enough tokens
+                        if len(joined_input_ids) >= args.source_max_len:
+                            break
+                    # add to samples if we have enough tokens
+                    if len(joined_input_ids) >= args.source_max_len:
+                        # found a good example
+                        input_ids = torch.tensor(joined_input_ids[: args.source_max_len])
+                        append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
                         break
                     resamples += 1
-                if not encodings:
-                    # could not find a good sample after resampling
-                    continue
-                input_ids = encodings.input_ids[0, :seqlen]
-                append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
-
     else:
         if args.add_special_tokens:
             # add bos and eos tokens before tokenizing
@@ -245,25 +276,24 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
                     input_ids = torch.tensor(input_ids)
                     append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
             else:
-                total_samples = len(text_list)
+                example_idx = 0  # index of the first example in the current batch
                 num_samples = 0
-                begin_loc = 0
                 while True:
-                    if num_samples >= args.max_samples or begin_loc >= total_samples:
+                    if num_samples >= args.max_samples or example_idx >= total_examples:
                         # we have reached max_samples or the end of the text_list
                         break
-                    # get as many samples as possible without going over max_samples
-                    samples_to_get = min(args.max_samples - num_samples, total_samples - begin_loc)
+                    # get as many examples as possible without going over max_samples
+                    examples_to_get = min(args.max_samples - num_samples, total_examples - example_idx)
                     # batch tokenize
                     batched_input_ids = batch_tokenize_text(
-                        text_list[begin_loc : begin_loc + samples_to_get], tokenizer, args  # noqa E203
+                        text_list[example_idx : example_idx + examples_to_get], tokenizer, args  # noqa E203
                     )
                     for input_ids in batched_input_ids:
                         input_ids = torch.tensor(input_ids)
                         append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
                     # update counters
                     num_samples += len(batched_input_ids)
-                    begin_loc += samples_to_get
+                    example_idx += examples_to_get
         else:
             # randomization, sample random lines
             rng = Random(args.random_seed)
@@ -485,8 +515,8 @@ def format_pair_dataset(dataset, pair_format, input_col=None, output_col=None):
 
 def apply_template(dataset, cols, new_col, template, remove_cols=False):
     """Apply template to column in dataset."""
-    dataset = dataset.map(lambda x: {new_col: template.format(**{col: x[col] for col in cols})})
-    if remove_cols:
-        cols = [col for col in cols if col != new_col]
-        dataset = dataset.remove_columns(cols)
+    dataset = dataset.map(
+        lambda x: {new_col: template.format(**{col: x[col] for col in cols})},
+        remove_columns=cols if remove_cols else None,
+    )
     return dataset
