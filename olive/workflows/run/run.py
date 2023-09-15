@@ -219,18 +219,19 @@ def check_local_ort_installation(package_name: str):
         logger.info(f"{local_ort_packages[0]} is already installed.")
         return
 
-    # uninstall all ort packages
-    logger.info("There are one or more onnxruntime packages installed in your environment.")
-    uninstall_command = ["python", "-m", "pip", "uninstall", "-y"] + local_ort_packages
-    uninstall_command = " ".join(uninstall_command)
-    logger.info(f"Please run '{uninstall_command}' to uninstall all existing onnxruntime packages.")
-
-    # install the package
-    logger.info(f"Then install {package_name} by running 'python -m pip install {package_name}'.")
-    logger.info(
+    # instruction to user
+    messages = [
+        "There are one or more onnxruntime packages installed in your environment!",
+        "Please run the following commands:",
+    ]
+    uninstall_command = "python -m pip uninstall -y " + " ".join(local_ort_packages)
+    messages.append(f"Uninstall all existing onnxruntime packages: '{uninstall_command}'")
+    messages.append(f"Install {package_name}: 'python -m pip install {package_name}'")
+    messages.append(
         "You can also instead install the corresponding nightly version following the instructions at"
         " https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages"
     )
+    logger.warning("\n".join(messages))
 
 
 def get_local_ort_packages() -> List[str]:
