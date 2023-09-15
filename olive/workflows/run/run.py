@@ -2,14 +2,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib.metadata
 import json
 import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Union
+from typing import List, Union
 
-import importlib_metadata
 import onnxruntime as ort
 
 from olive.hardware import Device
@@ -117,11 +117,11 @@ def dependency_setup(config):
             check_local_ort_installation(package)
         else:
             try:
-                # use importlib_metadata to check if package is installed
+                # use importlib.metadata to check if package is installed
                 # better than __import__ since the package name can be different from the import name
-                importlib_metadata.distribution(package)
+                importlib.metadata.distribution(package)
                 logger.info(f"{package} is already installed.")
-            except importlib_metadata.PackageNotFoundError:
+            except importlib.metadata.PackageNotFoundError:
                 logger.info(f"Installing {package}...")
                 subprocess.check_call(["python", "-m", "pip", "install", "{}".format(package)])
                 logger.info(f"Successfully installed {package}.")
@@ -195,12 +195,12 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
 
 
 def check_local_ort_installation(package_name: str):
-    # onnxruntime should always be present since we cannot import olive without onnxruntime
-    # use .get just in case
-    local_ort_packages = importlib_metadata.packages_distributions().get("onnxruntime")
+    local_ort_packages = get_local_ort_packages()
 
     if not local_ort_packages:
         # this case should not happen right now, for future proofing
+        # onnxruntime is a dependency of olive so it must already be present
+        # olive import would not have succeeded otherwise
         logger.info(f"Installing {package_name}...")
         subprocess.check_call(["python", "-m", "pip", "install", package_name])
         logger.info(f"Successfully installed {package_name}.")
@@ -214,6 +214,8 @@ def check_local_ort_installation(package_name: str):
     if len(local_ort_packages) == 1 and local_ort_packages[0] in [package_name, night_package_name]:
         # only if one ort package is installed and it is the one we want
         # can be the stable or nightly version
+        # TODO: will probably be fine if we want cpu package but some other ort package is installed
+        # but we can add a check for that if needed in the future
         logger.info(f"{local_ort_packages[0]} is already installed.")
         return
 
@@ -229,3 +231,17 @@ def check_local_ort_installation(package_name: str):
         "You can also instead install the corresponding nightly version following the instructions at"
         " https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages"
     )
+
+
+def get_local_ort_packages() -> List[str]:
+    all_packages = importlib.metadata.distributions()
+    local_ort_packages = []
+    for package in all_packages:
+        package_name = package.metadata["Name"]
+        if package_name == "onnxruntime-extensions":
+            # onnxruntime-packages is under onnxruntime_extensions namespace
+            # not an actual onnxruntime package
+            continue
+        if package_name.startswith("onnxruntime") or package_name.startswith("ort-nightly"):
+            local_ort_packages.append(package_name)
+    return local_ort_packages
