@@ -65,7 +65,7 @@ class TextGenParams(ConfigBase):
     # if false, cannot gaurantee all sequences are same length. data loader will have to handle this during collation
     pad_to_max_len: bool = True  # pad sequences to max_len, ignored for JOIN corpus strategy
     drop_short_sequences: bool = False  # drop sequences shorter than max_len. Mutually exclusive with pad_to_max_len
-    add_special_tokens: bool = True  # add bos and eos tokens
+    add_special_tokens: bool = True  # add bos and eos tokens to each sequence
 
     @validator("drop_short_sequences", always=True)
     def _check_padding(cls, v, values):
@@ -88,9 +88,9 @@ class TextGenCorpusParams(TextGenParams):
     corpus_strategy: TextGenCorpusStrategy = TextGenCorpusStrategy.LINE_BY_LINE
     stride: int = None  # required when corpus_strategy is JOIN_SLIDING_WINDOW
     # text to join the rows of input columns when corpus_strategy is JOIN
-    # joined as "{text_col1} {joiner} {text_col2} ..."
+    # add_special_tokens: "{bos_token} {text_col1} {eos_token} {joiner} {bos_token} {text_col2} {eos_token}..."
+    # no add_special_tokens: "{text_col1} {joiner} {text_col2}..."
     # if None, joined with a space
-    # can also provide __eos_token__ to use eos_token as the joiner
     joiner: str = None
     processing_batch_size: int = 1024  # number of examples to process at a time
     random_seed: int = None  # random seed for LINE_BY_LINE_RANDOM and JOIN_RANDOM
@@ -155,10 +155,15 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
 
     args = validate_config(all_kwargs, TextGenCorpusParams, warn_unused_keys=True)
 
-    # gather text from all input columns
+    # template for joining text columns
     text_template = args.text_template
     if text_template is None:
         text_template = " ".join(["{" + col + "}" for col in args.text_cols])
+    if args.add_special_tokens:
+        # add bos and eos tokens before tokenizing
+        # some tokenizers like LlamaTokenizer do not add eos token
+        text_template = f"{tokenizer.bos_token} {text_template} {tokenizer.eos_token}"
+    # apply text_template
     _dataset = apply_template(_dataset, args.text_cols, "text", text_template, remove_cols=True)
     text_list = _dataset["text"]
     total_examples = len(text_list)  # total number of examples
@@ -169,13 +174,7 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
         "labels": [],
     }
     if "join" in args.corpus_strategy:
-        joiner_tokens = []
-        if args.joiner is not None:
-            # if joiner is __eos_token__, use eos_token as the joiner
-            if args.joiner == "__eos_token__":
-                joiner_tokens = [tokenizer.eos_token_id]
-            else:
-                joiner_tokens = tokenizer.encode(args.joiner, add_special_tokens=False)
+        joiner_tokens = tokenizer.encode(args.joiner, add_special_tokens=False) if args.joiner else []
 
         if args.corpus_strategy != TextGenCorpusStrategy.JOIN_RANDOM:
             # no randomization, just use contiguous blocks of tokens
@@ -262,11 +261,6 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
                         break
                     resamples += 1
     else:
-        if args.add_special_tokens:
-            # add bos and eos tokens before tokenizing
-            # some tokenizers like LlamaTokenizer do not add eos token
-            text_list = [f"{tokenizer.bos_token} {text} {tokenizer.eos_token}" for text in text_list]
-
         # each line is a sequence
         if args.corpus_strategy == TextGenCorpusStrategy.LINE_BY_LINE:
             # batched tokenization might be faster so lets tokenize all the text at once
