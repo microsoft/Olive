@@ -340,7 +340,7 @@ class Engine:
                     # for evaluate input model only, return the evaluation results
                     # TODO: need check whether the evaluation results are valid since it will only evaluate input model
                     # once and use the same evaluation results for all accelerators
-                    return run_result
+                    outputs[accelerator_spec] = run_result
                 elif self.no_search:
                     output, model_ids = run_result
                     if output:
@@ -351,6 +351,10 @@ class Engine:
                 else:
                     outputs[accelerator_spec] = run_result
                     pf_footprints[accelerator_spec] = run_result
+
+        if not self.passes:
+            # no passes registered, return the evaluation results
+            return outputs
 
         for accelerator_spec in self.footprints.keys():
             logger.info(f"Run history for {accelerator_spec}:")
