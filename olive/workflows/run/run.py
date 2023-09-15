@@ -2,17 +2,18 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib.metadata
 import json
 import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Union
+from typing import List, Union
 
 import onnxruntime as ort
 
 from olive.hardware import Device
-from olive.logging import set_default_logger_severity
+from olive.logging import set_default_logger_severity, set_verbosity_info
 from olive.passes import Pass
 from olive.systems.common import SystemType
 from olive.workflows.run.config import RunConfig
@@ -76,6 +77,7 @@ def dependency_setup(config):
             "TorchTRTConversion": EXTRAS.get("torch-tensorrt"),
         },
     }
+    ORT_PACKAGES = ["onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino"]
 
     local_packages = []
     remote_packages = []
@@ -111,13 +113,18 @@ def dependency_setup(config):
     # install missing packages to local or tell user to install packages in their environment
     logger.info(f"The following packages are required in the local environment: {local_packages}")
     for package in set(local_packages):
-        try:
-            __import__(package)
-            logger.info(f"{package} is already installed.")
-        except ImportError:
-            logger.info(f"Installing {package}...")
-            subprocess.check_call(["python", "-m", "pip", "install", "{}".format(package)])
-            logger.info(f"Successfully installed {package}.")
+        if package in ORT_PACKAGES:
+            check_local_ort_installation(package)
+        else:
+            try:
+                # use importlib.metadata to check if package is installed
+                # better than __import__ since the package name can be different from the import name
+                importlib.metadata.distribution(package)
+                logger.info(f"{package} is already installed.")
+            except importlib.metadata.PackageNotFoundError:
+                logger.info(f"Installing {package}...")
+                subprocess.check_call(["python", "-m", "pip", "install", "{}".format(package)])
+                logger.info(f"Successfully installed {package}.")
     if remote_packages:
         logger.info(
             "Please make sure the following packages are installed in {} environment: {}".format(
@@ -152,6 +159,8 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
         engine, config = automatically_insert_passes(config)
 
     if setup:
+        # set the log level to INFO for setup
+        set_verbosity_info()
         dependency_setup(config)
     else:
         # passes
@@ -183,3 +192,57 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
             config.engine.evaluate_input_model,
         )
         return best_execution
+
+
+def check_local_ort_installation(package_name: str):
+    local_ort_packages = get_local_ort_packages()
+
+    if not local_ort_packages:
+        # this case should not happen right now, for future proofing
+        # onnxruntime is a dependency of olive so it must already be present
+        # olive import would not have succeeded otherwise
+        logger.info(f"Installing {package_name}...")
+        subprocess.check_call(["python", "-m", "pip", "install", package_name])
+        logger.info(f"Successfully installed {package_name}.")
+        return
+
+    if "-" in package_name:
+        night_package_name = f"ort-nightly-{package_name.split('-')[-1]}"
+    else:
+        night_package_name = "ort-nightly"
+
+    if len(local_ort_packages) == 1 and local_ort_packages[0] in [package_name, night_package_name]:
+        # only if one ort package is installed and it is the one we want
+        # can be the stable or nightly version
+        # TODO: will probably be fine if we want cpu package but some other ort package is installed
+        # but we can add a check for that if needed in the future
+        logger.info(f"{local_ort_packages[0]} is already installed.")
+        return
+
+    # instruction to user
+    messages = [
+        "There are one or more onnxruntime packages installed in your environment!",
+        "Please run the following commands:",
+    ]
+    uninstall_command = "python -m pip uninstall -y " + " ".join(local_ort_packages)
+    messages.append(f"Uninstall all existing onnxruntime packages: '{uninstall_command}'")
+    messages.append(f"Install {package_name}: 'python -m pip install {package_name}'")
+    messages.append(
+        "You can also instead install the corresponding nightly version following the instructions at"
+        " https://onnxruntime.ai/docs/install/#inference-install-table-for-all-languages"
+    )
+    logger.warning("\n".join(messages))
+
+
+def get_local_ort_packages() -> List[str]:
+    all_packages = importlib.metadata.distributions()
+    local_ort_packages = []
+    for package in all_packages:
+        package_name = package.metadata["Name"]
+        if package_name == "onnxruntime-extensions":
+            # onnxruntime-packages is under onnxruntime_extensions namespace
+            # not an actual onnxruntime package
+            continue
+        if package_name.startswith("onnxruntime") or package_name.startswith("ort-nightly"):
+            local_ort_packages.append(package_name)
+    return local_ort_packages

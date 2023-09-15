@@ -128,3 +128,16 @@ python test_transcription.py --config whisper_cpu_int8.json
 
 `--task` Optional. Whether to perform X->X speech recognition ('transcribe') or X->English translation ('translate'). Default is `transcribe`. Only used
 when `--multilingual` is provided to `prepare_whisper_configs.py`
+
+## FAQ
+The following are some common issues that may be encountered when running this example.
+1. `INVALID_GRAPH / Error Node (BeamSearch_node) has input size 12 not in range [min=5, max=10]` or similar error when running inference using the optimized model.
+This is likely due to:
+    - Mismatch between the versions of onnxruntime used to run the optimization workflow and the inference. To fix this, please use the same version of
+    onnxruntime for both.
+    - Mismatch between the versions of onnxruntime used in a previously cached run and the currently installed version. To fix this, please delete the `cache` folder
+    and run the workflow again.
+
+2. Whenever you install a new version of onnxruntime (such as ort-nightly), you may need to delete the `cache` folder and run the workflow again. This is because the cache doesn't
+distinguish between different versions of onnxruntime and will use the cached models from a previous run. There might be incompatibilities between the cached models and the new
+version of onnxruntime.

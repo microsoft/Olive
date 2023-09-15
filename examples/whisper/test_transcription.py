@@ -12,6 +12,7 @@ from pathlib import Path
 import onnxruntime as ort
 
 from olive.evaluator.olive_evaluator import OnnxEvaluator
+from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
 
 sys.path.append(str(Path(__file__).parent / "code"))
@@ -65,9 +66,16 @@ def main(raw_args=None):
     if not multilingual and not (args.language == "english" and args.task == "transcribe"):
         print("Model is not multilingual but custom language/task provided. Will ignore custom language/task.")
 
+    # get device and ep
+    device = config["systems"]["local_system"]["config"]["accelerators"][0]
+    ep = config["engine"]["execution_providers"][0]
+    accelerator_spec = AcceleratorSpec(accelerator_type=device, execution_provider=ep)
+
     # load output model json
     output_model_json_path = Path(config["engine"]["output_dir"])
-    for model_json in output_model_json_path.glob(f"**/{config['engine']['output_name']}_cpu-cpu_model.json"):
+    for model_json in output_model_json_path.glob(
+        f"**/{config['engine']['output_name']}_{accelerator_spec}_model.json"
+    ):
         output_model_json = json.load(open(model_json, "r"))
         break
 
@@ -94,7 +102,7 @@ def main(raw_args=None):
     )
 
     # create inference session
-    session = olive_model.prepare_session(None, "cpu")
+    session = olive_model.prepare_session(None, device, [ep])
 
     # get output
     input, _ = dataset[0]
