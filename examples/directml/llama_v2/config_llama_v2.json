@@ -132,6 +132,7 @@
                     "/layers.29/attention_norm/Pow",
                     "/layers.30/attention_norm/Pow",
                     "/layers.31/attention_norm/Pow",
+                    "/norm/Pow",
                     "/layers.0/attention_norm/ReduceMean",
                     "/layers.1/attention_norm/ReduceMean",
                     "/layers.2/attention_norm/ReduceMean",
@@ -164,6 +165,7 @@
                     "/layers.29/attention_norm/ReduceMean",
                     "/layers.30/attention_norm/ReduceMean",
                     "/layers.31/attention_norm/ReduceMean",
+                    "/norm/ReduceMean",
                     "/layers.0/attention_norm/Add",
                     "/layers.1/attention_norm/Add",
                     "/layers.2/attention_norm/Add",
@@ -196,6 +198,7 @@
                     "/layers.29/attention_norm/Add",
                     "/layers.30/attention_norm/Add",
                     "/layers.31/attention_norm/Add",
+                    "/norm/Add",
                     "/layers.0/attention_norm/Sqrt",
                     "/layers.1/attention_norm/Sqrt",
                     "/layers.2/attention_norm/Sqrt",
@@ -228,6 +231,7 @@
                     "/layers.29/attention_norm/Sqrt",
                     "/layers.30/attention_norm/Sqrt",
                     "/layers.31/attention_norm/Sqrt",
+                    "/norm/Sqrt",
                     "/layers.0/attention_norm/Div",
                     "/layers.1/attention_norm/Div",
                     "/layers.2/attention_norm/Div",
@@ -259,7 +263,8 @@
                     "/layers.28/attention_norm/Div",
                     "/layers.29/attention_norm/Div",
                     "/layers.30/attention_norm/Div",
-                    "/layers.31/attention_norm/Div"
+                    "/layers.31/attention_norm/Div",
+                    "/norm/Div"
                 ]
             }
         },
