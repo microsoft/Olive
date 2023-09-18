@@ -215,7 +215,7 @@ If no data config template can meet the requirement, we can also define the `dat
 
         each component can be customized by the following fields:
             - `name`: the name of the component.
-            - `type`: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in `user_script` with the way Olive does for `huggingface_dataset <https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26>`_. In this way, they need to provide `user_script` and `script_dir`. There is an `example <https://github.com/microsoft/Olive/blob/a65b453ba7d15d5b811281c6facb11a9fcc65ec3/examples/snpe/inception_snpe_qualcomm_npu/user_script.py#L9>`_ with customized component type.
+            - `type`: the type name of the available component type. Besides the above available type in above table, user can also define their own component type in `user_script` with the way Olive does for `huggingface_dataset <https://github.com/microsoft/Olive/blob/main/olive/data/component/load_dataset.py#L26>`_. In this way, they need to provide `user_script` and `script_dir`. There is an `example <https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/user_script.py#L9>`_ with customized component type.
             - `params`: the dictionary of component function parameters. The key is the parameter name for given component type and the value is the parameter value.
     4. `user_script`: the user script path which contains the customized component type.
     5. `script_dir`: the user script directory path which contains the customized script.
@@ -338,7 +338,7 @@ If no data config template can meet the requirement, we can also define the `dat
                     "components": {
                         "load_dataset": {
                             "name": "_huggingface_dataset",
-                            "type": "customize_huggingface_dataset",
+                            "type": "customized_huggingface_dataset",
                             "params": {
                                 "data_dir": null,
                                 "data_name": "glue",
@@ -352,6 +352,12 @@ If no data config template can meet the requirement, we can also define the `dat
 
             .. code-block:: python
 
+                from olive.data.registry import Registry
+
+                @Registry.register_dataset()
+                def customized_huggingface_dataset(output):
+                    ...
+
                 from olive.data.config import DataConfig
                 data_config = DataConfig(
                     name="data",
@@ -361,7 +367,7 @@ If no data config template can meet the requirement, we can also define the `dat
                     components={
                         "load_dataset": {
                             "name": "_huggingface_dataset",
-                            "type": "customize_huggingface_dataset",
+                            "type": "customized_huggingface_dataset",
                             "params": {
                                 "data_dir": null,
                                 "data_name": "glue",
@@ -370,3 +376,34 @@ If no data config template can meet the requirement, we can also define the `dat
                         },
                     },
                 )
+
+    .. note::
+        User should provide the `user_script` and `script_dir` if they want to customize the component type. The `user_script` should be a python script which contains the customized component type. The `script_dir` should be the directory path which contains the `user_script`. Here is an example for `user_script`:
+
+        .. code-block:: python
+
+            from olive.data.registry import Registry
+
+            @Registry.register_dataset()
+            def customized_huggingface_dataset(dataset):
+                ...
+
+            @Registry.register_pre_process()
+            def customized_huggingface_pre_process(dataset):
+                ...
+
+            @Registry.register_post_process()
+            def customized_post_process(output):
+                ...
+
+            @Registry.register_dataloader()
+            def customized_dataloader(dataset):
+                ...
+
+        More examples:
+            1. inception_post_process:
+                - user_script https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/user_script.py#L8-L10
+                - json_config https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/inception_config.json#L14-L16
+            2. dummy_dataset_dataroot:
+                - user_scirpt https://github.com/microsoft/Olive/blob/main/test/unit_test/test_data_root.py#L31
+                - json_config https://github.com/microsoft/Olive/blob/main/test/unit_test/test_data_root.py#L107
