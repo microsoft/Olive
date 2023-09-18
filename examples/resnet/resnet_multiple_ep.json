@@ -44,6 +44,17 @@
         }
     },
     "passes": {
+        "onnx_quantization": {
+            "type": "OnnxQuantization",
+            "config": {
+                "user_script": "user_script.py",
+                "data_dir": "data",
+                "dataloader_func": "resnet_calibration_reader",
+                "weight_type": "QUInt8",
+                "activation_type": "QUInt8",
+                "quant_preprocess": true
+            }
+        },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
