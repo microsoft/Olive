@@ -436,13 +436,17 @@ class Engine:
     def setup_passes(self, accelerator_spec: AcceleratorSpec):
         # clean the passes
         self.passes.clear()
-        for config in self.pass_config.values():
+        for name, config in self.pass_config.items():
             pass_cls: Type[Pass] = config["type"]
             pass_cfg = config["config"]
             pass_cfg = pass_cls.generate_search_space(accelerator_spec, pass_cfg, config["disable_search"])
             p = pass_cls(accelerator_spec, pass_cfg, config["disable_search"])
             self.register_pass(
-                p, host=config["host"], evaluator_config=config["evaluator"], output_name=config["output_name"]
+                p,
+                host=config["host"],
+                evaluator_config=config["evaluator"],
+                output_name=config["output_name"],
+                name=name,
             )
 
         # list of passes starting from the first pass with non-empty search space
@@ -451,9 +455,8 @@ class Engine:
         for pass_flow in self.pass_flows:
             self.pass_search_spaces = []
             for pass_name in pass_flow:
-                pass_cls_name = self.pass_config[pass_name]["type"].__name__
-                p: Pass = self.passes[pass_cls_name]["pass"]
-                self.pass_search_spaces.append((pass_cls_name, p.search_space()))
+                p: Pass = self.passes[pass_name]["pass"]
+                self.pass_search_spaces.append((pass_name, p.search_space()))
             self.pass_flows_search_spaces.append(self.pass_search_spaces)
 
     def run_no_search(
@@ -990,7 +993,7 @@ class Engine:
         # pass
         p: Pass = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
-        logger.info(f"Running pass {pass_name}")
+        logger.info(f"Running pass {pass_id}:{pass_name}")
         pass_config = p.config_at_search_point(pass_search_point)
         pass_config = p.serialize_config(pass_config)
 
