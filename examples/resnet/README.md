@@ -34,6 +34,11 @@ This workflow performs ResNet optimization on CPU with QAT PyTorch Lightning Mod
 
 Config file: [resnet_qat_lightning_module_cpu.json](resnet_qat_lightning_module_cpu.json)
 
+### ResNet optimization with OpenVINO and DML execution providers
+This example performs ResNet optimization with OpenVINO and DML execution providers in one workflow. It performs the optimization pipeline:
+- *ONNX Model -> ONNX Runtime performance tuning on multiple ep*
+
+Config file: [resnet_multiple_ep.json](resnet_multiple_ep.json)
 ## How to run
 ### Pip requirements
 Install the necessary python packages:
