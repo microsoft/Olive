@@ -49,7 +49,8 @@
             "config":{
                 "user_script": "user_script.py",
                 "num_epochs": 1,
-                "data_dir": "data",
+                "train_data_dir": "data",
+                "val_data_dir": "data",
                 "ptl_data_module": "PTLDataModule",
                 "ptl_module": "PTLModule",
                 "pl_extra_args": {"accelerator": "gpu", "enable_checkpointing": true, "devices": 1},

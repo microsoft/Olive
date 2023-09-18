@@ -48,7 +48,8 @@
             "type": "QuantizationAwareTraining",
             "config":{
                 "user_script": "user_script.py",
-                "data_dir": "data",
+                "train_data_dir": "data",
+                "val_data_dir": "data",
                 "num_epochs": 1,
                 "train_dataloader_func": "create_train_dataloader",
                 "train_batch_size": 100,
