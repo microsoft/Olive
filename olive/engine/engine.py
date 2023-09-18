@@ -7,6 +7,7 @@ import logging
 import time
 from collections import OrderedDict, defaultdict
 from contextlib import contextmanager
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
@@ -325,7 +326,6 @@ class Engine:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         outputs = {}
-        pf_footprints = {}
 
         for accelerator_spec in self.accelerator_specs:
             with self.create_managed_environment(accelerator_spec):
@@ -336,37 +336,21 @@ class Engine:
                 if run_result is None:
                     continue
 
-                if evaluate_input_model and not self.passes:
-                    # for evaluate input model only, return the evaluation results
-                    # TODO: need check whether the evaluation results are valid since it will only evaluate input model
-                    # once and use the same evaluation results for all accelerators
-                    outputs[accelerator_spec] = run_result
-                elif self.no_search:
-                    output, model_ids = run_result
-                    if output:
-                        outputs[accelerator_spec] = output
-                        pf_footprints[accelerator_spec] = self.footprints[accelerator_spec].get_footprints_by_model_ids(
-                            model_ids
-                        )
-                else:
-                    outputs[accelerator_spec] = run_result
-                    pf_footprints[accelerator_spec] = run_result
-
-        if not self.passes:
-            # no passes registered, return the evaluation results
-            return outputs
+                outputs[accelerator_spec] = run_result
 
         for accelerator_spec in self.footprints.keys():
             logger.info(f"Run history for {accelerator_spec}:")
             run_history = self.footprints[accelerator_spec].summarize_run_history()
             self.dump_run_history(run_history, output_dir / f"run_history_{accelerator_spec}.txt")
 
-        if packaging_config:
-            logger.info(f"Package top ranked {sum([len(f.nodes) for f in pf_footprints.values()])} models as artifacts")
+        if packaging_config and self.passes:
+            # TODO: should we support package input model?
+            # TODO: do you support packaging pytorch models?
+            logger.info(f"Package top ranked {sum([len(f.nodes) for f in outputs.values()])} models as artifacts")
             generate_output_artifacts(
                 packaging_config,
                 self.footprints,
-                pf_footprints,
+                outputs,
                 output_dir,
             )
         else:
@@ -490,13 +474,13 @@ class Engine:
         self.search_strategy.initialize(self.pass_flows_search_spaces, input_model_id, objective_dict)
 
         iter_num = 0
-        flows_output = {}
-        output_model_ids = []
+        output_models = {}
         while True:
             iter_num += 1
 
             # get the next step
             next_step = self.search_strategy.next_step()
+
             if iter_num == 1:
                 assert next_step is not None, "Search strategy returned None for the first step"
             # if no more steps, break
@@ -515,16 +499,15 @@ class Engine:
             logger.debug(f"Step no search with search point {next_step['search_point']} ...")
 
             # run all the passes in the step
-            (
-                should_prune,
-                signal,
-                model_ids,
-            ) = self._run_passes(next_step["passes"], model_config, model_id, data_root, accelerator_spec)
-            pass_flow = self.pass_flows[iter_num - 1]
+            should_prune, signal, model_ids = self._run_passes(
+                next_step["passes"], model_config, model_id, data_root, accelerator_spec
+            )
 
+            pass_flow = self.pass_flows[iter_num - 1]
             if should_prune:
                 failed_pass = pass_flow[len(model_ids)]
                 logger.warning(f"Flow {pass_flow} is pruned due to failed or invalid config for pass '{failed_pass}'")
+                continue
 
             # names of the output models of the passes
             pass_output_names = [self.passes[pass_name]["output_name"] for pass_name, _ in next_step["passes"]]
@@ -544,7 +527,6 @@ class Engine:
             pass_output_names[-1] = final_output_name
 
             output_model_json = None
-            output = {}
             for pass_output_name, pass_output_model_id in zip(pass_output_names, model_ids):
                 if not pass_output_name:
                     continue
@@ -555,7 +537,7 @@ class Engine:
                     overwrite=True,
                     cache_dir=self._config.cache_dir,
                 )
-                output_model_ids.append(pass_output_model_id)
+                output_models[pass_output_model_id] = output_model_json
 
             # save the evaluation results to output_dir
             if signal is not None:
@@ -563,15 +545,13 @@ class Engine:
                 with open(results_path, "w") as f:
                     json.dump(signal.to_json(), f, indent=4)
 
-            if output_model_json and not should_prune:
-                # output_model_json is the last model only if the flow is not pruned
-                output["model"] = output_model_json
-                if signal is not None:
-                    output["metrics"] = signal
-            else:
-                output = None
-            flows_output[tuple(pass_flow)] = output
-        return flows_output, output_model_ids
+        output_model_ids = list(output_models.keys())
+        fp_outputs = deepcopy(self.footprints[accelerator_spec].create_footprints_by_model_ids(output_model_ids))
+        # update the output model config
+        for model_id, model_config in output_models.items():
+            fp_outputs.nodes[model_id].model_config = model_config
+
+        return fp_outputs
 
     def run_search(
         self,
@@ -956,7 +936,7 @@ class Engine:
             )
             if model_config in PRUNED_CONFIGS:
                 should_prune = True
-                logger.debug("Pruned")
+                logger.debug(f"Pruned for pass {pass_id}")
                 break
             model_ids.append(model_id)
 

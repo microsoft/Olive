@@ -153,7 +153,7 @@ class Footprint:
             self.nodes[k].is_pareto_frontier = cmp_flag
         self.is_marked_pareto_frontier = True
 
-    def get_footprints_by_model_ids(self, model_ids):
+    def create_footprints_by_model_ids(self, model_ids):
         nodes = OrderedDict()
         for model_id in model_ids:
             nodes[model_id] = self.nodes[model_id]
