@@ -11,7 +11,7 @@ import pytest
 from olive.engine import Engine
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.hardware import Device
-from olive.hardware.accelerator import AcceleratorSpec
+from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
 from olive.model import ModelConfig
 from olive.passes.onnx import OrtPerfTuning
 
@@ -58,9 +58,11 @@ class TestOliveAzureMLSystem:
         engine = Engine(options, target=self.system, host=self.system, evaluator_config=evaluator_config)
         engine.register(OrtPerfTuning)
         output = engine.run(self.input_model_config, output_dir=output_dir)
-        cpu_res = output[AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="CPUExecutionProvider")]
-        openvino_res = output[
-            AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="OpenVINOExecutionProvider")
-        ]
-        assert cpu_res[tuple(engine.pass_flows[0])]["metrics"]["latency-avg"]
-        assert openvino_res[tuple(engine.pass_flows[0])]["metrics"]["latency-avg"]
+        cpu_res = list(output[DEFAULT_CPU_ACCELERATOR].nodes.values())[0]
+        openvino_res = list(
+            output[
+                AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="OpenVINOExecutionProvider")
+            ].nodes.values()
+        )[0]
+        assert cpu_res.metrics.value.__root__
+        assert openvino_res.metrics.value.__root__
