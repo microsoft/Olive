@@ -1,0 +1,6 @@
+
+--extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+optimum
+ort-nightly-directml==1.16.0.dev20230915012
+tabulate
+torch

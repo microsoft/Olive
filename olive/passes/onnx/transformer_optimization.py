@@ -2,10 +2,15 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import gc
 import logging
 import os
 from copy import deepcopy
 from typing import Any, Dict, List, Union
+
+import onnx
+from onnx.shape_inference import infer_shapes_path
+from onnxruntime.transformers import float16
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
@@ -76,6 +81,9 @@ class OrtTransformersOptimization(Pass):
             "force_fp32_ops": PassConfigParam(
                 type_=List[str], default_value=None, description="Operators that are forced to run in float32"
             ),
+            "force_fp32_nodes": PassConfigParam(
+                type_=List[str], default_value=None, description="Nodes that are forced to run in float32"
+            ),
         }
         config.update(get_external_data_config())
         return config
@@ -137,11 +145,12 @@ class OrtTransformersOptimization(Pass):
             run_config["input_int32"],
             run_config["keep_io_types"],
             run_config["force_fp32_ops"],
+            run_config["force_fp32_nodes"],
         )
         for key in get_external_data_config():
             del run_config[key]
 
-        if model.hf_config:
+        if model.hf_config and model.hf_config.model_name is not None:
             model_config = model.hf_config.load_model_config().to_dict()
             input_model_type = model_config.get("model_type", "")
             _model_type = MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
@@ -170,7 +179,39 @@ class OrtTransformersOptimization(Pass):
 
         if config["float16"]:
             op_block_list = config["force_fp32_ops"]
-            optimizer.convert_float_to_float16(keep_io_types=config["keep_io_types"], op_block_list=op_block_list)
+            node_block_list = config["force_fp32_nodes"]
+
+            # TODO (pavignol): Figure out why symbolic shape inference is failing. We need to use symbolic shape
+            # eventually if we want to do contrib op fusions
+            shape_inferred_model_path = os.path.dirname(model.model_path) + "/shape_inferred_model.onnx"
+
+            try:
+                # We need to save the optimized model to a temporary file since the model may be too big to call
+                # infer_shapes
+                onnx.save(
+                    optimizer.model,
+                    shape_inferred_model_path,
+                    save_as_external_data=True,
+                    all_tensors_to_one_file=True,
+                )
+                del optimizer.model
+                gc.collect()
+
+                infer_shapes_path(shape_inferred_model_path, output_path=shape_inferred_model_path)
+                optimizer.model = onnx.load(shape_inferred_model_path)
+                optimizer.model = float16.convert_float_to_float16(
+                    optimizer.model,
+                    disable_shape_infer=True,
+                    op_block_list=op_block_list,
+                    node_block_list=node_block_list,
+                )
+            finally:
+                os.remove(shape_inferred_model_path)
+
+            # optimizer.convert_float_to_float16(
+            #     keep_io_types=config["keep_io_types"],
+            #     op_block_list=op_block_list,
+            #     node_block_list=node_block_list)
 
         if config["input_int32"]:
             optimizer.change_graph_inputs_to_int32()

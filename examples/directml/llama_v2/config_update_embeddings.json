@@ -1,0 +1,63 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_loader": "load_update_embeddings_model",
+            "model_script": "user_script.py",
+            "io_config": {
+                "input_names": [ "tokens" ],
+                "output_names": [ "embeddings" ],
+                "dynamic_axes": {
+                    "tokens": { "0": "seq_len" }
+                }
+            },
+            "dummy_inputs_func": "update_embeddings_inputs"
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["gpu"]
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [{"name": "avg"}],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "update_embeddings_data_loader",
+                        "batch_size": 1
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "convert": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 17
+            }
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "exhaustive"
+        },
+        "evaluator": "common_evaluator",
+        "evaluate_input_model": false,
+        "host": "local_system",
+        "target": "local_system",
+        "cache_dir": "cache",
+        "output_name": "update_embeddings",
+        "output_dir": "footprints",
+        "execution_providers": ["DmlExecutionProvider"]
+    }
+}

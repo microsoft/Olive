@@ -1,0 +1,286 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_script": "user_script.py",
+            "hf_config": {
+                "components": [
+                    {
+                        "name": "decoder_model",
+                        "io_config": {
+                            "input_names": [ "x", "attn_mask", "k_cache", "v_cache" ],
+                            "output_names": [ "logits", "attn_mask_out", "k_out", "v_out", "cos_out", "sin_out"],
+                            "dynamic_axes": {
+                                "x": { "1": "seq_len" },
+                                "attn_mask": { "1": "max_seq_len", "2": "max_seq_len" },
+                                "k_cache": { "2": "max_seq_len" },
+                                "v_cache": { "2": "max_seq_len" }
+                            }
+                        },
+                        "component_func": "load_decoder_model",
+                        "dummy_inputs_func": "decoder_inputs"
+                    },
+                    {
+                        "name": "decoder_with_past_model",
+                        "io_config": {
+                            "input_names": [ "x_increment", "attn_mask", "k_cache", "v_cache", "cos", "sin" ],
+                            "output_names": [ "logits", "attn_mask_out", "k_out", "v_out", "cos_out", "sin_out"],
+                            "dynamic_axes": {
+                                "attn_mask": { "1": "max_seq_len", "2": "max_seq_len" },
+                                "k_cache": { "2": "max_seq_len" },
+                                "v_cache": { "2": "max_seq_len" },
+                                "cos": { "1": "max_seq_len" },
+                                "sin": { "1": "max_seq_len" }
+                            }
+                        },
+                        "component_func": "load_decoder_with_past_model",
+                        "dummy_inputs_func": "decoder_with_past_inputs"
+                    }
+                ]
+            }
+        }
+    },
+    "systems": {
+        "local_system": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["gpu"]
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [{"name": "avg"}],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "merged_decoders_data_loader",
+                        "batch_size": 1
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "convert": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 17
+            }
+        },
+        "optimize": {
+            "type": "OrtTransformersOptimization",
+            "disable_search": true,
+            "config": {
+                "model_type": "unet",
+                "float16": true,
+                "use_gpu": true,
+                "keep_io_types": false,
+                "optimization_options": {
+                    "enable_gelu": false,
+                    "enable_layer_norm": false,
+                    "enable_attention": false,
+                    "use_multi_head_attention": false,
+                    "enable_skip_layer_norm": false,
+                    "enable_embed_layer_norm": false,
+                    "enable_bias_skip_layer_norm": false,
+                    "enable_bias_gelu": false,
+                    "enable_gelu_approximation": false,
+                    "enable_qordered_matmul": false,
+                    "enable_shape_inference": false,
+                    "enable_gemm_fast_gelu": false,
+                    "enable_nhwc_conv": false,
+                    "enable_group_norm": false,
+                    "enable_bias_splitgelu": false,
+                    "enable_packed_qkv": false,
+                    "enable_packed_kv": false,
+                    "enable_bias_add": false
+                },
+                "force_fp32_nodes": [
+                    "/Cos",
+                    "/Sin",
+                    "/layers.0/attention_norm/Pow",
+                    "/layers.1/attention_norm/Pow",
+                    "/layers.2/attention_norm/Pow",
+                    "/layers.3/attention_norm/Pow",
+                    "/layers.4/attention_norm/Pow",
+                    "/layers.5/attention_norm/Pow",
+                    "/layers.6/attention_norm/Pow",
+                    "/layers.7/attention_norm/Pow",
+                    "/layers.8/attention_norm/Pow",
+                    "/layers.9/attention_norm/Pow",
+                    "/layers.10/attention_norm/Pow",
+                    "/layers.11/attention_norm/Pow",
+                    "/layers.12/attention_norm/Pow",
+                    "/layers.13/attention_norm/Pow",
+                    "/layers.14/attention_norm/Pow",
+                    "/layers.15/attention_norm/Pow",
+                    "/layers.16/attention_norm/Pow",
+                    "/layers.17/attention_norm/Pow",
+                    "/layers.18/attention_norm/Pow",
+                    "/layers.19/attention_norm/Pow",
+                    "/layers.20/attention_norm/Pow",
+                    "/layers.21/attention_norm/Pow",
+                    "/layers.22/attention_norm/Pow",
+                    "/layers.23/attention_norm/Pow",
+                    "/layers.24/attention_norm/Pow",
+                    "/layers.25/attention_norm/Pow",
+                    "/layers.26/attention_norm/Pow",
+                    "/layers.27/attention_norm/Pow",
+                    "/layers.28/attention_norm/Pow",
+                    "/layers.29/attention_norm/Pow",
+                    "/layers.30/attention_norm/Pow",
+                    "/layers.31/attention_norm/Pow",
+                    "/layers.0/attention_norm/ReduceMean",
+                    "/layers.1/attention_norm/ReduceMean",
+                    "/layers.2/attention_norm/ReduceMean",
+                    "/layers.3/attention_norm/ReduceMean",
+                    "/layers.4/attention_norm/ReduceMean",
+                    "/layers.5/attention_norm/ReduceMean",
+                    "/layers.6/attention_norm/ReduceMean",
+                    "/layers.7/attention_norm/ReduceMean",
+                    "/layers.8/attention_norm/ReduceMean",
+                    "/layers.9/attention_norm/ReduceMean",
+                    "/layers.10/attention_norm/ReduceMean",
+                    "/layers.11/attention_norm/ReduceMean",
+                    "/layers.12/attention_norm/ReduceMean",
+                    "/layers.13/attention_norm/ReduceMean",
+                    "/layers.14/attention_norm/ReduceMean",
+                    "/layers.15/attention_norm/ReduceMean",
+                    "/layers.16/attention_norm/ReduceMean",
+                    "/layers.17/attention_norm/ReduceMean",
+                    "/layers.18/attention_norm/ReduceMean",
+                    "/layers.19/attention_norm/ReduceMean",
+                    "/layers.20/attention_norm/ReduceMean",
+                    "/layers.21/attention_norm/ReduceMean",
+                    "/layers.22/attention_norm/ReduceMean",
+                    "/layers.23/attention_norm/ReduceMean",
+                    "/layers.24/attention_norm/ReduceMean",
+                    "/layers.25/attention_norm/ReduceMean",
+                    "/layers.26/attention_norm/ReduceMean",
+                    "/layers.27/attention_norm/ReduceMean",
+                    "/layers.28/attention_norm/ReduceMean",
+                    "/layers.29/attention_norm/ReduceMean",
+                    "/layers.30/attention_norm/ReduceMean",
+                    "/layers.31/attention_norm/ReduceMean",
+                    "/layers.0/attention_norm/Add",
+                    "/layers.1/attention_norm/Add",
+                    "/layers.2/attention_norm/Add",
+                    "/layers.3/attention_norm/Add",
+                    "/layers.4/attention_norm/Add",
+                    "/layers.5/attention_norm/Add",
+                    "/layers.6/attention_norm/Add",
+                    "/layers.7/attention_norm/Add",
+                    "/layers.8/attention_norm/Add",
+                    "/layers.9/attention_norm/Add",
+                    "/layers.10/attention_norm/Add",
+                    "/layers.11/attention_norm/Add",
+                    "/layers.12/attention_norm/Add",
+                    "/layers.13/attention_norm/Add",
+                    "/layers.14/attention_norm/Add",
+                    "/layers.15/attention_norm/Add",
+                    "/layers.16/attention_norm/Add",
+                    "/layers.17/attention_norm/Add",
+                    "/layers.18/attention_norm/Add",
+                    "/layers.19/attention_norm/Add",
+                    "/layers.20/attention_norm/Add",
+                    "/layers.21/attention_norm/Add",
+                    "/layers.22/attention_norm/Add",
+                    "/layers.23/attention_norm/Add",
+                    "/layers.24/attention_norm/Add",
+                    "/layers.25/attention_norm/Add",
+                    "/layers.26/attention_norm/Add",
+                    "/layers.27/attention_norm/Add",
+                    "/layers.28/attention_norm/Add",
+                    "/layers.29/attention_norm/Add",
+                    "/layers.30/attention_norm/Add",
+                    "/layers.31/attention_norm/Add",
+                    "/layers.0/attention_norm/Sqrt",
+                    "/layers.1/attention_norm/Sqrt",
+                    "/layers.2/attention_norm/Sqrt",
+                    "/layers.3/attention_norm/Sqrt",
+                    "/layers.4/attention_norm/Sqrt",
+                    "/layers.5/attention_norm/Sqrt",
+                    "/layers.6/attention_norm/Sqrt",
+                    "/layers.7/attention_norm/Sqrt",
+                    "/layers.8/attention_norm/Sqrt",
+                    "/layers.9/attention_norm/Sqrt",
+                    "/layers.10/attention_norm/Sqrt",
+                    "/layers.11/attention_norm/Sqrt",
+                    "/layers.12/attention_norm/Sqrt",
+                    "/layers.13/attention_norm/Sqrt",
+                    "/layers.14/attention_norm/Sqrt",
+                    "/layers.15/attention_norm/Sqrt",
+                    "/layers.16/attention_norm/Sqrt",
+                    "/layers.17/attention_norm/Sqrt",
+                    "/layers.18/attention_norm/Sqrt",
+                    "/layers.19/attention_norm/Sqrt",
+                    "/layers.20/attention_norm/Sqrt",
+                    "/layers.21/attention_norm/Sqrt",
+                    "/layers.22/attention_norm/Sqrt",
+                    "/layers.23/attention_norm/Sqrt",
+                    "/layers.24/attention_norm/Sqrt",
+                    "/layers.25/attention_norm/Sqrt",
+                    "/layers.26/attention_norm/Sqrt",
+                    "/layers.27/attention_norm/Sqrt",
+                    "/layers.28/attention_norm/Sqrt",
+                    "/layers.29/attention_norm/Sqrt",
+                    "/layers.30/attention_norm/Sqrt",
+                    "/layers.31/attention_norm/Sqrt",
+                    "/layers.0/attention_norm/Div",
+                    "/layers.1/attention_norm/Div",
+                    "/layers.2/attention_norm/Div",
+                    "/layers.3/attention_norm/Div",
+                    "/layers.4/attention_norm/Div",
+                    "/layers.5/attention_norm/Div",
+                    "/layers.6/attention_norm/Div",
+                    "/layers.7/attention_norm/Div",
+                    "/layers.8/attention_norm/Div",
+                    "/layers.9/attention_norm/Div",
+                    "/layers.10/attention_norm/Div",
+                    "/layers.11/attention_norm/Div",
+                    "/layers.12/attention_norm/Div",
+                    "/layers.13/attention_norm/Div",
+                    "/layers.14/attention_norm/Div",
+                    "/layers.15/attention_norm/Div",
+                    "/layers.16/attention_norm/Div",
+                    "/layers.17/attention_norm/Div",
+                    "/layers.18/attention_norm/Div",
+                    "/layers.19/attention_norm/Div",
+                    "/layers.20/attention_norm/Div",
+                    "/layers.21/attention_norm/Div",
+                    "/layers.22/attention_norm/Div",
+                    "/layers.23/attention_norm/Div",
+                    "/layers.24/attention_norm/Div",
+                    "/layers.25/attention_norm/Div",
+                    "/layers.26/attention_norm/Div",
+                    "/layers.27/attention_norm/Div",
+                    "/layers.28/attention_norm/Div",
+                    "/layers.29/attention_norm/Div",
+                    "/layers.30/attention_norm/Div",
+                    "/layers.31/attention_norm/Div"
+                ]
+            }
+        },
+        "merge": {
+            "type": "OptimumMerging"
+        }
+    },
+    "engine": {
+        "search_strategy": {
+            "execution_order": "joint",
+            "search_algorithm": "exhaustive"
+        },
+        "evaluator": "common_evaluator",
+        "evaluate_input_model": false,
+        "host": "local_system",
+        "target": "local_system",
+        "cache_dir": "cache",
+        "output_name": "llama_v2",
+        "output_dir": "footprints",
+        "execution_providers": ["DmlExecutionProvider"]
+    }
+}
