@@ -220,190 +220,198 @@ If no data config template can meet the requirement, we can also define the `dat
     4. `user_script`: the user script path which contains the customized component type.
     5. `script_dir`: the user script directory path which contains the customized script.
 
-    Then the complete config would be like:
 
-    .. tabs::
-        .. tab:: Config JSON
+Configs with built-in component:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-            .. code-block:: json
+Then the complete config would be like:
 
-                {
-                    "name": "data",
-                    "type": "DataContainer",
-                    "components": {
-                        "load_dataset": {
-                            "name": "_huggingface_dataset",
-                            "type": "huggingface_dataset",
-                            "params": {
-                                "data_dir": null,
-                                "data_name": "glue",
-                                "subset": "mrpc",
-                                "split": "validation",
-                                "data_files": null
-                            }
-                        },
-                        "pre_process_data": {
-                            "name": "_huggingface_pre_process",
-                            "type": "huggingface_pre_process",
-                            "params": {
-                                "model_name": "Intel/bert-base-uncased-mrpc",
-                                "input_cols": [
-                                    "sentence1",
-                                    "sentence2"
-                                ],
-                                "label_cols": [
-                                    "label"
-                                ],
-                                "max_samples": null
-                            }
-                        },
-                        "post_process_data": {
-                            "name": "_text_classification_post_process",
-                            "type": "text_classification_post_process",
-                            "params": {}
-                        },
-                        "dataloader": {
-                            "name": "_default_dataloader",
-                            "type": "default_dataloader",
-                            "params": {
-                                "batch_size": 1
-                            }
+.. tabs::
+    .. tab:: Config JSON
+
+        .. code-block:: json
+
+            {
+                "name": "data",
+                "type": "DataContainer",
+                "components": {
+                    "load_dataset": {
+                        "name": "_huggingface_dataset",
+                        "type": "huggingface_dataset",
+                        "params": {
+                            "data_dir": null,
+                            "data_name": "glue",
+                            "subset": "mrpc",
+                            "split": "validation",
+                            "data_files": null
                         }
                     },
-                }
-
-        .. tab:: Python Class
-
-            .. code-block:: python
-
-                from olive.data.config import DataConfig
-                data_config = DataConfig(
-                    name="data",
-                    type="DataContainer",
-                    components={
-                        "load_dataset": {
-                            "name": "_huggingface_dataset",
-                            "type": "huggingface_dataset",
-                            "params": {
-                                "data_dir": null,
-                                "data_name": "glue",
-                                "subset": "mrpc",
-                                "split": "validation",
-                                "data_files": null
-                            }
-                        },
-                        "pre_process_data": {
-                            "name": "_huggingface_pre_process",
-                            "type": "huggingface_pre_process",
-                            "params": {
-                                "model_name": "Intel/bert-base-uncased-mrpc",
-                                "input_cols": [
-                                    "sentence1",
-                                    "sentence2"
-                                ],
-                                "label_cols": [
-                                    "label"
-                                ],
-                                "max_samples": null
-                            }
-                        },
-                        "post_process_data": {
-                            "name": "_text_classification_post_process",
-                            "type": "text_classification_post_process",
-                            "params": {}
-                        },
-                        "dataloader": {
-                            "name": "_default_dataloader",
-                            "type": "default_dataloader",
-                            "params": {
-                                "batch_size": 1
-                            }
+                    "pre_process_data": {
+                        "name": "_huggingface_pre_process",
+                        "type": "huggingface_pre_process",
+                        "params": {
+                            "model_name": "Intel/bert-base-uncased-mrpc",
+                            "input_cols": [
+                                "sentence1",
+                                "sentence2"
+                            ],
+                            "label_cols": [
+                                "label"
+                            ],
+                            "max_samples": null
                         }
                     },
-                )
-
-
-    The above case shows to rewrite all the components in data config. But sometime, there is no need to rewrite all the components. For example, if we only want to customize the `load_dataset` component for `DataContainer`, we can just rewrite the `load_dataset` component in the data config and ignore the other default components.
-
-    .. tabs::
-        .. tab:: Config JSON
-
-            .. code-block:: json
-
-                {
-                    "name": "data",
-                    "type": "DataContainer",
-                    "user_script": "user_script.py",
-                    "script_dir": "user_dir",
-                    "components": {
-                        "load_dataset": {
-                            "name": "_huggingface_dataset",
-                            "type": "customized_huggingface_dataset",
-                            "params": {
-                                "data_dir": null,
-                                "data_name": "glue",
-                                "subset": "mrpc",
-                            }
-                        },
+                    "post_process_data": {
+                        "name": "_text_classification_post_process",
+                        "type": "text_classification_post_process",
+                        "params": {}
                     },
-                }
+                    "dataloader": {
+                        "name": "_default_dataloader",
+                        "type": "default_dataloader",
+                        "params": {
+                            "batch_size": 1
+                        }
+                    }
+                },
+            }
 
-        .. tab:: Python Class
+    .. tab:: Python Class
 
-            .. code-block:: python
+        .. code-block:: python
 
-                from olive.data.registry import Registry
-
-                @Registry.register_dataset()
-                def customized_huggingface_dataset(output):
-                    ...
-
-                from olive.data.config import DataConfig
-                data_config = DataConfig(
-                    name="data",
-                    type="DataContainer",
-                    user_script="user_script.py",
-                    script_dir="user_dir",
-                    components={
-                        "load_dataset": {
-                            "name": "_huggingface_dataset",
-                            "type": "customized_huggingface_dataset",
-                            "params": {
-                                "data_dir": null,
-                                "data_name": "glue",
-                                "subset": "mrpc",
-                            }
-                        },
+            from olive.data.config import DataConfig
+            data_config = DataConfig(
+                name="data",
+                type="DataContainer",
+                components={
+                    "load_dataset": {
+                        "name": "_huggingface_dataset",
+                        "type": "huggingface_dataset",
+                        "params": {
+                            "data_dir": null,
+                            "data_name": "glue",
+                            "subset": "mrpc",
+                            "split": "validation",
+                            "data_files": null
+                        }
                     },
-                )
+                    "pre_process_data": {
+                        "name": "_huggingface_pre_process",
+                        "type": "huggingface_pre_process",
+                        "params": {
+                            "model_name": "Intel/bert-base-uncased-mrpc",
+                            "input_cols": [
+                                "sentence1",
+                                "sentence2"
+                            ],
+                            "label_cols": [
+                                "label"
+                            ],
+                            "max_samples": null
+                        }
+                    },
+                    "post_process_data": {
+                        "name": "_text_classification_post_process",
+                        "type": "text_classification_post_process",
+                        "params": {}
+                    },
+                    "dataloader": {
+                        "name": "_default_dataloader",
+                        "type": "default_dataloader",
+                        "params": {
+                            "batch_size": 1
+                        }
+                    }
+                },
+            )
 
-    .. note::
-        User should provide the `user_script` and `script_dir` if they want to customize the component type. The `user_script` should be a python script which contains the customized component type. The `script_dir` should be the directory path which contains the `user_script`. Here is an example for `user_script`:
+
+
+Configs with customized component:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The above case shows to rewrite all the components in data config. But sometime, there is no need to rewrite all the components. For example, if we only want to customize the `load_dataset` component for `DataContainer`, we can just rewrite the `load_dataset` component in the data config and ignore the other default components.
+
+.. tabs::
+    .. tab:: Config JSON
+
+        .. code-block:: json
+
+            {
+                "name": "data",
+                "type": "DataContainer",
+                "user_script": "user_script.py",
+                "script_dir": "user_dir",
+                "components": {
+                    "load_dataset": {
+                        "name": "_huggingface_dataset",
+                        "type": "customized_huggingface_dataset",
+                        "params": {
+                            "data_dir": null,
+                            "data_name": "glue",
+                            "subset": "mrpc",
+                        }
+                    },
+                },
+            }
+
+    .. tab:: Python Class
 
         .. code-block:: python
 
             from olive.data.registry import Registry
 
             @Registry.register_dataset()
-            def customized_huggingface_dataset(dataset):
+            def customized_huggingface_dataset(output):
                 ...
 
-            @Registry.register_pre_process()
-            def customized_huggingface_pre_process(dataset):
-                ...
+            from olive.data.config import DataConfig
+            data_config = DataConfig(
+                name="data",
+                type="DataContainer",
+                user_script="user_script.py",
+                script_dir="user_dir",
+                components={
+                    "load_dataset": {
+                        "name": "_huggingface_dataset",
+                        "type": "customized_huggingface_dataset",
+                        "params": {
+                            "data_dir": null,
+                            "data_name": "glue",
+                            "subset": "mrpc",
+                        }
+                    },
+                },
+            )
 
-            @Registry.register_post_process()
-            def customized_post_process(output):
-                ...
+.. note::
+    User should provide the `user_script` and `script_dir` if they want to customize the component type. The `user_script` should be a python script which contains the customized component type. The `script_dir` should be the directory path which contains the `user_script`. Here is an example for `user_script`:
 
-            @Registry.register_dataloader()
-            def customized_dataloader(dataset):
-                ...
+    .. code-block:: python
 
-        More examples:
-            1. inception_post_process:
-                - user_script https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/user_script.py#L8-L10
-                - json_config https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/inception_config.json#L14-L16
-            2. dummy_dataset_dataroot:
-                - user_scirpt https://github.com/microsoft/Olive/blob/main/test/unit_test/test_data_root.py#L31
-                - json_config https://github.com/microsoft/Olive/blob/main/test/unit_test/test_data_root.py#L107
+        from olive.data.registry import Registry
+
+        @Registry.register_dataset()
+        def customized_huggingface_dataset(dataset):
+            ...
+
+        @Registry.register_pre_process()
+        def customized_huggingface_pre_process(dataset):
+            ...
+
+        @Registry.register_post_process()
+        def customized_post_process(output):
+            ...
+
+        @Registry.register_dataloader()
+        def customized_dataloader(dataset):
+            ...
+
+    More examples:
+        1. inception_post_process:
+            - user_script https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/user_script.py#L8-L10
+            - json_config https://github.com/microsoft/Olive/blob/main/examples/snpe/inception_snpe_qualcomm_npu/inception_config.json#L14-L16
+        2. dummy_dataset_dataroot:
+            - user_script https://github.com/microsoft/Olive/blob/main/test/unit_test/test_data_root.py#L31
+            - json_config https://github.com/microsoft/Olive/blob/main/test/unit_test/test_data_root.py#L107
