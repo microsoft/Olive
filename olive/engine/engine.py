@@ -443,10 +443,10 @@ class Engine:
             p = pass_cls(accelerator_spec, pass_cfg, config["disable_search"])
             self.register_pass(
                 p,
+                name=name,
                 host=config["host"],
                 evaluator_config=config["evaluator"],
                 output_name=config["output_name"],
-                name=name,
             )
 
         # list of passes starting from the first pass with non-empty search space
