@@ -161,7 +161,7 @@ def create_qat_config():
 
 
 def create_train_dataloader(data_dir, batchsize, *args, **kwargs):
-    cifar10_dataset = CIFAR10DataSet()
+    cifar10_dataset = CIFAR10DataSet(data_dir)
     train_dataset, _ = torch.utils.data.random_split(cifar10_dataset.train_dataset, [40000, 10000])
     train_dataloader = DataLoader(PytorchResNetDataset(train_dataset), batch_size=batchsize, drop_last=True)
     return train_dataloader

@@ -25,7 +25,8 @@
                         "post_processing_func": "post_process",
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
-                        "batch_size": 1
+                        "batch_size": 1,
+                        "data_dir": "data"
                     }
                 },
                 {
@@ -35,7 +36,8 @@
                     "user_config":{
                         "user_script": "user_script.py",
                         "dataloader_func": "create_dataloader",
-                        "batch_size": 1
+                        "batch_size": 1,
+                        "data_dir": "data"
                     }
                 }
             ]
@@ -46,7 +48,9 @@
             "type": "QuantizationAwareTraining",
             "config":{
                 "user_script": "user_script.py",
-                "num_epochs": 10,
+                "num_epochs": 1,
+                "train_data_dir": "data",
+                "val_data_dir": "data",
                 "ptl_data_module": "PTLDataModule",
                 "ptl_module": "PTLModule",
                 "pl_extra_args": {"accelerator": "gpu", "enable_checkpointing": true, "devices": 1},
@@ -65,7 +69,8 @@
             "config": {
                 "user_script": "user_script.py",
                 "dataloader_func": "create_dataloader",
-                "batch_size": 1
+                "batch_size": 1,
+                "data_dir": "data"
             }
         }
     },
