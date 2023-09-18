@@ -128,6 +128,15 @@ def prepare_model(num_epochs=0, models_dir="models", data_dir="data"):
     # Save the model
     model.to("cpu")
     torch.save(model, str(models_dir / "resnet_trained_for_cifar10.pt"))
+    dummy_input = torch.randn(1, 3, 32, 32)
+    torch.onnx.export(
+        model,
+        dummy_input,
+        str(models_dir / "resnet_trained_for_cifar10.onnx"),
+        input_names=["input"],
+        output_names=["output"],
+        dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+    )
 
 
 def main():
