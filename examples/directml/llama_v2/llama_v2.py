@@ -160,4 +160,4 @@ if __name__ == "__main__":
     if not args.optimize:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            run_llama_v2_io_binding(args.prompt, args.max_seq_len)
+            run_llama_v2_io_binding(args.prompt, args.max_seq_len, args.max_gen_len)
