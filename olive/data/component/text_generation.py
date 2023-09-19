@@ -168,7 +168,7 @@ def text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs):
             # no randomization, just use contiguous blocks of tokens
             if args.corpus_strategy == TextGenCorpusStrategy.JOIN_SLIDING_WINDOW:
                 # we use the stride as both the step between sequences and the context size
-                step, context = args.stride, args.stride
+                step, context = args.stride, seqlen - args.stride
             else:
                 # JOIN corpus_strategy
                 # text is split into non-overlapping sequences and there is no context
