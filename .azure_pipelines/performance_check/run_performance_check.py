@@ -288,7 +288,8 @@ def main():
         lscpu = subprocess.check_output(["lscpu"])
         print(lscpu.decode("utf-8"))
         import psutil
-        process = [(proc.name(),proc.cpu_percent()) for proc in psutil.process_iter()]
+
+        process = [(proc.name(), proc.cpu_percent()) for proc in psutil.process_iter()]
         print(process)
     elif device == "gpu":
         nvidia_smi = subprocess.check_output(["nvidia-smi"])
