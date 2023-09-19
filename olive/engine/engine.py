@@ -619,14 +619,14 @@ class Engine:
 
         self.footprints[accelerator_spec].to_file(output_dir / f"{prefix_output_name}footprints.json")
 
-        return self.get_pareto_frontier_footprints(
+        return self.create_pareto_frontier_footprints(
             accelerator_spec, output_model_num, objective_dict, output_dir, prefix_output_name
         )
 
-    def get_pareto_frontier_footprints(
+    def create_pareto_frontier_footprints(
         self, accelerator_spec, output_model_num, objective_dict, output_dir, prefix_output_name
     ):
-        pf_footprints = self.footprints[accelerator_spec].get_pareto_frontier()
+        pf_footprints = self.footprints[accelerator_spec].create_pareto_frontier()
         if output_model_num is None or len(pf_footprints.nodes) <= output_model_num:
             logger.info(f"Output all {len(pf_footprints.nodes)} models")
         else:
