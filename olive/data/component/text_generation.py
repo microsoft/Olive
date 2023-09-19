@@ -80,6 +80,8 @@ class TextGenParams(ConfigBase):
 class TextGenCorpusParams(TextGenParams):
     """Parameters for text generation task with 'corpus' dataset type."""
 
+    # TODO: Add support for formatting function: formatting_func > text_template > text_cols
+    # TODO: formatting function support requires the data container to provide user module from the parent data config
     # one of text_template or text_cols must be provided
     # a python f-string template for the text with {column_name} as placeholders
     text_template: str = None
@@ -134,10 +136,13 @@ class TextGenCorpusParams(TextGenParams):
         return v
 
 
+# TODO: absorb pair format into corpus format and drop dataset_type
+# This is because pair format is just a special case of corpus format
 class TextGenPairParams(TextGenParams):
     """Parameters for text generation task with 'pair' dataset type."""
 
     pair_format: TextGenPairFormat = TextGenPairFormat.DEFAULT
+    # TODO: Add support for formatting functions: formatting_func > template > col
     # for custom pair_format, one of input_template or input_col must be provided
     input_template: str = None  # a python f-string template for the input with {column_name} as placeholders
     input_col: str = None  # column name for input
