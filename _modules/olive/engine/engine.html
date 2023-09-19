@@ -453,7 +453,6 @@
         <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="n">outputs</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">pf_footprints</span> <span class="o">=</span> <span class="p">{}</span>
 
         <span class="k">for</span> <span class="n">accelerator_spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="p">:</span>
             <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_managed_environment</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">):</span>
@@ -464,37 +463,21 @@
                 <span class="k">if</span> <span class="n">run_result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="k">continue</span>
 
-                <span class="k">if</span> <span class="n">evaluate_input_model</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">:</span>
-                    <span class="c1"># for evaluate input model only, return the evaluation results</span>
-                    <span class="c1"># TODO: need check whether the evaluation results are valid since it will only evaluate input model</span>
-                    <span class="c1"># once and use the same evaluation results for all accelerators</span>
-                    <span class="n">outputs</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">run_result</span>
-                <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_search</span><span class="p">:</span>
-                    <span class="n">output</span><span class="p">,</span> <span class="n">model_ids</span> <span class="o">=</span> <span class="n">run_result</span>
-                    <span class="k">if</span> <span class="n">output</span><span class="p">:</span>
-                        <span class="n">outputs</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">output</span>
-                        <span class="n">pf_footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">get_footprints_by_model_ids</span><span class="p">(</span>
-                            <span class="n">model_ids</span>
-                        <span class="p">)</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="n">outputs</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">run_result</span>
-                    <span class="n">pf_footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">run_result</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">:</span>
-            <span class="c1"># no passes registered, return the evaluation results</span>
-            <span class="k">return</span> <span class="n">outputs</span>
+                <span class="n">outputs</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span> <span class="o">=</span> <span class="n">run_result</span>
 
         <span class="k">for</span> <span class="n">accelerator_spec</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Run history for </span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
             <span class="n">run_history</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">summarize_run_history</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">dump_run_history</span><span class="p">(</span><span class="n">run_history</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;run_history_</span><span class="si">{</span><span class="n">accelerator_spec</span><span class="si">}</span><span class="s2">.txt&quot;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">packaging_config</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package top ranked </span><span class="si">{</span><span class="nb">sum</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">pf_footprints</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span><span class="si">}</span><span class="s2"> models as artifacts&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">packaging_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">:</span>
+            <span class="c1"># TODO: should we support package input model?</span>
+            <span class="c1"># TODO: do you support packaging pytorch models?</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Package top ranked </span><span class="si">{</span><span class="nb">sum</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">outputs</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span><span class="si">}</span><span class="s2"> models as artifacts&quot;</span><span class="p">)</span>
             <span class="n">generate_output_artifacts</span><span class="p">(</span>
                 <span class="n">packaging_config</span><span class="p">,</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">,</span>
-                <span class="n">pf_footprints</span><span class="p">,</span>
+                <span class="n">outputs</span><span class="p">,</span>
                 <span class="n">output_dir</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -621,13 +604,13 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">initialize</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pass_flows_search_spaces</span><span class="p">,</span> <span class="n">input_model_id</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">)</span>
 
         <span class="n">iter_num</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="n">flows_output</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">output_model_ids</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">output_models</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
             <span class="n">iter_num</span> <span class="o">+=</span> <span class="mi">1</span>
 
             <span class="c1"># get the next step</span>
             <span class="n">next_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">search_strategy</span><span class="o">.</span><span class="n">next_step</span><span class="p">()</span>
+
             <span class="k">if</span> <span class="n">iter_num</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="k">assert</span> <span class="n">next_step</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;Search strategy returned None for the first step&quot;</span>
             <span class="c1"># if no more steps, break</span>
@@ -646,16 +629,15 @@
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Step no search with search point </span><span class="si">{</span><span class="n">next_step</span><span class="p">[</span><span class="s1">&#39;search_point&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> ...&quot;</span><span class="p">)</span>
 
             <span class="c1"># run all the passes in the step</span>
-            <span class="p">(</span>
-                <span class="n">should_prune</span><span class="p">,</span>
-                <span class="n">signal</span><span class="p">,</span>
-                <span class="n">model_ids</span><span class="p">,</span>
-            <span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_passes</span><span class="p">(</span><span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">],</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">)</span>
-            <span class="n">pass_flow</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span><span class="p">[</span><span class="n">iter_num</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">should_prune</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="n">model_ids</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_run_passes</span><span class="p">(</span>
+                <span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">],</span> <span class="n">model_config</span><span class="p">,</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">data_root</span><span class="p">,</span> <span class="n">accelerator_spec</span>
+            <span class="p">)</span>
 
+            <span class="n">pass_flow</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pass_flows</span><span class="p">[</span><span class="n">iter_num</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
             <span class="k">if</span> <span class="n">should_prune</span><span class="p">:</span>
                 <span class="n">failed_pass</span> <span class="o">=</span> <span class="n">pass_flow</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">model_ids</span><span class="p">)]</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Flow </span><span class="si">{</span><span class="n">pass_flow</span><span class="si">}</span><span class="s2"> is pruned due to failed or invalid config for pass &#39;</span><span class="si">{</span><span class="n">failed_pass</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+                <span class="k">continue</span>
 
             <span class="c1"># names of the output models of the passes</span>
             <span class="n">pass_output_names</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">passes</span><span class="p">[</span><span class="n">pass_name</span><span class="p">][</span><span class="s2">&quot;output_name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">pass_name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">next_step</span><span class="p">[</span><span class="s2">&quot;passes&quot;</span><span class="p">]]</span>
@@ -675,7 +657,6 @@
             <span class="n">pass_output_names</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">final_output_name</span>
 
             <span class="n">output_model_json</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">output</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">for</span> <span class="n">pass_output_name</span><span class="p">,</span> <span class="n">pass_output_model_id</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pass_output_names</span><span class="p">,</span> <span class="n">model_ids</span><span class="p">):</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">pass_output_name</span><span class="p">:</span>
                     <span class="k">continue</span>
@@ -686,7 +667,7 @@
                     <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                     <span class="n">cache_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span>
                 <span class="p">)</span>
-                <span class="n">output_model_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pass_output_model_id</span><span class="p">)</span>
+                <span class="n">output_models</span><span class="p">[</span><span class="n">pass_output_model_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_model_json</span>
 
             <span class="c1"># save the evaluation results to output_dir</span>
             <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -694,15 +675,13 @@
                 <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">results_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                     <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">signal</span><span class="o">.</span><span class="n">to_json</span><span class="p">(),</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">output_model_json</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">should_prune</span><span class="p">:</span>
-                <span class="c1"># output_model_json is the last model only if the flow is not pruned</span>
-                <span class="n">output</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_model_json</span>
-                <span class="k">if</span> <span class="n">signal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                    <span class="n">output</span><span class="p">[</span><span class="s2">&quot;metrics&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">signal</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">output</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">flows_output</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">pass_flow</span><span class="p">)]</span> <span class="o">=</span> <span class="n">output</span>
-        <span class="k">return</span> <span class="n">flows_output</span><span class="p">,</span> <span class="n">output_model_ids</span>
+        <span class="n">output_model_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">output_models</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="n">fp_outputs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">create_footprints_by_model_ids</span><span class="p">(</span><span class="n">output_model_ids</span><span class="p">)</span>
+        <span class="c1"># update the output model config</span>
+        <span class="k">for</span> <span class="n">model_id</span><span class="p">,</span> <span class="n">model_config</span> <span class="ow">in</span> <span class="n">output_models</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">fp_outputs</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">model_id</span><span class="p">]</span><span class="o">.</span><span class="n">model_config</span> <span class="o">=</span> <span class="n">model_config</span>
+
+        <span class="k">return</span> <span class="n">fp_outputs</span>
 
     <span class="k">def</span> <span class="nf">run_search</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -768,14 +747,14 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix_output_name</span><span class="si">}</span><span class="s2">footprints.json&quot;</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_pareto_frontier_footprints</span><span class="p">(</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">create_pareto_frontier_footprints</span><span class="p">(</span>
             <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">prefix_output_name</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">get_pareto_frontier_footprints</span><span class="p">(</span>
+    <span class="k">def</span> <span class="nf">create_pareto_frontier_footprints</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">accelerator_spec</span><span class="p">,</span> <span class="n">output_model_num</span><span class="p">,</span> <span class="n">objective_dict</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">prefix_output_name</span>
     <span class="p">):</span>
-        <span class="n">pf_footprints</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">get_pareto_frontier</span><span class="p">()</span>
+        <span class="n">pf_footprints</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">footprints</span><span class="p">[</span><span class="n">accelerator_spec</span><span class="p">]</span><span class="o">.</span><span class="n">create_pareto_frontier</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">output_model_num</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">pf_footprints</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">output_model_num</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Output all </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pf_footprints</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span><span class="si">}</span><span class="s2"> models&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1087,7 +1066,7 @@
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">model_config</span> <span class="ow">in</span> <span class="n">PRUNED_CONFIGS</span><span class="p">:</span>
                 <span class="n">should_prune</span> <span class="o">=</span> <span class="kc">True</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Pruned&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pruned for pass </span><span class="si">{</span><span class="n">pass_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="k">break</span>
             <span class="n">model_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">model_id</span><span class="p">)</span>
 
