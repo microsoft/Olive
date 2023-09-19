@@ -6,24 +6,13 @@ import json
 import os
 
 
-def check_search_output(footprints):
+def check_output(footprints):
     """Check if the search output is valid."""
     assert footprints, "footprints is empty. The search must have failed for all accelerator specs."
     for footprint in footprints.values():
         assert footprint.nodes
         for v in footprint.nodes.values():
             assert all([metric_result.value > 0 for metric_result in v.metrics.value.values()])
-
-
-def check_no_search_output(outputs):
-    assert outputs, "outputs is empty. The run must have failed for all accelerator specs."
-    # k:v => accelerator_spec: pass_flow_output
-    for pass_flow_output in outputs.values():
-        # k:v => pass_flow: output
-        for output in pass_flow_output.values():
-            output_metrics = output["metrics"]
-            for item in output_metrics.values():
-                assert item.value > 0
 
 
 def patch_config(config_json_path: str, search_algorithm: str, execution_order: str, system: str, is_gpu: bool = False):

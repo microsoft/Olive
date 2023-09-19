@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 import pytest
-from utils import check_no_search_output, check_search_output, patch_config
+from utils import check_output, patch_config
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -38,4 +38,4 @@ def test_bert(olive_test_knob):
 
     olive_config = patch_config(*olive_test_knob)
     output = olive_run(olive_config)
-    check_no_search_output(output) if not olive_test_knob[1] else check_search_output(output)
+    check_output(output)

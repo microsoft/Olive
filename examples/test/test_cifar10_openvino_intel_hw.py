@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from utils import check_search_output
+from utils import check_output
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -22,4 +22,4 @@ def test_cifar10():
     import cifar10
 
     metrics = cifar10.main()
-    check_search_output(metrics)
+    check_output(metrics)

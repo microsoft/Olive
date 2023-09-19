@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from utils import check_no_search_output
+from utils import check_output
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -43,7 +43,7 @@ def test_whisper(device_precision):
 
     # test workflow
     result = olive_run(olive_config)
-    check_no_search_output(result)
+    check_output(result)
 
     # test transcription
     from test_transcription import main as test_transcription

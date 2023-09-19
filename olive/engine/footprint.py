@@ -5,6 +5,7 @@
 
 import logging
 from collections import OrderedDict, defaultdict, namedtuple
+from copy import deepcopy
 from typing import DefaultDict, Dict
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
@@ -153,20 +154,22 @@ class Footprint:
             self.nodes[k].is_pareto_frontier = cmp_flag
         self.is_marked_pareto_frontier = True
 
-    def get_footprints_by_model_ids(self, model_ids):
+    def create_footprints_by_model_ids(self, model_ids):
         nodes = OrderedDict()
         for model_id in model_ids:
-            nodes[model_id] = self.nodes[model_id]
-        return Footprint(nodes=nodes, objective_dict=self.objective_dict, is_marked_pareto_frontier=True)
+            nodes[model_id] = deepcopy(self.nodes[model_id])
+        return Footprint(nodes=nodes, objective_dict=deepcopy(self.objective_dict))
 
-    def get_pareto_frontier(self):
+    def create_pareto_frontier(self):
         self.mark_pareto_frontier()
         rls = {k: v for k, v in self.nodes.items() if v.is_pareto_frontier}
         for _, v in rls.items():
             logger.info(f"pareto frontier points: {v.model_id} \n{v.metrics.value}")
 
         # restructure the pareto frontier points to instance of Footprints node for further analysis
-        return Footprint(nodes=rls, objective_dict=self.objective_dict, is_marked_pareto_frontier=True)
+        return Footprint(
+            nodes=deepcopy(rls), objective_dict=deepcopy(self.objective_dict), is_marked_pareto_frontier=True
+        )
 
     def update_nodes(self, nodes):
         node_dict = OrderedDict()
