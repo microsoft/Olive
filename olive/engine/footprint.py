@@ -158,7 +158,7 @@ class Footprint:
         nodes = OrderedDict()
         for model_id in model_ids:
             nodes[model_id] = deepcopy(self.nodes[model_id])
-        return Footprint(nodes=nodes, objective_dict=deepcopy(self.objective_dict), is_marked_pareto_frontier=True)
+        return Footprint(nodes=nodes, objective_dict=deepcopy(self.objective_dict))
 
     def create_pareto_frontier(self):
         self.mark_pareto_frontier()
