@@ -22,6 +22,7 @@
                         "dataset_type": "corpus",
                         "text_cols": ["text"],
                         "corpus_strategy": "join-random",
+                        "add_special_tokens": false,
                         "source_max_len": 2048,
                         "max_samples": 128,
                         "random_seed": 42
@@ -41,6 +42,7 @@
                         "dataset_type": "corpus",
                         "text_cols": ["text"],
                         "corpus_strategy": "join",
+                        "add_special_tokens": false,
                         "source_max_len": 2048
                     }
                 }
