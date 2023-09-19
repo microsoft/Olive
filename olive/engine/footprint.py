@@ -5,6 +5,7 @@
 
 import logging
 from collections import OrderedDict, defaultdict, namedtuple
+from copy import deepcopy
 from typing import DefaultDict, Dict
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
@@ -58,8 +59,8 @@ class Footprint:
         objective_dict: Dict = None,
         is_marked_pareto_frontier: bool = False,
     ):
-        self.nodes = nodes or OrderedDict()
-        self.objective_dict = objective_dict or {}
+        self.nodes = deepcopy(nodes) or OrderedDict()
+        self.objective_dict = deepcopy(objective_dict) or {}
         self.is_marked_pareto_frontier = is_marked_pareto_frontier
 
     def metric_numbers(self):

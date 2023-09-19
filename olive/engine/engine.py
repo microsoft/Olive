@@ -7,7 +7,6 @@ import logging
 import time
 from collections import OrderedDict, defaultdict
 from contextlib import contextmanager
-from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
@@ -549,7 +548,7 @@ class Engine:
                     json.dump(signal.to_json(), f, indent=4)
 
         output_model_ids = list(output_models.keys())
-        fp_outputs = deepcopy(self.footprints[accelerator_spec].create_footprints_by_model_ids(output_model_ids))
+        fp_outputs = self.footprints[accelerator_spec].create_footprints_by_model_ids(output_model_ids)
         # update the output model config
         for model_id, model_config in output_models.items():
             fp_outputs.nodes[model_id].model_config = model_config

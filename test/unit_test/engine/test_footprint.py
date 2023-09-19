@@ -18,6 +18,12 @@ class TestFootprint:
         self.fp = Footprint.from_file(self.footprint_file)
         self.input_node = {k: v for k, v in self.fp.nodes.items() if v.parent_model_id is None}
 
+    def test_init(self):
+        new_fp = Footprint(nodes=self.fp.nodes, objective_dict=self.fp.objective_dict)
+        assert len(new_fp.nodes) == len(self.fp.nodes)
+        assert new_fp.nodes == self.fp.nodes
+        assert new_fp.nodes is not self.fp.nodes
+
     def test_file_dump(self):
         with tempfile.TemporaryDirectory() as tempdir:
             self.fp.to_file(Path(tempdir) / "footprint.json")
