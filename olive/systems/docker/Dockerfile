@@ -4,6 +4,7 @@
 # --------------------------------------------------------------------------
 FROM mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04
 
+RUN apt-get -y update && apt-get -y upgrade
 RUN pip install azure-ai-ml \
             azure-identity \
             azureml-dataprep \
