@@ -16,8 +16,6 @@ from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
-from olive.passes.onnx.vitis_ai import quantize_static
-from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
@@ -257,6 +255,9 @@ class VitisAIQuantization(Pass):
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
         from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
+
+        from olive.passes.onnx.vitis_ai import quantize_static
+        from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
 
         # start with a copy of the config
         run_config = deepcopy(config)
