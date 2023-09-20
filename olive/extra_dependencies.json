@@ -8,7 +8,7 @@
         "docker"
     ],
     "cpu": [
-        "onnxruntime==1.15.1"
+        "onnxruntime"
     ],
     "gpu": [
         "onnxruntime-gpu"

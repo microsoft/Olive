@@ -436,9 +436,10 @@ class OnnxQuantization(Pass):
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
     def _quant_preprocess(self, model: ONNXModel, output_model_path: Union[str, Path]) -> ONNXModel:
-        from onnxruntime.quantization.preprocess import quant_pre_process
+        from olive.passes.onnx.quant_pre_process import quant_pre_process
 
         try:
+            # TODO: use ORT version once the Windows issue is fixed
             quant_pre_process(
                 input_model_path=model.model_path,
                 output_model_path=str(output_model_path),
