@@ -4,13 +4,16 @@
 # --------------------------------------------------------------------------
 
 from enum import Enum
+from pathlib import Path
 from random import Random
-from typing import List, Union
+from typing import Callable, Dict, List, Union
 
 import torch
+import transformers
 from pydantic import validator
 
-from olive.common.config_utils import ConfigBase, validate_config
+from olive.common.config_utils import ConfigBase, validate_config, validate_object
+from olive.common.user_module_loader import UserModuleLoader
 from olive.data.component.dataset import BaseDataset
 from olive.data.constants import IGNORE_INDEX
 
@@ -61,6 +64,8 @@ class TextGenParams(ConfigBase):
     Base dataclass for text generation tasks.
     """
 
+    user_script: Union[str, Path] = None  # user script use to define formatting functions
+    script_dir: Union[str, Path] = None  # directory with user script dependencies
     max_samples: int = None  # max number of samples to use, None for all
     source_max_len: int  # max length of source sequence
     # TODO(jambayk): currently only support padding to max length since we preprocess all data at once
@@ -78,13 +83,18 @@ class TextGenParams(ConfigBase):
             raise ValueError("pad_to_max_len and drop_short_sequences cannot both be True")
         return v
 
+    def get_user_module_loader(self):
+        """Get user module loader."""
+        return UserModuleLoader(self.user_script, self.script_dir)
+
 
 class TextGenCorpusParams(TextGenParams):
     """Parameters for text generation task with 'corpus' dataset type."""
 
-    # TODO(jambayk): Add support for formatting function: formatting_func > text_template > text_cols
-    # formatting function support requires the data container to provide user module from the parent data config
-    # one of text_template or text_cols must be provided
+    # one of text_formatting_func, text_template, or text_cols must be provided
+    # priority: text_formatting_func > text_template > text_cols
+    # function that formats the text, must take in an example dict and return a string
+    text_formatting_func: Union[str, Callable] = None  # name of formatting function for text
     # a python f-string template for the text with {column_name} as placeholders
     text_template: str = None
     # list of text columns, columns are concatenated together using a space
@@ -103,12 +113,13 @@ class TextGenCorpusParams(TextGenParams):
         10  # number of resamples to try before giving up when a sample is too short for RANDOM strategies
     )
 
+    @validator("text_formatting_func")
+    def _check_text_formatting_func(cls, v, values, field):
+        return validate_object(v, values, field)
+
     @validator("text_cols", always=True)
     def _check_text_cols(cls, v, values):
-        if "text_template" not in values:
-            raise ValueError("Invalid text_template")
-        if not (values["text_template"] or v):
-            raise ValueError("One of text_template or text_cols must be specified")
+        v = validate_text_source(v, values, "text_cols")
         if v is not None and isinstance(v, str):
             v = [v]
         return v
@@ -144,25 +155,27 @@ class TextGenPairParams(TextGenParams):
     """Parameters for text generation task with 'pair' dataset type."""
 
     pair_format: TextGenPairFormat = TextGenPairFormat.DEFAULT
-    # TODO(jambayk): Add support for formatting functions: formatting_func > template > col
-    # for custom pair_format, one of input_template or input_col must be provided
+    # for custom pair_format, one of input_formatting_func, input_template, or input_col must be provided
+    input_formatting_func: Union[str, Callable] = None  # name of formatting function for input
     input_template: str = None  # a python f-string template for the input with {column_name} as placeholders
     input_col: str = None  # column name for input
-    # for custom pair_format, one of output_template or output_col must be provided
+    # for custom pair_format, one of output_formatting_func, output_template, or output_col must be provided
+    output_formatting_func: Union[str, Callable] = None  # name of formatting function for output
     output_template: str = None  # a python f-string template for the output with {column_name} as placeholders
     output_col: str = None  # column name for output
     target_max_len: int  # max length of target sequence
     ignore_source_in_labels: bool = True  # set source tokens to ignore_index in labels
 
+    @validator("input_formatting_func", "output_formatting_func")
+    def _check_formatting_func(cls, v, values, field):
+        return validate_object(v, values, field)
+
     @validator("input_col", "output_col", always=True)
-    def _check_custom(cls, v, field, values):
+    def _check_custom(cls, v, values, field):
         if "pair_format" not in values:
             raise ValueError("Invalid pair_format")
-        template_name = f"{field.name.split('_')[0]}_template"
-        if template_name not in values:
-            raise ValueError(f"Invalid {template_name}")
-        if values["pair_format"] == TextGenPairFormat.CUSTOM and not (v or values[template_name]):
-            raise ValueError(f"{field.name} or {template_name} must be specified when pair_format is CUSTOM")
+        if values["pair_format"] == TextGenPairFormat.CUSTOM:
+            v = validate_text_source(v, values, field.name)
         return v
 
 
@@ -176,16 +189,18 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
 
     args = validate_config(all_kwargs, TextGenCorpusParams, warn_unused_keys=True)
 
-    # template for joining text columns
-    text_template = args.text_template
-    if text_template is None:
-        text_template = " ".join(["{" + col + "}" for col in args.text_cols])
-    if args.add_special_tokens:
-        # add bos and eos tokens before tokenizing
-        # some tokenizers like LlamaTokenizer do not add eos token
-        text_template = f"{tokenizer.bos_token} {text_template} {tokenizer.eos_token}"
-    # apply text_template
-    dataset = apply_template(dataset, "text", text_template, remove_cols=True)
+    if isinstance(args.text_cols, str):
+        # only want to run this if needed
+        # user script might have component registrations that leads to warning logs about duplicate registrations
+        args.text_formatting_func = args.get_user_module_loader().load_object(args.text_formatting_func)
+    # get text from dataset
+    dataset = dataset.map(
+        lambda x: {
+            "text": get_text(
+                x, args.text_formatting_func, args.text_template, args.text_cols, args.add_special_tokens, tokenizer
+            )
+        }
+    )
     text_list = dataset["text"]
     total_examples = len(text_list)  # total number of examples
 
@@ -349,21 +364,6 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
     return BaseDataset(hf_dataset, ["labels"], max_samples=args.max_samples)
 
 
-def batch_tokenize_text(text_list, tokenizer, args):
-    """Batch tokenize text."""
-    batched_encodings = tokenizer(
-        text_list,
-        max_length=args.source_max_len,
-        truncation=True,
-        padding="max_length" if args.pad_to_max_len else False,
-        add_special_tokens=False,
-    )
-    batched_input_ids = batched_encodings.input_ids
-    if args.drop_short_sequences:
-        batched_input_ids = [input_ids for input_ids in batched_input_ids if len(input_ids) >= args.source_max_len]
-    return batched_input_ids
-
-
 # based on https://github.com/artidoro/qlora/blob/main/qlora.py
 def text_gen_pair_pre_process(dataset, tokenizer, all_kwargs):
     """Pre-process data for text generation task with 'pair' dataset type.
@@ -432,6 +432,59 @@ def text_gen_pair_pre_process(dataset, tokenizer, all_kwargs):
     return BaseDataset(hf_dataset, ["labels"], max_samples=args.max_samples)
 
 
+def validate_text_source(v, values, field_name):
+    """Check that one of formatting_func, template, or col is specified."""
+    prefix = field_name.split("_")[0]
+    alternatives = [f"{prefix}_formatting_func", f"{prefix}_template"]
+    for alternative in alternatives:
+        # for good validation error, check that all alternates are in values
+        if alternative not in values:
+            raise ValueError(f"Invalid {alternative}")
+    if not (v or any([values[option] for option in alternatives])):
+        # check that at least one alternate is specified
+        raise ValueError(f"One of {field_name}, {', '.join(alternatives)} must be specified")
+    return v
+
+
+def get_text(
+    example: Dict[str, str],
+    formatting_func: Callable = None,
+    template: str = None,
+    cols: List[str] = None,
+    add_special_tokens: bool = False,
+    tokenizer: transformers.PreTrainedTokenizer = None,
+):
+    """Get text from example using formatting_func, template, or cols."""
+    text = None
+    if formatting_func:
+        text = formatting_func(example)
+    elif template:
+        text = template.format(**example)
+    elif cols:
+        text = " ".join([example[col] for col in cols])
+    else:
+        raise ValueError("None of formatting_func, template, or cols is specified")
+    if add_special_tokens:
+        # add bos and eos tokens
+        text = f"{tokenizer.bos_token} {text} {tokenizer.eos_token}"
+    return text
+
+
+def batch_tokenize_text(text_list, tokenizer, args):
+    """Batch tokenize text."""
+    batched_encodings = tokenizer(
+        text_list,
+        max_length=args.source_max_len,
+        truncation=True,
+        padding="max_length" if args.pad_to_max_len else False,
+        add_special_tokens=False,
+    )
+    batched_input_ids = batched_encodings.input_ids
+    if args.drop_short_sequences:
+        batched_input_ids = [input_ids for input_ids in batched_input_ids if len(input_ids) >= args.source_max_len]
+    return batched_input_ids
+
+
 def append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context: int = None, ignore_index=IGNORE_INDEX):
     """Convert input_ids to inputs dict and append to tokenized_inputs."""
     inputs = {"input_ids": input_ids}
@@ -475,17 +528,18 @@ def format_pair_dataset(dataset, args):
         ),
     }
 
-    def extract_alpaca_dataset(example):
-        # extract new input from instruction and input
-        if example.get("input", "") != "":
-            prompt_format = ALPACA_PROMPT_DICT["prompt_input"]
-        else:
-            prompt_format = ALPACA_PROMPT_DICT["prompt_no_input"]
-        return apply_template(example, "input", prompt_format)
-
     if args.pair_format == TextGenPairFormat.ALPACA:
+
+        def extract_alpaca_dataset(example):
+            # extract new input from instruction and input
+            if example.get("input", "") != "":
+                prompt_format = ALPACA_PROMPT_DICT["prompt_input"]
+            else:
+                prompt_format = ALPACA_PROMPT_DICT["prompt_no_input"]
+            return {"input": prompt_format.formate(**example)}
+
         # extract new input from instruction and input
-        dataset = extract_alpaca_dataset(dataset)
+        dataset = dataset.map(lambda x: extract_alpaca_dataset(x), remove_columns=["instruction"])
     elif args.pair_format == TextGenPairFormat.CHIP2:
         # separate the human and bot text into input and output
         dataset = dataset.map(
@@ -503,19 +557,14 @@ def format_pair_dataset(dataset, args):
             }
         )
     elif args.pair_format == TextGenPairFormat.CUSTOM:
-
-        def _formatting_func(template, col, x):
-            if template:
-                return template.format(**x)
-            elif col:
-                return x[col]
-            else:
-                raise ValueError("Neither template nor column name is specified")
-
+        if isinstance(args.input_formatting_func, str) or isinstance(args.output_formatting_func, str):
+            user_module_loader = args.get_user_module_loader()
+            args.input_formatting_func = user_module_loader.load_object(args.input_formatting_func)
+            args.output_formatting_func = user_module_loader.load_object(args.output_formatting_func)
         dataset = dataset.map(
-            lambda y: {
-                "input": _formatting_func(args.input_template, args.input_col, y),
-                "output": _formatting_func(args.output_template, args.output_col, y),
+            lambda x: {
+                "input": get_text(x, args.input_formatting_func, args.input_template, [args.input_col]),
+                "output": get_text(x, args.output_formatting_func, args.output_template, [args.output_col]),
             }
         )
     elif args.pair_format == TextGenPairFormat.DEFAULT:
@@ -525,17 +574,5 @@ def format_pair_dataset(dataset, args):
         raise ValueError(f"Invalid pair_format: {args.pair_format}")
 
     # remove unused columns, keep only input and output
-    return dataset.remove_columns([col for col in dataset.column_names if col not in ["input", "output"]])
-
-
-def apply_template(dataset, new_col: str, template: str, remove_cols: bool = False):
-    """Apply template to column in dataset.
-
-    :param dataset: dataset to apply template to
-    :param new_col: name of new column
-    :param template: python f-string template with {column_name} as placeholders. The column names must be in dataset.
-    :param remove_cols: remove columns after applying template
-    """
-    return dataset.map(
-        lambda x: {new_col: template.format(**x)}, remove_columns=dataset.column_names if remove_cols else None
-    )
+    dataset = dataset.remove_columns([col for col in dataset.column_names if col not in ["input", "output"]])
+    return dataset
