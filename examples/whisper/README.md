@@ -26,14 +26,6 @@ Install the necessary python packages:
 python -m pip install -r requirements.txt
 ```
 
-**Note:** Multilingual support requires ONNX Runtime 1.16.0+ which is not released yet. Must be built from or after commit https://github.com/microsoft/onnxruntime/commit/4b69226fca914753844a3291818ce23ac2f00d8c.
-
-After running the above, uninstall pre-existing ONNX Runtime package and install the latest nightly build of ONNX Runtime as follows:
-```bash
-python -m pip uninstall -y onnxruntime ort-nightly
-python -m pip install ort-nightly --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-```
-
 ### Prepare workflow config json
 ```
 python prepare_whisper_configs.py [--model_name MODEL_NAME] [--no_audio_decoder] [--multilingual]

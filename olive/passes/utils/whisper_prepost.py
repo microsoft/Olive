@@ -12,6 +12,7 @@ import torch
 from onnx import numpy_helper
 from onnxruntime_extensions import PyOrtFunction, util
 from onnxruntime_extensions.cvt import HFTokenizerConverter
+from packaging import version
 
 # the flags for pre-processing
 USE_ONNX_STFT = True
@@ -328,6 +329,18 @@ def add_pre_post_processing_to_model(
     testdata_filepath: str,
     use_audio_decoder: bool = True,
 ) -> onnx.ModelProto:
+    # TODO: support onnxruntime-extensions version >= 0.9.0
+    # once 0.9.0 is supported, we probably cannot support < 0.9.0 since there are large changes in the export
+    # refer to this commit https://github.com/microsoft/onnxruntime-extensions/commit/62d8598
+    # check onnxruntime-extensions version
+    from onnxruntime_extensions import __version__ as ort_ext_version
+
+    if version.parse(ort_ext_version) != version.parse("0.8.0"):
+        raise RuntimeError(
+            f"Please use onnxruntime-extensions==0.8.0 to generate the model. Version {ort_ext_version} is not"
+            " supported."
+        )
+
     audio_blob = _load_test_data(testdata_filepath, use_audio_decoder)
     pre_model = _preprocessing(audio_blob, use_audio_decoder)
     post_model = _postprocessing(model_name)
