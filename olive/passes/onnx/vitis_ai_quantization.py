@@ -9,8 +9,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Union
 
 import onnx
-from onnxruntime.quantization.preprocess import quant_pre_process
-from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
 
 from olive.cache import get_local_path_from_root
 from olive.common.utils import hash_string
@@ -18,8 +16,6 @@ from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_file, model_proto_to_olive_model
-from olive.passes.onnx.vitis_ai import quantize_static
-from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
 from olive.passes.pass_config import ParamCategory, PassConfigParam
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS, LocalFile
 from olive.strategy.search_parameter import Boolean, Categorical, Conditional
@@ -258,6 +254,11 @@ class VitisAIQuantization(Pass):
     def _run_for_config(
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
+        from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
+
+        from olive.passes.onnx.vitis_ai import quantize_static
+        from olive.passes.onnx.vitis_ai.quant_utils import PowerOfTwoMethod
+
         # start with a copy of the config
         run_config = deepcopy(config)
 
@@ -360,6 +361,8 @@ class VitisAIQuantization(Pass):
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
     def _quant_preprocess(self, model: ONNXModel, output_model_path: str) -> ONNXModel:
+        from olive.passes.onnx.quant_pre_process import quant_pre_process
+
         try:
             quant_pre_process(input_model_path=model.model_path, output_model_path=output_model_path, auto_merge=True)
         except Exception as e:
