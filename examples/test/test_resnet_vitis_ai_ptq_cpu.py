@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 
 import pytest
+from onnxruntime import __version__ as OrtVersion
+from packaging import version
 from utils import check_output, patch_config
 
 from olive.common.utils import retry_func, run_subprocess
@@ -30,6 +32,9 @@ def setup():
 @pytest.mark.parametrize("execution_order", ["pass-by-pass"])
 @pytest.mark.parametrize("system", ["local_system", "aml_system"])
 @pytest.mark.parametrize("olive_json", ["resnet_vitis_ai_ptq_cpu.json"])
+@pytest.mark.skipif(
+    OrtVersion >= version.parse("1.6.0"), reason="VitisAIQuantization is not supported in ORT 1.6.0 with TensorsData"
+)
 def test_resnet(search_algorithm, execution_order, system, olive_json):
     # TODO: add gpu e2e test
     from olive.workflows import run as olive_run

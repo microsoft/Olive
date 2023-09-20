@@ -451,7 +451,9 @@ class OnnxQuantization(Pass):
             # there are some problems with the path to where the external data is saved
             # need to find out why before enabling this
 
-            logger.warning(f"Failed to run quantization preprocessing with error of {e}. Using original model.")
+            logger.warning(
+                f"Failed to run quantization preprocessing with error of {e}. Using original model.", exc_info=True
+            )
             # save original model to output path
             onnx_model = onnx.load(model.model_path)
             model_proto_to_file(
