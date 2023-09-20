@@ -17,7 +17,6 @@ from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
 from olive.systems.python_environment import PythonEnvironmentSystem
-from olive.systems.python_environment.available_eps import main as available_eps_main
 from olive.systems.python_environment.inference_runner import main as inference_runner_main
 from olive.systems.python_environment.is_valid_ep import main as is_valid_ep_main
 
@@ -147,23 +146,6 @@ class TestPythonEnvironmentSystem:
         assert actual_res[LatencySubType.AVG].value == expected_res
         assert len(mock_compute_latency.call_args.args[1]) == metric_config.repeat_test_num
         assert all([latency > 0 for latency in mock_compute_latency.call_args.args[1]])
-
-    @patch("onnxruntime.get_available_providers")
-    def test_available_eps_script(self, mock_get_providers, tmp_path):
-        mock_get_providers.return_value = ["CPUExecutionProvider"]
-        output_path = tmp_path / "available_eps.pkl"
-
-        # command
-        args = ["--output_path", str(output_path)]
-
-        # execute
-        available_eps_main(args)
-
-        # assert
-        assert output_path.exists()
-        mock_get_providers.assert_called_once()
-        with open(output_path, "rb") as f:
-            assert pickle.load(f) == ["CPUExecutionProvider"]
 
     @pytest.mark.parametrize("valid", [True, False])
     @patch("olive.systems.python_environment.is_valid_ep.get_ort_inference_session")

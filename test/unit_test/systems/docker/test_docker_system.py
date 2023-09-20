@@ -2,10 +2,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import tempfile
 from pathlib import Path
 from test.unit_test.utils import get_accuracy_metric, get_pytorch_model_config
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -116,6 +117,12 @@ class TestDockerSystem:
         self.mock_create_run_command = patch(
             "olive.systems.docker.docker_system.docker_utils.create_run_command"
         ).start()
+        self.mock_create_available_eps_command = patch(
+            "olive.systems.docker.docker_system.docker_utils.create_available_eps_command"
+        ).start()
+        self.mock_create_available_eps_mount = patch(
+            "olive.systems.docker.docker_system.docker_utils.create_available_eps_mount"
+        ).start()
         self.mock_copy = patch("olive.systems.docker.docker_system.copy.deepcopy").start()
         yield
         patch.stopall()
@@ -172,7 +179,8 @@ class TestDockerSystem:
         self.mock_create_evaluate_command.return_value = eval_command
 
         run_command = {"key": "val"}
-        self.mock_create_run_command.return_value = run_command
+        env = {}
+        self.mock_create_run_command.return_value = run_command, env
 
         if exit_code != 0:
             with pytest.raises(
@@ -200,7 +208,7 @@ class TestDockerSystem:
                 model_mounts=model_mounts,
             )
             self.mock_create_output_mount.assert_called_once_with(
-                tempdir=tempdir, docker_eval_output_path=eval_output_path, container_root_path=container_root_path
+                tempdir=tempdir, docker_output_path=eval_output_path, container_root_path=container_root_path
             )
             self.mock_create_evaluate_command.assert_called_once_with(
                 eval_script_path=eval_file_mount_path,
@@ -217,10 +225,86 @@ class TestDockerSystem:
                 command=eval_command,
                 volumes=volumes_list,
                 detach=True,
-                environment=ANY,
+                environment=env,
+                device_requests=None,
                 **run_command,
             )
 
             for sub_type in metric.sub_types:
                 joint_key = joint_metric_key(metric.name, sub_type.name)
                 assert actual_res[joint_key].value == 0.99618
+
+    @pytest.mark.usefixtures("mock_docker_system_info")
+    @pytest.mark.parametrize("exit_code", [0, 1])
+    def test_get_supported_execution_providers(
+        self,
+        exit_code,
+    ):
+        # setup
+        import docker
+
+        mock_docker_client = MagicMock()
+        self.mock_from_env.return_value = mock_docker_client
+        self.mock_from_env.return_value.containers.run.return_value.wait.return_value = {"StatusCode": exit_code}
+        if exit_code != 0:
+            self.mock_from_env.return_value.containers.run.return_value.logs.return_value = [b"mock_error"]
+        tempdir = self.tmp_dir.name
+        self.mock_tempdir.return_value.__enter__.return_value = tempdir
+        docker_config = LocalDockerConfig(
+            image_name="image_name", build_context_path="build_context_path", dockerfile="dockerfile"
+        )
+        docker_system = DockerSystem(docker_config, is_dev=True)
+        container_root_path = Path("/olive-ws/")
+        available_eps_output_path = "available_eps_output"
+        available_eps_output_name = "available_eps.json"
+        self.mock_copy.side_effect = lambda x: x
+
+        available_eps_file_mount_path = "available_eps_file_mount_path"
+        available_eps_file_mount_str = "available_eps_file_mount_str"
+        self.mock_create_available_eps_mount.return_value = [
+            available_eps_file_mount_path,
+            available_eps_file_mount_str,
+        ]
+
+        output_local_path = Path(__file__).absolute().parent / "output_local_path"
+        output_mount_path = "output_mount_path"
+        output_mount_str = "output_mount_str"
+        self.mock_create_output_mount.return_value = [output_local_path, output_mount_path, output_mount_str]
+
+        available_eps_command = "available_eps_command"
+        self.mock_create_available_eps_command.return_value = available_eps_command
+
+        run_command = {"key": "val"}
+        env = {}
+        self.mock_create_run_command.return_value = run_command, env
+
+        if exit_code != 0:
+            with pytest.raises(
+                docker.errors.ContainerError,
+                match=r".*returned non-zero exit status 1: Docker container evaluation failed with: mock_error",
+            ):
+                actual_res = docker_system.get_supported_execution_providers()
+        else:
+            actual_res = docker_system.get_supported_execution_providers()
+            # assert
+            self.mock_create_available_eps_mount.assert_called_once_with(container_root_path)
+            self.mock_create_output_mount.assert_called_once_with(
+                tempdir=tempdir, docker_output_path=available_eps_output_path, container_root_path=container_root_path
+            )
+            self.mock_create_available_eps_command.assert_called_once_with(
+                available_eps_runner_path=available_eps_file_mount_path, output_path=output_mount_path
+            )
+            self.mock_create_run_command.assert_called_once_with(run_params=docker_system.run_params)
+            mock_docker_client.containers.run.assert_called_once_with(
+                image=docker_system.image,
+                command=available_eps_command,
+                volumes=[available_eps_file_mount_str, output_mount_str],
+                detach=True,
+                environment=env,
+                device_requests=None,
+                **run_command,
+            )
+
+            with open(output_local_path / available_eps_output_name, "r") as f:
+                expected_res = json.load(f)
+                assert actual_res == expected_res

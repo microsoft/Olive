@@ -23,6 +23,13 @@ class OliveSystem(ABC):
         self.olive_managed_env = olive_managed_env
 
     @abstractmethod
+    def get_supported_execution_providers(self) -> List[str]:
+        """
+        Get the available execution providers.
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
     def run_pass(
         self,
         the_pass: Pass,

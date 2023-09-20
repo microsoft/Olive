@@ -145,6 +145,34 @@ class TestAzureMLSystem:
             output_model_file = output_model_file.get_path()
         assert Path(output_model_file).samefile(expected_model_path)
 
+    @patch("olive.systems.azureml.aml_system.retry_func")
+    @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_pipeline_for_supported_eps")
+    def test_get_supported_execution_providers(self, mock_create_pipeline, mock_retry_func, tmp_path):
+        # dummy output download path
+        pipeline_output_path = tmp_path / "pipeline_output" / "named-outputs" / "output_path"
+        pipeline_output_path.mkdir(parents=True, exist_ok=True)
+        # create dummy available eps json
+        downloaded_output_model_path = pipeline_output_path / "available_eps.json"
+        dummy_eps = ["DummyExecutionProvider"]
+        with open(downloaded_output_model_path, "w") as f:
+            json.dump(dummy_eps, f)
+
+        ml_client = MagicMock()
+        self.system.azureml_client_config.create_client.return_value = ml_client
+        self.system.azureml_client_config.max_operation_retries = 3
+        self.system.azureml_client_config.operation_retry_interval = 5
+
+        with patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory") as mock_tempdir:
+            mock_tempdir.return_value.__enter__.return_value = tmp_path
+            # execute
+            actual_res = self.system.get_supported_execution_providers()
+
+        # assert
+        mock_create_pipeline.assert_called_once_with(tmp_path)
+        assert mock_retry_func.call_count == 2
+        ml_client.jobs.stream.assert_called_once()
+        assert actual_res == dummy_eps
+
     @pytest.mark.parametrize(
         "model_resource_type",
         [ResourceType.AzureMLModel, ResourceType.LocalFile, ResourceType.StringName],
@@ -210,9 +238,8 @@ class TestAzureMLSystem:
         code = "code"
         compute = "compute"
         instance_count = 1
-        inputs = {
-            "dummy_input": Input(type=AssetTypes.URI_FILE),
-        }
+        inputs = {"dummy_input": Input(type=AssetTypes.URI_FILE)}
+        outputs = {"dummy_output": Output(type=AssetTypes.URI_FILE)}
         script_name = "aml_evaluation_runner.py"
         resources = {
             "instance_type": "instance_type",
@@ -242,6 +269,7 @@ class TestAzureMLSystem:
             resources,
             instance_count,
             inputs,
+            outputs,
             script_name,
         )
 
@@ -251,12 +279,12 @@ class TestAzureMLSystem:
             name=name,
             display_name=display_name,
             description=description,
-            command=self.create_command(inputs),
+            command=self.create_command(script_name, inputs, outputs),
             resources=resources,
             environment=aml_environment,
             code=code,
             inputs=inputs,
-            outputs=dict(pipeline_output=Output(type=AssetTypes.URI_FOLDER)),
+            outputs=outputs,
             instance_count=1,
             compute=compute,
         )
@@ -332,6 +360,7 @@ class TestAzureMLSystem:
             **metric_inputs,
             "accelerator_config": Input(type=AssetTypes.URI_FILE),
         }
+        outputs = {"pipeline_output": Output(type=AssetTypes.URI_FOLDER)}
         expected_res = MagicMock()
         mock_command.return_value.return_value = expected_res
 
@@ -361,7 +390,7 @@ class TestAzureMLSystem:
             name=metric_type,
             display_name=metric_type,
             description=f"Run olive {metric_type} evaluation",
-            command=self.create_command(inputs),
+            command=self.create_command("aml_evaluation_runner.py", inputs, outputs),
             resources=None,
             environment=self.system.environment,
             code=str(code_path),
@@ -375,15 +404,17 @@ class TestAzureMLSystem:
         if os.path.exists(code_path):
             os.rmdir(code_path)
 
-    def create_command(self, inputs):
-        script_name = "aml_evaluation_runner.py"
+    def create_command(self, script_name, inputs, outputs):
         parameters = []
+        inputs = inputs or {}
         for param, input in inputs.items():
             if input.optional:
                 parameters.append(f"$[[--{param} ${{{{inputs.{param}}}}}]]")
             else:
                 parameters.append(f"--{param} ${{{{inputs.{param}}}}}")
-        parameters.append("--pipeline_output ${{outputs.pipeline_output}}")
+        outputs = outputs or {}
+        for param in outputs:
+            parameters.append(f"--{param} ${{{{outputs.{param}}}}}")
 
         return f"python {script_name} {' '.join(parameters)}"
 

@@ -14,6 +14,7 @@ from test.unit_test.utils import (
 )
 from unittest.mock import patch
 
+import onnxruntime as ort
 import pytest
 
 from olive.common.utils import hash_dict
@@ -120,7 +121,7 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
         onnx_model_config = get_onnx_model_config()
-        mock_local_system.system_type = SystemType.Local
+        mock_local_system.get_supported_execution_providers.return_value = ort.get_available_providers()
         mock_local_system.run_pass.return_value = onnx_model_config
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.get_supported_execution_providers.return_value = [
@@ -197,7 +198,7 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
         onnx_model_config = get_onnx_model_config()
-        mock_local_system.system_type = SystemType.Local
+        mock_local_system.get_supported_execution_providers.return_value = ort.get_available_providers()
         mock_local_system.run_pass.return_value = onnx_model_config
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
@@ -288,6 +289,7 @@ class TestEngine:
             }
             for sub_metric in metric.sub_types
         }
+        mock_local_system.get_supported_execution_providers.return_value = ort.get_available_providers()
         mock_local_system.run_pass.return_value = get_onnx_model_config()
         mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
@@ -334,6 +336,7 @@ class TestEngine:
             }
             for sub_metric in metric.sub_types
         }
+        mock_local_system.get_supported_execution_providers.return_value = ort.get_available_providers()
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
         mock_local_system.olive_managed_env = False

@@ -80,6 +80,10 @@ class DockerSystem(OliveSystem):
                         )[0]
                 logger.info(f"Image {local_docker_config.image_name} build successfully.")
 
+        # available eps. This will be populated the first time self.get_supported_execution_providers() is called.
+        # used for caching the available eps
+        self.available_eps = None
+
     def run_pass(
         self,
         the_pass: Pass,
@@ -100,7 +104,7 @@ class DockerSystem(OliveSystem):
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
             metrics_res = None
-            metric_json = self._run_container(
+            metric_json = self._run_eval_container(
                 tempdir, model_config, data_root, metrics, accelerator, container_root_path
             )
             if metric_json.is_file():
@@ -108,7 +112,7 @@ class DockerSystem(OliveSystem):
                     metrics_res = json.load(f)
             return MetricResult.parse_obj(metrics_res)
 
-    def _run_container(
+    def _run_eval_container(
         self,
         tempdir,
         model_config: ModelConfig,
@@ -153,7 +157,7 @@ class DockerSystem(OliveSystem):
 
         output_local_path, output_mount_path, output_mount_str = docker_utils.create_output_mount(
             tempdir=tempdir,
-            docker_eval_output_path=eval_output_path,
+            docker_output_path=eval_output_path,
             container_root_path=container_root_path,
         )
         volumes_list.append(output_mount_str)
@@ -167,36 +171,64 @@ class DockerSystem(OliveSystem):
             accelerator=accelerator,
         )
 
-        run_command = docker_utils.create_run_command(run_params=self.run_params)
-
-        environment = run_command.pop("environment", {})
-        envs_dict = {"PYTHONPYCACHEPREFIX": "/tmp"}
-        for k, v in envs_dict.items():
-            if isinstance(environment, list):
-                environment = {env.split("=")[0]: env.split("=")[1] for env in environment}
-            elif isinstance(environment, dict) and not environment.get(k):
-                environment[k] = v
-
-        logger.debug(f"Running container with eval command: {eval_command}")
+        device_requests = None
         if accelerator.accelerator_type == Device.GPU:
-            container = self.docker_client.containers.run(
-                image=self.image,
-                command=eval_command,
-                volumes=volumes_list,
-                detach=True,
-                environment=environment,
-                device_requests=[docker.types.DeviceRequest(capabilities=[["gpu"]])],
-                **run_command,
+            device_requests = [docker.types.DeviceRequest(capabilities=[["gpu"]])]
+        self._run_container(eval_command, volumes_list, device_requests)
+
+        metric_json = Path(output_local_path) / f"{eval_output_name}"
+        return metric_json
+
+    def get_supported_execution_providers(self) -> List[str]:
+        """
+        Get the available execution providers.
+        """
+        if self.available_eps:
+            return self.available_eps
+
+        container_root_path = Path("/olive-ws/")
+        with tempfile.TemporaryDirectory() as tempdir:
+            output_path = "available_eps_output"
+            output_name = "available_eps.json"
+
+            volumes_list = []
+            available_eps_mount_path, available_eps_mount_str = docker_utils.create_available_eps_mount(
+                container_root_path
             )
-        else:
-            container = self.docker_client.containers.run(
-                image=self.image,
-                command=eval_command,
-                volumes=volumes_list,
-                detach=True,
-                environment=environment,
-                **run_command,
+            volumes_list.append(available_eps_mount_str)
+
+            output_local_path, output_mount_path, output_mount_str = docker_utils.create_output_mount(
+                tempdir=tempdir,
+                docker_output_path=output_path,
+                container_root_path=container_root_path,
             )
+            volumes_list.append(output_mount_str)
+            logger.debug(f"The volumes list is {volumes_list}")
+
+            available_eps_command = docker_utils.create_available_eps_command(
+                available_eps_runner_path=available_eps_mount_path, output_path=output_mount_path
+            )
+
+            self._run_container(available_eps_command, volumes_list)
+
+            with open(Path(output_local_path) / f"{output_name}") as f:
+                self.available_eps = json.load(f)
+
+            return self.available_eps
+
+    def _run_container(self, command, volumes_list, device_requests=None):
+        run_command, environment = docker_utils.create_run_command(run_params=self.run_params)
+
+        logger.debug(f"Running container with command: {command}")
+        container = self.docker_client.containers.run(
+            image=self.image,
+            command=command,
+            volumes=volumes_list,
+            detach=True,
+            environment=environment,
+            device_requests=device_requests,
+            **run_command,
+        )
         docker_logs = []
         for line in container.logs(stream=True):
             # containers.logs can accept stdout/stderr as arguments, but it doesn't work
@@ -210,12 +242,9 @@ class DockerSystem(OliveSystem):
         if exit_code != 0:
             error_msg = "\n".join(docker_logs)
             raise docker.errors.ContainerError(
-                container, exit_code, eval_command, self.image, f"Docker container evaluation failed with: {error_msg}"
+                container, exit_code, command, self.image, f"Docker container evaluation failed with: {error_msg}"
             )
-        logger.debug("Docker container evaluation completed successfully")
-
-        metric_json = Path(output_local_path) / f"{eval_output_name}"
-        return metric_json
+        logger.debug("Docker container run completed successfully")
 
     def remove(self):
         self.docker_client.images.remove(self.image.tags[0], force=True)

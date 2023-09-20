@@ -80,6 +80,7 @@ class PythonEnvironmentSystem(OliveSystem):
         # path to inference script
         self.inference_path = Path(__file__).parent.resolve() / "inference_runner.py"
         self.pass_path = Path(__file__).parent.resolve() / "pass_runner.py"
+        self.available_eps_path = Path(__file__).parent.parent.resolve() / "available_eps_runner.py"
         self.device = self.accelerators[0] if self.accelerators else Device.CPU
 
     def run_pass(
@@ -299,17 +300,17 @@ class PythonEnvironmentSystem(OliveSystem):
             return self.available_eps
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            available_eps_path = Path(__file__).parent.resolve() / "available_eps.py"
-            output_path = Path(temp_dir).resolve() / "available_eps.pb"
+            output_path = Path(temp_dir).resolve()
             run_subprocess(
-                f"python {available_eps_path} --output_path {output_path}",
+                f"python {self.available_eps_path} --output_path {output_path}",
                 env=self.environ,
                 check=True,
             )
-            with output_path.open("rb") as f:
-                available_eps = pickle.load(f)
-            self.available_eps = available_eps
-            return available_eps
+            available_eps_json_path = output_path / "available_eps.json"
+            with open(available_eps_json_path, "r") as f:
+                self.available_eps = json.load(f)
+
+            return self.available_eps
 
     def get_execution_providers(self) -> List[str]:
         """

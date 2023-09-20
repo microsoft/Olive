@@ -49,13 +49,25 @@ def create_evaluate_command(
     return cmd_line
 
 
+def create_available_eps_command(available_eps_runner_path: str, output_path: str):
+    return f"python {available_eps_runner_path} --output_path {output_path}"
+
+
 def create_run_command(run_params: dict):
-    if not run_params:
-        return {}
+    run_params = run_params or {}
     run_command_dict = {}
     for k, v in run_params.items():
         run_command_dict[k.replace("-", "_")] = v
-    return run_command_dict
+
+    environment = run_command_dict.pop("environment", {})
+    envs_dict = {"PYTHONPYCACHEPREFIX": "/tmp"}
+    for k, v in envs_dict.items():
+        if isinstance(environment, list):
+            environment = {env.split("=")[0]: env.split("=")[1] for env in environment}
+        elif isinstance(environment, dict) and not environment.get(k):
+            environment[k] = v
+
+    return run_command_dict, environment
 
 
 def create_metric_volumes_list(
@@ -111,6 +123,14 @@ def create_eval_script_mount(container_root_path: Path):
     return eval_file_mount_path, eval_file_mount_str
 
 
+def create_available_eps_mount(container_root_path: Path):
+    script_name = "available_eps_runner.py"
+    available_eps_runner_mount_path = str(container_root_path / script_name)
+    runner_parent_dir = Path(__file__).resolve().parent.parent
+    available_eps_runner_mount_str = f"{str(runner_parent_dir / script_name)}:{available_eps_runner_mount_path}"
+    return available_eps_runner_mount_path, available_eps_runner_mount_str
+
+
 def create_dev_mount(tempdir: Path, container_root_path: Path):
     logger.warning(
         "Dev mode is only enabled for CI pipeline! "
@@ -127,9 +147,9 @@ def create_dev_mount(tempdir: Path, container_root_path: Path):
     return project_folder_mount_path, project_folder_mount_str
 
 
-def create_output_mount(tempdir, docker_eval_output_path: str, container_root_path: Path):
-    output_local_path = Path(tempdir) / docker_eval_output_path
+def create_output_mount(tempdir, docker_output_path: str, container_root_path: Path):
+    output_local_path = Path(tempdir) / docker_output_path
     output_local_path.mkdir(parents=True, exist_ok=True)
-    output_mount_path = str(container_root_path / docker_eval_output_path)
+    output_mount_path = str(container_root_path / docker_output_path)
     output_mount_str = f"{output_local_path}:{output_mount_path}"
     return output_local_path, output_mount_path, output_mount_str
