@@ -1,6 +1,6 @@
 neural-compressor
 onnx==1.14.0
-onnxruntime>=1.16.0
+onnxruntime==1.15.1
 # TODO: update this once olive supports onnxruntime-extensions 0.9.0
 onnxruntime-extensions==0.8.0
 tabulate
