@@ -121,7 +121,7 @@ class AcceleratorLookup:
                     if len(accelerators[idx]) > 1:
                         logger.warning(
                             f"Execution provider {ep} is mapped to multiple accelerators {accelerators[idx]}. "
-                            "Olive cannot infer the device which may cause unexpected behavior"
+                            "Olive cannot infer the device which may cause unexpected behavior. "
                             "Please specify the accelerator in the accelerator configs"
                         )
                         is_unique_inferring = False
