@@ -4,7 +4,6 @@ datasets
 docker
 evaluate
 neural-compressor
-onnxruntime==1.15.1
 scikit-learn
 scipy
 tabulate
