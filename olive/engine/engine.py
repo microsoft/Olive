@@ -85,19 +85,21 @@ class Engine:
         if execution_providers is None:
             execution_providers = self._config.execution_providers
 
-        # verify the AzureML system have specified the execution providers
-        # Please note we could not use isinstance(target, AzureMLSystem) since it would import AzureML packages.
-        if self.target.system_type == SystemType.AzureML and execution_providers is None:
-            raise ValueError("AzureMLSystem requires execution providers to be specified.")
-        elif execution_providers is None:
-            if self.target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
+        if not execution_providers:
+            if self.target.olive_managed_env:
+                raise ValueError("Managed environment requires execution providers to be specified.")
+            elif self.target.system_type == SystemType.AzureML:
+                # verify the AzureML system have specified the execution providers
+                # Please note we could not use isinstance(target, AzureMLSystem) since it would import AzureML packages.
+                raise ValueError("AzureMLSystem or DockerSystem requires execution providers to be specified.")
+            elif self.target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
                 execution_providers = self.target.get_supported_execution_providers()
-            else:
-                # for docker system and python system, we default use CPUExecutionProvider
+            elif self.target.system_type == SystemType.Docker:
+                # for docker system we default use CPUExecutionProvider
                 execution_providers = ["CPUExecutionProvider"]
 
         self.execution_providers = execution_providers
-        # Flatten the accelerators to list of AcceleratorSpec
+
         accelerators: List[str] = self.target.accelerators
         if accelerators is None:
             inferred_accelerators = AcceleratorLookup.infer_accelerators_from_execution_provider(
@@ -114,17 +116,21 @@ class Engine:
                 accelerators = inferred_accelerators
 
         ep_to_process = set(self.execution_providers)
+        # Flatten the accelerators to list of AcceleratorSpec
         self.accelerator_specs: List[AcceleratorSpec] = []
         is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
         for accelerator in accelerators:
             device = Device(accelerator.lower())
-            skip_get_available_ep = False
-            if (
-                self.target.system_type in (SystemType.AzureML, SystemType.Docker, SystemType.PythonEnvironment)
-                and self.target.olive_managed_env
-            ):
-                skip_get_available_ep = True
-            supported_eps = AcceleratorLookup.get_execution_providers_for_device(device, skip_get_available_ep)
+            if self.target.olive_managed_env:
+                available_eps = AcceleratorLookup.get_managed_execution_providers_for_device(device)
+            elif self.target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
+                available_eps = AcceleratorLookup.get_execution_providers_for_device(device)
+            else:
+                available_eps = self.execution_providers
+
+            supported_eps = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
+                device, available_eps
+            )
             for ep in ep_to_process.copy():
                 if ep == "CPUExecutionProvider" and device != "cpu" and is_cpu_available:
                     logger.info("ignore the CPUExecutionProvider for non-cpu device")

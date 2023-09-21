@@ -65,14 +65,16 @@ class AcceleratorLookup:
     }
 
     @staticmethod
-    def get_execution_providers_for_device(device: Device, skip_get_available_ep=False):
-        if skip_get_available_ep:
-            available_providers = AcceleratorLookup.EXECUTION_PROVIDERS.get(device)
-        else:
-            import onnxruntime
+    def get_managed_execution_providers_for_device(device: Device):
+        return AcceleratorLookup.EXECUTION_PROVIDERS.get(device)
 
-            available_providers = onnxruntime.get_available_providers()
-        return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(device, available_providers)
+    @staticmethod
+    def get_execution_providers_for_device(device: Device):
+        import onnxruntime
+
+        return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
+            device, onnxruntime.get_available_providers()
+        )
 
     @staticmethod
     def get_execution_providers_for_device_by_available_providers(device: Device, available_providers):
