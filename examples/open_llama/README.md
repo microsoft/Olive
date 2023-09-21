@@ -96,6 +96,8 @@ This workflow optimizes Open Llama model on Azure ML compute, and evaluate outpu
 
 This example config file is [open_llama_arc.json](open_llama_arc.json).
 
+Requirements file: [requirements-arc.txt](requirements-arc.txt)
+
 ## How to run
 ### Pip requirements
 Install the necessary python packages using the corresponding requirements file.
