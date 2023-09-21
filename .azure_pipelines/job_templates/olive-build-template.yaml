@@ -44,9 +44,9 @@ jobs:
   - script: pip install .
     displayName: Install Olive
 
-  - scritp: |
+  - script: |
       pip install $(onnxruntime)
-    displayName: Install onnxruntime
+    displayName: Install $(onnxruntime)
 
   - task: AzureCLI@1
     inputs:
