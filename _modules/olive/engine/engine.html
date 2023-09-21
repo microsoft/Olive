@@ -210,68 +210,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">target</span> <span class="o">=</span> <span class="n">LocalSystem</span><span class="p">()</span>
 
-        <span class="k">if</span> <span class="n">execution_providers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">execution_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_providers</span>
-
-        <span class="c1"># verify the AzureML system have specified the execution providers</span>
-        <span class="c1"># Please note we could not use isinstance(target, AzureMLSystem) since it would import AzureML packages.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">system_type</span> <span class="o">==</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span> <span class="ow">and</span> <span class="n">execution_providers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;AzureMLSystem requires execution providers to be specified.&quot;</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">execution_providers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">system_type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span><span class="p">,</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">PythonEnvironment</span><span class="p">):</span>
-                <span class="n">execution_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">get_supported_execution_providers</span><span class="p">()</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="c1"># for docker system and python system, we default use CPUExecutionProvider</span>
-                <span class="n">execution_providers</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span> <span class="o">=</span> <span class="n">execution_providers</span>
-        <span class="c1"># Flatten the accelerators to list of AcceleratorSpec</span>
-        <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">accelerators</span>
-        <span class="k">if</span> <span class="n">accelerators</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">inferred_accelerators</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">infer_accelerators_from_execution_provider</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span>
-            <span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">inferred_accelerators</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Cannot infer the accelerators from the target system. Use CPU as default.&quot;</span><span class="p">)</span>
-                <span class="n">accelerators</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CPU&quot;</span><span class="p">]</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Use inferred accelerators </span><span class="si">{</span><span class="n">inferred_accelerators</span><span class="si">}</span><span class="s2"> &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;from given execution providers </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span><span class="si">}</span><span class="s2">.&quot;</span>
-                <span class="p">)</span>
-                <span class="n">accelerators</span> <span class="o">=</span> <span class="n">inferred_accelerators</span>
-
-        <span class="n">ep_to_process</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">AcceleratorSpec</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">is_cpu_available</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span> <span class="ow">in</span> <span class="p">[</span><span class="n">accelerator</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">accelerator</span> <span class="ow">in</span> <span class="n">accelerators</span><span class="p">]</span>
-        <span class="k">for</span> <span class="n">accelerator</span> <span class="ow">in</span> <span class="n">accelerators</span><span class="p">:</span>
-            <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="n">accelerator</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
-            <span class="n">skip_get_available_ep</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="k">if</span> <span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">system_type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span><span class="p">,</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">Docker</span><span class="p">,</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">PythonEnvironment</span><span class="p">)</span>
-                <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">olive_managed_env</span>
-            <span class="p">):</span>
-                <span class="n">skip_get_available_ep</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="n">supported_eps</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers_for_device</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">skip_get_available_ep</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">ep_to_process</span><span class="o">.</span><span class="n">copy</span><span class="p">():</span>
-                <span class="k">if</span> <span class="n">ep</span> <span class="o">==</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span> <span class="ow">and</span> <span class="n">device</span> <span class="o">!=</span> <span class="s2">&quot;cpu&quot;</span> <span class="ow">and</span> <span class="n">is_cpu_available</span><span class="p">:</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;ignore the CPUExecutionProvider for non-cpu device&quot;</span><span class="p">)</span>
-                <span class="k">elif</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">supported_eps</span><span class="p">:</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">AcceleratorSpec</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">ep</span><span class="p">))</span>
-                    <span class="n">ep_to_process</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">ep</span><span class="p">)</span>
-
-        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="p">,</span> <span class="p">(</span>
-            <span class="s2">&quot;No valid accelerator specified for target system. &quot;</span>
-            <span class="s2">&quot;Please specify the accelerators in the target system or provide valid execution providers. &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;Given execution providers: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span><span class="si">}</span><span class="s2">. &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;Current accelerators: </span><span class="si">{</span><span class="n">accelerators</span><span class="si">}</span><span class="s2">.&quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;Supported execution providers: </span><span class="si">{</span><span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">EXECUTION_PROVIDERS</span><span class="si">}</span><span class="s2">.&quot;</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">ep_to_process</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The following execution provider is not supported: </span><span class="si">{</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ep_to_process</span><span class="p">)</span><span class="si">}</span><span class="s2">. &quot;</span>
-                <span class="s2">&quot;Please consider installing an onnxruntime build that contains the relevant execution providers. &quot;</span>
-            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">setup_accelerators</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">)</span>
 
         <span class="c1"># default evaluator</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">evaluator_config</span> <span class="o">=</span> <span class="kc">None</span>
@@ -294,6 +233,79 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">azureml_client_config</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_initialized</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">setup_accelerators</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">execution_providers</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">execution_providers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">execution_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">execution_providers</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">execution_providers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">olive_managed_env</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Managed environment requires execution providers to be specified.&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">system_type</span> <span class="o">==</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">AzureML</span><span class="p">:</span>
+                <span class="c1"># verify the AzureML system have specified the execution providers</span>
+                <span class="c1"># Please note we could not use isinstance(target, AzureMLSystem) since it would import AzureML packages.</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;AzureMLSystem requires execution providers to be specified.&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">system_type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span><span class="p">,</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">PythonEnvironment</span><span class="p">):</span>
+                <span class="n">execution_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">get_supported_execution_providers</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">system_type</span> <span class="o">==</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">Docker</span><span class="p">:</span>
+                <span class="c1"># for docker system we default use CPUExecutionProvider</span>
+                <span class="n">execution_providers</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span> <span class="o">=</span> <span class="n">execution_providers</span>
+
+        <span class="n">accelerators</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">accelerators</span>
+        <span class="k">if</span> <span class="n">accelerators</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">inferred_accelerators</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">infer_accelerators_from_execution_provider</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">inferred_accelerators</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Cannot infer the accelerators from the target system. Use CPU as default.&quot;</span><span class="p">)</span>
+                <span class="n">accelerators</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CPU&quot;</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Use inferred accelerators </span><span class="si">{</span><span class="n">inferred_accelerators</span><span class="si">}</span><span class="s2"> &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;from given execution providers </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+                <span class="n">accelerators</span> <span class="o">=</span> <span class="n">inferred_accelerators</span>
+
+        <span class="n">ep_to_process</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span><span class="p">)</span>
+        <span class="c1"># Flatten the accelerators to list of AcceleratorSpec</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">AcceleratorSpec</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">is_cpu_available</span> <span class="o">=</span> <span class="s2">&quot;cpu&quot;</span> <span class="ow">in</span> <span class="p">[</span><span class="n">accelerator</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">accelerator</span> <span class="ow">in</span> <span class="n">accelerators</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">accelerator</span> <span class="ow">in</span> <span class="n">accelerators</span><span class="p">:</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="n">accelerator</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">olive_managed_env</span><span class="p">:</span>
+                <span class="n">available_eps</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_managed_supported_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">system_type</span> <span class="ow">in</span> <span class="p">(</span><span class="n">SystemType</span><span class="o">.</span><span class="n">Local</span><span class="p">,</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">PythonEnvironment</span><span class="p">):</span>
+                <span class="n">available_eps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">get_supported_execution_providers</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">system_type</span> <span class="o">==</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">Docker</span><span class="p">:</span>
+                <span class="c1"># TODO: do we need allow docker system support other execution providers?</span>
+                <span class="n">available_eps</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">available_eps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span>
+
+            <span class="n">supported_eps</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers_for_device_by_available_providers</span><span class="p">(</span>
+                <span class="n">device</span><span class="p">,</span> <span class="n">available_eps</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">ep_to_process</span><span class="o">.</span><span class="n">copy</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">ep</span> <span class="o">==</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span> <span class="ow">and</span> <span class="n">device</span> <span class="o">!=</span> <span class="s2">&quot;cpu&quot;</span> <span class="ow">and</span> <span class="n">is_cpu_available</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;ignore the CPUExecutionProvider for non-cpu device&quot;</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">supported_eps</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">AcceleratorSpec</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">ep</span><span class="p">))</span>
+                    <span class="n">ep_to_process</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">ep</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="p">,</span> <span class="p">(</span>
+            <span class="s2">&quot;No valid accelerator specified for target system. &quot;</span>
+            <span class="s2">&quot;Please specify the accelerators in the target system or provide valid execution providers. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Given execution providers: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span><span class="si">}</span><span class="s2">. &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Current accelerators: </span><span class="si">{</span><span class="n">accelerators</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Supported execution providers: </span><span class="si">{</span><span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">EXECUTION_PROVIDERS</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">ep_to_process</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The following execution provider is not supported: </span><span class="si">{</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ep_to_process</span><span class="p">)</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="s2">&quot;Please consider installing an onnxruntime build that contains the relevant execution providers. &quot;</span>
+            <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
