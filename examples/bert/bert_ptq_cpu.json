@@ -56,6 +56,9 @@
         "quantization": {
             "type": "OnnxQuantization",
             "config": {
+                "quant_preprocess": true,
+                "per_channel": false,
+                "reduce_range": false,
                 "data_config": "__input_model_data_config__"
             }
         },
