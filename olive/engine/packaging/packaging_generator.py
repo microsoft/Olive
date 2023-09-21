@@ -21,7 +21,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig, PackagingTy
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.resource_path import ResourceType, create_resource_path
-from olive.utils import get_package_name
+from olive.utils import get_package_name_from_ep
 
 logger = logging.getLogger(__name__)
 
@@ -211,7 +211,7 @@ def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
             package_name_list.append(("onnxruntime", "ort-nightly"))
         else:
             ep_list = inference_settings["execution_provider"]
-            package_name_list.extend([get_package_name(ep[0]) for ep in ep_list])
+            package_name_list.extend([get_package_name_from_ep(ep[0]) for ep in ep_list])
             package_name_list = set(package_name_list)
 
     try:

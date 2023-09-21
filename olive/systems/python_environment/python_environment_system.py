@@ -31,7 +31,7 @@ from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
-from olive.utils import get_package_name
+from olive.utils import get_package_name_from_ep
 
 logger = logging.getLogger(__name__)
 
@@ -376,7 +376,7 @@ class PythonEnvironmentSystem(OliveSystem):
         )
 
         # install onnxruntime package
-        onnxruntime_package = get_package_name(accelerator.execution_provider)[0]
+        onnxruntime_package = get_package_name_from_ep(accelerator.execution_provider)[0]
         run_subprocess(
             f"pip install --cache-dir {self.environ['TMPDIR']} {onnxruntime_package}",
             env=self.environ,

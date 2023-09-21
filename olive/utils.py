@@ -1,4 +1,4 @@
-def get_package_name(execution_provider):
+def get_package_name_from_ep(execution_provider):
     PROVIDER_PACKAGE_MAPPING = {
         "CPUExecutionProvider": ("onnxruntime", "ort-nightly"),
         "CUDAExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
