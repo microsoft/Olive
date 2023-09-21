@@ -37,5 +37,9 @@ def test_bert(olive_test_knob):
     from olive.workflows import run as olive_run
 
     olive_config = patch_config(*olive_test_knob)
+    if olive_test_knob[3] == "aml_system":
+        # remove the invalid OpenVINOExecutionProvider for bert aml system.
+        olive_config["engine"]["execution_providers"] = ["CPUExecutionProvider"]
+
     output = olive_run(olive_config)
     check_output(output)
