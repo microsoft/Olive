@@ -120,8 +120,13 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
         onnx_model_config = get_onnx_model_config()
+        mock_local_system.system_type = SystemType.Local
         mock_local_system.run_pass.return_value = onnx_model_config
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
+        mock_local_system.get_supported_execution_providers.return_value = [
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider",
+        ]
         mock_local_system.accelerators = ["CPU"]
         mock_local_system.olive_managed_env = False
 
@@ -192,9 +197,11 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
         onnx_model_config = get_onnx_model_config()
+        mock_local_system.system_type = SystemType.Local
         mock_local_system.run_pass.return_value = onnx_model_config
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
+        mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.olive_managed_env = False
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
@@ -282,8 +289,10 @@ class TestEngine:
             for sub_metric in metric.sub_types
         }
         mock_local_system.run_pass.return_value = get_onnx_model_config()
+        mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
+        mock_local_system.system_type = SystemType.Local
         mock_local_system.olive_managed_env = False
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
@@ -328,6 +337,8 @@ class TestEngine:
         mock_local_system.evaluate_model.return_value = MetricResult.parse_obj(metric_result_dict)
         mock_local_system.accelerators = ["CPU"]
         mock_local_system.olive_managed_env = False
+        mock_local_system.system_type = SystemType.Local
+        mock_local_system.get_supported_execution_providers.return_value = ["CPUExecutionProvider"]
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
 
@@ -557,3 +568,33 @@ class TestEngine:
                     onnx_model_config, data_root=None, output_dir=output_dir, evaluate_input_model=False
                 )
                 assert not actual_res[DEFAULT_CPU_ACCELERATOR].nodes, "Expect empty dict when quantization fails"
+
+    @patch("olive.systems.local.LocalSystem")
+    @patch("olive.systems.docker.DockerSystem")
+    def test_docker_system(self, mock_docker_system, mock_local_system, tmpdir):
+        mock_docker_system.system_type = SystemType.Docker
+        mock_docker_system.accelerators = None
+        mock_docker_system.olive_managed_env = False
+
+        mock_local_system.system_type = SystemType.Local
+
+        options = {
+            "cache_dir": tmpdir,
+            "clean_cache": True,
+            "search_strategy": None,
+            "clean_evaluation_cache": True,
+        }
+
+        metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
+        evaluator_config = OliveEvaluatorConfig(metrics=[metric])
+
+        engine = Engine(
+            options,
+            host=mock_local_system,
+            target=mock_docker_system,
+            evaluator_config=evaluator_config,
+            execution_providers=["OpenVINOExecutionProvider", "CPUExecutionProvider"],
+        )
+        assert len(engine.accelerator_specs) == 1
+        assert engine.accelerator_specs[0] == DEFAULT_CPU_ACCELERATOR
+        assert engine.target.system_type == SystemType.Docker
