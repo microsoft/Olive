@@ -34,27 +34,49 @@ jobs:
         pip install .
         pip install ${{ parameters.onnxruntime }}
       displayName: Install Olive
+    - ${{ if and(eq(variables.WINDOWS, 'True'), eq(variables.testType, 'multiple_ep')) }}:
+      - task: AzureCLI@1
+        inputs:
+          azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            python -m pip install pytest
+            curl --output openvino_toolkit.zip https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.0.1/windows/w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64.zip
+            7z x openvino_toolkit.zip
+            w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64\\setupvars.bat
+            python -m pip install numpy psutil coverage protobuf==3.20.3
+            coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType)
+            coverage xml
+        displayName: Test Olive
+        env:
+          OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
+          WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
+          WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
+          WORKSPACE_NAME: $(workspace-name)
+          AZURE_TENANT_ID: $(azure-tenant-id)
+          AZURE_CLIENT_ID: $(olive-rg-sp-id)
+          AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
+    - ${{ else }}:
+      - task: AzureCLI@1
+        inputs:
+          azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            python -m pip install pytest
+            python -m pip install -r $(Build.SourcesDirectory)/test/requirements-test.txt
 
-    - task: AzureCLI@1
-      inputs:
-        azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
-        scriptLocation: 'inlineScript'
-        inlineScript: |
-          python -m pip install pytest
-          python -m pip install -r $(Build.SourcesDirectory)/test/requirements-test.txt
+            coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType)
+            coverage xml
 
-          coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType)
-          coverage xml
-
-      displayName: Test Olive
-      env:
-        OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
-        WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
-        WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
-        WORKSPACE_NAME: $(workspace-name)
-        AZURE_TENANT_ID: $(azure-tenant-id)
-        AZURE_CLIENT_ID: $(olive-rg-sp-id)
-        AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
+        displayName: Test Olive
+        env:
+          OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
+          WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
+          WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
+          WORKSPACE_NAME: $(workspace-name)
+          AZURE_TENANT_ID: $(azure-tenant-id)
+          AZURE_CLIENT_ID: $(olive-rg-sp-id)
+          AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
 
     - task: CredScan@3
       displayName: 'Run CredScan'
