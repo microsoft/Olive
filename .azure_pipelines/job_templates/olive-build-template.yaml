@@ -4,6 +4,7 @@ parameters:
   name: ''
   pool: ''
   device: 'cpu'
+  onnxruntime: 'onnxruntime'
 
 jobs:
 - template: olive-test-template.yaml
@@ -40,14 +41,21 @@ jobs:
       versionSpec: 3.8
     displayName: Use Python 3.8
 
-  - script: make install-olive INSTALL_EXTRAS=[$(device)]
+  - script: pip install .
     displayName: Install Olive
+
+  - scritp: |
+      pip install $(onnxruntime)
+    displayName: Install onnxruntime
 
   - task: AzureCLI@1
     inputs:
       azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
       scriptLocation: 'inlineScript'
-      inlineScript: make test-examples
+      inlineScript: |
+        python -m pip install pytest \
+        python -m pip install -r $(Build.SourcesDirectory)/examples/$(exampleFolder)R/requirements.txt \
+        python -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test_examples-TestOlive.xml $(Build.SourcesDirectory)/examples/test/test_$(exampleName).py
     displayName: Test Examples
     env:
       OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
@@ -74,7 +82,7 @@ jobs:
       testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
     displayName: Upload pipeline run test results
 
-  - script: make clean WINDOWS=$(WINDOWS)
+  - script: git clean -dfX
     condition: always()
     displayName: Clean remaining artifacts
 

@@ -32,6 +32,7 @@ jobs:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
+    onnxruntime: onnxruntime
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
@@ -63,6 +64,7 @@ jobs:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
+    onnxruntime: onnxruntime
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
@@ -89,6 +91,7 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
     device: gpu
+    onnxruntime: onnxruntime-gpu
     examples:
       bert_cuda_gpu:
         exampleFolder: bert
