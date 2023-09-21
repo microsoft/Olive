@@ -14,6 +14,7 @@ jobs:
     device: ${{parameters.device}}
     WINDOWS: ${{parameters.windows}}
     test_type: 'unit_test'
+    onnxruntime: ${{parameters.onnxruntime}}
 
 - template: olive-test-template.yaml
   parameters:
@@ -22,6 +23,7 @@ jobs:
     device: ${{parameters.device}}
     WINDOWS: ${{parameters.windows}}
     test_type: 'integ_test'
+    onnxruntime: ${{parameters.onnxruntime}}
 
 - job: ${{parameters.name}}_Test_Examples
   timeoutInMinutes: 300
@@ -65,8 +67,6 @@ jobs:
       AZURE_TENANT_ID: $(azure-tenant-id)
       AZURE_CLIENT_ID: $(olive-rg-sp-id)
       AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
-      EXAMPLE_FOLDER: $(exampleFolder)
-      EXAMPLE_NAME: $(exampleName)
 
   - task: ComponentGovernanceComponentDetection@0
     inputs:

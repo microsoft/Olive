@@ -4,6 +4,7 @@ parameters:
   test_type: ''
   device: 'cpu'
   python_version: '3.8'
+  onnxruntime: 'onnxruntime'
 
 jobs:
 - ${{ if eq(parameters.device, 'cpu') }}:
@@ -29,14 +30,22 @@ jobs:
       condition: and(eq(variables.WINDOWS, 'False'), eq(variables.testType, 'integ_test'))
       continueOnError: true
 
-    - script: make install-olive INSTALL_EXTRAS=[$(device)]
+    - script: |
+        pip install .
+        pip install ${{ parameters.onnxruntime }}
       displayName: Install Olive
 
     - task: AzureCLI@1
       inputs:
         azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
         scriptLocation: 'inlineScript'
-        inlineScript: make $(testType)
+        inlineScript: |
+          python -m pip install pytest
+          python -m pip install -r $(Build.SourcesDirectory)/test/requirements-test.txt
+
+          coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType)
+          coverage xml
+
       displayName: Test Olive
       env:
         OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
@@ -72,6 +81,6 @@ jobs:
         codeCoverageTool: 'Cobertura'
         summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
 
-    - script: make clean WINDOWS=$(WINDOWS)
+    - script: git clean -dfX
       condition: always()
       displayName: Clean remaining artifacts
