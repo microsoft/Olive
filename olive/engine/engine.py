@@ -82,6 +82,31 @@ class Engine:
         else:
             self.target = LocalSystem()
 
+        self.setup_accelerators(execution_providers)
+
+        # default evaluator
+        self.evaluator_config = None
+        if evaluator_config is not None:
+            self.evaluator_config = evaluator_config
+        elif self._config.evaluator is not None:
+            self.evaluator_config = self._config.evaluator
+
+        # dictionary of passes
+        self.pass_config = OrderedDict()
+
+        # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator, "clean_run_cache": clean_run_cache}}
+        self.passes = OrderedDict()
+
+        self.pass_flows = None
+        self.pass_flows_search_spaces = None
+
+        self.footprints = defaultdict(Footprint)
+
+        self.azureml_client_config = self._config.azureml_client_config
+
+        self._initialized = False
+
+    def setup_accelerators(self, execution_providers):
         if execution_providers is None:
             execution_providers = self._config.execution_providers
 
@@ -91,7 +116,7 @@ class Engine:
             elif self.target.system_type == SystemType.AzureML:
                 # verify the AzureML system have specified the execution providers
                 # Please note we could not use isinstance(target, AzureMLSystem) since it would import AzureML packages.
-                raise ValueError("AzureMLSystem or DockerSystem requires execution providers to be specified.")
+                raise ValueError("AzureMLSystem requires execution providers to be specified.")
             elif self.target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
                 execution_providers = self.target.get_supported_execution_providers()
             elif self.target.system_type == SystemType.Docker:
@@ -122,9 +147,12 @@ class Engine:
         for accelerator in accelerators:
             device = Device(accelerator.lower())
             if self.target.olive_managed_env:
-                available_eps = AcceleratorLookup.get_managed_execution_providers_for_device(device)
+                available_eps = AcceleratorLookup.get_managed_supported_execution_providers(device)
             elif self.target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
-                available_eps = AcceleratorLookup.get_execution_providers_for_device(device)
+                available_eps = self.target.get_supported_execution_providers()
+            elif self.target.system_type == SystemType.Docker:
+                # TODO: do we need allow docker system support other execution providers?
+                available_eps = ["CPUExecutionProvider"]
             else:
                 available_eps = self.execution_providers
 
@@ -150,28 +178,6 @@ class Engine:
                 f"The following execution provider is not supported: {','.join(ep_to_process)}. "
                 "Please consider installing an onnxruntime build that contains the relevant execution providers. "
             )
-
-        # default evaluator
-        self.evaluator_config = None
-        if evaluator_config is not None:
-            self.evaluator_config = evaluator_config
-        elif self._config.evaluator is not None:
-            self.evaluator_config = self._config.evaluator
-
-        # dictionary of passes
-        self.pass_config = OrderedDict()
-
-        # {"pass_name": {"pass": pass, "host": host, "evaluator": evaluator, "clean_run_cache": clean_run_cache}}
-        self.passes = OrderedDict()
-
-        self.pass_flows = None
-        self.pass_flows_search_spaces = None
-
-        self.footprints = defaultdict(Footprint)
-
-        self.azureml_client_config = self._config.azureml_client_config
-
-        self._initialized = False
 
     def initialize(self):
         """

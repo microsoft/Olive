@@ -65,7 +65,7 @@ class AcceleratorLookup:
     }
 
     @staticmethod
-    def get_managed_execution_providers_for_device(device: Device):
+    def get_managed_supported_execution_providers(device: Device):
         return AcceleratorLookup.EXECUTION_PROVIDERS.get(device)
 
     @staticmethod
