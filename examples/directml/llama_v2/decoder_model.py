@@ -50,8 +50,22 @@ class DecoderModel(torch.nn.Module):
         return self.tok_embeddings.weight
 
     def forward_use_cache(self, x_increment, attn_mask, k_cache, v_cache, cos, sin):
-        for block_idx, layer in enumerate(self.layers):
-            x_increment, k_cache, v_cache = layer(x_increment, attn_mask, cos, sin, k_cache, v_cache, 2047, block_idx)
+        split_k_caches = torch.split(k_cache, split_size_or_sections=1, dim=1)
+        split_v_caches = torch.split(v_cache, split_size_or_sections=1, dim=1)
+        split_k_caches_out = []
+        split_v_caches_out = []
+
+        for layer, split_k_cache, split_v_cache in zip(self.layers, split_k_caches, split_v_caches):
+            split_k_cache = split_k_cache.clone().detach()
+            split_v_cache = split_v_cache.clone().detach()
+            x_increment, split_k_cache, split_v_cache = layer(
+                x_increment, attn_mask, cos, sin, split_k_cache, split_v_cache, 2047
+            )
+            split_k_caches_out.append(split_k_cache)
+            split_v_caches_out.append(split_v_cache)
+
+        k_cache = torch.cat(split_k_caches_out, dim=1)
+        v_cache = torch.cat(split_v_caches_out, dim=1)
 
         x_increment = self.norm(x_increment)
 
@@ -74,8 +88,20 @@ class DecoderModel(torch.nn.Module):
     def forward_no_cache(self, x, attn_mask, k_cache, v_cache):
         cos, sin = rotary_mat(self.hidden_size, self.n_heads, self.max_seq_len, head_scale=1.0)
 
-        for block_idx, layer in enumerate(self.layers):
-            x, k_cache, v_cache = layer(x, attn_mask, cos, sin, k_cache, v_cache, 0, block_idx)
+        split_k_caches = torch.split(k_cache, split_size_or_sections=1, dim=1)
+        split_v_caches = torch.split(v_cache, split_size_or_sections=1, dim=1)
+        split_k_caches_out = []
+        split_v_caches_out = []
+
+        for layer, split_k_cache, split_v_cache in zip(self.layers, split_k_caches, split_v_caches):
+            split_k_cache = split_k_cache.clone().detach()
+            split_v_cache = split_v_cache.clone().detach()
+            x, split_k_cache, split_v_cache = layer(x, attn_mask, cos, sin, split_k_cache, split_v_cache, 0)
+            split_k_caches_out.append(split_k_cache)
+            split_v_caches_out.append(split_v_cache)
+
+        k_cache = torch.cat(split_k_caches_out, dim=1)
+        v_cache = torch.cat(split_v_caches_out, dim=1)
 
         x = self.norm(x)
 
@@ -181,11 +207,10 @@ class TransformerLayer(torch.nn.Module):
         k_cache: torch.Tensor,
         v_cache: torch.Tensor,
         pos: int,
-        layer_id: int,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Dimension of x is [batch_size, seq_len, hidden_size] Dimension of
         # k_cache and v_cache is [batch_size, n_layers, pos, n_heads, head_dim]
-        h, k_out, v_out = self.attention(self.attention_norm(x), attn_mask, cos, sin, k_cache, v_cache, pos, layer_id)
+        h, k_out, v_out = self.attention(self.attention_norm(x), attn_mask, cos, sin, k_cache, v_cache, pos)
 
         h = x + h
         return h + self.feed_forward(self.ffn_norm(h)), k_out, v_out
@@ -229,7 +254,6 @@ class SelfAttention(torch.nn.Module):
         k_cache: torch.Tensor,
         v_cache: torch.Tensor,
         pos: int,
-        layer_id: int,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Dimension of x is [batch_size, seq_len, hidden_size]
         # Dimension of attn_mask is [batch_size, max_seq_len, max_seq_len]
@@ -255,10 +279,10 @@ class SelfAttention(torch.nn.Module):
 
         # Append new entries to the end of k, v cache
         pos_end = pos + seq_len
-        k_cache[:, layer_id, pos:pos_end, :, :] = key
-        v_cache[:, layer_id, pos:pos_end, :, :] = value
-        key = k_cache[:, layer_id, :pos_end, :, :]
-        value = v_cache[:, layer_id, :pos_end, :, :]
+        k_cache[:, 0, pos:pos_end, :, :] = key
+        v_cache[:, 0, pos:pos_end, :, :] = value
+        key = k_cache[:, 0, :pos_end, :, :]
+        value = v_cache[:, 0, :pos_end, :, :]
 
         query = query.permute([0, 2, 1, 3]).reshape([batch_size * self.n_heads, seq_len, self.head_dim])
         key = key.permute([0, 2, 3, 1]).reshape([batch_size * self.n_heads, self.head_dim, seq_len + pos])
