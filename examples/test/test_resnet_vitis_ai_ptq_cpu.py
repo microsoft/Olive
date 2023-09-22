@@ -34,7 +34,7 @@ def setup():
 @pytest.mark.parametrize("olive_json", ["resnet_vitis_ai_ptq_cpu.json"])
 @pytest.mark.skipif(
     version.parse(OrtVersion) == version.parse("1.16.0"),
-    reason="resnet is not supported in ORT 1.16.0 caused by https://github.com/microsoft/onnxruntime/issues/17627",
+    reason="VitisAIQuantization is not supported in ORT 1.16.0 with TensorsData",
 )
 def test_resnet(search_algorithm, execution_order, system, olive_json):
     # TODO: add gpu e2e test

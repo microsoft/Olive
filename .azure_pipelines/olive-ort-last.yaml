@@ -13,21 +13,25 @@ variables:
     ComponentDetection.Timeout: 2400
 
 jobs:
-# Linux unit test and integration test
-- template: job_templates/olive-build-template.yaml
+# Linux unit test
+- template: job_templates/olive-test-template.yaml
   parameters:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
+    device: 'cpu'
     windows: False
-    onnxruntime: onnxruntime==1.15.1
+    test_type: 'unit_test'
+    onnxruntime: 'onnxruntime==1.15.1'
 
-# Windows unit test and integration test
-- template: job_templates/olive-build-template.yaml
+# Windows unit test
+- template: job_templates/olive-test-template.yaml
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
+    device: 'cpu'
     windows: True
-    onnxruntime: onnxruntime==1.15.1
+    test_type: 'unit_test'
+    onnxruntime: 'onnxruntime==1.15.1'
 
 # Linux examples test
 - template: job_templates/olive-example-template.yaml
