@@ -1,27 +1,11 @@
-trigger:
+trigger: none
+
+schedules:
+- cron: '0 0 * * *'
+  displayName: Daily build
   branches:
     include:
     - main
-  paths:
-    exclude:
-    - docs/*
-    - examples/README.md
-    - examples/**/README.md
-    - README.md
-    - CONTRIBUTING.md
-    - LICENSE
-pr:
-  branches:
-    include:
-    - main
-  paths:
-    exclude:
-    - docs/*
-    - examples/README.md
-    - examples/**/README.md
-    - README.md
-    - CONTRIBUTING.md
-    - LICENSE
 
 variables:
     ComponentDetection.Timeout: 2400
@@ -32,7 +16,7 @@ jobs:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
-    onnxruntime: onnxruntime
+    onnxruntime: ort-nightly
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
@@ -64,7 +48,7 @@ jobs:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
-    onnxruntime: onnxruntime
+    onnxruntime: ort-nightly
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
@@ -91,15 +75,8 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
     device: gpu
-    onnxruntime: onnxruntime-gpu
+    onnxruntime: ort-nightly-gpu
     examples:
       bert_cuda_gpu:
         exampleFolder: bert
         exampleName: bert_cuda_gpu
-
-- template: job_templates/olive-build-doc-template.yaml
-  parameters:
-    job_name: Test_BuildDocs
-    display_name: Test Build Docs
-    pool: $(OLIVE_POOL_UBUNTU2004)
-    publish_docs: false

@@ -46,9 +46,14 @@ jobs:
   - script: pip install .
     displayName: Install Olive
 
-  - script: |
-      pip install ${{ parameters.onnxruntime }}
-    displayName: Install ${{ parameters.onnxruntime }}
+  - ${{ if startsWith(parameters.onnxruntime, 'ort-nightly') }}:
+    - script: |
+        pip install ${{ parameters.onnxruntime }} --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/
+      displayName: Install ${{ parameters.onnxruntime }}
+  - ${{ else }}:
+    - script: |
+        pip install ${{ parameters.onnxruntime }}
+      displayName: Install ${{ parameters.onnxruntime }}
 
   - task: AzureCLI@1
     inputs:
