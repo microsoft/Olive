@@ -8,9 +8,9 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
-from urllib import request
 
 import onnxruntime as ort
+from prepare_whisper_configs import download_audio_test_data
 
 from olive.evaluator.olive_evaluator import OnnxEvaluator
 from olive.hardware import AcceleratorSpec
@@ -100,22 +100,6 @@ def main(raw_args=None):
     input = OnnxEvaluator.format_input(input, olive_model.get_io_config())
     output = session.run(None, input)
     return output[0][0]
-
-
-def download_audio_test_data():
-    cur_dir = Path(__file__).parent
-    data_dir = cur_dir / "data"
-    data_dir.mkdir(exist_ok=True, parents=True)
-
-    test_audio_name = "1272-141231-0002.mp3"
-    test_audio_url = (
-        "https://raw.githubusercontent.com/microsoft/onnxruntime-extensions/main/test/data/" + test_audio_name
-    )
-    test_audio_path = data_dir / test_audio_name
-    if not test_audio_path.exists():
-        request.urlretrieve(test_audio_url, test_audio_path)
-
-    return test_audio_path.relative_to(cur_dir)
 
 
 if __name__ == "__main__":

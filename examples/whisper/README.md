@@ -117,7 +117,7 @@ python test_transcription.py --config whisper_{device}_{precision}.json [--auto_
 python test_transcription.py --config whisper_cpu_int8.json
 ```
 
-`--audio_path` Optional. Path to audio file. If not provided, will use the test data from the config
+`--audio_path` Optional. Path to audio file. If not provided, will use a default audio file.
 
 `--language` Optional. Language spoken in audio. Default is `english`. Only used when `--multilingual` is provided to `prepare_whisper_configs.py`
 

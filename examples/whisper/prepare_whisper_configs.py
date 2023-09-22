@@ -6,6 +6,7 @@ import argparse
 import json
 from copy import deepcopy
 from pathlib import Path
+from urllib import request
 
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
@@ -120,6 +121,25 @@ def main(raw_args=None):
     # update user script
     user_script_path = Path(__file__).parent / "code" / "user_script.py"
     update_user_script(user_script_path, model_name)
+
+    # download audio test data
+    download_audio_test_data()
+
+
+def download_audio_test_data():
+    cur_dir = Path(__file__).parent
+    data_dir = cur_dir / "data"
+    data_dir.mkdir(exist_ok=True, parents=True)
+
+    test_audio_name = "1272-141231-0002.mp3"
+    test_audio_url = (
+        "https://raw.githubusercontent.com/microsoft/onnxruntime-extensions/main/test/data/" + test_audio_name
+    )
+    test_audio_path = data_dir / test_audio_name
+    if not test_audio_path.exists():
+        request.urlretrieve(test_audio_url, test_audio_path)
+
+    return test_audio_path.relative_to(cur_dir)
 
 
 def update_user_script(file_path, model_name):
