@@ -26,7 +26,7 @@ from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
 
 
-# Please not your test case could still "pass" even if it throws exception to fail.
+# Please note your test case could still "pass" even if it throws exception to fail.
 # Please check log message to make sure your test case passes.
 class TestEngine:
     def test_register(self, tmpdir):
@@ -97,7 +97,6 @@ class TestEngine:
         # setup
         model_config = get_pytorch_model_config()
         input_model_id = hash_dict(model_config.to_json())
-        p, pass_config = get_onnxconversion_pass(ignore_pass_config=False)
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         evaluator_config = OliveEvaluatorConfig(metrics=[metric])
         options = {
@@ -131,8 +130,15 @@ class TestEngine:
         mock_local_system.olive_managed_env = False
 
         engine = Engine(options, host=mock_local_system, target=mock_local_system, evaluator_config=evaluator_config)
-        engine.register(OnnxConversion, clean_run_cache=True)
-        model_id = f"0_{p.__class__.__name__}-{input_model_id}-{hash_dict(pass_config)}"
+        engine.register(OnnxConversion, name="converter_13", config={"target_opset": 13}, clean_run_cache=True)
+        engine.register(OnnxConversion, name="converter_14", config={"target_opset": 14}, clean_run_cache=True)
+        engine.set_pass_flows([["converter_13"], ["converter_14"]])
+        p1, pass_config1 = get_onnxconversion_pass(ignore_pass_config=False, target_opset=13)
+        p2, pass_config2 = get_onnxconversion_pass(ignore_pass_config=False, target_opset=14)
+        model_ids = [
+            f"0_{p1.__class__.__name__}-{input_model_id}-{hash_dict(pass_config1)}",
+            f"1_{p2.__class__.__name__}-{input_model_id}-{hash_dict(pass_config2)}",
+        ]
         expected_res = {
             model_id: {
                 "model_id": model_id,
@@ -143,6 +149,7 @@ class TestEngine:
                     "is_goals_met": True,
                 },
             }
+            for model_id in model_ids
         }
 
         # execute
@@ -159,17 +166,24 @@ class TestEngine:
         assert input_model_id not in actual_res.nodes
 
         # assert
-        assert len(actual_res.nodes) == 1
-        assert model_id in actual_res.nodes
-        assert actual_res.nodes[model_id].model_id == model_id
-        for k, v in expected_res[model_id].items():
-            if k == "metrics":
-                assert getattr(actual_res.nodes[model_id].metrics, "is_goals_met")
-            else:
-                assert getattr(actual_res.nodes[model_id], k) == v
-        assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
-        mock_local_system.run_pass.assert_called_once()
-        mock_local_system.evaluate_model.call_count == 2
+        assert len(actual_res.nodes) == 2
+        assert model_ids == list(actual_res.nodes.keys())
+
+        assert actual_res.nodes[model_ids[0]].model_id != actual_res.nodes[model_ids[1]].model_id
+
+        for model_id, result in expected_res.items():
+            # ensure two converted models are from the same input model
+            assert actual_res.nodes[model_id].parent_model_id == input_model_id
+
+            assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
+            for k, v in result.items():
+                if k == "metrics":
+                    assert getattr(actual_res.nodes[model_id].metrics, "is_goals_met")
+                else:
+                    assert getattr(actual_res.nodes[model_id], k) == v
+
+        mock_local_system.run_pass.call_count == 2
+        mock_local_system.evaluate_model.call_count == 3
         mock_local_system.evaluate_model.assert_called_with(
             onnx_model_config.to_json(), None, [metric], accelerator_spec
         )
