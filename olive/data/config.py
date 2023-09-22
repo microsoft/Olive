@@ -108,14 +108,10 @@ class DataConfig(ConfigBase):
             4. Else Use the default value from the function signature
 
         Priority is: component_kwargs > params_config > component.params > default value
-        Note: Components can access the user_script and script_dir from the data config using parameters "user_script"
-        and "script_dir".
         """
         from inspect import signature
 
         self.params_config = deepcopy(self.params_config) or {}
-        # make user_script and script_dir available to all components
-        self.params_config.update({"user_script": self.user_script, "script_dir": self.script_dir})
         component_kwargs = self.params_config.pop("component_kwargs", {})
         for k, v in self.components.items():
             component = Registry.get_component(k, v.type)

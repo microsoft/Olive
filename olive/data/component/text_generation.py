@@ -64,6 +64,8 @@ class TextGenParams(ConfigBase):
     Base dataclass for text generation tasks.
     """
 
+    # TODO: need to plan about supporting user_script and script_dir on remote systems
+    # TODO: currently data config in general is not fully supported on remote systems
     user_script: Union[str, Path] = None  # user script use to define formatting functions
     script_dir: Union[str, Path] = None  # directory with user script dependencies
     max_samples: int = None  # max number of samples to use, None for all

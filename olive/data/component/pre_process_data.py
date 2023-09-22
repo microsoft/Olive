@@ -152,14 +152,7 @@ def ner_huggingface_preprocess(_dataset, model_name, input_cols, label_cols, max
 
 @Registry.register_pre_process()
 def text_generation_huggingface_pre_process(
-    _dataset,
-    model_name: str,
-    dataset_type: TextGenDatasetType,
-    source_max_len: int,
-    max_samples=None,
-    user_script=None,
-    script_dir=None,
-    **kwargs,
+    _dataset, model_name: str, dataset_type: TextGenDatasetType, source_max_len: int, max_samples=None, **kwargs
 ):
     """Pre-process data for text generation task.
 
@@ -170,8 +163,6 @@ def text_generation_huggingface_pre_process(
         source_max_len (int): Max length of source sequence. For corpus, this is the max length of each sequence.
             For pair, this is the max length of the input sequence.
         max_samples (int, optional): Max number of samples to use. Defaults to None.
-        user_script (str, optional): user script to import formatting functions from.
-        script_dir (str, optional): Directory containing user script dependencies.
         **kwargs: Additional arguments.
             The common arguments are the fields in olive.data.component.text_generation.TextGenParams.
             'corpus' arguments are the fields in olive.data.component.text_generation.TextGenCorpusParams.
@@ -181,14 +172,7 @@ def text_generation_huggingface_pre_process(
     from transformers import AutoTokenizer
 
     all_kwargs = deepcopy(kwargs)
-    all_kwargs.update(
-        {
-            "max_samples": max_samples,
-            "source_max_len": source_max_len,
-            "user_script": user_script,
-            "script_dir": script_dir,
-        }
-    )
+    all_kwargs.update({"max_samples": max_samples, "source_max_len": source_max_len})
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
