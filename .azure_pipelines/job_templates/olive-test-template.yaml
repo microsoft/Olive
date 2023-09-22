@@ -8,7 +8,7 @@ parameters:
 
 jobs:
 - ${{ if eq(parameters.device, 'cpu') }}:
-  - job: ${{parameters.name}}_Test_Olive
+  - job: ${{parameters.name}}
     timeoutInMinutes: 300
     pool:
       name: ${{ parameters.pool}}
