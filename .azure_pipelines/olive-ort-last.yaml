@@ -19,7 +19,7 @@ jobs:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
-    onnxruntime: ort-nightly
+    onnxruntime: onnxruntime==1.15.1
 
 # Windows unit test and integration test
 - template: job_templates/olive-build-template.yaml
@@ -27,14 +27,14 @@ jobs:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
-    onnxruntime: ort-nightly
+    onnxruntime: onnxruntime==1.15.1
 
 # Linux examples test
 - template: job_templates/olive-example-template
   parameters:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
-    onnxruntime: ort-nightly
+    onnxruntime: onnxruntime==1.15.1
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
@@ -60,7 +60,7 @@ jobs:
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
-    onnxruntime: ort-nightly
+    onnxruntime: onnxruntime==1.15.1
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
@@ -83,7 +83,7 @@ jobs:
   parameters:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
-    onnxruntime: ort-nightly-gpu
+    onnxruntime: onnxruntime-gpu==1.15.1
     examples:
       bert_cuda_gpu:
         exampleFolder: bert

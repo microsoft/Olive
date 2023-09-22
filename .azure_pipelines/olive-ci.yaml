@@ -44,7 +44,7 @@ jobs:
     onnxruntime: onnxruntime
 
 # Linux examples test
-- template: job_templates/olve-example-template.yaml
+- template: job_templates/olive-example-template
   parameters:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
@@ -76,7 +76,7 @@ jobs:
         exampleName: whisper
 
 # # Windows examples test
-- template: job_templates/olve-example-template.yaml
+- template: job_templates/olive-example-template
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
@@ -102,7 +102,7 @@ jobs:
         exampleName: whisper
 
 # Linux GPU examples testing.
-- template: job_templates/olve-example-template.yaml
+- template: job_templates/olive-example-template
   parameters:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
