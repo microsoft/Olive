@@ -210,9 +210,8 @@ class TestAzureMLSystem:
         code = "code"
         compute = "compute"
         instance_count = 1
-        inputs = {
-            "dummy_input": Input(type=AssetTypes.URI_FILE),
-        }
+        inputs = {"dummy_input": Input(type=AssetTypes.URI_FILE)}
+        outputs = {"dummy_output": Output(type=AssetTypes.URI_FILE)}
         script_name = "aml_evaluation_runner.py"
         resources = {
             "instance_type": "instance_type",
@@ -242,6 +241,7 @@ class TestAzureMLSystem:
             resources,
             instance_count,
             inputs,
+            outputs,
             script_name,
         )
 
@@ -251,12 +251,12 @@ class TestAzureMLSystem:
             name=name,
             display_name=display_name,
             description=description,
-            command=self.create_command(inputs),
+            command=self.create_command(script_name, inputs, outputs),
             resources=resources,
             environment=aml_environment,
             code=code,
             inputs=inputs,
-            outputs=dict(pipeline_output=Output(type=AssetTypes.URI_FOLDER)),
+            outputs=outputs,
             instance_count=1,
             compute=compute,
         )
@@ -332,6 +332,7 @@ class TestAzureMLSystem:
             **metric_inputs,
             "accelerator_config": Input(type=AssetTypes.URI_FILE),
         }
+        outputs = {"pipeline_output": Output(type=AssetTypes.URI_FOLDER)}
         expected_res = MagicMock()
         mock_command.return_value.return_value = expected_res
 
@@ -361,7 +362,7 @@ class TestAzureMLSystem:
             name=metric_type,
             display_name=metric_type,
             description=f"Run olive {metric_type} evaluation",
-            command=self.create_command(inputs),
+            command=self.create_command("aml_evaluation_runner.py", inputs, outputs),
             resources=None,
             environment=self.system.environment,
             code=str(code_path),
@@ -375,15 +376,17 @@ class TestAzureMLSystem:
         if os.path.exists(code_path):
             os.rmdir(code_path)
 
-    def create_command(self, inputs):
-        script_name = "aml_evaluation_runner.py"
+    def create_command(self, script_name, inputs, outputs):
         parameters = []
+        inputs = inputs or {}
         for param, input in inputs.items():
             if input.optional:
                 parameters.append(f"$[[--{param} ${{{{inputs.{param}}}}}]]")
             else:
                 parameters.append(f"--{param} ${{{{inputs.{param}}}}}")
-        parameters.append("--pipeline_output ${{outputs.pipeline_output}}")
+        outputs = outputs or {}
+        for param in outputs:
+            parameters.append(f"--{param} ${{{{outputs.{param}}}}}")
 
         return f"python {script_name} {' '.join(parameters)}"
 
