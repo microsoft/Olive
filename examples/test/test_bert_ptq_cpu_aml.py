@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 
 import pytest
+from onnxruntime import __version__ as OrtVersion
+from packaging import version
 from utils import check_output, patch_config
 
 
@@ -29,6 +31,13 @@ def setup():
         # aml model test in aml system
         ("bert_ptq_cpu_aml.json", False, None, "aml_system"),
     ],
+)
+@pytest.mark.skipif(
+    version.parse(OrtVersion) == version.parse("1.16.0"),
+    reason=(
+        "Quantization is not supported in ORT 1.16.0,"
+        " caused by https://github.com/microsoft/onnxruntime/issues/17619"
+    ),
 )
 def test_bert(olive_test_knob):
     # olive_config: (config_json_path, search_algorithm, execution_order, system)

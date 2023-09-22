@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 
 import pytest
+from onnxruntime import __version__ as OrtVersion
+from packaging import version
 from utils import check_output, patch_config
 
 
@@ -24,6 +26,13 @@ def setup():
 @pytest.mark.parametrize("system", ["aml_system"])
 @pytest.mark.parametrize("olive_json", ["bert_cuda_gpu.json"])
 @pytest.mark.parametrize("enable_cuda_graph", [True, False])
+@pytest.mark.skipif(
+    version.parse(OrtVersion) == version.parse("1.16.0"),
+    reason=(
+        "Quantization is not supported in ORT 1.16.0,"
+        " caused by https://github.com/microsoft/onnxruntime/issues/17619"
+    ),
+)
 def test_bert(search_algorithm, execution_order, system, olive_json, enable_cuda_graph):
 
     from olive.workflows import run as olive_run
