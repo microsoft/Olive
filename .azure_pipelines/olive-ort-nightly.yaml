@@ -19,16 +19,11 @@ jobs:
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
     onnxruntime: ort-nightly
+    enable_multiple_ep: False
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
         exampleName: bert_ptq_cpu
-      bert_ptq_cpu_aml:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu_aml
-      bert_ptq_cpu_docker:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu_docker
       cifar10_openvino_intel_hw:
         exampleFolder: cifar10_openvino_intel_hw
         exampleName: cifar10_openvino_intel_hw
@@ -51,13 +46,11 @@ jobs:
     pool: $(OLIVE_POOL_WIN2019)
     windows: True
     onnxruntime: ort-nightly
+    enable_multiple_ep: False
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
         exampleName: bert_ptq_cpu
-      bert_ptq_cpu_aml:
-        exampleFolder: bert
-        exampleName: bert_ptq_cpu_aml
       cifar10_openvino_intel_hw:
         exampleFolder: cifar10_openvino_intel_hw
         exampleName: cifar10_openvino_intel_hw
