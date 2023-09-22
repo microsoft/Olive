@@ -9,7 +9,7 @@ parameters:
 jobs:
 - template: olive-test-template.yaml
   parameters:
-    name: ${{parameters.name}}_Unit_Test_Olive
+    name: ${{parameters.name}}_${{parameters.onnxruntime}}_Unit_Test_Olive
     pool: ${{parameters.pool}}
     device: ${{parameters.device}}
     WINDOWS: ${{parameters.windows}}
@@ -18,14 +18,14 @@ jobs:
 
 - template: olive-test-template.yaml
   parameters:
-    name: ${{parameters.name}}_Integration_Test_Olive
+    name: ${{parameters.name}}_${{parameters.onnxruntime}}_Integration_Test_Olive
     pool: ${{parameters.pool}}
     device: ${{parameters.device}}
     WINDOWS: ${{parameters.windows}}
     test_type: 'integ_test'
     onnxruntime: ${{parameters.onnxruntime}}
 
-- job: ${{parameters.name}}_Test_Examples
+- job: ${{parameters.name}}_${{parameters.onnxruntime}}_Test_Examples
   timeoutInMinutes: 300
   pool:
     name: ${{ parameters.pool}}
@@ -88,7 +88,7 @@ jobs:
 
 - template: olive-test-template.yaml
   parameters:
-    name: ${{parameters.name}}_Multiple_EP_Test_Olive
+    name: ${{parameters.name}}_${{parameters.onnxruntime}}_Multiple_EP_Test_Olive
     pool: ${{parameters.pool}}
     device: ${{parameters.device}}
     WINDOWS: ${{parameters.windows}}
