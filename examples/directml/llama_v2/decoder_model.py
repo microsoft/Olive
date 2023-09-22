@@ -16,7 +16,6 @@ class DecoderModel(torch.nn.Module):
         vocab_size: int,
         hidden_size: int,
         n_heads: int,
-        max_seq_len: int,
         scale_type: str,
         device=torch.device("cpu"),
     ) -> None:
@@ -43,7 +42,6 @@ class DecoderModel(torch.nn.Module):
 
         self.hidden_size = hidden_size
         self.n_heads = n_heads
-        self.max_seq_len = max_seq_len
 
     def get_input_embeddings(self) -> torch.Tensor:
         assert self.tok_embeddings is not None
@@ -55,11 +53,14 @@ class DecoderModel(torch.nn.Module):
         split_k_caches_out = []
         split_v_caches_out = []
 
+        # For the cache model, we always work on the last element
+        pos = k_cache.size(2) - 1
+
         for layer, split_k_cache, split_v_cache in zip(self.layers, split_k_caches, split_v_caches):
             split_k_cache = split_k_cache.clone().detach()
             split_v_cache = split_v_cache.clone().detach()
             x_increment, split_k_cache, split_v_cache = layer(
-                x_increment, attn_mask, cos, sin, split_k_cache, split_v_cache, 2047
+                x_increment, attn_mask, cos, sin, split_k_cache, split_v_cache, pos
             )
             split_k_caches_out.append(split_k_cache)
             split_v_caches_out.append(split_v_cache)
@@ -86,7 +87,8 @@ class DecoderModel(torch.nn.Module):
         return logits, attn_mask, k_cache, v_cache, cos, sin
 
     def forward_no_cache(self, x, attn_mask, k_cache, v_cache):
-        cos, sin = rotary_mat(self.hidden_size, self.n_heads, self.max_seq_len, head_scale=1.0)
+        max_seq_len = k_cache.size(2)
+        cos, sin = rotary_mat(self.hidden_size, self.n_heads, max_seq_len, head_scale=1.0)
 
         split_k_caches = torch.split(k_cache, split_size_or_sections=1, dim=1)
         split_v_caches = torch.split(v_cache, split_size_or_sections=1, dim=1)
@@ -109,7 +111,7 @@ class DecoderModel(torch.nn.Module):
 
         seq_len = x.size(1)
         next_seq_len = seq_len + 1
-        remaining_seq_len = self.max_seq_len - next_seq_len
+        remaining_seq_len = max_seq_len - next_seq_len
 
         # torch.roll doesn't support a tensor as the shifts argument, so we manually slice and concat instead
         k_cache_parts = torch.split(k_cache, [next_seq_len, remaining_seq_len], dim=2)
@@ -147,7 +149,7 @@ def rotary_mat(
     freqs = 1.0 / (theta ** (pos / head_dim))
 
     idx = torch.arange(max_seq_len, device=freqs.device)
-    freqs = torch.outer(idx, freqs)
+    freqs = torch.outer(idx.to(dtype), freqs)
 
     cos = torch.reshape(torch.cos(freqs), [1, max_seq_len, 1, -1])
     sin = torch.reshape(torch.sin(freqs), [1, max_seq_len, 1, -1])

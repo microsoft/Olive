@@ -76,7 +76,6 @@ def get_or_create_decoder_model():
     num_heads = 32
     vocab_size = 32000
     hidden_size = 4096
-    max_seq_len = 2048
     scale_type = "SquareRootHeadDim"
     device = torch.device("cpu")
 
@@ -90,7 +89,6 @@ def get_or_create_decoder_model():
             vocab_size,
             hidden_size,
             num_heads,
-            max_seq_len,
             scale_type,
             device=device,
         )
