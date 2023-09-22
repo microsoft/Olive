@@ -63,10 +63,8 @@ class OrtTransformersOptimization(Pass):
                     parents=("opt_level",),
                     support={
                         (2,): Boolean([False]),
-                        (0,): Boolean(),
-                        (1,): Boolean(),
-                        (99,): Boolean(),
                     },
+                    default=Boolean(),
                 ),
                 description=(
                     "Whether only use onnxruntime to optimize model, and no python fusion."

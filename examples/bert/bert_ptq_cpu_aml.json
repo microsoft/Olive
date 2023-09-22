@@ -58,7 +58,8 @@
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
             "config": {
-                "float16": false
+                "float16": false,
+                "only_onnxruntime": false
             }
         },
         "quantization": {
@@ -67,6 +68,7 @@
                 "quant_preprocess": true,
                 "per_channel": false,
                 "reduce_range": false,
+                "calibrate_method": "MinMax",
                 "data_config": "__input_model_data_config__"
             }
         },

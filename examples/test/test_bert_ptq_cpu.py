@@ -6,8 +6,6 @@ import os
 from pathlib import Path
 
 import pytest
-from onnxruntime import __version__ as OrtVersion
-from packaging import version
 from utils import check_output, patch_config
 
 
@@ -25,13 +23,6 @@ def setup():
 @pytest.mark.parametrize("execution_order", ["joint"])
 @pytest.mark.parametrize("system", ["local_system"])
 @pytest.mark.parametrize("olive_json", ["bert_ptq_cpu.json"])
-@pytest.mark.skipif(
-    version.parse(OrtVersion) == version.parse("1.16.0"),
-    reason=(
-        "Quantization is not supported in ORT 1.16.0,"
-        " caused by https://github.com/microsoft/onnxruntime/issues/17619"
-    ),
-)
 def test_bert(search_algorithm, execution_order, system, olive_json):
 
     from olive.workflows import run as olive_run
