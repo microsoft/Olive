@@ -91,6 +91,13 @@ Note: You must be logged in to HuggingFace using `huggingface-cli login` to down
 
 Requirements file: [requirements-qlora.txt](requirements-qlora.txt)
 
+### Optimizing Open Llama Model with Azure Arc
+This workflow optimizes Open Llama model on Azure ML compute, and evaluate output models on your device. Please connect your device to Azure Arc by following instruction: [Self-hosted Kubernetes cluster](https://microsoft.github.io/Olive/tutorials/azure_arc.html)
+
+This example config file is [open_llama_arc.json](open_llama_arc.json).
+
+Requirements file: [requirements-arc.txt](requirements-arc.txt)
+
 ## How to run
 ### Pip requirements
 Install the necessary python packages using the corresponding requirements file.
