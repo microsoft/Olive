@@ -80,8 +80,8 @@ class Boolean(Categorical):
     >>> Boolean()
     """
 
-    def __init__(self, support: List[bool] = [True, False]):
-        super().__init__(support)
+    def __init__(self, support: List[bool] = None):
+        super().__init__([True, False])
 
 
 class Conditional(SearchParameter):

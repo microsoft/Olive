@@ -62,8 +62,8 @@ class OrtTransformersOptimization(Pass):
                 searchable_values=Conditional(
                     parents=("opt_level",),
                     support={
-                        (2,): Boolean([False]),
-                        (99,): Boolean([False]),
+                        (2,): Categorical([False]),
+                        (99,): Categorical([False]),
                     },
                     default=Boolean(),
                 ),
