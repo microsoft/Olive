@@ -250,6 +250,7 @@
             <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">system_type</span> <span class="o">==</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">Docker</span><span class="p">:</span>
                 <span class="c1"># for docker system we default use CPUExecutionProvider</span>
                 <span class="n">execution_providers</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Initial execution providers: </span><span class="si">{</span><span class="n">execution_providers</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span> <span class="o">=</span> <span class="n">execution_providers</span>
 
@@ -267,6 +268,7 @@
                     <span class="sa">f</span><span class="s2">&quot;from given execution providers </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span><span class="si">}</span><span class="s2">.&quot;</span>
                 <span class="p">)</span>
                 <span class="n">accelerators</span> <span class="o">=</span> <span class="n">inferred_accelerators</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Initial accelerators: </span><span class="si">{</span><span class="n">accelerators</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="n">ep_to_process</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span><span class="p">)</span>
         <span class="c1"># Flatten the accelerators to list of AcceleratorSpec</span>
@@ -287,9 +289,12 @@
             <span class="n">supported_eps</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers_for_device_by_available_providers</span><span class="p">(</span>
                 <span class="n">device</span><span class="p">,</span> <span class="n">available_eps</span>
             <span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Supported execution providers for device </span><span class="si">{</span><span class="n">device</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">supported_eps</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">ep_to_process</span><span class="o">.</span><span class="n">copy</span><span class="p">():</span>
                 <span class="k">if</span> <span class="n">ep</span> <span class="o">==</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span> <span class="ow">and</span> <span class="n">device</span> <span class="o">!=</span> <span class="s2">&quot;cpu&quot;</span> <span class="ow">and</span> <span class="n">is_cpu_available</span><span class="p">:</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;ignore the CPUExecutionProvider for non-cpu device&quot;</span><span class="p">)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="s2">&quot;Ignore the CPUExecutionProvider for non-cpu device since cpu accelerator is also present.&quot;</span>
+                    <span class="p">)</span>
                 <span class="k">elif</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">supported_eps</span><span class="p">:</span>
                     <span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">AcceleratorSpec</span><span class="p">(</span><span class="n">device</span><span class="p">,</span> <span class="n">ep</span><span class="p">))</span>
                     <span class="n">ep_to_process</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">ep</span><span class="p">)</span>
@@ -300,6 +305,9 @@
             <span class="sa">f</span><span class="s2">&quot;Given execution providers: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">execution_providers</span><span class="si">}</span><span class="s2">. &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;Current accelerators: </span><span class="si">{</span><span class="n">accelerators</span><span class="si">}</span><span class="s2">.&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;Supported execution providers: </span><span class="si">{</span><span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">EXECUTION_PROVIDERS</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Running workflow on accelerator specs: </span><span class="si">{</span><span class="s1">&#39;,&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">spec</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">accelerator_specs</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">ep_to_process</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
