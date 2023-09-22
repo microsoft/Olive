@@ -142,7 +142,7 @@ class TestDataConfigValidation:
                     "hf_config": {
                         "model_name": "dummy_model",
                         "task": "dummy_task",
-                        "dataset": {"name": "dumy_dataset"},
+                        "dataset": {"name": "dummy_dataset"},
                     }
                 },
             },
@@ -153,7 +153,7 @@ class TestDataConfigValidation:
                     "params_config": {
                         "model_name": "dummy_model2",
                         "task": "dummy_task2",
-                        "dataset_name": "dumy_dataset2",
+                        "dataset_name": "dummy_dataset2",
                     },
                 }
             },
