@@ -15,13 +15,12 @@ from typing import Dict, List
 
 import pkg_resources
 
-from olive.common.utils import run_subprocess
+from olive.common.utils import get_package_name_from_ep, run_subprocess
 from olive.engine.footprint import Footprint
 from olive.engine.packaging.packaging_config import PackagingConfig, PackagingType
 from olive.hardware import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.resource_path import ResourceType, create_resource_path
-from olive.utils import get_package_name_from_ep
 
 logger = logging.getLogger(__name__)
 
