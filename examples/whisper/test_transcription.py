@@ -8,6 +8,7 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
+from urllib import request
 
 import onnxruntime as ort
 
@@ -18,16 +19,6 @@ from olive.model import ONNXModel
 sys.path.append(str(Path(__file__).parent / "code"))
 
 from whisper_dataset import WhisperDataset  # noqa: E402
-
-# hard-coded audio hyperparameters
-# copied from https://github.com/openai/whisper/blob/main/whisper/audio.py#L12
-SAMPLE_RATE = 16000
-N_FFT = 400
-N_MELS = 80
-HOP_LENGTH = 160
-CHUNK_LENGTH = 30
-N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
-N_FRAMES = N_SAMPLES // HOP_LENGTH
 
 
 def get_args(raw_args):
@@ -84,7 +75,7 @@ def main(raw_args=None):
 
     # load audio data
     if not args.audio_path:
-        args.audio_path = Path(config["passes"]["prepost"]["config"]["tool_command_args"]["testdata_filepath"])
+        args.audio_path = download_audio_test_data()
 
     # temporary directory for storing audio file
     temp_dir = tempfile.TemporaryDirectory()
@@ -109,6 +100,22 @@ def main(raw_args=None):
     input = OnnxEvaluator.format_input(input, olive_model.get_io_config())
     output = session.run(None, input)
     return output[0][0]
+
+
+def download_audio_test_data():
+    cur_dir = Path(__file__).parent
+    data_dir = cur_dir / "data"
+    data_dir.mkdir(exist_ok=True, parents=True)
+
+    test_audio_name = "1272-141231-0002.mp3"
+    test_audio_url = (
+        "https://raw.githubusercontent.com/microsoft/onnxruntime-extensions/main/test/data/" + test_audio_name
+    )
+    test_audio_path = data_dir / test_audio_name
+    if not test_audio_path.exists():
+        request.urlretrieve(test_audio_url, test_audio_path)
+
+    return test_audio_path.relative_to(cur_dir)
 
 
 if __name__ == "__main__":

@@ -93,9 +93,9 @@
                 "tool_command": "whisper",
                 "tool_command_args": {
                     "model_name" : "<place_holder>",
-                    "testdata_filepath": "<place_holder>",
                     "use_audio_decoder" : "<place_holder>"
-                }
+                },
+                "target_opset": 17
             }
         }
     },
@@ -110,10 +110,6 @@
         "clean_cache": false,
         "cache_dir": "cache",
         "output_dir": "models",
-        "output_name": "<place_holder>",
-        "packaging_config": {
-            "type": "Zipfile",
-            "name": "<place_holder>"
-        }
+        "output_name": "<place_holder>"
     }
 }
