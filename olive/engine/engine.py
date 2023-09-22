@@ -122,6 +122,7 @@ class Engine:
             elif self.target.system_type == SystemType.Docker:
                 # for docker system we default use CPUExecutionProvider
                 execution_providers = ["CPUExecutionProvider"]
+        logger.debug(f"Initial execution providers: {execution_providers}")
 
         self.execution_providers = execution_providers
 
@@ -139,6 +140,7 @@ class Engine:
                     f"from given execution providers {self.execution_providers}."
                 )
                 accelerators = inferred_accelerators
+        logger.debug(f"Initial accelerators: {accelerators}")
 
         ep_to_process = set(self.execution_providers)
         # Flatten the accelerators to list of AcceleratorSpec
@@ -159,9 +161,12 @@ class Engine:
             supported_eps = AcceleratorLookup.get_execution_providers_for_device_by_available_providers(
                 device, available_eps
             )
+            logger.debug(f"Supported execution providers for device {device}: {supported_eps}")
             for ep in ep_to_process.copy():
                 if ep == "CPUExecutionProvider" and device != "cpu" and is_cpu_available:
-                    logger.info("ignore the CPUExecutionProvider for non-cpu device")
+                    logger.info(
+                        "Ignore the CPUExecutionProvider for non-cpu device since cpu accelerator is also present."
+                    )
                 elif ep in supported_eps:
                     self.accelerator_specs.append(AcceleratorSpec(device, ep))
                     ep_to_process.remove(ep)
@@ -172,6 +177,9 @@ class Engine:
             f"Given execution providers: {self.execution_providers}. "
             f"Current accelerators: {accelerators}."
             f"Supported execution providers: {AcceleratorLookup.EXECUTION_PROVIDERS}."
+        )
+        logger.info(
+            f"Running workflow on accelerator specs: {','.join([str(spec) for spec in self.accelerator_specs])}"
         )
         if ep_to_process:
             logger.warning(

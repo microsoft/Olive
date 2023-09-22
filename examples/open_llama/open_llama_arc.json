@@ -1,0 +1,93 @@
+{
+    "azureml_client": {
+        "subscription_id": "<subscription_id>",
+        "resource_group": "<resource_group>",
+        "workspace_name": "<workspace_name>"
+    },
+    "input_model":{
+        "type": "OptimumModel",
+        "config": {
+            "model_path": "openlm-research/open_llama_3b",
+            "model_components": ["decoder_model.onnx", "decoder_with_past_model.onnx"],
+            "hf_config": {
+                "model_class": "LlamaForCausalLM"
+            }
+        }
+    },
+    "systems": {
+        "aml": {
+            "type": "AzureML",
+            "config": {
+                "accelerators": ["gpu"],
+                "aml_compute": "gpu-cluster",
+                "aml_docker_config": {
+                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04",
+                    "conda_file_path": "conda.yaml"
+                }
+            }
+        },
+        "azure_arc": {
+            "type": "AzureML",
+            "config": {
+                "accelerators": ["gpu"],
+                "aml_compute": "olive-test",
+                "aml_docker_config": {
+                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04",
+                    "conda_file_path": "conda.yaml"
+                }
+            }
+        }
+    },
+    "evaluators": {
+        "common_evaluator": {
+            "metrics": [
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [{"name": "avg", "goal": {"type": "percent-min-improvement", "value": 10}}],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "dataloader_func",
+                        "batch_size": 1
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "convert": {
+            "type": "OptimumConversion",
+            "config": {
+                "target_opset": 14,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
+        },
+        "optimize": {
+            "type": "OrtTransformersOptimization",
+            "config": {
+                "model_type": "gpt2",
+                "float16": true,
+                "use_gpu": true,
+                "keep_io_types": true,
+                "num_heads": 32,
+                "hidden_size": 4096,
+                "optimization_options": {
+                    "use_multi_head_attention": false
+                }
+            }
+        },
+        "merge": {
+            "type": "OptimumMerging"
+        }
+    },
+    "engine": {
+        "evaluator": "common_evaluator",
+        "cache_dir": "cache",
+        "output_name": "ollama",
+        "execution_providers": ["CUDAExecutionProvider"],
+        "target": "azure_arc",
+        "host": "aml",
+        "output_dir": "models/open_llama_arc"
+    }
+}

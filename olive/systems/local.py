@@ -50,7 +50,10 @@ class LocalSystem(OliveSystem):
         evaluator: OliveEvaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
         return evaluator.evaluate(model, data_root, metrics, device=device, execution_providers=execution_providers)
 
-    def get_supported_execution_providers(self):
+    def get_supported_execution_providers(self) -> List[str]:
+        """
+        Get the available execution providers.
+        """
         import onnxruntime as ort
 
         return ort.get_available_providers()
