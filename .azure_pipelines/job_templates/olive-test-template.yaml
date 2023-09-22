@@ -31,7 +31,7 @@ jobs:
       continueOnError: true
 
     - script: |
-        pip install .
+        python -m pip install .
       displayName: Install Olive
 
     - ${{ if startsWith(parameters.onnxruntime, 'ort-nightly') }}:
