@@ -23,7 +23,7 @@ def setup():
     # prepare configs
     from prepare_whisper_configs import main as prepare_whisper_configs
 
-    prepare_whisper_configs([])
+    prepare_whisper_configs(["--package_model"])
 
     yield
     os.chdir(cur_dir)

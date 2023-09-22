@@ -50,6 +50,14 @@ def get_args(raw_args):
         action="store_true",
         help="Support using model for multiple languages. Only supported in ORT >= 1.16.0. Default: False",
     )
+    parser.add_argument(
+        "--package_model",
+        action="store_true",
+        help=(
+            "Package the final model as a zipfile along with the required onnxruntime packages and sample code."
+            " Default: False"
+        ),
+    )
     return parser.parse_args(raw_args)
 
 
@@ -81,17 +89,15 @@ def main(raw_args=None):
     # set model name in prepost
     template_json["passes"]["prepost"]["config"]["tool_command_args"]["model_name"] = model_name
 
-    # download audio test data
-    test_audio_path = download_audio_test_data()
-    template_json["passes"]["prepost"]["config"]["tool_command_args"]["testdata_filepath"] = str(test_audio_path)
-
     for device, precision in SUPPORTED_WORKFLOWS:
         workflow = SUPPORTED_WORKFLOWS[(device, precision)]
         config = deepcopy(template_json)
 
         # set output name
         config["engine"]["output_name"] = f"whisper_{device}_{precision}"
-        config["engine"]["packaging_config"]["name"] = f"whisper_{device}_{precision}"
+        # add packaging config
+        if args.package_model:
+            config["engine"]["packaging_config"] = {"type": "Zipfile", "name": f"whisper_{device}_{precision}"}
 
         # set ep
         config["engine"]["execution_providers"] = [DEVICE_TO_EP[device]]
@@ -116,6 +122,9 @@ def main(raw_args=None):
     user_script_path = Path(__file__).parent / "code" / "user_script.py"
     update_user_script(user_script_path, model_name)
 
+    # download audio test data
+    download_audio_test_data()
+
 
 def download_audio_test_data():
     cur_dir = Path(__file__).parent
@@ -127,7 +136,8 @@ def download_audio_test_data():
         "https://raw.githubusercontent.com/microsoft/onnxruntime-extensions/main/test/data/" + test_audio_name
     )
     test_audio_path = data_dir / test_audio_name
-    request.urlretrieve(test_audio_url, test_audio_path)
+    if not test_audio_path.exists():
+        request.urlretrieve(test_audio_url, test_audio_path)
 
     return test_audio_path.relative_to(cur_dir)
 
