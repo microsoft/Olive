@@ -46,7 +46,7 @@ jobs:
     - ${{ if and(eq(variables.WINDOWS, 'True'), eq(variables.testType, 'multiple_ep')) }}:
       - task: AzureCLI@1
         inputs:
-          azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
+          azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION2)
           scriptLocation: 'inlineScript'
           inlineScript: |
             call python -m pip install pytest
@@ -68,7 +68,7 @@ jobs:
     - ${{ else }}:
       - task: AzureCLI@1
         inputs:
-          azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
+          azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION2)
           scriptLocation: 'inlineScript'
           inlineScript: |
             python -m pip install pytest

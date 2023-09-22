@@ -57,7 +57,7 @@ jobs:
 
   - task: AzureCLI@1
     inputs:
-      azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
+      azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION2)
       scriptLocation: 'inlineScript'
       inlineScript: |
         python -m pip install pytest
