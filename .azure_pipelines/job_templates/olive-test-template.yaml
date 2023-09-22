@@ -15,7 +15,6 @@ jobs:
     variables:
       WINDOWS: ${{ parameters.windows}}
       runCodesignValidationInjection: false
-      device: ${{ parameters.device }}
       testType: ${{ parameters.test_type }}
       python_version: ${{ parameters.python_version }}
 

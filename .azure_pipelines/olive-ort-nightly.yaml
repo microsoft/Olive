@@ -13,17 +13,38 @@ variables:
     ComponentDetection.Timeout: 2400
 
 jobs:
+# Linux unit test and integration test
 - template: job_templates/olive-build-template.yaml
   parameters:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
     onnxruntime: ort-nightly
-    enable_multiple_ep: False
+
+# Windows unit test and integration test
+- template: job_templates/olive-build-template.yaml
+  parameters:
+    name: Windows_CI
+    pool: $(OLIVE_POOL_WIN2019)
+    windows: True
+    onnxruntime: ort-nightly
+
+# Linux examples test
+- template: job_templates/olve-example-template.yaml
+  parameters:
+    name: Linux_CI
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    onnxruntime: ort-nightly
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
         exampleName: bert_ptq_cpu
+      bert_ptq_cpu_aml:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu_aml
+      bert_ptq_cpu_docker:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu_docker
       cifar10_openvino_intel_hw:
         exampleFolder: cifar10_openvino_intel_hw
         exampleName: cifar10_openvino_intel_hw
@@ -40,17 +61,19 @@ jobs:
         exampleFolder: whisper
         exampleName: whisper
 
-- template: job_templates/olive-build-template.yaml
+# # Windows examples test
+- template: job_templates/olve-example-template.yaml
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
-    windows: True
     onnxruntime: ort-nightly
-    enable_multiple_ep: False
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
         exampleName: bert_ptq_cpu
+      bert_ptq_cpu_aml:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu_aml
       cifar10_openvino_intel_hw:
         exampleFolder: cifar10_openvino_intel_hw
         exampleName: cifar10_openvino_intel_hw
@@ -64,12 +87,11 @@ jobs:
         exampleFolder: whisper
         exampleName: whisper
 
-- template: job_templates/olive-build-template.yaml
+# Linux GPU examples testing.
+- template: job_templates/olve-example-template.yaml
   parameters:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
-    windows: False
-    device: gpu
     onnxruntime: ort-nightly-gpu
     examples:
       bert_cuda_gpu:
