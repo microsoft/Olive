@@ -63,12 +63,14 @@ class OrtTransformersOptimization(Pass):
                     parents=("opt_level",),
                     support={
                         (2,): Boolean([False]),
+                        (99,): Boolean([False]),
                     },
                     default=Boolean(),
                 ),
                 description=(
                     "Whether only use onnxruntime to optimize model, and no python fusion."
-                    " Disable some optimizers that might cause failure in symbolic shape inference or attention fusion."
+                    " Disable some optimizers that might cause failure in symbolic shape inference or attention fusion,"
+                    " when opt_level > 1."
                 ),
             ),
             "float16": PassConfigParam(
