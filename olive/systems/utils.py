@@ -62,17 +62,6 @@ def get_common_args(raw_args):
     return model_json, common_args.pipeline_output, extra_args
 
 
-def get_package_name(execution_provider):
-    PROVIDER_PACKAGE_MAPPING = {
-        "CPUExecutionProvider": "onnxruntime",
-        "CUDAExecutionProvider": "onnxruntime-gpu",
-        "TensorrtExecutionProvider": "onnxruntime-gpu",
-        "OpenVINOExecutionProvider": "onnxruntime-openvino",
-        "DmlExecutionProvider": "onnxruntime-directml",
-    }
-    return PROVIDER_PACKAGE_MAPPING.get(execution_provider, "onnxruntime")
-
-
 @lru_cache(maxsize=8)
 def create_new_system_with_cache(origin_system, accelerator):
     new_system = create_new_system(origin_system, accelerator)
