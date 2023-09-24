@@ -5,7 +5,6 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Union
 
 from olive.model import ONNXModel, TensorFlowModel
 from olive.passes import SNPEConversion, SNPEQuantization, SNPEtoONNXConversion
@@ -17,11 +16,11 @@ logger = logging.getLogger(__name__)
 
 def convertquantize(
     model: str,
-    config: Union[str, Dict],
+    config: str | dict,
     data: str,
-    input_list_file: Optional[str] = "input_list.txt",
-    output_dir: Optional[str] = None,
-    output_name: Optional[str] = None,
+    input_list_file: str | None = "input_list.txt",
+    output_dir: str | None = None,
+    output_name: str | None = None,
 ):
     """Convert and quantize a model.
 

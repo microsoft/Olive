@@ -13,6 +13,7 @@ from test.integ_test.evaluator.azureml_eval.utils import (
     get_onnx_model,
     get_pytorch_model,
 )
+from typing import ClassVar, List
 
 import pytest
 
@@ -30,7 +31,7 @@ class TestAMLEvaluation:
         yield
         delete_directories()
 
-    EVALUATION_TEST_CASE = [
+    EVALUATION_TEST_CASE: ClassVar[List] = [
         ("PyTorchModel", get_pytorch_model(), get_accuracy_metric(), 0.99),
         ("PyTorchModel", get_pytorch_model(), get_latency_metric(), 0.001),
         ("ONNXModel", get_onnx_model(), get_accuracy_metric(), 0.99),

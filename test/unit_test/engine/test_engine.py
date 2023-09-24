@@ -178,12 +178,12 @@ class TestEngine:
             assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
             for k, v in result.items():
                 if k == "metrics":
-                    assert getattr(actual_res.nodes[model_id].metrics, "is_goals_met")
+                    assert actual_res.nodes[model_id].metrics.is_goals_met
                 else:
                     assert getattr(actual_res.nodes[model_id], k) == v
 
-        mock_local_system.run_pass.call_count == 2
-        mock_local_system.evaluate_model.call_count == 3
+        assert mock_local_system.run_pass.call_count == 2
+        assert mock_local_system.evaluate_model.call_count == 3
         mock_local_system.evaluate_model.assert_called_with(
             onnx_model_config.to_json(), None, [metric], accelerator_spec
         )
@@ -242,11 +242,11 @@ class TestEngine:
         assert Path(actual_res.model_config["config"]["model_path"]).is_file()
         model_json_path = Path(expected_output_dir / f"{output_prefix}_model.json")
         assert model_json_path.is_file()
-        with open(model_json_path, "r") as f:
+        with open(model_json_path) as f:
             assert json.load(f) == actual_res.model_config
         result_json_path = Path(expected_output_dir / f"{output_prefix}_metrics.json")
         assert result_json_path.is_file()
-        with open(result_json_path, "r") as f:
+        with open(result_json_path) as f:
             assert json.load(f) == actual_res.metrics.value.__root__
 
     def test_pass_exception(self, caplog, tmpdir):

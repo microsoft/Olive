@@ -55,7 +55,7 @@ def automatically_insert_passes(config):
 
 def dependency_setup(config):
     here = os.path.abspath(os.path.dirname(__file__))
-    with open(os.path.join(here, "../../extra_dependencies.json"), "r") as f:
+    with open(os.path.join(here, "../../extra_dependencies.json")) as f:
         EXTRAS = json.load(f)
     DEPENDENCY_MAPPING = {
         "device": {
@@ -84,7 +84,7 @@ def dependency_setup(config):
 
     # add dependencies for passes
     if config.passes:
-        for _, pass_config in config.passes.items():
+        for pass_config in config.passes.values():
             host = pass_config.host or config.engine.host
             if (host and host.type == SystemType.Local) or not host:
                 local_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type, []))

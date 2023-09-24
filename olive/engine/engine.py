@@ -834,7 +834,7 @@ class Engine:
         """
         model_json_path = self.get_model_json_path(model_id)
         try:
-            with open(model_json_path, "r") as f:
+            with open(model_json_path) as f:
                 model_json = json.load(f)
         except Exception as e:
             logger.error(f"Failed to load model: {e}", exc_info=True)

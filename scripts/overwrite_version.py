@@ -18,7 +18,7 @@ def main():
     version = args.version
 
     init_path = Path(__file__).parent.parent.resolve() / "olive" / "__init__.py"
-    with open(init_path, "r") as f:
+    with open(init_path) as f:
         lines = f.readlines()
         for i, line in enumerate(lines):
             if line.startswith("__version__"):

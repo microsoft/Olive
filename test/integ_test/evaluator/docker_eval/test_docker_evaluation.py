@@ -16,6 +16,7 @@ from test.integ_test.evaluator.docker_eval.utils import (
     get_openvino_model,
     get_pytorch_model,
 )
+from typing import ClassVar, List
 
 import pytest
 
@@ -33,7 +34,7 @@ class TestDockerEvaluation:
         yield
         delete_directories()
 
-    EVALUATION_TEST_CASE = [
+    EVALUATION_TEST_CASE: ClassVar[List] = [
         ("PyTorchModel", get_pytorch_model(), get_accuracy_metric("post_process"), 0.99),
         ("PyTorchModel", get_pytorch_model(), get_latency_metric(), 0.001),
         ("PyTorchModel", get_huggingface_model(), get_accuracy_metric("hf_post_process", "create_hf_dataloader"), 0.1),
