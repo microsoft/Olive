@@ -89,10 +89,12 @@ def get_user_script_config(
 class PassConfigBase(ConfigBase):
     @validator("*", pre=True)
     def _validate_default_str(cls, v, field):
-        v = PassParamDefault(v)
-        if field.required and isinstance(v, PassParamDefault):
-            raise ValueError(f"{field.name} is required and cannot be set to {v.value}")
-        return v
+        try:
+            v = PassParamDefault(v)
+        finally:
+            if field.required and isinstance(v, PassParamDefault):
+                raise ValueError(f"{field.name} is required and cannot be set to {v.value}")
+            return v
 
     @validator("*", pre=True)
     def _validate_search_parameter(cls, v):
