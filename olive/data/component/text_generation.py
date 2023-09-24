@@ -226,7 +226,7 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
                 examples_to_get = min(args.processing_batch_size, total_examples - example_idx)
                 # batch tokenize
                 batched_input_ids = tokenizer(
-                    text_list[example_idx : example_idx + examples_to_get],  # noqa E203, RUF100
+                    text_list[example_idx : example_idx + examples_to_get],  # noqa: E203, RUF100
                     add_special_tokens=False,
                     truncation=False,
                 )["input_ids"]
@@ -304,7 +304,7 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
                     examples_to_get = min(args.max_samples - num_samples, total_examples - example_idx)
                     # batch tokenize
                     batched_input_ids = batch_tokenize_text(
-                        text_list[example_idx : example_idx + examples_to_get], tokenizer, args  # noqa E203, RUF100
+                        text_list[example_idx : example_idx + examples_to_get], tokenizer, args  # noqa: E203, RUF100
                     )
                     for native_input_ids in batched_input_ids:
                         input_ids = torch.tensor(native_input_ids)

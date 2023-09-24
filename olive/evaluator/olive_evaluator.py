@@ -919,6 +919,9 @@ class OliveEvaluatorFactory:
         return evaluator_cls()
 
 
+# ruff: noqa: N805
+
+
 class OliveEvaluatorConfig(ConfigBase):
     metrics: ClassVar[List[Metric]] = []
 
