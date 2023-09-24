@@ -61,8 +61,12 @@ ignore = [
     "SIM116", # Don't use dict lookup to replace if-else
     "UP006", # Ignore old typing hints,
     "UP007", # Ignore old Union hints,
+    "UP032", # Ignore string format calls
     "UP035", # Ignore List/Dict typing import
     "UP038", # Ignore old isinstance hints,
+    "PLW0603", # TODO: temp disable global variable check,
+    "RUF010", # keeping using str type explicitly
+    "RUF013", # Ignore Optional type hints warning since it is available in Python 3.10
 ]
 ignore-init-module-imports = true
 unfixable = [

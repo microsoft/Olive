@@ -56,7 +56,7 @@ class SNPEDataLoader(ABC):
         self.batch_input_list_headers = []
         self.batch_input_list_contents = []
         with open(self.input_list) as f, open(batch_input_list) as f_batch:
-            for line, line_batch in zip(f, f_batch):
+            for line, line_batch in zip(f, f_batch, strict=False):
                 if line.startswith("#") or line.startswith("%"):
                     self.batch_input_list_headers.append(line.strip())
                 else:
@@ -65,7 +65,7 @@ class SNPEDataLoader(ABC):
         self.batch_input_list_metadata = []
         for line, line_batch in self.batch_input_list_contents:
             to_copy = []
-            for input, input_batch in zip(line.split(), line_batch.split()):
+            for input, input_batch in zip(line.split(), line_batch.split(), strict=False):
                 if ":=" in input:
                     to_copy.append((input.split(":=")[1], input_batch.split(":=")[1]))
                 else:
@@ -74,7 +74,7 @@ class SNPEDataLoader(ABC):
 
         self.batches = []
         for i in range(0, len(self.batch_input_list_metadata), self.batch_size):
-            self.batches.append(self.batch_input_list_metadata[i : i + self.batch_size])  # noqa: E203
+            self.batches.append(self.batch_input_list_metadata[i : i + self.batch_size])  # noqa: E203, RUF100
         self.num_batches = len(self.batches)
 
     def get_batch(self, batch_id):
@@ -87,7 +87,7 @@ class SNPEDataLoader(ABC):
             annotation = None
             if self.annotation is not None:
                 annotation = self.annotation[
-                    self.batch_size * batch_id : self.batch_size * (batch_id + 1)  # noqa: E203
+                    self.batch_size * batch_id : self.batch_size * (batch_id + 1)  # noqa: E203, RUF100
                 ]
             batch = self.batches[batch_id]
 
@@ -192,11 +192,11 @@ class SNPERandomDataLoader(SNPEDataLoader):
 
         # create random data
         for input_name, input_shape in zip(
-            self.config["io_config"]["input_names"], self.config["io_config"]["input_shapes"]
+            self.config["io_config"]["input_names"], self.config["io_config"]["input_shapes"], strict=False
         ):
             input_dir = data_dir / input_name
             input_dir.mkdir(parents=True, exist_ok=True)
-            raw_shape = np.product(input_shape)
+            raw_shape = np.product(input_shape)  # noqa: NPY003
             name_length = len(str(self.config["num_samples"]))
             for i in range(self.config["num_samples"]):
                 input_file = input_dir / (f"{i}".zfill(name_length) + ".raw")
@@ -239,7 +239,7 @@ class SNPECommonDataLoader(SNPEDataLoader):
         logger.debug(f"Converting dataloader of type {type(self.config['dataloader'])} to SNPE dataloader")
         input_specs = {}
         for input_name, input_shape in zip(
-            self.config["io_config"]["input_names"], self.config["io_config"]["input_shapes"]
+            self.config["io_config"]["input_names"], self.config["io_config"]["input_shapes"], strict=False
         ):
             input_specs[input_name] = {"target_shape": input_shape}
 
@@ -271,11 +271,11 @@ class SNPECommonDataLoader(SNPEDataLoader):
             # e.g. source_shape = [1, 3, 224, 224], target_shape = [1, 224, 224, 3]
             #      -> permutation = [0, 2, 3, 1]
             # NCDHW -> NDHWC, NCHW -> NHWC, NFC -> NCF
-            channel_permutation = [0] + list(range(2, len(source_shape))) + [1]
+            channel_permutation = [0, *list(range(2, len(source_shape))), 1]
             # NTF -> TNF
             # TODO: confirm if it is NTF -> TNF or TNF -> NTF. Doesn't really matter since the first two
             # dimensions are transposed anyway
-            time_permutation = [1, 0] + list(range(2, len(source_shape)))
+            time_permutation = [1, 0, *list(range(2, len(source_shape)))]
             if source_shape == target_shape:
                 permutation = None  # no permutation needed
             elif target_shape == [source_shape[idx] for idx in channel_permutation]:
@@ -299,19 +299,20 @@ class SNPECommonDataLoader(SNPEDataLoader):
         annotations = []
         num_samples = len(self.config["dataloader"])
         sample_digits = len(str(num_samples))
-        for i, (input_data, annotation) in enumerate(self.config["dataloader"]):
-            if isinstance(input_data, tuple):
-                input_data = dict(zip(input_specs.keys(), input_data))
-            elif isinstance(input_data, torch.Tensor) or isinstance(input_data, np.ndarray):
-                input_data = dict(zip(input_specs.keys(), [input_data]))
+        for i, (input_data_i, annotation) in enumerate(self.config["dataloader"]):
+            if isinstance(input_data_i, tuple):
+                input_data = dict(zip(input_specs.keys(), input_data_i, strict=False))
+            elif isinstance(input_data_i, (torch.Tensor, np.ndarray)):
+                input_data = dict(zip(input_specs.keys(), [input_data_i], strict=False))
             else:
+                input_data = input_data_i
                 assert isinstance(
                     input_data, dict
                 ), f"Input data must be a tuple, torch.Tensor, np.ndarray, or dict. Got {type(input_data)}"
 
             input_file_name = f"{i}.bin".zfill(sample_digits + 4)
             input_order.append(input_file_name)
-            for input_name, input_spec in input_specs.items():
+            for input_spec in input_specs.values():
                 data = input_data[input_spec["source_name"]]
                 # snpe data loader only supports float32
                 data = np.array(data, dtype=np.float32)
@@ -334,7 +335,7 @@ class SNPECommonDataLoader(SNPEDataLoader):
         input_list_file = input_list_utils.create_input_list(
             data_dir=str(data_dir),
             input_names=list(input_specs.keys()),
-            input_dirs=[input_specs[input_name]["source_name"] for input_name in input_specs.keys()],
+            input_dirs=[input_specs[input_name]["source_name"] for input_name in input_specs],
             add_input_names=len(input_specs) > 1,
             add_output_names=len(self.config["io_config"]["output_names"]) > 1,
             output_names=self.config["io_config"]["output_names"],

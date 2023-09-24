@@ -21,7 +21,7 @@ def get_snpe_android_root() -> str:
         snpe_android_root = os.environ["SNPE_ANDROID_ROOT"]
         logger.debug(f"SNPE_ANDROID_ROOT is set to {snpe_android_root}")
     except KeyError:
-        raise ValueError("SNPE_ANDROID_ROOT is not set")
+        raise ValueError("SNPE_ANDROID_ROOT is not set") from None
 
     return snpe_android_root
 

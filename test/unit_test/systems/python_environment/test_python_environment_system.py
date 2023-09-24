@@ -237,7 +237,7 @@ class TestPythonEnvironmentSystem:
         ]
         for i in range(num_batches):
             assert (output_dir / f"output_{i}.npy").exists()
-            np.load(output_dir / f"output_{i}.npy") == dummy_output
+            assert np.load(output_dir / f"output_{i}.npy") == dummy_output
 
     @pytest.mark.parametrize("io_bind", [True, False])
     @patch("olive.systems.python_environment.inference_runner.get_ort_inference_session")

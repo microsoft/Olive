@@ -3,7 +3,6 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from abc import ABC
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -59,7 +58,7 @@ class SearchStrategyConfig(ConfigBase):
         return v
 
 
-class SearchStrategy(ABC):
+class SearchStrategy:
     """
     Search strategy
     """

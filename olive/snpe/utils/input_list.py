@@ -104,7 +104,7 @@ def create_input_list(
     # path to data directory to each input relative to data_dir
     input_dirs = input_dirs or input_names
     # resolve None values in input_dirs to corresponding input_names
-    input_dirs = [input_dir or input_name for input_dir, input_name in zip(input_dirs, input_names)]
+    input_dirs = [input_dir or input_name for input_dir, input_name in zip(input_dirs, input_names, strict=False)]
     for input_dir in input_dirs:
         if not (data_dir_path / input_dir).is_dir():
             raise FileNotFoundError(
@@ -133,13 +133,13 @@ def create_input_list(
         input_dir_members = input_dir_members[:num_samples]
     for member in input_dir_members:
         if not add_input_names:
-            input_list_content += f"{input_dirs[0]}/{member.as_posix()}" + "\n"
+            input_list_content += f"{input_dirs[0]}/{member.as_posix()}" + "\n"  # noqa: ISC003
         else:
             input_list_content += (
                 " ".join(
                     [
                         f"{input_name}{zero_str}:={input_dir}/{member.as_posix()}"
-                        for input_name, input_dir in zip(input_names, input_dirs)
+                        for input_name, input_dir in zip(input_names, input_dirs, strict=False)
                     ]
                 )
                 + "\n"

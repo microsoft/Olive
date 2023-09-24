@@ -235,7 +235,7 @@ def snpe_net_run(
         # folders do not match the inputs, instead we get one Result_N folder per duration.
         inferences_per_duration = 0 if inferences_per_duration is None else inferences_per_duration
         input_id = f"result_{result_idx}" if inferences_per_duration > 0 else input_ids[result_idx]
-        for output_name, output_shape in zip(output_names, output_shapes):
+        for output_name, output_shape in zip(output_names, output_shapes, strict=False):
             # output names for dlcs converted from tensorflow models contain ":"
             # try adding `:0` or `_0` to output file name in case original model was tensorflow and
             # user provided original output names
@@ -282,14 +282,14 @@ def snpe_net_run(
     latencies = {"init": [], "total_inference_time": []}
     for run in range(runs):
         # SNPE DiagLog
-        SNPE_diag_log = tmp_dir_path / f"SNPEDiag_{run}.log"
-        SNPE_diag_csv = tmp_dir_path / f"SNPEDiag_{run}.csv"
+        snpe_diag_log = tmp_dir_path / f"SNPEDiag_{run}.log"
+        snpe_diag_csv = tmp_dir_path / f"SNPEDiag_{run}.csv"
 
-        cmd = f"snpe-diagview --input_log {SNPE_diag_log} --output {SNPE_diag_csv}"
+        cmd = f"snpe-diagview --input_log {snpe_diag_log} --output {snpe_diag_csv}"
         run_snpe_command(cmd)
 
         diag_log = {"init": None, "avg_total_inference_time": None}
-        with open(SNPE_diag_csv) as f:
+        with open(snpe_diag_csv) as f:
             for line in f:
                 message_name = line.split(",")[1].lower()
                 message_value = line.split(",")[3]
@@ -299,7 +299,7 @@ def snpe_net_run(
         latencies["total_inference_time"].append(diag_log["avg_total_inference_time"])
 
         if output_dir is not None:
-            SNPE_diag_csv.rename(output_dir / f"perf_results_{run}.csv")
+            snpe_diag_csv.rename(output_dir / f"perf_results_{run}.csv")
 
     # explicitly delete the tmp directory just to be safe
     tmp_dir.cleanup()
@@ -355,7 +355,7 @@ def _snpe_throughput_net_run_adb(
         push_pairs = []
         if not initialized:
             push_pairs = [(dlc_path, target_ws)]
-        for input, target_input in zip(inputs, target_inputs):
+        for input, target_input in zip(inputs, target_inputs, strict=False):
             push_pairs.append((input, Path(target_input).parent.as_posix()))
         for src, dst in push_pairs:
             adb_utils.adb_push(src, dst, android_target)
@@ -426,7 +426,7 @@ def snpe_throughput_net_run(
         except ValueError:
             raise ValueError(
                 f"Invalid perf profile '{perf_profile}'. Valid perf profiles are {[p.value for p in PerfProfile]}"
-            )
+            ) from None
         cmd += f" --perf_profile {perf_profile}"
     if enable_cpu_fallback:
         cmd += " --enable_cpu_fallback"

@@ -229,7 +229,7 @@ class AzureMLSystem(OliveSystem):
 
     def _create_pass_inputs(self, pass_path_params: List[Tuple[str, bool, ParamCategory]]):
         inputs = {"pass_config": Input(type=AssetTypes.URI_FILE)}
-        for param, required, category in pass_path_params:
+        for param, required, _ in pass_path_params:
             # aml supports uploading file/folder even though this is typed as URI_FOLDER
             inputs[f"pass_{param}"] = Input(type=AssetTypes.URI_FOLDER, optional=not required)
 
@@ -320,7 +320,7 @@ class AzureMLSystem(OliveSystem):
         if self.is_dev:
             logger.warning(
                 "Dev mode is only enabled for CI pipeline! "
-                + "It will overwrite the Olive package in AML computer with latest code."
+                "It will overwrite the Olive package in AML computer with latest code."
             )
             project_folder = cur_dir.parent.parent
             shutil.copytree(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))
@@ -593,7 +593,7 @@ class AzureMLSystem(OliveSystem):
         if self.is_dev:
             logger.warning(
                 "Dev mode is only enabled for CI pipeline! "
-                + "It will overwrite the Olive package in AML computer with latest code."
+                "It will overwrite the Olive package in AML computer with latest code."
             )
             project_folder = cur_dir.parent.parent
             shutil.copytree(project_folder, code_root / "olive", ignore=shutil.ignore_patterns("__pycache__"))

@@ -28,8 +28,8 @@ class SearchSpace:
         Order the search space by topological order of parameters for each pass_id/space_name.
         """
         full_iter_order = []
-        for space_name, search_space in search_space.items():
-            iter_order = order_search_parameters(search_space)
+        for space_name, space_item in search_space.items():
+            iter_order = order_search_parameters(space_item)
             for param_name in iter_order:
                 full_iter_order.append((space_name, param_name))
         return full_iter_order
@@ -103,10 +103,7 @@ class SearchSpace:
         """
         Check if the search space is empty.
         """
-        for _, v in self._search_space.items():
-            if v:
-                return False
-        return True
+        return all(not v for v in self._search_space.values())
 
     def size(self) -> int:
         """

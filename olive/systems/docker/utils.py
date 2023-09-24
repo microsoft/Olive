@@ -114,7 +114,7 @@ def create_eval_script_mount(container_root_path: Path):
 def create_dev_mount(tempdir: Path, container_root_path: Path):
     logger.warning(
         "Dev mode is only enabled for CI pipeline! "
-        + "It will overwrite the Olive package in docker container with latest code."
+        "It will overwrite the Olive package in docker container with latest code."
     )
     tempdir = Path(tempdir)
 

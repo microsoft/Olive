@@ -56,8 +56,8 @@ def get_common_args(raw_args):
 
     for key, value in vars(model_resource_args).items():
         # remove the model_ prefix, the 1 is to only replace the first occurrence
-        key = key.replace("model_", "", 1)
-        model_json["config"][key] = value
+        normalized_key = key.replace("model_", "", 1)
+        model_json["config"][normalized_key] = value
 
     return model_json, common_args.pipeline_output, extra_args
 
@@ -69,7 +69,7 @@ def create_new_system_with_cache(origin_system, accelerator):
 
 
 def create_new_system(origin_system, accelerator):
-    PROVIDER_DOCKERFILE_MAPPING = {
+    provider_dockerfile_mapping = {
         "CPUExecutionProvider": "Dockerfile.cpu",
         "CUDAExecutionProvider": "Dockerfile.gpu",
         "TensorrtExecutionProvider": "Dockerfile.gpu",
@@ -115,7 +115,7 @@ def create_new_system(origin_system, accelerator):
     elif origin_system.system_type == SystemType.Docker:
         from olive.systems.docker import DockerSystem
 
-        dockerfile = PROVIDER_DOCKERFILE_MAPPING.get(accelerator.execution_provider, "Dockerfile.cpu")
+        dockerfile = provider_dockerfile_mapping.get(accelerator.execution_provider, "Dockerfile.cpu")
         new_system = DockerSystem(
             local_docker_config={
                 "image_name": f"olive_{accelerator.execution_provider[:-17].lower()}",
@@ -130,7 +130,7 @@ def create_new_system(origin_system, accelerator):
     elif origin_system.system_type == SystemType.AzureML:
         from olive.systems.azureml import AzureMLSystem
 
-        dockerfile = PROVIDER_DOCKERFILE_MAPPING.get(accelerator.execution_provider, "Dockerfile.cpu")
+        dockerfile = provider_dockerfile_mapping.get(accelerator.execution_provider, "Dockerfile.cpu")
         build_context_path = Path(__file__).parent / "docker"
 
         if origin_system.requirements_file:

@@ -508,7 +508,7 @@ class TestEngine:
         ) as is_accelerator_agnostic_mock:
             is_accelerator_agnostic_mock.return_value = False
             _ = engine.run(model_config, output_dir=output_dir)
-            mock_local_system.run_pass.call_count == 2
+            assert mock_local_system.run_pass.call_count == 2
 
     def test_pass_value_error(self, caplog, tmpdir):
         # Need explicitly set the propagate to allow the message to be logged into caplog

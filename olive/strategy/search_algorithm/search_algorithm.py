@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, ClassVar, Dict, List, Optional, Type, Union
 
 from olive.common.auto_config import AutoConfigClass
 from olive.common.config_utils import ConfigBase
@@ -16,7 +16,7 @@ class SearchAlgorithm(AutoConfigClass):
     Abstract base class for searchers
     """
 
-    registry: Dict[str, Type["SearchAlgorithm"]] = {}
+    registry: ClassVar[Dict[str, Type["SearchAlgorithm"]]] = {}
 
     @classmethod
     @property

@@ -44,6 +44,6 @@ if __name__ == "__main__":
 
     args, _ = parser.parse_known_args()
     logger = logging.getLogger("module")
-    logger.info("command line arguments: ", sys.argv)
+    logger.info("command line arguments: %s", sys.argv)
 
     evaluate_entry(args.config, args.output_path, args.output_name, args.accelerator_type, args.execution_provider)
