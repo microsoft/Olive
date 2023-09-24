@@ -5,7 +5,7 @@
 import importlib
 import shutil
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Union
 
 from pydantic import root_validator, validator
 
@@ -16,7 +16,7 @@ from olive.systems.common import AzureMLDockerConfig, LocalDockerConfig, SystemT
 
 
 class TargetUserConfig(ConfigBase):
-    accelerators: List[str] = None
+    accelerators: list[str] = None
 
 
 class LocalTargetUserConfig(TargetUserConfig):
@@ -34,7 +34,7 @@ class AzureMLTargetUserConfig(TargetUserConfig):
     azureml_client_config: AzureMLClientConfig = None
     aml_compute: str
     aml_docker_config: AzureMLDockerConfig = None
-    resources: Dict = None
+    resources: dict = None
     instance_count: int = 1
     is_dev: bool = False
     olive_managed_env: bool = False
@@ -45,8 +45,8 @@ class PythonEnvironmentTargetUserConfig(TargetUserConfig):
     python_environment_path: Union[
         Path, str
     ] = None  # path to the python environment, e.g. /home/user/anaconda3/envs/myenv, /home/user/.virtualenvs/myenv
-    environment_variables: Dict[str, str] = None  # os.environ will be updated with these variables
-    prepend_to_path: List[str] = None  # paths to prepend to os.environ["PATH"]
+    environment_variables: dict[str, str] = None  # os.environ will be updated with these variables
+    prepend_to_path: list[str] = None  # paths to prepend to os.environ["PATH"]
     olive_managed_env: bool = False  # if True, the environment will be created and managed by Olive
     requirements_file: Union[Path, str] = None  # path to the requirements.txt file
 

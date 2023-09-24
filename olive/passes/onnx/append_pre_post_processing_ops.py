@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import tempfile
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Union
 
 import onnx
 from onnxruntime import __version__ as OrtVersion
@@ -23,7 +23,7 @@ from olive.passes.pass_config import PassConfigParam
 class PrePostProcessorInput(ConfigBase):
     name: str = Field(..., description="Name of the input.")
     data_type: str = Field(..., description="Data type of the input.")
-    shape: List[Union[str, int]] = Field(..., description="Shape of the input.")
+    shape: list[Union[str, int]] = Field(..., description="Shape of the input.")
 
     @validator("data_type", pre=True)
     def validate_data_type(cls, v):
@@ -47,15 +47,15 @@ class AppendPrePostProcessingOps(Pass):
     """
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Dict[str, Any]]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, dict[str, Any]]:
         config = {
             "pre": PassConfigParam(
-                type_=List[Dict[str, Any]],
+                type_=list[dict[str, Any]],
                 default_value=None,
                 description="List of pre-processing commands to add.",
             ),
             "post": PassConfigParam(
-                type_=List[Dict[str, Any]],
+                type_=list[dict[str, Any]],
                 default_value=None,
                 description="List of post-processing commands to add.",
             ),
@@ -65,7 +65,7 @@ class AppendPrePostProcessingOps(Pass):
                 description="Composited tool commands to invoke.",
             ),
             "tool_command_args": PassConfigParam(
-                type_=Union[Dict[str, Any], List[PrePostProcessorInput]],
+                type_=Union[dict[str, Any], list[PrePostProcessorInput]],
                 default_value=None,
                 description="""Arguments to pass to tool command or to PrePostProcessor.
                 If it is used for PrePostProcessor, the schema would like:
@@ -83,7 +83,7 @@ class AppendPrePostProcessingOps(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> ONNXModel:
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
@@ -143,7 +143,7 @@ class AppendPrePostProcessingOps(Pass):
         olive_model.use_ort_extensions = True
         return olive_model
 
-    def _run_prepost_pipeline(self, model: ONNXModel, config: Dict[str, Any]):
+    def _run_prepost_pipeline(self, model: ONNXModel, config: dict[str, Any]):
         from onnxruntime_extensions.tools.pre_post_processing import PrePostProcessor
 
         from olive.passes.onnx.pipeline.step_utils import create_named_value, parse_steps

@@ -2,8 +2,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Dict
-
 import optuna
 
 from olive.common.config_utils import ConfigParam
@@ -21,7 +19,7 @@ class TPESearchAlgorithm(OptunaSearchAlgorithm):
     name = "tpe"
 
     @staticmethod
-    def _default_config() -> Dict[str, ConfigParam]:
+    def _default_config() -> dict[str, ConfigParam]:
         return {
             **OptunaSearchAlgorithm._default_config(),
             "multivariate": ConfigParam(

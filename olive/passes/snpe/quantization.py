@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Union
 
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
@@ -27,7 +27,7 @@ class SNPEQuantization(Pass):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
                 type_=OLIVE_RESOURCE_ANNOTATIONS,
@@ -46,7 +46,7 @@ class SNPEQuantization(Pass):
                 ),
             ),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 required=True,
                 description="Data config for quantization, required if dataloader_func is None",
             ),
@@ -67,7 +67,7 @@ class SNPEQuantization(Pass):
                 description="Pack HTP information in quantized DLC.",
             ),
             "htp_socs": PassConfigParam(
-                type_=List[str], default_value=None, description="List of SoCs to generate HTP Offline cache for."
+                type_=list[str], default_value=None, description="List of SoCs to generate HTP Offline cache for."
             ),
             "extra_args": PassConfigParam(
                 type_=str,
@@ -81,7 +81,7 @@ class SNPEQuantization(Pass):
         }
 
     def _run_for_config(
-        self, model: SNPEModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: SNPEModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> SNPEModel:
         if Path(output_model_path).suffix != ".dlc":
             output_model_path += ".dlc"

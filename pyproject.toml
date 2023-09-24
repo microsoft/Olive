@@ -47,6 +47,7 @@ select = [
 # NOTE: Refrain from growing the ignore list unless for exceptional cases.
 # Always include a comment to explain why.
 ignore = [
+    "B005", # Ignore strip with multi-character string
     "B028", # FIXME: Add stacklevel to warnings
     "E501", # Line length controlled by black
     "N803", # Argument casing

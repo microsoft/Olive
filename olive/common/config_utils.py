@@ -9,7 +9,7 @@ from enum import Enum
 from functools import partial
 from pathlib import Path
 from types import FunctionType, MethodType
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel, Field, create_model, root_validator, validator
 
@@ -117,7 +117,7 @@ class ConfigBase(BaseModel):
 
 
 class ConfigListBase(ConfigBase):
-    __root__: List[Any]
+    __root__: list[Any]
 
     def __iter__(self):
         return iter(self.__root__)
@@ -130,7 +130,7 @@ class ConfigListBase(ConfigBase):
 
 
 class ConfigDictBase(ConfigBase):
-    __root__: Dict[str, Any]
+    __root__: dict[str, Any]
 
     def __iter__(self):
         return iter(self.__root__)
@@ -157,7 +157,7 @@ class ConfigWithExtraArgs(ConfigBase):
     called `extra_args`
     """
 
-    extra_args: Dict = Field(
+    extra_args: dict = Field(
         None,
         description=(
             "Dictionary of extra arguments that are not defined in the class fields. Values can be provided in two"
@@ -261,9 +261,9 @@ def validate_resource_path(v, values, field):
 
 def create_config_class(
     class_name: str,
-    default_config: Dict[str, ConfigParam],
+    default_config: dict[str, ConfigParam],
     base: type = ConfigBase,
-    validators: Dict[str, Callable] = None,
+    validators: dict[str, Callable] = None,
 ) -> Type[ConfigBase]:
     """
     Create a Pydantic model class from a configuration dictionary.
@@ -297,7 +297,7 @@ T = TypeVar("T", bound=ConfigBase)
 
 
 def validate_config(
-    config: Union[Dict[str, Any], ConfigBase, None],
+    config: Union[dict[str, Any], ConfigBase, None],
     base_class: Type[T],
     instance_class: Optional[Type[T]] = None,
     warn_unused_keys: bool = True,

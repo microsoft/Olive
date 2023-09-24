@@ -7,7 +7,7 @@
 # https://arxiv.org/abs/2301.00774
 # -------------------------------------------------------------------------
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 import torch
 
@@ -39,10 +39,10 @@ class SparseGPT(Pass):
     """
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "sparsity": PassConfigParam(
-                type_=Union[float, List[int]],
+                type_=Union[float, list[int]],
                 description=(
                     "Target sparsity. This can be a float or a list of two integers. Float is the target sparsity per"
                     " layer. List [n,m] applies semi-structured (n:m) sparsity patterns. Refer to"
@@ -65,7 +65,7 @@ class SparseGPT(Pass):
                 type_=int, default_value=None, description="Prune all layers with id < max_layer."
             ),
             "layer_name_filter": PassConfigParam(
-                type_=Union[str, List[str]],
+                type_=Union[str, list[str]],
                 default_value=None,
                 description="Only prune layers whose name contains the given string(s).",
             ),
@@ -81,7 +81,7 @@ class SparseGPT(Pass):
                 ),
             ),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 required=True,
                 description=(
                     "Data config to use for pruning weights. All samples in the data are expected to be of the"
@@ -92,7 +92,7 @@ class SparseGPT(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> PyTorchModel:
         model_type = model.model_attributes["model_type"]
         if model_type not in supported_models:

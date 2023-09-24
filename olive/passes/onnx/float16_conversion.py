@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Any, Dict, List
+from typing import Any
 
 import onnx
 
@@ -20,7 +20,7 @@ class OnnxFloatToFloat16(Pass):
     """
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "min_positive_val": PassConfigParam(
                 type_=float, default_value=1e-7, description="Constant values will be clipped against this value"
@@ -35,17 +35,17 @@ class OnnxFloatToFloat16(Pass):
                 type_=bool, default_value=False, description="Skips running onnx shape/type inference."
             ),
             "op_block_list": PassConfigParam(
-                type_=List[str], default_value=None, description="List of op types to leave as float32"
+                type_=list[str], default_value=None, description="List of op types to leave as float32"
             ),
             "node_block_list": PassConfigParam(
-                type_=List[str], default_value=None, description="List of node names to leave as float32"
+                type_=list[str], default_value=None, description="List of node names to leave as float32"
             ),
         }
         config.update(get_external_data_config())
         return config
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> ONNXModel:
         from onnxconverter_common import float16
 

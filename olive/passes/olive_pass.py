@@ -6,7 +6,7 @@ import inspect
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, get_args
+from typing import Any, Callable, Optional, Tuple, Type, Union, get_args
 
 from pydantic import validator
 
@@ -42,7 +42,7 @@ class Pass(ABC):
     Each pass should derive its own configuration class that contains all information it needs to execute.
     """
 
-    registry: Dict[str, Type["Pass"]] = {}
+    registry: dict[str, Type["Pass"]] = {}
     # True if pass configuration requires user script for non-local host support
     _requires_user_script: bool = False
     # True if the pass processes a composite model at once. Otherwise, the components of the
@@ -57,14 +57,14 @@ class Pass(ABC):
             cls.registry[cls.__name__.lower()] = cls
 
     def __init__(
-        self, accelerator_spec: AcceleratorSpec, config: Dict[str, Any], disable_search: Optional[bool] = False
+        self, accelerator_spec: AcceleratorSpec, config: dict[str, Any], disable_search: Optional[bool] = False
     ):
         """Initialize the pass.
 
         :param config_class: the PassConfig class with the default value or default search values.
         :type config_class: Type[PassConfigBase]
         :param config: the configuration representing search space.
-        :type config: Dict[str, Any]
+        :type config: dict[str, Any]
         """
         assert accelerator_spec is not None, "Please specify the accelerator spec for the pass."
         assert config is not None, "Please specify the configuration for the pass."
@@ -106,9 +106,9 @@ class Pass(ABC):
     def generate_search_space(
         cls,
         accelerator_spec: AcceleratorSpec,
-        config: Optional[Union[Dict[str, Any], PassConfigBase]] = None,
+        config: Optional[Union[dict[str, Any], PassConfigBase]] = None,
         disable_search: Optional[bool] = False,
-    ) -> Tuple[Type[PassConfigBase], Dict[str, Any]]:
+    ) -> Tuple[Type[PassConfigBase], dict[str, Any]]:
         """
         Generate search space for the pass.
         """
@@ -133,7 +133,7 @@ class Pass(ABC):
         return config_class, default_config
 
     @classmethod
-    def default_config(cls, accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def default_config(cls, accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         """
         Get the default configuration for the pass.
         """
@@ -154,7 +154,7 @@ class Pass(ABC):
         return config
 
     @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    def _validators() -> dict[str, Callable]:
         """
         pydantic validators for config params
         """
@@ -162,7 +162,7 @@ class Pass(ABC):
 
     @staticmethod
     @abstractmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         """
         Get the default configuration for the pass. Doesn't include user_script and script_dir.
 
@@ -212,7 +212,7 @@ class Pass(ABC):
         raise NotImplementedError()
 
     @classmethod
-    def _resolve_defaults(cls, config: Dict[str, Any], default_config: Dict[str, PassConfigParam]) -> Dict[str, Any]:
+    def _resolve_defaults(cls, config: dict[str, Any], default_config: dict[str, PassConfigParam]) -> dict[str, Any]:
         """
         Resolve default values.
         """
@@ -229,8 +229,8 @@ class Pass(ABC):
 
     @classmethod
     def _validate_user_script(
-        cls, config: Dict[str, Any], user_module_loader: UserModuleLoader, default_config: Dict[str, PassConfigParam]
-    ) -> Dict[str, Any]:
+        cls, config: dict[str, Any], user_module_loader: UserModuleLoader, default_config: dict[str, PassConfigParam]
+    ) -> dict[str, Any]:
         """
         Validate callables in the config.
         """
@@ -248,8 +248,8 @@ class Pass(ABC):
 
     @classmethod
     def _init_fixed_and_search_params(
-        cls, config: Dict[str, Any], default_config: Dict[str, PassConfigParam]
-    ) -> Tuple[Dict[str, Any], Dict[str, SearchParameter]]:
+        cls, config: dict[str, Any], default_config: dict[str, PassConfigParam]
+    ) -> Tuple[dict[str, Any], dict[str, SearchParameter]]:
         """
         Get the fixed and search parameters from the config.
         """
@@ -283,7 +283,7 @@ class Pass(ABC):
         return {**fixed_params, **search_space}
 
     @classmethod
-    def _resolve_search_parameter(cls, param: SearchParameter, fixed_params: Dict[str, Any]) -> Any:
+    def _resolve_search_parameter(cls, param: SearchParameter, fixed_params: dict[str, Any]) -> Any:
         """
         Resolve a search parameter.
         """
@@ -303,9 +303,9 @@ class Pass(ABC):
     @classmethod
     def _resolve_config(
         cls,
-        input_config: Union[Dict[str, Any], PassConfigBase],
-        default_config: Dict[str, PassConfigParam],
-    ) -> Dict[str, Any]:
+        input_config: Union[dict[str, Any], PassConfigBase],
+        default_config: dict[str, PassConfigParam],
+    ) -> dict[str, Any]:
         """
         Resolve config to PassConfigBase.
         """
@@ -322,13 +322,13 @@ class Pass(ABC):
         """
         pass
 
-    def search_space(self) -> Dict[str, SearchParameter]:
+    def search_space(self) -> dict[str, SearchParameter]:
         """
         Get the search space for the pass.
         """
         return self._search_space
 
-    def config_at_search_point(self, point: Dict[str, Any]) -> Dict[str, Any]:
+    def config_at_search_point(self, point: dict[str, Any]) -> dict[str, Any]:
         """
         Get the configuration for the pass at a specific point in the search space.
         """
@@ -339,14 +339,14 @@ class Pass(ABC):
         return self._config_class(**config).dict()
 
     def validate_search_point(
-        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+        self, search_point: dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
     ) -> bool:
         """
         Validate the search point for the pass.
         """
         return True
 
-    def filter_ignored_params(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def filter_ignored_params(self, config: dict[str, Any]) -> dict[str, Any]:
         """
         Filter out ignored parameters.
         """
@@ -354,7 +354,7 @@ class Pass(ABC):
 
     @abstractmethod
     def _run_for_config(
-        self, model: OliveModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: OliveModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> OliveModel:
         """
         Run the pass on the model with the given configuration.
@@ -362,7 +362,7 @@ class Pass(ABC):
         raise NotImplementedError()
 
     def run(
-        self, model: OliveModel, data_root: str, output_model_path: str, point: Optional[Dict[str, Any]] = None
+        self, model: OliveModel, data_root: str, output_model_path: str, point: Optional[dict[str, Any]] = None
     ) -> OliveModel:
         """
         Run the pass on the model at a specific point in the search space.
@@ -403,13 +403,13 @@ class Pass(ABC):
         output_model.model_attributes = output_model.model_attributes or model.model_attributes
         return output_model
 
-    def serialize_config(self, config: Dict[str, Any], check_object: bool = False) -> str:
+    def serialize_config(self, config: dict[str, Any], check_object: bool = False) -> str:
         """
         Serialize the configuration.
         """
         return self._config_class(**config).to_json(check_object)
 
-    def to_json(self, check_object: bool = False) -> Dict[str, Any]:
+    def to_json(self, check_object: bool = False) -> dict[str, Any]:
         """
         Convert the pass to json.
         """
@@ -425,8 +425,8 @@ class Pass(ABC):
 class FullPassConfig(ConfigBase):
     type: str
     disable_search: bool = False
-    accelerator: Dict[str, str] = None
-    config: Dict[str, Any] = None
+    accelerator: dict[str, str] = None
+    config: dict[str, Any] = None
 
     @validator("type")
     def validate_type(cls, v):
@@ -443,7 +443,7 @@ class FullPassConfig(ConfigBase):
 # TODO: deprecate or remove this method by explicitly specify the accelerator_spec in the arguments instead of using
 # the default argument.
 def create_pass_from_dict(
-    pass_cls: Type[Pass], config: Dict[str, Any] = None, disable_search=False, accelerator_spec: AcceleratorSpec = None
+    pass_cls: Type[Pass], config: dict[str, Any] = None, disable_search=False, accelerator_spec: AcceleratorSpec = None
 ) -> Pass:
     """
     Create a pass from a dictionary.

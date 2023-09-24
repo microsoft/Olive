@@ -6,7 +6,7 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Union
 
 import onnx
 
@@ -227,7 +227,7 @@ class VitisAIQuantization(Pass):
         return False
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(
                 type_=str,
@@ -252,7 +252,7 @@ class VitisAIQuantization(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> ONNXModel:
         from onnxruntime.quantization.quant_utils import QuantFormat, QuantType
 

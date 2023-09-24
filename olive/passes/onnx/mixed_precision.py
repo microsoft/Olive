@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
@@ -18,10 +18,10 @@ class OrtMixedPrecision(Pass):
     """Convert model to mixed precision."""
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "op_block_list": PassConfigParam(
-                type_=List[str],
+                type_=list[str],
                 default_value=["SimplifiedLayerNormalization", "SkipSimplifiedLayerNormalization", "Relu", "Add"],
                 description="List of op types to leave as float32",
             ),
@@ -30,7 +30,7 @@ class OrtMixedPrecision(Pass):
         return config
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> ONNXModel:
         """Convert model to mixed precision.
         It detects whether original model has fp16 precision weights,
@@ -108,12 +108,12 @@ class OrtMixedPrecision(Pass):
         Args:
             use_symbolic_shape_infer (bool, optional): use symbolic shape inference instead of onnx shape inference.
                                                    Defaults to True.
-            keep_io_types (Union[bool, List[str]], optional): boolean or a list of float32 input/output names.
+            keep_io_types (Union[bool, list[str]], optional): boolean or a list of float32 input/output names.
                                                               If True, model inputs/outputs should be left as float32.
                                                               Defaults to True.
-            op_block_list (List[str], optional): List of operator types to leave as float32.
+            op_block_list (list[str], optional): List of operator types to leave as float32.
                                                  Defaults to None, which will use `float16.DEFAULT_OP_BLOCK_LIST`.
-            node_block_list (List[str], optional): List of node names to leave as float32. Defaults to None.
+            node_block_list (list[str], optional): List of node names to leave as float32. Defaults to None.
             force_fp16_initializers(bool): force converting all float initializers to float16.
                                            Default to false.
             min_positive_val (float, optional): minimal positive value. Defaults to 1e-7.

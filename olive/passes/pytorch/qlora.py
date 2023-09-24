@@ -12,7 +12,7 @@ import tempfile
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Tuple, Union
 
 import torch
 import transformers
@@ -78,11 +78,11 @@ class HFTrainingArguments(ConfigWithExtraArgs):
     group_by_length: bool = Field(
         True, description="Whether or not to group samples of roughly the same length together when batching."
     )
-    report_to: Union[str, List[str]] = Field(
+    report_to: Union[str, list[str]] = Field(
         "none", description="The list of integrations to report the results and logs to."
     )
     output_dir: str = Field(None, description="The output dir for logs and checkpoints. If None, will use a temp dir.")
-    extra_args: Dict[str, Any] = Field(
+    extra_args: dict[str, Any] = Field(
         None,
         description=(
             "Extra arguments to pass to the trainer. Values can be provided directly to this field as a dict or as"
@@ -123,7 +123,7 @@ class QLoRA(Pass):
     """
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             # quantization parameters
             "compute_dtype": PassConfigParam(
@@ -153,7 +153,7 @@ class QLoRA(Pass):
             "lora_dropout": PassConfigParam(type_=float, default_value=0.0, description="Lora dropout"),
             # data parameters
             "train_data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 required=True,
                 description=(
                     "Data config for fine-tuning training. If `eval_data_config` is not provided and"
@@ -162,7 +162,7 @@ class QLoRA(Pass):
                 ),
             ),
             "eval_data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 description=(
                     "Data config for fine-tuning evaluation. Optional if `eval_dataset_size` is provided or evaluation"
                     " is not needed."
@@ -179,7 +179,7 @@ class QLoRA(Pass):
             ),
             # training parameters
             "training_args": PassConfigParam(
-                type_=Union[HFTrainingArguments, Dict],
+                type_=Union[HFTrainingArguments, dict],
                 default_value=None,
                 description=(
                     "Training arguments. If None, will use default arguments. See HFTrainingArguments for more details."
@@ -188,7 +188,7 @@ class QLoRA(Pass):
         }
 
     def _run_for_config(
-        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> PyTorchModel:
         transformers_version = transformers.__version__
         if version.parse(transformers_version) < version.parse("4.30.0"):
@@ -394,7 +394,7 @@ class QLoRA(Pass):
 
     @staticmethod
     def smart_tokenizer_and_embedding_resize(
-        special_tokens_dict: Dict, tokenizer: transformers.PreTrainedTokenizer, model: transformers.PreTrainedModel
+        special_tokens_dict: dict, tokenizer: transformers.PreTrainedTokenizer, model: transformers.PreTrainedModel
     ):
         """
         Resize the tokenizer and the model embedding layer to take into account new special tokens.
@@ -417,7 +417,7 @@ class QLoRA(Pass):
             output_embeddings_data[-num_new_tokens:] = output_embeddings_avg
 
     @staticmethod
-    def find_all_linear_names(model: torch.nn.Module) -> List[str]:
+    def find_all_linear_names(model: torch.nn.Module) -> list[str]:
         """
         Find all linear layers in a model.
         """
@@ -467,7 +467,7 @@ class QLoRA(Pass):
         return train_dataset, eval_dataset
 
     @staticmethod
-    def collate_batch(batch: List[Dict], tokenizer: transformers.PreTrainedTokenizer) -> Dict[str, torch.Tensor]:
+    def collate_batch(batch: list[dict], tokenizer: transformers.PreTrainedTokenizer) -> dict[str, torch.Tensor]:
         """
         Collate a batch of samples into a padded batch of tensors.
         Add padding to the input_ids, attention_mask and labels.

@@ -89,11 +89,11 @@ def prepare_model(num_epochs=0, models_dir="models", data_dir="data"):
     curr_lr = learning_rate
     for epoch in range(num_epochs):
         for i, (images, labels) in enumerate(train_loader):
-            images = images.to(device)
-            labels = labels.to(device)
+            images_c = images.to(device)
+            labels_c = labels.to(device)
             # Forward pass
-            outputs = model(images)
-            loss = criterion(outputs, labels)
+            outputs = model(images_c)
+            loss = criterion(outputs, labels_c)
             # Backward and optimize
             optimizer.zero_grad()
             loss.backward()
@@ -116,12 +116,12 @@ def prepare_model(num_epochs=0, models_dir="models", data_dir="data"):
             correct = 0
             total = 0
             for images, labels in test_loader:
-                images = images.to(device)
-                labels = labels.to(device)
+                images_c = images.to(device)
+                labels_c = labels.to(images_c)
                 outputs = model(images)
                 _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
+                total += labels_c.size(0)
+                correct += (predicted == labels_c).sum().item()
 
             print("Accuracy of the model on the test images: {} %".format(100 * correct / total))
 

@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Union
 
 import numpy as np
 
@@ -26,10 +26,10 @@ class OpenVINOQuantization(Pass):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "engine_config": PassConfigParam(
-                type_=Dict,
+                type_=dict,
                 required=True,
                 description=(
                     "Specific config for openvino.tools.pot.IEEngine. 'engine_config' can be set"
@@ -58,7 +58,7 @@ class OpenVINOQuantization(Pass):
                 description="Data config for calibration, required if dataloader_func is None.",
             ),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 description="Data config for calibration, required if dataloader_func is None.",
             ),
             "metric_func": PassConfigParam(
@@ -71,7 +71,7 @@ class OpenVINOQuantization(Pass):
                 ),
             ),
             "algorithms": PassConfigParam(
-                type_=List[Dict],
+                type_=list[dict],
                 required=True,
                 description=(
                     "A list defining optimization algorithms and their parameters included"
@@ -83,7 +83,7 @@ class OpenVINOQuantization(Pass):
         }
 
     def _run_for_config(
-        self, model: OpenVINOModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: OpenVINOModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> OpenVINOModel:
         try:
             from openvino.tools.pot import IEEngine, compress_model_weights, create_pipeline, save_model

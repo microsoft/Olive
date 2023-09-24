@@ -6,7 +6,7 @@ import logging
 from copy import deepcopy
 from functools import partial
 from itertools import chain
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import torch
 import transformers
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class HFComponent(ConfigBase):
     name: str
-    io_config: Union[IOConfig, str, Dict[str, Any]]
+    io_config: Union[IOConfig, str, dict[str, Any]]
     component_func: Union[str, Callable]
     dummy_inputs_func: Union[str, Callable]
 
@@ -42,7 +42,7 @@ class HFModelLoadingArgs(ConfigWithExtraArgs):
         ),
     )
     # str suffices for torch.dtype, otherwise serializer won't recognize it
-    device_map: Union[int, str, Dict] = Field(
+    device_map: Union[int, str, dict] = Field(
         None,
         description=(
             "A map that specifies where each submodule should go. Refer to `device_map` in the docstring of"
@@ -50,7 +50,7 @@ class HFModelLoadingArgs(ConfigWithExtraArgs):
         ),
     )
     # A dictionary device identifier to maximum memory
-    max_memory: Dict = Field(
+    max_memory: dict = Field(
         None,
         description=(
             "A dictionary that specifies the maximum memory that can be used by each device. Refer to `max_memory`"
@@ -66,7 +66,7 @@ class HFModelLoadingArgs(ConfigWithExtraArgs):
         ),
     )
     # A dictionary of configuration parameters for quantization
-    quantization_config: Dict = Field(
+    quantization_config: dict = Field(
         None,
         description=(
             "A dictionary of configuration parameters for quantization. Must be provided if quantization_config is"
@@ -75,7 +75,7 @@ class HFModelLoadingArgs(ConfigWithExtraArgs):
         ),
     )
     # other kwargs to pass during model loading
-    extra_args: Dict = Field(
+    extra_args: dict = Field(
         None,
         description=(
             "Other kwargs to pass to the .from_pretrained method of the model class. Values can be provided directly to"
@@ -202,8 +202,8 @@ class HFConfig(ConfigBase):
     feature: str = None
     # TODO: remove model_class and only use task
     model_class: str = None
-    components: List[HFComponent] = None
-    dataset: Dict[str, Any] = None
+    components: list[HFComponent] = None
+    dataset: dict[str, Any] = None
     model_loading_args: HFModelLoadingArgs = None
 
     @validator("model_class", always=True)
@@ -291,7 +291,7 @@ def load_huggingface_model_from_model_class(model_class: str, name: str, **kwarg
 
 # patched version of transforrmers.onnx.features.supported_features_mapping
 # to support additional models in olive
-def patched_supported_features_mapping(*supported_features: str, onnx_config_cls: str = None) -> Dict[str, Callable]:
+def patched_supported_features_mapping(*supported_features: str, onnx_config_cls: str = None) -> dict[str, Callable]:
     """
     Generate the mapping between supported the features and their corresponding OnnxConfig for a given model.
 

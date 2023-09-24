@@ -39,7 +39,7 @@ def test_whisper(device_precision):
 
     device, precision = device_precision
     config_file = f"whisper_{device}_{precision}.json"
-    olive_config = json.load(open(config_file, "r"))
+    olive_config = json.load(open(config_file))
 
     # test workflow
     result = olive_run(olive_config)

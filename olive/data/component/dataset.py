@@ -5,7 +5,7 @@
 
 from copy import deepcopy
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 import torch
@@ -106,7 +106,7 @@ class BaseDataset(Dataset):
 
 
 class DummyDataset(BaseDataset):
-    def __init__(self, input_shapes, input_names: Optional[List] = None, input_types: Optional[List] = None):
+    def __init__(self, input_shapes, input_names: Optional[list] = None, input_types: Optional[list] = None):
         """
         This function is used to initialize the dummy dataset
         if input_names is None, the dummy dataset will return a tuple of tensors
@@ -148,10 +148,10 @@ class RawDataset(BaseDataset):
     def __init__(
         self,
         data_dir: Union[str, Path],
-        input_names: List[str],
-        input_shapes: List[List[int]],
-        input_types: Optional[List[str]] = None,
-        input_dirs: Optional[List[str]] = None,
+        input_names: list[str],
+        input_shapes: list[list[int]],
+        input_types: Optional[list[str]] = None,
+        input_dirs: Optional[list[str]] = None,
         input_suffix: Optional[str] = None,
         input_order_file: Optional[str] = None,
         annotations_file: Optional[str] = None,

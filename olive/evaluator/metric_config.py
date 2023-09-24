@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Callable, List, Union
+from typing import Callable, Union
 
 from pydantic import validator
 
@@ -22,9 +22,9 @@ _common_user_config = {
     "data_dir": ConfigParam(type_=OLIVE_RESOURCE_ANNOTATIONS, category=ParamCategory.DATA),
     "dataloader_func": ConfigParam(type_=Union[Callable, str], category=ParamCategory.OBJECT),
     "batch_size": ConfigParam(type_=int, default_value=1),
-    "input_names": ConfigParam(type_=List),
-    "input_shapes": ConfigParam(type_=List),
-    "input_types": ConfigParam(type_=List),
+    "input_names": ConfigParam(type_=list),
+    "input_shapes": ConfigParam(type_=list),
+    "input_types": ConfigParam(type_=list),
 }
 
 _common_user_config_validators = {}

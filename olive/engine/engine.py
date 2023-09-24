@@ -9,7 +9,7 @@ from collections import OrderedDict, defaultdict
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
 from olive.common.config_utils import ConfigBase, validate_config
@@ -43,12 +43,12 @@ class Engine:
 
     def __init__(
         self,
-        config: Union[Dict[str, Any], EngineConfig] = None,
+        config: Union[dict[str, Any], EngineConfig] = None,
         search_strategy: Optional[SearchStrategy] = None,
         host: Optional[OliveSystem] = None,
         target: Optional[OliveSystem] = None,
         evaluator_config: Optional[OliveEvaluatorConfig] = None,
-        execution_providers: Optional[List[str]] = None,
+        execution_providers: Optional[list[str]] = None,
     ):
         self._config = validate_config(config, EngineConfig)
 
@@ -126,7 +126,7 @@ class Engine:
 
         self.execution_providers = execution_providers
 
-        accelerators: List[str] = self.target.accelerators
+        accelerators: list[str] = self.target.accelerators
         if accelerators is None:
             inferred_accelerators = AcceleratorLookup.infer_accelerators_from_execution_provider(
                 self.execution_providers
@@ -144,7 +144,7 @@ class Engine:
 
         ep_to_process = set(self.execution_providers)
         # Flatten the accelerators to list of AcceleratorSpec
-        self.accelerator_specs: List[AcceleratorSpec] = []
+        self.accelerator_specs: list[AcceleratorSpec] = []
         is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
         for accelerator in accelerators:
             device = Device(accelerator.lower())
@@ -227,7 +227,7 @@ class Engine:
     def register(
         self,
         pass_type: Type[Pass],
-        config: Dict[str, Any] = None,
+        config: dict[str, Any] = None,
         disable_search=False,
         name: str = None,
         host: OliveSystem = None,
@@ -295,7 +295,7 @@ class Engine:
             "output_name": output_name,
         }
 
-    def set_pass_flows(self, pass_flows: List[List[str]] = None):
+    def set_pass_flows(self, pass_flows: list[list[str]] = None):
         """
         Construct pass flows from a list of pass names.
         Args:
@@ -684,9 +684,9 @@ class Engine:
         input_model_config: ModelConfig,
         input_model_id: str,
         data_root: str,
-        metrics: List[Metric],
+        metrics: list[Metric],
         accelerator_spec: AcceleratorSpec,
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         """
         Return a dictionary of objectives and their higher_is_better and goal values.
 
@@ -713,9 +713,9 @@ class Engine:
         input_model_config: ModelConfig,
         input_model_id: str,
         data_root: str,
-        metrics: List[Metric],
+        metrics: list[Metric],
         accelerator_spec: AcceleratorSpec,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Resolve the goals of the given metrics into thresholds for the given model.
         """
@@ -939,7 +939,7 @@ class Engine:
 
     def _run_passes(
         self,
-        passes: List[Tuple[str, Dict[str, Any]]],
+        passes: list[Tuple[str, dict[str, Any]]],
         model_config: ModelConfig,
         model_id: str,
         data_root: str,
@@ -980,7 +980,7 @@ class Engine:
     def _run_pass(
         self,
         pass_id: str,
-        pass_search_point: Dict[str, Any],
+        pass_search_point: dict[str, Any],
         input_model_config: ModelConfig,
         input_model_id: str,
         data_root: str,
@@ -1183,8 +1183,8 @@ class Engine:
         return signal
 
     def _get_top_ranked_nodes(
-        self, objective_dict: Dict[str, Any], footprint: Footprint, k: int
-    ) -> List[FootprintNode]:
+        self, objective_dict: dict[str, Any], footprint: Footprint, k: int
+    ) -> list[FootprintNode]:
         footprint_node_list = footprint.nodes.values()
         sorted_footprint_node_list = sorted(
             footprint_node_list,

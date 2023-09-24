@@ -6,7 +6,7 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
@@ -145,7 +145,7 @@ _inc_static_dataloader_config = {
         """,
     ),
     "data_config": PassConfigParam(
-        type_=Union[DataConfig, Dict],
+        type_=Union[DataConfig, dict],
         description="""
             Data config for calibration, required if approach is 'static' and
             dataloader_func is None.
@@ -230,7 +230,7 @@ class IncQuantization(Pass):
         return False
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "approach": PassConfigParam(
                 type_=str,
@@ -406,7 +406,7 @@ class IncQuantization(Pass):
         return eval_func, accuracy_criterion, tuning_criterion
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> ONNXModel:
         try:
             from neural_compressor import quantization
@@ -480,7 +480,7 @@ class IncDynamicQuantization(IncQuantization):
     _requires_user_script = False
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, Any]:
         config = {
             "approach": PassConfigParam(type_=str, default_value="dynamic", description="dynamic quantization mode")
         }
@@ -500,7 +500,7 @@ class IncStaticQuantization(IncQuantization):
     """Intel® Neural Compressor Static Quantization Pass"""
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, Any]:
         config = {
             "approach": PassConfigParam(type_=str, default_value="static", description="static quantization mode")
         }

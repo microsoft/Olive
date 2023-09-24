@@ -6,7 +6,7 @@
 import json
 import pprint
 from pathlib import Path
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 
 import numpy
 import onnx
@@ -48,7 +48,7 @@ def _dump_graph(node: Message, filepath: str):
         strm.flush()
 
 
-def _iterate_experts(model: OnnxModel, producers: Dict[str, Message]):
+def _iterate_experts(model: OnnxModel, producers: dict[str, Message]):
     for node in model.get_nodes_by_op_type(_expert_pattern[0]):
         path = model.match_parent_path(node, _expert_pattern[1:], output_name_to_node=producers)
         if path:
@@ -79,10 +79,10 @@ def _create_node_name(model: OnnxModel, op_type: str, prefix_a: str, prefix_b: s
 
 
 def _create_ranked_model(
-    nodes: Dict[str, Message],
-    producers: Dict[str, Message],
-    consumers: Dict[str, Message],
-    experts: List[List[str]],
+    nodes: dict[str, Message],
+    producers: dict[str, Message],
+    consumers: dict[str, Message],
+    experts: list[list[str]],
     world_size: int,
     num_experts: int,
     rank: int,
@@ -114,7 +114,7 @@ def _create_ranked_model(
                     slice_nodes[i].input.remove(iname)
 
 
-def _insert_commop_nodes(model: OnnxModel, nodes: Dict[str, Message], experts: List[List[str]], world_size: int):
+def _insert_commop_nodes(model: OnnxModel, nodes: dict[str, Message], experts: list[list[str]], world_size: int):
     for expert in experts:
         for i, j in [(0, 1), (-2, -1)]:
             prev_node = nodes[expert[i]]
@@ -143,10 +143,10 @@ def _replace_constant_value(constant: Message, value: int):
 
 def _fix_shapes(
     model: OnnxModel,
-    nodes: Dict[str, Message],
-    producers: Dict[str, Message],
-    consumers: Dict[str, Message],
-    experts: List[List[str]],
+    nodes: dict[str, Message],
+    producers: dict[str, Message],
+    consumers: dict[str, Message],
+    experts: list[list[str]],
     world_size: int,
     num_experts: int,
 ):
@@ -249,7 +249,7 @@ class MoEExpertsDistributor(Pass):
     """
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "world_size": PassConfigParam(
                 type_=int,
@@ -262,11 +262,11 @@ class MoEExpertsDistributor(Pass):
         return config
 
     @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    def _validators() -> dict[str, Callable]:
         return {"validate_distributor_config": validator("world_size", allow_reuse=True)(_validate_world_size)}
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: ONNXModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> DistributedOnnxModel:
         output_filepaths = run(config["world_size"], model.model_path, output_model_path)
         return DistributedOnnxModel(output_filepaths)

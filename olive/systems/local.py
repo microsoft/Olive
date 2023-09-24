@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from olive.evaluator.metric import Metric, MetricResult
 from olive.evaluator.olive_evaluator import OliveEvaluator, OliveEvaluatorFactory
@@ -16,7 +16,7 @@ from olive.systems.olive_system import OliveSystem
 class LocalSystem(OliveSystem):
     system_type = SystemType.Local
 
-    def __init__(self, accelerators: List[str] = None):
+    def __init__(self, accelerators: list[str] = None):
         super().__init__(accelerators=accelerators, olive_managed_env=False)
 
     def run_pass(
@@ -25,7 +25,7 @@ class LocalSystem(OliveSystem):
         model_config: ModelConfig,
         data_root: str,
         output_model_path: str,
-        point: Optional[Dict[str, Any]] = None,
+        point: Optional[dict[str, Any]] = None,
     ) -> ModelConfig:
         """
         Run the pass on the model at a specific point in the search space.
@@ -35,7 +35,7 @@ class LocalSystem(OliveSystem):
         return ModelConfig.from_json(output_model.to_json())
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+        self, model_config: ModelConfig, data_root: str, metrics: list[Metric], accelerator: AcceleratorSpec
     ) -> MetricResult:
         """
         Evaluate the model
@@ -50,7 +50,7 @@ class LocalSystem(OliveSystem):
         evaluator: OliveEvaluator = OliveEvaluatorFactory.create_evaluator_for_model(model)
         return evaluator.evaluate(model, data_root, metrics, device=device, execution_providers=execution_providers)
 
-    def get_supported_execution_providers(self) -> List[str]:
+    def get_supported_execution_providers(self) -> list[str]:
         """
         Get the available execution providers.
         """

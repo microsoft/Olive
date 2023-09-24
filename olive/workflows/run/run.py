@@ -8,7 +8,7 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 
 import onnxruntime as ort
 
@@ -234,7 +234,7 @@ def check_local_ort_installation(package_name: str):
     logger.warning("\n".join(messages))
 
 
-def get_local_ort_packages() -> List[str]:
+def get_local_ort_packages() -> list[str]:
     all_packages = importlib.metadata.distributions()
     local_ort_packages = []
     for package in all_packages:

@@ -22,7 +22,7 @@ class NewOptimizationTrick(Pass):
 ## 2. Define configuration
 
 Next, define the options used to configure this new technique by defining static method `_default_config`. This method
-takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
+takes an `AcceleratorSpec` as input and returns `dict[str, PassConfigParam]`.
 
 `AcceleratorSpec` is a dataclass that holds the information about the accelerator. The dataclass has the following fields:
 
@@ -56,7 +56,7 @@ takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
 ### Example
 ```python
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             # required parameter
             "param1": PassConfigParam(type_=int, required=True, description="param1 description"),
@@ -104,5 +104,5 @@ the search space created based on the options defined in `_default_config(accele
 with output path. The method should return a valid OliveModel which can be used as an input for the next Pass.
 
 ```python
-    def _run_for_config(self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str) -> ONNXModel:
+    def _run_for_config(self, model: ONNXModel, data_root: str, config: dict[str, Any], output_model_path: str) -> ONNXModel:
 ```
