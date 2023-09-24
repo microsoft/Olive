@@ -137,7 +137,7 @@ def _get_conversion_arg_str(arg_type: str, input_names: List[str], input_values:
     if input_values is None:
         return arg_str
 
-    for name, value in zip(input_names, input_values):
+    for name, value in zip(input_names, input_values, strict=False):
         if value is None:
             continue  # skip this input
         if arg_type == "-d":
@@ -256,11 +256,11 @@ def dlc_to_onnx(
 
     # Loop over all input and output tensor and its dim for the model
     inputs_tensor_val = []
-    for input_name, input_shape in zip(input_names, input_shapes):
+    for input_name, input_shape in zip(input_names, input_shapes, strict=False):
         inputs_tensor_val.append(helper.make_tensor_value_info(input_name, TensorProto.FLOAT, input_shape))
 
     outputs_tensor_val = []
-    for output_name, output_shape in zip(output_names, output_shapes):
+    for output_name, output_shape in zip(output_names, output_shapes, strict=False):
         outputs_tensor_val.append(helper.make_tensor_value_info(output_name, TensorProto.FLOAT, output_shape))
 
     # Create the node

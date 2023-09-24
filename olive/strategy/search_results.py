@@ -26,7 +26,9 @@ class SearchResults:
         self.objectives = list(objective_dict.keys())
         self.higher_is_betters = [objective_dict[obj]["higher_is_better"] for obj in self.objectives]
         # multiplier for each objective
-        self.obj_mul = {obj: 1 if hib else -1 for obj, hib in zip(self.objectives, self.higher_is_betters)}
+        self.obj_mul = {
+            obj: 1 if hib else -1 for obj, hib in zip(self.objectives, self.higher_is_betters, strict=False)
+        }
 
         # objective goal values
         self.goals = {}

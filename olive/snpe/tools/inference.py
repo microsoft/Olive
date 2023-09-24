@@ -235,7 +235,7 @@ def snpe_net_run(
         # folders do not match the inputs, instead we get one Result_N folder per duration.
         inferences_per_duration = 0 if inferences_per_duration is None else inferences_per_duration
         input_id = f"result_{result_idx}" if inferences_per_duration > 0 else input_ids[result_idx]
-        for output_name, output_shape in zip(output_names, output_shapes):
+        for output_name, output_shape in zip(output_names, output_shapes, strict=False):
             # output names for dlcs converted from tensorflow models contain ":"
             # try adding `:0` or `_0` to output file name in case original model was tensorflow and
             # user provided original output names
@@ -355,7 +355,7 @@ def _snpe_throughput_net_run_adb(
         push_pairs = []
         if not initialized:
             push_pairs = [(dlc_path, target_ws)]
-        for input, target_input in zip(inputs, target_inputs):
+        for input, target_input in zip(inputs, target_inputs, strict=False):
             push_pairs.append((input, Path(target_input).parent.as_posix()))
         for src, dst in push_pairs:
             adb_utils.adb_push(src, dst, android_target)
