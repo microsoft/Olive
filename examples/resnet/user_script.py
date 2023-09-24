@@ -117,7 +117,7 @@ def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_pro
                 input_dict = {k: input_data[k].tolist() for k in input_data}
             else:
                 input_data_copy = input_data.tolist()
-                input_dict = dict(zip(input_names, [input_data_copy]))
+                input_dict = dict(zip(input_names, [input_data_copy]), strict=False)
             res = sess.run(input_feed=input_dict, output_names=None)
             if len(output_names) == 1:
                 result = torch.Tensor(res[0])
