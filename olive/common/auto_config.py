@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import inspect
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Type, Union
+from typing import Any, Callable, Dict, Type, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, create_config_class, validate_config
 
@@ -45,7 +45,7 @@ class AutoConfigClass(ABC):
             return {"validate_func_param": validator("func_param", allow_reuse=True)(validate_func_param)}
     """
 
-    registry: dict[str, Type] = {}
+    registry: Dict[str, Type] = {}
     name: str = None
     _config_base: Type[ConfigBase] = ConfigBase
 
@@ -58,20 +58,20 @@ class AutoConfigClass(ABC):
         name = cls.name if cls.name is not None else cls.__name__.lower()
         cls.registry[name] = cls
 
-    def __init__(self, config: Union[ConfigBase, dict[str, Any]]) -> None:
+    def __init__(self, config: Union[ConfigBase, Dict[str, Any]]) -> None:
         self.config_class = self.get_config_class()
         self.config = validate_config(config, self._config_base, self.config_class)
 
     @staticmethod
     @abstractmethod
-    def _default_config() -> dict[str, ConfigParam]:
+    def _default_config() -> Dict[str, ConfigParam]:
         """
         Default configuration for the class
         """
         raise NotImplementedError
 
     @staticmethod
-    def _validators() -> dict[str, Callable]:
+    def _validators() -> Dict[str, Callable]:
         """
         pydantic validators for config params
         """

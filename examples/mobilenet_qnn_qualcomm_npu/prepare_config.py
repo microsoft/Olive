@@ -4,8 +4,8 @@ from pathlib import Path
 if __name__ == "__main__":
     try:
         qnn_env_path = Path(os.environ["QNN_ENV_PATH"]).resolve().as_posix()
-    except KeyError as e:
-        raise ValueError("QNN_ENV_PATH environment variable is not set") from e
+    except KeyError:
+        raise ValueError("QNN_ENV_PATH environment variable is not set")
     try:
         qnn_lib_path = Path(os.environ["QNN_LIB_PATH"]).resolve().as_posix()
     except KeyError as e:

@@ -6,7 +6,7 @@ import logging
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Union
+from typing import Any, Callable, Dict, Union
 
 import onnx
 from packaging import version
@@ -161,7 +161,7 @@ _static_dataloader_config = {
         """,
     ),
     "data_config": PassConfigParam(
-        type_=Union[DataConfig, dict],
+        type_=Union[DataConfig, Dict],
         description="""
             Data config for calibration, required if quant_mode is 'static' and
             dataloader_func is None.
@@ -225,7 +225,7 @@ class OnnxQuantization(Pass):
         self.tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(
                 type_=str,
@@ -282,7 +282,7 @@ class OnnxQuantization(Pass):
         return config
 
     def validate_search_point(
-        self, search_point: dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
     ) -> bool:
         config = search_point or {}
         if with_fixed_value:
@@ -301,7 +301,7 @@ class OnnxQuantization(Pass):
         return True
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: dict[str, Any], output_model_path: str
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
         from onnxruntime import __version__ as OrtVersion
         from onnxruntime.quantization import QuantFormat, QuantType, quantize_dynamic, quantize_static
@@ -473,7 +473,7 @@ class OnnxDynamicQuantization(OnnxQuantization):
     _requires_user_script = False
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(type_=str, default_value="dynamic", description="dynamic quantization mode")
         }
@@ -491,7 +491,7 @@ class OnnxStaticQuantization(OnnxQuantization):
     """ONNX Static Quantization Pass"""
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "quant_mode": PassConfigParam(type_=str, default_value="static", description="static quantization mode")
         }

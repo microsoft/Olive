@@ -11,7 +11,7 @@ import platform
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -41,9 +41,9 @@ class PythonEnvironmentSystem(OliveSystem):
     def __init__(
         self,
         python_environment_path: Union[Path, str] = None,
-        environment_variables: dict[str, str] = None,
-        prepend_to_path: list[str] = None,
-        accelerators: list[str] = None,
+        environment_variables: Dict[str, str] = None,
+        prepend_to_path: List[str] = None,
+        accelerators: List[str] = None,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
     ):
@@ -87,7 +87,7 @@ class PythonEnvironmentSystem(OliveSystem):
         model_config: ModelConfig,
         data_root: str,
         output_model_path: str,
-        point: Optional[dict[str, Any]] = None,
+        point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
         """
         Run the pass on the model at a specific point in the search space.
@@ -129,7 +129,7 @@ class PythonEnvironmentSystem(OliveSystem):
         return output_model
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: list[Metric], accelerator: AcceleratorSpec
+        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
     ) -> MetricResult:
         """
         Evaluate the model
@@ -270,7 +270,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
         return OliveEvaluator.compute_latency(metric, latencies)
 
-    def get_inference_settings(self, model: ONNXModel, metric: Metric, accelerator: AcceleratorSpec) -> dict[str, Any]:
+    def get_inference_settings(self, model: ONNXModel, metric: Metric, accelerator: AcceleratorSpec) -> Dict[str, Any]:
         """
         Get the model inference settings.
         """
@@ -290,7 +290,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
         return inference_settings
 
-    def get_supported_execution_providers(self) -> list[str]:
+    def get_supported_execution_providers(self) -> List[str]:
         """
         Get the available execution providers.
         """
@@ -310,14 +310,14 @@ class PythonEnvironmentSystem(OliveSystem):
             self.available_eps = available_eps
             return available_eps
 
-    def get_execution_providers(self) -> list[str]:
+    def get_execution_providers(self) -> List[str]:
         """
         Get the execution providers for the device.
         """
         available_eps = self.get_supported_execution_providers()
         return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(self.device, available_eps)
 
-    def get_default_execution_provider(self, model: ONNXModel) -> list[str]:
+    def get_default_execution_provider(self, model: ONNXModel) -> List[str]:
         """
         Get the default execution provider for the model.
         """

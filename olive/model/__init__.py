@@ -9,7 +9,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import onnx
 import torch
@@ -58,7 +58,7 @@ class OliveModel(ABC):
         framework: Framework,
         model_file_format: ModelFileFormat,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
-        model_attributes: Optional[dict[str, Any]] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         self.framework = framework
         self.model_file_format = model_file_format
@@ -66,7 +66,7 @@ class OliveModel(ABC):
         self.model_attributes = model_attributes
         self.io_config = None
         # store resource paths
-        self.resource_paths: dict[str, str] = {}
+        self.resource_paths: Dict[str, str] = {}
         resources = {}
         resources["model_path"] = model_path
         self.add_resources(resources)
@@ -76,7 +76,7 @@ class OliveModel(ABC):
         """Return local model path."""
         return self.get_resource("model_path")
 
-    def add_resources(self, resources: dict[str, OLIVE_RESOURCE_ANNOTATIONS]):
+    def add_resources(self, resources: Dict[str, OLIVE_RESOURCE_ANNOTATIONS]):
         for resource_name, resource_path in resources.items():
             if resource_path is not None:
                 resolved_resource_path = create_resource_path(resource_path)
@@ -131,9 +131,9 @@ class OliveModel(ABC):
     @abstractmethod
     def prepare_session(
         self,
-        inference_settings: Optional[dict[str, Any]] = None,
+        inference_settings: Optional[Dict[str, Any]] = None,
         device: Device = Device.CPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
         """
@@ -148,7 +148,7 @@ class OliveModel(ABC):
     def get_composite_parent(self):
         return self.composite_parent
 
-    def get_io_config(self) -> dict[str, Any]:
+    def get_io_config(self) -> Dict[str, Any]:
         return self.io_config
 
     def to_json(self, check_object: bool = False):
@@ -196,7 +196,7 @@ class ONNXModelBase(OliveModel):
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
-        model_attributes: Optional[dict[str, Any]] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             framework=Framework.ONNX,
@@ -244,7 +244,7 @@ class ONNXModel(ONNXModelBase):
         onnx_file_name: Optional[str] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
-        model_attributes: Optional[dict[str, Any]] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             model_path=model_path,
@@ -255,7 +255,7 @@ class ONNXModel(ONNXModelBase):
         self.onnx_file_name = onnx_file_name
         self.io_config = None
         self.graph = None
-        self.all_graphs: Optional[list[GraphProto]] = None
+        self.all_graphs: Optional[List[GraphProto]] = None
 
         # check for onnx file name since it will do validation
         _ = self.model_path
@@ -327,9 +327,9 @@ class ONNXModel(ONNXModelBase):
 
     def prepare_session(
         self,
-        inference_settings: dict[str, Any],
+        inference_settings: Dict[str, Any],
         device: Device,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
         # user provided inference_settings > model's inference_settings > default settings
@@ -482,11 +482,11 @@ class PyTorchModel(OliveModel):
         model_loader: Union[str, Callable] = None,
         model_script: Union[str, Path] = None,
         script_dir: Union[str, Path] = None,
-        io_config: Union[dict[str, Any], IOConfig] = None,
+        io_config: Union[Dict[str, Any], IOConfig] = None,
         dummy_inputs_func: Union[str, Callable] = None,
-        hf_config: Union[dict[str, Any], HFConfig] = None,
+        hf_config: Union[Dict[str, Any], HFConfig] = None,
         adapter_path: OLIVE_RESOURCE_ANNOTATIONS = None,
-        model_attributes: Optional[dict[str, Any]] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         if not (
             isinstance(model_loader, Callable)
@@ -618,9 +618,9 @@ class PyTorchModel(OliveModel):
 
     def prepare_session(
         self,
-        inference_settings: dict[str, Any],
+        inference_settings: Dict[str, Any],
         device: Device,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
         return self.load_model().eval()
@@ -681,7 +681,7 @@ class PyTorchModel(OliveModel):
         return self.hf_config.load_model_config(self.model_path)
 
     @property
-    def components(self) -> list[str]:
+    def components(self) -> List[str]:
         """
         Names of the components of the model.
         """
@@ -746,7 +746,7 @@ class PyTorchModel(OliveModel):
 
 
 class OptimumModel(PyTorchModel):
-    def __init__(self, model_components: list[str], **kwargs):
+    def __init__(self, model_components: List[str], **kwargs):
         super().__init__(
             model_file_format=ModelFileFormat.OPTIMUM,
             **(kwargs or {}),
@@ -762,12 +762,12 @@ class OptimumModel(PyTorchModel):
 class SNPEModel(OliveModel):
     def __init__(
         self,
-        input_names: list[str],
-        input_shapes: list[list[int]],
-        output_names: list[str],
-        output_shapes: list[list[int]],
+        input_names: List[str],
+        input_shapes: List[List[int]],
+        output_names: List[str],
+        output_shapes: List[List[int]],
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
-        model_attributes: Optional[dict[str, Any]] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             framework=Framework.SNPE,
@@ -787,9 +787,9 @@ class SNPEModel(OliveModel):
 
     def prepare_session(
         self,
-        inference_settings: dict[str, Any],
+        inference_settings: Dict[str, Any],
         device: Device,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ) -> SNPEInferenceSession:
         inference_settings = inference_settings or {}
@@ -813,7 +813,7 @@ class TensorFlowModel(OliveModel):
         self,
         model_path: OLIVE_RESOURCE_ANNOTATIONS = None,
         model_file_format: ModelFileFormat = ModelFileFormat.TENSORFLOW_SAVED_MODEL,
-        model_attributes: Optional[dict[str, Any]] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             model_path=model_path,
@@ -827,16 +827,16 @@ class TensorFlowModel(OliveModel):
 
     def prepare_session(
         self,
-        inference_settings: dict[str, Any],
+        inference_settings: Dict[str, Any],
         device: Device,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
         raise NotImplementedError()
 
 
 class OpenVINOModel(OliveModel):
-    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS, model_attributes: Optional[dict[str, Any]] = None):
+    def __init__(self, model_path: OLIVE_RESOURCE_ANNOTATIONS, model_attributes: Optional[Dict[str, Any]] = None):
         super().__init__(
             model_path=model_path,
             framework=Framework.OPENVINO,
@@ -849,7 +849,7 @@ class OpenVINOModel(OliveModel):
         _ = self.model_config
 
     @property
-    def model_config(self) -> dict[str, str]:
+    def model_config(self) -> Dict[str, str]:
         """Get the model configuration for OpenVINO model."""
         model_path = self.model_path
         assert Path(model_path).is_dir(), f"OpenVINO model path {model_path} is not a directory"
@@ -879,9 +879,9 @@ class OpenVINOModel(OliveModel):
 
     def prepare_session(
         self,
-        inference_settings: dict[str, Any],
+        inference_settings: Dict[str, Any],
         device: Device,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
         try:
@@ -904,10 +904,10 @@ class DistributedOnnxModel(ONNXModelBase):
 
     def __init__(
         self,
-        model_filepaths: list[Union[Path, str]] = [],
+        model_filepaths: List[Union[Path, str]] = [],
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
-        model_attributes: Optional[dict[str, Any]] = None,
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             model_path=None,
@@ -929,9 +929,9 @@ class DistributedOnnxModel(ONNXModelBase):
 
     def prepare_session(
         self,
-        inference_settings: Optional[dict[str, Any]] = None,
+        inference_settings: Optional[Dict[str, Any]] = None,
         device: Device = Device.GPU,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = 0,
     ):
         raise RuntimeError("DistributedOnnxModel doesn't have a session of its own")
@@ -975,9 +975,9 @@ class CompositeOnnxModel(ONNXModelBase):
 
     def __init__(
         self,
-        model_components: list[Union[ONNXModel, dict[str, Any]]],
-        model_component_names: list[str],
-        model_attributes: Optional[dict[str, Any]] = None,
+        model_components: List[Union[ONNXModel, Dict[str, Any]]],
+        model_component_names: List[str],
+        model_attributes: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(model_path=None, model_attributes=model_attributes)
 
@@ -1001,9 +1001,9 @@ class CompositeOnnxModel(ONNXModelBase):
 
     def prepare_session(
         self,
-        inference_settings: dict[str, Any],
+        inference_settings: Dict[str, Any],
         device: Device,
-        execution_providers: Union[str, list[str]] = None,
+        execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
         raise NotImplementedError()

@@ -6,7 +6,7 @@
 import logging
 from collections import OrderedDict, defaultdict, namedtuple
 from copy import deepcopy
-from typing import DefaultDict
+from typing import DefaultDict, Dict
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric import MetricResult
@@ -31,9 +31,9 @@ class FootprintNode(ConfigBase):
     # None for no parent which means current model is the input model
     parent_model_id: str = None
     model_id: str
-    model_config: dict = None
+    model_config: Dict = None
     from_pass: str = None
-    pass_run_config: dict = None
+    pass_run_config: Dict = None
     is_pareto_frontier: bool = False
     # TODO add EP/accelerators for same_model_id metrics
     metrics: FootprintNodeMetric = None
@@ -55,8 +55,8 @@ class Footprint:
 
     def __init__(
         self,
-        nodes: dict = None,
-        objective_dict: dict = None,
+        nodes: Dict = None,
+        objective_dict: Dict = None,
         is_marked_pareto_frontier: bool = False,
     ):
         self.nodes = nodes or OrderedDict()

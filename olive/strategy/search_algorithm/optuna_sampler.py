@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import Any, Tuple
+from typing import Any, Dict, Tuple
 
 import optuna
 
@@ -24,7 +24,7 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
     name = "optuna_sampler"
 
     @staticmethod
-    def _default_config() -> dict[str, ConfigParam]:
+    def _default_config() -> Dict[str, ConfigParam]:
         return {
             "num_samples": ConfigParam(type_=int, default_value=1, description="Number of samples to suggest."),
             "seed": ConfigParam(type_=int, default_value=1, description="Seed for the rng."),
@@ -55,7 +55,7 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
         """
         pass
 
-    def suggest(self) -> dict[str, dict[str, Any]]:
+    def suggest(self) -> Dict[str, Dict[str, Any]]:
         """
         Suggest a new configuration to try.
         """
@@ -75,7 +75,7 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
 
         return search_point
 
-    def _get_trial(self) -> Tuple[optuna.trial.Trial, dict[str, dict[str, Any]]]:
+    def _get_trial(self) -> Tuple[optuna.trial.Trial, Dict[str, Dict[str, Any]]]:
         """
         Get a trial from the study.
         """
@@ -99,7 +99,7 @@ class OptunaSearchAlgorithm(SearchAlgorithm):
             invalid_trial = invalid_trial or (search_point[space_name][param_name] == SpecialParamValue.INVALID)
         return trial, search_point, invalid_trial
 
-    def report(self, search_point: dict[str, dict[str, Any]], result: MetricResult, should_prune: bool = False):
+    def report(self, search_point: Dict[str, Dict[str, Any]], result: MetricResult, should_prune: bool = False):
         search_point_hash = hash_dict(search_point)
         trial_id = self._trial_ids[search_point_hash]
         if should_prune:

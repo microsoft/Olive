@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import importlib as imp
-from typing import Union
+from typing import Dict, List, Union
 
 import onnx
 from onnxruntime_extensions.tools.pre_post_processing import *  # noqa: F401, F403
@@ -12,7 +12,7 @@ from onnxruntime_extensions.tools.pre_post_processing.utils import create_named_
 from olive.passes.onnx.pipeline import resolve_placeholder
 
 
-def parse_steps(model: onnx.ModelProto, config: list[dict]):
+def parse_steps(model: onnx.ModelProto, config: List[Dict]):
     """Parse the config and return a dictionary of step name and its parameters.
 
     ## Config examples:
@@ -141,7 +141,7 @@ def parse_steps(model: onnx.ModelProto, config: list[dict]):
     return step_configs
 
 
-def parse_step_config(model: onnx.ModelProto, config: dict):
+def parse_step_config(model: onnx.ModelProto, config: Dict):
     """Parse a single step with its config parameters"""
     assert len(config) == 1, "The config should only have one step name and its parameters."
 
@@ -152,7 +152,7 @@ def parse_step_config(model: onnx.ModelProto, config: dict):
     return step_config_result
 
 
-def parse_step_params(model: onnx.ModelProto, step_config: dict):
+def parse_step_params(model: onnx.ModelProto, step_config: Dict):
     """Parse the step parameters for a single step"""
     step_params = step_config.get("params")
     if step_params is None:
@@ -208,7 +208,7 @@ def parse_step_params(model: onnx.ModelProto, step_config: dict):
     return params
 
 
-def create_pipeline_inputs(name: str, data_type: int, shape: list[Union[int, str]]) -> onnx.ValueInfoProto:
+def create_pipeline_inputs(name: str, data_type: int, shape: List[Union[int, str]]) -> onnx.ValueInfoProto:
     return create_named_value(name, data_type, shape)
 
 

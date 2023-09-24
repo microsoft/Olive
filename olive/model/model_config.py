@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Union
+from typing import Dict, List, Union
 
 from pydantic import validator
 
@@ -11,18 +11,18 @@ from olive.common.config_utils import ConfigBase
 
 class IOConfig(ConfigBase):
     # TODO remove input names, shapes and types, turn to use olive dataset config.
-    input_names: list[str]
-    input_shapes: list[list[int]] = None
-    input_types: list[str] = None
-    output_names: list[str]
-    output_shapes: list[list[int]] = None
-    output_types: list[str] = None
-    dynamic_axes: dict[str, dict[int, str]] = None
+    input_names: List[str]
+    input_shapes: List[List[int]] = None
+    input_types: List[str] = None
+    output_names: List[str]
+    output_shapes: List[List[int]] = None
+    output_types: List[str] = None
+    dynamic_axes: Dict[str, Dict[int, str]] = None
     # ONNX exporter might mark dimension like 'Transposepresent_value_self_1_dim_2' in shape inference
     # even though we want the dimension to be a constant int.
     # We use a workaround here: first use dim_param like "1" to represent the dimension, and then
     # convert it to int in the onnx model.
-    string_to_int_dim_params: list[str] = None
+    string_to_int_dim_params: List[str] = None
 
     @validator("input_shapes", "input_types")
     def check_input_shapes(cls, v, values):
@@ -69,7 +69,7 @@ class IOConfig(ConfigBase):
         return v
 
 
-def is_io_config_static(config: Union[IOConfig, dict]):
+def is_io_config_static(config: Union[IOConfig, Dict]):
     if isinstance(config, IOConfig):
         config = config.dict()
     if not config["input_shapes"]:

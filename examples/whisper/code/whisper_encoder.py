@@ -2,6 +2,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+from typing import List
+
 import torch
 from transformers import WhisperConfig
 
@@ -45,7 +47,7 @@ class WhisperEncoderInputs:
         )
         return WhisperEncoderInputs(input_features)
 
-    def to_list(self) -> list:
+    def to_list(self) -> List:
         if self.input_features is None:
             return []
         return [self.input_features]

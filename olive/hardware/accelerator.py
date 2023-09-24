@@ -5,7 +5,7 @@
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Union
+from typing import List, Union
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ class AcceleratorLookup:
         return [ep for ep in execution_providers if ep in available_providers]
 
     @staticmethod
-    def infer_accelerators_from_execution_provider(execution_provider: list[str]):
+    def infer_accelerators_from_execution_provider(execution_provider: List[str]):
         """
         Infer the device from the execution provider name.
         If all the execution provider is uniquely mapped to a device, return the device list.

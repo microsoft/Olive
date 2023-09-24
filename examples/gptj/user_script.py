@@ -51,7 +51,7 @@ class Dataloader:
 
     def __iter__(self):
         try:
-            for (input_ids, _attention_mask), last_ind in self.dataloader:
+            for (input_ids, attention_mask), last_ind in self.dataloader:
                 yield input_ids, last_ind
         except StopIteration:
             return

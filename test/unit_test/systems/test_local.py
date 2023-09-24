@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from test.unit_test.utils import get_accuracy_metric, get_custom_eval, get_latency_metric
-from typing import ClassVar
+from typing import ClassVar, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -33,7 +33,7 @@ class TestLocalSystem:
         # assert
         p.run.assert_called_once_with(olive_model.create_model(), None, output_model_path, None)
 
-    METRIC_TEST_CASE: ClassVar[list[Metric]] = [
+    METRIC_TEST_CASE: ClassVar[List[Metric]] = [
         (get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)),
         (get_accuracy_metric(AccuracySubType.F1_SCORE)),
         (get_accuracy_metric(AccuracySubType.PRECISION)),

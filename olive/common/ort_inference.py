@@ -1,9 +1,9 @@
 from pathlib import Path
-from typing import Union
+from typing import Dict, Union
 
 
 def get_ort_inference_session(
-    model_path: Union[Path, str], inference_settings: dict[str, any], use_ort_extensions: bool = False
+    model_path: Union[Path, str], inference_settings: Dict[str, any], use_ort_extensions: bool = False
 ):
     """
     Get an ONNXRuntime inference session.

@@ -6,6 +6,7 @@ import json
 import logging
 import shutil
 from pathlib import Path
+from typing import List
 
 from olive.cache import get_local_path_from_root
 from olive.evaluator.metric import Metric
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_config_file(
-    tempdir, model_config: ModelConfig, metrics: list[Metric], container_root_path: Path, model_mounts: dict
+    tempdir, model_config: ModelConfig, metrics: List[Metric], container_root_path: Path, model_mounts: dict
 ):
     model_json = model_config.to_json(check_object=True)
     for k, v in model_mounts.items():
@@ -58,8 +59,8 @@ def create_run_command(run_params: dict):
 
 
 def create_metric_volumes_list(
-    data_root: str, metrics: list[Metric], container_root_path: Path, mount_list: list
-) -> list[str]:
+    data_root: str, metrics: List[Metric], container_root_path: Path, mount_list: list
+) -> List[str]:
     for metric in metrics:
         metric_path = container_root_path / "metrics" / metric.name
         if metric.user_config.user_script:

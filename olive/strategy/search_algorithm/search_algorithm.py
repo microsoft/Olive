@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import Any, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 from olive.common.auto_config import AutoConfigClass
 from olive.common.config_utils import ConfigBase
@@ -16,7 +16,7 @@ class SearchAlgorithm(AutoConfigClass):
     Abstract base class for searchers
     """
 
-    registry: dict[str, Type["SearchAlgorithm"]] = {}
+    registry: Dict[str, Type["SearchAlgorithm"]] = {}
 
     @classmethod
     @property
@@ -26,10 +26,10 @@ class SearchAlgorithm(AutoConfigClass):
 
     def __init__(
         self,
-        search_space: dict[str, dict[str, SearchParameter]],
-        objectives: Optional[list[str]] = None,
-        higher_is_betters: Optional[list[bool]] = None,
-        config: Optional[Union[dict[str, Any], ConfigBase]] = None,
+        search_space: Dict[str, Dict[str, SearchParameter]],
+        objectives: Optional[List[str]] = None,
+        higher_is_betters: Optional[List[bool]] = None,
+        config: Optional[Union[Dict[str, Any], ConfigBase]] = None,
     ):
         # search space
         self._search_space = SearchSpace(search_space)
@@ -62,7 +62,7 @@ class SearchAlgorithm(AutoConfigClass):
         return False
 
     @abstractmethod
-    def suggest(self) -> dict[str, dict[str, Any]]:
+    def suggest(self) -> Dict[str, Dict[str, Any]]:
         """
         Suggest a new configuration to try.
         """
@@ -70,7 +70,7 @@ class SearchAlgorithm(AutoConfigClass):
 
     @abstractmethod
     def report(
-        self, search_point: dict[str, dict[str, Any]], result: dict[str, Union[float, int]], should_prune: bool = False
+        self, search_point: Dict[str, Dict[str, Any]], result: Dict[str, Union[float, int]], should_prune: bool = False
     ):
         """
         Report the result of a configuration.

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Dict, Union
 
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import CompositeOnnxModel, ONNXModel, OptimumModel
@@ -20,7 +20,7 @@ class OptimumConversion(Pass):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             "target_opset": PassConfigParam(
                 type_=int, default_value=14, description="The version of the default (ai.onnx) opset to target."
@@ -30,7 +30,7 @@ class OptimumConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: OptimumModel, data_root: str, config: dict[str, Any], output_model_path: str
+        self, model: OptimumModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModel, CompositeOnnxModel]:
         assert len(model.model_components) > 0
 

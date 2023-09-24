@@ -5,7 +5,7 @@
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Dict, Union
 
 from olive.common.config_utils import ConfigBase
 from olive.common.import_lib import import_user_module
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class DataComponentConfig(ConfigBase):
     name: str = None
     type: str = None
-    params: dict = None
+    params: Dict = None
 
 
 DefaultDataComponentCombos = {
@@ -37,7 +37,7 @@ class DataConfig(ConfigBase):
     type: str = DefaultDataContainer.DATA_CONTAINER.value
 
     # used to store the params for each component
-    params_config: dict = None
+    params_config: Dict = None
 
     # user script to define and register the components
     user_script: Union[Path, str] = None
@@ -47,9 +47,9 @@ class DataConfig(ConfigBase):
     # 1. update default_components_type from DataContainer or DefaultDataComponentCombos
     # 2. update default_components from default_components_type
     # 3. update components from default_components
-    components: dict[str, DataComponentConfig] = None
-    default_components: dict[str, DataComponentConfig] = None
-    default_components_type: dict[str, str] = None
+    components: Dict[str, DataComponentConfig] = None
+    default_components: Dict[str, DataComponentConfig] = None
+    default_components_type: Dict[str, str] = None
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

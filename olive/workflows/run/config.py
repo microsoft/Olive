@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Union
+from typing import Dict, List, Union
 
 from pydantic import validator
 
@@ -56,13 +56,13 @@ INPUT_MODEL_DATA_CONFIG = "__input_model_data_config__"
 class RunConfig(ConfigBase):
     azureml_client: AzureMLClientConfig = None
     input_model: ModelConfig
-    systems: dict[str, SystemConfig] = None
+    systems: Dict[str, SystemConfig] = None
     data_root: str = None
-    data_configs: dict[str, DataConfig] = None
-    evaluators: dict[str, OliveEvaluatorConfig] = None
-    pass_flows: list[list[str]] = None
+    data_configs: Dict[str, DataConfig] = None
+    evaluators: Dict[str, OliveEvaluatorConfig] = None
+    pass_flows: List[List[str]] = None
     engine: RunEngineConfig
-    passes: dict[str, RunPassConfig] = None
+    passes: Dict[str, RunPassConfig] = None
 
     @validator("input_model", pre=True)
     def insert_aml_client(cls, v, values):

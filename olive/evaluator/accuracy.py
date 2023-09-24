@@ -5,7 +5,7 @@
 import logging
 from abc import abstractmethod
 from inspect import isfunction, signature
-from typing import Any, Callable, Type, Union
+from typing import Any, Callable, Dict, Type, Union
 
 import torch
 import torchmetrics
@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class AccuracyBase(AutoConfigClass):
-    registry: dict[str, Type["AccuracyBase"]] = {}
-    metric_cls_map: dict[str, Union[torchmetrics.Metric, Callable]] = {
+    registry: Dict[str, Type["AccuracyBase"]] = {}
+    metric_cls_map: Dict[str, Union[torchmetrics.Metric, Callable]] = {
         "accuracy_score": torchmetrics.Accuracy,
         "f1_score": torchmetrics.F1Score,
         "precision": torchmetrics.Precision,
@@ -34,7 +34,7 @@ class AccuracyBase(AutoConfigClass):
     def name(cls):
         raise NotImplementedError
 
-    def __init__(self, config: Union[ConfigBase, dict[str, Any]] = None) -> None:
+    def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
         super().__init__(config)
         self.resolve_kwargs()
 
@@ -66,7 +66,7 @@ class AccuracyBase(AutoConfigClass):
         return metric_config
 
     @classmethod
-    def _default_config(cls) -> dict[str, ConfigParam]:
+    def _default_config(cls) -> Dict[str, ConfigParam]:
         return cls._metric_config_from_torch_metrics()
 
     @staticmethod

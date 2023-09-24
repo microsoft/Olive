@@ -8,7 +8,7 @@ import shutil
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from azure.ai.ml import Input, Output, command
 from azure.ai.ml.constants import AssetTypes
@@ -71,11 +71,11 @@ class AzureMLSystem(OliveSystem):
         self,
         azureml_client_config: AzureMLClientConfig,
         aml_compute: str,
-        aml_docker_config: Union[dict[str, Any], AzureMLDockerConfig] = None,
-        resources: dict = None,
+        aml_docker_config: Union[Dict[str, Any], AzureMLDockerConfig] = None,
+        resources: Dict = None,
         instance_count: int = 1,
         is_dev: bool = False,
-        accelerators: list[str] = None,
+        accelerators: List[str] = None,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
     ):
@@ -112,7 +112,7 @@ class AzureMLSystem(OliveSystem):
         model_config: ModelConfig,
         data_root: str,
         output_model_path: str,
-        point: Optional[dict[str, Any]] = None,
+        point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
         """
         Run the pass on the model at a specific point in the search space.
@@ -141,7 +141,7 @@ class AzureMLSystem(OliveSystem):
 
             return self._load_model(model_config, output_model_path, pipeline_output_path)
 
-    def _create_model_inputs(self, model_resource_paths: dict[str, ResourcePath]):
+    def _create_model_inputs(self, model_resource_paths: Dict[str, ResourcePath]):
         inputs = {"model_config": Input(type=AssetTypes.URI_FILE)}
         # loop through all the model resource paths
         # create an input for each one using the resource type, with the name model_<resource_name>
@@ -207,7 +207,7 @@ class AzureMLSystem(OliveSystem):
 
         return None
 
-    def _create_model_args(self, model_json: dict, model_resource_paths: dict[str, ResourcePath], tmp_dir: Path):
+    def _create_model_args(self, model_json: dict, model_resource_paths: Dict[str, ResourcePath], tmp_dir: Path):
         args = {}
         # keep track of resource names in model_json that are uploaded/mounted
         model_json["resource_names"] = []
@@ -227,7 +227,7 @@ class AzureMLSystem(OliveSystem):
 
         return args
 
-    def _create_pass_inputs(self, pass_path_params: list[Tuple[str, bool, ParamCategory]]):
+    def _create_pass_inputs(self, pass_path_params: List[Tuple[str, bool, ParamCategory]]):
         inputs = {"pass_config": Input(type=AssetTypes.URI_FILE)}
         for param, required, category in pass_path_params:
             # aml supports uploading file/folder even though this is typed as URI_FOLDER
@@ -236,7 +236,7 @@ class AzureMLSystem(OliveSystem):
         return inputs
 
     def _create_pass_args(
-        self, pass_config: dict, pass_path_params: list[Tuple[str, bool, ParamCategory]], data_root: str, tmp_dir: Path
+        self, pass_config: dict, pass_path_params: List[Tuple[str, bool, ParamCategory]], data_root: str, tmp_dir: Path
     ):
         pass_args = {}
         for param, _, category in pass_path_params:
@@ -306,7 +306,7 @@ class AzureMLSystem(OliveSystem):
         tmp_dir,
         model_config: ModelConfig,
         pass_config: dict,
-        pass_path_params: list[Tuple[str, bool, ParamCategory]],
+        pass_path_params: List[Tuple[str, bool, ParamCategory]],
     ):
         tmp_dir = Path(tmp_dir)
 
@@ -384,7 +384,7 @@ class AzureMLSystem(OliveSystem):
         pipeline_job,
         experiment_name: str,
         tmp_dir: Union[str, Path],
-        tags: dict = None,
+        tags: Dict = None,
         output_name: str = None,
     ) -> Path:
         """
@@ -474,7 +474,7 @@ class AzureMLSystem(OliveSystem):
             "metric_data_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
 
-    def _create_metric_args(self, data_root: str, metric_config: dict, tmp_dir: Path) -> Tuple[list[str], dict]:
+    def _create_metric_args(self, data_root: str, metric_config: dict, tmp_dir: Path) -> Tuple[List[str], dict]:
         metric_user_script = metric_config["user_config"]["user_script"]
         if metric_user_script:
             metric_user_script = Input(type=AssetTypes.URI_FILE, path=metric_user_script)
@@ -507,7 +507,7 @@ class AzureMLSystem(OliveSystem):
         }
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: list[Metric], accelerator: AcceleratorSpec
+        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
     ) -> MetricResult:
         if model_config.type.lower() == "SNPEModel".lower():
             raise NotImplementedError("SNPE model does not support azureml evaluation")
@@ -535,7 +535,7 @@ class AzureMLSystem(OliveSystem):
         data_root: str,
         tmp_dir: str,
         model_config: ModelConfig,
-        metrics: list[Metric],
+        metrics: List[Metric],
         accelerator: AcceleratorSpec,
     ):
         tmp_dir = Path(tmp_dir)
@@ -577,8 +577,8 @@ class AzureMLSystem(OliveSystem):
         data_root: str,
         tmp_dir: Path,
         metric: Metric,
-        model_args: dict[str, Input],
-        model_resource_paths: dict[str, ResourcePath],
+        model_args: Dict[str, Input],
+        model_resource_paths: Dict[str, ResourcePath],
         accelerator_config_path: str,
     ):
         metric_json = metric.to_json(check_object=True)

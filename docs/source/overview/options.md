@@ -24,7 +24,7 @@ AzureML authentication credentials is needed. Refer to
 [this](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-setup-authentication?tabs=sdk)  for
 more details.
 
-`azureml_client: [dict]`
+`azureml_client: [Dict]`
 - `subscription_id: [str]` Azure account subscription id.
 - `resource_group: [str]` Azure account resource group name.
 - `workspace_name: [str]` Azure ML workspace name.
@@ -33,7 +33,7 @@ more details.
 - `max_operation_retries: [int]` The maximum number of retries for Azure ML operations like resource creation and download.
 The default value is 3. User can increase if there are network issues and the operations fail.
 - `operation_retry_interval: [int]` The initial interval in seconds between retries for Azure ML operations like resource creation and download. The interval doubles after each retry. The default value is 5. User can increase if there are network issues and the operations fail.
-- `default_auth_params: dict[str, Any]` Default auth parameters for AzureML client. Please refer to [azure DefaultAzureCredential](https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters) for more details. For example, if you want to exclude managed identity credential, you can set the following:
+- `default_auth_params: Dict[str, Any]` Default auth parameters for AzureML client. Please refer to [azure DefaultAzureCredential](https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python#parameters) for more details. For example, if you want to exclude managed identity credential, you can set the following:
     ```json
     "azureml_client": {
         // ...
@@ -75,16 +75,16 @@ The default value is 3. User can increase if there are network issues and the op
 ```
 ## Input Model Information
 
-`input_model: [dict]`
+`input_model: [Dict]`
 
 User should specify input model type and configuration using `input model` dictionary. It contains following items:
 
 - `type: [str]` Type of the input model. The supported types are `PyTorchModel`, `ONNXModel`, `OpenVINOModel`, and `SNPEModel`. It is
 case insensitive.
 
-- `config: [dict]` The input model config dictionary specifies following items:
+- `config: [Dict]` The input model config dictionary specifies following items:
 
-    - `model_path: [str | dict]` The model path can be a string or a dictionary. If it is a string, it is either a string name
+    - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is either a string name
     used by the model loader or the path to the model file/directory. If it is a dictionary, it contains information about the model path.
     Please refer to [Configuring Model Path](../tutorials/configure_model_path.md) for the more information of the model path dictionary.
 
@@ -93,7 +93,7 @@ case insensitive.
 
     - `model_script: [str]` The name of the script provided by the user to assist with model loading.
 
-    - <a name="hf_config"></a> `hf_config: [dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
+    - <a name="hf_config"></a> `hf_config: [Dict]` Instead of `model_path` or `model_loader`, the model can be specified using a dictionary describing a huggingface
     model. This dictionary specifies the following items:
 
         - `model_name: [str]`: This the model name of the huggingface model such as `distilbert-base-uncased` which will be used to load the model with huggingface `from_pretrained` method.
@@ -106,10 +106,10 @@ case insensitive.
 
         - `model_class: [str]`: Instead of the `task`, the class of the model can be provided as well. Such as `DistilBertForSequenceClassification`
 
-        - `components: [list[HFComponent]]`: HFComponent list:
+        - `components: [List[HFComponent]]`: HFComponent list:
             - `HFComponent`:
                 - `name: [str]`: Component name. Olive will generate a model class with this str as attribute name.
-                - `io_config: [str | dict]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
+                - `io_config: [str | Dict]`: The io_config of this component. If `str`, Olive will load `io_config` from `model_script`.
                 - `component_func: [str]`: The component function name will be loaded from `model_script`.
                 - `dummy_inputs_func: [str]`: The dummy input function name will be loaded from `model_script`.
 
@@ -179,7 +179,7 @@ If `data_root` is /home/user/data, and the data_dir in metrics evaluation is `da
 If `data_root` is `azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test`, and the data_dir in metrics evaluation is `data_dir: "cifar-10-batches-py"`, then the final data_dir will be `azureml://subscriptions/test/resourcegroups/test/workspaces/test/datastores/test/cifar-10-batches-py`.
 
 ## Systems Information
-`systems: [dict]`
+`systems: [Dict]`
 
 This is a dictionary that contains the information of systems that are reference by the engine, passes and evaluators. The key of the
 dictionary is the name of the system. The value of the dictionary is another dictionary that contains the information of the system. The
@@ -188,7 +188,7 @@ information of the system contains following items:
 - `type: [str]` The type of the system. The supported types are `LocalSystem`, `AzureML` and `Docker`.
   There are some built-in system alias which could also be used as type. For example, `AzureNDV2System`. Please refer to [Olive System Alias](olive_system_alias) for the complete list of system alias.
 
-- `config: [dict]` The system config dictionary that contains the system specific information.
+- `config: [Dict]` The system config dictionary that contains the system specific information.
 
 Please refer to [Configuring OliveSystem](configuring_olivesystem) for the more information of the system config dictionary.
 
@@ -209,13 +209,13 @@ Please refer to [Configuring OliveSystem](configuring_olivesystem) for the more 
 }
 ```
 ## Evaluators Information
-`evaluators: [dict]`
+`evaluators: [Dict]`
 
 This is a dictionary that contains the information of evaluators that are reference by the engine and passes. The key of the dictionary
 is the name of the evaluator. The value of the dictionary is another dictionary that contains the information of the evaluator. The
 information of the evaluator contains following items:
 
-- <a name="metrics"></a> `metrics: [list]` This is a list of metrics that the evaluator will use to evaluate the model. Each metric is a dictionary that
+- <a name="metrics"></a> `metrics: [List]` This is a list of metrics that the evaluator will use to evaluate the model. Each metric is a dictionary that
     contains following items:
 
     - `name: [str]` The name of the metric. This must be a unique name among all metrics in the evaluator.
@@ -226,7 +226,7 @@ information of the evaluator contains following items:
         - `torch_metrics` backend uses `torchmetrics` library to compute metrics. It supports `accuracy_score`, `f1_score`, `precision`, `recall` and `auc` metrics.
         - `huggingface_metrics` backend uses huggingface `evaluate` library to compute metrics. The supported metrics can be found at [huggingface metrics](https://huggingface.co/metrics).
 
-    - `subtypes: [list[dict]]` The subtypes of the metric. Cannot be null or empty. Each subtype is a dictionary that contains following items:
+    - `subtypes: [List[Dict]]` The subtypes of the metric. Cannot be null or empty. Each subtype is a dictionary that contains following items:
 
         - `name: str` The name of the subtype. Please refer to [AccuracySubtype](accuracy_sub_type) and [LatencySubtype](latency_sub_type)
         for the supported subtypes. For `custom` type, if the result of the evaluation is a dictionary, the name of the subtype should be the key of the dictionary. Otherwise, the name of the subtype could be any unique string user gives.
@@ -240,7 +240,7 @@ information of the evaluator contains following items:
 
         - `higher_is_better: [Boolean]` True if the metric is better when it is higher. It is `true` for `accuracy` type and `false` for `latency` type.
 
-        - `goal: [dict]` The goal of the metric. It is a dictionary that contains following items:
+        - `goal: [Dict]` The goal of the metric. It is a dictionary that contains following items:
 
             - `type: [str]` The type of the goal. The supported types are `threshold`, `min-improvement`, `percent-min-improvement`,
             `max-degradation`, and `percent-max-degradation`.
@@ -249,7 +249,7 @@ information of the evaluator contains following items:
             for `min-improvement` type. It is the minimum improvement percentage for `percent-min-improvement` type. It is the maximum
             degradation value for `max-degradation` type. It is the maximum degradation percentage for `percent-max-degradation` type.
 
-    - `user_config: [dict]` The user config dictionary that contains the user specific information for the metric. The
+    - `user_config: [Dict]` The user config dictionary that contains the user specific information for the metric. The
        dictionary contains following items:
 
         - `user_script: [str]` The name of the script provided by the user to assist with metric evaluation.
@@ -264,7 +264,7 @@ information of the evaluator contains following items:
         function should take the `data_dir`, `batch_size`, `*args`, `**kwargs` as input and return the data loader. Only valid for `accuracy` and `latency`
          type.
 
-        - `inference_settings: [dict]` Inference settings for the different runtime. Only valid for `accuracy` and `latency` type.
+        - `inference_settings: [Dict]` Inference settings for the different runtime. Only valid for `accuracy` and `latency` type.
 
         - `post_processing_func: [str]` The name of the function provided by the user to post process the model output. The function
         should take the model output and return the post processed output. Only valid for `accuracy` type.
@@ -342,7 +342,7 @@ information of the evaluator contains following items:
 
 
 ## Passes Information
-`passes: [dict]`
+`passes: [Dict]`
 
 This is a dictionary that contains the information of passes that are executed by the engine. The passes are executed
 in order of their definition in this dictionary if `pass_flows` is not specified. The key of the dictionary is the name
@@ -355,12 +355,12 @@ of the pass contains following items:
   if any, (`false`) for the optional parameters. This is `false` by default and can be overridden if `search_strategy` under `engine` is
   specified. Otherwise, it is always `true`.
 
-- `config: [dict]` The configuration of the pass.
+- `config: [Dict]` The configuration of the pass.
 
-- `host: [str | dict]` The host of the pass. It can be a string or a dictionary. If it is a string, it is the name of a system in
+- `host: [str | Dict]` The host of the pass. It can be a string or a dictionary. If it is a string, it is the name of a system in
 `systems`. If it is a dictionary, it contains the system information. If not specified, the host of the engine will be used.
 
-- `evaluator: [str | dict]` The evaluator of the pass. It can be a string or a dictionary. If it is a string, it is the name of an
+- `evaluator: [str | Dict]` The evaluator of the pass. It can be a string or a dictionary. If it is a string, it is the name of an
 evaluator in `evaluators`. If it is a dictionary, it contains the evaluator information. If not specified, the evaluator of the engine
 will be used.
 
@@ -418,7 +418,7 @@ Please also find the detailed options from following table for each pass:
 ```
 
 ## Pass Flows Information
-`pass_flows: list[list[str]]`
+`pass_flows: List[List[str]]`
 
 This is a list of list of pass names. Each list of pass names is a pass flow which will be executed in order.
 When `pass_flows` is not specified, the passes are executed in the order of the `passes` dictionary.
@@ -460,17 +460,17 @@ When `pass_flows` is not specified, the passes are executed in the order of the 
 ```
 
 ## Engine Information
-`engine: [dict]`
+`engine: [Dict]`
 
 This is a dictionary that contains the information of the engine. The information of the engine contains following items:
 
-- `search_strategy: [dict | Boolean | None]` The search strategy of the engine. It contains the following items:
+- `search_strategy: [Dict | Boolean | None]` The search strategy of the engine. It contains the following items:
 
     - `execution_order: [str]` The execution order of the optimizations of passes. The options are `pass-by-pass` and `joint`.
 
     - `search_algorithm: [str]` The search algorithm of the engine. The available search algorithms are `exhaustive`, `random` and `tpe`.
 
-    - `search_algorithm_config: [dict]` The configuration of the search algorithm. The configuration of the search algorithm depends on
+    - `search_algorithm_config: [Dict]` The configuration of the search algorithm. The configuration of the search algorithm depends on
     the search algorithm.
 
     - `output_model_num: [int]` The number of output models from the engine based on metric priority. If not specified, the engine will output all qualified models.
@@ -493,13 +493,13 @@ This is a dictionary that contains the information of the engine. The informatio
 
 - `evaluate_input_model: [Boolean]` In this mode, the engine will evaluate the input model using the engine's evaluator and return the results. If the engine has no evaluator, it will raise an error. This is `true` by default.
 
-- `host: [str | dict]` The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.
+- `host: [str | Dict]` The host of the engine. It can be a string or a dictionary. If it is a string, it is the name of a system in `systems`.
     If it is a dictionary, it contains the system information. If not specified, it is the local system.
 
-- `target: [str | dict]` The target to run model evaluations on. It can be a string or a dictionary. If it is a string, it is the name of
+- `target: [str | Dict]` The target to run model evaluations on. It can be a string or a dictionary. If it is a string, it is the name of
     a system in `systems`. If it is a dictionary, it contains the system information. If not specified, it is the local system.
 
-- `evaluator: [str | dict]` The evaluator of the engine. It can be a string or a dictionary. If it is a string, it is the name of an evaluator
+- `evaluator: [str | Dict]` The evaluator of the engine. It can be a string or a dictionary. If it is a string, it is the name of an evaluator
     in `evaluators`. If it is a dictionary, it contains the evaluator information. This evaluator will be used to evaluate the input model if
     needed. It is also used to evaluate the output models of passes that don't have their own evaluators.
 
