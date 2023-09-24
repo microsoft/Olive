@@ -81,3 +81,4 @@ unfixable = [
 [tool.ruff.pep8-naming]
 # Allow Pydantic's `@validator` decorator to trigger class method treatment.
 classmethod-decorators = ["classmethod", "pydantic.validator", "pydantic.root_validator"]
+
