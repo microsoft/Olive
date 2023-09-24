@@ -120,10 +120,10 @@ class BaseClusterEnvironment(ClusterEnvironment, ABC):
                 # if no need to delete, just set back the original value
                 os.environ[variable] = original_value
             else:
-                logger.info("original_value:", original_value)
-                logger.info("variable:", variable)
+                logger.info("original_value: %s", original_value)
+                logger.info("variable: %s", variable)
                 if variable in os.environ:
-                    logger.info("os.environ[variable]:", os.environ[variable])
+                    logger.info("os.environ[variable]: %s", os.environ[variable])
 
 
 class AzureMLPerProcessCluster(BaseClusterEnvironment):

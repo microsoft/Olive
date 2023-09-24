@@ -301,7 +301,7 @@ def create_raw_data(dir, input_names, input_shapes, input_types=None, num_sample
     num_samples_digits = len(str(num_samples))
 
     data = {}
-    for input_name, input_shape, input_type in zip(input_names, input_shapes, input_types, strict=False):
+    for input_name, input_shape, input_type in zip(input_names, input_shapes, input_types):
         data[input_name] = []
         input_dir = data_dir / input_name
         input_dir.mkdir(parents=True, exist_ok=True)

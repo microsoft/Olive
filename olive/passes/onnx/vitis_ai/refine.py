@@ -12,6 +12,8 @@ refine_op_type = ["DequantizeLinear", "QuantizeLinear"]
 postfix = "_Output"
 logger = logging.getLogger(__name__)
 
+# ruff: noqa
+
 
 class QuantPosManager(object):
     def __init__(self, model):

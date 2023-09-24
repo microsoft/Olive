@@ -56,7 +56,7 @@ class SNPEDataLoader(ABC):
         self.batch_input_list_headers = []
         self.batch_input_list_contents = []
         with open(self.input_list) as f, open(batch_input_list) as f_batch:
-            for line, line_batch in zip(f, f_batch, strict=False):
+            for line, line_batch in zip(f, f_batch):
                 if line.startswith("#") or line.startswith("%"):
                     self.batch_input_list_headers.append(line.strip())
                 else:
@@ -65,7 +65,7 @@ class SNPEDataLoader(ABC):
         self.batch_input_list_metadata = []
         for line, line_batch in self.batch_input_list_contents:
             to_copy = []
-            for input, input_batch in zip(line.split(), line_batch.split(), strict=False):
+            for input, input_batch in zip(line.split(), line_batch.split()):
                 if ":=" in input:
                     to_copy.append((input.split(":=")[1], input_batch.split(":=")[1]))
                 else:
@@ -192,7 +192,7 @@ class SNPERandomDataLoader(SNPEDataLoader):
 
         # create random data
         for input_name, input_shape in zip(
-            self.config["io_config"]["input_names"], self.config["io_config"]["input_shapes"], strict=False
+            self.config["io_config"]["input_names"], self.config["io_config"]["input_shapes"]
         ):
             input_dir = data_dir / input_name
             input_dir.mkdir(parents=True, exist_ok=True)
@@ -239,7 +239,7 @@ class SNPECommonDataLoader(SNPEDataLoader):
         logger.debug(f"Converting dataloader of type {type(self.config['dataloader'])} to SNPE dataloader")
         input_specs = {}
         for input_name, input_shape in zip(
-            self.config["io_config"]["input_names"], self.config["io_config"]["input_shapes"], strict=False
+            self.config["io_config"]["input_names"], self.config["io_config"]["input_shapes"]
         ):
             input_specs[input_name] = {"target_shape": input_shape}
 
@@ -301,9 +301,9 @@ class SNPECommonDataLoader(SNPEDataLoader):
         sample_digits = len(str(num_samples))
         for i, (input_data_i, annotation) in enumerate(self.config["dataloader"]):
             if isinstance(input_data_i, tuple):
-                input_data = dict(zip(input_specs.keys(), input_data_i, strict=False))
+                input_data = dict(zip(input_specs.keys(), input_data_i))
             elif isinstance(input_data_i, (torch.Tensor, np.ndarray)):
-                input_data = dict(zip(input_specs.keys(), [input_data_i], strict=False))
+                input_data = dict(zip(input_specs.keys(), [input_data_i]))
             else:
                 input_data = input_data_i
                 assert isinstance(

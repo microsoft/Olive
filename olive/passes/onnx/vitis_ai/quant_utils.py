@@ -11,6 +11,8 @@ from onnxruntime import __version__ as OrtVersion
 from onnxruntime.quantization.quant_utils import get_qmin_qmax_for_qType, quantize_nparray
 from packaging import version
 
+# ruff: noqa
+
 
 class PowerOfTwoMethod(Enum):
     NonOverflow = 0

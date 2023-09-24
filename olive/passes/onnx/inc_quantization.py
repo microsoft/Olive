@@ -253,7 +253,7 @@ class IncQuantization(Pass):
         # static quantization config
         config.update(deepcopy(_inc_static_dataloader_config))
         inc_static_optional_config = deepcopy(_inc_static_optional_config)
-        for _, value in inc_static_optional_config.items():
+        for value in inc_static_optional_config.values():
             # default value of quant_format is conditional on approach
             if isinstance(value.searchable_values, Categorical):
                 # ignore the parameter quant_format if approach is dynamic, if approach is static,
@@ -267,9 +267,9 @@ class IncQuantization(Pass):
                 # ignore the parameter quant_format if approach is dynamic, if approach is static,
                 # use the searchable_values in inc_static_optional_config by expanding the parents
                 value.searchable_values = Conditional(
-                    parents=("approach",) + value.searchable_values.parents,
+                    parents=("approach", *value.searchable_values.parents),
                     support={
-                        ("static",) + key: value.searchable_values.support[key]
+                        ("static", *key): value.searchable_values.support[key]
                         for key in value.searchable_values.support
                     },
                     default=Categorical(["default"]),
@@ -338,7 +338,7 @@ class IncQuantization(Pass):
             tolerable_loss = -goal_value / 100
             criterion = "relative"
         else:
-            assert False, (
+            raise AssertionError(
                 "Accuracy metric goal type for Intel® Neural Compressor quantization only suuport "
                 "'max-degradation', 'min-improvement', 'percent-max-degradation' and 'percent-min-improvement'."
             )
@@ -358,7 +358,7 @@ class IncQuantization(Pass):
         except ImportError:
             raise ImportError(
                 "Please install `olive-ai[inc]` or `neural-compressor` to use Intel® Neural Compressor quantization"
-            )
+            ) from None
 
         _inc_quantization_config = deepcopy(run_config)
 
@@ -414,7 +414,7 @@ class IncQuantization(Pass):
         except ImportError:
             raise ImportError(
                 "Please install `olive-ai[inc]` or `neural-compressor` to use Intel® Neural Compressor quantization"
-            )
+            ) from None
 
         # start with a copy of the config
         run_config = deepcopy(config)

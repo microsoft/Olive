@@ -11,6 +11,8 @@ from onnxruntime_extensions.tools.pre_post_processing.utils import create_named_
 
 from olive.passes.onnx.pipeline import resolve_placeholder
 
+# ruff: noqa: RUF100, PLW2901
+
 
 def parse_steps(model: onnx.ModelProto, config: List[Dict]):
     """Parse the config and return a dictionary of step name and its parameters.

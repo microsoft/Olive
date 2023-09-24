@@ -43,7 +43,7 @@ _expert_pattern = [
 
 
 def _dump_graph(node: Message, filepath: str):
-    with open(filepath, "wt") as strm:
+    with open(filepath, "w") as strm:
         json.dump(MessageToDict(node), fp=strm, indent=2, sort_keys=True, separators=_json_separators)
         strm.flush()
 
