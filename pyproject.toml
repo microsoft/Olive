@@ -61,6 +61,7 @@ ignore = [
     "SIM116", # Don't use dict lookup to replace if-else
     "UP006", # Ignore old typing hints,
     "UP007", # Ignore old Union hints,
+    "UP035", # Ignore List/Dict typing import
     "UP038", # Ignore old isinstance hints,
 ]
 ignore-init-module-imports = true

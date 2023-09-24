@@ -56,22 +56,23 @@ def get_dlc_io_config(dlc_path: str, input_names: List[str], output_names: List[
 
     input_dims = {}
     output_dims = {}
-    out = csv.reader(open(tmp_csv.name))
-    for row in out:
-        if len(row) == 8:
-            _, name, _, input, output, shape, _, _ = tuple(row)
-            # version 2.x has 'name type'
-            output = output.split(" ")[0]
-            # input name in this format for versions 1.x
-            if name == input and name == output and name and name in input_names:
-                input_dims[name] = list(map(int, shape.split("x")))
-            elif output in output_names:
-                output_dims[output] = list(map(int, shape.split("x")))
-        if len(row) == 3:
-            name, shape, _ = tuple(row)
-            # input name in this format for versions 2.x
-            if name in input_names:
-                input_dims[name] = list(map(int, shape.split(",")))
+    with open(tmp_csv.name) as f:
+        out = csv.reader(f)
+        for row in out:
+            if len(row) == 8:
+                _, name, _, input, output, shape, _, _ = tuple(row)
+                # version 2.x has 'name type'
+                output = output.split(" ")[0]
+                # input name in this format for versions 1.x
+                if name == input and name == output and name and name in input_names:
+                    input_dims[name] = list(map(int, shape.split("x")))
+                elif output in output_names:
+                    output_dims[output] = list(map(int, shape.split("x")))
+            if len(row) == 3:
+                name, shape, _ = tuple(row)
+                # input name in this format for versions 2.x
+                if name in input_names:
+                    input_dims[name] = list(map(int, shape.split(",")))
     tmp_csv.close()
 
     io_config = {
