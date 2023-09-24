@@ -104,7 +104,7 @@ class ResourcePathConfig(ConfigBase):
 
 
 def create_resource_path(
-    resource_path: Optional[Union[str, Path, dict[str, Any], ResourcePathConfig, ResourcePath]]
+    resource_path: Optional[Union[str, Path, Dict[str, Any], ResourcePathConfig, ResourcePath]]
 ) -> Optional[ResourcePath]:
     """
     Create a resource path from a string or a dict.
@@ -183,13 +183,13 @@ class LocalResourcePath(ResourcePath):
     """Base class for a local resource path."""
 
     @staticmethod
-    def _default_config() -> dict[str, Any]:
+    def _default_config() -> Dict[str, Any]:
         return {
             "path": ConfigParam(type_=Union[Path, str], required=True, description="Path to the resource."),
         }
 
     @staticmethod
-    def _validators() -> dict[str, Callable]:
+    def _validators() -> Dict[str, Callable]:
         return {"validate_path": validator("path", allow_reuse=True)(_validate_path)}
 
     def get_path(self) -> str:
@@ -232,7 +232,7 @@ class LocalFile(LocalResourcePath):
     name = ResourceType.LocalFile
 
     @staticmethod
-    def _validators() -> dict[str, Callable[..., Any]]:
+    def _validators() -> Dict[str, Callable[..., Any]]:
         validators = LocalResourcePath._validators()
         validators.update({"validate_file_path": validator("path", allow_reuse=True)(_validate_file_path)})
         return validators
@@ -251,7 +251,7 @@ class LocalFolder(LocalResourcePath):
     name = ResourceType.LocalFolder
 
     @staticmethod
-    def _validators() -> dict[str, Callable[..., Any]]:
+    def _validators() -> Dict[str, Callable[..., Any]]:
         validators = LocalResourcePath._validators()
         validators.update({"validate_folder_path": validator("path", allow_reuse=True)(_validate_folder_path)})
         return validators
@@ -263,7 +263,7 @@ class StringName(ResourcePath):
     name = ResourceType.StringName
 
     @staticmethod
-    def _default_config() -> dict[str, Any]:
+    def _default_config() -> Dict[str, Any]:
         return {
             "name": ConfigParam(type_=str, required=True, description="Name of the resource."),
         }
@@ -276,7 +276,7 @@ class StringName(ResourcePath):
         return self.config.name
 
 
-def _get_azureml_resource_prefix(workspace_config: dict[str, str]) -> str:
+def _get_azureml_resource_prefix(workspace_config: Dict[str, str]) -> str:
     return (
         f"azureml://subscriptions/{workspace_config['subscription_id']}"
         f"/resourcegroups/{workspace_config['resource_group']}"
@@ -290,7 +290,7 @@ class AzureMLModel(ResourcePath):
     name = ResourceType.AzureMLModel
 
     @staticmethod
-    def _default_config() -> dict[str, Any]:
+    def _default_config() -> Dict[str, Any]:
         return {
             "azureml_client": ConfigParam(
                 type_=AzureMLClientConfig, required=True, description="AzureML client config."
@@ -365,7 +365,7 @@ class AzureMLDatastore(ResourcePath):
     name = ResourceType.AzureMLDatastore
 
     @staticmethod
-    def _validators() -> dict[str, Callable[..., Any]]:
+    def _validators() -> Dict[str, Callable[..., Any]]:
         validators = ResourcePath._validators()
         validators.update(
             {
@@ -375,7 +375,7 @@ class AzureMLDatastore(ResourcePath):
         return validators
 
     @staticmethod
-    def _default_config() -> dict[str, Any]:
+    def _default_config() -> Dict[str, Any]:
         return {
             "azureml_client": ConfigParam(type_=AzureMLClientConfig, description="AzureML client config."),
             "datastore_name": ConfigParam(type_=str, description="Name of the datastore."),
@@ -478,7 +478,7 @@ class AzureMLJobOutput(ResourcePath):
     name = ResourceType.AzureMLJobOutput
 
     @staticmethod
-    def _default_config() -> dict[str, Any]:
+    def _default_config() -> Dict[str, Any]:
         return {
             "azureml_client": ConfigParam(
                 type_=AzureMLClientConfig, required=True, description="AzureML client config."

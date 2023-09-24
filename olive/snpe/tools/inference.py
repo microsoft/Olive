@@ -7,7 +7,7 @@ import platform
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Tuple
+from typing import List, Tuple
 
 import numpy as np
 
@@ -117,8 +117,8 @@ def snpe_net_run(
     dlc_path: str,
     input_list: str,
     data_dir: str,
-    output_names: list[str],
-    output_shapes: list[list[int]],
+    output_names: List[str],
+    output_shapes: List[List[int]],
     runs: int = 1,
     sleep: int = 0,
     device: SNPEDevice = "cpu",

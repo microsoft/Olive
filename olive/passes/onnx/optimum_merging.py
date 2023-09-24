@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import os
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Dict, Union
 
 import onnxruntime
 from onnx import ModelProto
@@ -29,12 +29,12 @@ class OptimumMerging(Pass):
         return False
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = get_external_data_config()
         return config
 
     def _run_for_config(
-        self, model: CompositeOnnxModel, data_root: str, config: dict[str, Any], output_model_path: str
+        self, model: CompositeOnnxModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModel, CompositeOnnxModel]:
         assert len(model.model_components) == 2
 

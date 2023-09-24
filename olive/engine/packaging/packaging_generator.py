@@ -11,6 +11,7 @@ import urllib.request
 from collections import OrderedDict
 from pathlib import Path
 from string import Template
+from typing import Dict, List
 
 import pkg_resources
 
@@ -28,8 +29,8 @@ logger = logging.getLogger(__name__)
 
 def generate_output_artifacts(
     packaging_config: PackagingConfig,
-    footprints: dict[AcceleratorSpec, Footprint],
-    pf_footprints: dict[AcceleratorSpec, Footprint],
+    footprints: Dict[AcceleratorSpec, Footprint],
+    pf_footprints: Dict[AcceleratorSpec, Footprint],
     output_dir: Path,
 ):
     if sum([len(f.nodes) if f.nodes else 0 for f in pf_footprints.values()]) == 0:
@@ -41,8 +42,8 @@ def generate_output_artifacts(
 
 def _generate_zipfile_output(
     packaging_config: PackagingConfig,
-    footprints: dict[AcceleratorSpec, Footprint],
-    pf_footprints: dict[AcceleratorSpec, Footprint],
+    footprints: Dict[AcceleratorSpec, Footprint],
+    pf_footprints: Dict[AcceleratorSpec, Footprint],
     output_dir: Path,
 ) -> None:
     logger.info("Packaging Zipfile output artifacts")
@@ -292,7 +293,7 @@ def _download_ort_extensions_package(use_ort_extensions: bool, download_path: st
             run_subprocess(download_command)
 
 
-def _download_c_packages(package_name_list: list[str], ort_version: str, ort_download_path: str):
+def _download_c_packages(package_name_list: List[str], ort_version: str, ort_download_path: str):
     PACKAGE_DOWNLOAD_LINK_MAPPING = {
         "onnxruntime": Template("https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime/$ort_version"),
         "onnxruntime-gpu": Template("https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime.Gpu/$ort_version"),

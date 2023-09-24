@@ -5,7 +5,7 @@
 import copy
 import itertools
 import logging
-from typing import Any, Callable, Union
+from typing import Any, Callable, Dict, Union
 
 from olive.data.config import DataConfig
 from olive.evaluator.metric import LatencySubType, Metric, MetricType, joint_metric_key
@@ -277,7 +277,7 @@ class OrtPerfTuning(Pass):
         return False
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "data_dir": PassConfigParam(
                 type_=OLIVE_RESOURCE_ANNOTATIONS,
@@ -291,7 +291,7 @@ class OrtPerfTuning(Pass):
             ),
             "batch_size": PassConfigParam(type_=int, description="Batch size for inference."),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, dict],
+                type_=Union[DataConfig, Dict],
                 description="Data config to load data for computing latency.",
             ),
             "input_names": PassConfigParam(
@@ -340,14 +340,14 @@ class OrtPerfTuning(Pass):
                 type_=list, default_value=[None], description="List of inter thread number for test."
             ),
             "extra_session_config": PassConfigParam(
-                type_=dict[str, Any],
+                type_=Dict[str, Any],
                 default_value=None,
                 description="Extra customized session options during tuning process.",
             ),
         }
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: dict[str, Any], output_model_path: str
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
         # TODO remove this when we have a concrete investigation on the backcompat issue
         if not config.get("providers_list"):

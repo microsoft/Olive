@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from copy import deepcopy
-from typing import Any, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
@@ -18,8 +18,8 @@ class SearchResults:
 
     def __init__(
         self,
-        objective_dict: dict[str, dict],
-        init_model_history: dict[str, Any] = None,
+        objective_dict: Dict[str, dict],
+        init_model_history: Dict[str, Any] = None,
     ):
         self.objective_dict = objective_dict
         # objectives and directions of optimization
@@ -43,7 +43,7 @@ class SearchResults:
         self.results = {}
         self.model_ids = {}
 
-    def record(self, search_point: dict[str, dict[str, Any]], result: MetricResult, model_ids: list[str]):
+    def record(self, search_point: Dict[str, Dict[str, Any]], result: MetricResult, model_ids: List[str]):
         """
         Report the result of a configuration.
         """
@@ -65,7 +65,7 @@ class SearchResults:
                 return False
         return True
 
-    def sort_search_points(self, objectives: list[str] = None, apply_goals: bool = False) -> list[str]:
+    def sort_search_points(self, objectives: List[str] = None, apply_goals: bool = False) -> List[str]:
         """
         Return the search points sorted by the objectives.
         """
@@ -95,8 +95,8 @@ class SearchResults:
         return sorted_model_ids, sorted_search_points, sorted_results
 
     def _get_results_list(
-        self, objectives: list[str] = None, apply_goals: bool = False
-    ) -> Tuple[list[list[float]], list[str]]:
+        self, objectives: List[str] = None, apply_goals: bool = False
+    ) -> Tuple[List[List[float]], List[str]]:
         """
         Return the results as a list of lists.
 

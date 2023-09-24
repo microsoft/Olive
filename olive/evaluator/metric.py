@@ -5,7 +5,7 @@
 import json
 import logging
 from enum import Enum
-from typing import ClassVar, Optional, Union
+from typing import ClassVar, Dict, List, Optional, Union
 
 from pydantic import validator
 
@@ -82,7 +82,7 @@ class Metric(ConfigBase):
     name: str
     type: MetricType
     backend: Optional[str] = "torch_metrics"
-    sub_types: list[SubMetric]
+    sub_types: List[SubMetric]
     user_config: ConfigBase = None
     data_config: Optional[DataConfig] = None
 
@@ -162,7 +162,7 @@ class SubMetricResult(ConfigBase):
 
 
 class MetricResult(ConfigDictBase):
-    __root__: dict[str, SubMetricResult]
+    __root__: Dict[str, SubMetricResult]
     delimiter: ClassVar[str] = "-"
 
     def get_value(self, metric_name, sub_type_name):
@@ -182,7 +182,7 @@ def joint_metric_key(metric_name, sub_type_name):
     return f"{metric_name}{MetricResult.delimiter}{sub_type_name}"
 
 
-def flatten_metric_sub_type(metric_dict: dict[str, dict]):
+def flatten_metric_sub_type(metric_dict: Dict[str, Dict]):
     flatten_results = {}
     for metric_name, metric_res in metric_dict.items():
         for sub_type_name, sub_type_res in metric_res.items():
@@ -191,7 +191,7 @@ def flatten_metric_sub_type(metric_dict: dict[str, dict]):
     return flatten_results
 
 
-def flatten_metric_result(dict_results: dict[str, MetricResult]):
+def flatten_metric_result(dict_results: Dict[str, MetricResult]):
     return MetricResult.parse_obj(flatten_metric_sub_type(dict_results))
 
 

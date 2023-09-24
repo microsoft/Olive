@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 from olive.constants import Framework
 from olive.hardware.accelerator import AcceleratorSpec
@@ -18,10 +18,10 @@ class OpenVINOConversion(Pass):
     """
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "input": PassConfigParam(
-                type_=list[Tuple],
+                type_=List[Tuple],
                 required=False,
                 description=(
                     "Input can be set by passing a list of tuples. "
@@ -29,7 +29,7 @@ class OpenVINOConversion(Pass):
                 ),
             ),
             "input_shape": PassConfigParam(
-                type_=list[int],
+                type_=List[int],
                 required=False,
                 description=(
                     "Input shape(s) that should be fed to an input node(s) of the model."
@@ -38,7 +38,7 @@ class OpenVINOConversion(Pass):
                 ),
             ),
             "extra_config": PassConfigParam(
-                type_=dict,
+                type_=Dict,
                 default_value=None,
                 required=False,
                 description=(
@@ -51,7 +51,7 @@ class OpenVINOConversion(Pass):
         }
 
     def _run_for_config(
-        self, model: Union[PyTorchModel, ONNXModel], data_root: str, config: dict[str, Any], output_model_path: str
+        self, model: Union[PyTorchModel, ONNXModel], data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> OpenVINOModel:
         import torch
 

@@ -5,7 +5,7 @@
 import logging
 import os
 from copy import deepcopy
-from typing import Any, Union
+from typing import Any, Dict, List, Union
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
@@ -23,7 +23,7 @@ class OrtTransformersOptimization(Pass):
     It is based on onnxruntime.transformers.optimizer."""
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         from onnxruntime.transformers.fusion_options import FusionOptions
 
         is_gpu = accelerator_spec.accelerator_type == Device.GPU
@@ -42,7 +42,7 @@ class OrtTransformersOptimization(Pass):
             "hidden_size": PassConfigParam(type_=int, default_value=0, description="Number of hidden nodes."),
             # TODO: Figure out what the expected type is
             "optimization_options": PassConfigParam(
-                type_=Union[dict[str, Any], FusionOptions],
+                type_=Union[Dict[str, Any], FusionOptions],
                 default_value=None,
                 description="Optimization options that turn on/off some fusions.",
             ),
@@ -74,14 +74,14 @@ class OrtTransformersOptimization(Pass):
                 description="Keep input and output tensors in their original data type",
             ),
             "force_fp32_ops": PassConfigParam(
-                type_=list[str], default_value=None, description="Operators that are forced to run in float32"
+                type_=List[str], default_value=None, description="Operators that are forced to run in float32"
             ),
         }
         config.update(get_external_data_config())
         return config
 
     def validate_search_point(
-        self, search_point: dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
     ) -> bool:
         if with_fixed_value:
             search_point = self.config_at_search_point(search_point or {})
@@ -118,7 +118,7 @@ class OrtTransformersOptimization(Pass):
         return True
 
     @staticmethod
-    def _set_fusion_options(run_config: dict[str, Any]):
+    def _set_fusion_options(run_config: Dict[str, Any]):
         from onnxruntime.transformers.fusion_options import FusionOptions
 
         fusion_options = FusionOptions(run_config["model_type"])
@@ -126,7 +126,7 @@ class OrtTransformersOptimization(Pass):
         run_config["optimization_options"] = fusion_options
 
     def _run_for_config(
-        self, model: ONNXModel, data_root: str, config: dict[str, Any], output_model_path: str
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
         from onnxruntime.transformers import optimizer as transformers_optimizer
 

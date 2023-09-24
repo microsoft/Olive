@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Callable, Union
+from typing import Any, Callable, Dict, List, Union
 
 from pydantic import validator
 
@@ -46,17 +46,17 @@ class SNPEConversion(Pass):
     """
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
-            "input_names": PassConfigParam(type_=list[str], required=True, description="List of input names."),
+            "input_names": PassConfigParam(type_=List[str], required=True, description="List of input names."),
             "input_shapes": PassConfigParam(
-                type_=list[list[int]],
+                type_=List[List[int]],
                 required=True,
                 description="List of input shapes. Must be the same length as input_names.",
             ),
-            "output_names": PassConfigParam(type_=list[str], required=True, description="List of output names."),
+            "output_names": PassConfigParam(type_=List[str], required=True, description="List of output names."),
             "input_types": PassConfigParam(
-                type_=list[Union[str, None]],
+                type_=List[Union[str, None]],
                 default_value=None,
                 description=(
                     "List of input types. If not None, it must be a list of the same length as input_names. List"
@@ -65,7 +65,7 @@ class SNPEConversion(Pass):
                 ),
             ),
             "input_layouts": PassConfigParam(
-                type_=list[Union[str, None]],
+                type_=List[Union[str, None]],
                 default_value=None,
                 description=(
                     "List of input layouts. If not None, it must be a list of the same length as input_names. List"
@@ -85,7 +85,7 @@ class SNPEConversion(Pass):
         }
 
     @staticmethod
-    def _validators() -> dict[str, Callable]:
+    def _validators() -> Dict[str, Callable]:
         return {
             "validate_input_types_layouts": validator("input_types", "input_layouts", allow_reuse=True)(
                 _validate_input_types_layouts
@@ -93,7 +93,7 @@ class SNPEConversion(Pass):
         }
 
     def _run_for_config(
-        self, model: Union[ONNXModel, TensorFlowModel], data_root: str, config: dict[str, Any], output_model_path: str
+        self, model: Union[ONNXModel, TensorFlowModel], data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> SNPEModel:
         config = self._config_class(**config)
 

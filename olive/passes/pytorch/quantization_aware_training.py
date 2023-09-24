@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from pathlib import Path
-from typing import Any, Callable, Iterable, Union
+from typing import Any, Callable, Dict, Iterable, List, Union
 
 from olive.cache import get_local_path_from_root
 from olive.hardware.accelerator import AcceleratorSpec
@@ -18,7 +18,7 @@ class QuantizationAwareTraining(Pass):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         import pytorch_lightning
         from packaging import version
 
@@ -74,7 +74,7 @@ class QuantizationAwareTraining(Pass):
                 description="Whether perform one evaluation epoch over the validation set after training.",
             ),
             "modules_to_fuse": PassConfigParam(
-                type_=list[list[str]], default_value=None, description="List of list of module names to fuse."
+                type_=List[List[str]], default_value=None, description="List of list of module names to fuse."
             ),
             "qconfig_func": PassConfigParam(
                 type_=Union[Callable, str],
@@ -98,7 +98,7 @@ class QuantizationAwareTraining(Pass):
         }
 
     def _run_for_config(
-        self, model: PyTorchModel, data_root: str, config: dict[str, Any], output_model_path: str
+        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> PyTorchModel:
         from olive.passes.pytorch.qat_utils import QatTrainer
 

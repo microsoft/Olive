@@ -34,7 +34,7 @@ class AccuracyBase(AutoConfigClass):
     def name(cls):
         raise NotImplementedError
 
-    def __init__(self, config: Union[ConfigBase, dict[str, Any]] = None) -> None:
+    def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
         super().__init__(config)
         self.resolve_kwargs()
 
@@ -66,7 +66,7 @@ class AccuracyBase(AutoConfigClass):
         return metric_config
 
     @classmethod
-    def _default_config(cls) -> dict[str, ConfigParam]:
+    def _default_config(cls) -> Dict[str, ConfigParam]:
         return cls._metric_config_from_torch_metrics()
 
     @staticmethod

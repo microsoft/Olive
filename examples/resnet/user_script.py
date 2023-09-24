@@ -114,7 +114,7 @@ def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_pro
         output_names = [o.name for o in sess.get_outputs()]
         for input_data, labels in dataloader:
             if isinstance(input_data, dict):
-                input_dict = {k: input_data[k].tolist() for k in input_data}
+                input_dict = {k: input_data[k].tolist() for k in input_data.keys()}
             else:
                 input_data_copy = input_data.tolist()
                 input_dict = dict(zip(input_names, [input_data_copy]), strict=False)

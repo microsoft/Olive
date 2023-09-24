@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Optional, Type, Union
+from typing import Callable, Dict, Optional, Type, Union
 
 from pydantic import create_model, validator
 
@@ -58,7 +58,7 @@ class PassConfigParam(ConfigParam):
 # TODO: set types for user_script and script_dir once we decide on a convention
 def get_user_script_config(
     required: Optional[bool] = False, allow_path: Optional[bool] = False
-) -> dict[str, PassConfigParam]:
+) -> Dict[str, PassConfigParam]:
     type_ = str
     if allow_path:
         type_ = Union[Path, str]
@@ -102,9 +102,9 @@ class PassConfigBase(ConfigBase):
 
 def create_config_class(
     pass_type: str,
-    default_config: dict[str, PassConfigParam],
+    default_config: Dict[str, PassConfigParam],
     disable_search: Optional[bool] = False,
-    validators: dict[str, Callable] = None,
+    validators: Dict[str, Callable] = None,
 ) -> Type[PassConfigBase]:
     """
     Create a Pydantic model class from a configuration dictionary.
