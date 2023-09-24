@@ -122,7 +122,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
             run_subprocess(command, env=self.environ, check=True)
 
-            with open(output_model_json_path, "r") as f:
+            with open(output_model_json_path) as f:
                 model_json = json.load(f)
                 output_model = ModelConfig.from_json(model_json)
 

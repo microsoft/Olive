@@ -62,7 +62,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
     # assert
     artifacts_path = output_dir / "OutputModels.zip"
     assert artifacts_path.exists()
-    with zipfile.ZipFile(artifacts_path, "r") as zip_ref:
+    with zipfile.ZipFile(artifacts_path) as zip_ref:
         zip_ref.extractall(output_dir)
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
@@ -115,7 +115,7 @@ def test_generate_zipfile_artifacts_no_search():
     # assert
     artifacts_path = output_dir / "OutputModels.zip"
     assert artifacts_path.exists()
-    with zipfile.ZipFile(artifacts_path, "r") as zip_ref:
+    with zipfile.ZipFile(artifacts_path) as zip_ref:
         zip_ref.extractall(output_dir)
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()
@@ -153,7 +153,7 @@ def test_generate_zipfile_artifacts_mlflow():
     # assert
     artifacts_path = output_dir / "OutputModels.zip"
     assert artifacts_path.exists()
-    with zipfile.ZipFile(artifacts_path, "r") as zip_ref:
+    with zipfile.ZipFile(artifacts_path) as zip_ref:
         zip_ref.extractall(output_dir)
     assert (output_dir / "SampleCode").exists()
     assert (output_dir / "CandidateModels").exists()

@@ -72,7 +72,7 @@ def main(raw_args=None):
         raise ValueError("Multi-lingual support is only supported in ORT >= 1.16.0")
 
     # load template
-    template_json = json.load(open("whisper_template.json", "r"))
+    template_json = json.load(open("whisper_template.json"))
     model_name = args.model_name
 
     # update model name
@@ -143,7 +143,7 @@ def download_audio_test_data():
 
 
 def update_user_script(file_path, model_name):
-    with open(file_path, "r") as file:
+    with open(file_path) as file:
         lines = file.readlines()
 
     new_lines = []

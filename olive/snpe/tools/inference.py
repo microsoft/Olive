@@ -289,7 +289,7 @@ def snpe_net_run(
         run_snpe_command(cmd)
 
         diag_log = {"init": None, "avg_total_inference_time": None}
-        with open(SNPE_diag_csv, "r") as f:
+        with open(SNPE_diag_csv) as f:
             for line in f:
                 message_name = line.split(",")[1].lower()
                 message_value = line.split(",")[3]
@@ -404,7 +404,7 @@ def snpe_throughput_net_run(
     cmd = f"snpe-throughput-net-run --container {dlc_path} --duration {duration} --use_{device}"
 
     input_raw = ""
-    with open(input_list, "r") as f:
+    with open(input_list) as f:
         for line in f:
             if line.startswith("#") or line.startswith("%"):
                 continue

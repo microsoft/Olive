@@ -930,7 +930,7 @@ class Engine:
         run_json = {}
         if run_json_path.exists():
             try:
-                with open(run_json_path, "r") as f:
+                with open(run_json_path) as f:
                     run_json = json.load(f)
             except Exception as e:
                 logger.error(f"Failed to load run: {e}", exc_info=True)
@@ -1119,7 +1119,7 @@ class Engine:
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         if evaluation_json_path.exists():
             try:
-                with open(evaluation_json_path, "r") as f:
+                with open(evaluation_json_path) as f:
                     evaluation_json = json.load(f)
                 signal = evaluation_json["signal"]
                 signal = MetricResult(**signal)

@@ -59,7 +59,8 @@ ignore = [
     "SIM108", # We don't encourage ternary operators
     "SIM114", # Don't combine if branches for debugability
     "SIM116", # Don't use dict lookup to replace if-else
-    "UP006", # Ignore old typing hints
+    "UP006", # Ignore old typing hints,
+    "UP007", # Ignore old Union hints
 ]
 ignore-init-module-imports = true
 unfixable = [

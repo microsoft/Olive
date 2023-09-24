@@ -17,7 +17,7 @@ def main():
     if platform.system() == "Windows":
         user_script_path = user_script_path.replace("\\", "//")
 
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         file_template_content = f.read()
         file_template_content = file_template_content.replace("{USER_SCRIPT}", user_script_path)
 

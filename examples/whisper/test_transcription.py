@@ -49,7 +49,7 @@ def main(raw_args=None):
     args = get_args(raw_args)
 
     # load config
-    config = json.load(open(args.config, "r"))
+    config = json.load(open(args.config))
 
     # get model information
     use_audio_decoder = config["passes"]["prepost"]["config"]["tool_command_args"]["use_audio_decoder"]
@@ -67,7 +67,7 @@ def main(raw_args=None):
     for model_json in output_model_json_path.glob(
         f"**/{config['engine']['output_name']}_{accelerator_spec}_model.json"
     ):
-        output_model_json = json.load(open(model_json, "r"))
+        output_model_json = json.load(open(model_json))
         break
 
     # load output model onnx

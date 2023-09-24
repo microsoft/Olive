@@ -204,10 +204,10 @@ def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_pro
         output_names = [o.name for o in sess.get_outputs()]
         for inputs, labels in dataloader:
             if isinstance(inputs, dict):
-                input_dict = {k: inputs[k].tolist() for k in inputs.keys()}
+                input_dict = {k: inputs[k].tolist() for k in inputs}
             else:
                 inputs = inputs.tolist()
-                input_dict = dict(zip(input_names, [inputs]))
+                input_dict = dict(zip(input_names, [inputs], strict=False))
             res = sess.run(input_feed=input_dict, output_names=None)
             if len(output_names) == 1:
                 result = torch.Tensor(res[0])

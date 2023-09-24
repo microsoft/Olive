@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def evaluate_entry(config, output_path, output_name, accelerator_type, execution_provider):
-    with open(config, "r") as f:
+    with open(config) as f:
         config_json = json.load(f)
     evaluator_config = OliveEvaluatorConfig(metrics=config_json["metrics"])
     model_json = config_json["model"]

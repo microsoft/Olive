@@ -55,7 +55,7 @@ class SNPEDataLoader(ABC):
 
         self.batch_input_list_headers = []
         self.batch_input_list_contents = []
-        with open(self.input_list, "r") as f, open(batch_input_list, "r") as f_batch:
+        with open(self.input_list) as f, open(batch_input_list) as f_batch:
             for line, line_batch in zip(f, f_batch):
                 if line.startswith("#") or line.startswith("%"):
                     self.batch_input_list_headers.append(line.strip())
