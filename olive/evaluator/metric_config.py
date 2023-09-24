@@ -66,6 +66,9 @@ class LatencyMetricConfig(ConfigBase):
     sleep_num: int = SLEEP_NUM
 
 
+# ruff: noqa: N805
+
+
 class MetricGoal(ConfigBase):
     type: str  # threshold , deviation, percent-deviation
     value: float

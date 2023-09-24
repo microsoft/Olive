@@ -44,6 +44,9 @@ class LatencySubType(str, Enum):
     P999 = "p999"
 
 
+# ruff: noqa: N805
+
+
 class SubMetric(ConfigBase):
     name: Union[AccuracySubType, LatencyMetricConfig, str]
     metric_config: ConfigBase = None

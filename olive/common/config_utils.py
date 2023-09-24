@@ -151,6 +151,9 @@ class ConfigDictBase(ConfigBase):
         return len(self.__root__) if self.__root__ else 0
 
 
+# ruff: noqa: N805
+
+
 class ConfigWithExtraArgs(ConfigBase):
     """
     Config class that automatically gathers all values not defined in the class fields into a dict Field

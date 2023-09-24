@@ -19,6 +19,8 @@ from olive.model.model_config import IOConfig
 
 logger = logging.getLogger(__name__)
 
+# ruff: noqa: N805
+
 
 class HFComponent(ConfigBase):
     name: str
