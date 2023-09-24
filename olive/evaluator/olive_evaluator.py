@@ -919,11 +919,11 @@ class OliveEvaluatorFactory:
         return evaluator_cls()
 
 
-# ruff: noqa: N805
+# ruff: noqa: N805, RUF012
 
 
 class OliveEvaluatorConfig(ConfigBase):
-    metrics: ClassVar[List[Metric]] = []
+    metrics: List[Metric] = []
 
     @validator("metrics")
     def validate_metrics(cls, v):
