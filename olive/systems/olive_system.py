@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from olive.evaluator.metric import Metric, MetricResult
 from olive.hardware.accelerator import AcceleratorSpec
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class OliveSystem(ABC):
     system_type: SystemType
 
-    def __init__(self, accelerators: List[str] = None, olive_managed_env: bool = False):
+    def __init__(self, accelerators: list[str] = None, olive_managed_env: bool = False):
         self.accelerators = accelerators
         self.olive_managed_env = olive_managed_env
 
@@ -29,7 +29,7 @@ class OliveSystem(ABC):
         model_config: ModelConfig,
         data_root: str,
         output_model_path: str,
-        point: Optional[Dict[str, Any]] = None,
+        point: Optional[dict[str, Any]] = None,
     ) -> ModelConfig:
         """
         Run the pass on the model at a specific point in the search space.
@@ -38,7 +38,7 @@ class OliveSystem(ABC):
 
     @abstractmethod
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
+        self, model_config: ModelConfig, data_root: str, metrics: list[Metric], accelerator: AcceleratorSpec
     ) -> MetricResult:
         """
         Evaluate the model

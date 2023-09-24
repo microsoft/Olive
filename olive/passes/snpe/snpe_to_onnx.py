@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 from pydantic import validator
 
@@ -29,7 +29,7 @@ class SNPEtoONNXConversion(Pass):
     """
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "target_device": PassConfigParam(
                 type_=str,
@@ -42,13 +42,13 @@ class SNPEtoONNXConversion(Pass):
         return config
 
     @staticmethod
-    def _validators() -> Dict[str, Callable]:
+    def _validators() -> dict[str, Callable]:
         return {
             "validate_target_device": validator("target_device", allow_reuse=True)(_validate_target_device),
         }
 
     def _run_for_config(
-        self, model: SNPEModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: SNPEModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> ONNXModel:
         config = self._config_class(**config)
 

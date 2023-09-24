@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 from pydantic import validator
 
@@ -63,16 +63,16 @@ class SearchStrategy:
     Search strategy
     """
 
-    def __init__(self, config: Union[Dict[str, Any], SearchStrategyConfig]):
+    def __init__(self, config: Union[dict[str, Any], SearchStrategyConfig]):
         self._config = validate_config(config, SearchStrategyConfig)
         self._initialized = False
         self.exit_criteria_met = False
 
     def initialize(
         self,
-        pass_flows_search_spaces: List[List[Tuple[str, Dict[str, SearchParameter]]]],
+        pass_flows_search_spaces: list[list[Tuple[str, dict[str, SearchParameter]]]],
         init_model_id: str,
-        objective_dict: Dict[str, dict],
+        objective_dict: dict[str, dict],
     ):
         """
         Initialize the search strategy.
@@ -98,9 +98,9 @@ class SearchStrategy:
         self._active_spaces_group = None
 
         # state
-        self._searchers: Dict[Any, SearchAlgorithm] = {}
-        self._search_results: Dict[Any, SearchResults] = {}
-        self._init_model_ids: Dict[Any, str] = {}
+        self._searchers: dict[Any, SearchAlgorithm] = {}
+        self._search_results: dict[Any, SearchResults] = {}
+        self._init_model_ids: dict[Any, str] = {}
         self.init_model_id = init_model_id
         self._best_search_points = {}
 
@@ -109,7 +109,7 @@ class SearchStrategy:
 
         self._initialized = True
 
-    def _group_search_spaces(self, search_space_names: List[List]):
+    def _group_search_spaces(self, search_space_names: list[list]):
         """
         Group search spaces based on execution order.
         """
@@ -210,7 +210,7 @@ class SearchStrategy:
         self._active_spaces_group = sg
         return self._active_spaces_group
 
-    def _create_searcher(self, search_space_names: List[str]) -> SearchAlgorithm:
+    def _create_searcher(self, search_space_names: list[str]) -> SearchAlgorithm:
         """
         Create a search algorithm.
         """
@@ -225,7 +225,7 @@ class SearchStrategy:
             raise ValueError(f"Unknown search algorithm: {self._config.search_algorithm}")
         return searcher
 
-    def next_step(self) -> Optional[Dict[str, Any]]:
+    def next_step(self) -> Optional[dict[str, Any]]:
         """
         Get the next step in the search
         """
@@ -254,9 +254,9 @@ class SearchStrategy:
 
     def record_feedback_signal(
         self,
-        search_point: Dict[str, Dict[str, Any]],
+        search_point: dict[str, dict[str, Any]],
         signal: MetricResult,
-        model_ids: List[str],
+        model_ids: list[str],
         should_prune: bool = False,
     ):
         """

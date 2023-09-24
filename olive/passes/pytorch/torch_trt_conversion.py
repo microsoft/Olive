@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 import torch
 
@@ -39,7 +39,7 @@ class TorchTRTConversion(Pass):
     """
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         return {
             "min_layer": PassConfigParam(
                 type_=int, default_value=None, description="Convert all layers with id >= min_layer."
@@ -48,7 +48,7 @@ class TorchTRTConversion(Pass):
                 type_=int, default_value=None, description="Convert all layers with id < max_layer."
             ),
             "layer_name_filter": PassConfigParam(
-                type_=Union[str, List[str]],
+                type_=Union[str, list[str]],
                 default_value=None,
                 description="Only convert layers whose name contains the given string(s).",
             ),
@@ -58,7 +58,7 @@ class TorchTRTConversion(Pass):
                 description="Convert entire model to fp16. If False, only the sparse modules are converted to fp16.",
             ),
             "data_config": PassConfigParam(
-                type_=Union[DataConfig, Dict],
+                type_=Union[DataConfig, dict],
                 required=True,
                 description=(
                     "Data config to use for compiling module to TensorRT. The batch size of the compiled module is set"
@@ -68,7 +68,7 @@ class TorchTRTConversion(Pass):
         }
 
     def validate_search_point(
-        self, search_point: Dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
+        self, search_point: dict[str, Any], accelerator_spec: AcceleratorSpec, with_fixed_value: bool = False
     ) -> bool:
         if accelerator_spec.accelerator_type != Device.GPU:
             logger.info("TorchTRTConversion only supports GPU.")
@@ -77,7 +77,7 @@ class TorchTRTConversion(Pass):
 
     @torch.no_grad()
     def _run_for_config(
-        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> PyTorchModel:
         from olive.passes.pytorch.trt_utils import compile_trt_model
 

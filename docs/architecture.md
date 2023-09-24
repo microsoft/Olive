@@ -35,7 +35,7 @@ Passes are the building blocks of an Olive workflow. Olive uses multiple Passes 
 The base class for Pass:
 ```python
 class Pass(ABC):
-    def __init__(self, config: Union[Dict[str, Any], BaseModel], disable_search: Optional[bool] = False):
+    def __init__(self, config: Union[dict[str, Any], BaseModel], disable_search: Optional[bool] = False):
         ...
 
     @classmethod
@@ -44,7 +44,7 @@ class Pass(ABC):
 
     @staticmethod
     @abstractmethod
-    def default_config() -> Dict[str, PassConfigParam]:
+    def default_config() -> dict[str, PassConfigParam]:
 ```
 where `BaseModel` is a [pydantic model](https://docs.pydantic.dev/usage/models/)
 
@@ -202,14 +202,14 @@ class OliveSystem(ABC):
         model: OliveModel,
         data_root: str,
         output_model_path: str,
-        point: Optional[Dict[str, Any]] = None,
+        point: Optional[dict[str, Any]] = None,
     ) -> OliveModel:
         """
         Run the pass on the model at a specific point in the search space.
         """
 
     @abstractmethod
-    def evaluate_model(self, model: OliveModel, data_root: str, metrics: List[Metric]) -> Dict[str, Any]:
+    def evaluate_model(self, model: OliveModel, data_root: str, metrics: list[Metric]) -> dict[str, Any]:
         """
         Evaluate the model
         """

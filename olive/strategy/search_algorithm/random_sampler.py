@@ -2,7 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-from typing import Any, Dict
+from typing import Any
 
 from olive.common.config_utils import ConfigParam
 from olive.strategy.search_algorithm.search_algorithm import SearchAlgorithm
@@ -16,7 +16,7 @@ class RandomSearchAlgorithm(SearchAlgorithm):
     name = "random"
 
     @staticmethod
-    def _default_config() -> Dict[str, ConfigParam]:
+    def _default_config() -> dict[str, ConfigParam]:
         return {
             "num_samples": ConfigParam(type_=int, default_value=1, description="Number of samples to suggest."),
             "seed": ConfigParam(type_=int, default_value=1, description="Seed for the rng."),
@@ -40,7 +40,7 @@ class RandomSearchAlgorithm(SearchAlgorithm):
             should_stop = should_stop or (len(self._options) == 0)
         return should_stop or super().should_stop()
 
-    def suggest(self) -> Dict[str, Dict[str, Any]]:
+    def suggest(self) -> dict[str, dict[str, Any]]:
         """
         Suggest a new configuration to try.
         """
@@ -59,7 +59,7 @@ class RandomSearchAlgorithm(SearchAlgorithm):
 
         return search_point
 
-    def report(self, search_point: Dict[str, Dict[str, Any]], result: Dict[str, Any], should_prune: bool = False):
+    def report(self, search_point: dict[str, dict[str, Any]], result: dict[str, Any], should_prune: bool = False):
         """
         Report the result of a configuration.
         """

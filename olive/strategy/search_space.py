@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from copy import deepcopy
 from random import Random
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from olive.strategy.search_parameter import Categorical, Conditional, SearchParameter, SpecialParamValue
 from olive.strategy.utils import order_search_parameters
@@ -15,7 +15,7 @@ class SearchSpace:
     Search space for a search algorithm.
     """
 
-    def __init__(self, search_space: Dict[str, Dict[str, SearchParameter]], seed: Optional[int] = 1):
+    def __init__(self, search_space: dict[str, dict[str, SearchParameter]], seed: Optional[int] = 1):
         # search_space is dictionary of format: {"pass_id/space_name": {"param_name": SearchParameter}
         self._search_space = deepcopy(search_space)
         self._iter_order = self._order_search_space(self._search_space)
@@ -23,7 +23,7 @@ class SearchSpace:
         self._seed = seed
         self.rng = Random(self._seed)
 
-    def _order_search_space(self, search_space) -> List[Tuple[str, str]]:
+    def _order_search_space(self, search_space) -> list[Tuple[str, str]]:
         """
         Order the search space by topological order of parameters for each pass_id/space_name.
         """
@@ -47,7 +47,7 @@ class SearchSpace:
         """
         self.rng = Random(self._seed)
 
-    def random_sample(self) -> Dict[str, Dict[str, Any]]:
+    def random_sample(self) -> dict[str, dict[str, Any]]:
         """
         Sample a random configuration from the search space.
         """
@@ -69,7 +69,7 @@ class SearchSpace:
         return search_point
 
     def _iterate_util(
-        self, full_iter_order: List[Tuple[str, str]], search_point: Dict[str, Dict[str, Any]], index: int
+        self, full_iter_order: list[Tuple[str, str]], search_point: dict[str, dict[str, Any]], index: int
     ):
         if index == len(full_iter_order):
             yield deepcopy(search_point)
@@ -89,7 +89,7 @@ class SearchSpace:
             search_point[space_name][param_name] = option
             yield from self._iterate_util(full_iter_order, search_point, index + 1)
 
-    def iterate(self) -> Dict[str, Dict[str, Any]]:
+    def iterate(self) -> dict[str, dict[str, Any]]:
         """
         Iterate over all possible configurations in the search space.
         """
@@ -114,7 +114,7 @@ class SearchSpace:
             size += 1
         return size
 
-    def empty_search_point(self) -> Dict[str, Dict[str, Any]]:
+    def empty_search_point(self) -> dict[str, dict[str, Any]]:
         """
         Get an empty search point.
         """

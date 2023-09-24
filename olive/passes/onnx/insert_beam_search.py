@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from onnx import ModelProto, TensorProto, helper
 from onnxruntime import __version__ as OrtVersion
@@ -27,7 +27,7 @@ class InsertBeamSearch(Pass):
     _accepts_composite_model = True
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "no_repeat_ngram_size": PassConfigParam(
                 type_=int,
@@ -158,7 +158,7 @@ class InsertBeamSearch(Pass):
         model.graph.input.insert(1, mask)
 
     def _run_for_config(
-        self, model: OliveModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: OliveModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> ONNXModel:
         if isinstance(model, ONNXModel):
             return model

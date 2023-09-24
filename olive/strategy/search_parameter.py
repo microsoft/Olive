@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Tuple, Union
 
 from olive.common.utils import flatten_dict, unflatten_dict
 
@@ -20,7 +20,7 @@ class SearchParameter(ABC):
         pass
 
     @abstractmethod
-    def get_support(self) -> List[Any]:
+    def get_support(self) -> list[Any]:
         """
         get the support for the search parameter
         """
@@ -56,10 +56,10 @@ class Categorical(SearchParameter):
     >>> Categorical([1, 2, 3])
     """
 
-    def __init__(self, support: Union[List[str], List[int], List[float], List[bool]]):
+    def __init__(self, support: Union[list[str], list[int], list[float], list[bool]]):
         self.support = support
 
-    def get_support(self) -> Union[List[str], List[int], List[float], List[bool]]:
+    def get_support(self) -> Union[list[str], list[int], list[float], list[bool]]:
         """
         get the support for the search parameter
         """
@@ -124,7 +124,7 @@ class Conditional(SearchParameter):
     def __init__(
         self,
         parents: Tuple[str],
-        support: Dict[Tuple[Any], SearchParameter],
+        support: dict[Tuple[Any], SearchParameter],
         default: SearchParameter = None,
     ):
         assert isinstance(parents, tuple), "parents must be a tuple"
@@ -136,7 +136,7 @@ class Conditional(SearchParameter):
         self.support = support
         self.default = default or self.get_invalid_choice()
 
-    def get_support(self, parent_values: Dict[str, Any]) -> Union[List[str], List[int], List[float], List[bool]]:
+    def get_support(self, parent_values: dict[str, Any]) -> Union[list[str], list[int], list[float], list[bool]]:
         """
         get the support for the search parameter for a given parent value
         """
@@ -144,7 +144,7 @@ class Conditional(SearchParameter):
         parent_values = tuple([parent_values[parent] for parent in self.parents])
         return self.support.get(parent_values, self.default).get_support()
 
-    def condition(self, parent_values: Dict[str, Any]) -> SearchParameter:
+    def condition(self, parent_values: dict[str, Any]) -> SearchParameter:
         """
         Fix the parent value and return a new search parameter
         """
@@ -240,18 +240,18 @@ class ConditionalDefault(Conditional):
         )
     """
 
-    def __init__(self, parents: Tuple[str], support: Dict[Tuple[Any], Any], default: Any = SpecialParamValue.INVALID):
+    def __init__(self, parents: Tuple[str], support: dict[Tuple[Any], Any], default: Any = SpecialParamValue.INVALID):
         support = {key: Categorical([value]) for key, value in support.items()}
         default = Categorical([default])
         super().__init__(parents, support, default)
 
-    def get_support(self, parent_values: Dict[str, Any]) -> Union[bool, int, float, str]:
+    def get_support(self, parent_values: dict[str, Any]) -> Union[bool, int, float, str]:
         """
         get the support for the search parameter for a given parent value
         """
         return super().get_support(parent_values)[0]
 
-    def condition(self, parent_values: Dict[str, Any]) -> Union[bool, int, float, str, "ConditionalDefault"]:
+    def condition(self, parent_values: dict[str, Any]) -> Union[bool, int, float, str, "ConditionalDefault"]:
         """
         Fix the parent value and return a new search parameter
         """
@@ -307,7 +307,7 @@ class ConditionalDefault(Conditional):
         return SpecialParamValue.IGNORED
 
 
-def json_to_search_parameter(json: Dict[str, Any]) -> SearchParameter:
+def json_to_search_parameter(json: dict[str, Any]) -> SearchParameter:
     """
     Convert a json to a search parameter
     """

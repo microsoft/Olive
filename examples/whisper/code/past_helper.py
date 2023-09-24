@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import List, Tuple
+from typing import Tuple
 
 import torch
 
@@ -120,8 +120,8 @@ class PastKeyValuesHelper:
             present_self (Tuple[torch.Tensor]): present key and values from self attention
             present_cross (Tuple[torch.Tensor]): present key and values from cross attention
         """
-        present_self: List[torch.Tensor] = []
-        present_cross: List[torch.Tensor] = []
+        present_self: list[torch.Tensor] = []
+        present_cross: list[torch.Tensor] = []
         for _, present_layer_i in enumerate(present_key_values):
             assert len(present_layer_i) == 4, f"Expected to have four items. Got {len(present_layer_i)}"
             present_key_self, present_value_self, present_key_cross, present_value_cross = present_layer_i
@@ -140,7 +140,7 @@ class PastKeyValuesHelper:
             past_key_values: Consider `self` and `cross` past_key_values
 
         Returns:
-            names (List[string]): input names
+            names (list[string]): input names
         """
         names = []
         num_layers = len(past_key_values) // 4 if encoder else len(past_key_values)

@@ -5,7 +5,7 @@
 
 from enum import Enum
 from random import Random
-from typing import List, Union
+from typing import Union
 
 import torch
 from pydantic import validator
@@ -89,7 +89,7 @@ class TextGenCorpusParams(TextGenParams):
     # a python f-string template for the text with {column_name} as placeholders
     text_template: str = None
     # list of text columns, columns are concatenated together using a space
-    text_cols: Union[str, List[str]] = None
+    text_cols: Union[str, list[str]] = None
     # in JOIN strategies, the rows of text_cols are concatenated together
     corpus_strategy: TextGenCorpusStrategy = TextGenCorpusStrategy.LINE_BY_LINE
     stride: int = None  # required when corpus_strategy is JOIN_SLIDING_WINDOW

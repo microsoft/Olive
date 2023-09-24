@@ -5,7 +5,7 @@
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Union
 
 import onnx
 import torch
@@ -40,7 +40,7 @@ class OnnxConversion(Pass):
     _requires_user_script = True
 
     @staticmethod
-    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+    def _default_config(accelerator_spec: AcceleratorSpec) -> dict[str, PassConfigParam]:
         config = {
             "target_opset": PassConfigParam(
                 type_=int, default_value=13, description="The version of the default (ai.onnx) opset to target."
@@ -53,7 +53,7 @@ class OnnxConversion(Pass):
         return config
 
     def _run_for_config(
-        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> Union[ONNXModel, CompositeOnnxModel]:
         return self._convert_model_on_device(model, data_root, config, output_model_path, "cpu")
 
@@ -61,7 +61,7 @@ class OnnxConversion(Pass):
         self,
         model: PyTorchModel,
         data_root: str,
-        config: Dict[str, Any],
+        config: dict[str, Any],
         output_model_path: str,
         device: str,
     ):
@@ -206,7 +206,7 @@ class DeviceSpecificOnnxConversion(OnnxConversion):
         return False
 
     def _run_for_config(
-        self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
+        self, model: PyTorchModel, data_root: str, config: dict[str, Any], output_model_path: str
     ) -> Union[ONNXModel, CompositeOnnxModel]:
         accel_type = self.accelerator_spec.accelerator_type
         device = torch.device("cuda") if accel_type == Device.GPU else torch.device(accel_type)

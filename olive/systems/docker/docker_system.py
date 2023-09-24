@@ -8,7 +8,7 @@ import logging
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import docker
 
@@ -32,8 +32,8 @@ class DockerSystem(OliveSystem):
 
     def __init__(
         self,
-        local_docker_config: Union[Dict[str, Any], LocalDockerConfig] = None,
-        accelerators: List[str] = None,
+        local_docker_config: Union[dict[str, Any], LocalDockerConfig] = None,
+        accelerators: list[str] = None,
         is_dev: bool = False,
         olive_managed_env: bool = False,
         requirements_file: Union[Path, str] = None,
@@ -86,7 +86,7 @@ class DockerSystem(OliveSystem):
         model: ModelConfig,
         data_root: str,
         output_model_path: str,
-        point: Optional[Dict[str, Any]] = None,
+        point: Optional[dict[str, Any]] = None,
     ) -> ModelConfig:
         """
         Run the pass on the model at a specific point in the search space.
@@ -95,8 +95,8 @@ class DockerSystem(OliveSystem):
         raise NotImplementedError()
 
     def evaluate_model(
-        self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
-    ) -> Dict[str, Any]:
+        self, model_config: ModelConfig, data_root: str, metrics: list[Metric], accelerator: AcceleratorSpec
+    ) -> dict[str, Any]:
         container_root_path = Path("/olive-ws/")
         with tempfile.TemporaryDirectory() as tempdir:
             metrics_res = None
@@ -113,7 +113,7 @@ class DockerSystem(OliveSystem):
         tempdir,
         model_config: ModelConfig,
         data_root: str,
-        metrics: List[Metric],
+        metrics: list[Metric],
         accelerator: AcceleratorSpec,
         container_root_path: Path,
     ):
