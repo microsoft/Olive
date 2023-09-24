@@ -26,7 +26,7 @@ def test_attr_exists():
 
     attrs = ["", "b", "b.c", "b.c.d"]
     expected = [a, b, c, "hi"]
-    for attr, exp in zip(attrs, expected):
+    for attr, exp in zip(attrs, expected, strict=True):
         assert get_attr(a, attr) == exp
 
 

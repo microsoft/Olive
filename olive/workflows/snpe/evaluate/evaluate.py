@@ -5,7 +5,6 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Union
 
 import numpy as np
 
@@ -17,7 +16,7 @@ from olive.snpe.utils.local import get_snpe_target_arch
 logger = logging.getLogger(__name__)
 
 
-def evaluate(model: str, config: Union[str, Dict], data: str, input_list_file: Optional[str] = "input_list.txt"):
+def evaluate(model: str, config: str | dict, data: str, input_list_file: str | None = "input_list.txt"):
     """Evaluate a model.
 
     Args:
