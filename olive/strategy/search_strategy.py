@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 _VALID_EXECUTION_ORDERS = ["joint", "pass-by-pass"]
 
+# ruff: noqa: N805
+
 
 class SearchStrategyConfig(ConfigBase):
     execution_order: str

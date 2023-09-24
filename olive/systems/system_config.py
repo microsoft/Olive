@@ -14,6 +14,8 @@ from olive.azureml.azureml_client import AzureMLClientConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.systems.common import AzureMLDockerConfig, LocalDockerConfig, SystemType
 
+# ruff: noqa: N805
+
 
 class TargetUserConfig(ConfigBase):
     accelerators: List[str] = None
