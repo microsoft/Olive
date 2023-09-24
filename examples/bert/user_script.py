@@ -288,7 +288,7 @@ def compute_metrics(p: EvalPrediction):
 
 
 def qat_post_process(output):
-    if isinstance(output, transformers.modeling_outputs.SequenceClassifierOutput) or isinstance(output, dict):
+    if isinstance(output, (transformers.modeling_outputs.SequenceClassifierOutput, dict)):
         _, preds = torch.max(output["logits"], dim=1)
     else:
         try:
