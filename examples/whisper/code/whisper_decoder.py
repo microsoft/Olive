@@ -5,7 +5,7 @@
 from typing import Union
 
 import torch
-from past_helper import PastKeyValuesHelper  # noqa: E402
+from past_helper import PastKeyValuesHelper
 from transformers import WhisperConfig, file_utils
 
 

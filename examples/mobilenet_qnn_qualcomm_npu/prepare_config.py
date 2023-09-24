@@ -8,8 +8,8 @@ if __name__ == "__main__":
         raise ValueError("QNN_ENV_PATH environment variable is not set") from e
     try:
         qnn_lib_path = Path(os.environ["QNN_LIB_PATH"]).resolve().as_posix()
-    except KeyError:
-        raise ValueError("QNN_LIB_PATH environment variable is not set")
+    except KeyError as e:
+        raise ValueError("QNN_LIB_PATH environment variable is not set") from e
 
     template_config_path = Path(__file__).parent / "mobilenet_config_template.json"
 

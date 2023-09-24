@@ -72,7 +72,8 @@ def main(raw_args=None):
         raise ValueError("Multi-lingual support is only supported in ORT >= 1.16.0")
 
     # load template
-    template_json = json.load(open("whisper_template.json"))
+    with open("whisper_template.json") as f:
+        template_json = json.load(f)
     model_name = args.model_name
 
     # update model name

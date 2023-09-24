@@ -61,7 +61,8 @@ ignore = [
     "SIM114", # Don't combine if branches for debugability
     "SIM116", # Don't use dict lookup to replace if-else
     "UP006", # Ignore old typing hints,
-    "UP007", # Ignore old Union hints
+    "UP007", # Ignore old Union hints,
+    "UP038", # Ignore old isinstance hints,
 ]
 ignore-init-module-imports = true
 unfixable = [
