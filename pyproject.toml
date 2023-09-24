@@ -24,3 +24,44 @@ disable = [
     "missing-docstring",
     "fixme",
 ]
+
+[tool.ruff]
+select = [
+    "B", # flake8-bugbear
+    "E", # pycodestyle
+    "F", # Pyflakes
+    "ISC", # flake8-implicit-str-concat
+    "N", # pep8-naming
+    "NPY", # numpy
+    "PERF", # Perflint
+    "PLC", # pylint conventions
+    "PLE", # pylint errors
+    "PLW", # pylint warnings
+    "RUF", # Ruff-specific rules
+    "SIM", # flake8-simplify
+    "T10", # flake8-debugger
+    "UP", # pyupgrade
+    "W", # pycodestyle
+    "YTT", # flake8-2020
+]
+# NOTE: Refrain from growing the ignore list unless for exceptional cases.
+# Always include a comment to explain why.
+ignore = [
+    "B028", # FIXME: Add stacklevel to warnings
+    "E501", # Line length controlled by black
+    "N803", # Argument casing
+    "N812", # Allow import torch.nn.functional as F
+    "N999", # Module names
+    "NPY002", # np.random.Generator may not always fit our use cases
+    "PERF203", # "try-except-in-loop" only affects Python <3.11, and the improvement is minor; can have false positives
+    "PERF401", # List comprehensions are not always readable
+    "SIM102", # We don't perfer always combining if branches
+    "SIM108", # We don't encourage ternary operators
+    "SIM114", # Don't combine if branches for debugability
+    "SIM116", # Don't use dict lookup to replace if-else
+]
+ignore-init-module-imports = true
+unfixable = [
+    "F401", # Unused imports
+    "SIM112", # Use upper case for env vars
+]
