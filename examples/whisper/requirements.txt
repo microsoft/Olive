@@ -1,5 +1,4 @@
 neural-compressor
-onnxruntime>=1.15.0
 onnxruntime-extensions>=0.9.0
 tabulate
 torch>=1.13.1

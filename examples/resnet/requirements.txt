@@ -1,7 +1,6 @@
 azure-ai-ml
 azure-identity
 azureml-fsspec
-onnxruntime<=1.15.1
 pytorch-lightning
 scipy
 tabulate

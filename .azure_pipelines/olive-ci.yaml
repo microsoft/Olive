@@ -27,11 +27,28 @@ variables:
     ComponentDetection.Timeout: 2400
 
 jobs:
+# Linux unit test and integration test
 - template: job_templates/olive-build-template.yaml
   parameters:
     name: Linux_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
     windows: False
+    onnxruntime: onnxruntime
+
+# Windows unit test and integration test
+- template: job_templates/olive-build-template.yaml
+  parameters:
+    name: Windows_CI
+    pool: $(OLIVE_POOL_WIN2019)
+    windows: True
+    onnxruntime: onnxruntime
+
+# Linux examples test
+- template: job_templates/olive-example-template.yaml
+  parameters:
+    name: Linux_CI
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    onnxruntime: onnxruntime
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
@@ -58,11 +75,12 @@ jobs:
         exampleFolder: whisper
         exampleName: whisper
 
-- template: job_templates/olive-build-template.yaml
+# # Windows examples test
+- template: job_templates/olive-example-template.yaml
   parameters:
     name: Windows_CI
     pool: $(OLIVE_POOL_WIN2019)
-    windows: True
+    onnxruntime: onnxruntime
     examples:
       bert_ptq_cpu:
         exampleFolder: bert
@@ -83,17 +101,40 @@ jobs:
         exampleFolder: whisper
         exampleName: whisper
 
-- template: job_templates/olive-build-template.yaml
+# Linux GPU examples testing.
+- template: job_templates/olive-example-template.yaml
   parameters:
     name: Linux_GPU_CI
     pool: $(OLIVE_POOL_UBUNTU2004)
-    windows: False
-    device: gpu
+    onnxruntime: onnxruntime-gpu
     examples:
       bert_cuda_gpu:
         exampleFolder: bert
         exampleName: bert_cuda_gpu
 
+# Multiple EP Linux testing
+- template: job_templates/olive-test-template.yaml
+  parameters:
+    name: Linux_CI_Multiple_EP_Test_Olive
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    device: 'cpu'
+    windows: 'False'
+    test_type: 'multiple_ep'
+    onnxruntime: onnxruntime
+    python_version: '3.8'
+
+# Multiple EP Windows testing
+- template: job_templates/olive-test-template.yaml
+  parameters:
+    name: Windows_CI_Multiple_EP_Test_Olive
+    pool: $(OLIVE_POOL_WIN2019)
+    device: 'cpu'
+    windows: 'True'
+    test_type: 'multiple_ep'
+    onnxruntime: onnxruntime
+    python_version: '3.10'
+
+# build documents
 - template: job_templates/olive-build-doc-template.yaml
   parameters:
     job_name: Test_BuildDocs
