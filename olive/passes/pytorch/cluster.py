@@ -111,7 +111,7 @@ class BaseClusterEnvironment(ClusterEnvironment, ABC):
         """Clean up any state set after execution finishes."""
 
         logger.info("Cleaning up environment variables")
-        logger.info("self._original_env_vars:", self._original_env_vars)
+        logger.info("self._original_env_vars: %s", self._original_env_vars)
         for variable, original_value in self._original_env_vars.items():
             if original_value is None and variable in os.environ:
                 # delete any new variables we might have created

@@ -19,6 +19,8 @@ from olive.passes.onnx.common import get_external_data_config, model_proto_to_ol
 from olive.passes.onnx.pipeline import TENSOR_TYPE_MAP
 from olive.passes.pass_config import PassConfigParam
 
+# ruff: noqa: N805
+
 
 class PrePostProcessorInput(ConfigBase):
     name: str = Field(..., description="Name of the input.")
@@ -121,7 +123,7 @@ class AppendPrePostProcessingOps(Pass):
                 elif not isinstance(tool_command, Callable):
                     raise ValueError(
                         "tool_command must be a callable or a string defined in onnxruntime_extensions.tools"
-                    )
+                    ) from None
 
                 kwargs = config.get("tool_command_args") or {}
                 kwargs["onnx_opset"] = onnx_opset

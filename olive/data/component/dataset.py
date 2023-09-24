@@ -91,7 +91,7 @@ class BaseDataset(Dataset):
             if not isinstance(first_input, dict):
                 raise ValueError("Cannot convert to huggingface dataset since the input is not a dict")
             # convert the dataset to dict of lists
-            data_dict = {k: [] for k in first_input.keys()}
+            data_dict = {k: [] for k in first_input}
             data_dict[label_name] = []
             # loop over the dataset
             for i in range(len(self)):

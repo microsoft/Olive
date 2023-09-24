@@ -6,7 +6,7 @@ import importlib as imp
 from typing import Dict, List, Union
 
 import onnx
-from onnxruntime_extensions.tools.pre_post_processing import *  # noqa: F401, F403
+from onnxruntime_extensions.tools.pre_post_processing import *  # noqa: F401, F403, RUF100
 from onnxruntime_extensions.tools.pre_post_processing.utils import create_named_value
 
 from olive.passes.onnx.pipeline import resolve_placeholder

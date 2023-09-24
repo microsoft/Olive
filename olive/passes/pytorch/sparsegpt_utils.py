@@ -248,8 +248,8 @@ class SparseGPTModule:
                 if mode == "structured" and col % m == 0:
                     # every mth column, set bottom n weights to True (prune)
                     magnitude = (
-                        W1[:, col : (col + m)] ** 2  # noqa: E203
-                        / (torch.diag(Hinv1)[col : (col + m)].reshape((1, -1))) ** 2  # noqa: E203
+                        W1[:, col : (col + m)] ** 2  # noqa: E203, RUF100
+                        / (torch.diag(Hinv1)[col : (col + m)].reshape((1, -1))) ** 2  # noqa: E203, RUF100
                     )
                     mask1.scatter_(1, col + torch.topk(magnitude, n, dim=1, largest=False)[1], True)
 

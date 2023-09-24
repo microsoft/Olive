@@ -8,7 +8,7 @@ import time
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from numbers import Number
-from typing import Any, Dict, List, NamedTuple, Tuple, Type, Union
+from typing import Any, ClassVar, Dict, List, NamedTuple, Tuple, Type, Union
 
 import numpy as np
 import torch
@@ -45,7 +45,7 @@ OliveModelOutput = collections.namedtuple("OliveModelOutput", ["preds", "logits"
 
 
 class OliveEvaluator(ABC):
-    registry: Dict[str, Type["OliveEvaluator"]] = {}
+    registry: ClassVar[Dict[str, Type["OliveEvaluator"]]] = {}
 
     @classmethod
     def __init_subclass__(cls, framework: Framework, **kwargs) -> None:
@@ -53,6 +53,7 @@ class OliveEvaluator(ABC):
         cls.framework = framework
         cls.registry[str(framework).lower()] = cls
 
+    @abstractmethod
     def __init__(self):
         pass
 
@@ -309,7 +310,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
                 input_data[k].cpu().numpy() if isinstance(input_data[k], torch.Tensor) else input_data[k],
                 dtype=name_to_type[k],
             )
-            for k in input_data.keys()
+            for k in input_data
             if k in input_names
         }
         return input_dict
@@ -511,7 +512,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
         preds = [x for p, _, _ in results for x in p]
         targets = [x for _, t, _ in results for x in t]
-        logits = [x for _, _, l in results for x in l]
+        logits = [x for _, _, logit in results for x in logit]
         model_output = OliveModelOutput(preds, logits)
         return OliveEvaluator.compute_accuracy(metric, model_output, targets)
 
@@ -656,8 +657,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
                         f"The onnxruntime fallback happens. {ep} is not in the session providers {session_providers}."
                         f" session._enable_fallback = {session._enable_fallback}"
                     )
-            else:
-                session.disable_fallback()
+            session.disable_fallback()
 
 
 class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
@@ -686,8 +686,8 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         device = PyTorchEvaluator._device_string_to_torch_device(device)
         if device:
             session.to(device)
-        for input_data, labels in dataloader:
-            input_data = tensor_data_to_device(input_data, device)
+        for input_data_i, labels in dataloader:
+            input_data = tensor_data_to_device(input_data_i, device)
             result = session(**input_data) if isinstance(input_data, dict) else session(input_data)
             outputs = post_func(result) if post_func else result
             # keep the outputs and results as torch tensor on cpu
@@ -872,7 +872,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
             result = session.infer_new_request({0: input_data})
             outputs = post_func(result) if post_func else result
             if not isinstance(labels, list):
-                labels = [labels]
+                labels = [labels]  # ruff: noqa: PLW2901
             preds.extend(outputs)
             targets.extend(labels)
             logits.extend(result)
@@ -920,7 +920,7 @@ class OliveEvaluatorFactory:
 
 
 class OliveEvaluatorConfig(ConfigBase):
-    metrics: List[Metric] = []
+    metrics: ClassVar[List[Metric]] = []
 
     @validator("metrics")
     def validate_metrics(cls, v):

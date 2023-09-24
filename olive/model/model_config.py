@@ -8,6 +8,8 @@ from pydantic import validator
 
 from olive.common.config_utils import ConfigBase
 
+# ruff: noqa: N805
+
 
 class IOConfig(ConfigBase):
     # TODO remove input names, shapes and types, turn to use olive dataset config.
@@ -65,7 +67,7 @@ class IOConfig(ConfigBase):
             try:
                 int(dim_param)
             except ValueError:
-                raise ValueError(f"Invalid string_to_int_dim_params: {dim_param}. Must be castable to int.")
+                raise ValueError(f"Invalid string_to_int_dim_params: {dim_param}. Must be castable to int.") from None
         return v
 
 

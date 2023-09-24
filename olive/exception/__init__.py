@@ -2,6 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# ruff: noqa: N818
+
+
 class OliveException(Exception):
     """
     Base class for Olive exceptions.

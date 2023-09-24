@@ -32,7 +32,7 @@ class UserModuleLoader:
         obj = self.load_object(obj)
         # We check for FunctionType, MethodType here instead of Callable since objects with __call__ methods
         # like torch.nn.module are also Callables
-        if isinstance(obj, FunctionType) or isinstance(obj, MethodType):
+        if isinstance(obj, (FunctionType, MethodType)):
             return obj(*args, **kwargs)
         return obj
 

@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Union
+from typing import ClassVar, Dict, Union
 
 from olive.data.constants import DataComponentType, DataContainerType, DefaultDataComponent, DefaultDataContainer
 
@@ -15,7 +15,7 @@ class Registry:
     Registry for data components and data containers
     """
 
-    _REGISTRY = {
+    _REGISTRY: ClassVar[Dict] = {
         DataComponentType.LOAD_DATASET.value: {},
         DataComponentType.PRE_PROCESS_DATA.value: {},
         DataComponentType.POST_PROCESS_DATA.value: {},

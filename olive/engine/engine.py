@@ -58,7 +58,7 @@ class Engine:
         if search_strategy is not None:
             # if search strategy is provided, use it. It takes precedence
             self.search_strategy = search_strategy
-        elif isinstance(self._config.search_strategy, ConfigBase) or isinstance(self._config.search_strategy, dict):
+        elif isinstance(self._config.search_strategy, (ConfigBase, dict)):
             # if search strategy is provided in config, use it
             self.search_strategy = SearchStrategy(self._config.search_strategy)
         elif not self._config.search_strategy:
@@ -357,7 +357,7 @@ class Engine:
 
                 outputs[accelerator_spec] = run_result
 
-        for accelerator_spec in self.footprints.keys():
+        for accelerator_spec in self.footprints:
             logger.info(f"Run history for {accelerator_spec}:")
             run_history = self.footprints[accelerator_spec].summarize_run_history()
             self.dump_run_history(run_history, output_dir / f"run_history_{accelerator_spec}.txt")
@@ -1192,7 +1192,7 @@ class Engine:
                 x.metrics.value[metric].value
                 if x.metrics.cmp_direction[metric] == 1
                 else -x.metrics.value[metric].value
-                for metric in objective_dict.keys()
+                for metric in objective_dict
             ),
             reverse=True,
         )

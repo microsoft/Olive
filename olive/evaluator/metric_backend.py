@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from abc import abstractmethod
-from typing import Any, Dict, NamedTuple, Tuple, Type, Union
+from typing import Any, ClassVar, Dict, NamedTuple, Tuple, Type, Union
 
 from olive.common.auto_config import AutoConfigClass, ConfigBase
 from olive.common.config_utils import ConfigParam
@@ -12,7 +12,7 @@ from olive.evaluator.metric import Metric, MetricResult, SubMetric, SubMetricRes
 
 
 class MetricBackend(AutoConfigClass):
-    registry: Dict[str, Type["MetricBackend"]] = {}
+    registry: ClassVar[Dict[str, Type["MetricBackend"]]] = {}
 
     def __init__(self, config: Union[ConfigBase, Dict[str, Any]] = None) -> None:
         super().__init__(config)
@@ -57,7 +57,7 @@ class HuggingfaceMetrics(MetricBackend):
         try:
             import evaluate
         except ImportError:
-            raise ImportError("Please install the huggingface/evaluate package to use huggingface metrics.")
+            raise ImportError("Please install the huggingface/evaluate package to use huggingface metrics.") from None
         self.evaluate_module = evaluate
 
     @staticmethod

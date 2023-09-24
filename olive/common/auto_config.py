@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 import inspect
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Type, Union
+from typing import Any, Callable, ClassVar, Dict, Type, Union
 
 from olive.common.config_utils import ConfigBase, ConfigParam, create_config_class, validate_config
 
@@ -45,7 +45,7 @@ class AutoConfigClass(ABC):
             return {"validate_func_param": validator("func_param", allow_reuse=True)(validate_func_param)}
     """
 
-    registry: Dict[str, Type] = {}
+    registry: ClassVar[Dict[str, Type]] = {}
     name: str = None
     _config_base: Type[ConfigBase] = ConfigBase
 

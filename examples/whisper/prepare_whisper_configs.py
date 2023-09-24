@@ -117,7 +117,8 @@ def main(raw_args=None):
             config["passes"][pass_name] = pass_config
 
         # dump config
-        json.dump(config, open(f"whisper_{device}_{precision}.json", "w"), indent=4)
+        with open(f"whisper_{device}_{precision}.json", "w") as f:
+            json.dump(config, f, indent=4)
 
     # update user script
     user_script_path = Path(__file__).parent / "code" / "user_script.py"
@@ -150,7 +151,7 @@ def update_user_script(file_path, model_name):
     new_lines = []
     for line in lines:
         if "<model_name>" in line:
-            line = line.replace("<model_name>", model_name)
+            line = line.replace("<model_name>", model_name)  # ruff: noqa: PLW2901
         new_lines.append(line)
 
     with open(file_path, "w") as file:

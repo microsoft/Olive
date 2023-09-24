@@ -52,6 +52,9 @@ class TextGenPairFormat(str, Enum):
     CUSTOM = "custom"
 
 
+# ruff: noqa: N805, N806
+
+
 class TextGenParams(ConfigBase):
     """
     Common parameters for text generation tasks.
@@ -223,7 +226,7 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
                 examples_to_get = min(args.processing_batch_size, total_examples - example_idx)
                 # batch tokenize
                 batched_input_ids = tokenizer(
-                    text_list[example_idx : example_idx + examples_to_get],  # noqa E203
+                    text_list[example_idx : example_idx + examples_to_get],  # noqa E203, RUF100
                     add_special_tokens=False,
                     truncation=False,
                 )["input_ids"]
@@ -287,8 +290,8 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
             # batched tokenization might be faster so lets tokenize all the text at once
             if not args.max_samples:
                 batched_input_ids = batch_tokenize_text(text_list, tokenizer, args)
-                for input_ids in batched_input_ids:
-                    input_ids = torch.tensor(input_ids)
+                for native_input_ids in batched_input_ids:
+                    input_ids = torch.tensor(native_input_ids)
                     append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
             else:
                 example_idx = 0  # index of the first example in the current batch
@@ -301,10 +304,10 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
                     examples_to_get = min(args.max_samples - num_samples, total_examples - example_idx)
                     # batch tokenize
                     batched_input_ids = batch_tokenize_text(
-                        text_list[example_idx : example_idx + examples_to_get], tokenizer, args  # noqa E203
+                        text_list[example_idx : example_idx + examples_to_get], tokenizer, args  # noqa E203, RUF100
                     )
-                    for input_ids in batched_input_ids:
-                        input_ids = torch.tensor(input_ids)
+                    for native_input_ids in batched_input_ids:
+                        input_ids = torch.tensor(native_input_ids)
                         append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
                     # update counters
                     num_samples += len(batched_input_ids)
