@@ -919,7 +919,7 @@ class OliveEvaluatorFactory:
         return evaluator_cls()
 
 
-# ruff: noqa: N805
+# ruff: noqa: N805, RUF012
 
 
 class OliveEvaluatorConfig(ConfigBase):
