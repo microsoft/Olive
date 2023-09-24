@@ -39,7 +39,7 @@ class SpecialParamValue(str, Enum):
     Special values for parameters.
 
     IGNORED: the parameter gets the value "OLIVE_IGNORED_PARAM_VALUE". The pass might ignore this parameter.
-    INVALID: Any seach point with this value is invalid. The search algorithm will not suggest such a search point.
+    INVALID: Any search point with this value is invalid. The search algorithm will not suggest such a search point.
     """
 
     IGNORED = "OLIVE_IGNORED_PARAM_VALUE"

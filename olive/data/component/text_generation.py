@@ -63,7 +63,7 @@ class TextGenParams(ConfigBase):
     source_max_len: int  # max length of source sequence
     # TODO: currently only support padding to max length since we preprocess all data at once
     # might have to expose collator for dataloader to support dynamic padding of batches
-    # if false, cannot gaurantee all sequences are same length. data loader will have to handle this during collation
+    # if false, cannot guarantee all sequences are same length. data loader will have to handle this during collation
     pad_to_max_len: bool = True  # pad sequences to max_len, ignored for JOIN corpus strategy
     drop_short_sequences: bool = False  # drop sequences shorter than max_len. Mutually exclusive with pad_to_max_len
     add_special_tokens: bool = True  # add bos and eos tokens to each sequence
