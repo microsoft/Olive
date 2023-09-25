@@ -26,6 +26,7 @@ disable = [
 ]
 
 [tool.ruff]
+line-length = 120
 target-version = "py38"
 select = [
     "B", # flake8-bugbear
@@ -41,6 +42,7 @@ select = [
     "RUF", # Ruff-specific rules
     "SIM", # flake8-simplify
     "T10", # flake8-debugger
+    "TID", # flake8-tidy-imports
     "UP", # pyupgrade
     "W", # pycodestyle
     "YTT", # flake8-2020
@@ -51,7 +53,6 @@ ignore = [
     "B005", # removesuffix is only available in Python 3.9
     "B028", # FIXME: Add stacklevel to warnings
     "B905", # keep using less than Python 3.10. The strict is added in Python 3.10
-    "E501", # Line length controlled by black
     "N803", # Argument casing
     "N812", # Allow import torch.nn.functional as F
     "N999", # Module names
@@ -77,6 +78,10 @@ unfixable = [
     "F401", # Unused imports
     "SIM112", # Use upper case for env vars
 ]
+
+[tool.ruff.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"
 
 [tool.ruff.pep8-naming]
 # Allow Pydantic's `@validator` decorator to trigger class method treatment.

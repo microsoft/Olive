@@ -89,7 +89,8 @@ def main():
         )
         ml_client.begin_create_or_update(cluster_basic).result()
         print(
-            f"Successfully created compute: {compute_name} at {location} with vm_size:{vm_size} and min_nodes={min_nodes} \
+            f"Successfully created compute: {compute_name} at {location} with \
+                vm_size:{vm_size} and min_nodes={min_nodes} \
                 and max_nodes={max_nodes} and idle_time_before_scale_down={idle_time_before_scale_down}"
         )
     elif is_delete:

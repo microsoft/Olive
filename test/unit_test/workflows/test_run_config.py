@@ -88,6 +88,7 @@ class TestRunConfig:
         ],
     )
     def test_config_with_azureml_default_auth_params(self, default_auth_params):
+        # ruff: noqa: F501
         """
         default_auth_params[0] is a dict of the parameters to be passed to DefaultAzureCredential
 
@@ -96,7 +97,7 @@ class TestRunConfig:
         are called sequentially until one of them succeeds:
             EnvironmentCredential -> ManagedIdentityCredential -> SharedTokenCacheCredential
             -> AzureCliCredential -> AzurePowerShellCredential -> InteractiveBrowserCredential
-        https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python # noqa: E501
+        https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python
         """
         with open(self.user_script_config_file) as f:
             user_script_config = json.load(f)
