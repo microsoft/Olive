@@ -37,7 +37,7 @@ def convertquantize(
     data_dir = Path(data).resolve()
     name = Path(model).resolve().stem if output_name is None else output_name
     if type(config) is str:
-        with open(Path(config).resolve()) as f:
+        with Path(config).resolve().open() as f:
             config = json.load(f)
 
     # ------------------------------------------------------------------
@@ -61,7 +61,7 @@ def convertquantize(
     )
     snpe_model = snpe_conversion.run(model, snpe_model_file)
     assert Path(snpe_model.model_path).is_file()
-    with open(str(models_dir / f"{name}.dlc_io_config.json"), "w") as f:
+    with (models_dir / f"{name}.dlc_io_config.json").open("w") as f:
         json.dump(snpe_model.io_config, f)
 
     # ------------------------------------------------------------------
@@ -77,7 +77,7 @@ def convertquantize(
     )
     snpe_quantized_model = snpe_quantization.run(snpe_model, snpe_quantized_model_file)
     assert Path(snpe_quantized_model.model_path).is_file()
-    with open(str(models_dir / f"{name}.quant.dlc_io_config.json"), "w") as f:
+    with (models_dir / f"{name}.quant.dlc_io_config.json").open("w") as f:
         json.dump(snpe_quantized_model.io_config, f)
 
     # ------------------------------------------------------------------

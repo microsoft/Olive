@@ -142,14 +142,12 @@ class InsertBeamSearch(Pass):
         logger.debug(f"Using IR version {model_A.ir_version} for chained model")
 
         # Set IR version of chained model to IR version of subgraphs in order to generate a working E2E model
-        beam_model = helper.make_model_gen_version(
+        return helper.make_model_gen_version(
             beam_graph,
             producer_name="Olive",
             opset_imports=opset_import,
             ir_version=model_A.ir_version,
         )
-
-        return beam_model
 
     def add_attention_mask(self, model: ModelProto):
         mask = helper.make_tensor_value_info(
@@ -166,7 +164,7 @@ class InsertBeamSearch(Pass):
         if not isinstance(model, CompositeOnnxModel):
             raise ValueError
 
-        # FIXME : Right now we are assuming that the composite model only has two components and beam search op
+        # TODO(jambayk): Right now we are assuming that the composite model only has two components and beam search op
         # will be inserted in between them to chain the components. We should add a config option to identify
         # the two components to chain together when there are more than 2 components in the composite model.
 

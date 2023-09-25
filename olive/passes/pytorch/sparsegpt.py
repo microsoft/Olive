@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 
 
 class SparseGPT(Pass):
-    """
-    Run SparseGPT on a Hugging Face PyTorch model.
+    """Run SparseGPT on a Hugging Face PyTorch model.
+
     See https://arxiv.org/abs/2301.00774 for more details on the algorithm.
 
     This pass only supports PyTorchModel with hf_config. The transformers model type
@@ -146,6 +146,13 @@ class SparseGPT(Pass):
             layer_name_filter = [layer_name_filter]
         # loop over layers
         logger.debug(f"Pruning layers {min_layer} to {max_layer}...")
+
+        def get_handler(sparge_gpt_module):
+            def handler(_, inputs, output):
+                sparge_gpt_module.add_batch(inputs[0].data)
+
+            return handler
+
         for i in range(min_layer, max_layer):
             logger.debug(f"Pruning layer {i}...")
             layer = layers[i]
@@ -162,13 +169,6 @@ class SparseGPT(Pass):
 
             # add forward hook to submodules in layer
             handles = []
-
-            def get_handler(sparge_gpt_module):
-                def handler(_, input, output):
-                    sparge_gpt_module.add_batch(input[0].data)
-
-                return handler
-
             for name, submodule in submodules.items():
                 handles.append(submodule.register_forward_hook(get_handler(sparge_gpt_modules[name])))
 

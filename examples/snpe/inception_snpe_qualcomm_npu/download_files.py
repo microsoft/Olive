@@ -79,7 +79,7 @@ def download_data():
         input_order.append(input_file_name.name)
 
     # create input order file
-    with open(data_dir / "input_order.txt", "w") as f:
+    with (data_dir / "input_order.txt").open("w") as f:
         f.write("\n".join(input_order))
 
     # create labels file
@@ -105,8 +105,7 @@ def preprocess_image(image):
             transforms.Normalize(128, 128),
         ]
     )
-    transformed_img = transformations(src_img).numpy().astype(np.float32).transpose(1, 2, 0)
-    return transformed_img
+    return transformations(src_img).numpy().astype(np.float32).transpose(1, 2, 0)
 
 
 def main():

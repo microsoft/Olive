@@ -39,8 +39,7 @@ class MobileNetCalibrationDataReader(CalibrationDataReader):
         except StopIteration:
             return None
 
-        batch = {k: v.detach().cpu().numpy() for k, v in batch.items()}
-        return batch
+        return {k: v.detach().cpu().numpy() for k, v in batch.items()}
 
     def rewind(self):
         self.iter = None

@@ -24,6 +24,4 @@ def add_pre_post_processing_to_model(
         opset=opset,
     )
     # merge pre, model, and post models
-    final_model = util.quick_merge(pre_model, model, post_model)
-
-    return final_model
+    return util.quick_merge(pre_model, model, post_model)

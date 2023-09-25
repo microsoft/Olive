@@ -135,7 +135,7 @@ _inc_static_dataloader_config = {
             Batch size for calibration, only used if dataloader_func is provided.
         """,
     ),
-    # TODO: remove this option once we have a data config ready
+    # TODO(trajep): remove this option once we have a data config ready
     "dataloader_func": PassConfigParam(
         type_=Union[Callable, str],
         category=ParamCategory.OBJECT,
@@ -213,9 +213,7 @@ _inc_tuning_criterion_config = {
 
 
 class IncQuantization(Pass):
-    """
-    Quantize ONNX model with Intel® Neural Compressor.
-    """
+    """Quantize ONNX model with Intel® Neural Compressor."""
 
     _requires_user_script = True
 
@@ -224,9 +222,7 @@ class IncQuantization(Pass):
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
-        """Override this method to return False by using the
-        accelerator spec information.
-        """
+        """Override this method to return False by using the accelerator spec information."""
         return False
 
     @staticmethod
@@ -291,7 +287,7 @@ class IncQuantization(Pass):
             tmp_model_path = Path(tmp_dir.name) / "tmp_model.onnx"
 
             # save as olive onnx model
-            # TODO: investigate why save_as_external_data = True is not working
+            # TODO(jambayk): investigate why save_as_external_data = True is not working
             # it cannot find the external data file
             olive_model = model_proto_to_olive_model(
                 model,
@@ -475,7 +471,7 @@ class IncQuantization(Pass):
 
 
 class IncDynamicQuantization(IncQuantization):
-    """Intel® Neural Compressor Dynamic Quantization Pass"""
+    """Intel® Neural Compressor Dynamic Quantization Pass."""
 
     _requires_user_script = False
 
@@ -497,7 +493,7 @@ class IncDynamicQuantization(IncQuantization):
 
 
 class IncStaticQuantization(IncQuantization):
-    """Intel® Neural Compressor Static Quantization Pass"""
+    """Intel® Neural Compressor Static Quantization Pass."""
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Any]:

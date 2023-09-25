@@ -72,7 +72,7 @@ def main(raw_args=None):
         raise ValueError("Multi-lingual support is only supported in ORT >= 1.16.0")
 
     # load template
-    with open("whisper_template.json") as f:
+    with open("whisper_template.json") as f:  # noqa: PTH123
         template_json = json.load(f)
     model_name = args.model_name
 
@@ -117,7 +117,7 @@ def main(raw_args=None):
             config["passes"][pass_name] = pass_config
 
         # dump config
-        with open(f"whisper_{device}_{precision}.json", "w") as f:
+        with open(f"whisper_{device}_{precision}.json", "w") as f:  # noqa: PTH123
             json.dump(config, f, indent=4)
 
     # update user script
@@ -145,7 +145,7 @@ def download_audio_test_data():
 
 
 def update_user_script(file_path, model_name):
-    with open(file_path) as file:
+    with open(file_path) as file:  # noqa: PTH123
         lines = file.readlines()
 
     new_lines = []
@@ -154,7 +154,7 @@ def update_user_script(file_path, model_name):
             line = line.replace("<model_name>", model_name)  # ruff: noqa: PLW2901
         new_lines.append(line)
 
-    with open(file_path, "w") as file:
+    with open(file_path, "w") as file:  # noqa: PTH123
         file.writelines(new_lines)
 
 

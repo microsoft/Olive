@@ -72,8 +72,7 @@ def post_process(output):
 def create_dataloader(data_dir, batch_size, *args, **kwargs):
     cifar10_dataset = CIFAR10DataSet(data_dir)
     _, val_set = torch.utils.data.random_split(cifar10_dataset.val_dataset, [49000, 1000])
-    benchmark_dataloader = DataLoader(PytorchResNetDataset(val_set), batch_size=batch_size, drop_last=True)
-    return benchmark_dataloader
+    return DataLoader(PytorchResNetDataset(val_set), batch_size=batch_size, drop_last=True)
 
 
 # -------------------------------------------------------------------------
@@ -163,8 +162,7 @@ def create_qat_config():
 def create_train_dataloader(data_dir, batchsize, *args, **kwargs):
     cifar10_dataset = CIFAR10DataSet(data_dir)
     train_dataset, _ = torch.utils.data.random_split(cifar10_dataset.train_dataset, [40000, 10000])
-    train_dataloader = DataLoader(PytorchResNetDataset(train_dataset), batch_size=batchsize, drop_last=True)
-    return train_dataloader
+    return DataLoader(PytorchResNetDataset(train_dataset), batch_size=batchsize, drop_last=True)
 
 
 # -------------------------------------------------------------------------
@@ -198,13 +196,11 @@ class PTLDataModule(LightningDataModule):
 
     def train_dataloader(self):
         train_set, _ = torch.utils.data.random_split(self.train_dataset, [40000, 10000])
-        train_loader = DataLoader(train_set, batch_size=self.train_batch_size, shuffle=True, drop_last=True)
-        return train_loader
+        return DataLoader(train_set, batch_size=self.train_batch_size, shuffle=True, drop_last=True)
 
     def val_dataloader(self):
         _, val_set = torch.utils.data.random_split(self.val_dataset, [49000, 1000])
-        val_loader = DataLoader(val_set, batch_size=self.eval_batch_size, shuffle=False, drop_last=True)
-        return val_loader
+        return DataLoader(val_set, batch_size=self.eval_batch_size, shuffle=False, drop_last=True)
 
 
 class PTLModule(LightningModule):
@@ -218,8 +214,7 @@ class PTLModule(LightningModule):
         return self.model(imgs)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
-        return optimizer
+        return torch.optim.Adam(self.model.parameters(), lr=1e-3)
 
     def training_step(self, batch, batch_idx):
         # "batch" is the output of the training data loader.

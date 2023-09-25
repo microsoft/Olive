@@ -15,6 +15,8 @@ import pytest
 from olive.cache import clean_pass_run_cache, create_cache, download_resource, get_cache_sub_dirs, save_model
 from olive.resource_path import AzureMLModel
 
+# ruff: noqa: PTH123
+
 
 class TestCache:
     @pytest.mark.parametrize(

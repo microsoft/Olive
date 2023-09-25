@@ -33,13 +33,12 @@ def get_latency_metric():
         "data_dir": str(data_dir),
         "dataloader_func": "create_dataloader",
     }
-    latency_metric = Metric(
+    return Metric(
         name="latency",
         type=MetricType.LATENCY,
         sub_types=[{"name": LatencySubType.AVG}],
         user_config=latency_metric_config,
     )
-    return latency_metric
 
 
 def download_models():

@@ -10,9 +10,7 @@ IGNORE_INDEX = -100
 
 
 class DataComponentType(Enum):
-    """
-    enumerate for the different types of data components
-    """
+    """enumerate for the different types of data components."""
 
     # dataset component type: to load data into memory
     LOAD_DATASET = "load_dataset"
@@ -25,17 +23,13 @@ class DataComponentType(Enum):
 
 
 class DataContainerType(Enum):
-    """
-    enumerate for the different types of data containers
-    """
+    """enumerate for the different types of data containers."""
 
     DATA_CONTAINER = "data_container"
 
 
 class DefaultDataComponent(Enum):
-    """
-    enumerate for the default data components
-    """
+    """enumerate for the default data components."""
 
     LOAD_DATASET = "default_load_dataset"
     PRE_PROCESS_DATA = "default_pre_process_data"
@@ -44,8 +38,6 @@ class DefaultDataComponent(Enum):
 
 
 class DefaultDataContainer(Enum):
-    """
-    enumerate for the default data containers
-    """
+    """enumerate for the default data containers."""
 
     DATA_CONTAINER = "DataContainer"

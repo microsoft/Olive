@@ -22,8 +22,7 @@ class Device(str, Enum):
 
 @dataclass(frozen=True, eq=True)
 class AcceleratorSpec:
-    """Accelerator specification is the concept of a hardware device that can
-    be used to optimize or evaluate a model."""
+    """Accelerator specification is the concept of a hardware device that be used to optimize or evaluate a model."""
 
     accelerator_type: Union[str, Device]
     execution_provider: str
@@ -98,8 +97,8 @@ class AcceleratorLookup:
 
     @staticmethod
     def infer_accelerators_from_execution_provider(execution_provider: List[str]):
-        """
-        Infer the device from the execution provider name.
+        """Infer the device from the execution provider name.
+
         If all the execution provider is uniquely mapped to a device, return the device list.
         Otherwise, return None.
         For example:
@@ -127,5 +126,5 @@ class AcceleratorLookup:
                         is_unique_inferring = False
 
         if is_unique_inferring:
-            return list(set([accelerator[0] for accelerator in accelerators]))
+            return list({accelerator[0] for accelerator in accelerators})
         return None

@@ -13,9 +13,7 @@ from olive.passes.pass_config import PassConfigParam
 
 
 class OpenVINOConversion(Pass):
-    """
-    Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model.
-    """
+    """Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model."""
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -87,6 +85,4 @@ class OpenVINOConversion(Pass):
 
         # Save as ov model
         serialize(ov_model, xml_path=str(output_dir.with_suffix(".xml")), bin_path=str(output_dir.with_suffix(".bin")))
-        openvino_model = OpenVINOModel(model_path=output_model_path)
-
-        return openvino_model
+        return OpenVINOModel(model_path=output_model_path)

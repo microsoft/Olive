@@ -58,10 +58,10 @@ def get_graph_input_shape_dim_value(graph: onnx.GraphProto, input_index: int, di
     if abs(input_index) >= len(graph.input):
         raise ValueError(f"input_index {input_index} is out of range {len(graph.input)}")
 
-    input = graph.input[input_index]
-    if abs(dim_index) >= len(input.type.tensor_type.shape.dim):
-        raise ValueError(f"dim_index {dim_index} is out of range {len(input.type.tensor_type.shape.dim)}")
-    return input.type.tensor_type.shape.dim[dim_index].dim_value
+    graph_input = graph.input[input_index]
+    if abs(dim_index) >= len(graph_input.type.tensor_type.shape.dim):
+        raise ValueError(f"dim_index {dim_index} is out of range {len(graph_input.type.tensor_type.shape.dim)}")
+    return graph_input.type.tensor_type.shape.dim[dim_index].dim_value
 
 
 def get_graph_output_shape_dim_value(graph: onnx.GraphProto, output_index: int, dim_index: int) -> int:
