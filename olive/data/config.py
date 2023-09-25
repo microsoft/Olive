@@ -122,6 +122,9 @@ class DataConfig(ConfigBase):
                     v.params[param] = self.params_config[param]
                     continue
                 # 4. if it already defined params under the component, use the params directly
+                # TRICKY TRICKY TRICKY by myguo: not change the preprocess parameter by removing the leading underscore.
+                # for example, change _dataset to dataset will trigger bug.
+                # I did hit the issue. So I add this check here.
                 if param not in v.params and not param.startswith("_"):
                     if info.kind == info.VAR_POSITIONAL or info.kind == info.VAR_KEYWORD:
                         continue

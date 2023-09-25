@@ -152,7 +152,7 @@ def ner_huggingface_preprocess(_dataset, model_name, input_cols, label_cols, max
 
 @Registry.register_pre_process()
 def text_generation_huggingface_pre_process(
-    dataset, model_name: str, dataset_type: TextGenDatasetType, source_max_len: int, max_samples=None, **kwargs
+    _dataset, model_name: str, dataset_type: TextGenDatasetType, source_max_len: int, max_samples=None, **kwargs
 ):
     """Pre-process data for text generation task.
 
@@ -177,6 +177,6 @@ def text_generation_huggingface_pre_process(
     tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     if dataset_type == TextGenDatasetType.CORPUS:
-        return text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs)
+        return text_gen_corpus_pre_process(_dataset, tokenizer, all_kwargs)
     else:
-        return text_gen_pair_pre_process(dataset, tokenizer, all_kwargs)
+        return text_gen_pair_pre_process(_dataset, tokenizer, all_kwargs)
