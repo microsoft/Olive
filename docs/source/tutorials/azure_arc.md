@@ -13,7 +13,7 @@
 ## Add local Kubernetes cluster to Azure Arc
 
 - Lunch Azure Arc page at [Microsoft Azure Arc](https://ms.portal.azure.com/#view/Microsoft_Azure_HybridCompute/AzureArcCenterBlade/~/overview)
-- Select `Add your infrastructure for free`:  
+- Select `Add your infrastructure for free`:
 
 <img align="center" alt="olive-design" width="500px" src="../images/azure_arc/add-infra.png">
 
@@ -27,7 +27,7 @@
 
 - Download and run the script on local machine
 
-<img align="center" alt="olive-design" width="500px" src="../images/azure_arc/add-kub-to-arc.png">  
+<img align="center" alt="olive-design" width="500px" src="../images/azure_arc/add-kub-to-arc.png">
 
 It may take several minutes to link the cluster to Azure Arc. Then you should be able to see cluster verification passes in the last step.
 

@@ -60,7 +60,7 @@ def _iterate_experts(model: OnnxModel, producers: Dict[str, Message]):
 def _create_node_name(model: OnnxModel, op_type: str, prefix_a: str, prefix_b: str):
     prefix = ""
     last_slash = -1
-    for i in range(0, min(len(prefix_a), len(prefix_b))):
+    for i in range(min(len(prefix_a), len(prefix_b))):
         if prefix_a[i] == prefix_b[i]:
             prefix += prefix_a[i]
             if prefix_a[i] == "/":
@@ -213,7 +213,7 @@ def run(world_size: int, input_filepath: str, output_dirpath: str, debug: bool =
         experts.append([n.name for n in expert])
 
     output_filepaths = []
-    for rank in range(0, world_size):
+    for rank in range(world_size):
         rank_model = OnnxModel(onnx.load_model(input_filepath))
         producers = rank_model.output_name_to_node()
         consumers = rank_model.input_name_to_nodes()

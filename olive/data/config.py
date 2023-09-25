@@ -66,7 +66,7 @@ class DataConfig(ConfigBase):
         self._update_default_component_type()
         self._update_default_component()
         for k, v in self.default_components.items():
-            # do deepcopies here since we don't want to update the default_components
+            # do deepcopy here since we don't want to update the default_components
             if k not in self.components:
                 # v is a DataComponentConfig object, so we deepcopy it
                 self.components[k] = deepcopy(v)

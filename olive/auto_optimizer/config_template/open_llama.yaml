@@ -1,0 +1,21 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
+OptimumConversion:
+  save_as_external_data: true
+  all_tensors_to_one_file: true
+
+OrtTransformersOptimization:
+  # consider to read model_type automatically
+  model_type: gpt2
+  # read from model config and system type
+  # float16: true
+  # use_gpu: true
+  # num_heads: 32
+  # hidden_size: 4096
+  # TODO(trajep): double check search configs
+  keep_io_types: true
+  optimization_options:
+    use_multi_head_attention: true

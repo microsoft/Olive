@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import logging
 from pathlib import Path
 from typing import Callable, List, Union
 
@@ -9,6 +10,8 @@ from pydantic import validator
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, create_config_class
 from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
+
+logger = logging.getLogger(__name__)
 
 WARMUP_NUM = 10
 REPEAT_TEST_NUM = 20
@@ -87,6 +90,21 @@ class MetricGoal(ConfigBase):
     def check_value(cls, v, values):
         if "type" not in values:
             raise ValueError("Invalid type")
-        if values["type"] in ["min-improvement", "max-degradation"] and v < 0:
-            raise ValueError(f"Value must be positive for type {values['type']}")
+        if (
+            values["type"]
+            in ["min-improvement", "max-degradation", "percent-min-improvement", "percent-max-degradation"]
+            and v < 0
+        ):
+            raise ValueError(f"Value must be nonnegative for type {values['type']}")
         return v
+
+    def has_regression_goal(self):
+        if self.type in ["min-improvement", "percent-min-improvement"]:
+            return False
+        elif self.type in ["max-degradation", "percent-max-degradation"]:
+            return self.value > 0
+
+        if self.type == "threshold":
+            logger.warning("Metric goal type is threshold, Olive cannot determine if it is a regression goal or not.")
+            return False
+        return None

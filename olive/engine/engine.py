@@ -7,13 +7,16 @@ import logging
 import time
 from collections import OrderedDict, defaultdict
 from contextlib import contextmanager
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import olive.cache as cache_utils
+from olive.auto_optimizer import AutoOptimizer, AutoOptimizerConfig
 from olive.common.config_utils import ConfigBase, validate_config
 from olive.common.utils import hash_dict
+from olive.data.config import DataConfig
 from olive.engine.config import FAILED_CONFIG, INVALID_CONFIG, PRUNED_CONFIGS, EngineConfig
 from olive.engine.footprint import Footprint, FootprintNode, FootprintNodeMetric
 from olive.engine.packaging.packaging_config import PackagingConfig
@@ -49,6 +52,7 @@ class Engine:
         target: Optional[OliveSystem] = None,
         evaluator_config: Optional[OliveEvaluatorConfig] = None,
         execution_providers: Optional[List[str]] = None,
+        auto_optimizer_config: Optional[AutoOptimizerConfig] = None,
     ):
         self._config = validate_config(config, EngineConfig)
 
@@ -104,9 +108,16 @@ class Engine:
 
         self.azureml_client_config = self._config.azureml_client_config
 
+        self.auto_optimizer_config = AutoOptimizerConfig()
+        if auto_optimizer_config is not None:
+            self.auto_optimizer_config = auto_optimizer_config
+        elif self._config.auto_optimizer_config is not None:
+            self.auto_optimizer_config = self._config.auto_optimizer_config
+
         self._initialized = False
 
     def setup_accelerators(self, execution_providers):
+        # TODO(trajep): move this out of engine
         if execution_providers is None:
             execution_providers = self._config.execution_providers
 
@@ -142,7 +153,7 @@ class Engine:
                 accelerators = inferred_accelerators
         logger.debug(f"Initial accelerators: {accelerators}")
 
-        ep_to_process = set(self.execution_providers)
+        ep_to_process = sorted(set(self.execution_providers))
         # Flatten the accelerators to list of AcceleratorSpec
         self.accelerator_specs: List[AcceleratorSpec] = []
         is_cpu_available = "cpu" in [accelerator.lower() for accelerator in accelerators]
@@ -187,6 +198,51 @@ class Engine:
                 "Please consider installing an onnxruntime build that contains the relevant execution providers. "
             )
 
+    def prepare_passes_from_auto_optimizer(
+        self,
+        input_model_config: ModelConfig,
+        evaluator_config: OliveEvaluatorConfig,
+        accelerator_spec: AcceleratorSpec,
+        auto_optimizer_config: Optional[AutoOptimizerConfig] = None,
+        data_configs: Optional[Dict[str, DataConfig]] = None,
+        output_dir: str = None,
+    ):
+        if not self.enable_auto_optimizer:
+            return
+
+        logger.info("No passes registered, run auto optimizer.")
+        self.cleanup_passes()
+        auto_optimizer = AutoOptimizer(
+            input_model_config,
+            evaluator_config,
+            accelerator_spec,
+            auto_optimizer_config,
+            data_configs=data_configs,
+        )
+        pass_config, pass_flows = auto_optimizer.suggest()
+
+        if pass_config:
+            for pass_name, config in pass_config.items():
+                p = Pass.registry[pass_name.lower()]
+                self.register(p, config, name=pass_name)
+            self.set_pass_flows(pass_flows)
+            # save suggested pass config/pass flows to output_dir/auto_optimizer/{accelerator_spec}.json
+            auto_optimizer_dir = Path(output_dir) / "auto_optimizer"
+            auto_optimizer_dir.mkdir(parents=True, exist_ok=True)
+            auto_optimizer_path = auto_optimizer_dir / f"{accelerator_spec}.json"
+
+            dump_pass_configs = {}
+            for name, configs in deepcopy(pass_config).items():
+                dump_pass_configs[name.lower()] = {
+                    # just dump type/config for auto optimizer
+                    "type": name,
+                    "config": configs,
+                }
+            with auto_optimizer_path.open("w") as f:
+                json.dump({"passes": dump_pass_configs, "pass_flows": pass_flows}, f, indent=4)
+        else:
+            logger.info("No passes suggested by auto optimizer.")
+
     def initialize(self):
         """Initialize engine state. This should be done before running the registered passes."""
         cache_dir = self._config.cache_dir
@@ -220,6 +276,7 @@ class Engine:
                 cache_utils.clean_pass_run_cache(pass_config["type"].__name__, cache_dir)
 
         self.set_pass_flows(self.pass_flows)
+        self.enable_auto_optimizer = not self.pass_config and not self.auto_optimizer_config.disable_auto_optimizer
         self._initialized = True
 
     def register(
@@ -310,6 +367,7 @@ class Engine:
         output_dir: str = None,
         output_name: str = None,
         evaluate_input_model: bool = True,
+        data_configs: Optional[Dict[str, DataConfig]] = None,
     ):
         """Run all the registered Olive passes on the input model and produce one or more candidate models.
 
@@ -322,6 +380,7 @@ class Engine:
             output_name: output name for the output model, if output_name is provided, the output
                 model will be saved to engine's output_dir with the prefix of output_name.
             evaluate_input_model: if evaluate_input_model is True, run the evaluation on the input model.
+            data_configs: data configs for the input data
 
         Return:
             if search strategy is None, all passes are run in the order they were registered.
@@ -344,8 +403,24 @@ class Engine:
 
         for accelerator_spec in self.accelerator_specs:
             with self.create_managed_environment(accelerator_spec):
+                # TODO(trajep): refactor this part with accelerator_spec setup
+                if self.enable_auto_optimizer:
+                    self.prepare_passes_from_auto_optimizer(
+                        input_model_config,
+                        self.evaluator_config,
+                        accelerator_spec,
+                        self.auto_optimizer_config,
+                        data_configs,
+                        output_dir,
+                    )
+
                 run_result = self.run_accelerator(
-                    input_model_config, data_root, output_dir, output_name, evaluate_input_model, accelerator_spec
+                    input_model_config,
+                    data_root,
+                    output_dir,
+                    output_name,
+                    evaluate_input_model,
+                    accelerator_spec,
                 )
 
                 if run_result is None:
@@ -360,7 +435,7 @@ class Engine:
 
         if packaging_config and self.passes:
             # TODO(trajep): should we support package input model?
-            # TODO(trajep): do you support packaging pytorch models?
+            # TODO(trajep): do we support packaging pytorch models?
             logger.info(f"Package top ranked {sum([len(f.nodes) for f in outputs.values()])} models as artifacts")
             generate_output_artifacts(
                 packaging_config,
@@ -384,7 +459,6 @@ class Engine:
     ):
         # generate search space and initialize the passes for each hardware accelerator
         self.setup_passes(accelerator_spec)
-
         # hash the input model
         input_model_id = self._init_input_model(input_model_config)
         self.footprints[accelerator_spec].record(model_id=input_model_id)
@@ -404,8 +478,10 @@ class Engine:
                 with results_path.open("w") as f:
                     json.dump(results.to_json(), f, indent=4)
                 logger.info(f"Saved evaluation results of input model to {results_path}")
-                if not self.passes:
-                    logger.debug("No passes registered, return input model evaluation results.")
+                if not self.passes and not self.enable_auto_optimizer:
+                    logger.debug(
+                        "No passes registered and disable auto optimizer, return input model evaluation results."
+                    )
                     return results
 
             if self.no_search:
@@ -457,6 +533,12 @@ class Engine:
                 p: Pass = self.passes[pass_name]["pass"]
                 self.pass_search_spaces.append((pass_name, p.search_space()))
             self.pass_flows_search_spaces.append(self.pass_search_spaces)
+
+    def cleanup_passes(self):
+        """Cleanup the passes."""
+        self.passes.clear()
+        self.pass_config.clear()
+        self.pass_flows = []
 
     def run_no_search(
         self,

@@ -308,7 +308,7 @@ class TestAzureMLSystem:
     @patch("olive.systems.azureml.aml_system.AzureMLSystem._create_metric_args")
     def test__create_metric_component(self, mock_create_metric_args, mock_command, mock_copy, model_resource_type):
         # setup
-        tem_dir = Path(".")
+        tem_dir = Path()
         code_path = tem_dir / "code"
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)
         metric.user_config = {}

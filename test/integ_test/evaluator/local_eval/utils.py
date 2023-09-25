@@ -34,7 +34,7 @@ def post_process(res):
 
 
 def openvino_post_process(res):
-    res = list(res.values())[0]
+    res = next(iter(res.values()))
     return res.argmax(1)
 
 

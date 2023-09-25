@@ -18,7 +18,13 @@ from unittest.mock import patch
 import pytest
 
 from olive.evaluator.metric import AccuracySubType, LatencySubType
-from olive.evaluator.olive_evaluator import OnnxEvaluator, OpenVINOEvaluator, PyTorchEvaluator, SNPEEvaluator
+from olive.evaluator.olive_evaluator import (
+    OliveEvaluatorConfig,
+    OnnxEvaluator,
+    OpenVINOEvaluator,
+    PyTorchEvaluator,
+    SNPEEvaluator,
+)
 from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR
 from olive.systems.local import LocalSystem
 
@@ -176,6 +182,22 @@ class TestOliveEvaluator:
         metric = get_custom_metric_no_eval()
         with pytest.raises(ValueError, match="evaluate_func or metric_func is not specified in the metric config"):
             evaluator.evaluate(olive_model, None, [metric])
+
+
+class TestOliveEvaluatorConfig:
+    @pytest.mark.parametrize(
+        "evaluator_config, is_accuracy_drop_tolerance",
+        [
+            ([get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)], False),
+            ([get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="min-improvement")], False),
+            ([get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="percent-min-improvement")], False),
+            ([get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="max-degradation")], True),
+            ([get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="percent-max-degradation")], True),
+        ],
+    )
+    def test_is_accuracy_drop_tolerance(self, evaluator_config, is_accuracy_drop_tolerance):
+        evaluator_config_instance = OliveEvaluatorConfig(metrics=evaluator_config)
+        assert evaluator_config_instance.is_accuracy_drop_tolerance == is_accuracy_drop_tolerance
 
 
 @pytest.mark.skip(reason="Requires custom onnxruntime build with mpi enabled")

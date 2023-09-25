@@ -41,7 +41,9 @@ from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 logger = logging.getLogger(__name__)
 
 
-OliveModelOutput = collections.namedtuple("OliveModelOutput", ["preds", "logits"])
+class OliveModelOutput(NamedTuple):
+    preds: Any
+    logits: Any
 
 
 class OliveEvaluator(ABC):
@@ -865,7 +867,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
             result = session.infer_new_request({0: input_data})
             outputs = post_func(result) if post_func else result
             if not isinstance(labels, list):
-                labels = [labels]  # ruff: noqa: PLW2901
+                labels = [labels]  # noqa: PLW2901
             preds.extend(outputs)
             targets.extend(labels)
             logits.extend(result)
@@ -914,6 +916,14 @@ class OliveEvaluatorFactory:
 
 class OliveEvaluatorConfig(ConfigBase):
     metrics: List[Metric] = []  # noqa: RUF012
+
+    @property
+    def is_accuracy_drop_tolerance(self):
+        for metric in self.metrics:
+            for sub_metric in metric.sub_types:
+                if metric.type == MetricType.ACCURACY and sub_metric.higher_is_better:
+                    return sub_metric.goal is not None and sub_metric.goal.has_regression_goal()
+        return False
 
     @validator("metrics")
     def validate_metrics(cls, v):

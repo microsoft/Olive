@@ -352,8 +352,7 @@ class ONNXModel(ONNXModelBase):
 
     def nodes(self):
         for graph in self.get_all_graphs():
-            for node in graph.node:
-                yield node
+            yield from graph.node
 
     def get_graph(self):
         if self.graph is not None:
@@ -725,11 +724,16 @@ class PyTorchModel(OliveModel):
                 "hf_config": self.hf_config,
             }
         )
-        # convert script_dir and model_script to string
-        # the original config has them as serialized ResourcePath
-        for resource_name in ["script_dir", "model_script"]:
-            if self.resource_paths[resource_name]:
-                config["config"][resource_name] = self.get_resource(resource_name)
+        # clean up redundant information in model_attributes
+        config["config"].pop("model_attributes", None)
+        # using a copy of self.model_attributes since config["config"]["model_attributes"] is already
+        # serialized and might not match self.model_attributes
+        model_attributes = deepcopy(self.model_attributes)
+        if model_attributes and self.hf_config:
+            for key, value in self.get_hf_model_config().to_dict().items():
+                if key in model_attributes and model_attributes[key] == value:
+                    del model_attributes[key]
+        config["config"]["model_attributes"] = model_attributes or None
         return serialize_to_json(config, check_object)
 
 

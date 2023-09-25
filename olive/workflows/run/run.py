@@ -21,38 +21,6 @@ from olive.workflows.run.config import RunConfig
 logger = logging.getLogger(__name__)
 
 
-def automatically_insert_passes(config):
-    new_config_dict = json.loads(config.json())
-    new_passes = {}
-
-    # insert onnx converter
-    oc_config = {"type": "OnnxConversion"}
-    new_passes["conversion"] = oc_config
-
-    # insert transformer opt
-    to_config = {"type": "OrtTransformersOptimization"}
-    to_config["config"] = {"model_type": "bert"}
-    to_config["disable_search"] = True
-    new_passes["transformers_optimization"] = to_config
-
-    # insert quantization
-    q_config = {"type": "OnnxDynamicQuantization"}
-    q_config["config"] = {"per_channel": "SEARCHABLE_VALUES", "reduce_range": "SEARCHABLE_VALUES"}
-    q_config["clean_run_cache"] = False
-    new_passes["dynamic_quantization"] = q_config
-
-    # insert perf_tuning
-    t_config = {"type": "OrtPerfTuning"}
-    t_config["config"] = {"user_script": "user_script.py", "dataloader_func": "create_dataloader", "batch_size": 1}
-    new_passes["perf_tuning"] = t_config
-
-    new_config_dict["passes"] = new_passes
-    new_config = RunConfig.parse_obj(new_config_dict)
-    new_engine = new_config.engine.create_engine()
-
-    return new_engine, new_config
-
-
 def dependency_setup(config):
     here = os.path.abspath(os.path.dirname(__file__))
     with open(os.path.join(here, "../../extra_dependencies.json")) as f:  # noqa: PTH123
@@ -154,10 +122,6 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
     # engine
     engine = config.engine.create_engine()
 
-    if not config.passes and not config.engine.evaluate_input_model:
-        # TODO(trajep): enhance this logic for more passes templates
-        engine, config = automatically_insert_passes(config)
-
     if setup:
         # set the log level to INFO for setup
         set_verbosity_info()
@@ -191,6 +155,7 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
             config.engine.output_dir,
             config.engine.output_name,
             config.engine.evaluate_input_model,
+            config.data_configs,
         )
 
 
