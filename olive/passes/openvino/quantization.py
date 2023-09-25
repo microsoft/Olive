@@ -88,7 +88,7 @@ class OpenVINOQuantization(Pass):
         try:
             from openvino.tools.pot import IEEngine, compress_model_weights, create_pipeline, save_model
         except ImportError:
-            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
 
         assert config["dataloader_func"] or config["data_config"], "dataloader_func or data_config is required."
 
@@ -128,19 +128,19 @@ class OpenVINOQuantization(Pass):
         try:
             from openvino.tools.pot.api import DataLoader
         except ImportError:
-            raise ImportError("Please install olive-ai[openvino] to use OpenVINO pass")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO pass") from None
 
         class _OVDataloader(DataLoader):
             def __init__(self, dataloader):
                 self.data = []
                 self.labels = []
-                for data, label in dataloader:
-                    if isinstance(data, dict):
-                        data = {k: np.array(v) for k, v in data.items()}
-                    elif isinstance(data, tuple):
-                        data = tuple(np.array(v) for v in data)
+                for data_k, label in dataloader:
+                    if isinstance(data_k, dict):
+                        data = {k: np.array(v) for k, v in data_k.items()}
+                    elif isinstance(data_k, tuple):
+                        data = tuple(np.array(v) for v in data_k)
                     else:
-                        data = np.array(data)
+                        data = np.array(data_k)
                     self.data.append(data)
                     self.labels.append(label)
 

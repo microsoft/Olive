@@ -157,10 +157,9 @@ class QatTrainer:
                 self.replace_modules(child, qconfig, op_name)
             if type(child) in white_list:
                 if type(child) not in skip_list:
-                    if not type(child) in skip_list:
-                        new = QuantizedModule(child)
-                        new.qconfig = qconfig
-                        setattr(module, name, new)
+                    new = QuantizedModule(child)
+                    new.qconfig = qconfig
+                    setattr(module, name, new)
 
     def _recursive_hasattr(self, obj, attribs, state=True):
         if "." in attribs:

@@ -20,7 +20,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.exception import OlivePassException
+from olive.exception import OlivePassError
 from olive.hardware import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig
 from olive.passes.olive_pass import Pass
@@ -58,7 +58,7 @@ class Engine:
         if search_strategy is not None:
             # if search strategy is provided, use it. It takes precedence
             self.search_strategy = search_strategy
-        elif isinstance(self._config.search_strategy, ConfigBase) or isinstance(self._config.search_strategy, dict):
+        elif isinstance(self._config.search_strategy, (ConfigBase, dict)):
             # if search strategy is provided in config, use it
             self.search_strategy = SearchStrategy(self._config.search_strategy)
         elif not self._config.search_strategy:
@@ -357,7 +357,7 @@ class Engine:
 
                 outputs[accelerator_spec] = run_result
 
-        for accelerator_spec in self.footprints.keys():
+        for accelerator_spec in self.footprints:
             logger.info(f"Run history for {accelerator_spec}:")
             run_history = self.footprints[accelerator_spec].summarize_run_history()
             self.dump_run_history(run_history, output_dir / f"run_history_{accelerator_spec}.txt")
@@ -834,7 +834,7 @@ class Engine:
         """
         model_json_path = self.get_model_json_path(model_id)
         try:
-            with open(model_json_path, "r") as f:
+            with open(model_json_path) as f:
                 model_json = json.load(f)
         except Exception as e:
             logger.error(f"Failed to load model: {e}", exc_info=True)
@@ -930,7 +930,7 @@ class Engine:
         run_json = {}
         if run_json_path.exists():
             try:
-                with open(run_json_path, "r") as f:
+                with open(run_json_path) as f:
                     run_json = json.load(f)
             except Exception as e:
                 logger.error(f"Failed to load run: {e}", exc_info=True)
@@ -1054,7 +1054,7 @@ class Engine:
         run_start_time = datetime.now().timestamp()
         try:
             output_model_config = host.run_pass(p, input_model_config, data_root, output_model_path, pass_search_point)
-        except OlivePassException as e:
+        except OlivePassError as e:
             logger.error(f"Pass run_pass failed: {e}", exc_info=True)
             output_model_config = FAILED_CONFIG
         except EXCEPTIONS_TO_RAISE:
@@ -1119,7 +1119,7 @@ class Engine:
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         if evaluation_json_path.exists():
             try:
-                with open(evaluation_json_path, "r") as f:
+                with open(evaluation_json_path) as f:
                     evaluation_json = json.load(f)
                 signal = evaluation_json["signal"]
                 signal = MetricResult(**signal)
@@ -1192,7 +1192,7 @@ class Engine:
                 x.metrics.value[metric].value
                 if x.metrics.cmp_direction[metric] == 1
                 else -x.metrics.value[metric].value
-                for metric in objective_dict.keys()
+                for metric in objective_dict
             ),
             reverse=True,
         )

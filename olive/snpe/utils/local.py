@@ -18,7 +18,7 @@ def get_snpe_root() -> str:
         snpe_root = os.environ["SNPE_ROOT"]
         logger.debug(f"SNPE_ROOT is set to {snpe_root}")
     except KeyError:
-        raise ValueError("SNPE_ROOT is not set")
+        raise ValueError("SNPE_ROOT is not set") from None
 
     return snpe_root
 

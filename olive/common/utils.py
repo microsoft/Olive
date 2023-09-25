@@ -37,7 +37,7 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
 
 
 def get_package_name_from_ep(execution_provider):
-    PROVIDER_PACKAGE_MAPPING = {
+    provider_package_mapping = {
         "CPUExecutionProvider": ("onnxruntime", "ort-nightly"),
         "CUDAExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
         "TensorrtExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
@@ -45,7 +45,7 @@ def get_package_name_from_ep(execution_provider):
         "OpenVINOExecutionProvider": ("onnxruntime-openvino", None),
         "DmlExecutionProvider": ("onnxruntime-directml", "ort-nightly-directml"),
     }
-    return PROVIDER_PACKAGE_MAPPING.get(execution_provider, ("onnxruntime", "ort-nightly"))
+    return provider_package_mapping.get(execution_provider, ("onnxruntime", "ort-nightly"))
 
 
 def hash_string(string):  # pragma: no cover
@@ -116,7 +116,7 @@ def flatten_dict(dictionary, stop_condition=None):  # pragma: no cover
         if stop_condition is not None and stop_condition(value):
             result[(key,)] = value
         elif isinstance(value, dict):
-            result.update({(key,) + k: v for k, v in flatten_dict(value, stop_condition).items()})
+            result.update({(key, *k): v for k, v in flatten_dict(value, stop_condition).items()})
         else:
             result[(key,)] = value
     return result

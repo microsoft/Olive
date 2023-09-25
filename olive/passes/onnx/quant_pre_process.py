@@ -19,6 +19,8 @@ from onnxruntime.tools.symbolic_shape_infer import SymbolicShapeInference
 
 logger = logging.getLogger(__name__)
 
+# ruff: noqa: N802
+
 
 def quant_pre_process(
     input_model_path: str,

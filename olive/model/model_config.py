@@ -65,7 +65,7 @@ class IOConfig(ConfigBase):
             try:
                 int(dim_param)
             except ValueError:
-                raise ValueError(f"Invalid string_to_int_dim_params: {dim_param}. Must be castable to int.")
+                raise ValueError(f"Invalid string_to_int_dim_params: {dim_param}. Must be castable to int.") from None
         return v
 
 

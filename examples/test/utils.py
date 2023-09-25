@@ -17,7 +17,7 @@ def check_output(footprints):
 
 def patch_config(config_json_path: str, search_algorithm: str, execution_order: str, system: str, is_gpu: bool = False):
     """Load the config json file and patch it with the given search algorithm, execution order and system."""
-    with open(config_json_path, "r") as fin:
+    with open(config_json_path) as fin:
         olive_config = json.load(fin)
     # set default logger severity
     olive_config["engine"]["log_severity_level"] = 0

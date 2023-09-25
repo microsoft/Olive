@@ -33,7 +33,7 @@ def optimize(model_name: str, optimized_model_dir: Path):
     print(f"\nOptimizing {model_name}")
 
     olive_config = None
-    with open(script_dir / "config_dolly_v2.json", "r") as fin:
+    with open(script_dir / "config_dolly_v2.json") as fin:
         olive_config = json.load(fin)
 
     olive_config["input_model"]["config"]["model_path"] = model_name
@@ -46,7 +46,7 @@ def optimize(model_name: str, optimized_model_dir: Path):
         footprints = json.load(footprint_file)
         conversion_footprint = None
         merger_footprint = None
-        for _, footprint in footprints.items():
+        for footprint in footprints.values():
             if footprint["from_pass"] == "OptimumConversion":
                 conversion_footprint = footprint
             elif footprint["from_pass"] == "OptimumMerging":
@@ -105,8 +105,7 @@ if __name__ == "__main__":
 
     if args.model not in list(model_to_hidden_size.keys()):
         print(
-            f"WARNING: {args.model} is not an officially supported model for this example and may not work as "
-            + "expected."
+            f"WARNING: {args.model} is not an officially supported model for this example and may not work as expected."
         )
 
     config.hidden_size = model_to_hidden_size.get(args.model, 2560)

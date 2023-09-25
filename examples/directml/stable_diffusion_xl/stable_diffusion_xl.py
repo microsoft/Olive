@@ -264,7 +264,7 @@ def optimize(
         print(f"\nOptimizing {submodel_name}")
 
         olive_config = None
-        with open(script_dir / f"config_{submodel_name}.json", "r") as fin:
+        with open(script_dir / f"config_{submodel_name}.json") as fin:
             olive_config = json.load(fin)
 
         # TODO: Remove this once we figure out which nodes are causing the black screen
@@ -286,7 +286,7 @@ def optimize(
 
             conversion_footprint = None
             optimizer_footprint = None
-            for _, footprint in footprints.items():
+            for footprint in footprints.values():
                 if footprint["from_pass"] == "OnnxConversion":
                     conversion_footprint = footprint
                 elif footprint["from_pass"] == "OrtTransformersOptimization":
@@ -434,7 +434,7 @@ if __name__ == "__main__":
     if args.model_id not in list(model_to_config.keys()):
         print(
             f"WARNING: {args.model_id} is not an officially supported model for this example and may not work as "
-            + "expected."
+            "expected."
         )
 
     if version.parse(ort.__version__) < version.parse("1.15.0"):

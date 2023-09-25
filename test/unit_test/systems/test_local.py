@@ -3,12 +3,13 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from test.unit_test.utils import get_accuracy_metric, get_custom_eval, get_latency_metric
+from typing import ClassVar, List
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from olive.constants import Framework
-from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult, MetricType, joint_metric_key
+from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricResult, MetricType, joint_metric_key
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import PyTorchModel
 from olive.systems.local import LocalSystem
@@ -32,7 +33,7 @@ class TestLocalSystem:
         # assert
         p.run.assert_called_once_with(olive_model.create_model(), None, output_model_path, None)
 
-    METRIC_TEST_CASE = [
+    METRIC_TEST_CASE: ClassVar[List[Metric]] = [
         (get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)),
         (get_accuracy_metric(AccuracySubType.F1_SCORE)),
         (get_accuracy_metric(AccuracySubType.PRECISION)),

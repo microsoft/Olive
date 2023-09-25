@@ -268,7 +268,7 @@ def huggingface_model_loader(model_loader):
         try:
             model_loader = getattr(transformers, model_loader)
         except AttributeError:
-            raise AttributeError(f"{model_loader} is not found in transformers")
+            raise AttributeError(f"{model_loader} is not found in transformers") from None
     elif not isinstance(model_loader, Callable):
         raise ValueError("model_loader must be a callable or a string defined in transformers")
 
@@ -404,7 +404,7 @@ def get_model_max_length(model_name: str, fail_on_not_found=False) -> int:
         except AttributeError:
             not_found_msg = f"Could not find max length for model type {model_type}"
             if fail_on_not_found:
-                raise ValueError(not_found_msg)
+                raise ValueError(not_found_msg) from None
             else:
                 logger.warning(not_found_msg)
                 return None

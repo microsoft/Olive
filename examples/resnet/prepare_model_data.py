@@ -14,6 +14,8 @@ import torchvision
 import torchvision.transforms as transforms
 from torchvision.models import ResNet50_Weights, resnet50
 
+# ruff: noqa: PLW2901
+
 
 def get_args():
     parser = argparse.ArgumentParser()

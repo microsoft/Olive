@@ -56,22 +56,23 @@ def get_dlc_io_config(dlc_path: str, input_names: List[str], output_names: List[
 
     input_dims = {}
     output_dims = {}
-    out = csv.reader(open(tmp_csv.name, "r"))
-    for row in out:
-        if len(row) == 8:
-            _, name, _, input, output, shape, _, _ = tuple(row)
-            # version 2.x has 'name type'
-            output = output.split(" ")[0]
-            # input name in this format for versions 1.x
-            if name == input and name == output and name and name in input_names:
-                input_dims[name] = list(map(int, shape.split("x")))
-            elif output in output_names:
-                output_dims[output] = list(map(int, shape.split("x")))
-        if len(row) == 3:
-            name, shape, _ = tuple(row)
-            # input name in this format for versions 2.x
-            if name in input_names:
-                input_dims[name] = list(map(int, shape.split(",")))
+    with open(tmp_csv.name) as f:
+        out = csv.reader(f)
+        for row in out:
+            if len(row) == 8:
+                _, name, _, input, output, shape, _, _ = tuple(row)
+                # version 2.x has 'name type'
+                output = output.split(" ")[0]
+                # input name in this format for versions 1.x
+                if name == input and name == output and name and name in input_names:
+                    input_dims[name] = list(map(int, shape.split("x")))
+                elif output in output_names:
+                    output_dims[output] = list(map(int, shape.split("x")))
+            if len(row) == 3:
+                name, shape, _ = tuple(row)
+                # input name in this format for versions 2.x
+                if name in input_names:
+                    input_dims[name] = list(map(int, shape.split(",")))
     tmp_csv.close()
 
     io_config = {
@@ -142,8 +143,10 @@ def _get_conversion_arg_str(arg_type: str, input_names: List[str], input_values:
         if arg_type == "-d":
             # convert shape list to string
             # e.g. [1, 3, 224, 224] -> "1,3,224,224"
-            value = ",".join([str(v) for v in value])
-        arg_str += f" {arg_type} {name} {value}"
+            value_str = ",".join([str(v) for v in value])
+        else:
+            value_str = value
+        arg_str += f" {arg_type} {name} {value_str}"
 
     return arg_str.lstrip()
 

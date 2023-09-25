@@ -55,41 +55,41 @@ def automatically_insert_passes(config):
 
 def dependency_setup(config):
     here = os.path.abspath(os.path.dirname(__file__))
-    with open(os.path.join(here, "../../extra_dependencies.json"), "r") as f:
-        EXTRAS = json.load(f)
-    DEPENDENCY_MAPPING = {
+    with open(os.path.join(here, "../../extra_dependencies.json")) as f:
+        extras = json.load(f)
+    dependency_mapping = {
         "device": {
-            SystemType.AzureML: EXTRAS.get("azureml"),
-            SystemType.Docker: EXTRAS.get("docker"),
-            SystemType.Local: {Device.CPU: EXTRAS.get("cpu"), Device.GPU: EXTRAS.get("gpu")},
+            SystemType.AzureML: extras.get("azureml"),
+            SystemType.Docker: extras.get("docker"),
+            SystemType.Local: {Device.CPU: extras.get("cpu"), Device.GPU: extras.get("gpu")},
         },
         "pass": {
             "OnnxFloatToFloat16": ["onnxconverter-common"],
             "OrtPerfTuning": ["psutil"],
             "QuantizationAwareTraining": ["pytorch-lightning"],
-            "OpenVINOConversion": EXTRAS.get("openvino"),
-            "OpenVINOQuantization": EXTRAS.get("openvino"),
-            "IncQuantization": EXTRAS.get("inc"),
-            "IncDynamicQuantization": EXTRAS.get("inc"),
-            "IncStaticQuantization": EXTRAS.get("inc"),
-            "OptimumConversion": EXTRAS.get("optimum"),
-            "OptimumMerging": EXTRAS.get("optimum"),
-            "TorchTRTConversion": EXTRAS.get("torch-tensorrt"),
+            "OpenVINOConversion": extras.get("openvino"),
+            "OpenVINOQuantization": extras.get("openvino"),
+            "IncQuantization": extras.get("inc"),
+            "IncDynamicQuantization": extras.get("inc"),
+            "IncStaticQuantization": extras.get("inc"),
+            "OptimumConversion": extras.get("optimum"),
+            "OptimumMerging": extras.get("optimum"),
+            "TorchTRTConversion": extras.get("torch-tensorrt"),
         },
     }
-    ORT_PACKAGES = ["onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino"]
+    ort_packages = ["onnxruntime", "onnxruntime-directml", "onnxruntime-gpu", "onnxruntime-openvino"]
 
     local_packages = []
     remote_packages = []
 
     # add dependencies for passes
     if config.passes:
-        for _, pass_config in config.passes.items():
+        for pass_config in config.passes.values():
             host = pass_config.host or config.engine.host
             if (host and host.type == SystemType.Local) or not host:
-                local_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type, []))
+                local_packages.extend(dependency_mapping["pass"].get(pass_config.type, []))
             else:
-                remote_packages.extend(DEPENDENCY_MAPPING["pass"].get(pass_config.type, []))
+                remote_packages.extend(dependency_mapping["pass"].get(pass_config.type, []))
             if pass_config.type in ["SNPEConversion", "SNPEQuantization", "SNPEtoONNXConversion"]:
                 logger.info(
                     "Please refer to https://microsoft.github.io/Olive/tutorials/passes/snpe.html to install SNPE"
@@ -102,18 +102,18 @@ def dependency_setup(config):
         if config.engine.host.config.accelerators and "GPU" in list(
             map(str.upper, config.engine.host.config.accelerators)
         ):
-            local_packages.extend(DEPENDENCY_MAPPING["device"][SystemType.Local]["gpu"])
+            local_packages.extend(dependency_mapping["device"][SystemType.Local]["gpu"])
         else:
-            local_packages.extend(DEPENDENCY_MAPPING["device"][SystemType.Local]["cpu"])
+            local_packages.extend(dependency_mapping["device"][SystemType.Local]["cpu"])
     elif not config.engine.host:
-        local_packages.extend(DEPENDENCY_MAPPING["device"][SystemType.Local]["cpu"])
+        local_packages.extend(dependency_mapping["device"][SystemType.Local]["cpu"])
     else:
-        local_packages.extend(DEPENDENCY_MAPPING["device"][config.engine.host.type])
+        local_packages.extend(dependency_mapping["device"][config.engine.host.type])
 
     # install missing packages to local or tell user to install packages in their environment
     logger.info(f"The following packages are required in the local environment: {local_packages}")
     for package in set(local_packages):
-        if package in ORT_PACKAGES:
+        if package in ort_packages:
             check_local_ort_installation(package)
         else:
             try:
@@ -123,7 +123,7 @@ def dependency_setup(config):
                 logger.info(f"{package} is already installed.")
             except importlib.metadata.PackageNotFoundError:
                 logger.info(f"Installing {package}...")
-                subprocess.check_call(["python", "-m", "pip", "install", "{}".format(package)])
+                subprocess.check_call(["python", "-m", "pip", "install", f"{package}"])
                 logger.info(f"Successfully installed {package}.")
     if remote_packages:
         logger.info(
@@ -135,7 +135,7 @@ def dependency_setup(config):
 
 def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = None):
     # we use parse_file and parse_obj to be safe. If implemented as expected, both should be equivalent.
-    if isinstance(config, str) or isinstance(config, Path):
+    if isinstance(config, (str, Path)):
         config = RunConfig.parse_file(config)
     else:
         config = RunConfig.parse_obj(config)

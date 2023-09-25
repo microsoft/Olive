@@ -25,7 +25,7 @@ ONNX_MODEL_PATH = Path(__file__).absolute().parent / "dummy_model.onnx"
 
 class DummyModel(nn.Module):
     def __init__(self):
-        super(DummyModel, self).__init__()
+        super().__init__()
         self.fc1 = nn.Linear(1, 10)
 
     def forward(self, x):

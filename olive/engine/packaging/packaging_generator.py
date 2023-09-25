@@ -24,6 +24,8 @@ from olive.resource_path import ResourceType, create_resource_path
 
 logger = logging.getLogger(__name__)
 
+# ruff: noqa: N806
+
 
 def generate_output_artifacts(
     packaging_config: PackagingConfig,
@@ -46,8 +48,8 @@ def _generate_zipfile_output(
 ) -> None:
     logger.info("Packaging Zipfile output artifacts")
     cur_path = Path(__file__).parent
-    with tempfile.TemporaryDirectory() as tempdir:
-        tempdir = Path(tempdir)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        tempdir = Path(temp_dir)
         _package_sample_code(cur_path, tempdir)
         for accelerator_spec, pf_footprint in pf_footprints.items():
             if pf_footprint.nodes and footprints[accelerator_spec].nodes:
@@ -123,7 +125,7 @@ def _package_candidate_models(
                     try:
                         import mlflow
                     except ImportError:
-                        raise ImportError("Exporting model in MLflow format requires mlflow>=2.4.0")
+                        raise ImportError("Exporting model in MLflow format requires mlflow>=2.4.0") from None
                     from packaging.version import Version
 
                     if Version(mlflow.__version__) < Version("2.4.0"):
@@ -188,8 +190,8 @@ def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
     installed_packages = pkg_resources.working_set
     onnxruntime_pkg = [i for i in installed_packages if i.key.startswith("onnxruntime")]
     ort_nightly_pkg = [i for i in installed_packages if i.key.startswith("ort-nightly")]
-    is_nightly = True if ort_nightly_pkg else False
-    is_stable = True if onnxruntime_pkg else False
+    is_nightly = bool(ort_nightly_pkg)
+    is_stable = bool(onnxruntime_pkg)
 
     if not is_nightly and not is_stable:
         logger.warning("ONNXRuntime package is not installed. Skip packaging ONNXRuntime package.")
@@ -201,7 +203,7 @@ def _package_onnxruntime_packages(tempdir, pf_footprint: Footprint):
     ort_version = ort_nightly_pkg[0].version if is_nightly else onnxruntime_pkg[0].version
     use_ort_extensions = False
 
-    for model_id, _ in pf_footprint.nodes.items():
+    for model_id in pf_footprint.nodes:
         if pf_footprint.get_use_ort_extensions(model_id):
             use_ort_extensions = True
         inference_settings = pf_footprint.get_model_inference_config(model_id)
@@ -300,8 +302,8 @@ def _download_c_packages(package_name_list: List[str], ort_version: str, ort_dow
         ),
         "onnxruntime-openvino": None,
     }
-    for package_name in package_name_list:
-        package_name = package_name[0]
+    for package_name_tuple in package_name_list:
+        package_name = package_name_tuple[0]
         download_link = PACKAGE_DOWNLOAD_LINK_MAPPING[package_name]
         download_path = str(ort_download_path / f"microsoft.ml.{package_name}.{ort_version}.nupkg")
         if download_link:

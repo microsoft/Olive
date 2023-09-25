@@ -127,7 +127,7 @@ class Metric(ConfigBase):
         except ValueError:
             raise ValueError(
                 f"sub_type {v['name']} is not in {list(sub_type_enum.__members__.keys())} for {values['type']} metric"
-            )
+            ) from None
 
         # metric_config
         metric_config_cls = None

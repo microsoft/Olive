@@ -6,7 +6,7 @@ import inspect
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple, Type, Union, get_args
+from typing import Any, Callable, ClassVar, Dict, Optional, Tuple, Type, Union, get_args
 
 from pydantic import validator
 
@@ -35,6 +35,8 @@ from olive.strategy.utils import cyclic_search_space, order_search_parameters
 
 logger = logging.getLogger(__name__)
 
+# ruff: noqa: B027
+
 
 class Pass(ABC):
     """
@@ -42,7 +44,7 @@ class Pass(ABC):
     Each pass should derive its own configuration class that contains all information it needs to execute.
     """
 
-    registry: Dict[str, Type["Pass"]] = {}
+    registry: ClassVar[Dict[str, Type["Pass"]]] = {}
     # True if pass configuration requires user script for non-local host support
     _requires_user_script: bool = False
     # True if the pass processes a composite model at once. Otherwise, the components of the
@@ -220,11 +222,11 @@ class Pass(ABC):
             if value == PassParamDefault.DEFAULT_VALUE:
                 config[key] = default_config[key].default_value
             elif value == PassParamDefault.SEARCHABLE_VALUES:
-                value = default_config[key].searchable_values
-                if value is None:
+                v = default_config[key].searchable_values
+                if v is None:
                     logger.warning(f"Parameter {key} does not have searchable values. Using default value instead.")
-                    value = default_config[key].default_value
-                config[key] = value
+                    v = default_config[key].default_value
+                config[key] = v
         return config
 
     @classmethod

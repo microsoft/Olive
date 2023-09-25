@@ -50,8 +50,8 @@ def create_pass(pass_config, pass_args):
     for key, value in vars(pass_args).items():
         if value is not None:
             # remove the pass_ prefix, the 1 is to only replace the first occurrence
-            key = key.replace("pass_", "", 1)
-            pass_config["config"][key] = value
+            normalized_key = key.replace("pass_", "", 1)
+            pass_config["config"][normalized_key] = value
 
     p = FullPassConfig.from_json(pass_config).create_pass()
     return p
@@ -112,8 +112,8 @@ def main(raw_args=None):
     model_json["resource_names"] = []
     # keep track of the resource names that are the same as the input model
     model_json["same_resources_as_input"] = []
-    for resource_name, resource_path in output_model.resource_paths.items():
-        resource_path = create_resource_path(resource_path)  # just in case
+    for resource_name, resource_path_value in output_model.resource_paths.items():
+        resource_path = create_resource_path(resource_path_value)  # just in case
         if not resource_path or resource_path.is_string_name():
             # nothing to do if the path is None or a string name
             continue

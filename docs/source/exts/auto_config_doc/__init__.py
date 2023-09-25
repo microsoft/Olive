@@ -1,6 +1,6 @@
 import inspect
 from importlib import import_module
-from typing import Union
+from typing import ClassVar, Dict, Union
 
 from docutils import nodes
 from docutils.parsers.rst import Directive
@@ -24,7 +24,7 @@ def import_class(class_name: str):
 class AutoConfigDirective(Directive):
     has_content = True
     required_arguments = 1
-    option_spec = {}
+    option_spec: ClassVar[Dict] = {}
 
     def make_doc(self, auto_config_class: Union[AutoConfigClass, Pass]):
         class_doc = auto_config_class.__doc__

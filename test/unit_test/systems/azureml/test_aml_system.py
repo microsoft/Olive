@@ -8,6 +8,7 @@ import shutil
 import tempfile
 from pathlib import Path
 from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_latency_metric, get_pytorch_model_config
+from typing import ClassVar, List
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -15,7 +16,7 @@ from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 
 from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult
+from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricResult
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
@@ -38,7 +39,7 @@ class TestAzureMLSystem:
         mock_azureml_client_config = Mock(spec=AzureMLClientConfig)
         self.system = AzureMLSystem(mock_azureml_client_config, "dummy", docker_config)
 
-    METRIC_TEST_CASE = [
+    METRIC_TEST_CASE: ClassVar[List[Metric]] = [
         (get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)),
         (get_accuracy_metric(AccuracySubType.F1_SCORE)),
         (get_accuracy_metric(AccuracySubType.PRECISION)),

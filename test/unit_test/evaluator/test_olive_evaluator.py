@@ -12,6 +12,7 @@ from test.unit_test.utils import (
     get_onnx_model,
     get_pytorch_model,
 )
+from typing import ClassVar
 from unittest.mock import patch
 
 import pytest
@@ -24,7 +25,7 @@ from olive.systems.local import LocalSystem
 
 class TestOliveEvaluator:
 
-    ACCURACY_TEST_CASE = [
+    ACCURACY_TEST_CASE: ClassVar[list] = [
         (
             PyTorchEvaluator(),
             get_pytorch_model,
@@ -115,7 +116,7 @@ class TestOliveEvaluator:
             for sub_type in metric.sub_types:
                 assert expected_res == actual_res.get_value(metric.name, sub_type.name)
 
-    LATENCY_TEST_CASE = [
+    LATENCY_TEST_CASE: ClassVar[list] = [
         (PyTorchEvaluator(), get_pytorch_model, get_latency_metric(LatencySubType.AVG, LatencySubType.MAX), 10),
         (PyTorchEvaluator(), get_pytorch_model, get_latency_metric(LatencySubType.MAX), 10),
         (PyTorchEvaluator(), get_pytorch_model, get_latency_metric(LatencySubType.MIN), 10),
@@ -149,7 +150,7 @@ class TestOliveEvaluator:
         for sub_type in metric.sub_types:
             assert expected_res > actual_res.get_value(metric.name, sub_type.name)
 
-    CUSTOM_TEST_CASE = [
+    CUSTOM_TEST_CASE: ClassVar[list] = [
         (PyTorchEvaluator(), get_pytorch_model, get_custom_eval(), 0.382715310),
         (OnnxEvaluator(), get_onnx_model, get_custom_eval(), 0.382715310),
         (SNPEEvaluator(), get_mock_snpe_model, get_custom_eval(), 0.382715310),

@@ -18,6 +18,8 @@ from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
 
+# ruff: noqa: N806
+
 
 class InsertBeamSearch(Pass):
     """Insert Beam Search Op."""

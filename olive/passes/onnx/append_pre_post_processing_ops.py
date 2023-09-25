@@ -117,11 +117,11 @@ class AppendPrePostProcessingOps(Pass):
                     try:
                         tool_command = getattr(add_ppp, tool_command)
                     except AttributeError:
-                        raise AttributeError(f"{tool_command} is not found in onnxruntime_extensions.tools")
+                        raise AttributeError(f"{tool_command} is not found in onnxruntime_extensions.tools") from None
                 elif not isinstance(tool_command, Callable):
                     raise ValueError(
                         "tool_command must be a callable or a string defined in onnxruntime_extensions.tools"
-                    )
+                    ) from None
 
                 kwargs = config.get("tool_command_args") or {}
                 kwargs["onnx_opset"] = onnx_opset
