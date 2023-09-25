@@ -30,8 +30,8 @@ def create_dataloader(data_dir, batchsize, *args, **kwargs):
 
 class CifarDataLoader(DataLoader):
     def __init__(self, config, dataset):
-        """
-        Initialize config and dataset.
+        """Initialize config and dataset.
+
         :param config: created config with DATA_DIR path.
         """
         if not isinstance(config, dict):
@@ -43,8 +43,8 @@ class CifarDataLoader(DataLoader):
         return len(self.labels)
 
     def __getitem__(self, index):
-        """
-        Return one sample of index, label and picture.
+        """Return one sample of index, label and picture.
+
         :param index: index of the taken sample.
         """
         if index >= len(self):
@@ -58,8 +58,8 @@ class CifarDataLoader(DataLoader):
         )
 
     def load_data(self, dataset):
-        """
-        Load dataset in needed format.
+        """Load dataset in needed format.
+
         :param dataset:  downloaded dataset.
         """
         pictures, labels, indexes = [], [], []

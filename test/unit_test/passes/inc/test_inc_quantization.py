@@ -76,8 +76,7 @@ def get_onnx_model(tmp_path):
     output_folder = str(tmp_path / "onnx")
 
     # execute
-    onnx_model = p.run(pytorch_model, None, output_folder)
-    return onnx_model
+    return p.run(pytorch_model, None, output_folder)
 
 
 def create_dataloader(data_dir, batchsize, *args, **kwargs):
@@ -93,8 +92,8 @@ def create_dataloader(data_dir, batchsize, *args, **kwargs):
 
 class CifarDataset:
     def __init__(self, dataset):
-        """
-        Initialize dataset.
+        """Initialize dataset.
+
         :param dataset: downloaded dataset.
         """
         self.dataset = dataset
@@ -103,8 +102,8 @@ class CifarDataset:
         return len(self.dataset)
 
     def __getitem__(self, index):
-        """
-        Return one sample of picture and label.
+        """Return one sample of picture and label.
+
         :param index: index of the taken sample.
         """
         return self.dataset[index][0].numpy(), self.dataset[index][1]

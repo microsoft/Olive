@@ -89,9 +89,7 @@ class PythonEnvironmentSystem(OliveSystem):
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
-        """
-        Run the pass on the model at a specific point in the search space.
-        """
+        """Run the pass on the model at a specific point in the search space."""
         model_config_json = model_config.to_json()
         pass_config = the_pass.to_json()
 
@@ -122,7 +120,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
             run_subprocess(command, env=self.environ, check=True)
 
-            with open(output_model_json_path) as f:
+            with output_model_json_path.open() as f:
                 model_json = json.load(f)
                 output_model = ModelConfig.from_json(model_json)
 
@@ -131,9 +129,7 @@ class PythonEnvironmentSystem(OliveSystem):
     def evaluate_model(
         self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
     ) -> MetricResult:
-        """
-        Evaluate the model
-        """
+        """Evaluate the model."""
         if not model_config.type.lower() == "ONNXModel".lower():
             raise ValueError("PythonEnvironmentSystem can only evaluate ONNXModel.")
 
@@ -154,9 +150,7 @@ class PythonEnvironmentSystem(OliveSystem):
     def evaluate_accuracy(
         self, model: ONNXModel, data_root: str, metric: Metric, accelerator: AcceleratorSpec
     ) -> float:
-        """
-        Evaluate the accuracy of the model.
-        """
+        """Evaluate the accuracy of the model."""
         dataloader, _, post_func = OliveEvaluator.get_user_config(model.framework, data_root, metric)
 
         preds = []
@@ -175,7 +169,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
             # save inference settings
             inference_settings_path = tmp_dir_path / "inference_settings.pb"
-            with open(inference_settings_path, "wb") as f:
+            with inference_settings_path.open("wb") as f:
                 pickle.dump(inference_settings, f)
 
             num_batches = 0
@@ -226,9 +220,7 @@ class PythonEnvironmentSystem(OliveSystem):
         return OliveEvaluator.compute_accuracy(metric, model_output, targets)
 
     def evaluate_latency(self, model: ONNXModel, data_root: str, metric: Metric, accelerator: AcceleratorSpec) -> float:
-        """
-        Evaluate the latency of the model.
-        """
+        """Evaluate the latency of the model."""
         dataloader, _, _ = OliveEvaluator.get_user_config(model.framework, data_root, metric)
         warmup_num, repeat_test_num, sleep_num = get_latency_config_from_metric(metric)
 
@@ -246,7 +238,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
             # save inference settings
             inference_settings_path = tmp_dir_path / "inference_settings.pb"
-            with open(inference_settings_path, "wb") as f:
+            with inference_settings_path.open("wb") as f:
                 pickle.dump(inference_settings, f)
 
             # save input data to npz
@@ -271,9 +263,7 @@ class PythonEnvironmentSystem(OliveSystem):
         return OliveEvaluator.compute_latency(metric, latencies)
 
     def get_inference_settings(self, model: ONNXModel, metric: Metric, accelerator: AcceleratorSpec) -> Dict[str, Any]:
-        """
-        Get the model inference settings.
-        """
+        """Get the model inference settings."""
         metric_inference_settings = metric.user_config.inference_settings
         inference_settings = (
             metric_inference_settings.get(model.framework.lower()) if metric_inference_settings else None
@@ -291,9 +281,7 @@ class PythonEnvironmentSystem(OliveSystem):
         return inference_settings
 
     def get_supported_execution_providers(self) -> List[str]:
-        """
-        Get the available execution providers.
-        """
+        """Get the available execution providers."""
         if self.available_eps:
             return self.available_eps
 
@@ -311,16 +299,12 @@ class PythonEnvironmentSystem(OliveSystem):
             return available_eps
 
     def get_execution_providers(self) -> List[str]:
-        """
-        Get the execution providers for the device.
-        """
+        """Get the execution providers for the device."""
         available_eps = self.get_supported_execution_providers()
         return AcceleratorLookup.get_execution_providers_for_device_by_available_providers(self.device, available_eps)
 
     def get_default_execution_provider(self, model: ONNXModel) -> List[str]:
-        """
-        Get the default execution provider for the model.
-        """
+        """Get the default execution provider for the model."""
         # return first available ep as ort default ep
         available_providers = self.get_execution_providers()
         for ep in available_providers:
@@ -329,9 +313,7 @@ class PythonEnvironmentSystem(OliveSystem):
         return ["CPUExecutionProvider"]
 
     def is_valid_ep(self, ep: str, model: ONNXModel) -> bool:
-        """
-        Check if the execution provider is valid for the model.
-        """
+        """Check if the execution provider is valid for the model."""
         with tempfile.TemporaryDirectory() as temp_dir:
             is_valid_ep_path = Path(__file__).parent.resolve() / "is_valid_ep.py"
             output_path = Path(temp_dir).resolve() / "result.pb"
@@ -363,9 +345,7 @@ class PythonEnvironmentSystem(OliveSystem):
                 return False
 
     def install_requirements(self, accelerator: AcceleratorSpec):
-        """
-        Install required packages.
-        """
+        """Install required packages."""
         # install common packages
         common_requirements_file = Path(__file__).parent.resolve() / "common_requirements.txt"
         run_subprocess(

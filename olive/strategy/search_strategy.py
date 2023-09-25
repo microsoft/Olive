@@ -59,10 +59,6 @@ class SearchStrategyConfig(ConfigBase):
 
 
 class SearchStrategy:
-    """
-    Search strategy
-    """
-
     def __init__(self, config: Union[Dict[str, Any], SearchStrategyConfig]):
         self._config = validate_config(config, SearchStrategyConfig)
         self._initialized = False
@@ -74,8 +70,7 @@ class SearchStrategy:
         init_model_id: str,
         objective_dict: Dict[str, dict],
     ):
-        """
-        Initialize the search strategy.
+        """Initialize the search strategy.
 
         pass_flows_search_spaces: list of list of tuples of format (search_space_name, {param_name: SearchParameter})
         objective_dict: dictionary of format {objective_name: {"higher_is_better": bool, "goal": float}}
@@ -110,9 +105,7 @@ class SearchStrategy:
         self._initialized = True
 
     def _group_search_spaces(self, search_space_names: List[List]):
-        """
-        Group search spaces based on execution order.
-        """
+        """Group search spaces based on execution order."""
         # joint: all passes grouped together
         # pass-by-pass: each pass is a separate group
         if self._config.execution_order == "joint":
@@ -131,9 +124,7 @@ class SearchStrategy:
         return search_spaces_groups
 
     def _next_search_group(self, init_model_id: Optional[str] = None) -> Optional[SearchAlgorithm]:
-        """
-        Get the next search space group and initialize the search algorithm.
-        """
+        """Get the next search space group and initialize the search algorithm."""
         # if there is no more search space group, return None
         # 1. joint: no more flows(self._space_groups)
         # 2. pass-by-pass: no more flows(self._space_groups) and no more passes(self._pass_by_pass_sg)
@@ -173,7 +164,7 @@ class SearchStrategy:
                 sorted_model_ids, sorted_search_points, sorted_results = self._search_results[
                     tuple(self._active_spaces_group)
                 ].sort_search_points(apply_goals=False)
-            # TODO: this is a hack to get the best search point for the current search space group
+            # TODO(trajep): this is a hack to get the best search point for the current search space group
             #      it totally work for joint execution order, but not for pass-by-pass
             if sorted_search_points and sorted_results:
                 best_search_point = (
@@ -211,9 +202,7 @@ class SearchStrategy:
         return self._active_spaces_group
 
     def _create_searcher(self, search_space_names: List[str]) -> SearchAlgorithm:
-        """
-        Create a search algorithm.
-        """
+        """Create a search algorithm."""
         search_spaces_dict = {space_name: deepcopy(self._spaces_dict[space_name]) for space_name in search_space_names}
         objectives = list(self._objective_dict.keys())
         higher_is_betters = [self._objective_dict[objective]["higher_is_better"] for objective in objectives]
@@ -226,9 +215,7 @@ class SearchStrategy:
         return searcher
 
     def next_step(self) -> Optional[Dict[str, Any]]:
-        """
-        Get the next step in the search
-        """
+        """Get the next step in the search."""
         if not self._initialized:
             raise ValueError("Search strategy is not initialized")
 
@@ -259,18 +246,14 @@ class SearchStrategy:
         model_ids: List[str],
         should_prune: bool = False,
     ):
-        """
-        Record the feedback signal for the given search point.
-        """
+        """Record the feedback signal for the given search point."""
         if not self._initialized:
             raise ValueError("Search strategy is not initialized")
         self._search_results[tuple(self._active_spaces_group)].record(search_point, signal, model_ids)
         self._searchers[tuple(self._active_spaces_group)].report(search_point, signal, should_prune)
 
     def check_exit_criteria(self, iter_num, time_diff, metric_signal):
-        """
-        Check if the olive search_strategy should exit.
-        """
+        """Check if the olive search_strategy should exit."""
         self.exit_criteria_met = False
         if not self._config.stop_when_goals_met:
             # stop early stopping when stop_when_goals_met is False, but still apply goals check without stopping

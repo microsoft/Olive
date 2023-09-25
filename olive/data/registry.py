@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class Registry:
-    """
-    Registry for data components and data containers
-    """
+    """Registry for data components and data containers."""
 
     _REGISTRY: ClassVar[Dict] = {
         DataComponentType.LOAD_DATASET.value: {},
@@ -25,8 +23,7 @@ class Registry:
 
     @classmethod
     def register(cls, sub_type: Union[DataComponentType, DataContainerType], name: str = None):
-        """
-        Register a component class to the registry
+        """Register a component class to the registry.
 
         Args:
             sub_type (DataComponentType): the type of the component
@@ -51,8 +48,7 @@ class Registry:
 
     @classmethod
     def register_dataset(cls, name: str = None):
-        """
-        Register a dataset component class to the registry
+        """Register a dataset component class to the registry.
 
         Args:
             name (str): the name of the component, is name is None, use the class name
@@ -64,8 +60,7 @@ class Registry:
 
     @classmethod
     def register_pre_process(cls, name: str = None):
-        """
-        Register a pre-process component class to the registry
+        """Register a pre-process component class to the registry.
 
         Args:
             name (str): the name of the component, is name is None, use the class name
@@ -77,8 +72,7 @@ class Registry:
 
     @classmethod
     def register_post_process(cls, name: str = None):
-        """
-        Register a post-process component class to the registry
+        """Register a post-process component class to the registry.
 
         Args:
             name (str): the name of the component, is name is None, use the class name
@@ -90,8 +84,7 @@ class Registry:
 
     @classmethod
     def register_dataloader(cls, name: str = None):
-        """
-        Register a dataloader component class to the registry
+        """Register a dataloader component class to the registry.
 
         Args:
             name (str): the name of the component, is name is None, use the class name
@@ -103,8 +96,7 @@ class Registry:
 
     @classmethod
     def register_default_dataset(cls):
-        """
-        Register the default dataset component class to the registry
+        """Register the default dataset component class to the registry.
 
         Returns:
             Callable: the decorator function
@@ -113,8 +105,7 @@ class Registry:
 
     @classmethod
     def register_default_pre_process(cls):
-        """
-        Register the default pre-process component class to the registry
+        """Register the default pre-process component class to the registry.
 
         Returns:
             Callable: the decorator function
@@ -123,8 +114,7 @@ class Registry:
 
     @classmethod
     def register_default_post_process(cls):
-        """
-        Register the default post-process component class to the registry
+        """Register the default post-process component class to the registry.
 
         Returns:
             Callable: the decorator function
@@ -133,8 +123,7 @@ class Registry:
 
     @classmethod
     def register_default_dataloader(cls):
-        """
-        Register the default dataloader component class to the registry
+        """Register the default dataloader component class to the registry.
 
         Returns:
             Callable: the decorator function
@@ -143,11 +132,10 @@ class Registry:
 
     @classmethod
     def get(cls, sub_type: DataComponentType, name: str):
-        """
-        Get a component class from the registry
+        """Get a component class from the registry.
 
         Args:
-            component_type (DataComponentType): the type of the component
+            sub_type (DataComponentType): the type of the component
             name (str): the name of the component
 
         Returns:
@@ -157,13 +145,11 @@ class Registry:
 
     @classmethod
     def get_component(cls, component: str, name: str):
-        """ """
         return cls._REGISTRY[component][name]
 
     @classmethod
     def get_load_dataset_component(cls, name: str):
-        """
-        Get a dataset component class from the registry
+        """Get a dataset component class from the registry.
 
         Args:
             name (str): the name of the component
@@ -175,8 +161,7 @@ class Registry:
 
     @classmethod
     def get_pre_process_component(cls, name: str):
-        """
-        Get a pre-process component class from the registry
+        """Get a pre-process component class from the registry.
 
         Args:
             name (str): the name of the component
@@ -188,8 +173,7 @@ class Registry:
 
     @classmethod
     def get_post_process_component(cls, name: str):
-        """
-        Get a post-process component class from the registry
+        """Get a post-process component class from the registry.
 
         Args:
             name (str): the name of the component
@@ -201,8 +185,7 @@ class Registry:
 
     @classmethod
     def get_dataloader_component(cls, name: str):
-        """
-        Get a dataloader component class from the registry
+        """Get a dataloader component class from the registry.
 
         Args:
             name (str): the name of the component
@@ -214,8 +197,7 @@ class Registry:
 
     @classmethod
     def get_container(cls, name: str):
-        """
-        Get all data container classes from the registry
+        """Get all data container classes from the registry.
 
         Returns:
             Dict[str, Type]: the data container classes
@@ -225,8 +207,7 @@ class Registry:
 
     @classmethod
     def get_default_load_dataset_component(cls):
-        """
-        Get the default dataset component class from the registry
+        """Get the default dataset component class from the registry.
 
         Returns:
             Type: the default dataset component class
@@ -235,8 +216,7 @@ class Registry:
 
     @classmethod
     def get_default_pre_process_component(cls):
-        """
-        Get the default pre-process component class from the registry
+        """Get the default pre-process component class from the registry.
 
         Returns:
             Type: the default pre-process component class
@@ -245,8 +225,7 @@ class Registry:
 
     @classmethod
     def get_default_post_process_component(cls):
-        """
-        Get the default post-process component class from the registry
+        """Get the default post-process component class from the registry.
 
         Returns:
             Type: the default post-process component class
@@ -255,8 +234,7 @@ class Registry:
 
     @classmethod
     def get_default_dataloader_component(cls):
-        """
-        Get the default dataloader component class from the registry
+        """Get the default dataloader component class from the registry.
 
         Returns:
             Type: the default dataloader component class

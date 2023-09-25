@@ -99,8 +99,8 @@ def preprocess_image(image):
         src_img = src_img.convert(mode="RGB")
 
     src_np = np.array(src_img)
-    min = src_np.min()
-    max = src_np.max()
+    min_val = src_np.min()
+    max_val = src_np.max()
 
     transformations = transforms.Compose(
         [
@@ -108,12 +108,11 @@ def preprocess_image(image):
             transforms.CenterCrop(224),
             transforms.ToTensor(),
             transforms.Lambda(lambda x: x * 255),
-            transforms.Normalize(min, max - min),
+            transforms.Normalize(min_val, max_val - min_val),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
         ]
     )
-    transformed_img = transformations(src_img).numpy().astype(np.float32)
-    return transformed_img
+    return transformations(src_img).numpy().astype(np.float32)
 
 
 def create_quant_data():

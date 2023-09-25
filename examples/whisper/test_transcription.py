@@ -49,7 +49,7 @@ def main(raw_args=None):
     args = get_args(raw_args)
 
     # load config
-    with open(args.config) as f:
+    with open(args.config) as f:  # noqa: PTH123
         config = json.load(f)
 
     # get model information
@@ -68,7 +68,7 @@ def main(raw_args=None):
     for model_json in output_model_json_path.glob(
         f"**/{config['engine']['output_name']}_{accelerator_spec}_model.json"
     ):
-        with open(model_json) as f:
+        with model_json.open() as f:
             output_model_json = json.load(f)
         break
 
@@ -98,9 +98,9 @@ def main(raw_args=None):
     session = olive_model.prepare_session(None, device, [ep])
 
     # get output
-    input, _ = dataset[0]
-    input = OnnxEvaluator.format_input(input, olive_model.get_io_config())
-    output = session.run(None, input)
+    input_data, _ = dataset[0]
+    input_data = OnnxEvaluator.format_input(input_data, olive_model.get_io_config())
+    output = session.run(None, input_data)
     return output[0][0]
 
 

@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_cache_sub_dirs(cache_dir: Union[str, Path] = ".olive-cache"):
-    """
-    Returns the subdirectories of the cache directory.
+    """Return the subdirectories of the cache directory.
 
     There are three subdirectories: models, runs, and evaluations.
     """
@@ -27,9 +26,7 @@ def get_cache_sub_dirs(cache_dir: Union[str, Path] = ".olive-cache"):
 
 
 def clean_cache(cache_dir: Union[str, Path] = ".olive-cache"):
-    """
-    Cleans the cache directory by deleting all subdirectories.
-    """
+    """Clean the cache directory by deleting all subdirectories."""
     cache_sub_dirs = get_cache_sub_dirs(cache_dir)
     for sub_dir in cache_sub_dirs:
         if sub_dir.exists():
@@ -37,28 +34,22 @@ def clean_cache(cache_dir: Union[str, Path] = ".olive-cache"):
 
 
 def clean_evaluation_cache(cache_dir: Union[str, Path] = ".olive-cache"):
-    """
-    Cleans the evaluation cache directory.
-    """
+    """Clean the evaluation cache directory."""
     evaluation_cache_dir = get_cache_sub_dirs(cache_dir)[2]
     if evaluation_cache_dir.exists():
         shutil.rmtree(evaluation_cache_dir)
 
 
 def create_cache(cache_dir: Union[str, Path] = ".olive-cache"):
-    """
-    Creates the cache directory and all subdirectories.
-    """
-    # TODO: to add propagation of cache_dir to all functions
+    """Create the cache directory and all subdirectories."""
+    # TODO(trajep): to add propagation of cache_dir to all functions
     cache_sub_dirs = get_cache_sub_dirs(cache_dir)
     for sub_dir in cache_sub_dirs:
         sub_dir.mkdir(parents=True, exist_ok=True)
 
 
 def _delete_model(model_number: str, cache_dir: Union[str, Path] = ".olive-cache"):
-    """
-    Deletes the model and all associated runs and evaluations.
-    """
+    """Delete the model and all associated runs and evaluations."""
     model_cache_dir, run_cache_dir, evaluation_cache_dir, _ = get_cache_sub_dirs(cache_dir)
     # delete all model files that start with model_number
     model_files = list(model_cache_dir.glob(f"{model_number}_*"))
@@ -78,9 +69,7 @@ def _delete_model(model_number: str, cache_dir: Union[str, Path] = ".olive-cache
 
 
 def _delete_run(run_id: str, cache_dir: Union[str, Path] = ".olive-cache"):
-    """
-    Deletes the run and all associated models and evaluations.
-    """
+    """Delete the run and all associated models and evaluations."""
     run_cache_dir = get_cache_sub_dirs(cache_dir)[1]
     run_json = run_cache_dir / f"{run_id}.json"
     try:
@@ -96,8 +85,7 @@ def _delete_run(run_id: str, cache_dir: Union[str, Path] = ".olive-cache"):
 
 
 def clean_pass_run_cache(pass_type: str, cache_dir: Union[str, Path] = ".olive-cache"):
-    """
-    Clean the cache of runs for a given pass type.
+    """Clean the cache of runs for a given pass type.
 
     This function deletes all runs for a given pass type as well as all child models and evaluations.
     """
@@ -114,8 +102,7 @@ def clean_pass_run_cache(pass_type: str, cache_dir: Union[str, Path] = ".olive-c
 
 
 def download_resource(resource_path: ResourcePath, cache_dir: Union[str, Path] = ".olive-cache"):
-    """
-    Returns the path to a non-local resource.
+    """Return the path to a non-local resource.
 
     Non-local resources are stored in the non_local_resources subdirectory of the cache.
     """
@@ -152,8 +139,8 @@ def download_resource(resource_path: ResourcePath, cache_dir: Union[str, Path] =
 
 
 def get_local_path(resource_path: Optional[ResourcePath], cache_dir: Union[str, Path] = ".olive-cache"):
-    """
-    Return the local path of the any resource path.
+    """Return the local path of the any resource path.
+
     If the resource path is a local resource, the path is returned.
     If the resource path is an AzureML resource, the resource is downloaded to the cache and the path is returned.
     """
@@ -164,12 +151,12 @@ def get_local_path(resource_path: Optional[ResourcePath], cache_dir: Union[str, 
         return resource_path.get_path()
     elif resource_path.is_azureml_resource():
         return download_resource(resource_path, cache_dir).get_path()
+    else:
+        return None
 
 
 def normalize_data_path(data_root: Union[str, Path], data_dir: Union[str, Path, ResourcePath]):
-    """
-    Normalize data path, if data_dir is absolute path, return data_dir, else return data_root/data_dir
-    """
+    """Normalize data path, if data_dir is absolute path, return data_dir, else return data_root/data_dir."""
     if isinstance(data_dir, ResourcePath):
         data_dir_str = data_dir.get_path()
     else:
@@ -211,9 +198,7 @@ def save_model(
     overwrite: bool = False,
     cache_dir: Union[str, Path] = ".olive-cache",
 ):
-    """
-    Saves a model from the cache to a given path.
-    """
+    """Save a model from the cache to a given path."""
     # This function should probably be outside of the cache module
     # just to be safe, import lazily to avoid any future circular imports
     from olive.model import ModelConfig
@@ -232,7 +217,7 @@ def save_model(
 
     if model_json["type"].lower() in ["compositeonnxmodel", "distributedonnxmodel"]:
         logger.warning(f"Saving models of type '{model_json['type']}' is not supported yet.")
-        return
+        return None
 
     # create model object so that we can get the resource paths
     model_config: ModelConfig = ModelConfig.from_json(model_json)
@@ -258,7 +243,7 @@ def save_model(
         model_json["config"][resource_name] = local_resource_path.save_to_dir(save_dir, save_name, overwrite)
 
     # save model json
-    with open(output_dir / f"{output_name}.json", "w") as f:
+    with (output_dir / f"{output_name}.json").open("w") as f:
         json.dump(model_json, f, indent=4)
 
     return model_json

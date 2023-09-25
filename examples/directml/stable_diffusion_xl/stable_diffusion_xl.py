@@ -253,7 +253,7 @@ def optimize(
     print("Download stable diffusion PyTorch pipeline...")
     pipeline = DiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float32)
 
-    model_info = dict()
+    model_info = {}
 
     submodel_names = ["vae_encoder", "vae_decoder", "unet", "text_encoder_2"]
 
@@ -264,14 +264,14 @@ def optimize(
         print(f"\nOptimizing {submodel_name}")
 
         olive_config = None
-        with open(script_dir / f"config_{submodel_name}.json") as fin:
+        with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
 
-        # TODO: Remove this once we figure out which nodes are causing the black screen
+        # TODO(PatriceVignola): Remove this once we figure out which nodes are causing the black screen
         if is_refiner_model and submodel_name == "vae_encoder":
             olive_config["passes"]["optimize"]["config"]["float16"] = False
 
-        # TODO: Remove this once we figure out which nodes are causing the black screen
+        # TODO(PatriceVignola): Remove this once we figure out which nodes are causing the black screen
         if submodel_name == "vae_decoder":
             olive_config["passes"]["optimize"]["config"]["float16"] = False
 
@@ -465,7 +465,7 @@ if __name__ == "__main__":
         exit(1)
 
     if args.optimize or not optimized_model_dir.exists():
-        # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
+        # TODO(PatriceVignola): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             optimize(args.model_id, is_refiner_model, unoptimized_model_dir, optimized_model_dir)

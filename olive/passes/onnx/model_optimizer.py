@@ -27,7 +27,7 @@ class ModelOptimizer:
         self.graph = self.onnx_model.graph()
 
         node_idx = 0
-        self.node_name2module = dict()
+        self.node_name2module = {}
 
         for node in self.graph.node:
             if node.name == "":

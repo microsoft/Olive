@@ -79,7 +79,7 @@ def test_generate_zipfile_artifacts(mock_sys_getsizeof, save_as_external_data, m
         pytest.fail(f"Failed to load the model: {e}")
 
     metrics_file = candidate_model_path / "metrics.json"
-    with open(metrics_file) as f:
+    with metrics_file.open() as f:
         metrics = json.load(f)
         assert "input_model_metrics" in metrics
         assert "candidate_model_metrics" in metrics

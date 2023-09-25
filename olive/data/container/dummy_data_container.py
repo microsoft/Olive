@@ -12,7 +12,8 @@ from olive.data.registry import Registry
 
 @Registry.register(DataContainerType.DATA_CONTAINER)
 class DummyDataContainer(DataContainer):
-    """
+    """Dummy data container.
+
     The way to create a dummy data container:
         dummy_data_config = DataConfig(
             name="dummy",

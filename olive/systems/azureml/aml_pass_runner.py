@@ -53,8 +53,7 @@ def create_pass(pass_config, pass_args):
             normalized_key = key.replace("pass_", "", 1)
             pass_config["config"][normalized_key] = value
 
-    p = FullPassConfig.from_json(pass_config).create_pass()
-    return p
+    return FullPassConfig.from_json(pass_config).create_pass()
 
 
 def main(raw_args=None):
@@ -62,7 +61,7 @@ def main(raw_args=None):
     pass_config_arg, extra_args = parse_pass_config_arg(extra_args)
 
     # pass config
-    with open(pass_config_arg.pass_config) as f:
+    with open(pass_config_arg.pass_config) as f:  # noqa: PTH123
         pass_config = json.load(f)
     pass_type = pass_config["type"].lower()
 
@@ -139,7 +138,7 @@ def main(raw_args=None):
         model_json["resource_names"].append(resource_name)
 
     # save model json
-    with open(Path(pipeline_output) / "output_model_config.json", "w") as f:
+    with (Path(pipeline_output) / "output_model_config.json").open("w") as f:
         json.dump(model_json, f, indent=4)
 
 

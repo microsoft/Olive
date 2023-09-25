@@ -100,7 +100,7 @@ class TestAzureMLSystem:
         pipeline_output_path.mkdir(parents=True, exist_ok=True)
         # create dummy output model
         downloaded_output_model_path = pipeline_output_path / "output_model.onnx"
-        with open(downloaded_output_model_path, "w") as f:
+        with downloaded_output_model_path.open("w") as f:
             f.write("dummy")
         # create dummy output config
         dummy_config = {
@@ -113,7 +113,7 @@ class TestAzureMLSystem:
             "resource_names": ["model_path"],
         }
         dummy_config_path = pipeline_output_path / "output_model_config.json"
-        with open(dummy_config_path, "w") as f:
+        with dummy_config_path.open("w") as f:
             json.dump(dummy_config, f, indent=4)
 
         onnx_conversion_config = {}
@@ -123,7 +123,7 @@ class TestAzureMLSystem:
         output_model_path.mkdir(parents=True, exist_ok=True)
         # create dummy output model so that ONNXModel can be created with the same path
         expected_model_path = output_model_path / "model.onnx"
-        with open(expected_model_path, "w") as f:
+        with expected_model_path.open("w") as f:
             f.write("dummy")
         output_folder = tmp_dir_path
 
@@ -368,7 +368,7 @@ class TestAzureMLSystem:
             environment=self.system.environment,
             code=str(code_path),
             inputs=inputs,
-            outputs=dict(pipeline_output=Output(type=AssetTypes.URI_FOLDER)),
+            outputs={"pipeline_output": Output(type=AssetTypes.URI_FOLDER)},
             instance_count=1,
             compute=self.system.compute,
         )
@@ -380,8 +380,8 @@ class TestAzureMLSystem:
     def create_command(self, script_name, inputs, outputs):
         parameters = []
         inputs = inputs or {}
-        for param, input in inputs.items():
-            if input.optional:
+        for param, input_param in inputs.items():
+            if input_param.optional:
                 parameters.append(f"$[[--{param} ${{{{inputs.{param}}}}}]]")
             else:
                 parameters.append(f"--{param} ${{{{inputs.{param}}}}}")
@@ -438,7 +438,7 @@ class TestAzureMLSystem:
             "resource_names": [],
         }
 
-        with open(tmp_path / "model_config.json", "w") as f:
+        with (tmp_path / "model_config.json").open("w") as f:
             json.dump(model_config, f)
 
         # create model.pt
@@ -525,12 +525,12 @@ class TestAzureMLSystem:
             },
         }
 
-        with open(tmp_path / "metrics_config.json", "w") as f:
+        with (tmp_path / "metrics_config.json").open("w") as f:
             json.dump(metrics_config, f)
 
         # create accelerator_config.json
         accelerator_config = {"accelerator_type": "cpu", "execution_provider": "CPUExecutionProvider"}
-        with open(tmp_path / "accelerator_config.json", "w") as f:
+        with (tmp_path / "accelerator_config.json").open("w") as f:
             json.dump(accelerator_config, f)
 
         ouptut_dir = tmp_path / "pipeline_output"
@@ -604,10 +604,10 @@ class TestAzureMLSystem:
             "type": "OnnxConversion",
         }
 
-        with open(tmp_path / "model_config.json", "w") as f:
+        with (tmp_path / "model_config.json").open("w") as f:
             json.dump(model_config, f)
 
-        with open(tmp_path / "pass_config.json", "w") as f:
+        with (tmp_path / "pass_config.json").open("w") as f:
             json.dump(pass_config, f)
 
         ouptut_dir = tmp_path / "pipeline_output"

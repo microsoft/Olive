@@ -40,8 +40,8 @@ logger = logging.getLogger(__name__)
 
 
 class OliveModel(ABC):
-    """
-    Abstraction for logical "Model", it contains model path and related metadata.
+    """Abstraction for logical "Model", it contains model path and related metadata.
+
     Each technique accepts Model as input, return Model as output.
     """
 
@@ -88,8 +88,7 @@ class OliveModel(ABC):
                 self.resource_paths[resource_name] = None
 
     def set_resource(self, resource_name: str, resource_path: Union[Path, str, ResourcePath, ResourcePathConfig]):
-        """
-        Set resource path.
+        """Set resource path.
 
         :param resource_name: name of the resource.
         :param resource_path: resource path.
@@ -109,8 +108,7 @@ class OliveModel(ABC):
         self.resource_paths[resource_name] = resource_path
 
     def get_resource(self, resource_name: str) -> str:
-        """
-        Get local path of a resource.
+        """Get local path of a resource.
 
         :param resource_name: name of the resource.
         :return: local path.
@@ -122,11 +120,11 @@ class OliveModel(ABC):
 
     @abstractmethod
     def load_model(self, rank: int = None) -> object:
-        """
-        Load model from disk, return in-memory model object
+        """Load model from disk, return in-memory model object.
+
         Derived class should implement its specific logic if needed.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @abstractmethod
     def prepare_session(
@@ -136,11 +134,11 @@ class OliveModel(ABC):
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
-        """
-        Prepare inference session for Olive model, return in-memory inference session.
+        """Prepare inference session for Olive model, return in-memory inference session.
+
         Derived class should implement its specific logic if needed.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def set_composite_parent(self, cp):
         self.composite_parent = cp
@@ -165,7 +163,7 @@ class OliveModel(ABC):
 
 
 class ModelConfig(ConfigBase):
-    type: str
+    type: str  # noqa: A003
     config: dict
 
     @validator("type")
@@ -187,9 +185,7 @@ class ModelConfig(ConfigBase):
 
 
 class ONNXModelBase(OliveModel):
-    """
-    Abstract class to manage ONNX models
-    """
+    """Abstract class to manage ONNX models."""
 
     def __init__(
         self,
@@ -208,7 +204,7 @@ class ONNXModelBase(OliveModel):
         self.use_ort_extensions = use_ort_extensions
 
     def _is_valid_ep(self, filepath: str, ep: str = None):
-        # TODO: should be remove if future accelerators is implemented
+        # TODO(shaahji): should be remove if future accelerators is implemented
         # It should be a bug for onnxruntime where the execution provider is not be fallback.
         import onnxruntime as ort
 
@@ -231,9 +227,7 @@ class ONNXModelBase(OliveModel):
 
     @abstractmethod
     def get_default_execution_providers(self, device: Device):
-        """
-        Returns a list of supported default execution providers
-        """
+        """Return a list of supported default execution providers."""
         return ["CPUExecutionProvider"]
 
 
@@ -262,8 +256,9 @@ class ONNXModel(ONNXModelBase):
 
     @staticmethod
     def get_onnx_file_path(model_path: str, onnx_file_name: Optional[str] = None) -> str:
-        """
-        Get the path to the ONNX model file. If model_path is a file, it is returned as is. If model_path is a
+        """Get the path to the ONNX model file.
+
+        If model_path is a file, it is returned as is. If model_path is a
         directory, the onnx_file_name is appended to it and the resulting path is returned. If onnx_file_name is not
         specified, it is inferred if there is only one .onnx file in the directory, else an error is raised.
         """
@@ -298,17 +293,16 @@ class ONNXModel(ONNXModelBase):
     @property
     def model_path(self) -> str:
         model_path = super().model_path
-        model_path = self.get_onnx_file_path(model_path, self.onnx_file_name) if model_path else None
-        return model_path
+        return self.get_onnx_file_path(model_path, self.onnx_file_name) if model_path else None
 
     @staticmethod
     def resolve_path(file_or_dir_path: str, model_filename: str = "model.onnx") -> str:
-        """
-        The engine provides output paths to ONNX passes that do not contain .onnx
-        extension (these paths are generally locations in the cache). This function
-        will convert such paths to absolute file paths and also ensure the parent
-        directories exist. If the input path is already an ONNX file it is simply
-        returned. Examples:
+        """Get the model full path.
+
+        The engine provides output paths to ONNX passes that do not contain .onnx extension
+        (these paths are generally locations in the cache). This function will convert such
+        paths to absolute file paths and also ensure the parent directories exist.
+        If the input path is already an ONNX file it is simply returned. Examples:
 
         resolve_path("c:/foo/bar.onnx") -> c:/foo/bar.onnx
 
@@ -421,8 +415,8 @@ class ONNXModel(ONNXModelBase):
         return super().get_default_execution_providers(device)
 
     def get_io_config(self):
-        """
-        Get input/output names, shapes, types of the onnx model without creating an ort session.
+        """Get input/output names, shapes, types of the onnx model without creating an ort session.
+
         This function loads the onnx model and parses the graph to get the io config.
         """
         if self.io_config:
@@ -455,7 +449,7 @@ class ONNXModel(ONNXModelBase):
                 tensor_type = io.type.tensor_type
                 if tensor_type.elem_type == 0:
                     # sequence type
-                    # TODO: add support for different types
+                    # TODO(jambayk): add support for different types
                     # refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424
                     tensor_type = io.type.sequence_type.elem_type.tensor_type
                 data_type = str(tensor_dtype_to_np_dtype(tensor_type.elem_type))
@@ -584,12 +578,12 @@ class PyTorchModel(OliveModel):
         shutil.copytree(os.path.join(self.model_path, "data/config"), tmp_dir_path, dirs_exist_ok=True)
         shutil.copytree(os.path.join(self.model_path, "data/tokenizer"), tmp_dir_path, dirs_exist_ok=True)
 
-        with open(os.path.join(self.model_path, "MLmodel")) as fp:
+        with open(os.path.join(self.model_path, "MLmodel")) as fp:  # noqa: PTH123
             mlflow_data = yaml.safe_load(fp)
             # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
             # "hftransformers" from azureml.evaluate.mlflow<0.0.8
-            # TODO: let user specify flavor name if needed
-            # TODO: to support other flavors in mlflow not only hftransformers
+            # TODO(trajep): let user specify flavor name if needed
+            # to support other flavors in mlflow not only hftransformers
             hf_pretrained_class = None
             flavors = mlflow_data.get("flavors", {})
             if not flavors:
@@ -626,9 +620,7 @@ class PyTorchModel(OliveModel):
         return self.load_model().eval()
 
     def get_dummy_inputs(self):
-        """
-        Return a dummy input for the model.
-        """
+        """Return a dummy input for the model."""
         if self.dummy_inputs is not None:
             return self.dummy_inputs
 
@@ -682,18 +674,14 @@ class PyTorchModel(OliveModel):
 
     @property
     def components(self) -> List[str]:
-        """
-        Names of the components of the model.
-        """
+        """Names of the components of the model."""
         if not self.hf_config or not self.hf_config.components:
             return None
 
         return [component.name for component in self.hf_config.components]
 
     def get_component(self, component_name: str) -> "PyTorchModel":
-        """
-        Get a component of the model as a PyTorchModel.
-        """
+        """Get a component of the model as a PyTorchModel."""
         assert self.components, "hf_config.components must be provided to get component"
         assert component_name in self.components, f"component {component_name} not found in hf_config"
 
@@ -783,7 +771,7 @@ class SNPEModel(OliveModel):
         }
 
     def load_model(self, rank: int = None):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def prepare_session(
         self,
@@ -823,7 +811,7 @@ class TensorFlowModel(OliveModel):
         )
 
     def load_model(self, rank: int = None):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def prepare_session(
         self,
@@ -832,7 +820,7 @@ class TensorFlowModel(OliveModel):
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class OpenVINOModel(OliveModel):
@@ -892,8 +880,7 @@ class OpenVINOModel(OliveModel):
         model_pot = ie.read_model(model=self.model_config["model"])
         if device == Device.INTEL_MYRIAD:
             device = "MYRIAD"
-        compiled_model = ie.compile_model(model=model_pot, device_name=device.upper())
-        return compiled_model
+        return ie.compile_model(model=model_pot, device_name=device.upper())
 
 
 class DistributedOnnxModel(ONNXModelBase):
@@ -967,10 +954,10 @@ class DistributedOnnxModel(ONNXModelBase):
 
 
 class CompositeOnnxModel(ONNXModelBase):
-    """
-    CompositeOnnxModel represents multi component models. Whisper is an example composite
-    model that has encoder and decoder components. CompositeOnnxModel is a collection of
-    OnnxModels.
+    """CompositeOnnxModel represents multiple component models.
+
+    Whisper is an example composite model that has encoder and decoder components.
+    CompositeOnnxModel is a collection of OnnxModels.
     """
 
     def __init__(
@@ -983,11 +970,11 @@ class CompositeOnnxModel(ONNXModelBase):
 
         if isinstance(model_components[0], dict):
             assert all(
-                [m.get("type").lower() == "onnxmodel" for m in model_components]
+                m.get("type").lower() == "onnxmodel" for m in model_components
             ), "All components must be ONNXModel"
             self.model_components = [ONNXModel(**m.get("config", {})) for m in model_components]
         else:
-            assert all([isinstance(m, ONNXModel) for m in model_components]), "All components must be ONNXModel"
+            assert all(isinstance(m, ONNXModel) for m in model_components), "All components must be ONNXModel"
             self.model_components = model_components
 
         assert len(self.model_components) == len(model_component_names), "Number of components and names must match"
@@ -997,7 +984,7 @@ class CompositeOnnxModel(ONNXModelBase):
             m.set_composite_parent(self)
 
     def load_model(self, rank: int = None):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def prepare_session(
         self,
@@ -1006,10 +993,10 @@ class CompositeOnnxModel(ONNXModelBase):
         execution_providers: Union[str, List[str]] = None,
         rank: Optional[int] = None,
     ):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_default_execution_providers(self, device: Device):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_model_components(self):
         return self.model_components

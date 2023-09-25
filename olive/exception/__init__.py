@@ -3,24 +3,12 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 class OliveError(Exception):
-    """
-    Base class for Olive exceptions.
-    """
-
-    pass
+    """Base class for Olive exceptions."""
 
 
 class OlivePassError(OliveError):
-    """
-    Base class for Olive pass exceptions.
-    """
-
-    pass
+    """Base class for Olive pass exceptions."""
 
 
 class OliveEvaluationError(OliveError):
-    """
-    Base class for Olive evaluation exceptions.
-    """
-
-    pass
+    """Base class for Olive evaluation exceptions."""

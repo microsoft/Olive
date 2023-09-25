@@ -19,8 +19,11 @@ logger = logging.getLogger(__name__)
 
 
 class OrtTransformersOptimization(Pass):
-    """Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time.
-    It is based on onnxruntime.transformers.optimizer."""
+    """Use ONNX Transformer Optimizer to optimize transformer based models.
+
+    Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time.
+    It is based on onnxruntime.transformers.optimizer.
+    """
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -40,7 +43,7 @@ class OrtTransformersOptimization(Pass):
             ),
             "num_heads": PassConfigParam(type_=int, default_value=0, description="Number of attention heads."),
             "hidden_size": PassConfigParam(type_=int, default_value=0, description="Number of hidden nodes."),
-            # TODO: Figure out what the expected type is
+            # TODO(jambayk): Figure out what the expected type is
             "optimization_options": PassConfigParam(
                 type_=Union[Dict[str, Any], FusionOptions],
                 default_value=None,

@@ -91,7 +91,7 @@ def import_system_from_type(system_type: SystemType):
 
 
 class SystemConfig(ConfigBase):
-    type: SystemType
+    type: SystemType  # noqa: A003
     config: TargetUserConfig = None
 
     @root_validator(pre=True)
@@ -101,7 +101,7 @@ class SystemConfig(ConfigBase):
         if system_alias_class:
             values["type"] = system_alias_class.system_type
             values["config"]["accelerators"] = system_alias_class.accelerators
-            # TODO: consider how to use num_cpus and num_gpus in distributed inference.
+            # TODO(myguo): consider how to use num_cpus and num_gpus in distributed inference.
         return values
 
     @validator("config", pre=True, always=True)

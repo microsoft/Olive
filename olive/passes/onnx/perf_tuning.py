@@ -116,7 +116,7 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
     ort_opt_level = tuning_combo[2]
     io_bind = tuning_combo[3]
 
-    test_params = dict()
+    test_params = {}
 
     # params starts with _ are not used in inference setting, we need add special handling for io_bind
     test_params["_io_bind"] = io_bind
@@ -138,7 +138,7 @@ def threads_num_tuning(model, data_root, latency_metric, config, tuning_combo):
         if config.enable_cuda_graph:
             test_params["_io_bind"] = True
     else:
-        test_params["execution_provider"] = [(provider, dict())]
+        test_params["execution_provider"] = [(provider, {})]
     test_params["session_options"] = {
         "execution_mode": execution_mode,
         "graph_optimization_level": ort_opt_level,
@@ -255,8 +255,7 @@ def get_benchmark(model, data_root, latency_metric, config, test_params=None):
 
 
 def parse_tuning_result(*tuning_results):
-    best_result = min(tuning_results, key=lambda x: x["latency_ms"])
-    return best_result
+    return min(tuning_results, key=lambda x: x["latency_ms"])
 
 
 def get_thread_affinity_nums(affinity_str):
@@ -271,9 +270,7 @@ class OrtPerfTuning(Pass):
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
-        """Override this method to return False by using the
-        accelerator spec information.
-        """
+        """Override this method to return False by using the accelerator spec information."""
         return False
 
     @staticmethod
@@ -349,7 +346,7 @@ class OrtPerfTuning(Pass):
     def _run_for_config(
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
-        # TODO remove this when we have a concrete investigation on the backcompat issue
+        # TODO(trajep): remove this when we have a concrete investigation on the backcompat issue
         if not config.get("providers_list"):
             # add the provider to the config if user doesn't provide the execution providers
             config["providers_list"] = [self.accelerator_spec.execution_provider]
@@ -358,7 +355,7 @@ class OrtPerfTuning(Pass):
             config["device"] = self.accelerator_spec.accelerator_type
 
         config = self._config_class(**config)
-        # TODO: decide on whether to ignore the output_model_path
+        # TODO(jambayk): decide on whether to ignore the output_model_path
         # if we want to ignore it, we can just return the model
         # otherwise save or symlink the original model to the output_model_path
         return tune_onnx_model(model, data_root, config)

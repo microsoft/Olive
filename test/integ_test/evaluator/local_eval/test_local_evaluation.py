@@ -48,7 +48,7 @@ class TestLocalEvaluation:
         "type,model_config,metric,expected_res",
         EVALUATION_TEST_CASE,
     )
-    def test_evaluate_model(self, type, model_config, metric, expected_res):
+    def test_evaluate_model(self, type, model_config, metric, expected_res):  # noqa: A002
         model_conf = ModelConfig.parse_obj({"type": type, "config": model_config})
         actual_res = LocalSystem().evaluate_model(model_conf, None, [metric], DEFAULT_CPU_ACCELERATOR)
         for sub_type in metric.sub_types:

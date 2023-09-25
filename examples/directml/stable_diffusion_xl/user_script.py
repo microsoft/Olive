@@ -33,8 +33,7 @@ def text_encoder_inputs(batchsize, torch_dtype):
 
 
 def text_encoder_load(model_name):
-    model = CLIPTextModel.from_pretrained(model_name, subfolder="text_encoder")
-    return model
+    return CLIPTextModel.from_pretrained(model_name, subfolder="text_encoder")
 
 
 def text_encoder_conversion_inputs(model):
@@ -58,8 +57,7 @@ def text_encoder_2_inputs(batchsize, torch_dtype):
 
 
 def text_encoder_2_load(model_name):
-    model = CLIPTextModelWithProjection.from_pretrained(model_name, subfolder="text_encoder_2")
-    return model
+    return CLIPTextModelWithProjection.from_pretrained(model_name, subfolder="text_encoder_2")
 
 
 def text_encoder_2_conversion_inputs(model):
@@ -97,8 +95,7 @@ def unet_inputs(batchsize, torch_dtype, is_conversion_inputs=False):
 
 
 def unet_load(model_name):
-    model = UNet2DConditionModel.from_pretrained(model_name, subfolder="unet")
-    return model
+    return UNet2DConditionModel.from_pretrained(model_name, subfolder="unet")
 
 
 def unet_conversion_inputs(model):

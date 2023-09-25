@@ -79,7 +79,7 @@ class AccuracyBase(AutoConfigClass):
 
     @abstractmethod
     def measure(self, model_output, target):
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class AccuracyScore(AccuracyBase):

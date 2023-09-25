@@ -38,8 +38,7 @@ def post_processing_func(output):
 
 
 def create_dataloader(datadir, batchsize, *args, **kwargs):
-    dataloader = DataLoader(DummyDataset(1))
-    return dataloader
+    return DataLoader(DummyDataset(1))
 
 
 def get_dataloader_config():

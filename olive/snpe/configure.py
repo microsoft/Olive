@@ -29,7 +29,7 @@ def dev():
     logger.info("Done")
 
 
-def eval():
+def eval():  # noqa: A001
     snpe_arch = get_snpe_target_arch(False)
     if snpe_arch != "ARM64-Windows":
         return

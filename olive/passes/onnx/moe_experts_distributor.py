@@ -8,7 +8,7 @@ import pprint
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
-import numpy
+import numpy as np
 import onnx
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
@@ -43,7 +43,7 @@ _expert_pattern = [
 
 
 def _dump_graph(node: Message, filepath: str):
-    with open(filepath, "w") as strm:
+    with open(filepath, "w") as strm:  # noqa: PTH123
         json.dump(MessageToDict(node), fp=strm, indent=2, sort_keys=True, separators=_json_separators)
         strm.flush()
 
@@ -135,7 +135,7 @@ def _replace_constant_value(constant: Message, value: int):
         if attr.name == "value":
             attr.CopyFrom(
                 onnx.helper.make_attribute(
-                    attr.name, onnx.numpy_helper.from_array(numpy.array([value], numpy.int64)), attr.doc_string
+                    attr.name, onnx.numpy_helper.from_array(np.array([value], np.int64)), attr.doc_string
                 )
             )
             return
@@ -243,10 +243,7 @@ def _validate_world_size(v):
 
 
 class MoEExpertsDistributor(Pass):
-    """
-    Split the input model (and insert necessary communication operations)
-    to prepare for distributed inferencing.
-    """
+    """Split the input model (and insert necessary communication operations) to prepare for distributed inferencing."""
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:

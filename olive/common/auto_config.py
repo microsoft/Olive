@@ -10,8 +10,7 @@ from olive.common.config_utils import ConfigBase, ConfigParam, create_config_cla
 
 
 class AutoConfigClass(ABC):
-    """
-    Base class for creating other classes with easily extensible subclassing
+    """Base class for creating other classes with easily extensible subclassing.
 
     Registry
     The class maintains a registry of all concrete subclasses.
@@ -65,30 +64,22 @@ class AutoConfigClass(ABC):
     @staticmethod
     @abstractmethod
     def _default_config() -> Dict[str, ConfigParam]:
-        """
-        Default configuration for the class
-        """
+        """Get the default configuration for the class."""
         raise NotImplementedError
 
     @staticmethod
     def _validators() -> Dict[str, Callable]:
-        """
-        pydantic validators for config params
-        """
+        """Get ydantic validators for config params."""
         return {}
 
     @classmethod
     def default_config(cls):
-        """
-        Get the default configuration.
-        """
+        """Get the default configuration."""
         assert not inspect.isabstract(cls), "Cannot get default config for abstract class"
         return cls._default_config()
 
     @classmethod
     def get_config_class(cls) -> Type[ConfigBase]:
-        """
-        Get the configuration class.
-        """
+        """Get the configuration class."""
         assert not inspect.isabstract(cls), "Cannot get config class for abstract class"
         return create_config_class(f"{cls.__name__}Config", cls.default_config(), cls._config_base, cls._validators())

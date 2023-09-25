@@ -29,8 +29,7 @@ class DummyModel(nn.Module):
         self.fc1 = nn.Linear(1, 10)
 
     def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        return x
+        return torch.relu(self.fc1(x))
 
 
 class DummyDataset(Dataset):
@@ -144,13 +143,11 @@ def get_mock_openvino_model():
 
 
 def create_dataloader(datadir, batchsize, *args, **kwargs):
-    dataloader = DataLoader(DummyDataset(1))
-    return dataloader
+    return DataLoader(DummyDataset(1))
 
 
 def create_fixed_dataloader(datadir, batchsize, *args, **kwargs):
-    dataloader = DataLoader(FixedDummyDataset(1))
-    return dataloader
+    return DataLoader(FixedDummyDataset(1))
 
 
 def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None, backend="torch_metrics"):
@@ -165,25 +162,23 @@ def get_accuracy_metric(*acc_subtype, random_dataloader=True, user_config=None, 
         for sub in acc_subtype
     ]
     sub_types[0]["priority"] = 1
-    accuracy_metric = Metric(
+    return Metric(
         name="accuracy",
         type=MetricType.ACCURACY,
         sub_types=sub_types,
         user_config=user_config or accuracy_metric_config,
         backend=backend,
     )
-    return accuracy_metric
 
 
 def get_custom_eval():
     user_script_path = str(Path(__file__).absolute().parent / "assets" / "user_script.py")
-    custom_metric = Metric(
+    return Metric(
         name="custom",
         type=MetricType.CUSTOM,
         sub_types=[{"name": "custom"}],
         user_config={"evaluate_func": "eval_func", "user_script": user_script_path, "need_inference": False},
     )
-    return custom_metric
 
 
 def get_custom_metric():
@@ -201,13 +196,12 @@ def get_custom_metric_no_eval():
 def get_latency_metric(*lat_subtype, user_config=None):
     latency_metric_config = {"dataloader_func": create_dataloader}
     sub_types = [{"name": sub} for sub in lat_subtype]
-    latency_metric = Metric(
+    return Metric(
         name="latency",
         type=MetricType.LATENCY,
         sub_types=sub_types,
         user_config=user_config or latency_metric_config,
     )
-    return latency_metric
 
 
 def get_onnxconversion_pass(ignore_pass_config=True, target_opset=13):
@@ -221,8 +215,7 @@ def get_onnxconversion_pass(ignore_pass_config=True, target_opset=13):
 
 
 def get_onnx_dynamic_quantization_pass(disable_search=False):
-    p = create_pass_from_dict(OnnxDynamicQuantization, disable_search=disable_search)
-    return p
+    return create_pass_from_dict(OnnxDynamicQuantization, disable_search=disable_search)
 
 
 def get_data_config():
@@ -292,7 +285,7 @@ def get_dc_params_config():
     )
 
 
-def create_raw_data(dir, input_names, input_shapes, input_types=None, num_samples=1):
+def create_raw_data(dir, input_names, input_shapes, input_types=None, num_samples=1):  # noqa: A002
     data_dir = Path(dir)
     data_dir.mkdir(parents=True, exist_ok=True)
 

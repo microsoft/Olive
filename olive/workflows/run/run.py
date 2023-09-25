@@ -55,7 +55,7 @@ def automatically_insert_passes(config):
 
 def dependency_setup(config):
     here = os.path.abspath(os.path.dirname(__file__))
-    with open(os.path.join(here, "../../extra_dependencies.json")) as f:
+    with open(os.path.join(here, "../../extra_dependencies.json")) as f:  # noqa: PTH123
         extras = json.load(f)
     dependency_mapping = {
         "device": {
@@ -98,7 +98,7 @@ def dependency_setup(config):
 
     # add dependencies for engine
     if config.engine.host and config.engine.host.type == SystemType.Local:
-        # TODO: need to add DirectML support
+        # TODO(myguo): need to add DirectML support
         if config.engine.host.config.accelerators and "GPU" in list(
             map(str.upper, config.engine.host.config.accelerators)
         ):
@@ -155,13 +155,14 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
     engine = config.engine.create_engine()
 
     if not config.passes and not config.engine.evaluate_input_model:
-        # TODO enhance this logic for more passes templates
+        # TODO(trajep): enhance this logic for more passes templates
         engine, config = automatically_insert_passes(config)
 
     if setup:
         # set the log level to INFO for setup
         set_verbosity_info()
         dependency_setup(config)
+        return None
     else:
         # passes
         if config.passes:
@@ -183,7 +184,7 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
             data_root = config.data_root
 
         # run
-        best_execution = engine.run(
+        return engine.run(
             input_model,
             data_root,
             config.engine.packaging_config,
@@ -191,7 +192,6 @@ def run(config: Union[str, Path, dict], setup: bool = False, data_root: str = No
             config.engine.output_name,
             config.engine.evaluate_input_model,
         )
-        return best_execution
 
 
 def check_local_ort_installation(package_name: str):
@@ -214,7 +214,7 @@ def check_local_ort_installation(package_name: str):
     if len(local_ort_packages) == 1 and local_ort_packages[0] in [package_name, night_package_name]:
         # only if one ort package is installed and it is the one we want
         # can be the stable or nightly version
-        # TODO: will probably be fine if we want cpu package but some other ort package is installed
+        # TODO(jambayk): will probably be fine if we want cpu package but some other ort package is installed
         # but we can add a check for that if needed in the future
         logger.info(f"{local_ort_packages[0]} is already installed.")
         return
@@ -243,6 +243,6 @@ def get_local_ort_packages() -> List[str]:
             # onnxruntime-packages is under onnxruntime_extensions namespace
             # not an actual onnxruntime package
             continue
-        if package_name.startswith("onnxruntime") or package_name.startswith("ort-nightly"):
+        if package_name.startswith(("onnxruntime", "ort-nightly")):
             local_ort_packages.append(package_name)
     return local_ort_packages

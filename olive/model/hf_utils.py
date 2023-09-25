@@ -28,8 +28,7 @@ class HFComponent(ConfigBase):
 
 
 class HFModelLoadingArgs(ConfigWithExtraArgs):
-    """
-    Arguments to pass to the `from_pretrained` method of the model class.
+    """Arguments to pass to the `from_pretrained` method of the model class.
 
     Refer to https://github.com/huggingface/transformers/blob/main/src/transformers/modeling_utils.py#L2074
     """
@@ -200,7 +199,7 @@ class HFConfig(ConfigBase):
     # feature is optional if task is specified and don't need past
     # else, provide feature such as "causal-lm-with-past"
     feature: str = None
-    # TODO: remove model_class and only use task
+    # TODO(xiaoyu): remove model_class and only use task
     model_class: str = None
     components: List[HFComponent] = None
     dataset: Dict[str, Any] = None
@@ -214,7 +213,7 @@ class HFConfig(ConfigBase):
         return v
 
     def load_model(self, model_path: str = None):
-        """Load model from model_path or model_name"""
+        """Load model from model_path or model_name."""
         model_name_or_path = model_path or self.model_name
         loading_args = self.model_loading_args.get_loading_args() if self.model_loading_args else {}
         if self.task:
@@ -224,13 +223,13 @@ class HFConfig(ConfigBase):
         return model
 
     def load_model_config(self, model_path: str = None):
-        """Load model config from model_path or model_name"""
+        """Load model config from model_path or model_name."""
         model_name_or_path = model_path or self.model_name
         return get_hf_model_config(model_name_or_path)
 
 
 def load_huggingface_model_from_task(task: str, name: str, **kwargs):
-    """Load huggingface model from task and name"""
+    """Load huggingface model from task and name."""
     from transformers.pipelines import check_task
 
     task_results = check_task(task)
@@ -276,24 +275,19 @@ def huggingface_model_loader(model_loader):
 
 
 def get_hf_model_config(model_name: str):
-    """
-    Get HF Config for the given model name
-    """
+    """Get HF Config for the given model name."""
     return AutoConfig.from_pretrained(model_name)
 
 
 def load_huggingface_model_from_model_class(model_class: str, name: str, **kwargs):
-    """
-    Load huggingface model from model_loader and name
-    """
+    """Load huggingface model from model_loader and name."""
     return huggingface_model_loader(model_class)(name, **kwargs)
 
 
 # patched version of transforrmers.onnx.features.supported_features_mapping
 # to support additional models in olive
 def patched_supported_features_mapping(*supported_features: str, onnx_config_cls: str = None) -> Dict[str, Callable]:
-    """
-    Generate the mapping between supported the features and their corresponding OnnxConfig for a given model.
+    """Generate the mapping between supported the features and their corresponding OnnxConfig for a given model.
 
     Args:
         *supported_features: The names of the supported features.
@@ -370,7 +364,7 @@ def get_hf_model_dummy_input(model_name: str, task: str, feature: Optional[str] 
 
 
 def get_peft_task_type_from_task(task: str, fail_on_not_found=False) -> str:
-    """Get peft task type from feature"""
+    """Get peft task type from feature."""
     feature = TASK_TO_FEATURE.get(task, None)
     peft_task_type = FEATURE_TO_PEFT_TASK_TYPE.get(feature, None) if feature else None
     not_found_msg = f"There is no peft task type for task {task}"
@@ -382,9 +376,7 @@ def get_peft_task_type_from_task(task: str, fail_on_not_found=False) -> str:
 
 
 def get_model_max_length(model_name: str, fail_on_not_found=False) -> int:
-    """
-    Get max length of the model, extracted from the config
-    """
+    """Get max length of the model, extracted from the config."""
     model_config = get_hf_model_config(model_name)
     model_type = model_config.model_type
 

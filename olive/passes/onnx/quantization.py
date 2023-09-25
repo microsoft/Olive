@@ -151,7 +151,7 @@ _static_dataloader_config = {
             Batch size for calibration, only used if dataloader_func is provided.
         """,
     ),
-    # TODO: remove this option once we have a data config ready
+    # TODO(trajep): remove this option once we have a data config ready
     "dataloader_func": PassConfigParam(
         type_=Union[Callable, str],
         category=ParamCategory.OBJECT,
@@ -213,10 +213,7 @@ _static_optional_config = {
 
 
 class OnnxQuantization(Pass):
-    """
-    Quantize ONNX model with onnxruntime where we can search for
-    best parameters for static/dynamic quantization at same time.
-    """
+    """Quantize ONNX model with static/dynamic quantization techniques."""
 
     _requires_user_script = True
 
@@ -386,14 +383,14 @@ class OnnxQuantization(Pass):
         # to be safe, run the quantizer with use_external_data_format set to `True` and
         # `model_output` to a temporary directory
         # reload the model and save to output_model_path using the external data config
-        # TODO: don't default to use_external_data_format=True if the loading and saving model makes
+        # TODO(jambayk): don't default to use_external_data_format=True if the loading and saving model makes
         # the pass inefficient
         new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
         tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
 
         if is_static:
             # get the dataloader
-            # TODO: only use data config
+            # TODO(trajep): only use data config
             if config["dataloader_func"]:
                 data_dir = get_local_path_from_root(data_root, config["data_dir"])
                 dataloader = self._user_module_loader.call_object(
@@ -439,7 +436,7 @@ class OnnxQuantization(Pass):
         from olive.passes.onnx.quant_pre_process import quant_pre_process
 
         try:
-            # TODO: use ORT version once the Windows issue is fixed
+            # TODO(myguo): use ORT version once the Windows issue is fixed
             quant_pre_process(
                 input_model_path=model.model_path,
                 output_model_path=str(output_model_path),
@@ -447,7 +444,7 @@ class OnnxQuantization(Pass):
                 save_as_external_data=True,
             )
         except Exception as e:
-            # TODO: try with `skip_optimization = True`
+            # TODO(jambayk): try with `skip_optimization = True`
             # quantization preprocessing will fail if the model is too large and `skip_optimization = False`
             # there are some problems with the path to where the external data is saved
             # need to find out why before enabling this
@@ -468,7 +465,7 @@ class OnnxQuantization(Pass):
 
 
 class OnnxDynamicQuantization(OnnxQuantization):
-    """ONNX Dynamic Quantization Pass"""
+    """ONNX Dynamic Quantization Pass."""
 
     _requires_user_script = False
 
@@ -488,7 +485,7 @@ class OnnxDynamicQuantization(OnnxQuantization):
 
 
 class OnnxStaticQuantization(OnnxQuantization):
-    """ONNX Static Quantization Pass"""
+    """ONNX Static Quantization Pass."""
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:

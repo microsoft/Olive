@@ -7,8 +7,8 @@ from olive.data.config import DataConfig
 
 
 def dummy_data_config_template(input_shapes, input_names=None, input_types=None) -> DataConfig:
-    """
-    Convert the dummy data config to the data container.
+    """Convert the dummy data config to the data container.
+
     input_names: list
         The input names of the model.
     input_shapes: list
@@ -28,8 +28,8 @@ def dummy_data_config_template(input_shapes, input_names=None, input_types=None)
 
 
 def huggingface_data_config_template(model_name, task, **kwargs) -> DataConfig:
-    """
-    Convert the huggingface data config to the data container.
+    """Convert the huggingface data config to the data container.
+
     model_name: str
         The model name of huggingface.
     task: str
@@ -79,8 +79,8 @@ def raw_data_config_template(
     input_order_file=None,
     annotations_file=None,
 ) -> DataConfig:
-    """
-    Convert the raw data config to the data container.
+    """Convert the raw data config to the data container.
+
     Refer to olive.data.component.dataset.RawDataset for more details.
     """
     return DataConfig(

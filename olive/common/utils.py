@@ -63,7 +63,7 @@ def hash_io_stream(f):  # pragma: no cover
 
 
 def hash_file(filename):  # pragma: no cover
-    with open(filename, "rb") as f:
+    with open(filename, "rb") as f:  # noqa: PTH123
         return hash_io_stream(f)
 
 
@@ -92,9 +92,7 @@ def hash_object(obj):  # pragma: no cover
 
 
 def unflatten_dict(dictionary):  # pragma: no cover
-    """
-    Unflatten a dictionary with keys of the form "a.b.c" into a nested dictionary.
-    """
+    """Unflatten a dictionary with keys of the form "a.b.c" into a nested dictionary."""
     result = {}
     for key, value in dictionary.items():
         parts = list(key)
@@ -108,9 +106,7 @@ def unflatten_dict(dictionary):  # pragma: no cover
 
 
 def flatten_dict(dictionary, stop_condition=None):  # pragma: no cover
-    """
-    Flatten a nested dictionary into a dictionary with keys of the form (a,b,c).
-    """
+    """Flatten a nested dictionary into a dictionary with keys of the form (a,b,c)."""
     result = {}
     for key, value in dictionary.items():
         if stop_condition is not None and stop_condition(value):
@@ -123,8 +119,7 @@ def flatten_dict(dictionary, stop_condition=None):  # pragma: no cover
 
 
 def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, exceptions=None):
-    """
-    Retry a function call using an exponential backoff.
+    """Retry a function call using an exponential backoff.
 
     Args:
         func: Function to call.
@@ -154,6 +149,7 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
             logger.debug(f"Failed. Retrying in {sleep_time} seconds...")
             time.sleep(sleep_time)
             sleep_time *= backoff
+    return None
 
 
 def tensor_data_to_device(data, device: str):
@@ -171,14 +167,13 @@ def tensor_data_to_device(data, device: str):
     elif isinstance(data, tuple):
         return tuple(tensor_data_to_device(v, device) for v in data)
     elif isinstance(data, set):
-        return set(tensor_data_to_device(v, device) for v in data)
+        return {tensor_data_to_device(v, device) for v in data}
     else:
         return data
 
 
 def get_attr(module, attr, fail_on_not_found=False):
-    """
-    Get attribute from module.
+    """Get attribute from module.
 
     :param module: module to get attribute from.
     :param attr: attribute name, can be a string with dot notation. If empty, return module.

@@ -93,8 +93,7 @@ def get_openvino_model(tmp_path):
     output_folder = str(tmp_path / "openvino")
 
     # execute
-    openvino_model = p.run(pytorch_model, None, output_folder)
-    return openvino_model
+    return p.run(pytorch_model, None, output_folder)
 
 
 @Registry.register_dataset()
@@ -111,8 +110,8 @@ def create_dataloader(data_dir, batchsize, *args, **kwargs):
 
     class CifarDataLoader(DataLoader):
         def __init__(self, config, dataset):
-            """
-            Initialize config and dataset.
+            """Initialize config and dataset.
+
             :param config: created config with DATA_DIR path.
             """
             if not isinstance(config, dict):
@@ -124,8 +123,8 @@ def create_dataloader(data_dir, batchsize, *args, **kwargs):
             return len(self.labels)
 
         def __getitem__(self, index):
-            """
-            Return one sample of index, label and picture.
+            """Return one sample of index, label and picture.
+
             :param index: index of the taken sample.
             """
             if index >= len(self):
@@ -139,8 +138,8 @@ def create_dataloader(data_dir, batchsize, *args, **kwargs):
             )
 
         def load_data(self, dataset):
-            """
-            Load dataset in needed format.
+            """Load dataset in needed format.
+
             :param dataset:  downloaded dataset.
             """
             pictures, labels, indexes = [], [], []
