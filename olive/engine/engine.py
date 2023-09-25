@@ -20,7 +20,7 @@ from olive.engine.packaging.packaging_config import PackagingConfig
 from olive.engine.packaging.packaging_generator import generate_output_artifacts
 from olive.evaluator.metric import Metric, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.exception import OlivePassException
+from olive.exception import OlivePassError
 from olive.hardware import AcceleratorLookup, AcceleratorSpec, Device
 from olive.model import ModelConfig
 from olive.passes.olive_pass import Pass
@@ -1054,7 +1054,7 @@ class Engine:
         run_start_time = datetime.now().timestamp()
         try:
             output_model_config = host.run_pass(p, input_model_config, data_root, output_model_path, pass_search_point)
-        except OlivePassException as e:
+        except OlivePassError as e:
             logger.error(f"Pass run_pass failed: {e}", exc_info=True)
             output_model_config = FAILED_CONFIG
         except EXCEPTIONS_TO_RAISE:

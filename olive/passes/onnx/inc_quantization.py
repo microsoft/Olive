@@ -13,7 +13,7 @@ from olive.common.config_utils import validate_config
 from olive.data.config import DataConfig
 from olive.evaluator.metric import Metric, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorFactory
-from olive.exception import OlivePassException
+from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -465,7 +465,7 @@ class IncQuantization(Pass):
             model.model_path, ptq_config, calib_dataloader=inc_calib_dataloader, eval_func=eval_func
         )
         if eval_func is not None and q_model is None:
-            raise OlivePassException(
+            raise OlivePassError(
                 "Intel® Neural Compressor quantization does not "
                 "find any quantized model which meet accuracy goal. "
                 "Try to increase 'max_trials' in 'tuning_criterion'."

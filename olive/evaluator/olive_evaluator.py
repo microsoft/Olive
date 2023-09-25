@@ -32,7 +32,7 @@ from olive.evaluator.metric import (
     joint_metric_key,
 )
 from olive.evaluator.metric_backend import MetricBackend
-from olive.exception import OliveEvaluationException
+from olive.exception import OliveEvaluationError
 from olive.hardware import Device
 from olive.model import DistributedOnnxModel, OliveModel, ONNXModel, OpenVINOModel, PyTorchModel, SNPEModel
 from olive.model.model_config import is_io_config_static
@@ -653,7 +653,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
             session_providers = session.get_providers()
             for ep in execution_providers:
                 if ep not in session_providers:
-                    raise OliveEvaluationException(
+                    raise OliveEvaluationError(
                         f"The onnxruntime fallback happens. {ep} is not in the session providers {session_providers}."
                         f" session._enable_fallback = {session._enable_fallback}"
                     )
