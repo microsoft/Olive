@@ -54,11 +54,11 @@ def _huggingface_pre_process_helper(dataset, model_name, input_cols, label_cols,
 
 
 @Registry.register_pre_process()
-def huggingface_pre_process(dataset, model_name, input_cols, label_cols, max_samples=None, **kwargs):
+def huggingface_pre_process(_dataset, model_name, input_cols, label_cols, max_samples=None, **kwargs):
     """Pre-process data.
 
     Args:
-        dataset (object): Data to be pre-processed.
+        _dataset (object): Data to be pre-processed.
         model_name (str): Name of the huggingface model.
         input_cols (list): List of input columns.
         label_cols (list): List of label columns.
@@ -91,10 +91,10 @@ def huggingface_pre_process(dataset, model_name, input_cols, label_cols, max_sam
     if kwargs.pop("align_labels", False):
         model_hf_config = AutoConfig.from_pretrained(model_config_path or model_name)
         if model_hf_config and model_hf_config.label2id:
-            dataset = dataset.align_labels_with_mapping(model_hf_config.label2id, label_cols[0])
+            _dataset = _dataset.align_labels_with_mapping(model_hf_config.label2id, label_cols[0])
 
     tokenized_datasets = _huggingface_pre_process_helper(
-        dataset, model_name, input_cols, label_cols, _tokenizer_and_align_labels, **kwargs
+        _dataset, model_name, input_cols, label_cols, _tokenizer_and_align_labels, **kwargs
     )
     # label_cols is ["label"] since we added label_cols[0] as "label" to tokenized_inputs
     return BaseDataset(tokenized_datasets, label_cols=["label"], max_samples=max_samples)
