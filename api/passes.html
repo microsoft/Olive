@@ -338,7 +338,9 @@
 </section>
 <section id="orttransformersoptimization">
 <span id="ort-transformers-optimization"></span><h2>OrtTransformersOptimization<a class="headerlink" href="#orttransformersoptimization" title="Permalink to this heading">¶</a></h2>
-<p>Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time.
+<p>Use ONNX Transformer Optimizer to optimize transformer based models.
+
+    Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time.
     It is based on onnxruntime.transformers.optimizer.</p>
 <p><strong>Input:</strong> ONNXModel</p>
 <p><strong>Output:</strong> ONNXModel</p>
@@ -658,6 +660,7 @@
 <section id="onnxfloattofloat16">
 <span id="onnx-float-to-float16"></span><h2>OnnxFloatToFloat16<a class="headerlink" href="#onnxfloattofloat16" title="Permalink to this heading">¶</a></h2>
 <p>Converts a model to float16.
+
     It is based on onnxconverter-common.convert_float_to_float16.
     See <a class="reference external" href="https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion">https://onnxruntime.ai/docs/performance/model-optimizations/float16.html#float16-conversion</a></p>
 <p><strong>Input:</strong> ONNXModel</p>
@@ -788,7 +791,7 @@
 </section>
 <section id="onnxdynamicquantization">
 <span id="onnx-dynamic-quantization"></span><h2>OnnxDynamicQuantization<a class="headerlink" href="#onnxdynamicquantization" title="Permalink to this heading">¶</a></h2>
-<p>ONNX Dynamic Quantization Pass</p>
+<p>ONNX Dynamic Quantization Pass.</p>
 <p><strong>Input:</strong> ONNXModel</p>
 <p><strong>Output:</strong> ONNXModel</p>
 <dl class="std option">
@@ -978,7 +981,7 @@
 </section>
 <section id="onnxstaticquantization">
 <span id="onnx-static-quantization"></span><h2>OnnxStaticQuantization<a class="headerlink" href="#onnxstaticquantization" title="Permalink to this heading">¶</a></h2>
-<p>ONNX Static Quantization Pass</p>
+<p>ONNX Static Quantization Pass.</p>
 <p><strong>Input:</strong> ONNXModel</p>
 <p><strong>Output:</strong> ONNXModel</p>
 <dl class="std option">
@@ -1262,9 +1265,7 @@
 </section>
 <section id="onnxquantization">
 <span id="onnx-quantization"></span><h2>OnnxQuantization<a class="headerlink" href="#onnxquantization" title="Permalink to this heading">¶</a></h2>
-<p>
-    Quantize ONNX model with onnxruntime where we can search for
-    best parameters for static/dynamic quantization at same time.</p>
+<p>Quantize ONNX model with static/dynamic quantization techniques.</p>
 <p><strong>Input:</strong> ONNXModel</p>
 <p><strong>Output:</strong> ONNXModel</p>
 <dl class="std option">
@@ -1550,7 +1551,7 @@
 </section>
 <section id="incdynamicquantization">
 <span id="inc-dynamic-quantization"></span><h2>IncDynamicQuantization<a class="headerlink" href="#incdynamicquantization" title="Permalink to this heading">¶</a></h2>
-<p>Intel® Neural Compressor Dynamic Quantization Pass</p>
+<p>Intel® Neural Compressor Dynamic Quantization Pass.</p>
 <p><strong>Input:</strong> ONNXModel</p>
 <p><strong>Output:</strong> ONNXModel</p>
 <dl class="std option">
@@ -1710,7 +1711,7 @@
 </section>
 <section id="incstaticquantization">
 <span id="inc-static-quantization"></span><h2>IncStaticQuantization<a class="headerlink" href="#incstaticquantization" title="Permalink to this heading">¶</a></h2>
-<p>Intel® Neural Compressor Static Quantization Pass</p>
+<p>Intel® Neural Compressor Static Quantization Pass.</p>
 <p><strong>Input:</strong> ONNXModel</p>
 <p><strong>Output:</strong> ONNXModel</p>
 <dl class="std option">
@@ -1951,8 +1952,7 @@
 </section>
 <section id="incquantization">
 <span id="inc-quantization"></span><h2>IncQuantization<a class="headerlink" href="#incquantization" title="Permalink to this heading">¶</a></h2>
-<p>
-    Quantize ONNX model with Intel® Neural Compressor.</p>
+<p>Quantize ONNX model with Intel® Neural Compressor.</p>
 <p><strong>Input:</strong> ONNXModel</p>
 <p><strong>Output:</strong> ONNXModel</p>
 <dl class="std option">
@@ -2195,8 +2195,7 @@
 </section>
 <section id="appendprepostprocessingops">
 <span id="append-pre-post-processing"></span><h2>AppendPrePostProcessingOps<a class="headerlink" href="#appendprepostprocessingops" title="Permalink to this heading">¶</a></h2>
-<p>
-    Add Pre/Post nodes to the input model</p>
+<p>Add Pre/Post nodes to the input model.</p>
 <p><strong>Input:</strong> ONNXModel</p>
 <p><strong>Output:</strong> ONNXModel</p>
 <dl class="std option">
@@ -2332,8 +2331,8 @@
 </section>
 <section id="qlora">
 <span id="id2"></span><h2>QLoRA<a class="headerlink" href="#qlora" title="Permalink to this heading">¶</a></h2>
-<p>
-    Run QLoRA fine-tuning on a Hugging Face PyTorch model.
+<p>Run QLoRA fine-tuning on a Hugging Face PyTorch model.
+
     See <a class="reference external" href="https://arxiv.org/abs/2305.14314">https://arxiv.org/abs/2305.14314</a> for more details on the method.
 
     This pass only supports PyTorchModel with hf_config.</p>
@@ -2728,8 +2727,7 @@
 </section>
 <section id="openvinoconversion">
 <span id="openvino-conversion"></span><h2>OpenVINOConversion<a class="headerlink" href="#openvinoconversion" title="Permalink to this heading">¶</a></h2>
-<p>
-    Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model.</p>
+<p>Converts PyTorch, ONNX or TensorFlow Model to OpenVino Model.</p>
 <p><strong>Input:</strong> PyTorchModel | ONNXModel</p>
 <p><strong>Output:</strong> OpenVINOModel</p>
 <dl class="std option">
@@ -2762,8 +2760,8 @@
 </section>
 <section id="openvinoquantization">
 <span id="openvino-quantization"></span><h2>OpenVINOQuantization<a class="headerlink" href="#openvinoquantization" title="Permalink to this heading">¶</a></h2>
-<p>
-    Post-training quantization for OpenVINO model.
+<p>Post-training quantization for OpenVINO model.
+
     Please refer to <a class="reference external" href="https://docs.openvino.ai/latest/pot_introduction.html">https://docs.openvino.ai/latest/pot_introduction.html</a> for more details.</p>
 <p><strong>Input:</strong> OpenVINOModel</p>
 <p><strong>Output:</strong> OpenVINOModel</p>
@@ -2849,8 +2847,8 @@
 </section>
 <section id="snpeconversion">
 <span id="snpe-conversion"></span><h2>SNPEConversion<a class="headerlink" href="#snpeconversion" title="Permalink to this heading">¶</a></h2>
-<p>
-    Convert ONNX or TensorFlow model to SNPE DLC.
+<p>Convert ONNX or TensorFlow model to SNPE DLC.
+
     Uses snpe-tensorflow-to-dlc or snpe-onnx-to-dlc tools from the SNPE SDK.</p>
 <p><strong>Input:</strong> ONNXModel | TensorFlowModel</p>
 <p><strong>Output:</strong> SNPEModel</p>
@@ -2908,8 +2906,8 @@
 </section>
 <section id="snpequantization">
 <span id="snpe-quantization"></span><h2>SNPEQuantization<a class="headerlink" href="#snpequantization" title="Permalink to this heading">¶</a></h2>
-<p>
-    Quantize SNPE model.
+<p>Quantize SNPE model.
+
     Uses snpe-dlc-quantize tool from the SNPE SDK.</p>
 <p><strong>Input:</strong> SNPEModel</p>
 <p><strong>Output:</strong> SNPEModel</p>
@@ -2996,8 +2994,8 @@
 </section>
 <section id="snpetoonnxconversion">
 <span id="snpe-to-onnx-conversion"></span><h2>SNPEtoONNXConversion<a class="headerlink" href="#snpetoonnxconversion" title="Permalink to this heading">¶</a></h2>
-<p>
-    Convert a SNPE DLC to ONNX to use with SNPE Execution Provider.
+<p>Convert a SNPE DLC to ONNX to use with SNPE Execution Provider.
+
     Creates a ONNX graph with the SNPE DLC as a node.</p>
 <p><strong>Input:</strong> SNPEModel</p>
 <p><strong>Output:</strong> ONNXModel</p>
@@ -3049,8 +3047,8 @@
 </section>
 <section id="sparsegpt">
 <span id="id3"></span><h2>SparseGPT<a class="headerlink" href="#sparsegpt" title="Permalink to this heading">¶</a></h2>
-<p>
-    Run SparseGPT on a Hugging Face PyTorch model.
+<p>Run SparseGPT on a Hugging Face PyTorch model.
+
     See <a class="reference external" href="https://arxiv.org/abs/2301.00774">https://arxiv.org/abs/2301.00774</a> for more details on the algorithm.
 
     This pass only supports PyTorchModel with hf_config. The transformers model type
@@ -3131,10 +3129,9 @@
 </section>
 <section id="torchtrtconversion">
 <span id="torch-trt-conversion"></span><h2>TorchTRTConversion<a class="headerlink" href="#torchtrtconversion" title="Permalink to this heading">¶</a></h2>
-<p>
-    Convert torch.nn.Linear modules in the transformer layers of a Hugging Face PyTorch model to TensorRT modules with
-    fp16 precision and sparse weights, if applicable.
+<p>Convert torch.nn.Linear modules in the transformer layers of a HuggingFace PyTorch model to TensorRT modules.
 
+    The conversion would include fp16 precision and sparse weights, if applicable.
     The entire model is saved using <cite>torch.save</cite> and can be loaded using <cite>torch.load</cite>. Loading the model requires
     <cite>torch-tensorrt</cite> and Olive to be installed.
 
@@ -3189,9 +3186,9 @@
 </section>
 <section id="vitisaiquantization">
 <span id="vitis-ai-quantization"></span><h2>VitisAIQuantization<a class="headerlink" href="#vitisaiquantization" title="Permalink to this heading">¶</a></h2>
-<p>
-    Quantize ONNX model with onnxruntime where we can search for
-    best parameters for vai_q_onnx quantization at same time.</p>
+<p>Quantize ONNX model with onnxruntime.
+
+    We can search for best parameters for vai_q_onnx quantization at same time.</p>
 <p><strong>Input:</strong> ONNXModel</p>
 <p><strong>Output:</strong> ONNXModel</p>
 <dl class="std option">

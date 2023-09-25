@@ -198,7 +198,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the workspace config as a dict.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">aml_config_path</span><span class="p">:</span>
             <span class="c1"># If aml_config_path is provided, load the config from the file.</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">aml_config_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">aml_config_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>  <span class="c1"># noqa: PTH123</span>
                 <span class="k">return</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># If aml_config_path is not provided, return the config from the class.</span>
@@ -230,8 +230,7 @@
             <span class="p">)</span></div>
 
     <span class="k">def</span> <span class="nf">_get_credentials</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Get credentials for MLClient.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get credentials for MLClient.</span>
 
 <span class="sd">        Order of credential providers:</span>
 <span class="sd">        1. Azure CLI</span>

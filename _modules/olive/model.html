@@ -168,8 +168,8 @@
 
 
 <span class="k">class</span> <span class="nc">OliveModel</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Abstraction for logical &quot;Model&quot;, it contains model path and related metadata.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstraction for logical &quot;Model&quot;, it contains model path and related metadata.</span>
+
 <span class="sd">    Each technique accepts Model as input, return Model as output.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
@@ -216,8 +216,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">def</span> <span class="nf">set_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">resource_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">]):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Set resource path.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set resource path.</span>
 
 <span class="sd">        :param resource_name: name of the resource.</span>
 <span class="sd">        :param resource_path: resource path.</span>
@@ -237,8 +236,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">resource_path</span>
 
     <span class="k">def</span> <span class="nf">get_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Get local path of a resource.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get local path of a resource.</span>
 
 <span class="sd">        :param resource_name: name of the resource.</span>
 <span class="sd">        :return: local path.</span>
@@ -250,11 +248,11 @@
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Load model from disk, return in-memory model object</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load model from disk, return in-memory model object.</span>
+
 <span class="sd">        Derived class should implement its specific logic if needed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
@@ -264,11 +262,11 @@
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Prepare inference session for Olive model, return in-memory inference session.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare inference session for Olive model, return in-memory inference session.</span>
+
 <span class="sd">        Derived class should implement its specific logic if needed.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="k">def</span> <span class="nf">set_composite_parent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cp</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">composite_parent</span> <span class="o">=</span> <span class="n">cp</span>
@@ -293,7 +291,7 @@
 
 
 <div class="viewcode-block" id="ModelConfig"><a class="viewcode-back" href="../../api/models.html#olive.model.ModelConfig">[docs]</a><span class="k">class</span> <span class="nc">ModelConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
-    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># noqa: A003</span>
     <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
@@ -315,9 +313,7 @@
 
 
 <span class="k">class</span> <span class="nc">ONNXModelBase</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Abstract class to manage ONNX models</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract class to manage ONNX models.&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -336,7 +332,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">use_ort_extensions</span> <span class="o">=</span> <span class="n">use_ort_extensions</span>
 
     <span class="k">def</span> <span class="nf">_is_valid_ep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="c1"># TODO: should be remove if future accelerators is implemented</span>
+        <span class="c1"># TODO(shaahji): should be remove if future accelerators is implemented</span>
         <span class="c1"># It should be a bug for onnxruntime where the execution provider is not be fallback.</span>
         <span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
 
@@ -359,9 +355,7 @@
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">get_default_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns a list of supported default execution providers</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a list of supported default execution providers.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
 
 
@@ -390,8 +384,9 @@
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">get_onnx_file_path</span><span class="p">(</span><span class="n">model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">onnx_file_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Get the path to the ONNX model file. If model_path is a file, it is returned as is. If model_path is a</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the path to the ONNX model file.</span>
+
+<span class="sd">        If model_path is a file, it is returned as is. If model_path is a</span>
 <span class="sd">        directory, the onnx_file_name is appended to it and the resulting path is returned. If onnx_file_name is not</span>
 <span class="sd">        specified, it is inferred if there is only one .onnx file in the directory, else an error is raised.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -426,17 +421,16 @@
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">model_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">model_path</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">model_path</span>
-        <span class="n">model_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_onnx_file_path</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">onnx_file_name</span><span class="p">)</span> <span class="k">if</span> <span class="n">model_path</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="k">return</span> <span class="n">model_path</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_onnx_file_path</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">onnx_file_name</span><span class="p">)</span> <span class="k">if</span> <span class="n">model_path</span> <span class="k">else</span> <span class="kc">None</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">resolve_path</span><span class="p">(</span><span class="n">file_or_dir_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model_filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;model.onnx&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        The engine provides output paths to ONNX passes that do not contain .onnx</span>
-<span class="sd">        extension (these paths are generally locations in the cache). This function</span>
-<span class="sd">        will convert such paths to absolute file paths and also ensure the parent</span>
-<span class="sd">        directories exist. If the input path is already an ONNX file it is simply</span>
-<span class="sd">        returned. Examples:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model full path.</span>
+
+<span class="sd">        The engine provides output paths to ONNX passes that do not contain .onnx extension</span>
+<span class="sd">        (these paths are generally locations in the cache). This function will convert such</span>
+<span class="sd">        paths to absolute file paths and also ensure the parent directories exist.</span>
+<span class="sd">        If the input path is already an ONNX file it is simply returned. Examples:</span>
 
 <span class="sd">        resolve_path(&quot;c:/foo/bar.onnx&quot;) -&gt; c:/foo/bar.onnx</span>
 
@@ -549,8 +543,8 @@
         <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_default_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">get_io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Get input/output names, shapes, types of the onnx model without creating an ort session.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get input/output names, shapes, types of the onnx model without creating an ort session.</span>
+
 <span class="sd">        This function loads the onnx model and parses the graph to get the io config.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">:</span>
@@ -583,7 +577,7 @@
                 <span class="n">tensor_type</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">tensor_type</span>
                 <span class="k">if</span> <span class="n">tensor_type</span><span class="o">.</span><span class="n">elem_type</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                     <span class="c1"># sequence type</span>
-                    <span class="c1"># TODO: add support for different types</span>
+                    <span class="c1"># TODO(jambayk): add support for different types</span>
                     <span class="c1"># refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424</span>
                     <span class="n">tensor_type</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">sequence_type</span><span class="o">.</span><span class="n">elem_type</span><span class="o">.</span><span class="n">tensor_type</span>
                 <span class="n">data_type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">tensor_dtype_to_np_dtype</span><span class="p">(</span><span class="n">tensor_type</span><span class="o">.</span><span class="n">elem_type</span><span class="p">))</span>
@@ -712,12 +706,12 @@
         <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;data/config&quot;</span><span class="p">),</span> <span class="n">tmp_dir_path</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;data/tokenizer&quot;</span><span class="p">),</span> <span class="n">tmp_dir_path</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;MLmodel&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;MLmodel&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>  <span class="c1"># noqa: PTH123</span>
             <span class="n">mlflow_data</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
             <span class="c1"># default flavor is &quot;hftransformersv2&quot; from azureml.evaluate.mlflow&gt;=0.0.8</span>
             <span class="c1"># &quot;hftransformers&quot; from azureml.evaluate.mlflow&lt;0.0.8</span>
-            <span class="c1"># TODO: let user specify flavor name if needed</span>
-            <span class="c1"># TODO: to support other flavors in mlflow not only hftransformers</span>
+            <span class="c1"># TODO(trajep): let user specify flavor name if needed</span>
+            <span class="c1"># to support other flavors in mlflow not only hftransformers</span>
             <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="kc">None</span>
             <span class="n">flavors</span> <span class="o">=</span> <span class="n">mlflow_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;flavors&quot;</span><span class="p">,</span> <span class="p">{})</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">flavors</span><span class="p">:</span>
@@ -754,9 +748,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_model</span><span class="p">()</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">get_dummy_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return a dummy input for the model.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a dummy input for the model.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span>
 
@@ -810,18 +802,14 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">components</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Names of the components of the model.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Names of the components of the model.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">components</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
         <span class="k">return</span> <span class="p">[</span><span class="n">component</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">components</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">get_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PyTorchModel&quot;</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Get a component of the model as a PyTorchModel.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a component of the model as a PyTorchModel.&quot;&quot;&quot;</span>
         <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">,</span> <span class="s2">&quot;hf_config.components must be provided to get component&quot;</span>
         <span class="k">assert</span> <span class="n">component_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;component </span><span class="si">{</span><span class="n">component_name</span><span class="si">}</span><span class="s2"> not found in hf_config&quot;</span>
 
@@ -911,7 +899,7 @@
         <span class="p">}</span>
 
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -951,7 +939,7 @@
         <span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -960,7 +948,7 @@
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
 
 <div class="viewcode-block" id="OpenVINOModel"><a class="viewcode-back" href="../../api/models.html#olive.model.OpenVINOModel">[docs]</a><span class="k">class</span> <span class="nc">OpenVINOModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
@@ -1020,8 +1008,7 @@
         <span class="n">model_pot</span> <span class="o">=</span> <span class="n">ie</span><span class="o">.</span><span class="n">read_model</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">])</span>
         <span class="k">if</span> <span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">INTEL_MYRIAD</span><span class="p">:</span>
             <span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;MYRIAD&quot;</span>
-        <span class="n">compiled_model</span> <span class="o">=</span> <span class="n">ie</span><span class="o">.</span><span class="n">compile_model</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model_pot</span><span class="p">,</span> <span class="n">device_name</span><span class="o">=</span><span class="n">device</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
-        <span class="k">return</span> <span class="n">compiled_model</span></div>
+        <span class="k">return</span> <span class="n">ie</span><span class="o">.</span><span class="n">compile_model</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model_pot</span><span class="p">,</span> <span class="n">device_name</span><span class="o">=</span><span class="n">device</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span></div>
 
 
 <div class="viewcode-block" id="DistributedOnnxModel"><a class="viewcode-back" href="../../api/models.html#olive.model.DistributedOnnxModel">[docs]</a><span class="k">class</span> <span class="nc">DistributedOnnxModel</span><span class="p">(</span><span class="n">ONNXModelBase</span><span class="p">):</span>
@@ -1095,10 +1082,10 @@
 
 
 <div class="viewcode-block" id="CompositeOnnxModel"><a class="viewcode-back" href="../../api/models.html#olive.model.CompositeOnnxModel">[docs]</a><span class="k">class</span> <span class="nc">CompositeOnnxModel</span><span class="p">(</span><span class="n">ONNXModelBase</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    CompositeOnnxModel represents multi component models. Whisper is an example composite</span>
-<span class="sd">    model that has encoder and decoder components. CompositeOnnxModel is a collection of</span>
-<span class="sd">    OnnxModels.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CompositeOnnxModel represents multiple component models.</span>
+
+<span class="sd">    Whisper is an example composite model that has encoder and decoder components.</span>
+<span class="sd">    CompositeOnnxModel is a collection of OnnxModels.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
@@ -1111,11 +1098,11 @@
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_components</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span>
             <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span>
-                <span class="p">[</span><span class="n">m</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;onnxmodel&quot;</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">model_components</span><span class="p">]</span>
+                <span class="n">m</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;onnxmodel&quot;</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">model_components</span>
             <span class="p">),</span> <span class="s2">&quot;All components must be ONNXModel&quot;</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span> <span class="o">=</span> <span class="p">[</span><span class="n">ONNXModel</span><span class="p">(</span><span class="o">**</span><span class="n">m</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;config&quot;</span><span class="p">,</span> <span class="p">{}))</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">model_components</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">assert</span> <span class="nb">all</span><span class="p">([</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">ONNXModel</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">model_components</span><span class="p">]),</span> <span class="s2">&quot;All components must be ONNXModel&quot;</span>
+            <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">ONNXModel</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">model_components</span><span class="p">),</span> <span class="s2">&quot;All components must be ONNXModel&quot;</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span> <span class="o">=</span> <span class="n">model_components</span>
 
         <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_components</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">model_component_names</span><span class="p">),</span> <span class="s2">&quot;Number of components and names must match&quot;</span>
@@ -1125,7 +1112,7 @@
             <span class="n">m</span><span class="o">.</span><span class="n">set_composite_parent</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -1134,10 +1121,10 @@
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="k">def</span> <span class="nf">get_default_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 
     <span class="k">def</span> <span class="nf">get_model_components</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span>

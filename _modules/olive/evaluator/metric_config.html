@@ -187,7 +187,7 @@
     <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">user_config_class</span><span class="o">.</span><span class="n">__fields__</span><span class="p">)</span>
 
 
-<span class="c1"># TODO: automate latency metric config also we standardize accuracy metric config</span>
+<span class="c1"># TODO(jambayk): automate latency metric config also we standardize accuracy metric config</span>
 <span class="k">class</span> <span class="nc">LatencyMetricConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
     <span class="n">warmup_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">WARMUP_NUM</span>
     <span class="n">repeat_test_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">REPEAT_TEST_NUM</span>
@@ -195,7 +195,7 @@
 
 
 <div class="viewcode-block" id="MetricGoal"><a class="viewcode-back" href="../../../api/metric.html#olive.evaluator.metric.MetricGoal">[docs]</a><span class="k">class</span> <span class="nc">MetricGoal</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
-    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># threshold , deviation, percent-deviation</span>
+    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># threshold , deviation, percent-deviation, # noqa: A003</span>
     <span class="n">value</span><span class="p">:</span> <span class="nb">float</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>

@@ -230,9 +230,9 @@
             <span class="k">return</span> <span class="n">Environment</span><span class="p">(</span><span class="n">image</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">base_image</span><span class="p">,</span> <span class="n">conda_file</span><span class="o">=</span><span class="n">docker_config</span><span class="o">.</span><span class="n">conda_file_path</span><span class="p">)</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Please specify DockerConfig.&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_assert_not_none</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">object</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">object</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">object</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> is missing in the inputs!&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_assert_not_none</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">obj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">obj</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> is missing in the inputs!&quot;</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">run_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -242,9 +242,7 @@
         <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">point</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ModelConfig</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Run the pass on the model at a specific point in the search space.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the pass on the model at a specific point in the search space.&quot;&quot;&quot;</span>
         <span class="n">ml_client</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azureml_client_config</span><span class="o">.</span><span class="n">create_client</span><span class="p">()</span>
         <span class="n">point</span> <span class="o">=</span> <span class="n">point</span> <span class="ow">or</span> <span class="p">{}</span>
         <span class="n">config</span> <span class="o">=</span> <span class="n">the_pass</span><span class="o">.</span><span class="n">config_at_search_point</span><span class="p">(</span><span class="n">point</span><span class="p">)</span>
@@ -402,8 +400,8 @@
         <span class="c1"># create arguments for inputs and outputs</span>
         <span class="n">parameters</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">inputs</span> <span class="o">=</span> <span class="n">inputs</span> <span class="ow">or</span> <span class="p">{}</span>
-        <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="nb">input</span> <span class="ow">in</span> <span class="n">inputs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">input</span><span class="p">,</span> <span class="n">Input</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">input</span><span class="o">.</span><span class="n">optional</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">job_input</span> <span class="ow">in</span> <span class="n">inputs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">job_input</span><span class="p">,</span> <span class="n">Input</span><span class="p">)</span> <span class="ow">and</span> <span class="n">job_input</span><span class="o">.</span><span class="n">optional</span><span class="p">:</span>
                 <span class="n">parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;$[[--</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2"> $</span><span class="se">{{{{</span><span class="s2">inputs.</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="se">}}}}</span><span class="s2">]]&quot;</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2"> $</span><span class="se">{{{{</span><span class="s2">inputs.</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="se">}}}}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -412,7 +410,7 @@
             <span class="n">parameters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;--</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2"> $</span><span class="se">{{{{</span><span class="s2">outputs.</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="se">}}}}</span><span class="s2">&quot;</span><span class="p">)</span>
 
         <span class="n">cmd_line</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;python </span><span class="si">{</span><span class="n">script_name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="n">component</span> <span class="o">=</span> <span class="n">command</span><span class="p">(</span>
+        <span class="k">return</span> <span class="n">command</span><span class="p">(</span>
             <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
             <span class="n">display_name</span><span class="o">=</span><span class="n">display_name</span><span class="p">,</span>
             <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
@@ -425,8 +423,6 @@
             <span class="n">instance_count</span><span class="o">=</span><span class="n">instance_count</span><span class="p">,</span>
             <span class="n">compute</span><span class="o">=</span><span class="n">compute</span><span class="p">,</span>
         <span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">component</span>
 
     <span class="k">def</span> <span class="nf">_create_pipeline_for_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -502,9 +498,7 @@
             <span class="n">outputs</span><span class="p">[</span><span class="s2">&quot;pipeline_output&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">component</span><span class="o">.</span><span class="n">outputs</span><span class="o">.</span><span class="n">pipeline_output</span>
             <span class="k">return</span> <span class="n">outputs</span>
 
-        <span class="n">pipeline_job</span> <span class="o">=</span> <span class="n">pass_runner_pipeline</span><span class="p">()</span>
-
-        <span class="k">return</span> <span class="n">pipeline_job</span>
+        <span class="k">return</span> <span class="n">pass_runner_pipeline</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">_run_job</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -515,9 +509,7 @@
         <span class="n">tags</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">output_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Run a pipeline job and return the path to named-outputs</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run a pipeline job and return the path to named-outputs.&quot;&quot;&quot;</span>
         <span class="c1"># submit job</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Submitting pipeline&quot;</span><span class="p">)</span>
         <span class="n">job</span> <span class="o">=</span> <span class="n">retry_func</span><span class="p">(</span>
@@ -550,8 +542,7 @@
             <span class="n">exceptions</span><span class="o">=</span><span class="n">ServiceResponseError</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="n">named_outputs_dir</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;named-outputs&quot;</span>
-        <span class="k">return</span> <span class="n">named_outputs_dir</span>
+        <span class="k">return</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;named-outputs&quot;</span>
 
     <span class="k">def</span> <span class="nf">_load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span> <span class="n">output_model_path</span><span class="p">,</span> <span class="n">pipeline_output_path</span><span class="p">):</span>
         <span class="n">model_json_path</span> <span class="o">=</span> <span class="n">pipeline_output_path</span> <span class="o">/</span> <span class="s2">&quot;output_model_config.json&quot;</span>
@@ -730,7 +721,7 @@
         <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
             <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_model_inputs</span><span class="p">(</span><span class="n">model_resource_paths</span><span class="p">),</span>
             <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_metric_inputs</span><span class="p">(),</span>
-            <span class="o">**</span><span class="p">{</span><span class="s2">&quot;accelerator_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)},</span>
+            <span class="s2">&quot;accelerator_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">),</span>
         <span class="p">}</span>
         <span class="c1"># prepare outputs</span>
         <span class="n">outputs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pipeline_output&quot;</span><span class="p">:</span> <span class="n">Output</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">)}</span>
@@ -760,13 +751,11 @@
         <span class="n">args</span> <span class="o">=</span> <span class="p">{</span>
             <span class="o">**</span><span class="n">model_args</span><span class="p">,</span>
             <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">_create_metric_args</span><span class="p">(</span><span class="n">data_root</span><span class="p">,</span> <span class="n">metric_json</span><span class="p">,</span> <span class="n">tmp_dir</span><span class="p">),</span>
-            <span class="o">**</span><span class="p">{</span><span class="s2">&quot;accelerator_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">accelerator_config_path</span><span class="p">)},</span>
+            <span class="s2">&quot;accelerator_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">accelerator_config_path</span><span class="p">),</span>
         <span class="p">}</span>
 
         <span class="c1"># metric component</span>
-        <span class="n">metric_component</span> <span class="o">=</span> <span class="n">cmd</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">metric_component</span>
+        <span class="k">return</span> <span class="n">cmd</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;AzureML system does not need system removal&quot;</span><span class="p">)</span></div>
