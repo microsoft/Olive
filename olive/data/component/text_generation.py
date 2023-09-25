@@ -64,8 +64,8 @@ class TextGenParams(ConfigBase):
     Base dataclass for text generation tasks.
     """
 
-    # TODO: need to plan about supporting user_script and script_dir on remote systems
-    # TODO: currently data config in general is not fully supported on remote systems
+    # TODO(jambayk): need to plan about supporting user_script and script_dir on remote systems
+    # TODO(jambayk): currently data config in general is not fully supported on remote systems
     user_script: Union[str, Path] = None  # user script use to define formatting functions
     script_dir: Union[str, Path] = None  # directory with user script dependencies
     max_samples: int = None  # max number of samples to use, None for all
@@ -442,7 +442,7 @@ def validate_text_source(v, values, field_name):
         # for good validation error, check that all alternates are in values
         if alternative not in values:
             raise ValueError(f"Invalid {alternative}")
-    if not (v or any([values[option] for option in alternatives])):
+    if not (v or any(values[option] for option in alternatives)):
         # check that at least one alternate is specified
         raise ValueError(f"One of {field_name}, {', '.join(alternatives)} must be specified")
     return v
@@ -576,5 +576,4 @@ def format_pair_dataset(dataset, args):
         raise ValueError(f"Invalid pair_format: {args.pair_format}")
 
     # remove unused columns, keep only input and output
-    dataset = dataset.remove_columns([col for col in dataset.column_names if col not in ["input", "output"]])
-    return dataset
+    return dataset.remove_columns([col for col in dataset.column_names if col not in ["input", "output"]])

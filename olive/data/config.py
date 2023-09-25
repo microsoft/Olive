@@ -96,8 +96,7 @@ class DataConfig(ConfigBase):
             self.default_components[k] = DataComponentConfig(type=v, name=v, params={})
 
     def fill_in_params(self):
-        """
-        Fill in the default parameters for each component.
+        """Fill in the default parameters for each component.
 
         For each component, we will do the following steps:
             1. If params_config["component_kwargs"] is not None, use the params_config["component_kwargs"]
