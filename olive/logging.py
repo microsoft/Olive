@@ -30,8 +30,7 @@ def set_verbosity_critical():
 
 
 def set_default_logger_severity(level):
-    """
-    Set log level for olive package.
+    """Set log level for olive package.
 
     :param level: 0: DEBUG, 1: INFO, 2: WARNING, 3: ERROR, 4: CRITICAL
     """

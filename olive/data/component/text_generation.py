@@ -56,15 +56,14 @@ class TextGenPairFormat(str, Enum):
 
 
 class TextGenParams(ConfigBase):
-    """
-    Common parameters for text generation tasks.
+    """Common parameters for text generation tasks.
 
     Base dataclass for text generation tasks.
     """
 
     max_samples: int = None  # max number of samples to use, None for all
     source_max_len: int  # max length of source sequence
-    # TODO: currently only support padding to max length since we preprocess all data at once
+    # TODO(jambayk): currently only support padding to max length since we preprocess all data at once
     # might have to expose collator for dataloader to support dynamic padding of batches
     # if false, cannot guarantee all sequences are same length. data loader will have to handle this during collation
     pad_to_max_len: bool = True  # pad sequences to max_len, ignored for JOIN corpus strategy
@@ -83,8 +82,8 @@ class TextGenParams(ConfigBase):
 class TextGenCorpusParams(TextGenParams):
     """Parameters for text generation task with 'corpus' dataset type."""
 
-    # TODO: Add support for formatting function: formatting_func > text_template > text_cols
-    # TODO: formatting function support requires the data container to provide user module from the parent data config
+    # TODO(jambayk): Add support for formatting function: formatting_func > text_template > text_cols
+    # formatting function support requires the data container to provide user module from the parent data config
     # one of text_template or text_cols must be provided
     # a python f-string template for the text with {column_name} as placeholders
     text_template: str = None
@@ -139,13 +138,13 @@ class TextGenCorpusParams(TextGenParams):
         return v
 
 
-# TODO: absorb pair format into corpus format and drop dataset_type
+# TODO(jambayk): absorb pair format into corpus format and drop dataset_type
 # This is because pair format is just a special case of corpus format
 class TextGenPairParams(TextGenParams):
     """Parameters for text generation task with 'pair' dataset type."""
 
     pair_format: TextGenPairFormat = TextGenPairFormat.DEFAULT
-    # TODO: Add support for formatting functions: formatting_func > template > col
+    # TODO(jambayk): Add support for formatting functions: formatting_func > template > col
     # for custom pair_format, one of input_template or input_col must be provided
     input_template: str = None  # a python f-string template for the input with {column_name} as placeholders
     input_col: str = None  # column name for input
@@ -168,13 +167,11 @@ class TextGenPairParams(TextGenParams):
 
 
 def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
-    """
-    Pre-process data for text generation task with 'corpus' dataset type.
+    """Pre-process data for text generation task with 'corpus' dataset type.
 
     The input dataset is expected to have one or more text columns.
     Depending on the corpus_strategy, the sequences are either joined together or processed individually.
     """
-
     from datasets import Dataset as HFDataset
 
     args = validate_config(all_kwargs, TextGenCorpusParams, warn_unused_keys=True)
@@ -369,8 +366,7 @@ def batch_tokenize_text(text_list, tokenizer, args):
 
 # based on https://github.com/artidoro/qlora/blob/main/qlora.py
 def text_gen_pair_pre_process(dataset, tokenizer, all_kwargs):
-    """
-    Pre-process data for text generation task with 'pair' dataset type.
+    """Pre-process data for text generation task with 'pair' dataset type.
 
     Dataset is expected to have two text columns: input and output.
     An example is a dataset with pairs of prompts and completions.
@@ -464,7 +460,6 @@ def append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context: i
 # based on https://github.com/artidoro/qlora/blob/main/qlora.py
 def format_pair_dataset(dataset, args):
     """Format dataset based on pair_format."""
-
     # format for input in ALPACA pair format
     # instruction, input (optional), output
     ALPACA_PROMPT_DICT = {
@@ -530,20 +525,17 @@ def format_pair_dataset(dataset, args):
         raise ValueError(f"Invalid pair_format: {args.pair_format}")
 
     # remove unused columns, keep only input and output
-    dataset = dataset.remove_columns([col for col in dataset.column_names if col not in ["input", "output"]])
-    return dataset
+    return dataset.remove_columns([col for col in dataset.column_names if col not in ["input", "output"]])
 
 
 def apply_template(dataset, new_col: str, template: str, remove_cols: bool = False):
-    """
-    Apply template to column in dataset.
+    """Apply template to column in dataset.
 
     :param dataset: dataset to apply template to
     :param new_col: name of new column
     :param template: python f-string template with {column_name} as placeholders. The column names must be in dataset.
     :param remove_cols: remove columns after applying template
     """
-    dataset = dataset.map(
+    return dataset.map(
         lambda x: {new_col: template.format(**x)}, remove_columns=dataset.column_names if remove_cols else None
     )
-    return dataset

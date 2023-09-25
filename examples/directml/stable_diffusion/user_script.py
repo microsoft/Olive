@@ -27,7 +27,7 @@ def get_base_model_name(model_name):
 
 
 def is_lora_model(model_name):
-    # TODO: might be a better way to detect (e.g. presence of LORA weights file)
+    # TODO(jstoecker): might be a better way to detect (e.g. presence of LORA weights file)
     return model_name != get_base_model_name(model_name)
 
 
@@ -158,7 +158,7 @@ def text_encoder_2_data_loader(data_dir, batchsize, *args, **kwargs):
 
 
 def unet_inputs(batchsize, torch_dtype, is_conversion_inputs=False):
-    # TODO: Rename onnx::Concat_4 to text_embeds and onnx::Shape_5 to time_ids
+    # TODO(jstoecker): Rename onnx::Concat_4 to text_embeds and onnx::Shape_5 to time_ids
     inputs = {
         "sample": torch.rand((batchsize, 4, 64, 64), dtype=torch_dtype),
         "timestep": torch.rand((batchsize,), dtype=torch_dtype),

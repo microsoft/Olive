@@ -191,7 +191,7 @@ def optimize(
     print("Download stable diffusion PyTorch pipeline...")
     pipeline = DiffusionPipeline.from_pretrained(base_model_id, torch_dtype=torch.float32)
 
-    model_info = dict()
+    model_info = {}
 
     submodel_names = ["vae_encoder", "vae_decoder", "unet", "text_encoder"]
 
@@ -204,7 +204,7 @@ def optimize(
         print(f"\nOptimizing {submodel_name}")
 
         olive_config = None
-        with open(script_dir / f"config_{submodel_name}.json") as fin:
+        with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
 
         if submodel_name in ("unet", "text_encoder"):
@@ -345,7 +345,7 @@ if __name__ == "__main__":
     config.image_size = model_to_image_size.get(args.model_id, 512)
 
     if args.optimize or not optimized_model_dir.exists():
-        # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
+        # TODO(jstoecker): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             optimize(args.model_id, unoptimized_model_dir, optimized_model_dir)

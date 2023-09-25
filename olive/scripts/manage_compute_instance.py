@@ -51,8 +51,7 @@ def get_args():
     parser.add_argument(
         "--idle_time_before_scale_down", type=int, required=False, default=120, help="Idle seconds before scaledown"
     )
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def main():

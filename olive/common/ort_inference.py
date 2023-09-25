@@ -5,9 +5,7 @@ from typing import Dict, Union
 def get_ort_inference_session(
     model_path: Union[Path, str], inference_settings: Dict[str, any], use_ort_extensions: bool = False
 ):
-    """
-    Get an ONNXRuntime inference session.
-    """
+    """Get an ONNXRuntime inference session."""
     import onnxruntime as ort
 
     sess_options = ort.SessionOptions()
@@ -61,7 +59,6 @@ def get_ort_inference_session(
     provider_options = inference_settings.get("provider_options")
 
     # create session
-    sess = ort.InferenceSession(
+    return ort.InferenceSession(
         str(model_path), sess_options=sess_options, providers=execution_provider, provider_options=provider_options
     )
-    return sess

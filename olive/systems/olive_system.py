@@ -31,23 +31,17 @@ class OliveSystem(ABC):
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
-        """
-        Run the pass on the model at a specific point in the search space.
-        """
-        raise NotImplementedError()
+        """Run the pass on the model at a specific point in the search space."""
+        raise NotImplementedError
 
     @abstractmethod
     def evaluate_model(
         self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
     ) -> MetricResult:
-        """
-        Evaluate the model
-        """
-        raise NotImplementedError()
+        """Evaluate the model."""
+        raise NotImplementedError
 
     @abstractmethod
     def remove(self):
-        """
-        Remove the system
-        """
-        raise NotImplementedError()
+        """Remove the system."""
+        raise NotImplementedError

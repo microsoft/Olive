@@ -9,8 +9,7 @@ from pathlib import Path
 def get_args():
     parser = argparse.ArgumentParser(description="Overwrite package version in __init__.py")
     parser.add_argument("--version", type=str, required=True, help="Version to overwrite with")
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def main():

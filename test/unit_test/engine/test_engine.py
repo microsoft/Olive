@@ -242,11 +242,11 @@ class TestEngine:
         assert Path(actual_res.model_config["config"]["model_path"]).is_file()
         model_json_path = Path(expected_output_dir / f"{output_prefix}_model.json")
         assert model_json_path.is_file()
-        with open(model_json_path) as f:
+        with model_json_path.open() as f:
             assert json.load(f) == actual_res.model_config
         result_json_path = Path(expected_output_dir / f"{output_prefix}_metrics.json")
         assert result_json_path.is_file()
-        with open(result_json_path) as f:
+        with result_json_path.open() as f:
             assert json.load(f) == actual_res.metrics.value.__root__
 
     def test_pass_exception(self, caplog, tmpdir):

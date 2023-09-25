@@ -45,7 +45,7 @@ class ResourcePath(AutoConfigClass):
         return self.get_path()
 
     @property
-    def type(self) -> ResourceType:
+    def type(self) -> ResourceType:  # noqa: A003
         return self.name
 
     @abstractmethod
@@ -88,7 +88,7 @@ class ResourcePath(AutoConfigClass):
 
 
 class ResourcePathConfig(ConfigBase):
-    type: ResourceType = Field(..., description="Type of the resource.")
+    type: ResourceType = Field(..., description="Type of the resource.")  # noqa: A003
     config: ConfigBase = Field(..., description="Config of the resource.")
 
     @validator("config", pre=True)
@@ -106,8 +106,8 @@ class ResourcePathConfig(ConfigBase):
 def create_resource_path(
     resource_path: Optional[Union[str, Path, Dict[str, Any], ResourcePathConfig, ResourcePath]]
 ) -> Optional[ResourcePath]:
-    """
-    Create a resource path from a string or a dict.
+    """Create a resource path from a string or a dict.
+
     If a string is provided, it is inferred to be a file, folder, or string name.
     If a Path is provided, it is inferred to be a file or folder.
     If a dict is provided, it must have "type" and "config" fields. The "type" field must be one of the
@@ -128,28 +128,28 @@ def create_resource_path(
 
     # check if the resource path is a file, folder, azureml datastore, or a string name
     is_local_file = True
-    type: ResourceType = None
+    resource_type: ResourceType = None
     config_key = None
     if Path(resource_path).is_file():
-        type = ResourceType.LocalFile
+        resource_type = ResourceType.LocalFile
         config_key = "path"
     elif Path(resource_path).is_dir():
-        type = ResourceType.LocalFolder
+        resource_type = ResourceType.LocalFolder
         config_key = "path"
     elif str(resource_path).startswith("azureml://"):
-        type = ResourceType.AzureMLDatastore
+        resource_type = ResourceType.AzureMLDatastore
         config_key = "datastore_url"
         is_local_file = False
     else:
-        type = ResourceType.StringName
+        resource_type = ResourceType.StringName
         config_key = "name"
         is_local_file = False
 
     if is_local_file and isinstance(resource_path, Path) and not resource_path.exists():
         raise ValueError(f"Resource path {resource_path} of type Path does not exist.")
 
-    logger.debug(f"Resource path {resource_path} is inferred to be of type {type}.")
-    return ResourcePathConfig(type=type, config={config_key: resource_path}).create_resource_path()
+    logger.debug(f"Resource path {resource_path} is inferred to be of type {resource_type}.")
+    return ResourcePathConfig(type=resource_type, config={config_key: resource_path}).create_resource_path()
 
 
 def _overwrite_helper(new_path: Union[Path, str], overwrite: bool):
@@ -227,7 +227,7 @@ def _validate_file_path(v):
 
 
 class LocalFile(LocalResourcePath):
-    """Local file resource path"""
+    """Local file resource path."""
 
     name = ResourceType.LocalFile
 
@@ -246,7 +246,7 @@ def _validate_folder_path(v):
 
 
 class LocalFolder(LocalResourcePath):
-    """Local folder resource path"""
+    """Local folder resource path."""
 
     name = ResourceType.LocalFolder
 
@@ -258,7 +258,7 @@ class LocalFolder(LocalResourcePath):
 
 
 class StringName(ResourcePath):
-    """String name resource path"""
+    """String name resource path."""
 
     name = ResourceType.StringName
 
@@ -285,7 +285,7 @@ def _get_azureml_resource_prefix(workspace_config: Dict[str, str]) -> str:
 
 
 class AzureMLModel(ResourcePath):
-    """AzureML Model resource path"""
+    """AzureML Model resource path."""
 
     name = ResourceType.AzureMLModel
 
@@ -360,7 +360,7 @@ def _datastore_url_validator(v, values, **kwargs):
 
 
 class AzureMLDatastore(ResourcePath):
-    """AzureML DataStore resource path"""
+    """AzureML DataStore resource path."""
 
     name = ResourceType.AzureMLDatastore
 
@@ -473,7 +473,7 @@ class AzureMLDatastore(ResourcePath):
 
 
 class AzureMLJobOutput(ResourcePath):
-    """AzureML job output resource path"""
+    """AzureML job output resource path."""
 
     name = ResourceType.AzureMLJobOutput
 

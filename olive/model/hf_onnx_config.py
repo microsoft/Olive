@@ -1,4 +1,5 @@
-from typing import Any, Mapping, Optional, OrderedDict
+from collections import OrderedDict
+from typing import Any, Mapping, Optional
 
 from transformers import PreTrainedTokenizer, TensorType
 from transformers.onnx import OnnxConfigWithPast
@@ -50,8 +51,7 @@ class TextDecoderOnnxConfig(OnnxConfigWithPast):
     def fill_with_past_key_values_(
         self, inputs_or_outputs: Mapping[str, Mapping[int, str]], direction: str, inverted_values_shape: bool = False
     ):
-        """
-        Fill the input_or_outputs mapping with past_key_values dynamic axes considering.
+        """Fill the input_or_outputs mapping with past_key_values dynamic axes considering.
 
         Args:
             inputs_or_outputs: The mapping to fill.
@@ -103,8 +103,7 @@ class TextDecoderOnnxConfig(OnnxConfigWithPast):
             input_order += ["past_key_values"]
         input_order += ["attention_mask"]
 
-        ordered_inputs = OrderedDict({k: common_inputs[k] for k in input_order})
-        return ordered_inputs
+        return OrderedDict({k: common_inputs[k] for k in input_order})
 
     @property
     def num_layers(self) -> int:

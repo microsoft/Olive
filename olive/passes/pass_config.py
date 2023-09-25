@@ -13,17 +13,14 @@ from olive.strategy.search_parameter import SearchParameter, json_to_search_para
 
 
 class PassParamDefault(str, Enum):
-    """
-    Default values for passes.
-    """
+    """Default values for passes."""
 
     DEFAULT_VALUE = "DEFAULT_VALUE"
     SEARCHABLE_VALUES = "SEARCHABLE_VALUES"
 
 
 class PassConfigParam(ConfigParam):
-    """
-    Dataclass for pass configuration parameters.
+    """Dataclass for pass configuration parameters.
 
     Parameters
     ----------
@@ -55,7 +52,7 @@ class PassConfigParam(ConfigParam):
         return f"({', '.join(repr_list)})"
 
 
-# TODO: set types for user_script and script_dir once we decide on a convention
+# TODO(jambayk): set types for user_script and script_dir once we decide on a convention
 def get_user_script_config(
     required: Optional[bool] = False, allow_path: Optional[bool] = False
 ) -> Dict[str, PassConfigParam]:
@@ -80,7 +77,7 @@ def get_user_script_config(
             ),
         ),
     }
-    return user_script_config
+    return user_script_config  # noqa: RET504
 
 
 class PassConfigBase(ConfigBase):
@@ -106,9 +103,7 @@ def create_config_class(
     disable_search: Optional[bool] = False,
     validators: Dict[str, Callable] = None,
 ) -> Type[PassConfigBase]:
-    """
-    Create a Pydantic model class from a configuration dictionary.
-    """
+    """Create a Pydantic model class from a configuration dictionary."""
     config = {}
     validators = validators.copy() if validators else {}
     for param, param_config in default_config.items():

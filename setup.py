@@ -3,6 +3,8 @@ import os
 
 from setuptools import find_packages, setup
 
+# ruff: noqa: PTH123
+
 
 def read(rel_path):
     here = os.path.abspath(os.path.dirname(__file__))
@@ -21,8 +23,7 @@ def get_version(rel_path):
 def get_extra_deps(rel_path):
     here = os.path.abspath(os.path.dirname(__file__))
     with open(os.path.join(here, rel_path)) as fp:
-        extra_deps = json.load(fp)
-    return extra_deps
+        return json.load(fp)
 
 
 # use techniques described at https://packaging.python.org/en/latest/guides/single-sourcing-package-version/

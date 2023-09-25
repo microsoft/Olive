@@ -6,9 +6,7 @@ from enum import Enum
 
 
 class Framework(str, Enum):
-    """
-    Framework of the model.
-    """
+    """Framework of the model."""
 
     ONNX = "ONNX"
     PYTORCH = "PyTorch"
@@ -18,9 +16,7 @@ class Framework(str, Enum):
 
 
 class ModelFileFormat(str, Enum):
-    """
-    Given a framework, there might be 1 or more on-disk model file format(s), model save/Load logic may differ.
-    """
+    """Given a framework, there might be 1 or more on-disk model file format(s), model save/Load logic may differ."""
 
     ONNX = "ONNX"
     PYTORCH_ENTIRE_MODEL = "PyTorch.EntireModel"

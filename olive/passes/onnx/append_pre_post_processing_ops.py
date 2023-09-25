@@ -42,9 +42,7 @@ class PrePostProcessorInput(ConfigBase):
 
 
 class AppendPrePostProcessingOps(Pass):
-    """
-    Add Pre/Post nodes to the input model
-    """
+    """Add Pre/Post nodes to the input model."""
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, Dict[str, Any]]:
@@ -174,8 +172,7 @@ class AppendPrePostProcessingOps(Pass):
         if post_steps:
             pipeline.add_post_processing(post_steps)
 
-        new_model = pipeline.run(model_proto)
-        return new_model
+        return pipeline.run(model_proto)
 
     def create_step_from_config(self, step_name, step_params):
         from onnxruntime_extensions.tools.pre_post_processing import IoMapEntry

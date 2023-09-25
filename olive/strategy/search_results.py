@@ -12,10 +12,6 @@ from olive.evaluator.metric import MetricResult
 
 
 class SearchResults:
-    """
-    This class stores the results of a search.
-    """
-
     def __init__(
         self,
         objective_dict: Dict[str, dict],
@@ -44,18 +40,14 @@ class SearchResults:
         self.model_ids = {}
 
     def record(self, search_point: Dict[str, Dict[str, Any]], result: MetricResult, model_ids: List[str]):
-        """
-        Report the result of a configuration.
-        """
+        """Report the result of a configuration."""
         search_point_hash = hash_dict(search_point)
         self.search_point_hash_table[search_point_hash] = deepcopy(search_point)
         self.results[search_point_hash] = deepcopy(result)
         self.model_ids[search_point_hash] = model_ids
 
     def check_goals(self, result: MetricResult) -> bool:
-        """
-        Check if the result satisfies the constraints.
-        """
+        """Check if the result satisfies the constraints."""
         # if goals are not set, return True always
         if self.goals == {}:
             return True
@@ -66,10 +58,8 @@ class SearchResults:
         return True
 
     def sort_search_points(self, objectives: List[str] = None, apply_goals: bool = False) -> List[str]:
-        """
-        Return the search points sorted by the objectives.
-        """
-        # TODO this function only works for pass-by-pass execution order, but only return with the first model
+        """Return the search points sorted by the objectives."""
+        # TODO(trajep): this function only works for pass-by-pass execution order, but only return with the first model
         # with the best latency results which is not correct. One pass may generate multiple models.
         if objectives is None:
             objectives = self.objectives
@@ -90,15 +80,14 @@ class SearchResults:
         # get model numbers
         sorted_model_ids = [self.model_ids[point_hash] for point_hash in sorted_hashes]
         sorted_results = [self.results[point_hash] for point_hash in sorted_hashes]
-        # TODO: this will be done using helper later
+        # TODO(jambayk): this will be done using helper later
         sorted_search_points = [self.search_point_hash_table[point_hash] for point_hash in sorted_hashes]
         return sorted_model_ids, sorted_search_points, sorted_results
 
     def _get_results_list(
         self, objectives: List[str] = None, apply_goals: bool = False
     ) -> Tuple[List[List[float]], List[str]]:
-        """
-        Return the results as a list of lists.
+        """Return the results as a list of lists.
 
         Values are multiplied by the objective multiplier so that higher is better for all objectives.
         """
@@ -121,9 +110,7 @@ class SearchResults:
         return results, search_point_hashes
 
     def to_json(self):
-        """
-        Return a json representation of the search results.
-        """
+        """Return a json representation of the search results."""
         return {
             "objective_dict": self.objective_dict,
             "init_model_history": self.init_model_history,
@@ -134,9 +121,7 @@ class SearchResults:
 
     @classmethod
     def from_json(cls, json_dict):
-        """
-        Create a SearchResults object from a json representation.
-        """
+        """Create a SearchResults object from a json representation."""
         search_results = cls(json_dict["objective_dict"], json_dict["init_model_history"])
         search_results.search_point_hash_table = json_dict["search_point_hash_table"]
         search_results.results = json_dict["results"]

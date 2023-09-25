@@ -48,7 +48,7 @@ def test_get_onnx_config(model_name, task, feature):
 
 class TestHFModelLoadingArgs:
     @pytest.mark.parametrize(
-        "input,inner,output",
+        "inputs,inner,output",
         [
             ("auto", "auto", "auto"),
             (torch.float32, "float32", torch.float32),
@@ -56,13 +56,13 @@ class TestHFModelLoadingArgs:
             ("torch.float32", "torch.float32", torch.float32),
         ],
     )
-    def test_torch_dtype(self, input, inner, output):
-        args = HFModelLoadingArgs(torch_dtype=input)
+    def test_torch_dtype(self, inputs, inner, output):
+        args = HFModelLoadingArgs(torch_dtype=inputs)
         assert args.torch_dtype == inner
         assert args.get_torch_dtype() == output
 
     @pytest.mark.parametrize(
-        "input,inner",
+        "inputs,inner",
         [
             ("auto", "auto"),
             (1, 1),
@@ -71,11 +71,11 @@ class TestHFModelLoadingArgs:
             (torch.device("cuda:0"), "cuda:0"),
         ],
     )
-    def test_device_map(self, input, inner):
-        args = HFModelLoadingArgs(device_map=input)
+    def test_device_map(self, inputs, inner):
+        args = HFModelLoadingArgs(device_map=inputs)
         assert args.device_map == inner
 
-        args = HFModelLoadingArgs(device_map={"": input})
+        args = HFModelLoadingArgs(device_map={"": inputs})
         assert args.device_map == {"": inner}
 
     @pytest.mark.parametrize(
@@ -108,7 +108,7 @@ class TestHFModelLoadingArgs:
                 assert args.quantization_config[k] == v
 
     # There is dependency conflict between transformers>=4.27.0 and azureml-evaluate-mlflow
-    # TODO: remove this skip when the dependency conflict is resolved
+    # TODO(jambayk): remove this skip when the dependency conflict is resolved
     @pytest.mark.skipif(
         version.parse(transformers.__version__) < version.parse("4.27.0"), reason="requires transformers>=4.27.0"
     )

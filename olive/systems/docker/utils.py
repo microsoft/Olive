@@ -45,8 +45,7 @@ def create_evaluate_command(
         f"--accelerator_type {accelerator.accelerator_type}",
         f"--execution_provider {accelerator.execution_provider}",
     ]
-    cmd_line = f"python {eval_script_path} {' '.join(parameters)}"
-    return cmd_line
+    return f"python {eval_script_path} {' '.join(parameters)}"
 
 
 def create_run_command(run_params: dict):

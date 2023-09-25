@@ -27,7 +27,7 @@ def no_auto_batch_dataloader(_dataset, **kwargs):
 
 @Registry.register_dataloader()
 def default_calibration_dataloader(_dataloader, **kwargs):
-    # TODO: consider other quantization calibration interface in SNPE/INC/OpenVINO/Torch and etc.
+    # TODO(trajep): consider other quantization calibration interface in SNPE/INC/OpenVINO/Torch and etc.
     from onnxruntime.quantization import CalibrationDataReader
 
     dataloader = _dataloader

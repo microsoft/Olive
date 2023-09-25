@@ -51,8 +51,7 @@ def model_proto_to_file(
     all_tensors_to_one_file: Optional[bool] = True,
     external_data_name: Optional[Union[str, Path]] = None,
 ) -> bool:
-    """
-    Save the ONNX model to the specified path.
+    """Save the ONNX model to the specified path.
 
     :param model: The ONNX model to save.
     :param output_path: The path to save the ONNX model to.
@@ -125,8 +124,7 @@ def model_proto_to_olive_model(
     external_data_config: dict,
     check_model: bool = False,
 ) -> ONNXModel:
-    """
-    Save the ONNX model to the specified path and return the ONNXModel.
+    """Save the ONNX model to the specified path and return the ONNXModel.
 
     :param model_proto: The ONNX model to save.
     :param output_model_path: The path to save the ONNX model to.

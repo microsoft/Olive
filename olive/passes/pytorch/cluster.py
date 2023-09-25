@@ -109,7 +109,6 @@ class BaseClusterEnvironment(ClusterEnvironment, ABC):
 
     def teardown(self) -> None:
         """Clean up any state set after execution finishes."""
-
         logger.info("Cleaning up environment variables")
         logger.info("self._original_env_vars: %s", self._original_env_vars)
         for variable, original_value in self._original_env_vars.items():
@@ -133,7 +132,6 @@ class AzureMLPerProcessCluster(BaseClusterEnvironment):
         Args:
             master_port (int): Used to set MASTER_PORT environment variable if its not present.
         """
-
         overrides = {}
 
         overrides["RANK"] = os.environ["OMPI_COMM_WORLD_RANK"]
