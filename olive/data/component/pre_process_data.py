@@ -157,7 +157,7 @@ def text_generation_huggingface_pre_process(
     """Pre-process data for text generation task.
 
     Args:
-        dataset (object): Data to be pre-processed.
+        _dataset (object): Data to be pre-processed.
         model_name (str): Name of the huggingface model.
         dataset_type (TextGenDatasetType): Type of the dataset - 'corpus' or 'pair'.
         source_max_len (int): Max length of source sequence. For corpus, this is the max length of each sequence.
