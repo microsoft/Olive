@@ -191,9 +191,8 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
 
     args = validate_config(all_kwargs, TextGenCorpusParams, warn_unused_keys=True)
 
-    if isinstance(args.text_cols, str):
-        # only want to run this if needed
-        # user script might have component registrations that leads to warning logs about duplicate registrations
+    if isinstance(args.text_formatting_func, str):
+        # load text_formatting_func
         args.text_formatting_func = args.get_user_module_loader().load_object(args.text_formatting_func)
     # get text from dataset
     dataset = dataset.map(
