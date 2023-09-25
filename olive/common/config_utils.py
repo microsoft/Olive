@@ -47,7 +47,7 @@ def _expanded_default(custom_default: Callable[[Any], Any], obj: Any) -> Any:
             return custom_default(obj)
         except TypeError:
             pass
-    if isinstance(obj, FunctionType) or isinstance(obj, MethodType):
+    if isinstance(obj, (FunctionType, MethodType)):
         return serialize_function(obj)
     if isinstance(obj, Path):
         return str(obj.resolve())
@@ -97,7 +97,7 @@ def serialize_to_json(obj: Any, check_object: bool = False) -> dict:
             if "user_script" in e:
                 e = e.replace("Cannot load", "Cannot serialize")
                 e = e.replace("from JSON", "to JSON")
-            raise ValueError(e)
+            raise ValueError(e) from None
     return json.loads(raw_json)
 
 
@@ -106,7 +106,7 @@ class ConfigBase(BaseModel):
         arbitrary_types_allowed = True
         json_loads = config_json_loads
         json_dumps = config_json_dumps
-        json_encoders = {Path: lambda x: str(x.resolve())}
+        json_encoders = {Path: lambda x: str(x.resolve())}  # ruff: noqa: RUF012
 
     def to_json(self, check_object: bool = False) -> dict:
         return serialize_to_json(self, check_object)
@@ -236,7 +236,7 @@ def validate_enum(enum_class: type, value: str):
     try:
         value = enum_class(value)
     except ValueError:
-        raise ValueError(f"Invalid value '{value}'. Valid values are {[e.value for e in enum_class]}")
+        raise ValueError(f"Invalid value '{value}'. Valid values are {[e.value for e in enum_class]}") from None
     return value
 
 
@@ -255,7 +255,7 @@ def validate_resource_path(v, values, field):
     try:
         v = create_resource_path(v)
     except ValueError as e:
-        raise ValueError(f"Invalid resource path '{v}': {e}")
+        raise ValueError(f"Invalid resource path '{v}': {e}") from None
     return v
 
 

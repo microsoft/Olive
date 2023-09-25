@@ -4,6 +4,7 @@ parameters:
   name: ''
   pool: ''
   device: 'cpu'
+  onnxruntime: 'onnxruntime'
 
 jobs:
 - template: olive-test-template.yaml
@@ -11,81 +12,15 @@ jobs:
     name: ${{parameters.name}}_Unit_Test_Olive
     pool: ${{parameters.pool}}
     device: ${{parameters.device}}
-    WINDOWS: ${{parameters.windows}}
+    windows: ${{parameters.windows}}
     test_type: 'unit_test'
+    onnxruntime: ${{parameters.onnxruntime}}
 
 - template: olive-test-template.yaml
   parameters:
     name: ${{parameters.name}}_Integration_Test_Olive
     pool: ${{parameters.pool}}
     device: ${{parameters.device}}
-    WINDOWS: ${{parameters.windows}}
+    windows: ${{parameters.windows}}
     test_type: 'integ_test'
-
-- job: ${{parameters.name}}_Test_Examples
-  timeoutInMinutes: 300
-  pool:
-    name: ${{ parameters.pool}}
-  strategy:
-    matrix:
-      ${{ insert }}: ${{ parameters.examples }}
-  variables:
-    WINDOWS: ${{ parameters.windows }}
-    runCodesignValidationInjection: false
-    device: ${{ parameters.device }}
-
-  steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: 3.8
-    displayName: Use Python 3.8
-
-  - script: make install-olive INSTALL_EXTRAS=[$(device)]
-    displayName: Install Olive
-
-  - task: AzureCLI@1
-    inputs:
-      azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
-      scriptLocation: 'inlineScript'
-      inlineScript: make test-examples
-    displayName: Test Examples
-    env:
-      OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
-      WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
-      WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
-      WORKSPACE_NAME: $(workspace-name)
-      AZURE_TENANT_ID: $(azure-tenant-id)
-      AZURE_CLIENT_ID: $(olive-rg-sp-id)
-      AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
-      EXAMPLE_FOLDER: $(exampleFolder)
-      EXAMPLE_NAME: $(exampleName)
-
-  - task: ComponentGovernanceComponentDetection@0
-    inputs:
-      scanType: 'Register'
-      verbosity: 'Verbose'
-      alertWarningLevel: 'High'
-    displayName: Component Detection
-
-  - task: PublishTestResults@2
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFiles: '**/*TestOlive*.xml'
-      testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
-    displayName: Upload pipeline run test results
-
-  - script: make clean WINDOWS=$(WINDOWS)
-    condition: always()
-    displayName: Clean remaining artifacts
-
-- template: olive-test-template.yaml
-  parameters:
-    name: ${{parameters.name}}_Multiple_EP_Test_Olive
-    pool: ${{parameters.pool}}
-    device: ${{parameters.device}}
-    WINDOWS: ${{parameters.windows}}
-    test_type: 'multiple_ep'
-    ${{ if eq(parameters.windows, 'True') }}:
-      python_version: '3.10'
-    ${{ else }}:
-      python_version: '3.8'
+    onnxruntime: ${{parameters.onnxruntime}}

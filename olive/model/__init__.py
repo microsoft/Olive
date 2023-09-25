@@ -9,7 +9,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Union
 
 import onnx
 import torch
@@ -45,7 +45,7 @@ class OliveModel(ABC):
     Each technique accepts Model as input, return Model as output.
     """
 
-    resource_keys = ["model_path"]
+    resource_keys: ClassVar[list] = ["model_path"]
 
     @classmethod
     def __init_subclass__(cls, **kwargs) -> None:
@@ -224,7 +224,7 @@ class ONNXModelBase(OliveModel):
         except Exception as e:
             logger.warning(
                 f"Error: {e}Olive will ignore this {ep}."
-                + f"Please make sure the environment with {ep} has the required dependencies."
+                f"Please make sure the environment with {ep} has the required dependencies."
             )
             return False
         return True
@@ -473,7 +473,7 @@ class ONNXModel(ONNXModelBase):
 
 
 class PyTorchModel(OliveModel):
-    resource_keys = ["model_path", "script_dir", "model_script", "adapter_path"]
+    resource_keys: ClassVar[list] = ["model_path", "script_dir", "model_script", "adapter_path"]
 
     def __init__(
         self,
@@ -584,7 +584,7 @@ class PyTorchModel(OliveModel):
         shutil.copytree(os.path.join(self.model_path, "data/config"), tmp_dir_path, dirs_exist_ok=True)
         shutil.copytree(os.path.join(self.model_path, "data/tokenizer"), tmp_dir_path, dirs_exist_ok=True)
 
-        with open(os.path.join(self.model_path, "MLmodel"), "r") as fp:
+        with open(os.path.join(self.model_path, "MLmodel")) as fp:
             mlflow_data = yaml.safe_load(fp)
             # default flavor is "hftransformersv2" from azureml.evaluate.mlflow>=0.0.8
             # "hftransformers" from azureml.evaluate.mlflow<0.0.8
@@ -874,7 +874,7 @@ class OpenVINOModel(OliveModel):
         try:
             from openvino.tools.pot import load_model
         except ImportError:
-            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
         return load_model(self.model_config)
 
     def prepare_session(
@@ -887,7 +887,7 @@ class OpenVINOModel(OliveModel):
         try:
             from openvino.runtime import Core
         except ImportError:
-            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
         ie = Core()
         model_pot = ie.read_model(model=self.model_config["model"])
         if device == Device.INTEL_MYRIAD:
@@ -897,14 +897,14 @@ class OpenVINOModel(OliveModel):
 
 
 class DistributedOnnxModel(ONNXModelBase):
-    EXECUTION_PROVIDERS = {
+    EXECUTION_PROVIDERS: ClassVar[dict] = {
         "cpu": ["CPUExecutionProvider"],
         "gpu": ["CUDAExecutionProvider", "CPUExecutionProvider"],
     }
 
     def __init__(
         self,
-        model_filepaths: List[Union[Path, str]] = [],
+        model_filepaths: List[Union[Path, str]] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
         model_attributes: Optional[Dict[str, Any]] = None,
@@ -915,7 +915,7 @@ class DistributedOnnxModel(ONNXModelBase):
             use_ort_extensions=use_ort_extensions,
             model_attributes=model_attributes,
         )
-        self.model_filepaths = model_filepaths
+        self.model_filepaths = model_filepaths or []
 
     @property
     def ranks(self):

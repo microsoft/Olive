@@ -188,7 +188,7 @@ class TestDockerSystem:
                 model_config=model_config, container_root_path=container_root_path
             )
             dev_mount_path = f"{Path(tempdir) / 'olive'}:{container_root_path / 'olive'}"
-            vol_list = [eval_file_mount_str, dev_mount_path] + model_mount_str_list
+            vol_list = [eval_file_mount_str, dev_mount_path, *model_mount_str_list]
             self.mock_create_metric_volumes_list.assert_called_once_with(
                 data_root=data_root, metrics=[metric], container_root_path=container_root_path, mount_list=vol_list
             )

@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 from test.unit_test.utils import get_accuracy_metric, get_onnx_model_config, get_pytorch_model_config
+from typing import ClassVar, List
 from unittest.mock import patch
 
 import pytest
@@ -37,10 +38,10 @@ class TestMetricBackend:
             metric.sub_types[idx].metric_config.result_key = "MISC.precision"
         backend = HuggingfaceMetrics()
         actual_res = backend.measure(self.preds, self.targets, metric)
-        for _, v in actual_res.items():
+        for v in actual_res.values():
             assert v.value == 0.999
 
-    HF_ACCURACY_TEST_CASE = [
+    HF_ACCURACY_TEST_CASE: ClassVar[List] = [
         (
             get_pytorch_model_config(),
             get_accuracy_metric("accuracy", "f1", backend="huggingface_metrics"),
@@ -68,6 +69,6 @@ class TestMetricBackend:
             actual_res = system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)
 
             # assert
-            mock_measure.call_count == len(metric.sub_types)
+            assert mock_measure.call_count == len(metric.sub_types)
             for sub_type in metric.sub_types:
                 assert expected_res == actual_res.get_value(metric.name, sub_type.name)

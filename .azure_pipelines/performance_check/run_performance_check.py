@@ -187,7 +187,7 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
             accuracy_metric = copy.deepcopy(ACC_METRIC)
             latency_metric = copy.deepcopy(LAT_METRIC)
             print(f"Start evaluating {optimized_model} model")
-            with open(config_json_path, "r") as fin:
+            with open(config_json_path) as fin:
                 olive_config = json.load(fin)
                 user_script_path = str(cur_dir / "user_scripts" / f"{model_name}.py")
                 hf_model_config = MODEL_NAME_TO_CONFIG_MAP[model_name]
@@ -251,8 +251,8 @@ def print_perf_table(metric_res, device):
         json_value = str(value).replace("'", '"')
         metric_res[key] = ast.literal_eval(json_value)
 
-    columns = [f"tool({device})"] + list(metric_res[next(iter(metric_res))].keys())
-    rows = [[key] + list(values.values()) for key, values in metric_res.items()]
+    columns = [f"tool({device})", *list(metric_res[next(iter(metric_res))].keys())]
+    rows = [[key, *list(values.values())] for key, values in metric_res.items()]
     table = tabulate(rows, headers=columns, tablefmt="pipe")
     print(table)
 

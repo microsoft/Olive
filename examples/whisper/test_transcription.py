@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 
 import onnxruntime as ort
+from prepare_whisper_configs import download_audio_test_data
 
 from olive.evaluator.olive_evaluator import OnnxEvaluator
 from olive.hardware import AcceleratorSpec
@@ -18,16 +19,6 @@ from olive.model import ONNXModel
 sys.path.append(str(Path(__file__).parent / "code"))
 
 from whisper_dataset import WhisperDataset  # noqa: E402
-
-# hard-coded audio hyperparameters
-# copied from https://github.com/openai/whisper/blob/main/whisper/audio.py#L12
-SAMPLE_RATE = 16000
-N_FFT = 400
-N_MELS = 80
-HOP_LENGTH = 160
-CHUNK_LENGTH = 30
-N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
-N_FRAMES = N_SAMPLES // HOP_LENGTH
 
 
 def get_args(raw_args):
@@ -58,7 +49,8 @@ def main(raw_args=None):
     args = get_args(raw_args)
 
     # load config
-    config = json.load(open(args.config, "r"))
+    with open(args.config) as f:
+        config = json.load(f)
 
     # get model information
     use_audio_decoder = config["passes"]["prepost"]["config"]["tool_command_args"]["use_audio_decoder"]
@@ -76,7 +68,8 @@ def main(raw_args=None):
     for model_json in output_model_json_path.glob(
         f"**/{config['engine']['output_name']}_{accelerator_spec}_model.json"
     ):
-        output_model_json = json.load(open(model_json, "r"))
+        with open(model_json) as f:
+            output_model_json = json.load(f)
         break
 
     # load output model onnx
@@ -84,7 +77,7 @@ def main(raw_args=None):
 
     # load audio data
     if not args.audio_path:
-        args.audio_path = Path(config["passes"]["prepost"]["config"]["tool_command_args"]["testdata_filepath"])
+        args.audio_path = download_audio_test_data()
 
     # temporary directory for storing audio file
     temp_dir = tempfile.TemporaryDirectory()

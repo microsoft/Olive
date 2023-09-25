@@ -5,7 +5,7 @@
 try:
     import torch_tensorrt  # noqa: F401
 except ImportError:
-    raise ImportError("Please install torch_tensorrt with: pip install torch-tensorrt")
+    raise ImportError("Please install torch_tensorrt with: pip install torch-tensorrt") from None
 
 import io
 import logging

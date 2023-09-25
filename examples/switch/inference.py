@@ -113,7 +113,7 @@ def _main():
 
         if not numpy.all(list(results.values())):
             pprint.pprint(results)
-            raise "Inference tests failed!"
+            raise Exception("Inference tests failed!")
 
     return 0
 

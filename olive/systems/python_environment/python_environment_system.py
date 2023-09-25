@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import torch
 
-from olive.common.utils import run_subprocess
+from olive.common.utils import get_package_name_from_ep, run_subprocess
 from olive.evaluator.metric import (
     Metric,
     MetricResult,
@@ -31,7 +31,6 @@ from olive.passes.olive_pass import Pass
 from olive.systems.common import SystemType
 from olive.systems.olive_system import OliveSystem
 from olive.systems.system_config import PythonEnvironmentTargetUserConfig
-from olive.systems.utils import get_package_name
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +122,7 @@ class PythonEnvironmentSystem(OliveSystem):
 
             run_subprocess(command, env=self.environ, check=True)
 
-            with open(output_model_json_path, "r") as f:
+            with open(output_model_json_path) as f:
                 model_json = json.load(f)
                 output_model = ModelConfig.from_json(model_json)
 
@@ -359,7 +358,7 @@ class PythonEnvironmentSystem(OliveSystem):
             else:
                 logger.warning(
                     f"Error: {result['error']} Olive will ignore this {ep}."
-                    + f"Please make sure the environment with {ep} has the required dependencies."
+                    f"Please make sure the environment with {ep} has the required dependencies."
                 )
                 return False
 
@@ -376,7 +375,7 @@ class PythonEnvironmentSystem(OliveSystem):
         )
 
         # install onnxruntime package
-        onnxruntime_package = get_package_name(accelerator.execution_provider)
+        onnxruntime_package = get_package_name_from_ep(accelerator.execution_provider)[0]
         run_subprocess(
             f"pip install --cache-dir {self.environ['TMPDIR']} {onnxruntime_package}",
             env=self.environ,

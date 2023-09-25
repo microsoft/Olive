@@ -15,7 +15,7 @@ from olive.cache import get_local_path_from_root
 from olive.common.config_utils import validate_config
 from olive.common.utils import hash_string
 from olive.data.config import DataConfig
-from olive.exception import OlivePassException
+from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import ONNXModel
 from olive.passes import Pass
@@ -245,7 +245,7 @@ class OnnxQuantization(Pass):
         # static quantization config
         config.update(deepcopy(_static_dataloader_config))
         static_optional_config = deepcopy(_static_optional_config)
-        for _, value in static_optional_config.items():
+        for value in static_optional_config.values():
             # default value is conditional on quant_mode
             # if quant_mode is static, use the default value in static_optional_config
             # if quant_mode is dynamic, set default value as ignored. dynamic quantization doesn't use this parameter
@@ -265,9 +265,9 @@ class OnnxQuantization(Pass):
                 # ignore the parameter if quant_mode is dynamic
                 # if quant_mode is static, use the searchable_values in static_optional_config by expanding the parents
                 value.searchable_values = Conditional(
-                    parents=("quant_mode",) + value.searchable_values.parents,
+                    parents=("quant_mode", *value.searchable_values.parents),
                     support={
-                        ("static",) + key: value.searchable_values.support[key]
+                        ("static", *key): value.searchable_values.support[key]
                         for key in value.searchable_values.support
                     },
                     default=Conditional.get_ignored_choice(),
@@ -414,7 +414,7 @@ class OnnxQuantization(Pass):
                     **run_config,
                 )
             except (AttributeError, ValueError) as e:
-                raise OlivePassException("quantize_static failed.") from e
+                raise OlivePassError("quantize_static failed.") from e
         else:
             try:
                 quantize_dynamic(
@@ -424,7 +424,7 @@ class OnnxQuantization(Pass):
                     **run_config,
                 )
             except (AttributeError, ValueError) as e:
-                raise OlivePassException("quantize_dynamic failed.") from e
+                raise OlivePassError("quantize_dynamic failed.") from e
 
         # load the model
         onnx_model = onnx.load(tmp_model_path)

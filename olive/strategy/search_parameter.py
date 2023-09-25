@@ -15,6 +15,7 @@ class SearchParameter(ABC):
     Each search element should derive its own class.
     """
 
+    @abstractmethod
     def __init__(self, **kwargs):
         pass
 
@@ -39,7 +40,7 @@ class SpecialParamValue(str, Enum):
     Special values for parameters.
 
     IGNORED: the parameter gets the value "OLIVE_IGNORED_PARAM_VALUE". The pass might ignore this parameter.
-    INVALID: Any seach point with this value is invalid. The search algorithm will not suggest such a search point.
+    INVALID: Any search point with this value is invalid. The search algorithm will not suggest such a search point.
     """
 
     IGNORED = "OLIVE_IGNORED_PARAM_VALUE"
@@ -155,13 +156,15 @@ class Conditional(SearchParameter):
             return self.support.get(parent_values, self.default)
 
         # condition the first parent and create a new conditional
-        for parent_idx, parent in enumerate(self.parents):
+        parent_idx = len(self.parents) - 1
+        for i, parent in enumerate(self.parents):
             if parent in parent_values:
                 parent_value = parent_values[parent]
+                parent_idx = i
                 break
-        new_parents = self.parents[:parent_idx] + self.parents[parent_idx + 1 :]  # noqa: E203
+        new_parents = self.parents[:parent_idx] + self.parents[parent_idx + 1 :]  # noqa: E203, RUF100
         new_support = {
-            key[:parent_idx] + key[parent_idx + 1 :]: value  # noqa: E203
+            key[:parent_idx] + key[parent_idx + 1 :]: value  # noqa: E203, RUF100
             for key, value in self.support.items()
             if key[parent_idx] == parent_value
         }

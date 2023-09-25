@@ -282,14 +282,14 @@ def snpe_net_run(
     latencies = {"init": [], "total_inference_time": []}
     for run in range(runs):
         # SNPE DiagLog
-        SNPE_diag_log = tmp_dir_path / f"SNPEDiag_{run}.log"
-        SNPE_diag_csv = tmp_dir_path / f"SNPEDiag_{run}.csv"
+        snpe_diag_log = tmp_dir_path / f"SNPEDiag_{run}.log"
+        snpe_diag_csv = tmp_dir_path / f"SNPEDiag_{run}.csv"
 
-        cmd = f"snpe-diagview --input_log {SNPE_diag_log} --output {SNPE_diag_csv}"
+        cmd = f"snpe-diagview --input_log {snpe_diag_log} --output {snpe_diag_csv}"
         run_snpe_command(cmd)
 
         diag_log = {"init": None, "avg_total_inference_time": None}
-        with open(SNPE_diag_csv, "r") as f:
+        with open(snpe_diag_csv) as f:
             for line in f:
                 message_name = line.split(",")[1].lower()
                 message_value = line.split(",")[3]
@@ -299,7 +299,7 @@ def snpe_net_run(
         latencies["total_inference_time"].append(diag_log["avg_total_inference_time"])
 
         if output_dir is not None:
-            SNPE_diag_csv.rename(output_dir / f"perf_results_{run}.csv")
+            snpe_diag_csv.rename(output_dir / f"perf_results_{run}.csv")
 
     # explicitly delete the tmp directory just to be safe
     tmp_dir.cleanup()
@@ -404,7 +404,7 @@ def snpe_throughput_net_run(
     cmd = f"snpe-throughput-net-run --container {dlc_path} --duration {duration} --use_{device}"
 
     input_raw = ""
-    with open(input_list, "r") as f:
+    with open(input_list) as f:
         for line in f:
             if line.startswith("#") or line.startswith("%"):
                 continue
@@ -426,7 +426,7 @@ def snpe_throughput_net_run(
         except ValueError:
             raise ValueError(
                 f"Invalid perf profile '{perf_profile}'. Valid perf profiles are {[p.value for p in PerfProfile]}"
-            )
+            ) from None
         cmd += f" --perf_profile {perf_profile}"
     if enable_cpu_fallback:
         cmd += " --enable_cpu_fallback"

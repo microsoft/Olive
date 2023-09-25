@@ -4,17 +4,17 @@ parameters:
   test_type: ''
   device: 'cpu'
   python_version: '3.8'
+  onnxruntime: 'onnxruntime'
 
 jobs:
 - ${{ if eq(parameters.device, 'cpu') }}:
-  - job: ${{parameters.name}}_Test_Olive
+  - job: ${{parameters.name}}
     timeoutInMinutes: 300
     pool:
       name: ${{ parameters.pool}}
     variables:
       WINDOWS: ${{ parameters.windows}}
       runCodesignValidationInjection: false
-      device: ${{ parameters.device }}
       testType: ${{ parameters.test_type }}
       python_version: ${{ parameters.python_version }}
 
@@ -29,23 +29,64 @@ jobs:
       condition: and(eq(variables.WINDOWS, 'False'), eq(variables.testType, 'integ_test'))
       continueOnError: true
 
-    - script: make install-olive INSTALL_EXTRAS=[$(device)]
+    - script: |
+        python -m pip install .
       displayName: Install Olive
 
-    - task: AzureCLI@1
-      inputs:
-        azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
-        scriptLocation: 'inlineScript'
-        inlineScript: make $(testType)
-      displayName: Test Olive
-      env:
-        OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
-        WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
-        WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
-        WORKSPACE_NAME: $(workspace-name)
-        AZURE_TENANT_ID: $(azure-tenant-id)
-        AZURE_CLIENT_ID: $(olive-rg-sp-id)
-        AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
+    - ${{ if startsWith(parameters.onnxruntime, 'ort-nightly') }}:
+      - script: |
+          pip install onnxruntime
+          pip uninstall -y onnxruntime
+          pip install ${{ parameters.onnxruntime }} --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+        displayName: Install ${{ parameters.onnxruntime }}
+    - ${{ else }}:
+      - script: |
+          pip install ${{ parameters.onnxruntime }}
+        displayName: Install ${{ parameters.onnxruntime }}
+
+    - ${{ if and(eq(variables.WINDOWS, 'True'), eq(variables.testType, 'multiple_ep')) }}:
+      - task: AzureCLI@1
+        inputs:
+          azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            call python -m pip install pytest
+            call curl --output openvino_toolkit.zip https://storage.openvinotoolkit.org/repositories/openvino/packages/2023.0.1/windows/w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64.zip
+            call 7z x openvino_toolkit.zip
+            call w_openvino_toolkit_windows_2023.0.1.11005.fa1c41994f3_x86_64\\setupvars.bat
+            call python -m pip install numpy psutil coverage protobuf==3.20.3
+            call coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType)
+            call coverage xml
+        displayName: Test Olive
+        env:
+          OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
+          WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
+          WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
+          WORKSPACE_NAME: $(workspace-name)
+          AZURE_TENANT_ID: $(azure-tenant-id)
+          AZURE_CLIENT_ID: $(olive-rg-sp-id)
+          AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
+    - ${{ else }}:
+      - task: AzureCLI@1
+        inputs:
+          azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            python -m pip install pytest
+            python -m pip install -r $(Build.SourcesDirectory)/test/requirements-test.txt
+
+            coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType)
+            coverage xml
+
+        displayName: Test Olive
+        env:
+          OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
+          WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
+          WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
+          WORKSPACE_NAME: $(workspace-name)
+          AZURE_TENANT_ID: $(azure-tenant-id)
+          AZURE_CLIENT_ID: $(olive-rg-sp-id)
+          AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
 
     - task: CredScan@3
       displayName: 'Run CredScan'
@@ -72,6 +113,6 @@ jobs:
         codeCoverageTool: 'Cobertura'
         summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
 
-    - script: make clean WINDOWS=$(WINDOWS)
+    - script: git clean -dfX
       condition: always()
       displayName: Clean remaining artifacts

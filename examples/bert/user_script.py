@@ -202,11 +202,11 @@ def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_pro
     if model.framework == Framework.ONNX:
         input_names = [i.name for i in sess.get_inputs()]
         output_names = [o.name for o in sess.get_outputs()]
-        for inputs, labels in dataloader:
-            if isinstance(inputs, dict):
-                input_dict = {k: inputs[k].tolist() for k in inputs.keys()}
+        for inputs_i, labels in dataloader:
+            if isinstance(inputs_i, dict):
+                input_dict = {k: inputs_i[k].tolist() for k in inputs_i}
             else:
-                inputs = inputs.tolist()
+                inputs = inputs_i.tolist()
                 input_dict = dict(zip(input_names, [inputs]))
             res = sess.run(input_feed=input_dict, output_names=None)
             if len(output_names) == 1:
@@ -288,7 +288,7 @@ def compute_metrics(p: EvalPrediction):
 
 
 def qat_post_process(output):
-    if isinstance(output, transformers.modeling_outputs.SequenceClassifierOutput) or isinstance(output, dict):
+    if isinstance(output, (transformers.modeling_outputs.SequenceClassifierOutput, dict)):
         _, preds = torch.max(output["logits"], dim=1)
     else:
         try:

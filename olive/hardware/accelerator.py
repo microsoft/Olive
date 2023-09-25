@@ -5,7 +5,7 @@
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Union
+from typing import ClassVar, List, Union
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ DEFAULT_GPU_TRT_ACCELERATOR = AcceleratorSpec(
 
 
 class AcceleratorLookup:
-    EXECUTION_PROVIDERS = {
+    EXECUTION_PROVIDERS: ClassVar[dict] = {
         "cpu": ["CPUExecutionProvider", "OpenVINOExecutionProvider"],
         "gpu": [
             "DmlExecutionProvider",

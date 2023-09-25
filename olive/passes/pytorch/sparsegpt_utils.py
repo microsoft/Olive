@@ -17,6 +17,8 @@ from olive.model.hf_mappings import MODELS_TO_EMBEDDINGS_MAPPING, MODELS_TO_LAYE
 
 logger = logging.getLogger(__name__)
 
+# ruff: noqa: N802, N806, RUF100
+
 # model types supported by SparseGPT
 supported_models = ["bloom", "gpt2", "gpt_neox", "llama", "opt"]
 
@@ -31,9 +33,8 @@ def get_layers(model, model_type):
     return get_attr(model, layers)
 
 
-def get_layer_submodules(
-    module, submodule_types=[torch.nn.Conv2d, torch.nn.Linear, transformers.Conv1D], layer_name_filter=None, name=""
-):
+def get_layer_submodules(module, submodule_types=None, layer_name_filter=None, name=""):
+    submodule_types = submodule_types or [torch.nn.Conv2d, torch.nn.Linear, transformers.Conv1D]
     """Get the submodules of a module based on the submodule types."""
     if type(module) in submodule_types:
         if layer_name_filter and not any([s in name for s in layer_name_filter]):
@@ -42,8 +43,8 @@ def get_layer_submodules(
         return {name: module}
 
     submodules = {}
-    for submodule_name, submodule in module.named_children():
-        submodule_name = name + "." + submodule_name if name else submodule_name
+    for submodule_name_k, submodule in module.named_children():
+        submodule_name = name + "." + submodule_name_k if name else submodule_name_k
         submodules.update(get_layer_submodules(submodule, submodule_types, layer_name_filter, submodule_name))
     return submodules
 
@@ -179,7 +180,7 @@ class SparseGPTModule:
         # get number of samples
         num_samples = input.shape[0]
         # prepare input for linear layer
-        if isinstance(self.layer, torch.nn.Linear) or isinstance(self.layer, transformers.Conv1D):
+        if isinstance(self.layer, (torch.nn.Linear, transformers.Conv1D)):
             if input.ndim == 3:
                 # flatten the batch and sequence dimensions
                 input = input.reshape(-1, input.shape[-1])
@@ -247,8 +248,8 @@ class SparseGPTModule:
                 if mode == "structured" and col % m == 0:
                     # every mth column, set bottom n weights to True (prune)
                     magnitude = (
-                        W1[:, col : (col + m)] ** 2  # noqa: E203
-                        / (torch.diag(Hinv1)[col : (col + m)].reshape((1, -1))) ** 2  # noqa: E203
+                        W1[:, col : (col + m)] ** 2  # noqa: E203, RUF100
+                        / (torch.diag(Hinv1)[col : (col + m)].reshape((1, -1))) ** 2  # noqa: E203, RUF100
                     )
                     mask1.scatter_(1, col + torch.topk(magnitude, n, dim=1, largest=False)[1], True)
 

@@ -163,7 +163,7 @@ class Footprint:
     def create_pareto_frontier(self):
         self.mark_pareto_frontier()
         rls = {k: v for k, v in self.nodes.items() if v.is_pareto_frontier}
-        for _, v in rls.items():
+        for v in rls.values():
             logger.info(f"pareto frontier points: {v.model_id} \n{v.metrics.value}")
 
         # restructure the pareto frontier points to instance of Footprints node for further analysis
@@ -179,7 +179,7 @@ class Footprint:
 
     def _get_metrics_name_by_indices(self, indices):
         rls = list()
-        for _, v in self.nodes.items():
+        for v in self.nodes.values():
             if not self._is_empty_metric(v.metrics):
                 for index in indices:
                     if isinstance(index, str):
@@ -344,7 +344,7 @@ class Footprint:
 
     @classmethod
     def from_file(cls, file_path):
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             return cls.from_json(f.read())
 
     def get_model_inference_config(self, model_id):

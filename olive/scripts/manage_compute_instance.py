@@ -9,12 +9,14 @@ try:
     from azure.ai.ml import MLClient
     from azure.ai.ml.entities import AmlCompute
 except ImportError:
-    raise ImportError("azure-ai-ml is not installed. Please install azure-ai-ml packages to use this script.")
+    raise ImportError("azure-ai-ml is not installed. Please install azure-ai-ml packages to use this script.") from None
 
 try:
     from azure.identity import AzureCliCredential, DefaultAzureCredential, InteractiveBrowserCredential
 except ImportError:
-    raise ImportError("azure-identity is not installed. Please install azure-identity packages to use this script.")
+    raise ImportError(
+        "azure-identity is not installed. Please install azure-identity packages to use this script."
+    ) from None
 
 
 def get_args():

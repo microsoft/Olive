@@ -243,7 +243,9 @@ def save_model(
             continue
         # get cached resource path if not local or string name
         if not resource_path.is_local_resource():
-            resource_path = download_resource(resource_path, cache_dir)
+            local_resource_path = download_resource(resource_path, cache_dir)
+        else:
+            local_resource_path = resource_path
         # if there are multiple resource paths, we will save them to a subdirectory of output_dir/output_name
         if len(resource_paths) > 1:
             save_dir = (output_dir / output_name).with_suffix("")
@@ -253,7 +255,7 @@ def save_model(
             save_name = output_name
 
         # save resource to output directory
-        model_json["config"][resource_name] = resource_path.save_to_dir(save_dir, save_name, overwrite)
+        model_json["config"][resource_name] = local_resource_path.save_to_dir(save_dir, save_name, overwrite)
 
     # save model json
     with open(output_dir / f"{output_name}.json", "w") as f:

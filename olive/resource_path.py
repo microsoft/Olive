@@ -9,7 +9,7 @@ import tempfile
 from abc import abstractmethod
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Callable, ClassVar, Dict, Optional, Type, Union
 
 from pydantic import Field, validator
 
@@ -38,7 +38,7 @@ AZUREML_RESOURCE_TYPES = [ResourceType.AzureMLModel, ResourceType.AzureMLDatasto
 
 
 class ResourcePath(AutoConfigClass):
-    registry: Dict[str, Type["ResourcePath"]] = {}
+    registry: ClassVar[Dict[str, Type["ResourcePath"]]] = {}
     name: ResourceType = None
 
     def __repr__(self) -> str:
@@ -122,7 +122,7 @@ def create_resource_path(
     if isinstance(resource_path, ResourcePath):
         return resource_path
 
-    if isinstance(resource_path, ResourcePathConfig) or isinstance(resource_path, dict):
+    if isinstance(resource_path, (ResourcePathConfig, dict)):
         resource_path_config = validate_config(resource_path, ResourcePathConfig)
         return resource_path_config.create_resource_path()
 
@@ -329,8 +329,8 @@ class AzureMLModel(ResourcePath):
         logger.debug(f"Downloading model {self.config.name} version {self.config.version} to {new_path}.")
         from azure.core.exceptions import ServiceResponseError
 
-        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
-            temp_dir = Path(temp_dir)
+        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as tempdir:
+            temp_dir = Path(tempdir)
             retry_func(
                 ml_client.models.download,
                 [self.config.name],
@@ -399,7 +399,7 @@ class AzureMLDatastore(ResourcePath):
         except ImportError:
             raise ImportError(
                 "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
-            )
+            ) from None
         if fsspec is None:
             fsspec = AzureMachineLearningFileSystem(self.get_path())
         return fsspec.info(self.get_relative_path()).get("type") == "file"
@@ -430,7 +430,7 @@ class AzureMLDatastore(ResourcePath):
         except ImportError:
             raise ImportError(
                 "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
-            )
+            ) from None
 
         azureml_client_config = self.get_aml_client_config()
 
@@ -511,8 +511,8 @@ class AzureMLJobOutput(ResourcePath):
         logger.debug(f"Downloading job output {self.config.job_name} output {self.config.output_name} to {new_path}.")
         from azure.core.exceptions import ServiceResponseError
 
-        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
-            temp_dir = Path(temp_dir)
+        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as tempdir:
+            temp_dir = Path(tempdir)
             retry_func(
                 ml_client.jobs.download,
                 [self.config.job_name],

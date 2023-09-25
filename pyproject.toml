@@ -4,3 +4,80 @@ line_length = 120
 
 [tool.black]
 line-length = 120
+
+[tool.pylint.BASIC]
+good-names = [
+    "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n",
+    "p", "q", "r", "s", "t", "u", "v", "w", "ex", "Run", "_", "x", "y", "z"
+]
+
+[tool.pylint.messages_control]
+disable = [
+    "format",
+    "line-too-long",
+    "import-error",
+    "no-name-in-module",
+    "no-member",
+    "too-many-arguments",
+    "too-many-locals",
+    "too-few-public-methods",
+    "missing-docstring",
+    "fixme",
+]
+
+[tool.ruff]
+target-version = "py38"
+select = [
+    "B", # flake8-bugbear
+    "E", # pycodestyle
+    "F", # Pyflakes
+    "ISC", # flake8-implicit-str-concat
+    "N", # pep8-naming
+    "NPY", # numpy
+    "PERF", # Perflint
+    "PLC", # pylint conventions
+    "PLE", # pylint errors
+    "PLW", # pylint warnings
+    "RUF", # Ruff-specific rules
+    "SIM", # flake8-simplify
+    "T10", # flake8-debugger
+    "UP", # pyupgrade
+    "W", # pycodestyle
+    "YTT", # flake8-2020
+]
+# NOTE: Refrain from growing the ignore list unless for exceptional cases.
+# Always include a comment to explain why.
+ignore = [
+    "B005", # removesuffix is only available in Python 3.9
+    "B028", # FIXME: Add stacklevel to warnings
+    "B905", # keep using less than Python 3.10. The strict is added in Python 3.10
+    "E501", # Line length controlled by black
+    "N803", # Argument casing
+    "N812", # Allow import torch.nn.functional as F
+    "N999", # Module names
+    "NPY002", # np.random.Generator may not always fit our use cases
+    "PERF203", # "try-except-in-loop" only affects Python <3.11, and the improvement is minor; can have false positives
+    "PERF401", # List comprehensions are not always readable
+    "SIM102", # We don't prefer always combining if branches
+    "SIM105", # We don't prefer use context.suppress
+    "SIM108", # We don't encourage ternary operators
+    "SIM114", # Don't combine if branches for debugability
+    "SIM116", # Don't use dict lookup to replace if-else
+    "UP006", # Ignore old typing hints,
+    "UP007", # Ignore old Union hints,
+    "UP032", # Ignore string format calls
+    "UP035", # Ignore List/Dict typing import
+    "UP038", # Ignore old isinstance hints,
+    "PLW0603", # TODO: temp disable global variable check,
+    "RUF010", # keeping using str type explicitly
+    "RUF013", # Ignore Optional type hints warning since it is available in Python 3.10
+]
+ignore-init-module-imports = true
+unfixable = [
+    "F401", # Unused imports
+    "SIM112", # Use upper case for env vars
+]
+
+[tool.ruff.pep8-naming]
+# Allow Pydantic's `@validator` decorator to trigger class method treatment.
+classmethod-decorators = ["classmethod", "pydantic.validator", "pydantic.root_validator"]

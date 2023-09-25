@@ -3,7 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
-from typing import Union
+from typing import ClassVar, Dict, Union
 
 from olive.data.constants import DataComponentType, DataContainerType, DefaultDataComponent, DefaultDataContainer
 
@@ -15,7 +15,7 @@ class Registry:
     Registry for data components and data containers
     """
 
-    _REGISTRY = {
+    _REGISTRY: ClassVar[Dict] = {
         DataComponentType.LOAD_DATASET.value: {},
         DataComponentType.PRE_PROCESS_DATA.value: {},
         DataComponentType.POST_PROCESS_DATA.value: {},
@@ -39,7 +39,9 @@ class Registry:
         def decorator(component):
             component_name = name if name is not None else component.__name__
             if component_name in cls._REGISTRY[sub_type.value]:
-                logger.warning(
+                # don't want to warn here since user script is loaded everytime data config is initialized
+                # there is nothing user can do to fix this warning
+                logger.debug(
                     f"Component {component_name} already registered in {sub_type.value}, will override the old one."
                 )
             cls._REGISTRY[sub_type.value][component_name] = component

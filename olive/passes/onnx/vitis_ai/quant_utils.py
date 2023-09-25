@@ -11,6 +11,8 @@ from onnxruntime import __version__ as OrtVersion
 from onnxruntime.quantization.quant_utils import get_qmin_qmax_for_qType, quantize_nparray
 from packaging import version
 
+# ruff: noqa
+
 
 class PowerOfTwoMethod(Enum):
     NonOverflow = 0
@@ -302,7 +304,7 @@ def quantize_data_pof2s(data, qType, symmetric, reduce_range=False, method=Power
     - when data `type == int8`, from `[-m , m]` -> :math:`[-(2^{b-1}-1), 2^{b-1}-1]` where
         `m = max(abs(rmin), abs(rmax))`
 
-    and add necessary intermediate nodes to trasnform quantized weight to full weight using the equation
+    and add necessary intermediate nodes to transform quantized weight to full weight using the equation
 
     :math:`r = S(q-z)`, where
 

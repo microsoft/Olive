@@ -59,7 +59,7 @@ class WhisperDataset:
             config = AutoConfig.from_pretrained(model_name)
             processor = AutoProcessor.from_pretrained(model_name)
             forced_decoder_ids = processor.get_decoder_prompt_ids(language=language, task=task)
-            forced_decoder_ids = [config.decoder_start_token_id] + list(map(lambda token: token[1], forced_decoder_ids))
+            forced_decoder_ids = [config.decoder_start_token_id, *list(map(lambda token: token[1], forced_decoder_ids))]
             inputs["decoder_input_ids"] = np.asarray([forced_decoder_ids], dtype=np.int32)
 
             self.data.append(inputs)

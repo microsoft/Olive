@@ -37,8 +37,8 @@ def create_metric(metric_config, metric_args):
         if key == "metric_config":
             continue
         if value is not None:
-            key = key.replace("metric_", "")
-            metric_config["user_config"][key] = value
+            key_mod = key.replace("metric_", "")
+            metric_config["user_config"][key_mod] = value
 
     p = Metric.from_json(metric_config)
     return p

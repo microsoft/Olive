@@ -23,7 +23,7 @@ def setup():
     # prepare configs
     from prepare_whisper_configs import main as prepare_whisper_configs
 
-    prepare_whisper_configs([])
+    prepare_whisper_configs(["--package_model"])
 
     yield
     os.chdir(cur_dir)
@@ -39,7 +39,8 @@ def test_whisper(device_precision):
 
     device, precision = device_precision
     config_file = f"whisper_{device}_{precision}.json"
-    olive_config = json.load(open(config_file, "r"))
+    with open(config_file) as f:
+        olive_config = json.load(f)
 
     # test workflow
     result = olive_run(olive_config)

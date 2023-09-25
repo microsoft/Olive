@@ -23,7 +23,7 @@ def resolve_input_list(
     """
     resolved_input_list_file = (Path(dest_dir) / resolved_filename).resolve()
 
-    with open(input_list_file, "r") as input_list, open(resolved_input_list_file, "w") as resolved_input_list:
+    with open(input_list_file) as input_list, open(resolved_input_list_file, "w") as resolved_input_list:
         for line in input_list:
             # skip output lines
             if line.startswith("#") or line.startswith("%"):
@@ -133,7 +133,7 @@ def create_input_list(
         input_dir_members = input_dir_members[:num_samples]
     for member in input_dir_members:
         if not add_input_names:
-            input_list_content += f"{input_dirs[0]}/{member.as_posix()}" + "\n"
+            input_list_content += f"{input_dirs[0]}/{member.as_posix()}" + "\n"  # noqa: ISC003
         else:
             input_list_content += (
                 " ".join(
@@ -182,7 +182,7 @@ def get_input_ids(input_list_file: str) -> List[str]:
     Assumes all inputs have the same id for a given sample.
     """
     input_ids = []
-    with open(input_list_file, "r") as input_list:
+    with open(input_list_file) as input_list:
         for line in input_list:
             # skip output lines
             if line.startswith("#") or line.startswith("%"):

@@ -38,7 +38,7 @@ def dummy_calibration_reader(data_dir=None, batch_size=1, *args, **kwargs):
 
 
 @pytest.mark.skipif(
-    version.parse(OrtVersion) >= version.parse("1.16.0"),
+    version.parse(OrtVersion) == version.parse("1.16.0"),
     reason="VitisAIQuantization is not supported in ORT 1.16.0 with TensorsData",
 )
 def test_vitis_ai_quantization_pass(tmp_path):

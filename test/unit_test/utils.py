@@ -25,7 +25,7 @@ ONNX_MODEL_PATH = Path(__file__).absolute().parent / "dummy_model.onnx"
 
 class DummyModel(nn.Module):
     def __init__(self):
-        super(DummyModel, self).__init__()
+        super().__init__()
         self.fc1 = nn.Linear(1, 10)
 
     def forward(self, x):
@@ -210,8 +210,8 @@ def get_latency_metric(*lat_subtype, user_config=None):
     return latency_metric
 
 
-def get_onnxconversion_pass(ignore_pass_config=True):
-    onnx_conversion_config = {}
+def get_onnxconversion_pass(ignore_pass_config=True, target_opset=13):
+    onnx_conversion_config = {"target_opset": target_opset}
     p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
     if ignore_pass_config:
         return p

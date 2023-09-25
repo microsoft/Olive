@@ -104,7 +104,7 @@ class OnnxConversion(Pass):
             except ImportError:
                 raise ImportError(
                     "torch.onnx.dynamo_export is not available. Please upgrade your pytorch version to nightly build."
-                )
+                ) from None
             exported = dynamo_export(
                 pytorch_model,
                 *dummy_inputs,
