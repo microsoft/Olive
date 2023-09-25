@@ -8,8 +8,6 @@ from pydantic import validator
 
 from olive.common.config_utils import ConfigBase
 
-# ruff: noqa: N805
-
 
 class IOConfig(ConfigBase):
     # TODO remove input names, shapes and types, turn to use olive dataset config.

@@ -20,8 +20,6 @@ from olive.common.utils import retry_func
 
 logger = logging.getLogger(__name__)
 
-# ruff: noqa: N805
-
 
 class ResourceType(str, Enum):
     LocalFile = "file"

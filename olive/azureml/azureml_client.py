@@ -13,8 +13,6 @@ from olive.common.config_utils import ConfigBase
 
 logger = logging.getLogger(__name__)
 
-# ruff: noqa: N805
-
 
 class AzureMLClientConfig(ConfigBase):
     subscription_id: str = Field(

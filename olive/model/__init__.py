@@ -38,8 +38,6 @@ from olive.snpe.tools.dev import get_dlc_metrics
 REGISTRY = {}
 logger = logging.getLogger(__name__)
 
-# ruff: noqa: N805
-
 
 class OliveModel(ABC):
     """
