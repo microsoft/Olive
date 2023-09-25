@@ -99,6 +99,6 @@ Please follow this instruction to setup your local device: [Self-hosted Kubernet
 
 
 ## Azure ML Helper Scripts
-Olive offers several scripts to assit you in managing your Azure ML assets.
+Olive offers several scripts to assist you in managing your Azure ML assets.
 
 For details on the available scripts, refer to: [Azure ML scripts](../tutorials/azureml_scripts.md)

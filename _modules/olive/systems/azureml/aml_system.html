@@ -357,7 +357,7 @@
 
     <span class="k">def</span> <span class="nf">_create_pass_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pass_path_params</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">ParamCategory</span><span class="p">]]):</span>
         <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;pass_config&quot;</span><span class="p">:</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FILE</span><span class="p">)}</span>
-        <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">category</span> <span class="ow">in</span> <span class="n">pass_path_params</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">param</span><span class="p">,</span> <span class="n">required</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">pass_path_params</span><span class="p">:</span>
             <span class="c1"># aml supports uploading file/folder even though this is typed as URI_FOLDER</span>
             <span class="n">inputs</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;pass_</span><span class="si">{</span><span class="n">param</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Input</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="n">AssetTypes</span><span class="o">.</span><span class="n">URI_FOLDER</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="ow">not</span> <span class="n">required</span><span class="p">)</span>
 
@@ -448,7 +448,7 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="s2">&quot;Dev mode is only enabled for CI pipeline! &quot;</span>
-                <span class="o">+</span> <span class="s2">&quot;It will overwrite the Olive package in AML computer with latest code.&quot;</span>
+                <span class="s2">&quot;It will overwrite the Olive package in AML computer with latest code.&quot;</span>
             <span class="p">)</span>
             <span class="n">project_folder</span> <span class="o">=</span> <span class="n">cur_dir</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">code_root</span> <span class="o">/</span> <span class="s2">&quot;olive&quot;</span><span class="p">,</span> <span class="n">ignore</span><span class="o">=</span><span class="n">shutil</span><span class="o">.</span><span class="n">ignore_patterns</span><span class="p">(</span><span class="s2">&quot;__pycache__&quot;</span><span class="p">))</span>
@@ -721,7 +721,7 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="s2">&quot;Dev mode is only enabled for CI pipeline! &quot;</span>
-                <span class="o">+</span> <span class="s2">&quot;It will overwrite the Olive package in AML computer with latest code.&quot;</span>
+                <span class="s2">&quot;It will overwrite the Olive package in AML computer with latest code.&quot;</span>
             <span class="p">)</span>
             <span class="n">project_folder</span> <span class="o">=</span> <span class="n">cur_dir</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
             <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">project_folder</span><span class="p">,</span> <span class="n">code_root</span> <span class="o">/</span> <span class="s2">&quot;olive&quot;</span><span class="p">,</span> <span class="n">ignore</span><span class="o">=</span><span class="n">shutil</span><span class="o">.</span><span class="n">ignore_patterns</span><span class="p">(</span><span class="s2">&quot;__pycache__&quot;</span><span class="p">))</span>

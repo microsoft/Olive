@@ -136,7 +136,7 @@
 <span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Number</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">NamedTuple</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
@@ -160,7 +160,7 @@
     <span class="n">joint_metric_key</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">olive.evaluator.metric_backend</span> <span class="kn">import</span> <span class="n">MetricBackend</span>
-<span class="kn">from</span> <span class="nn">olive.exception</span> <span class="kn">import</span> <span class="n">OliveEvaluationException</span>
+<span class="kn">from</span> <span class="nn">olive.exception</span> <span class="kn">import</span> <span class="n">OliveEvaluationError</span>
 <span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">Device</span>
 <span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">DistributedOnnxModel</span><span class="p">,</span> <span class="n">OliveModel</span><span class="p">,</span> <span class="n">ONNXModel</span><span class="p">,</span> <span class="n">OpenVINOModel</span><span class="p">,</span> <span class="n">PyTorchModel</span><span class="p">,</span> <span class="n">SNPEModel</span>
 <span class="kn">from</span> <span class="nn">olive.model.model_config</span> <span class="kn">import</span> <span class="n">is_io_config_static</span>
@@ -173,7 +173,7 @@
 
 
 <div class="viewcode-block" id="OliveEvaluator"><a class="viewcode-back" href="../../../api/evaluator.html#olive.evaluator.olive_evaluator.OliveEvaluator">[docs]</a><span class="k">class</span> <span class="nc">OliveEvaluator</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="n">registry</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Type</span><span class="p">[</span><span class="s2">&quot;OliveEvaluator&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">registry</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Type</span><span class="p">[</span><span class="s2">&quot;OliveEvaluator&quot;</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{}</span>
 
     <span class="nd">@classmethod</span>
     <span class="k">def</span> <span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">framework</span><span class="p">:</span> <span class="n">Framework</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -181,6 +181,7 @@
         <span class="bp">cls</span><span class="o">.</span><span class="n">framework</span> <span class="o">=</span> <span class="n">framework</span>
         <span class="bp">cls</span><span class="o">.</span><span class="n">registry</span><span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">framework</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="o">=</span> <span class="bp">cls</span>
 
+    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span>
 
@@ -437,7 +438,7 @@
                 <span class="n">input_data</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_data</span><span class="p">[</span><span class="n">k</span><span class="p">],</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="k">else</span> <span class="n">input_data</span><span class="p">[</span><span class="n">k</span><span class="p">],</span>
                 <span class="n">dtype</span><span class="o">=</span><span class="n">name_to_type</span><span class="p">[</span><span class="n">k</span><span class="p">],</span>
             <span class="p">)</span>
-            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">input_data</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">input_data</span>
             <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">input_names</span>
         <span class="p">}</span>
         <span class="k">return</span> <span class="n">input_dict</span>
@@ -639,7 +640,7 @@
 
         <span class="n">preds</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">p</span><span class="p">]</span>
         <span class="n">targets</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">t</span><span class="p">]</span>
-        <span class="n">logits</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">l</span><span class="p">]</span>
+        <span class="n">logits</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">logit</span> <span class="ow">in</span> <span class="n">results</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">logit</span><span class="p">]</span>
         <span class="n">model_output</span> <span class="o">=</span> <span class="n">OliveModelOutput</span><span class="p">(</span><span class="n">preds</span><span class="p">,</span> <span class="n">logits</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">OliveEvaluator</span><span class="o">.</span><span class="n">compute_accuracy</span><span class="p">(</span><span class="n">metric</span><span class="p">,</span> <span class="n">model_output</span><span class="p">,</span> <span class="n">targets</span><span class="p">)</span>
 
@@ -780,12 +781,11 @@
             <span class="n">session_providers</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">get_providers</span><span class="p">()</span>
             <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">execution_providers</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">ep</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">session_providers</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="n">OliveEvaluationException</span><span class="p">(</span>
+                    <span class="k">raise</span> <span class="n">OliveEvaluationError</span><span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;The onnxruntime fallback happens. </span><span class="si">{</span><span class="n">ep</span><span class="si">}</span><span class="s2"> is not in the session providers </span><span class="si">{</span><span class="n">session_providers</span><span class="si">}</span><span class="s2">.&quot;</span>
                         <span class="sa">f</span><span class="s2">&quot; session._enable_fallback = </span><span class="si">{</span><span class="n">session</span><span class="o">.</span><span class="n">_enable_fallback</span><span class="si">}</span><span class="s2">&quot;</span>
                     <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">session</span><span class="o">.</span><span class="n">disable_fallback</span><span class="p">()</span>
+            <span class="n">session</span><span class="o">.</span><span class="n">disable_fallback</span><span class="p">()</span>
 
 
 <span class="k">class</span> <span class="nc">PyTorchEvaluator</span><span class="p">(</span><span class="n">OliveEvaluator</span><span class="p">,</span> <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">PYTORCH</span><span class="p">):</span>
@@ -814,8 +814,8 @@
         <span class="n">device</span> <span class="o">=</span> <span class="n">PyTorchEvaluator</span><span class="o">.</span><span class="n">_device_string_to_torch_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">device</span><span class="p">:</span>
             <span class="n">session</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-        <span class="k">for</span> <span class="n">input_data</span><span class="p">,</span> <span class="n">labels</span> <span class="ow">in</span> <span class="n">dataloader</span><span class="p">:</span>
-            <span class="n">input_data</span> <span class="o">=</span> <span class="n">tensor_data_to_device</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">input_data_i</span><span class="p">,</span> <span class="n">labels</span> <span class="ow">in</span> <span class="n">dataloader</span><span class="p">:</span>
+            <span class="n">input_data</span> <span class="o">=</span> <span class="n">tensor_data_to_device</span><span class="p">(</span><span class="n">input_data_i</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
             <span class="n">result</span> <span class="o">=</span> <span class="n">session</span><span class="p">(</span><span class="o">**</span><span class="n">input_data</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="n">session</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
             <span class="n">outputs</span> <span class="o">=</span> <span class="n">post_func</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">post_func</span> <span class="k">else</span> <span class="n">result</span>
             <span class="c1"># keep the outputs and results as torch tensor on cpu</span>
@@ -1000,7 +1000,7 @@
             <span class="n">result</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">infer_new_request</span><span class="p">({</span><span class="mi">0</span><span class="p">:</span> <span class="n">input_data</span><span class="p">})</span>
             <span class="n">outputs</span> <span class="o">=</span> <span class="n">post_func</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">post_func</span> <span class="k">else</span> <span class="n">result</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-                <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">labels</span><span class="p">]</span>
+                <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">labels</span><span class="p">]</span>  <span class="c1"># ruff: noqa: PLW2901</span>
             <span class="n">preds</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">outputs</span><span class="p">)</span>
             <span class="n">targets</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
             <span class="n">logits</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
@@ -1048,7 +1048,7 @@
 
 
 <div class="viewcode-block" id="OliveEvaluatorConfig"><a class="viewcode-back" href="../../../api/engine.html#olive.evaluator.olive_evaluator.OliveEvaluatorConfig">[docs]</a><span class="k">class</span> <span class="nc">OliveEvaluatorConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
-    <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">metrics</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Metric</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># noqa: RUF012</span>
 
     <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;metrics&quot;</span><span class="p">)</span>
     <span class="k">def</span> <span class="nf">validate_metrics</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>

@@ -250,7 +250,7 @@
 
             <span class="n">run_subprocess</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">env</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">environ</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_model_json_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_model_json_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
                 <span class="n">model_json</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
                 <span class="n">output_model</span> <span class="o">=</span> <span class="n">ModelConfig</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">model_json</span><span class="p">)</span>
 
@@ -486,7 +486,7 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;error&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> Olive will ignore this </span><span class="si">{</span><span class="n">ep</span><span class="si">}</span><span class="s2">.&quot;</span>
-                    <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;Please make sure the environment with </span><span class="si">{</span><span class="n">ep</span><span class="si">}</span><span class="s2"> has the required dependencies.&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;Please make sure the environment with </span><span class="si">{</span><span class="n">ep</span><span class="si">}</span><span class="s2"> has the required dependencies.&quot;</span>
                 <span class="p">)</span>
                 <span class="k">return</span> <span class="kc">False</span>
 
