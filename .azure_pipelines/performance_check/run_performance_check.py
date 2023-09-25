@@ -109,8 +109,7 @@ def get_args():
     parser.add_argument("--device", type=str, default="cpu", help="The device to run the perf comparison on")
     parser.add_argument("--test_num", type=int, default=10, help="The number of times to run the perf comparison")
 
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def export_onnx(model_name, model_root_path, device="cpu"):
@@ -187,7 +186,7 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
             accuracy_metric = copy.deepcopy(ACC_METRIC)
             latency_metric = copy.deepcopy(LAT_METRIC)
             print(f"Start evaluating {optimized_model} model")
-            with open(config_json_path) as fin:
+            with config_json_path.open() as fin:
                 olive_config = json.load(fin)
                 user_script_path = str(cur_dir / "user_scripts" / f"{model_name}.py")
                 hf_model_config = MODEL_NAME_TO_CONFIG_MAP[model_name]

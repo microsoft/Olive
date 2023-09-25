@@ -27,9 +27,7 @@ class LocalSystem(OliveSystem):
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
-        """
-        Run the pass on the model at a specific point in the search space.
-        """
+        """Run the pass on the model at a specific point in the search space."""
         model = model_config.create_model()
         output_model = the_pass.run(model, data_root, output_model_path, point)
         return ModelConfig.from_json(output_model.to_json())
@@ -37,11 +35,9 @@ class LocalSystem(OliveSystem):
     def evaluate_model(
         self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
     ) -> MetricResult:
-        """
-        Evaluate the model
-        """
+        """Evaluate the model."""
         if model_config.type.lower() == "CompositeOnnxModel".lower():
-            raise NotImplementedError()
+            raise NotImplementedError
 
         device = accelerator.accelerator_type if accelerator else Device.CPU
         execution_providers = accelerator.execution_provider if accelerator else None
@@ -51,9 +47,7 @@ class LocalSystem(OliveSystem):
         return evaluator.evaluate(model, data_root, metrics, device=device, execution_providers=execution_providers)
 
     def get_supported_execution_providers(self) -> List[str]:
-        """
-        Get the available execution providers.
-        """
+        """Get the available execution providers."""
         import onnxruntime as ort
 
         return ort.get_available_providers()

@@ -154,7 +154,7 @@ def quant_pre_process(
 
 @contextmanager
 def TemporaryDirectory(**kwargs):
-    # TODO: this is a workaround for issue https://github.com/microsoft/onnxruntime/issues/17627
+    # TODO(myguo): this is a workaround for issue https://github.com/microsoft/onnxruntime/issues/17627
     # on Windows.
     name = tempfile.mkdtemp(**kwargs)
     try:

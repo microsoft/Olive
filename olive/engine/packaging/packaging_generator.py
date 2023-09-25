@@ -85,7 +85,7 @@ def _package_candidate_models(
         model_rank += 1
 
         # Copy inference config
-        inference_config_path = str(model_dir / "inference_config.json")
+        inference_config_path = model_dir / "inference_config.json"
         inference_config = pf_footprint.get_model_inference_config(model_id) or {}
 
         # Add use_ort_extensions to inference config if needed
@@ -93,7 +93,7 @@ def _package_candidate_models(
         if use_ort_extensions:
             inference_config["use_ort_extensions"] = True
 
-        with open(inference_config_path, "w") as f:
+        with inference_config_path.open("w") as f:
             json.dump(inference_config, f)
 
         # Copy model file
@@ -142,15 +142,15 @@ def _package_candidate_models(
             raise ValueError(f"Unsupported model type: {model_type} for packaging")
 
         # Copy Passes configurations
-        configuration_path = str(model_dir / "configurations.json")
-        with open(configuration_path, "w") as f:
+        configuration_path = model_dir / "configurations.json"
+        with configuration_path.open("w") as f:
             json.dump(OrderedDict(reversed(footprint.trace_back_run_history(model_id).items())), f)
 
         # Copy metrics
-        # TODO: Add target info to metrics file
+        # TODO(xiaoyu): Add target info to metrics file
         if node.metrics:
-            metric_path = str(model_dir / "metrics.json")
-            with open(metric_path, "w") as f:
+            metric_path = model_dir / "metrics.json"
+            with metric_path.open("w") as f:
                 metrics = {
                     "input_model_metrics": input_node.metrics.value.to_json() if input_node.metrics else None,
                     "candidate_model_metrics": node.metrics.value.to_json(),
@@ -320,6 +320,6 @@ def _skip_download_c_package(package_path):
         "ort-nightly package from https://aiinfra.visualstudio.com/PublicPackages/_artifacts/feed/ORT-Nightly"
     )
     logger.warning(warning_msg)
-    readme_path = str(package_path / "README.md")
-    with open(readme_path, "w") as f:
+    readme_path = package_path / "README.md"
+    with readme_path.open("w") as f:
         f.write(warning_msg)

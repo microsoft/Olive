@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def parse_common_args(raw_args):
-    """Parse common args"""
+    """Parse common args."""
     parser = argparse.ArgumentParser("Olive common args")
 
     # model args
@@ -41,14 +41,15 @@ def parse_model_resources(model_resource_names, raw_args):
 
 
 def get_common_args(raw_args):
-    """
-    Returns the model_config json with the model resource paths filled in, the pipeline output path, and any
+    """Return the model_config.
+
+    The return value includes json with the model resource paths filled in, the pipeline output path, and any
     extra args that were not parsed.
     """
     common_args, extra_args = parse_common_args(raw_args)
 
     # load model json
-    with open(common_args.model_config) as f:
+    with open(common_args.model_config) as f:  # noqa: PTH123
         model_json = json.load(f)
     # model json has a list of model resource names
     model_resource_names = model_json.pop("resource_names")
@@ -64,8 +65,7 @@ def get_common_args(raw_args):
 
 @lru_cache(maxsize=8)
 def create_new_system_with_cache(origin_system, accelerator):
-    new_system = create_new_system(origin_system, accelerator)
-    return new_system
+    return create_new_system(origin_system, accelerator)
 
 
 def create_new_system(origin_system, accelerator):
@@ -136,7 +136,7 @@ def create_new_system(origin_system, accelerator):
         if origin_system.requirements_file:
             shutil.copyfile(origin_system.requirements_file, build_context_path / "requirements.txt")
         else:
-            with open(build_context_path / "requirements.txt", "w"):
+            with (build_context_path / "requirements.txt").open("w"):
                 pass
 
         new_system = AzureMLSystem(

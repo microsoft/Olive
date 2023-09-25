@@ -9,9 +9,7 @@ from olive.strategy.search_algorithm.search_algorithm import SearchAlgorithm
 
 
 class RandomSearchAlgorithm(SearchAlgorithm):
-    """
-    Random Searcher. Samples random points from the search space with or without replacement.
-    """
+    """Random Searcher. Samples random points from the search space with or without replacement."""
 
     name = "random"
 
@@ -24,9 +22,7 @@ class RandomSearchAlgorithm(SearchAlgorithm):
         }
 
     def initialize(self):
-        """
-        Initialize the searcher.
-        """
+        """Initialize the searcher."""
         self._search_space.set_seed(self._config.seed)
         if not self._config.with_replacement:
             self._options = list(self._search_space.iterate())
@@ -41,9 +37,7 @@ class RandomSearchAlgorithm(SearchAlgorithm):
         return should_stop or super().should_stop()
 
     def suggest(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Suggest a new configuration to try.
-        """
+        """Suggest a new configuration to try."""
         if self.should_stop():
             return None
 
@@ -60,7 +54,4 @@ class RandomSearchAlgorithm(SearchAlgorithm):
         return search_point
 
     def report(self, search_point: Dict[str, Dict[str, Any]], result: Dict[str, Any], should_prune: bool = False):
-        """
-        Report the result of a configuration.
-        """
-        return
+        """Report the result of a configuration."""

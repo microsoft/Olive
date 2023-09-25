@@ -18,9 +18,9 @@ from torch_tensorrt.fx import InputTensorSpec, TRTInterpreter, TRTModule, compil
 
 
 class TRTLinearLayer(TRTModule):
-    def forward(self, input):
+    def forward(self, inputs):
         """Forward pass of the module. Casts input to fp16 and casts output back to original data type."""
-        return super().forward(input.to(torch.float16)).to(input.dtype)
+        return super().forward(inputs.to(torch.float16)).to(inputs.dtype)
 
 
 def compile_trt_model(torch_module: torch.nn.Module, hidden_states: torch.Tensor, batch_size: int, seqlen: int):
@@ -31,7 +31,6 @@ def compile_trt_model(torch_module: torch.nn.Module, hidden_states: torch.Tensor
     :param batch_size: The batch size of the input tensor.
     :param seqlen: The maximum sequence length of the input tensor. seqlen dimension is treated as dynamic.
     """
-
     # disable logging from torch_tensorrt
     # torch_tensorrt logs are very verbose and produces multiple lines of log per module
     # this makes the log file very large and hard to read
@@ -66,5 +65,4 @@ def compile_trt_model(torch_module: torch.nn.Module, hidden_states: torch.Tensor
     # create TensorRT module
     interpreter = TRTInterpreter(acc_model, input_specs, explicit_batch_dimension=True, logger_level=trt.Logger.ERROR)
     result = interpreter.run(sparse_weights=True)
-    trt_module = TRTLinearLayer(result.engine, result.input_names, result.output_names)
-    return trt_module
+    return TRTLinearLayer(result.engine, result.input_names, result.output_names)

@@ -93,13 +93,12 @@ def get_accuracy_metric(post_process, dataloader=create_dataloader):
         "dataloader_func": dataloader,
     }
     sub_types = [{"name": AccuracySubType.ACCURACY_SCORE}]
-    accuracy_metric = Metric(
+    return Metric(
         name="accuracy",
         type=MetricType.ACCURACY,
         sub_types=sub_types,
         user_config=accuracy_metric_config,
     )
-    return accuracy_metric
 
 
 def get_latency_metric(dataloader=create_dataloader):
@@ -108,13 +107,12 @@ def get_latency_metric(dataloader=create_dataloader):
         "dataloader_func": dataloader,
     }
     sub_types = [{"name": LatencySubType.AVG}]
-    latency_metric = Metric(
+    return Metric(
         name="latency",
         type=MetricType.LATENCY,
         sub_types=sub_types,
         user_config=latency_metric_config,
     )
-    return latency_metric
 
 
 def get_hf_accuracy_metric(post_process=hf_post_process, dataloader=create_hf_dataloader):

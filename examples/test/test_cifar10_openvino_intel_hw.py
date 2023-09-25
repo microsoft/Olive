@@ -11,7 +11,7 @@ from utils import check_output
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
-    """setup any state specific to the execution of the given module."""
+    """Setups any state specific to the execution of the given module."""
     cifar10_dir = str(Path(__file__).resolve().parent.parent / "cifar10_openvino_intel_hw")
     sys.path.append(cifar10_dir)
     yield

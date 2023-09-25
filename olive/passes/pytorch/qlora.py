@@ -38,8 +38,7 @@ DEFAULT_PAD_TOKEN = "[PAD]"
 # pydantic handles dataclasses differently and causes issues with validation
 # this also allows us to handle and validate extra_args better
 class HFTrainingArguments(ConfigWithExtraArgs):
-    """
-    Training arguments for transformers.Trainer.
+    """Training arguments for transformers.Trainer.
 
     Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.
     """
@@ -116,8 +115,8 @@ class HFTrainingArguments(ConfigWithExtraArgs):
 
 
 class QLoRA(Pass):
-    """
-    Run QLoRA fine-tuning on a Hugging Face PyTorch model.
+    """Run QLoRA fine-tuning on a Hugging Face PyTorch model.
+
     See https://arxiv.org/abs/2305.14314 for more details on the method.
 
     This pass only supports PyTorchModel with hf_config.
@@ -248,7 +247,7 @@ class QLoRA(Pass):
                 eval_dataset=eval_dataset,
                 data_collator=partial(self.collate_batch, tokenizer=tokenizer),
             )
-            # TODO: trainer callback for saving might be needed for DDP training
+            # TODO(jambayk): trainer callback for saving might be needed for DDP training
             # worry about this later
 
             # train
@@ -277,9 +276,7 @@ class QLoRA(Pass):
     def get_model_tokenizer(
         cls, model: PyTorchModel, config: ConfigBase
     ) -> Tuple[PyTorchModel, transformers.PreTrainedModel, transformers.PreTrainedTokenizer]:
-        """
-        Get the Olive model, PyTorch model and tokenizer for QLoRA fine-tuning.
-        """
+        """Get the Olive model, PyTorch model and tokenizer for QLoRA fine-tuning."""
         from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
         from peft.tuners.lora import LoraLayer
         from transformers import AutoTokenizer
@@ -318,7 +315,7 @@ class QLoRA(Pass):
             )
         new_model.hf_config.model_loading_args = HFModelLoadingArgs(
             torch_dtype=compute_dtype,
-            # TODO: Worry about `use_multi_gpu` and distributed training later
+            # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
             # this uses all available GPUs, model parallel
             device_map="auto",
             quantization_method="bitsandbytes",
@@ -347,14 +344,15 @@ class QLoRA(Pass):
         tokenizer = AutoTokenizer.from_pretrained(model_name)
 
         # if there is no pad token, add to tokenizer and model
-        # TODO: Do this in a better way since the embedding size might become unoptimal (not a multiple of 64, etc)
-        # perhaps use eos_token as pad_token, but need to ensure the actual eos_token at the end of the sequence is
-        # not masked (both in attention mask and loss calculation)
+        # TODO(jambayk): Do this in a better way since the embedding size might become unoptimal
+        # (not a multiple of 64, etc) perhaps use eos_token as pad_token, but need to ensure the actual eos_token
+        # at the end of the sequence is not masked (both in attention mask and loss calculation)
         if not tokenizer.pad_token_id:
             cls.smart_tokenizer_and_embedding_resize(
                 special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN}, tokenizer=tokenizer, model=pytorch_model
             )
-        # TODO: need to see if we still need this line https://github.com/artidoro/qlora/blob/main/qlora.py#L362
+        # TODO(jambayk): need to see if we still need this line
+        # https://github.com/artidoro/qlora/blob/main/qlora.py#L362
 
         # prepare model for kbit training
         # Note: this also converts all float16 and bfloat16 parameters to float32
@@ -362,7 +360,7 @@ class QLoRA(Pass):
             pytorch_model, use_gradient_checkpointing=config.training_args.gradient_checkpointing
         )
 
-        # TODO: should we make this optional? fp16 is unstable?
+        # TODO(jambayk): should we make this optional? fp16 is unstable?
         # https://github.com/artidoro/qlora/blob/main/qlora.py#L396 doesn't work for all models
         # mismatch between dtypes
         # we will just undo the float32 casting from prepare_model_for_kbit_training and cast to compute_dtype
@@ -388,7 +386,7 @@ class QLoRA(Pass):
         # cast lora modules to compute_dtype
         for module in pytorch_model.modules():
             if isinstance(module, LoraLayer):
-                # TODO: why only cast for bfloat16? https://github.com/artidoro/qlora/blob/main/qlora.py#L397
+                # TODO(jambayk): why only cast for bfloat16? https://github.com/artidoro/qlora/blob/main/qlora.py#L397
                 module.to(compute_dtype)
 
         return new_model, pytorch_model, tokenizer
@@ -397,9 +395,7 @@ class QLoRA(Pass):
     def smart_tokenizer_and_embedding_resize(
         special_tokens_dict: Dict, tokenizer: transformers.PreTrainedTokenizer, model: transformers.PreTrainedModel
     ):
-        """
-        Resize the tokenizer and the model embedding layer to take into account new special tokens.
-        """
+        """Resize the tokenizer and the model embedding layer to take into account new special tokens."""
         # resize tokenizer
         num_new_tokens = tokenizer.add_special_tokens(special_tokens_dict)
         # resize model embedding layer
@@ -419,9 +415,7 @@ class QLoRA(Pass):
 
     @staticmethod
     def find_all_linear_names(model: torch.nn.Module) -> List[str]:
-        """
-        Find all linear layers in a model.
-        """
+        """Find all linear layers in a model."""
         import bitsandbytes as bnb
 
         linear_cls = bnb.nn.Linear4bit
@@ -433,9 +427,7 @@ class QLoRA(Pass):
 
     @staticmethod
     def get_datasets(config: ConfigBase, data_root: str) -> tuple:
-        """
-        Load training and evaluation datasets.
-        """
+        """Load training and evaluation datasets."""
         train_data_config = config.train_data_config
         eval_data_config = config.eval_data_config
         eval_dataset_size = config.eval_dataset_size
@@ -469,8 +461,8 @@ class QLoRA(Pass):
 
     @staticmethod
     def collate_batch(batch: List[Dict], tokenizer: transformers.PreTrainedTokenizer) -> Dict[str, torch.Tensor]:
-        """
-        Collate a batch of samples into a padded batch of tensors.
+        """Collate a batch of samples into a padded batch of tensors.
+
         Add padding to the input_ids, attention_mask and labels.
         """
         from torch.nn.utils.rnn import pad_sequence

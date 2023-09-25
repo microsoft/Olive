@@ -57,7 +57,7 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         mlflow_model = mlflow.pyfunc.load_model(self.model_path)
 
         sample_input = {"inputs": {"input_string": self.input_text}}
-        mlflow_predict_result = mlflow_model.predict(pd.DataFrame.from_dict(sample_input)).values[0]
+        mlflow_predict_result = mlflow_model.predict(pd.DataFrame.from_dict(sample_input)).values[0]  # noqa: PD011
 
         encoded_input = self.tokenizer(
             self.input_text,

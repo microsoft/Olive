@@ -31,7 +31,7 @@ FEATURE_TO_PEFT_TASK_TYPE = {
     "causal-lm": "CAUSAL_LM",
     "token-classification": "TOKEN_CLS",
     "question-answering": "QUESTION_ANS",
-    # TODO: see if we need feature extraction
+    # TODO(jambayk): see if we need feature extraction
 }
 
 # model_type -> name for layers

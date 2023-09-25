@@ -26,7 +26,7 @@ class MetricBackend(AutoConfigClass):
         self, model_output: Union[Tuple, NamedTuple], targets: Any, sub_metric: SubMetric
     ) -> SubMetricResult:
         # model_output: (preds, logits)
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def measure(self, model_output, targets, metrics: Metric) -> MetricResult:
         metric_results_dict = {}

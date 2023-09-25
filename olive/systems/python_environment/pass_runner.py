@@ -13,6 +13,8 @@ from olive.passes.olive_pass import FullPassConfig
 ort_inference_utils_parent = Path(__file__).resolve().parent.parent.parent / "common"
 sys.path.append(str(ort_inference_utils_parent))
 
+# ruff: noqa: PTH123
+
 
 def get_args(raw_args):
     parser = argparse.ArgumentParser(description="Onnx model inference")

@@ -36,7 +36,7 @@ class OptimumConversion(Pass):
 
         from optimum.exporters.onnx import main_export as export_optimum_model
 
-        # TODO: export into temp dir and then move to sub-dirs of output_model_path
+        # TODO(jambayk): export into temp dir and then move to sub-dirs of output_model_path
         # so that we only keep the final model files in the output_model_path
         # and track external data if present
         hf_config = deepcopy(model.hf_config) or HFConfig()

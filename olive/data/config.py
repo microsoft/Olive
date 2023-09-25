@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 class DataComponentConfig(ConfigBase):
     name: str = None
-    type: str = None
+    type: str = None  # noqa: A003
     params: Dict = None
 
 
@@ -34,7 +34,7 @@ DefaultDataComponentCombos = {
 
 class DataConfig(ConfigBase):
     name: str = DefaultDataContainer.DATA_CONTAINER.value
-    type: str = DefaultDataContainer.DATA_CONTAINER.value
+    type: str = DefaultDataContainer.DATA_CONTAINER.value  # noqa: A003
 
     # used to store the params for each component
     params_config: Dict = None
@@ -60,9 +60,7 @@ class DataConfig(ConfigBase):
         self.fill_in_params()
 
     def update_components(self):
-        """
-        Update the components in the data config with default_components if user do not provide.
-        """
+        """Update the components in the data config with default_components if user do not provide."""
         self.components = self.components or {}
         self.default_components = self.default_components or {}
         self._update_default_component_type()
@@ -80,9 +78,7 @@ class DataConfig(ConfigBase):
                 self.components[k].params = self.components[k].params or deepcopy(v.params)
 
     def _update_default_component_type(self):
-        """
-        Resolve the default component type.
-        """
+        """Resolve the default component type."""
         dc_cls = Registry.get_container(self.type)
         # deepcopy dc_cls.default_components_type since we don't want to update dc_cls.default_components_type
         self.default_components_type = deepcopy(dc_cls.default_components_type) or {}
@@ -95,15 +91,13 @@ class DataConfig(ConfigBase):
                 self.default_components_type[k] = v
 
     def _update_default_component(self):
-        """
-        Resolve the default component type.
-        """
+        """Resolve the default component type."""
         for k, v in self.default_components_type.items():
             self.default_components[k] = DataComponentConfig(type=v, name=v, params={})
 
     def fill_in_params(self):
-        """
-        Fill in the default parameters for each component.
+        """Fill in the default parameters for each component.
+
         1. If params_config["component_kwargs"] is not None, use the params_config["component_kwargs"]
         to update component.params
         2. if params_config is not None, use the params_config to fill in the params. Overrides the
@@ -128,6 +122,9 @@ class DataConfig(ConfigBase):
                     v.params[param] = self.params_config[param]
                     continue
                 # 4. if it already defined params under the component, use the params directly
+                # TRICKY TRICKY TRICKY by myguo: not change the preprocess parameter by removing the leading underscore.
+                # for example, change _dataset to dataset will trigger bug.
+                # I did hit the issue. So I add this check here.
                 if param not in v.params and not param.startswith("_"):
                     if info.kind == info.VAR_POSITIONAL or info.kind == info.VAR_KEYWORD:
                         continue
@@ -138,24 +135,18 @@ class DataConfig(ConfigBase):
                         v.params[param] = params[param].default
 
     def get_components_params(self):
-        """
-        Get the parameters from data config.
-        """
+        """Get the parameters from data config."""
         return {k: v.params for k, v in self.components.items()}
 
     @property
     def load_dataset(self):
-        """
-        Get the dataset from data config.
-        """
+        """Get the dataset from data config."""
         name = self.components[DataComponentType.LOAD_DATASET.value].type or DefaultDataComponent.LOAD_DATASET.value
         return Registry.get_load_dataset_component(name)
 
     @property
     def pre_process(self):
-        """
-        Get the pre-process from data config.
-        """
+        """Get the pre-process from data config."""
         name = (
             self.components[DataComponentType.PRE_PROCESS_DATA.value].type
             or DefaultDataComponent.PRE_PROCESS_DATA.value
@@ -164,9 +155,7 @@ class DataConfig(ConfigBase):
 
     @property
     def post_process(self):
-        """
-        Get the post-process from data config.
-        """
+        """Get the post-process from data config."""
         name = (
             self.components[DataComponentType.POST_PROCESS_DATA.value].type
             or DefaultDataComponent.POST_PROCESS_DATA.value
@@ -175,44 +164,32 @@ class DataConfig(ConfigBase):
 
     @property
     def dataloader(self):
-        """
-        Get the dataloader from data config.
-        """
+        """Get the dataloader from data config."""
         name = self.components[DataComponentType.DATALOADER.value].type or DefaultDataComponent.DATALOADER.value
         return Registry.get_dataloader_component(name)
 
     @property
     def load_dataset_params(self):
-        """
-        Get the parameters from dataset.
-        """
+        """Get the parameters from dataset."""
         return self.components[DataComponentType.LOAD_DATASET.value].params
 
     @property
     def pre_process_params(self):
-        """
-        Get the parameters from pre-process.
-        """
+        """Get the parameters from pre-process."""
         return self.components[DataComponentType.PRE_PROCESS_DATA.value].params
 
     @property
     def post_process_params(self):
-        """
-        Get the parameters from post-process.
-        """
+        """Get the parameters from post-process."""
         return self.components[DataComponentType.POST_PROCESS_DATA.value].params
 
     @property
     def dataloader_params(self):
-        """
-        Get the parameters from dataloader.
-        """
+        """Get the parameters from dataloader."""
         return self.components[DataComponentType.DATALOADER.value].params
 
     def to_data_container(self) -> "DataContainer":
-        """
-        Convert the data config to the data container.
-        """
+        """Convert the data config to the data container."""
         dc_cls = Registry.get_container(self.type)
         return dc_cls(config=self)
 

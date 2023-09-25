@@ -88,11 +88,9 @@ class DockerSystem(OliveSystem):
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
-        """
-        Run the pass on the model at a specific point in the search space.
-        """
+        """Run the pass on the model at a specific point in the search space."""
         logger.warning("DockerSystem.run_pass is not implemented yet.")
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def evaluate_model(
         self, model_config: ModelConfig, data_root: str, metrics: List[Metric], accelerator: AcceleratorSpec
@@ -214,8 +212,7 @@ class DockerSystem(OliveSystem):
             )
         logger.debug("Docker container evaluation completed successfully")
 
-        metric_json = Path(output_local_path) / f"{eval_output_name}"
-        return metric_json
+        return Path(output_local_path) / f"{eval_output_name}"
 
     def remove(self):
         self.docker_client.images.remove(self.image.tags[0], force=True)

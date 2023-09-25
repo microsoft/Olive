@@ -80,7 +80,7 @@ class SubMetric(ConfigBase):
 
 class Metric(ConfigBase):
     name: str
-    type: MetricType
+    type: MetricType  # noqa: A003
     backend: Optional[str] = "torch_metrics"
     sub_types: List[SubMetric]
     user_config: ConfigBase = None

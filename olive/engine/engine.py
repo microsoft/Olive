@@ -36,9 +36,9 @@ EXCEPTIONS_TO_RAISE = (AssertionError, AttributeError, ImportError, TypeError, V
 
 
 class Engine:
-    """
-    The engine executes the registered Olive Steps, facilitate evaluation of the output models using
-    provided evaluation criteria and produces output model(s).
+    """The engine executes the registered Olive Steps.
+
+    It facilitate evaluation of the output models using provided evaluation criteria and produces output model(s).
     """
 
     def __init__(
@@ -153,7 +153,7 @@ class Engine:
             elif self.target.system_type in (SystemType.Local, SystemType.PythonEnvironment):
                 available_eps = self.target.get_supported_execution_providers()
             elif self.target.system_type == SystemType.Docker:
-                # TODO: do we need allow docker system support other execution providers?
+                # TODO(myguo): do we need allow docker system support other execution providers?
                 available_eps = ["CPUExecutionProvider"]
             else:
                 available_eps = self.execution_providers
@@ -188,9 +188,7 @@ class Engine:
             )
 
     def initialize(self):
-        """
-        Initialize engine state. This should be done before running the registered passes.
-        """
+        """Initialize engine state. This should be done before running the registered passes."""
         cache_dir = self._config.cache_dir
         if self._config.clean_cache:
             cache_utils.clean_cache(cache_dir)
@@ -239,12 +237,12 @@ class Engine:
         if name is not None:
             assert name not in self.passes, f"Pass with name {name} already registered"
         else:
-            id = 0
+            idx = 0
             while True:
                 name = pass_type.__name__
-                if id > 0:
-                    name = f"{name}_{id}"
-                id += 1
+                if idx > 0:
+                    name = f"{name}_{idx}"
+                idx += 1
                 if name not in self.pass_config:
                     break
 
@@ -266,18 +264,16 @@ class Engine:
         evaluator_config: OliveEvaluatorConfig = None,
         output_name: str = None,
     ):
-        """
-        Register a pass
-        """
+        """Register a pass instance."""
         if name is not None:
             assert name not in self.passes, f"Pass with name {name} already registered"
         else:
-            id = 0
+            idx = 0
             while True:
                 name = p.__class__.__name__
-                if id > 0:
-                    name = f"{name}_{id}"
-                id += 1
+                if idx > 0:
+                    name = f"{name}_{idx}"
+                idx += 1
                 if name not in self.passes:
                     break
 
@@ -296,8 +292,8 @@ class Engine:
         }
 
     def set_pass_flows(self, pass_flows: List[List[str]] = None):
-        """
-        Construct pass flows from a list of pass names.
+        """Construct pass flows from a list of pass names.
+
         Args:
             pass_flows: a list of pass names, each pass name is a string.
         """
@@ -315,11 +311,11 @@ class Engine:
         output_name: str = None,
         evaluate_input_model: bool = True,
     ):
-        """
-        Run all the registered Olive passes on the input model and produce one or more candidate models.
+        """Run all the registered Olive passes on the input model and produce one or more candidate models.
 
         Args:
             input_model_config: input Olive model configuration
+            data_root: data root for the input data
             packaging_config: packaging configuration, if packaging_config is provided, the output
                 model will be packaged into a zip file.
             output_dir: output directory for the output model
@@ -363,8 +359,8 @@ class Engine:
             self.dump_run_history(run_history, output_dir / f"run_history_{accelerator_spec}.txt")
 
         if packaging_config and self.passes:
-            # TODO: should we support package input model?
-            # TODO: do you support packaging pytorch models?
+            # TODO(trajep): should we support package input model?
+            # TODO(trajep): do you support packaging pytorch models?
             logger.info(f"Package top ranked {sum([len(f.nodes) for f in outputs.values()])} models as artifacts")
             generate_output_artifacts(
                 packaging_config,
@@ -381,7 +377,7 @@ class Engine:
         self,
         input_model_config: ModelConfig,
         data_root: str,
-        output_dir: str,
+        output_dir: Path,
         output_name: str,
         evaluate_input_model: bool,
         accelerator_spec: AcceleratorSpec,
@@ -405,7 +401,7 @@ class Engine:
                 logger.info(f"Input model evaluation results: {results}")
                 result_name = f"{prefix_output_name}_input_model_metrics"
                 results_path = output_dir / f"{result_name}.json"
-                with open(results_path, "w") as f:
+                with results_path.open("w") as f:
                     json.dump(results.to_json(), f, indent=4)
                 logger.info(f"Saved evaluation results of input model to {results_path}")
                 if not self.passes:
@@ -471,9 +467,7 @@ class Engine:
         output_dir: str = None,
         output_name: str = None,
     ):
-        """
-        Run all the registered Olive passes in no-search model where search strategy is None.
-        """
+        """Run all the registered Olive passes in no-search model where search strategy is None."""
         assert (
             self.search_strategy._config.execution_order == "joint"
         ), "run_no_search only supports default joint execution order"
@@ -564,7 +558,7 @@ class Engine:
             # save the evaluation results to output_dir
             if signal is not None:
                 results_path = output_dir_with_pf / f"{final_output_name}_metrics.json"
-                with open(results_path, "w") as f:
+                with results_path.open("w") as f:
                     json.dump(signal.to_json(), f, indent=4)
 
         output_model_ids = list(output_models.keys())
@@ -584,10 +578,7 @@ class Engine:
         output_dir: str = None,
         output_name: str = None,
     ):
-        """
-        Run all the registered Olive passes in search model where search strategy is not None.
-        """
-
+        """Run all the registered Olive passes in search model where search strategy is not None."""
         prefix_output_name = f"{output_name}_{accelerator_spec}_" if output_name is not None else f"{accelerator_spec}_"
 
         # get objective_dict
@@ -676,7 +667,7 @@ class Engine:
         except ImportError:
             logger.info("Please install tabulate for better run history output")
             formatted_rls = run_history
-        with open(output_path, "w") as f:
+        with Path(output_path).open("w") as f:
             f.write(f"{formatted_rls}")
 
     def resolve_objectives(
@@ -687,8 +678,7 @@ class Engine:
         metrics: List[Metric],
         accelerator_spec: AcceleratorSpec,
     ) -> Dict[str, Dict[str, Any]]:
-        """
-        Return a dictionary of objectives and their higher_is_better and goal values.
+        """Return a dictionary of objectives and their higher_is_better and goal values.
 
         {objective_name: {"higher_is_better": bool, "goal": float}}
         """
@@ -705,8 +695,7 @@ class Engine:
                     "priority": sub_type.priority,
                 }
         self.footprints[accelerator_spec].record_objective_dict(objective_dict)
-        ranked_objective_dict = dict(sorted(objective_dict.items(), key=lambda x: x[1]["priority"]))
-        return ranked_objective_dict
+        return dict(sorted(objective_dict.items(), key=lambda x: x[1]["priority"]))
 
     def resolve_goals(
         self,
@@ -716,9 +705,7 @@ class Engine:
         metrics: List[Metric],
         accelerator_spec: AcceleratorSpec,
     ) -> Dict[str, float]:
-        """
-        Resolve the goals of the given metrics into thresholds for the given model.
-        """
+        """Resolve the goals of the given metrics into thresholds for the given model."""
         goals = {}
         multipliers = {}
         for metric in metrics:
@@ -759,7 +746,7 @@ class Engine:
         resolved_goals = {}
         for metric_name, sub_type_goals in goals.items():
             for sub_type_name, goal in sub_type_goals.items():
-                # TODO: make the logic cleaner
+                # TODO(trajep): make the logic cleaner
                 resolved_goal_value = None
                 baseline_sub_type = baseline.get_value(metric_name, sub_type_name)
                 multiplier = multipliers[metric_name][sub_type_name]
@@ -787,18 +774,14 @@ class Engine:
         return host
 
     def evaluator_for_pass(self, pass_id: str):
-        """
-        Return evaluator for the given pass.
-        """
+        """Return evaluator for the given pass."""
         e = self.passes[pass_id]["evaluator"]
         if e is None:
             return self.evaluator_config
         return e
 
     def _get_new_model_number(self):
-        """
-        Get a new model number.
-        """
+        """Get a new model number."""
         while True:
             new_model_number = self._new_model_number
             self._new_model_number += 1
@@ -807,34 +790,28 @@ class Engine:
         return new_model_number
 
     def get_model_json_path(self, model_id: str) -> Path:
-        """
-        Get the path to the model json file.
-        """
+        """Get the path to the model json file."""
         return self._model_cache_path / f"{model_id}.json"
 
     def _cache_model(self, model: Union[ModelConfig, str], model_id: str, check_object: bool = True):
-        """
-        Cache the model in the cache directory.
-        """
-        # TODO move model/pass run/evaluation cache into footprints
+        """Cache the model in the cache directory."""
+        # TODO(trajep): move model/pass run/evaluation cache into footprints
         if model == FAILED_CONFIG:
             model_json = {}
         else:
             model_json = model.to_json(check_object=check_object)
         model_json_path = self.get_model_json_path(model_id)
         try:
-            with open(model_json_path, "w") as f:
+            with model_json_path.open("w") as f:
                 json.dump(model_json, f, indent=4)
         except Exception as e:
             logger.error(f"Failed to cache model: {e}", exc_info=True)
 
     def _load_model(self, model_id: str) -> Union[ModelConfig, str]:
-        """
-        Load the model from the cache directory.
-        """
+        """Load the model from the cache directory."""
         model_json_path = self.get_model_json_path(model_id)
         try:
-            with open(model_json_path) as f:
+            with model_json_path.open() as f:
                 model_json = json.load(f)
         except Exception as e:
             logger.error(f"Failed to load model: {e}", exc_info=True)
@@ -843,14 +820,11 @@ class Engine:
         if model_json == {}:
             return FAILED_CONFIG
 
-        model = ModelConfig.from_json(model_json)
-        return model
+        return ModelConfig.from_json(model_json)
 
     def _prepare_non_local_model(self, model_config: ModelConfig) -> ModelConfig:
-        """
-        Prepare models with non-local model path for local run by downloading the model resources to cache
-        """
-        # TODO: maybe we can move this method into OliveSystem?
+        """Prepare models with non-local model path for local run by downloading the model resources to cache."""
+        # TODO(myguo): maybe we can move this method into OliveSystem?
         resource_paths = model_config.get_resource_paths()
         for resource_name, resource_path in resource_paths.items():
             if not resource_path or resource_path.is_local_resource_or_string_name():
@@ -863,9 +837,7 @@ class Engine:
         return model_config
 
     def _init_input_model(self, input_model_config: ModelConfig):
-        """
-        Initialize the input model.
-        """
+        """Initialize the input model."""
         model_hash = hash_dict(input_model_config.to_json())
 
         # cache the model
@@ -880,9 +852,7 @@ class Engine:
         pass_config: dict,
         accelerator_spec: AcceleratorSpec,
     ):
-        """
-        Get the path to the run json.
-        """
+        """Get the path to the run json."""
         pass_config_hash = hash_dict(pass_config)
         if not accelerator_spec:
             run_json_path = self._run_cache_path / f"{pass_name}-{input_model_number}-{pass_config_hash}.json"
@@ -902,9 +872,7 @@ class Engine:
         run_start_time: float = 0,
         run_end_time: float = 0,
     ):
-        """
-        Cache the run in the cache directory.
-        """
+        """Cache the run in the cache directory."""
         run_json = {
             "pass_name": pass_name,
             "pass_config": pass_config,
@@ -916,21 +884,19 @@ class Engine:
         input_model_number = input_model_id.split("_")[0]
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
         try:
-            with open(run_json_path, "w") as f:
+            with run_json_path.open("w") as f:
                 json.dump(run_json, f, indent=4)
         except Exception as e:
             logger.error(f"Failed to cache run: {e}", exc_info=True)
 
     def _load_run(self, input_model_id: str, pass_name: int, pass_config: dict, accelerator_spec: AcceleratorSpec):
-        """
-        Load the run from the cache directory.
-        """
+        """Load the run from the cache directory."""
         input_model_number = input_model_id.split("_")[0]
         run_json_path = self.get_run_json_path(pass_name, input_model_number, pass_config, accelerator_spec)
         run_json = {}
         if run_json_path.exists():
             try:
-                with open(run_json_path) as f:
+                with run_json_path.open() as f:
                     run_json = json.load(f)
             except Exception as e:
                 logger.error(f"Failed to load run: {e}", exc_info=True)
@@ -945,8 +911,8 @@ class Engine:
         data_root: str,
         accelerator_spec: AcceleratorSpec,
     ):
-        """
-        Run all the passes in the order they were registered.
+        """Run all the passes in the order they were registered.
+
         the passes is the list of (pass_name, pass_search_point) tuples
         """
         should_prune = False
@@ -986,9 +952,7 @@ class Engine:
         data_root: str,
         accelerator_spec: AcceleratorSpec,
     ):
-        """
-        Run a pass on the input model.
-        """
+        """Run a pass on the input model."""
         # pass
         p: Pass = self.passes[pass_id]["pass"]
         pass_name = p.__class__.__name__
@@ -1062,7 +1026,7 @@ class Engine:
             raise
         except Exception:
             output_model_config = FAILED_CONFIG
-            # TODO: from the time being, we need to catch all exceptions to make the
+            # TODO(jambayk): from the time being, we need to catch all exceptions to make the
             #      search process robust. We need rethrow the exception only when
             #      it is not pass specific. For example, for olive bugs and user errors
             logger.error("Pass run failed.", exc_info=True)
@@ -1091,35 +1055,28 @@ class Engine:
         return output_model_config, output_model_id
 
     def get_evaluation_json_path(self, model_id: str):
-        """
-        Get the path to the evaluation json.
-        """
-        evaluation_json_path = self._evaluation_cache_path / f"{model_id}.json"
-        return evaluation_json_path
+        """Get the path to the evaluation json."""
+        return self._evaluation_cache_path / f"{model_id}.json"
 
     def _cache_evaluation(self, model_id: str, signal: MetricResult):
-        """
-        Cache the evaluation in the cache directory.
-        """
+        """Cache the evaluation in the cache directory."""
         evaluation_json = {
             "model_id": model_id,
             "signal": signal.dict(),
         }
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         try:
-            with open(evaluation_json_path, "w") as f:
+            with evaluation_json_path.open("w") as f:
                 json.dump(evaluation_json, f, indent=4)
         except Exception as e:
             logger.error(f"Failed to cache evaluation: {e}", exc_info=True)
 
     def _load_evaluation(self, model_id: str):
-        """
-        Load the evaluation from the cache directory.
-        """
+        """Load the evaluation from the cache directory."""
         evaluation_json_path = self.get_evaluation_json_path(model_id)
         if evaluation_json_path.exists():
             try:
-                with open(evaluation_json_path) as f:
+                with evaluation_json_path.open() as f:
                     evaluation_json = json.load(f)
                 signal = evaluation_json["signal"]
                 signal = MetricResult(**signal)
@@ -1138,9 +1095,7 @@ class Engine:
         evaluator_config: OliveEvaluatorConfig,
         accelerator_spec: AcceleratorSpec,
     ):
-        """
-        Evaluate a model.
-        """
+        """Evaluate a model."""
         logger.debug("Evaluating model ...")
         accelerator_suffix = f"-{accelerator_spec}" if accelerator_spec else ""
         if not model_id.endswith(accelerator_suffix):
@@ -1196,8 +1151,7 @@ class Engine:
             ),
             reverse=True,
         )
-        selected_footprint_nodes = sorted_footprint_node_list[:k]
-        return selected_footprint_nodes
+        return sorted_footprint_node_list[:k]
 
     @contextmanager
     def create_managed_environment(self, accelerator_spec):

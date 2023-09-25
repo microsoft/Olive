@@ -15,9 +15,7 @@ from olive.data.registry import Registry
 
 @Registry.register(DataContainerType.DATA_CONTAINER, name=DefaultDataContainer.DATA_CONTAINER.value)
 class DataContainer(BaseModel):
-    """
-    Base class for data container.
-    """
+    """Base class for data container."""
 
     # override the default components from config with baseclass or subclass
     default_components_type: ClassVar[dict] = DefaultDataComponentCombos
@@ -34,9 +32,7 @@ class DataContainer(BaseModel):
     ]
 
     def load_dataset(self, data_root_path: Optional[str] = None):
-        """
-        Run load dataset
-        """
+        """Run load dataset."""
         params_config = self.config.load_dataset_params
         data_dir = params_config.get("data_dir")
         data_dir = get_local_path_from_root(data_root_path, data_dir)
@@ -45,26 +41,20 @@ class DataContainer(BaseModel):
         return self.config.load_dataset(**params_config)
 
     def pre_process(self, dataset):
-        """
-        Run pre_process
-        """
+        """Run pre_process."""
         return self.config.pre_process(dataset, **self.config.pre_process_params)
 
     def post_process(self, output_data):
-        """
-        Run post_process
-        """
+        """Run post_process."""
         return self.config.post_process(output_data, **self.config.post_process_params)
 
     def dataloader(self, dataset):
-        """
-        Run dataloader
-        """
+        """Run dataloader."""
         return self.config.dataloader(dataset, **self.config.dataloader_params)
 
     def create_dataloader(self, data_root_path=None):
-        """
-        Create dataloader
+        """Create dataloader.
+
         dataset -> preprocess -> dataloader
         """
         dataset = self.load_dataset(data_root_path=data_root_path)
@@ -72,16 +62,12 @@ class DataContainer(BaseModel):
         return self.dataloader(pre_process_dataset)
 
     def create_calibration_dataloader(self, data_root_path=None):
-        """
-        Create calibration dataloader
-        """
+        """Create calibration dataloader."""
         dataloader = self.create_dataloader(data_root_path=data_root_path)
         return default_calibration_dataloader(dataloader)
 
     def get_first_batch(self, dataloader=None, data_root_path=None):
-        """
-        Get first batch of dataloader
-        """
+        """Get first batch of dataloader."""
         dataloader = dataloader or self.create_dataloader(data_root_path=data_root_path)
         return next(iter(dataloader))
 

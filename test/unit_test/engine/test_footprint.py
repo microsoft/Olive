@@ -41,7 +41,7 @@ class TestFootprint:
         pareto_frontier_fp = self.fp.create_pareto_frontier()
         assert isinstance(pareto_frontier_fp, Footprint)
         assert len(pareto_frontier_fp.nodes) == 2
-        assert all([v.is_pareto_frontier for v in pareto_frontier_fp.nodes.values()])
+        assert all(v.is_pareto_frontier for v in pareto_frontier_fp.nodes.values())
 
     def test_trace_back_run_history(self):
         for model_id in self.fp.nodes:

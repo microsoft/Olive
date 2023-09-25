@@ -102,9 +102,9 @@ class AzureMLSystem(OliveSystem):
             return Environment(image=docker_config.base_image, conda_file=docker_config.conda_file_path)
         raise ValueError("Please specify DockerConfig.")
 
-    def _assert_not_none(self, object):
-        if object is None:
-            raise ValueError(f"{object.__class__.__name__} is missing in the inputs!")
+    def _assert_not_none(self, obj):
+        if obj is None:
+            raise ValueError(f"{obj.__class__.__name__} is missing in the inputs!")
 
     def run_pass(
         self,
@@ -114,9 +114,7 @@ class AzureMLSystem(OliveSystem):
         output_model_path: str,
         point: Optional[Dict[str, Any]] = None,
     ) -> ModelConfig:
-        """
-        Run the pass on the model at a specific point in the search space.
-        """
+        """Run the pass on the model at a specific point in the search space."""
         ml_client = self.azureml_client_config.create_client()
         point = point or {}
         config = the_pass.config_at_search_point(point)
@@ -274,8 +272,8 @@ class AzureMLSystem(OliveSystem):
         # create arguments for inputs and outputs
         parameters = []
         inputs = inputs or {}
-        for param, input in inputs.items():
-            if isinstance(input, Input) and input.optional:
+        for param, job_input in inputs.items():
+            if isinstance(job_input, Input) and job_input.optional:
                 parameters.append(f"$[[--{param} ${{{{inputs.{param}}}}}]]")
             else:
                 parameters.append(f"--{param} ${{{{inputs.{param}}}}}")
@@ -284,7 +282,7 @@ class AzureMLSystem(OliveSystem):
             parameters.append(f"--{param} ${{{{outputs.{param}}}}}")
 
         cmd_line = f"python {script_name} {' '.join(parameters)}"
-        component = command(
+        return command(
             name=name,
             display_name=display_name,
             description=description,
@@ -297,8 +295,6 @@ class AzureMLSystem(OliveSystem):
             instance_count=instance_count,
             compute=compute,
         )
-
-        return component
 
     def _create_pipeline_for_pass(
         self,
@@ -374,9 +370,7 @@ class AzureMLSystem(OliveSystem):
             outputs["pipeline_output"] = component.outputs.pipeline_output
             return outputs
 
-        pipeline_job = pass_runner_pipeline()
-
-        return pipeline_job
+        return pass_runner_pipeline()
 
     def _run_job(
         self,
@@ -387,9 +381,7 @@ class AzureMLSystem(OliveSystem):
         tags: Dict = None,
         output_name: str = None,
     ) -> Path:
-        """
-        Run a pipeline job and return the path to named-outputs
-        """
+        """Run a pipeline job and return the path to named-outputs."""
         # submit job
         logger.debug("Submitting pipeline")
         job = retry_func(
@@ -422,8 +414,7 @@ class AzureMLSystem(OliveSystem):
             exceptions=ServiceResponseError,
         )
 
-        named_outputs_dir = output_dir / "named-outputs"
-        return named_outputs_dir
+        return output_dir / "named-outputs"
 
     def _load_model(self, input_model_config: ModelConfig, output_model_path, pipeline_output_path):
         model_json_path = pipeline_output_path / "output_model_config.json"
@@ -602,7 +593,7 @@ class AzureMLSystem(OliveSystem):
         inputs = {
             **self._create_model_inputs(model_resource_paths),
             **self._create_metric_inputs(),
-            **{"accelerator_config": Input(type=AssetTypes.URI_FILE)},
+            "accelerator_config": Input(type=AssetTypes.URI_FILE),
         }
         # prepare outputs
         outputs = {"pipeline_output": Output(type=AssetTypes.URI_FOLDER)}
@@ -632,13 +623,11 @@ class AzureMLSystem(OliveSystem):
         args = {
             **model_args,
             **self._create_metric_args(data_root, metric_json, tmp_dir),
-            **{"accelerator_config": Input(type=AssetTypes.URI_FILE, path=accelerator_config_path)},
+            "accelerator_config": Input(type=AssetTypes.URI_FILE, path=accelerator_config_path),
         }
 
         # metric component
-        metric_component = cmd(**args)
-
-        return metric_component
+        return cmd(**args)
 
     def remove(self):
         logger.info("AzureML system does not need system removal")

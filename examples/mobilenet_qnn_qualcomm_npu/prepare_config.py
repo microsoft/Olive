@@ -14,10 +14,10 @@ if __name__ == "__main__":
     template_config_path = Path(__file__).parent / "mobilenet_config_template.json"
 
     config = None
-    with open(template_config_path) as f:
+    with template_config_path.open() as f:
         config = f.read()
         config = config.replace("<python-environment-path>", qnn_env_path)
         config = config.replace("<qnn-lib-path>", qnn_lib_path)
 
-    with open("mobilenet_config.json", "w") as f:
+    with open("mobilenet_config.json", "w") as f:  # noqa: PTH123
         f.write(config)

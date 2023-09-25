@@ -23,22 +23,19 @@ class OptimumMerging(Pass):
 
     @staticmethod
     def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
-        """Override this method to return False by using the
-        accelerator spec information.
-        """
+        """Override this method to return False by using the accelerator spec information."""
         return False
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        config = get_external_data_config()
-        return config
+        return get_external_data_config()
 
     def _run_for_config(
         self, model: CompositeOnnxModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> Union[ONNXModel, CompositeOnnxModel]:
         assert len(model.model_components) == 2
 
-        # TODO: Remove this when the bug in Optimum is fixed. Optimum calls ByteSize() to see whether
+        # TODO(trajep): Remove this when the bug in Optimum is fixed. Optimum calls ByteSize() to see whether
         # it should be using the merged model directly or use the path instead in the model checker,
         # but unfortunately ByteSize() doesn't seem to be working correctly with external weights.
         # https://github.com/huggingface/optimum/issues/1044

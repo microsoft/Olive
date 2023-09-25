@@ -146,7 +146,7 @@ class TestPythonEnvironmentSystem:
         # assert
         assert actual_res[LatencySubType.AVG].value == expected_res
         assert len(mock_compute_latency.call_args.args[1]) == metric_config.repeat_test_num
-        assert all([latency > 0 for latency in mock_compute_latency.call_args.args[1]])
+        assert all(latency > 0 for latency in mock_compute_latency.call_args.args[1])
 
     @patch("onnxruntime.get_available_providers")
     def test_available_eps_script(self, mock_get_providers, tmp_path):
@@ -162,7 +162,7 @@ class TestPythonEnvironmentSystem:
         # assert
         assert output_path.exists()
         mock_get_providers.assert_called_once()
-        with open(output_path, "rb") as f:
+        with output_path.open("rb") as f:
             assert pickle.load(f) == ["CPUExecutionProvider"]
 
     @pytest.mark.parametrize("valid", [True, False])
@@ -183,7 +183,7 @@ class TestPythonEnvironmentSystem:
         # assert
         assert output_path.exists()
         mock_get_session.assert_called_once_with("model.onnx", {"execution_provider": "CPUExecutionProvider"})
-        with open(output_path, "rb") as f:
+        with output_path.open("rb") as f:
             if valid:
                 assert pickle.load(f) == {"valid": True}
             else:
@@ -200,13 +200,13 @@ class TestPythonEnvironmentSystem:
         model = "model.onnx"
         inference_settings = {"execution_provider": "CPUExecutionProvider"}
         inference_settings_path = tmp_path / "inference_settings.pkl"
-        with open(inference_settings_path, "wb") as f:
+        with inference_settings_path.open("wb") as f:
             pickle.dump(inference_settings, f)
         input_dir = tmp_path / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
         num_batches = 2
         for i in range(num_batches):
-            np.savez(input_dir / f"input_{i}.npz", **{"input": np.array([i])})
+            np.savez(input_dir / f"input_{i}.npz", input=np.array([i]))
         output_dir = tmp_path / "output"
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -256,11 +256,11 @@ class TestPythonEnvironmentSystem:
         model = "model.onnx"
         inference_settings = {"execution_provider": "CPUExecutionProvider"}
         inference_settings_path = tmp_path / "inference_settings.pkl"
-        with open(inference_settings_path, "wb") as f:
+        with inference_settings_path.open("wb") as f:
             pickle.dump(inference_settings, f)
         input_dir = tmp_path / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
-        np.savez(input_dir / "input.npz", **{"input": np.array([1])})
+        np.savez(input_dir / "input.npz", input=np.array([1]))
         output_dir = tmp_path / "output"
         output_dir.mkdir(parents=True, exist_ok=True)
         warmup_num = 1

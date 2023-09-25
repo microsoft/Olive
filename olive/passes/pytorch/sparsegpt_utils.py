@@ -37,7 +37,7 @@ def get_layer_submodules(module, submodule_types=None, layer_name_filter=None, n
     submodule_types = submodule_types or [torch.nn.Conv2d, torch.nn.Linear, transformers.Conv1D]
     """Get the submodules of a module based on the submodule types."""
     if type(module) in submodule_types:
-        if layer_name_filter and not any([s in name for s in layer_name_filter]):
+        if layer_name_filter and not any(s in name for s in layer_name_filter):
             # skip this layer
             return {}
         return {name: module}
@@ -70,7 +70,6 @@ def validate_min_max_layers(min_layer, max_layer, num_layers):
 @torch.no_grad()
 def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
     """Get the layers from model based on model type."""
-
     num_samples = num_samples or len(dataloader.dataset)
     first_batch = next(iter(dataloader))
     # sequence length
@@ -96,12 +95,12 @@ def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
             super().__init__()
             self.module = module
 
-        def forward(self, input, **kwargs):
+        def forward(self, inputs, **kwargs):
             # handle batch dimension
-            for batch in range(input.shape[0]):
+            for batch in range(inputs.shape[0]):
                 if cache["i"] >= num_samples:
                     break
-                inputs[cache["i"]] = input[batch]
+                inputs[cache["i"]] = inputs[batch]
                 cache["i"] += 1
             cache["attention_mask"] = kwargs.get("attention_mask")
             for input_name in additional_input:
@@ -173,25 +172,25 @@ class SparseGPTModule:
             W = W.t()
         return W.float()
 
-    def add_batch(self, input):
+    def add_batch(self, batch_input):
         # add batch dim if needed
-        if input.ndim == 2:
-            input = input.unsqueeze(0)
+        if batch_input.ndim == 2:
+            batch_input = batch_input.unsqueeze(0)
         # get number of samples
-        num_samples = input.shape[0]
+        num_samples = batch_input.shape[0]
         # prepare input for linear layer
         if isinstance(self.layer, (torch.nn.Linear, transformers.Conv1D)):
-            if input.ndim == 3:
+            if batch_input.ndim == 3:
                 # flatten the batch and sequence dimensions
-                input = input.reshape(-1, input.shape[-1])
-            input = input.t()
+                batch_input = batch_input.reshape(-1, batch_input.shape[-1])
+            batch_input = batch_input.t()
 
         # renormalize H
         self.H *= self.num_samples / (self.num_samples + num_samples)
         # add new samples
         self.num_samples += num_samples
-        input = math.sqrt(2 / self.num_samples) * input.float()
-        self.H += input.matmul(input.t())
+        batch_input = math.sqrt(2 / self.num_samples) * batch_input.float()
+        self.H += batch_input.matmul(batch_input.t())
 
     def prune(self, mode, sparsity=None, n=None, m=None, blocksize=128, percdamp=0.01):
         W = self.get_W()

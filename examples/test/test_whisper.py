@@ -14,7 +14,7 @@ from utils import check_output
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
-    """setup any state specific to the execution of the given module."""
+    """Setups any state specific to the execution of the given module."""
     cur_dir = Path(__file__).resolve().parent.parent
     example_dir = str(cur_dir / "whisper")
     os.chdir(example_dir)
@@ -39,7 +39,7 @@ def test_whisper(device_precision):
 
     device, precision = device_precision
     config_file = f"whisper_{device}_{precision}.json"
-    with open(config_file) as f:
+    with open(config_file) as f:  # noqa: PTH123
         olive_config = json.load(f)
 
     # test workflow

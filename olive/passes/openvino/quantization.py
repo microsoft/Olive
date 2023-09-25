@@ -18,8 +18,8 @@ from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 
 class OpenVINOQuantization(Pass):
-    """
-    Post-training quantization for OpenVINO model.
+    """Post-training quantization for OpenVINO model.
+
     Please refer to https://docs.openvino.ai/latest/pot_introduction.html for more details.
     """
 
@@ -117,14 +117,10 @@ class OpenVINOQuantization(Pass):
             model_name=model_name,
         )
         model_path = Path(compressed_model_paths[0]["model"]).parent
-        openvino_model = OpenVINOModel(model_path)
-
-        return openvino_model
+        return OpenVINOModel(model_path)
 
     def _create_dataloader(self, common_dataloader):
-        """
-        Create an openvino.tools.pot.api.DataLoader instance from a common dataloader.
-        """
+        """Create an openvino.tools.pot.api.DataLoader instance from a common dataloader."""
         try:
             from openvino.tools.pot.api import DataLoader
         except ImportError:
