@@ -315,7 +315,7 @@ def json_to_search_parameter(json: Dict[str, Any]) -> SearchParameter:
     if search_parameter_type == "Conditional" or search_parameter_type == "ConditionalDefault":
 
         def stop_condition(x):
-            return isinstance(x, dict) and x.get("olive_parameter_type") == "SearchParameter"  # noqa: E731
+            return isinstance(x, dict) and x.get("olive_parameter_type") == "SearchParameter"
 
         support = flatten_dict(json["support"], stop_condition=stop_condition)
         for key, value in support.items():
