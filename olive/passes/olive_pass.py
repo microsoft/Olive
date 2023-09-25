@@ -35,7 +35,7 @@ from olive.strategy.utils import cyclic_search_space, order_search_parameters
 
 logger = logging.getLogger(__name__)
 
-# ruff: noqa: N805, B027
+# ruff: noqa: B027
 
 
 class Pass(ABC):

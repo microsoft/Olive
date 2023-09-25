@@ -19,8 +19,6 @@ from olive.passes import FullPassConfig, Pass
 from olive.resource_path import AZUREML_RESOURCE_TYPES
 from olive.systems.system_config import SystemConfig
 
-# ruff: noqa: N805
-
 
 class RunPassConfig(FullPassConfig):
     host: SystemConfig = None

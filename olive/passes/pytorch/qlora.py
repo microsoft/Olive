@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_PAD_TOKEN = "[PAD]"
 
 
-# ruff: noqa: N805, B010
+# ruff: noqa: B010
 # creating a Config class since transformers.TrainingArguments is a dataclass
 # pydantic handles dataclasses differently and causes issues with validation
 # this also allows us to handle and validate extra_args better

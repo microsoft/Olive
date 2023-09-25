@@ -10,8 +10,6 @@ from pydantic import validator
 
 from olive.common.config_utils import ConfigBase
 
-# ruff: noqa: N805
-
 
 class SystemType(str, Enum):
     Docker = "Docker"

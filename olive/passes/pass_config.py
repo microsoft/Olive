@@ -83,9 +83,6 @@ def get_user_script_config(
     return user_script_config
 
 
-# ruff: noqa: N805
-
-
 class PassConfigBase(ConfigBase):
     @validator("*", pre=True)
     def _validate_default_str(cls, v, field):

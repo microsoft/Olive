@@ -52,7 +52,7 @@ class TextGenPairFormat(str, Enum):
     CUSTOM = "custom"
 
 
-# ruff: noqa: N805, N806
+# ruff: noqa: N806
 
 
 class TextGenParams(ConfigBase):

@@ -77,3 +77,7 @@ unfixable = [
     "F401", # Unused imports
     "SIM112", # Use upper case for env vars
 ]
+
+[tool.ruff.pep8-naming]
+# Allow Pydantic's `@validator` decorator to trigger class method treatment.
+classmethod-decorators = ["classmethod", "pydantic.validator"]
