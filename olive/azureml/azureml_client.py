@@ -84,7 +84,7 @@ class AzureMLClientConfig(ConfigBase):
         """Create an MLClient instance."""
         from azure.ai.ml import MLClient
 
-        # set logger level to error to avoid too many logs from azure sdkssdfsfdfs
+        # set logger level to error to avoid too many logs from azure sdk
         logging.getLogger("azure.ai.ml").setLevel(logging.ERROR)
         logging.getLogger("azure.identity").setLevel(logging.ERROR)
 
