@@ -13,7 +13,7 @@ from olive.model.hf_mappings import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_H
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-from olive.strategy.search_parameter import Boolean, Categorical
+from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +62,19 @@ class OrtTransformersOptimization(Pass):
             "only_onnxruntime": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                searchable_values=Boolean(),
-                description="Whether only use onnxruntime to optimize model, and no python fusion.",
+                searchable_values=Conditional(
+                    parents=("opt_level",),
+                    support={
+                        (2,): Categorical([False]),
+                        (99,): Categorical([False]),
+                    },
+                    default=Boolean(),
+                ),
+                description=(
+                    "Whether only use onnxruntime to optimize model, and no python fusion."
+                    " Disable some optimizers that might cause failure in symbolic shape inference or attention fusion,"
+                    " when opt_level > 1."
+                ),
             ),
             "float16": PassConfigParam(
                 type_=bool, default_value=False, description="Whether half-precision float will be used."

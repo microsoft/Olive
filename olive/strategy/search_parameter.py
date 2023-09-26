@@ -286,9 +286,10 @@ def json_to_search_parameter(json: Dict[str, Any]) -> SearchParameter:
     if search_parameter_type == "Categorical":
         return Categorical(json["support"])
     if search_parameter_type == "Conditional" or search_parameter_type == "ConditionalDefault":
-        stop_condition = lambda x: (  # noqa: E731
-            isinstance(x, dict) and x.get("olive_parameter_type") == "SearchParameter"
-        )
+
+        def stop_condition(x):
+            return isinstance(x, dict) and x.get("olive_parameter_type") == "SearchParameter"
+
         support = flatten_dict(json["support"], stop_condition=stop_condition)
         for key, value in support.items():
             support[key] = json_to_search_parameter(value)

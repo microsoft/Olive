@@ -177,6 +177,7 @@ _static_optional_config = {
         description="""
             Current calibration methods supported are MinMax and Entropy,
             Please use CalibrationMethod.MinMax or CalibrationMethod.Entropy as options.
+            Percentile is not supported for onnxruntime==1.16.0, please avoid to set/search it.
         """,
     ),
     "quant_format": PassConfigParam(
