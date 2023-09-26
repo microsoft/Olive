@@ -4,14 +4,24 @@
 # --------------------------------------------------------------------------
 
 import logging
-from collections import OrderedDict, defaultdict, namedtuple
+from collections import OrderedDict, defaultdict
 from copy import deepcopy
-from typing import DefaultDict, Dict
+from typing import DefaultDict, Dict, NamedTuple
 
 from olive.common.config_utils import ConfigBase, config_json_dumps, config_json_loads
 from olive.evaluator.metric import MetricResult
 
 logger = logging.getLogger(__name__)
+
+
+class RunHistory(NamedTuple):
+    """Run history of a model."""
+
+    model_id: str
+    parent_model_id: str
+    from_pass: str
+    duration_sec: float
+    metrics: str
 
 
 class FootprintNodeMetric(ConfigBase):
@@ -294,8 +304,6 @@ class Footprint:
 
         The summarization includes the columns of model_id, parent_model_id, from_pass, duration, metrics
         """
-        headers = ["model_id", "parent_model_id", "from_pass", "duration_sec", "metrics"]
-        RunHistory = namedtuple("RunHistory", headers)
         rls = []
         for model_id, node in self.nodes.items():
             # get the run duration between current model and its parent model
@@ -385,4 +393,4 @@ class Footprint:
         return model_config.get("config", {}).get("use_ort_extensions", False)
 
     def get_input_node(self):
-        return [v for _, v in self.nodes.items() if v.parent_model_id is None][0]
+        return next(v for _, v in self.nodes.items() if v.parent_model_id is None)

@@ -151,7 +151,7 @@ def update_user_script(file_path, model_name):
     new_lines = []
     for line in lines:
         if "<model_name>" in line:
-            line = line.replace("<model_name>", model_name)  # ruff: noqa: PLW2901
+            line = line.replace("<model_name>", model_name)  # noqa: PLW2901
         new_lines.append(line)
 
     with open(file_path, "w") as file:  # noqa: PTH123

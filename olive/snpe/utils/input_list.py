@@ -128,7 +128,7 @@ def create_input_list(
         input_dir_members = input_dir_members[:num_samples]
     for member in input_dir_members:
         if not add_input_names:
-            input_list_content += f"{input_dirs[0]}/{member.as_posix()}" + "\n"  # noqa: ISC003
+            input_list_content += f"{input_dirs[0]}/{member.as_posix()}" + "\n"
         else:
             input_list_content += (
                 " ".join(

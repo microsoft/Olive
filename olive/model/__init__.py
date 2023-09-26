@@ -352,8 +352,7 @@ class ONNXModel(ONNXModelBase):
 
     def nodes(self):
         for graph in self.get_all_graphs():
-            for node in graph.node:
-                yield node
+            yield from graph.node
 
     def get_graph(self):
         if self.graph is not None:

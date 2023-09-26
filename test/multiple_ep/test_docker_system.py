@@ -44,11 +44,13 @@ class TestOliveManagedDockerSystem:
         engine = Engine(options, target=self.system, evaluator_config=evaluator_config)
         engine.register(OrtPerfTuning)
         output = engine.run(self.input_model_config, output_dir=output_dir)
-        cpu_res = list(output[DEFAULT_CPU_ACCELERATOR].nodes.values())[0]
-        openvino_res = list(
-            output[
-                AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="OpenVINOExecutionProvider")
-            ].nodes.values()
-        )[0]
+        cpu_res = next(iter(output[DEFAULT_CPU_ACCELERATOR].nodes.values()))
+        openvino_res = next(
+            iter(
+                output[
+                    AcceleratorSpec(accelerator_type=Device.CPU, execution_provider="OpenVINOExecutionProvider")
+                ].nodes.values()
+            )
+        )
         assert cpu_res.metrics.value.__root__
         assert openvino_res.metrics.value.__root__

@@ -98,7 +98,7 @@ class ConfigBase(BaseModel):
         arbitrary_types_allowed = True
         json_loads = config_json_loads
         json_dumps = config_json_dumps
-        json_encoders = {Path: lambda x: str(x.resolve())}  # ruff: noqa: RUF012
+        json_encoders = {Path: lambda x: str(x.resolve())}  # noqa: RUF012
 
     def to_json(self, check_object: bool = False) -> dict:
         return serialize_to_json(self, check_object)

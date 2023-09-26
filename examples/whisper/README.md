@@ -36,7 +36,7 @@ python prepare_whisper_configs.py [--model_name MODEL_NAME] [--no_audio_decoder]
 python prepare_whisper_configs.py --model_name openai/whisper-tiny.en
 ```
 
-`--model_name MODEL_NAME` is the name or path of the whisper model. The default value is `openai/whisper-tiny.en`.  
+`--model_name MODEL_NAME` is the name or path of the whisper model. The default value is `openai/whisper-tiny.en`.
 `--no_audio_decoder` is optional. If not provided, will use audio decoder in the preprocessing ops.
 `--package_model` is optional. If provided, will package the optimized model along with the required onnxruntime packages and sample code to run inference into a zip file.
 

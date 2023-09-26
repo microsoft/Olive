@@ -235,7 +235,7 @@ class TestEngine:
 
         # execute
         _actual_res = engine.run(model_config, output_dir=output_dir)
-        actual_res = list(_actual_res[accelerator_spec].nodes.values())[0]
+        actual_res = next(iter(_actual_res[accelerator_spec].nodes.values()))
 
         assert expected_res["model"] == actual_res.model_config
         assert expected_res["metrics"] == actual_res.metrics.value
@@ -321,7 +321,7 @@ class TestEngine:
         # execute
         actual_res = engine.run(model_config, output_dir=output_dir, evaluate_input_model=True)
         accelerator_spec = DEFAULT_CPU_ACCELERATOR
-        actual_res = list(actual_res[accelerator_spec].nodes.values())[0].metrics.value
+        actual_res = next(iter(actual_res[accelerator_spec].nodes.values())).metrics.value
 
         assert expected_res == actual_res
         result_json_path = Path(output_dir / f"{accelerator_spec}_input_model_metrics.json")
