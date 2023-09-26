@@ -20,7 +20,7 @@ jobs:
           locale: "US"
           level: info
           reporter: github-pr-check
-          # filter_mode: diff_context
+          filter_mode: nofilter
           fail_on_error: true
       # - name: check-spelling
       #   id: spelling
