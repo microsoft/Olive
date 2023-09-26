@@ -14,32 +14,25 @@ from olive.snpe.utils.local import run_snpe_command
 
 
 def get_snpe_version() -> str:
-    """
-    Get the version of the SNPE SDK at SNPE_ROOT.
-    """
+    """Get the version of the SNPE SDK at SNPE_ROOT."""
     cmd = "snpe-net-run --version"
     stdout, _ = run_snpe_command(cmd)
-    snpe_version = stdout.split("SNPE v")[1].strip()
-    return snpe_version
+    return stdout.split("SNPE v")[1].strip()
 
 
 def get_dlc_info(dlc_path: str, csv_path: str = None) -> str:
-    """
-    Get the info of a DLC file.
-    """
+    """Get the info of a DLC file."""
     cmd = f"snpe-dlc-info -i {dlc_path}"
     if csv_path:
         cmd += f" -s {csv_path}"
     stdout, _ = run_snpe_command(cmd, dev=True)
 
     prefix = "DLC info for:"
-    info = prefix + stdout.split(prefix)[1]
-    return info
+    return prefix + stdout.split(prefix)[1]
 
 
 def get_dlc_io_config(dlc_path: str, input_names: List[str], output_names: List[str]) -> str:
-    """
-    Get the input/output config of a DLC file.
+    """Get the input/output config of a DLC file.
 
     dlc_path: path to the DLC file.
     input_names: list of input names of source model.
@@ -56,37 +49,35 @@ def get_dlc_io_config(dlc_path: str, input_names: List[str], output_names: List[
 
     input_dims = {}
     output_dims = {}
-    out = csv.reader(open(tmp_csv.name, "r"))
-    for row in out:
-        if len(row) == 8:
-            _, name, _, input, output, shape, _, _ = tuple(row)
-            # version 2.x has 'name type'
-            output = output.split(" ")[0]
-            # input name in this format for versions 1.x
-            if name == input and name == output and name and name in input_names:
-                input_dims[name] = list(map(int, shape.split("x")))
-            elif output in output_names:
-                output_dims[output] = list(map(int, shape.split("x")))
-        if len(row) == 3:
-            name, shape, _ = tuple(row)
-            # input name in this format for versions 2.x
-            if name in input_names:
-                input_dims[name] = list(map(int, shape.split(",")))
+    with Path(tmp_csv.name).open() as f:
+        out = csv.reader(f)
+        for row in out:
+            if len(row) == 8:
+                _, name, _, input_item, output, shape, _, _ = tuple(row)
+                # version 2.x has 'name type'
+                output = output.split(" ")[0]
+                # input name in this format for versions 1.x
+                if name == input_item and name == output and name and name in input_names:
+                    input_dims[name] = list(map(int, shape.split("x")))
+                elif output in output_names:
+                    output_dims[output] = list(map(int, shape.split("x")))
+            if len(row) == 3:
+                name, shape, _ = tuple(row)
+                # input name in this format for versions 2.x
+                if name in input_names:
+                    input_dims[name] = list(map(int, shape.split(",")))
     tmp_csv.close()
 
-    io_config = {
+    return {
         "input_names": input_names,
         "input_shapes": [input_dims[name] for name in input_names],
         "output_names": output_names,
         "output_shapes": [output_dims[name] for name in output_names],
     }
-    return io_config
 
 
 def get_dlc_metrics(dlc_path: str) -> str:
-    """
-    Get the metrics of a DLC file.
-    """
+    """Get the metrics of a DLC file."""
     dlc_info = get_dlc_info(dlc_path)
 
     # number of parameters
@@ -109,20 +100,16 @@ def get_dlc_metrics(dlc_path: str) -> str:
     # SNPE version used to create the DLC
     version = dlc_info.split("DLC created with converter version:")[1].split()[0]
 
-    metrics = {"parameters": parameters, "macs": macs, f"memory ({memory_unit})": memory, "snpe-version": version}
-    return metrics
+    return {"parameters": parameters, "macs": macs, f"memory ({memory_unit})": memory, "snpe-version": version}
 
 
 def get_dlc_snpe_version(dlc_path: str) -> str:
-    """
-    Get the SNPE version used to create a DLC file.
-    """
+    """Get the SNPE version used to create a DLC file."""
     return get_dlc_metrics(dlc_path)["snpe-version"]
 
 
 def _get_conversion_arg_str(arg_type: str, input_names: List[str], input_values: List[str]):
-    """
-    Get conversion argument string for snpe dlc converter tools.
+    """Get conversion argument string for snpe dlc converter tools.
 
     arg_type: "-d", "-t", or "-l" for input shapes, types, and layouts respectively.
     input_names: list of input names.
@@ -142,15 +129,16 @@ def _get_conversion_arg_str(arg_type: str, input_names: List[str], input_values:
         if arg_type == "-d":
             # convert shape list to string
             # e.g. [1, 3, 224, 224] -> "1,3,224,224"
-            value = ",".join([str(v) for v in value])
-        arg_str += f" {arg_type} {name} {value}"
+            value_str = ",".join([str(v) for v in value])
+        else:
+            value_str = value
+        arg_str += f" {arg_type} {name} {value_str}"
 
     return arg_str.lstrip()
 
 
 def to_dlc(model_file: str, model_framework: str, config: dict, output_file: str):
-    """
-    Convert a model into a SNPE DLC.
+    """Convert a model into a SNPE DLC.
 
     model_file: path to the model file.
     model_framework: "onnx" or "tensorflow".
@@ -188,8 +176,7 @@ def to_dlc(model_file: str, model_framework: str, config: dict, output_file: str
 
 
 def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str):
-    """
-    Quantize a SNPE DLC.
+    """Quantize a SNPE DLC.
 
     dlc_path: path to the DLC file.
     input_list: path to the input list file for trial inputs.
@@ -224,8 +211,8 @@ def dlc_to_onnx(
     output_names: List[str],
     output_shapes: List[List[int]],
 ) -> onnx.ModelProto:
-    """
-    Convert a SNPE DLC to ONNX. The DLC is wrapped in a ONNX model for use with onnxruntime SNPE EP.
+    """Convert a SNPE DLC to ONNX. The DLC is wrapped in a ONNX model for use with onnxruntime SNPE EP.
+
     Returns an ONNX ModelProto.
 
     dlc_path: path to the DLC file.
@@ -246,7 +233,7 @@ def dlc_to_onnx(
         input_names = [f"{x}:0" for x in input_names]
         output_names = [f"{x}:0" for x in output_names]
 
-    with open(dlc_path, "rb") as file:
+    with Path(dlc_path, "rb").open() as file:
         dlc_content = file.read()
 
     model_name = Path(dlc_path).stem
@@ -278,6 +265,4 @@ def dlc_to_onnx(
 
     op = onnx.OperatorSetIdProto()
     op.version = config["target_opset"]
-    model_def = helper.make_model(graph_def, producer_name="Olive", opset_imports=[op])
-
-    return model_def
+    return helper.make_model(graph_def, producer_name="Olive", opset_imports=[op])

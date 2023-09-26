@@ -22,7 +22,7 @@ jobs:
       versionSpec: 3.8
     displayName: Use Python 3.8
 
-  - script: make install-olive PIPELINE=True INSTALL_EXTRAS=[cpu]
+  - script: python -m pip install .[$(device)]
     displayName: Install Olive
 
   - task: AzureCLI@1

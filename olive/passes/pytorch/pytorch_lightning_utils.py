@@ -21,7 +21,7 @@ def create_trainer(
     default_root_dir=None,
     **kwargs,
 ):
-    trainer = pl.Trainer(
+    return pl.Trainer(
         logger=logger,
         callbacks=callbacks,
         max_epochs=max_epochs,
@@ -32,5 +32,3 @@ def create_trainer(
         default_root_dir=default_root_dir,
         **kwargs,
     )
-
-    return trainer

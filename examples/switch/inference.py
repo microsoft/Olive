@@ -8,17 +8,15 @@ import os
 import pprint
 import sys
 
-import numpy
+import numpy as np
 import onnxruntime
 
 
 def _run_non_distributed(filepath):
     session = onnxruntime.InferenceSession(filepath, providers=["CPUExecutionProvider", "CUDAExecutionProvider"])
     input_name = session.get_inputs()[0].name
-    data = numpy.full((40, 40), 2, dtype=numpy.int64)
-    output = session.run(None, {input_name: data})[0]
-
-    return output
+    data = np.full((40, 40), 2, dtype=np.int64)
+    return session.run(None, {input_name: data})[0]
 
 
 def _mpipool_worker(args):
@@ -40,10 +38,8 @@ def _mpipool_worker(args):
         provider_options=[{"device_id": str(local_rank)}, {}],
     )
     input_name = session.get_inputs()[0].name
-    data = numpy.full((40, 40), 2, dtype=numpy.int64)
-    output = session.run(None, {input_name: data})[0]
-
-    return output
+    data = np.full((40, 40), 2, dtype=np.int64)
+    return session.run(None, {input_name: data})[0]
 
 
 def _run_using_mpipool(filepath, world_size):
@@ -102,16 +98,18 @@ def _main():
         atol = 1e-04
         results = {}
         for i in range(args.world_size):
-            results[f"nondist vs. dist_{i:02d}"] = numpy.allclose(
+            results[f"nondist vs. dist_{i:02d}"] = np.allclose(
                 non_distributed_session_outputs, distributed_session_outputs[i], atol=atol
             )
 
             if i > 0:
-                results[f"dist_00 vs. dist_{i:02d}"] = numpy.allclose(
+                results[f"dist_00 vs. dist_{i:02d}"] = np.allclose(
                     distributed_session_outputs[0], distributed_session_outputs[i], atol=atol
                 )
 
-        pprint.pprint(results)
+        if not np.all(list(results.values())):
+            pprint.pprint(results)
+            raise Exception("Inference tests failed!")
 
     return 0
 
@@ -121,14 +119,14 @@ if __name__ == "__main__":
 
 
 # python3 inference.py \
-#   --filepath model_4n_2l_8e.onnx
+#   --filepath model.onnx
 #
 # python3 inference.py \
-#   --filename-pattern model_4n_2l_8e_{:02d}.onnx \
+#   --filename-pattern model_{:02d}.onnx \
 #   --world-size 2
 #
 # python3 inference.py \
-#   --filepath model_4n_2l_8e.onnx \
-#   --filename-pattern model_4n_2l_8e_{:02d}.onnx \
-#   --world-size 2
+#   --filepath model.onnx \
+#   --filename-pattern model_{:02d}.onnx \
+#   --world-size 2 \
 #   --compare

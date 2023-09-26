@@ -33,13 +33,14 @@ class OrtMixedPrecision(Pass):
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
         """Convert model to mixed precision.
+
         It detects whether original model has fp16 precision weights,
         and set parameters for float16 conversion automatically.
         """
         from onnxruntime.transformers.float16 import float_to_float16_max_diff
 
         op_block_list = config["op_block_list"]
-        op_full_set = set([node.op_type for node in model.nodes()])
+        op_full_set = {node.op_type for node in model.nodes()}
         fp32_op_set = set(op_block_list)
         fp16_op_set = op_full_set.difference(fp32_op_set)
         logger.info(f"fp32 op: {fp32_op_set} fp16 op: {fp16_op_set}")
@@ -58,8 +59,8 @@ class OrtMixedPrecision(Pass):
             last_matmul_node = node
             logger.info(f"Found last MatMul node for logits: {node.name}")
             initializer = None
-            for input in node.input:
-                initializer = model.get_initializer(input)
+            for node_input in node.input:
+                initializer = model.get_initializer(node_input)
                 if initializer is not None:
                     break
 
@@ -96,6 +97,7 @@ class OrtMixedPrecision(Pass):
 
     def _convert_float_to_float16(self, model, use_symbolic_shape_infer=True, **kwargs):
         """Convert a model to half (default) or mixed precision.
+
             To use mixed precision, user need specify which graph inputs, outputs, operator type
             or list of nodes shall keep in float32.
 
@@ -106,8 +108,10 @@ class OrtMixedPrecision(Pass):
             without shape and type information.
 
         Args:
+            model (ModelProto): ONNX model to be converted to half or mixed precision.
             use_symbolic_shape_infer (bool, optional): use symbolic shape inference instead of onnx shape inference.
                                                    Defaults to True.
+            kwargs: other parameters for float_to_float16 conversion. See below for details.
             keep_io_types (Union[bool, List[str]], optional): boolean or a list of float32 input/output names.
                                                               If True, model inputs/outputs should be left as float32.
                                                               Defaults to True.

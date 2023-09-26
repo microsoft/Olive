@@ -12,8 +12,12 @@ from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
 from olive.strategy.search_strategy import SearchStrategyConfig
 from olive.systems.system_config import SystemConfig
 
-# pass search-point/config was pruned due invalid config or failed run
-PRUNED_CONFIG = "pruned-config"
+# pass search-point was pruned due to failed run
+FAILED_CONFIG = "failed-config"
+# pass search-point was pruned due to invalid config
+INVALID_CONFIG = "invalid-config"
+# list of all pruned configs
+PRUNED_CONFIGS = [FAILED_CONFIG, INVALID_CONFIG]
 
 
 class EngineConfig(ConfigBase):

@@ -8,6 +8,8 @@ from typing import Any, Callable, Dict, List, Union
 import numpy as np
 
 from olive.cache import get_local_path_from_root
+from olive.common.config_utils import validate_config
+from olive.data.config import DataConfig
 from olive.hardware.accelerator import AcceleratorSpec
 from olive.model import OpenVINOModel
 from olive.passes import Pass
@@ -16,13 +18,12 @@ from olive.resource_path import OLIVE_RESOURCE_ANNOTATIONS
 
 
 class OpenVINOQuantization(Pass):
-    """
-    Post-training quantization for OpenVINO model.
+    """Post-training quantization for OpenVINO model.
+
     Please refer to https://docs.openvino.ai/latest/pot_introduction.html for more details.
     """
 
     _requires_user_script = True
-    _requires_data_config = True
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -40,16 +41,26 @@ class OpenVINOQuantization(Pass):
                 required=False,
                 category=ParamCategory.OBJECT,
                 description=(
-                    "A callable function or a str of the function name from 'user_script'"
-                    " for the instance of the dataloader."
+                    "Function/function name to generate dataloader for calibration, required if data_config is None."
                 ),
             ),
             "data_dir": PassConfigParam(
                 type_=OLIVE_RESOURCE_ANNOTATIONS,
                 category=ParamCategory.DATA,
-                description="Dataset path. 'data_dir' can be by a str or Pathlib.Path.",
+                description=(
+                    "Path to the directory containing the dataset. For local data, it is required if dataloader_func"
+                    " is provided."
+                ),
             ),
-            "batch_size": PassConfigParam(type_=int, default_value=1, description="Batch size for the dataloader."),
+            "batch_size": PassConfigParam(
+                type_=int,
+                default_value=1,
+                description="Data config for calibration, required if dataloader_func is None.",
+            ),
+            "data_config": PassConfigParam(
+                type_=Union[DataConfig, Dict],
+                description="Data config for calibration, required if dataloader_func is None.",
+            ),
             "metric_func": PassConfigParam(
                 type_=Union[Callable, str],
                 required=False,
@@ -77,7 +88,9 @@ class OpenVINOQuantization(Pass):
         try:
             from openvino.tools.pot import IEEngine, compress_model_weights, create_pipeline, save_model
         except ImportError:
-            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO model") from None
+
+        assert config["dataloader_func"] or config["data_config"], "dataloader_func or data_config is required."
 
         # output model always has ov_model name stem
         model_name = "ov_model"
@@ -87,8 +100,9 @@ class OpenVINOQuantization(Pass):
             data_loader = self._user_module_loader.call_object(
                 config["dataloader_func"], data_dir, config["batch_size"]
             )
-        elif self._data_config:
-            common_dataloader = self._data_config.to_data_container().create_dataloader(data_root)
+        elif config["data_config"]:
+            data_config = validate_config(config["data_config"], DataConfig)
+            common_dataloader = data_config.to_data_container().create_dataloader(data_root)
             data_loader = self._create_dataloader(common_dataloader)
 
         metric = self._user_module_loader.load_object(config["metric_func"])
@@ -103,30 +117,26 @@ class OpenVINOQuantization(Pass):
             model_name=model_name,
         )
         model_path = Path(compressed_model_paths[0]["model"]).parent
-        openvino_model = OpenVINOModel(model_path)
-
-        return openvino_model
+        return OpenVINOModel(model_path)
 
     def _create_dataloader(self, common_dataloader):
-        """
-        Create an openvino.tools.pot.api.DataLoader instance from a common dataloader.
-        """
+        """Create an openvino.tools.pot.api.DataLoader instance from a common dataloader."""
         try:
             from openvino.tools.pot.api import DataLoader
         except ImportError:
-            raise ImportError("Please install olive-ai[openvino] to use OpenVINO pass")
+            raise ImportError("Please install olive-ai[openvino] to use OpenVINO pass") from None
 
         class _OVDataloader(DataLoader):
             def __init__(self, dataloader):
                 self.data = []
                 self.labels = []
-                for data, label in dataloader:
-                    if isinstance(data, dict):
-                        data = {k: np.array(v) for k, v in data.items()}
-                    elif isinstance(data, tuple):
-                        data = tuple(np.array(v) for v in data)
+                for data_k, label in dataloader:
+                    if isinstance(data_k, dict):
+                        data = {k: np.array(v) for k, v in data_k.items()}
+                    elif isinstance(data_k, tuple):
+                        data = tuple(np.array(v) for v in data_k)
                     else:
-                        data = np.array(data)
+                        data = np.array(data_k)
                     self.data.append(data)
                     self.labels.append(label)
 

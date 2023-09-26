@@ -1,3 +1,4 @@
 onnxruntime
 pillow
+tabulate
 torchvision

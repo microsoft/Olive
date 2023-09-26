@@ -2,17 +2,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import os
-import tempfile
 from pathlib import Path
 from test.unit_test.utils import get_onnx_model
 
 import numpy as np
+import pytest
+from onnxruntime import __version__ as OrtVersion
 from onnxruntime.quantization.calibrate import CalibrationDataReader
+from packaging import version
 
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.vitis_ai_quantization import VitisAIQuantization
-from olive.systems.local import LocalSystem
 
 
 class RandomDataReader(CalibrationDataReader):
@@ -36,26 +36,32 @@ def dummy_calibration_reader(data_dir=None, batch_size=1, *args, **kwargs):
     return RandomDataReader()
 
 
-def test_vitis_ai_quantization_pass():
-    with tempfile.TemporaryDirectory() as tempdir:
-        # setup
-        local_system = LocalSystem()
-        input_model = get_onnx_model()
-        dummy_user_script = str(Path(tempdir) / "dummy_user_script.py")
-        dummy_data = str(Path(tempdir) / "dummy_data")
-        with open(dummy_user_script, "w") as f:
-            f.write(" ")
-        if not os.path.exists(dummy_data):
-            os.mkdir(dummy_data)
+@pytest.mark.skipif(
+    version.parse(OrtVersion) == version.parse("1.16.0"),
+    reason="VitisAIQuantization is not supported in ORT 1.16.0 with TensorsData",
+)
+def test_vitis_ai_quantization_pass(tmp_path):
+    # setup
+    input_model = get_onnx_model()
+    dummy_user_script = tmp_path / "dummy_user_script.py"
+    dummy_data: Path = tmp_path / "dummy_data"
+    with dummy_user_script.open("w") as f:
+        f.write(" ")
+    if not dummy_data.exists():
+        dummy_data.mkdir()
 
-        config = {"user_script": dummy_user_script, "data_dir": dummy_data, "dataloader_func": dummy_calibration_reader}
-        output_folder = str(Path(tempdir) / "vitis_ai_quantized")
+    config = {
+        "user_script": str(dummy_user_script),
+        "data_dir": str(dummy_data),
+        "dataloader_func": dummy_calibration_reader,
+    }
+    output_folder = str(tmp_path / "vitis_ai_quantized")
 
-        # create VitisAIQuantization pass
-        p = create_pass_from_dict(VitisAIQuantization, config, disable_search=True)
-        # execute
-        quantized_model = local_system.run_pass(p, input_model, None, output_folder)
-        # assert
-        assert quantized_model.model_path.endswith(".onnx")
-        assert Path(quantized_model.model_path).exists()
-        assert Path(quantized_model.model_path).is_file()
+    # create VitisAIQuantization pass
+    p = create_pass_from_dict(VitisAIQuantization, config, disable_search=True)
+    # execute
+    quantized_model = p.run(input_model, None, output_folder)
+    # assert
+    assert quantized_model.model_path.endswith(".onnx")
+    assert Path(quantized_model.model_path).exists()
+    assert Path(quantized_model.model_path).is_file()

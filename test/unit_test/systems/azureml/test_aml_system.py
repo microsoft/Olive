@@ -7,7 +7,8 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_latency_metric, get_pytorch_model
+from test.unit_test.utils import ONNX_MODEL_PATH, get_accuracy_metric, get_latency_metric, get_pytorch_model_config
+from typing import ClassVar, List
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -15,12 +16,12 @@ from azure.ai.ml import Input, Output
 from azure.ai.ml.constants import AssetTypes
 
 from olive.azureml.azureml_client import AzureMLClientConfig
-from olive.evaluator.metric import AccuracySubType, LatencySubType, MetricResult
+from olive.evaluator.metric import AccuracySubType, LatencySubType, Metric, MetricResult
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import ONNXModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.conversion import OnnxConversion
-from olive.resource_path import AzureMLModel, ResourceType, create_resource_path
+from olive.resource_path import AzureMLModel, ResourcePath, ResourceType, create_resource_path
 from olive.systems.azureml.aml_evaluation_runner import main as aml_evaluation_runner_main
 from olive.systems.azureml.aml_pass_runner import main as aml_pass_runner_main
 from olive.systems.azureml.aml_system import AzureMLSystem
@@ -38,12 +39,12 @@ class TestAzureMLSystem:
         mock_azureml_client_config = Mock(spec=AzureMLClientConfig)
         self.system = AzureMLSystem(mock_azureml_client_config, "dummy", docker_config)
 
-    METRIC_TEST_CASE = [
+    METRIC_TEST_CASE: ClassVar[List[Metric]] = [
         (get_accuracy_metric(AccuracySubType.ACCURACY_SCORE)),
         (get_accuracy_metric(AccuracySubType.F1_SCORE)),
         (get_accuracy_metric(AccuracySubType.PRECISION)),
         (get_accuracy_metric(AccuracySubType.RECALL)),
-        (get_accuracy_metric(AccuracySubType.AUC)),
+        (get_accuracy_metric(AccuracySubType.AUROC)),
         (get_latency_metric(LatencySubType.AVG)),
         (get_latency_metric(LatencySubType.MAX)),
         (get_latency_metric(LatencySubType.MIN)),
@@ -64,7 +65,7 @@ class TestAzureMLSystem:
     @patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory")
     def test_evaluate_model(self, mock_tempdir, mock_create_pipeline, mock_retry_func, metric):
         # setup
-        olive_model = get_pytorch_model()
+        model_config = get_pytorch_model_config()
         output_folder = Path(__file__).absolute().parent / "output_metrics"
         mock_tempdir.return_value.__enter__.return_value = output_folder
         ml_client = MagicMock()
@@ -73,11 +74,11 @@ class TestAzureMLSystem:
         self.system.azureml_client_config.operation_retry_interval = 5
 
         # execute
-        res = self.system.evaluate_model(olive_model, None, [metric], DEFAULT_CPU_ACCELERATOR)
+        res = self.system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)
 
         # assert
         mock_create_pipeline.assert_called_once_with(
-            None, output_folder, olive_model, [metric], DEFAULT_CPU_ACCELERATOR
+            None, output_folder, model_config, [metric], DEFAULT_CPU_ACCELERATOR
         )
         ml_client.jobs.stream.assert_called_once()
         assert mock_retry_func.call_count == 2
@@ -99,7 +100,7 @@ class TestAzureMLSystem:
         pipeline_output_path.mkdir(parents=True, exist_ok=True)
         # create dummy output model
         downloaded_output_model_path = pipeline_output_path / "output_model.onnx"
-        with open(downloaded_output_model_path, "w") as f:
+        with downloaded_output_model_path.open("w") as f:
             f.write("dummy")
         # create dummy output config
         dummy_config = {
@@ -108,23 +109,24 @@ class TestAzureMLSystem:
                 "model_path": {"type": "file", "config": {"path": "output_model.onnx"}},
                 "inference_settings": None,
             },
-            "same_model_path_as_input": False,
+            "same_resources_as_input": [],
+            "resource_names": ["model_path"],
         }
         dummy_config_path = pipeline_output_path / "output_model_config.json"
-        with open(dummy_config_path, "w") as f:
+        with dummy_config_path.open("w") as f:
             json.dump(dummy_config, f, indent=4)
 
         onnx_conversion_config = {}
         p = create_pass_from_dict(OnnxConversion, onnx_conversion_config)
-        olive_model = get_pytorch_model()
-        output_model_path = tmp_dir_path / "output_folder" / "output_model_path.onnx"
-        output_model_path.parent.mkdir(parents=True, exist_ok=True)
+        model_config = get_pytorch_model_config()
+        output_model_path = tmp_dir_path / "output_folder" / "output_model_path"
+        output_model_path.mkdir(parents=True, exist_ok=True)
         # create dummy output model so that ONNXModel can be created with the same path
-        with open(output_model_path, "w") as f:
+        expected_model_path = output_model_path / "model.onnx"
+        with expected_model_path.open("w") as f:
             f.write("dummy")
         output_folder = tmp_dir_path
 
-        expected_model = ONNXModel(model_path=output_model_path)
         ml_client = MagicMock()
         self.system.azureml_client_config.create_client.return_value = ml_client
         self.system.azureml_client_config.max_operation_retries = 3
@@ -133,17 +135,20 @@ class TestAzureMLSystem:
         with patch("olive.systems.azureml.aml_system.tempfile.TemporaryDirectory") as mock_tempdir:
             mock_tempdir.return_value.__enter__.return_value = output_folder
             # execute
-            actual_res = self.system.run_pass(p, olive_model, None, output_model_path)
+            actual_res = self.system.run_pass(p, model_config, None, output_model_path)
 
         # assert
-        mock_create_pipeline.assert_called_once_with(None, output_folder, olive_model, p.to_json(), p.path_params)
+        mock_create_pipeline.assert_called_once_with(None, output_folder, model_config, p.to_json(), p.path_params)
         assert mock_retry_func.call_count == 2
         ml_client.jobs.stream.assert_called_once()
-        assert expected_model.to_json() == actual_res.to_json()
+        output_model_file = actual_res.config["model_path"]
+        if isinstance(output_model_file, ResourcePath):
+            output_model_file = output_model_file.get_path()
+        assert Path(output_model_file).samefile(expected_model_path)
 
     @pytest.mark.parametrize(
         "model_resource_type",
-        [ResourceType.AzureMLModel, ResourceType.LocalFile],
+        [ResourceType.AzureMLModel, ResourceType.LocalFile, ResourceType.StringName],
     )
     def test__create_model_args(self, model_resource_type):
         # setup
@@ -164,12 +169,11 @@ class TestAzureMLSystem:
                 },
             },
             ResourceType.LocalFile: temp_model.name,
+            ResourceType.StringName: "model_name",
         }
         model_json = {
-            "type": "onnxmodel",
+            "type": "pytorchmodel",
             "config": {
-                "model_script": "model_script",
-                "script_dir": "script_dir",
                 "model_path": resource_paths[model_resource_type],
             },
         }
@@ -178,26 +182,85 @@ class TestAzureMLSystem:
         model_config_path = tem_dir_path / "model_config.json"
         if model_resource_type == ResourceType.AzureMLModel:
             expected_model_path = Input(type=AssetTypes.CUSTOM_MODEL, path="azureml:model_name:version")
-        else:
+        elif model_resource_type == ResourceType.LocalFile:
             expected_model_path = Input(type=AssetTypes.URI_FILE, path=Path(temp_model.name).resolve())
-        expected_model_script = Input(type=AssetTypes.URI_FILE, path="model_script")
-        expected_model_script_dir = Input(type=AssetTypes.URI_FOLDER, path="script_dir")
+        else:
+            expected_model_path = None
         expected_model_config = Input(type=AssetTypes.URI_FILE, path=model_config_path)
-        expected_res = {
-            "model_config": expected_model_config,
-            "model_path": expected_model_path,
-            "model_script": expected_model_script,
-            "model_script_dir": expected_model_script_dir,
-        }
+        expected_res = {"model_config": expected_model_config, "model_model_path": expected_model_path}
 
         # execute
-        actual_res = self.system._create_model_args(model_json, tem_dir_path)
+        actual_res = self.system._create_model_args(
+            model_json, {"model_path": create_resource_path(model_json["config"]["model_path"])}, tem_dir_path
+        )
 
         # assert
         assert actual_res == expected_res
-        assert model_json["config"]["model_script"] is None
-        assert model_json["config"]["script_dir"] is None
-        assert model_json["config"]["model_path"] is None
+        if model_resource_type != ResourceType.StringName:
+            assert model_json["config"]["model_path"] is None
+        else:
+            assert model_json["config"]["model_path"] == resource_paths[model_resource_type]
+
+    @patch("olive.systems.azureml.aml_system.command")
+    def test__create_step(self, mock_command):
+        # setup
+        name = "name"
+        display_name = "display_name"
+        description = "description"
+        aml_environment = MagicMock()
+        code = "code"
+        compute = "compute"
+        instance_count = 1
+        inputs = {"dummy_input": Input(type=AssetTypes.URI_FILE)}
+        outputs = {"dummy_output": Output(type=AssetTypes.URI_FILE)}
+        script_name = "aml_evaluation_runner.py"
+        resources = {
+            "instance_type": "instance_type",
+            "properties": {
+                "AISuperComputer": {
+                    "interactive": True,
+                    "imageVersion": "imageVersion",
+                    "slaTier": "slaTier",
+                    "priority": "priority",
+                    "tensorboardLogDirectory": "tensorboardLogDirectory",
+                    "enableAzmlInt": True,
+                }
+            },
+        }
+
+        expected_res = MagicMock()
+        mock_command.return_value = expected_res
+
+        # execute
+        actual_res = self.system._create_step(
+            name,
+            display_name,
+            description,
+            aml_environment,
+            code,
+            compute,
+            resources,
+            instance_count,
+            inputs,
+            outputs,
+            script_name,
+        )
+
+        # assert
+        assert actual_res == expected_res
+        mock_command.assert_called_once_with(
+            name=name,
+            display_name=display_name,
+            description=description,
+            command=self.create_command(script_name, inputs, outputs),
+            resources=resources,
+            environment=aml_environment,
+            code=code,
+            inputs=inputs,
+            outputs=outputs,
+            instance_count=1,
+            compute=compute,
+        )
 
     def test__create_metric_args(self):
         # setup
@@ -254,11 +317,9 @@ class TestAzureMLSystem:
         metric_type = f"{metric.type}-{sub_type_name}"
         model_inputs = {
             "model_config": Input(type=AssetTypes.URI_FILE),
-            "model_path": Input(type=AssetTypes.CUSTOM_MODEL, optional=True)
+            "model_model_path": Input(type=AssetTypes.CUSTOM_MODEL, optional=True)
             if model_resource_type == ResourceType.AzureMLModel
             else Input(type=AssetTypes.URI_FILE, optional=True),
-            "model_script": Input(type=AssetTypes.URI_FILE, optional=True),
-            "model_script_dir": Input(type=AssetTypes.URI_FOLDER, optional=True),
         }
         metric_inputs = {
             "metric_config": Input(type=AssetTypes.URI_FILE),
@@ -272,6 +333,7 @@ class TestAzureMLSystem:
             **metric_inputs,
             "accelerator_config": Input(type=AssetTypes.URI_FILE),
         }
+        outputs = {"pipeline_output": Output(type=AssetTypes.URI_FOLDER)}
         expected_res = MagicMock()
         mock_command.return_value.return_value = expected_res
 
@@ -292,7 +354,7 @@ class TestAzureMLSystem:
         else:
             model_resource_path = create_resource_path(ONNX_MODEL_PATH)
         actual_res = self.system._create_metric_component(
-            None, tem_dir, metric, model_args, model_resource_path, accelerator_config_path
+            None, tem_dir, metric, model_args, {"model_path": model_resource_path}, accelerator_config_path
         )
 
         # assert
@@ -301,11 +363,12 @@ class TestAzureMLSystem:
             name=metric_type,
             display_name=metric_type,
             description=f"Run olive {metric_type} evaluation",
-            command=self.create_command(inputs),
+            command=self.create_command("aml_evaluation_runner.py", inputs, outputs),
+            resources=None,
             environment=self.system.environment,
             code=str(code_path),
             inputs=inputs,
-            outputs=dict(pipeline_output=Output(type=AssetTypes.URI_FOLDER)),
+            outputs={"pipeline_output": Output(type=AssetTypes.URI_FOLDER)},
             instance_count=1,
             compute=self.system.compute,
         )
@@ -314,15 +377,17 @@ class TestAzureMLSystem:
         if os.path.exists(code_path):
             os.rmdir(code_path)
 
-    def create_command(self, inputs):
-        script_name = "aml_evaluation_runner.py"
+    def create_command(self, script_name, inputs, outputs):
         parameters = []
-        for param, input in inputs.items():
-            if input.optional:
+        inputs = inputs or {}
+        for param, input_param in inputs.items():
+            if input_param.optional:
                 parameters.append(f"$[[--{param} ${{{{inputs.{param}}}}}]]")
             else:
                 parameters.append(f"--{param} ${{{{inputs.{param}}}}}")
-        parameters.append("--pipeline_output ${{outputs.pipeline_output}}")
+        outputs = outputs or {}
+        for param in outputs:
+            parameters.append(f"--{param} ${{{{outputs.{param}}}}}")
 
         return f"python {script_name} {' '.join(parameters)}"
 
@@ -370,9 +435,10 @@ class TestAzureMLSystem:
                 "script_dir": None,
             },
             "type": "PyTorchModel",
+            "resource_names": [],
         }
 
-        with open(tmp_path / "model_config.json", "w") as f:
+        with (tmp_path / "model_config.json").open("w") as f:
             json.dump(model_config, f)
 
         # create model.pt
@@ -459,12 +525,12 @@ class TestAzureMLSystem:
             },
         }
 
-        with open(tmp_path / "metrics_config.json", "w") as f:
+        with (tmp_path / "metrics_config.json").open("w") as f:
             json.dump(metrics_config, f)
 
         # create accelerator_config.json
         accelerator_config = {"accelerator_type": "cpu", "execution_provider": "CPUExecutionProvider"}
-        with open(tmp_path / "accelerator_config.json", "w") as f:
+        with (tmp_path / "accelerator_config.json").open("w") as f:
             json.dump(accelerator_config, f)
 
         ouptut_dir = tmp_path / "pipeline_output"
@@ -522,6 +588,7 @@ class TestAzureMLSystem:
                 "script_dir": None,
             },
             "type": "PyTorchModel",
+            "resource_names": [],
         }
         pass_config = {
             "accelerator": {"accelerator_type": "cpu", "execution_provider": "CPUExecutionProvider"},
@@ -537,10 +604,10 @@ class TestAzureMLSystem:
             "type": "OnnxConversion",
         }
 
-        with open(tmp_path / "model_config.json", "w") as f:
+        with (tmp_path / "model_config.json").open("w") as f:
             json.dump(model_config, f)
 
-        with open(tmp_path / "pass_config.json", "w") as f:
+        with (tmp_path / "pass_config.json").open("w") as f:
             json.dump(pass_config, f)
 
         ouptut_dir = tmp_path / "pipeline_output"

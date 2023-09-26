@@ -9,7 +9,7 @@ import tempfile
 from abc import abstractmethod
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Callable, ClassVar, Dict, Optional, Type, Union
 
 from pydantic import Field, validator
 
@@ -38,14 +38,14 @@ AZUREML_RESOURCE_TYPES = [ResourceType.AzureMLModel, ResourceType.AzureMLDatasto
 
 
 class ResourcePath(AutoConfigClass):
-    registry: Dict[str, Type["ResourcePath"]] = {}
+    registry: ClassVar[Dict[str, Type["ResourcePath"]]] = {}
     name: ResourceType = None
 
     def __repr__(self) -> str:
         return self.get_path()
 
     @property
-    def type(self) -> ResourceType:
+    def type(self) -> ResourceType:  # noqa: A003
         return self.name
 
     @abstractmethod
@@ -70,6 +70,10 @@ class ResourcePath(AutoConfigClass):
         """Return True if the resource is a string name."""
         return self.type == ResourceType.StringName
 
+    def is_local_resource_or_string_name(self) -> bool:
+        """Return True if the resource is a local resource or a string name."""
+        return self.is_local_resource() or self.is_string_name()
+
     def to_json(self):
         json_data = {"type": self.type, "config": self.config.to_json()}
         return serialize_to_json(json_data)
@@ -84,7 +88,7 @@ class ResourcePath(AutoConfigClass):
 
 
 class ResourcePathConfig(ConfigBase):
-    type: ResourceType = Field(..., description="Type of the resource.")
+    type: ResourceType = Field(..., description="Type of the resource.")  # noqa: A003
     config: ConfigBase = Field(..., description="Config of the resource.")
 
     @validator("config", pre=True)
@@ -102,8 +106,8 @@ class ResourcePathConfig(ConfigBase):
 def create_resource_path(
     resource_path: Optional[Union[str, Path, Dict[str, Any], ResourcePathConfig, ResourcePath]]
 ) -> Optional[ResourcePath]:
-    """
-    Create a resource path from a string or a dict.
+    """Create a resource path from a string or a dict.
+
     If a string is provided, it is inferred to be a file, folder, or string name.
     If a Path is provided, it is inferred to be a file or folder.
     If a dict is provided, it must have "type" and "config" fields. The "type" field must be one of the
@@ -118,34 +122,34 @@ def create_resource_path(
     if isinstance(resource_path, ResourcePath):
         return resource_path
 
-    if isinstance(resource_path, ResourcePathConfig) or isinstance(resource_path, dict):
+    if isinstance(resource_path, (ResourcePathConfig, dict)):
         resource_path_config = validate_config(resource_path, ResourcePathConfig)
         return resource_path_config.create_resource_path()
 
     # check if the resource path is a file, folder, azureml datastore, or a string name
     is_local_file = True
-    type: ResourceType = None
+    resource_type: ResourceType = None
     config_key = None
     if Path(resource_path).is_file():
-        type = ResourceType.LocalFile
+        resource_type = ResourceType.LocalFile
         config_key = "path"
     elif Path(resource_path).is_dir():
-        type = ResourceType.LocalFolder
+        resource_type = ResourceType.LocalFolder
         config_key = "path"
     elif str(resource_path).startswith("azureml://"):
-        type = ResourceType.AzureMLDatastore
+        resource_type = ResourceType.AzureMLDatastore
         config_key = "datastore_url"
         is_local_file = False
     else:
-        type = ResourceType.StringName
+        resource_type = ResourceType.StringName
         config_key = "name"
         is_local_file = False
 
     if is_local_file and isinstance(resource_path, Path) and not resource_path.exists():
         raise ValueError(f"Resource path {resource_path} of type Path does not exist.")
 
-    logger.debug(f"Resource path {resource_path} is inferred to be of type {type}.")
-    return ResourcePathConfig(type=type, config={config_key: resource_path}).create_resource_path()
+    logger.debug(f"Resource path {resource_path} is inferred to be of type {resource_type}.")
+    return ResourcePathConfig(type=resource_type, config={config_key: resource_path}).create_resource_path()
 
 
 def _overwrite_helper(new_path: Union[Path, str], overwrite: bool):
@@ -223,7 +227,7 @@ def _validate_file_path(v):
 
 
 class LocalFile(LocalResourcePath):
-    """Local file resource path"""
+    """Local file resource path."""
 
     name = ResourceType.LocalFile
 
@@ -242,7 +246,7 @@ def _validate_folder_path(v):
 
 
 class LocalFolder(LocalResourcePath):
-    """Local folder resource path"""
+    """Local folder resource path."""
 
     name = ResourceType.LocalFolder
 
@@ -254,7 +258,7 @@ class LocalFolder(LocalResourcePath):
 
 
 class StringName(ResourcePath):
-    """String name resource path"""
+    """String name resource path."""
 
     name = ResourceType.StringName
 
@@ -281,7 +285,7 @@ def _get_azureml_resource_prefix(workspace_config: Dict[str, str]) -> str:
 
 
 class AzureMLModel(ResourcePath):
-    """AzureML Model resource path"""
+    """AzureML Model resource path."""
 
     name = ResourceType.AzureMLModel
 
@@ -325,8 +329,8 @@ class AzureMLModel(ResourcePath):
         logger.debug(f"Downloading model {self.config.name} version {self.config.version} to {new_path}.")
         from azure.core.exceptions import ServiceResponseError
 
-        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
-            temp_dir = Path(temp_dir)
+        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as tempdir:
+            temp_dir = Path(tempdir)
             retry_func(
                 ml_client.models.download,
                 [self.config.name],
@@ -356,7 +360,7 @@ def _datastore_url_validator(v, values, **kwargs):
 
 
 class AzureMLDatastore(ResourcePath):
-    """AzureML DataStore resource path"""
+    """AzureML DataStore resource path."""
 
     name = ResourceType.AzureMLDatastore
 
@@ -395,7 +399,7 @@ class AzureMLDatastore(ResourcePath):
         except ImportError:
             raise ImportError(
                 "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
-            )
+            ) from None
         if fsspec is None:
             fsspec = AzureMachineLearningFileSystem(self.get_path())
         return fsspec.info(self.get_relative_path()).get("type") == "file"
@@ -426,7 +430,7 @@ class AzureMLDatastore(ResourcePath):
         except ImportError:
             raise ImportError(
                 "azureml-fsspec is not installed. Please install azureml-fsspec to use AzureMLDatastore resource path."
-            )
+            ) from None
 
         azureml_client_config = self.get_aml_client_config()
 
@@ -469,7 +473,7 @@ class AzureMLDatastore(ResourcePath):
 
 
 class AzureMLJobOutput(ResourcePath):
-    """AzureML job output resource path"""
+    """AzureML job output resource path."""
 
     name = ResourceType.AzureMLJobOutput
 
@@ -507,8 +511,8 @@ class AzureMLJobOutput(ResourcePath):
         logger.debug(f"Downloading job output {self.config.job_name} output {self.config.output_name} to {new_path}.")
         from azure.core.exceptions import ServiceResponseError
 
-        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as temp_dir:
-            temp_dir = Path(temp_dir)
+        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as tempdir:
+            temp_dir = Path(tempdir)
             retry_func(
                 ml_client.jobs.download,
                 [self.config.job_name],

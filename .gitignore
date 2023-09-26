@@ -11,6 +11,7 @@ examples/**/data
 examples/**/model
 test/**/data
 nc_workspace/
+run_cache/
 
 # Onnx dynamo export artifacts
 *.sarif

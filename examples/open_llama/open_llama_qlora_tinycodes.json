@@ -1,0 +1,86 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "hf_config": {
+                "model_name": "openlm-research/open_llama_7b_v2",
+                "task": "text-generation"
+            }
+        }
+    },
+    "data_configs": {
+        "tiny-codes-train": {
+            "name": "tiny-codes-train",
+            "type": "HuggingfaceContainer",
+            "user_script": "qlora_user_script.py",
+            "components": {
+                "load_dataset": {
+                    "type": "load_tiny_code_dataset"
+                }
+            },
+            "params_config": {
+                "dataset_name": "nampdn-ai/tiny-codes",
+                "split": "train",
+                "component_kwargs": {
+                    "load_dataset": {
+                        "language": "Python",
+                        "token": true
+                    },
+                    "pre_process_data": {
+                        "dataset_type": "corpus",
+                        "corpus_strategy": "join",
+                        "text_template": "### Question: {prompt} \n### Answer: {response}",
+                        "source_max_len": 1024
+                    }
+                }
+            }
+        }
+    },
+    "passes": {
+        "qlora": {
+            "type": "QLoRA",
+            "config": {
+                "compute_dtype": "bfloat16",
+                "quant_type": "nf4",
+                "double_quant": true,
+                "lora_r": 64,
+                "lora_alpha": 16,
+                "lora_dropout": 0.1,
+                "train_data_config": "tiny-codes-train",
+                "eval_dataset_size": 1024,
+                "training_args": {
+                    "seed": 0,
+                    "data_seed": 42,
+                    "per_device_train_batch_size": 16,
+                    "per_device_eval_batch_size": 16,
+                    "gradient_accumulation_steps": 1,
+                    "gradient_checkpointing": true,
+                    "learning_rate": 0.0002,
+                    "max_steps": 1500,
+                    "logging_steps": 10,
+                    "evaluation_strategy": "steps",
+                    "eval_steps": 100,
+                    "save_steps": 500,
+                    "group_by_length": true,
+                    "adam_beta2": 0.999,
+                    "max_grad_norm": 0.3,
+                    "load_best_model_at_end": true
+                }
+            }
+        }
+    },
+    "engine": {
+        "log_severity_level": 0,
+        "search_strategy": false,
+        "evaluate_input_model": false,
+        "target": {
+            "type": "LocalSystem",
+            "config": {
+                "accelerators": ["gpu"]
+            }
+        },
+        "execution_providers": ["CPUExecutionProvider"],
+        "cache_dir": "cache",
+        "output_dir" : "models/qlora-tiny-codes"
+    }
+}

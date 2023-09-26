@@ -55,6 +55,7 @@
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
+            "disable_search": true,
             "config": {
                 "model_type": "unet",
                 "float16": true,

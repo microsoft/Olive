@@ -1,0 +1,21 @@
+# mcr image https://github.com/microsoft/mcr
+# tag list https://mcr.microsoft.com/v2/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04/tags/list
+FROM mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get -y update && apt-get -y upgrade
+RUN apt-get install -y --no-install-recommends wget gnupg
+
+# Install TensorRT
+RUN v="8.4.1-1+cuda11.6" &&\
+    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/7fa2af80.pub &&\
+    apt-get update &&\
+    apt-get install -y libnvinfer8=${v} libnvonnxparsers8=${v} libnvparsers8=${v} libnvinfer-plugin8=${v} \
+        libnvinfer-dev=${v} libnvonnxparsers-dev=${v} libnvparsers-dev=${v} libnvinfer-plugin-dev=${v} \
+        python3-libnvinfer=${v} libnvinfer-samples=${v}
+
+RUN pip install --no-cache-dir pandas plotly psutil datasets transformers onnxruntime-gpu==1.15.1 olive-ai
+
+ADD requirements.txt requirements.txt
+RUN pip install -r requirements.txt

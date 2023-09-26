@@ -1,0 +1,88 @@
+trigger: none
+
+pr: none
+
+schedules:
+- cron: '0 0 * * *'
+  displayName: Daily build
+  branches:
+    include:
+    - main
+
+variables:
+    ComponentDetection.Timeout: 2400
+
+jobs:
+# Linux unit test
+- template: job_templates/olive-test-template.yaml
+  parameters:
+    name: Linux_CI_Unit_Test_Olive
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    device: 'cpu'
+    windows: False
+    test_type: 'unit_test'
+    onnxruntime: ort-nightly
+
+# Windows unit test
+- template: job_templates/olive-test-template.yaml
+  parameters:
+    name: Windows_CI_Unit_Test_Olive
+    pool: $(OLIVE_POOL_WIN2019)
+    device: 'cpu'
+    windows: True
+    test_type: 'unit_test'
+    onnxruntime: ort-nightly
+
+# Linux examples test
+- template: job_templates/olive-example-template.yaml
+  parameters:
+    name: Linux_CI
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    onnxruntime: ort-nightly
+    examples:
+      bert_ptq_cpu:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu
+      resnet_ptq_cpu:
+        exampleFolder: resnet
+        exampleName: resnet_ptq_cpu
+      resnet_vitis_ai_ptq_cpu:
+        exampleFolder: resnet
+        exampleName: resnet_vitis_ai_ptq_cpu
+      resnet_qat:
+        exampleFolder: resnet
+        exampleName: resnet_qat
+      whisper:
+        exampleFolder: whisper
+        exampleName: whisper
+
+# # Windows examples test
+- template: job_templates/olive-example-template.yaml
+  parameters:
+    name: Windows_CI
+    pool: $(OLIVE_POOL_WIN2019)
+    onnxruntime: ort-nightly
+    examples:
+      bert_ptq_cpu:
+        exampleFolder: bert
+        exampleName: bert_ptq_cpu
+      resnet_ptq_cpu:
+        exampleFolder: resnet
+        exampleName: resnet_ptq_cpu
+      resnet_qat:
+        exampleFolder: resnet
+        exampleName: resnet_qat
+      whisper:
+        exampleFolder: whisper
+        exampleName: whisper
+
+# Linux GPU examples testing.
+- template: job_templates/olive-example-template.yaml
+  parameters:
+    name: Linux_GPU_CI
+    pool: $(OLIVE_POOL_UBUNTU2004)
+    onnxruntime: ort-nightly-gpu
+    examples:
+      bert_cuda_gpu:
+        exampleFolder: bert
+        exampleName: bert_cuda_gpu

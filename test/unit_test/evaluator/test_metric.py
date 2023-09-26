@@ -15,9 +15,9 @@ class TestEvaluation:
                 "sub_types": [
                     {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                     {
-                        "name": "auc",
+                        "name": "auroc",
                         "priority": -1,
-                        "metric_config": {"reorder": True},
+                        "metric_config": {"num_classes": 2},
                         "goal": {"type": "max-degradation", "value": 0.01},
                     },
                 ],
@@ -66,4 +66,5 @@ class TestEvaluation:
 
         metrics = OliveEvaluatorConfig(metrics=metrics_config).metrics
         for metric in metrics:
+            assert metric.user_config, "user_config should not be None anytime"
             assert metric.name in ["accuracy", "hf_accuracy", "latency", "test"]

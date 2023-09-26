@@ -51,6 +51,8 @@ from olive.passes.onnx.vitis_ai.refine import adjust_quantize_info
 
 logger = logging.getLogger(__name__)
 
+# ruff: noqa
+
 
 class VitisDPUQuantizer(QDQQuantizer):
     def __init__(

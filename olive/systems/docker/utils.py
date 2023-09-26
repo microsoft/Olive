@@ -9,18 +9,19 @@ from pathlib import Path
 from typing import List
 
 from olive.cache import get_local_path_from_root
-from olive.constants import Framework
 from olive.evaluator.metric import Metric
-from olive.model import OliveModel
+from olive.hardware.accelerator import AcceleratorSpec
+from olive.model import ModelConfig
 
 logger = logging.getLogger(__name__)
 
 
 def create_config_file(
-    tempdir, model: OliveModel, metrics: List[Metric], container_root_path: Path, model_mount_path: str
+    tempdir, model_config: ModelConfig, metrics: List[Metric], container_root_path: Path, model_mounts: dict
 ):
-    model_json = model.to_json(check_object=True)
-    model_json["config"]["model_path"] = model_mount_path
+    model_json = model_config.to_json(check_object=True)
+    for k, v in model_mounts.items():
+        model_json["config"][k] = v
 
     config_file_path = Path(tempdir) / "config.json"
     data = {"metrics": [k.dict() for k in metrics], "model": model_json}
@@ -34,16 +35,17 @@ def create_config_file(
 
 
 def create_evaluate_command(
-    eval_script_path: str, model_path: str, config_path: str, output_path: str, output_name: str
+    eval_script_path: str, config_path: str, output_path: str, output_name: str, accelerator: AcceleratorSpec
 ):
+    # no need to pass model_path since it's already updated in config file
     parameters = [
         f"--config {config_path}",
-        f"--model_path {model_path}",
         f"--output_path {output_path}",
         f"--output_name {output_name}",
+        f"--accelerator_type {accelerator.accelerator_type}",
+        f"--execution_provider {accelerator.execution_provider}",
     ]
-    cmd_line = f"python {eval_script_path} {' '.join(parameters)}"
-    return cmd_line
+    return f"python {eval_script_path} {' '.join(parameters)}"
 
 
 def create_run_command(run_params: dict):
@@ -84,26 +86,21 @@ def create_metric_volumes_list(
     return mount_list
 
 
-def create_model_mount(model: OliveModel, container_root_path: Path):
-    model_resource_path = None
-    if not model.model_resource_path:
-        model_resource_path = None
-    elif model.model_resource_path.is_local_resource() or model.model_resource_path.is_string_name():
-        model_resource_path = model.model_resource_path
-    else:
-        assert model.local_model_path, "local model path not set"
-        model_resource_path = model.local_model_path
-    model_path = model_resource_path.get_path()
-    model_mount_path = str(container_root_path / Path(model_path).name)
-    model_mount_str = f"{str(Path(model_path).resolve())}:{model_mount_path}"
-    model_mount_str_list = [model_mount_str]
+def create_model_mount(model_config: ModelConfig, container_root_path: Path):
+    mounts = {}
+    mount_strs = []
+    resource_paths = model_config.get_resource_paths()
+    for resource_name, resource_path in resource_paths.items():
+        # if the resource path is None or string name, we need not to mount it
+        if not resource_path or resource_path.is_string_name():
+            continue
 
-    if model.framework == Framework.PYTORCH:
-        if model.script_dir:
-            script_dir_mount = f"{model.script_dir}:{container_root_path}"
-            model.script_dir = container_root_path
-            model_mount_str_list.append(script_dir_mount)
-    return model_mount_path, model_mount_str_list
+        relevant_path = resource_path.get_path()
+        resource_path_mount_path = str(container_root_path / Path(relevant_path).name)
+        resource_path_mount_str = f"{str(Path(relevant_path).resolve())}:{resource_path_mount_path}"
+        mounts[resource_name] = resource_path_mount_path
+        mount_strs.append(resource_path_mount_str)
+    return mounts, mount_strs
 
 
 def create_eval_script_mount(container_root_path: Path):
@@ -116,7 +113,7 @@ def create_eval_script_mount(container_root_path: Path):
 def create_dev_mount(tempdir: Path, container_root_path: Path):
     logger.warning(
         "Dev mode is only enabled for CI pipeline! "
-        + "It will overwrite the Olive package in docker container with latest code."
+        "It will overwrite the Olive package in docker container with latest code."
     )
     tempdir = Path(tempdir)
 

@@ -1,0 +1,76 @@
+{   "systems": {
+        "python_system": {
+            "type": "PythonEnvironment",
+            "config": {
+                "accelerators": ["gpu"],
+                "olive_managed_env": true,
+                "requirements_file": "multiple_ep_requirements.txt"
+            }
+        }
+    },
+    "input_model":{
+        "type": "ONNXModel",
+        "config": {
+            "model_path": "models/resnet_trained_for_cifar10.onnx"
+        }
+    },
+    "evaluators": {
+        "common_evaluator":{
+            "metrics":[
+                {
+                    "name": "accuracy",
+                    "type": "accuracy",
+                    "sub_types": [{"name": "accuracy_score", "priority": 1}],
+                    "user_config":{
+                        "post_processing_func": "post_process",
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 1,
+                        "data_dir": "data"
+                    }
+                },
+                {
+                    "name": "latency",
+                    "type": "latency",
+                    "sub_types": [{"name": "avg", "priority": 2}],
+                    "user_config":{
+                        "user_script": "user_script.py",
+                        "dataloader_func": "create_dataloader",
+                        "batch_size": 1,
+                        "data_dir": "data"
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "onnx_quantization": {
+            "type": "OnnxQuantization",
+            "config": {
+                "user_script": "user_script.py",
+                "data_dir": "data",
+                "dataloader_func": "resnet_calibration_reader",
+                "weight_type": "QUInt8",
+                "activation_type": "QUInt8",
+                "quant_preprocess": true
+            }
+        },
+        "perf_tuning": {
+            "type": "OrtPerfTuning",
+            "config": {
+                "user_script": "user_script.py",
+                "dataloader_func": "create_dataloader",
+                "batch_size": 16,
+                "data_dir": "data"
+            }
+        }
+    },
+    "engine": {
+        "evaluator": "common_evaluator",
+        "execution_providers": ["DmlExecutionProvider", "OpenVINOExecutionProvider"],
+        "target": "python_system",
+        "host": "python_system",
+        "cache_dir": "cache",
+        "output_dir": "models/resnet_multiple_ep"
+    }
+}

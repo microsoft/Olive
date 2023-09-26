@@ -5,7 +5,7 @@
 import pickle
 import sys
 from pathlib import Path
-from test.unit_test.utils import get_accuracy_metric, get_latency_metric, get_onnx_model
+from test.unit_test.utils import get_accuracy_metric, get_latency_metric, get_onnx_model, get_onnx_model_config
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -36,9 +36,17 @@ class TestPythonEnvironmentSystem:
 
     @patch("olive.systems.python_environment.PythonEnvironmentSystem.evaluate_accuracy")
     @patch("olive.systems.python_environment.PythonEnvironmentSystem.evaluate_latency")
-    def test_evaluate_model(self, mock_evaluate_latency, mock_evaluate_accuracy):
+    # mock generate_metric_user_config_with_model_io to return the input metric
+    @patch(
+        "olive.evaluator.olive_evaluator.OliveEvaluator.generate_metric_user_config_with_model_io",
+        side_effect=lambda x, _: x,
+    )
+    def test_evaluate_model(self, _, mock_evaluate_latency, mock_evaluate_accuracy):
         # setup
         model = get_onnx_model()
+        model_config = MagicMock()
+        model_config.type = "ONNXModel"
+        model_config.create_model.return_value = model
         metrics = [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE), get_latency_metric(LatencySubType.AVG)]
 
         metrics_key = [
@@ -63,18 +71,18 @@ class TestPythonEnvironmentSystem:
         )
 
         # execute
-        res = self.system.evaluate_model(model, None, metrics, DEFAULT_CPU_ACCELERATOR)
+        res = self.system.evaluate_model(model_config, None, metrics, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         assert res[metrics_key[0]].value == 0.9
         assert res[metrics_key[1]].value == 10
-        assert mock_evaluate_accuracy.call_once_with(model, metrics[0], DEFAULT_CPU_ACCELERATOR)
-        assert mock_evaluate_latency.call_once_with(model, metrics[1], DEFAULT_CPU_ACCELERATOR)
+        mock_evaluate_accuracy.assert_called_once_with(model, None, metrics[0], DEFAULT_CPU_ACCELERATOR)
+        mock_evaluate_latency.assert_called_once_with(model, None, metrics[1], DEFAULT_CPU_ACCELERATOR)
 
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_accuracy")
     def test_evaluate_accuracy(self, mock_compute_accuracy):
         # setup
-        model = get_onnx_model()
+        model_config = get_onnx_model_config()
         metric = get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, random_dataloader=False)
         mock_value = MetricResult.parse_obj(
             {
@@ -89,12 +97,12 @@ class TestPythonEnvironmentSystem:
 
         # expected result
         local_system = LocalSystem()
-        expected_res = local_system.evaluate_model(model, None, [metric], DEFAULT_CPU_ACCELERATOR)[
+        expected_res = local_system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)[
             "accuracy-accuracy_score"
         ]
 
         # execute
-        actual_res = self.system.evaluate_model(model, None, [metric], DEFAULT_CPU_ACCELERATOR)[
+        actual_res = self.system.evaluate_model(model_config, None, [metric], DEFAULT_CPU_ACCELERATOR)[
             "accuracy-accuracy_score"
         ]
 
@@ -106,13 +114,14 @@ class TestPythonEnvironmentSystem:
         # python environment call
         actual_call = mock_compute_accuracy.mock_calls[1]
         assert actual_call.args[0] == expected_call.args[0]
-        assert torch.equal(actual_call.args[1], expected_call.args[1])
+        assert torch.equal(actual_call.args[1].preds, expected_call.args[1].preds)
+        assert torch.equal(actual_call.args[1].logits, expected_call.args[1].logits)
         assert torch.equal(actual_call.args[2], expected_call.args[2])
 
     @patch("olive.evaluator.olive_evaluator.OliveEvaluator.compute_latency")
     def test_evaluate_latency(self, mock_compute_latency):
         # setup
-        model = get_onnx_model()
+        model_config = get_onnx_model_config()
         metric = get_latency_metric(LatencySubType.AVG)
         metric_config = metric.sub_types[0].metric_config
         metric_config.repeat_test_num = 5
@@ -132,12 +141,12 @@ class TestPythonEnvironmentSystem:
         expected_res = 10
 
         # execute
-        actual_res = self.system.evaluate_latency(model, None, metric, DEFAULT_CPU_ACCELERATOR)
+        actual_res = self.system.evaluate_latency(model_config.create_model(), None, metric, DEFAULT_CPU_ACCELERATOR)
 
         # assert
         assert actual_res[LatencySubType.AVG].value == expected_res
         assert len(mock_compute_latency.call_args.args[1]) == metric_config.repeat_test_num
-        assert all([latency > 0 for latency in mock_compute_latency.call_args.args[1]])
+        assert all(latency > 0 for latency in mock_compute_latency.call_args.args[1])
 
     @patch("onnxruntime.get_available_providers")
     def test_available_eps_script(self, mock_get_providers, tmp_path):
@@ -153,7 +162,7 @@ class TestPythonEnvironmentSystem:
         # assert
         assert output_path.exists()
         mock_get_providers.assert_called_once()
-        with open(output_path, "rb") as f:
+        with output_path.open("rb") as f:
             assert pickle.load(f) == ["CPUExecutionProvider"]
 
     @pytest.mark.parametrize("valid", [True, False])
@@ -174,7 +183,7 @@ class TestPythonEnvironmentSystem:
         # assert
         assert output_path.exists()
         mock_get_session.assert_called_once_with("model.onnx", {"execution_provider": "CPUExecutionProvider"})
-        with open(output_path, "rb") as f:
+        with output_path.open("rb") as f:
             if valid:
                 assert pickle.load(f) == {"valid": True}
             else:
@@ -191,13 +200,13 @@ class TestPythonEnvironmentSystem:
         model = "model.onnx"
         inference_settings = {"execution_provider": "CPUExecutionProvider"}
         inference_settings_path = tmp_path / "inference_settings.pkl"
-        with open(inference_settings_path, "wb") as f:
+        with inference_settings_path.open("wb") as f:
             pickle.dump(inference_settings, f)
         input_dir = tmp_path / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
         num_batches = 2
         for i in range(num_batches):
-            np.savez(input_dir / f"input_{i}.npz", **{"input": np.array([i])})
+            np.savez(input_dir / f"input_{i}.npz", input=np.array([i]))
         output_dir = tmp_path / "output"
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -221,14 +230,14 @@ class TestPythonEnvironmentSystem:
         inference_runner_main(args)
 
         # assert
-        assert mock_get_session.call_once_with(model, inference_settings)
+        mock_get_session.assert_called_once_with(model, inference_settings)
         assert mock_inference_session.run.call_count == num_batches
         assert mock_inference_session.run.mock_calls == [
             mock.call(input_feed={"input": np.array([i])}, output_names=None) for i in range(num_batches)
         ]
         for i in range(num_batches):
             assert (output_dir / f"output_{i}.npy").exists()
-            np.load(output_dir / f"output_{i}.npy") == dummy_output
+            assert np.load(output_dir / f"output_{i}.npy") == dummy_output
 
     @pytest.mark.parametrize("io_bind", [True, False])
     @patch("olive.systems.python_environment.inference_runner.get_ort_inference_session")
@@ -247,11 +256,11 @@ class TestPythonEnvironmentSystem:
         model = "model.onnx"
         inference_settings = {"execution_provider": "CPUExecutionProvider"}
         inference_settings_path = tmp_path / "inference_settings.pkl"
-        with open(inference_settings_path, "wb") as f:
+        with inference_settings_path.open("wb") as f:
             pickle.dump(inference_settings, f)
         input_dir = tmp_path / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
-        np.savez(input_dir / "input.npz", **{"input": np.array([1])})
+        np.savez(input_dir / "input.npz", input=np.array([1]))
         output_dir = tmp_path / "output"
         output_dir.mkdir(parents=True, exist_ok=True)
         warmup_num = 1
@@ -282,7 +291,7 @@ class TestPythonEnvironmentSystem:
 
         # assert
         total_num = warmup_num + repeat_test_num
-        assert mock_get_session.call_once_with(model, inference_settings)
+        mock_get_session.assert_called_once_with(model, inference_settings)
         if not io_bind:
             assert mock_inference_session.run.call_count == total_num
             assert mock_inference_session.run.mock_calls == [
@@ -293,3 +302,14 @@ class TestPythonEnvironmentSystem:
             assert mock_inference_session.run_with_iobinding.mock_calls == [
                 mock.call(io_bind_op) for _ in range(total_num)
             ]
+
+    @patch("olive.systems.utils.create_new_system")
+    def test_create_new_system_with_cache(self, mock_create_new_system):
+        from olive.systems.utils import create_new_system_with_cache
+
+        origin_system = PythonEnvironmentSystem(olive_managed_env=True)
+        create_new_system_with_cache(origin_system, DEFAULT_CPU_ACCELERATOR)
+        create_new_system_with_cache(origin_system, DEFAULT_CPU_ACCELERATOR)
+        assert mock_create_new_system.call_count == 1
+        create_new_system_with_cache.cache_clear()
+        assert create_new_system_with_cache.cache_info().currsize == 0

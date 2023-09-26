@@ -97,8 +97,7 @@ class BertDataset:
     def preprocess_function(self, examples):
         sentence1_key, sentence2_key = ("sentence1", "sentence2")
         args = (examples[sentence1_key], examples[sentence2_key])
-        result = self.tokenizer(*args, padding=self.padding, max_length=self.max_seq_length, truncation=True)
-        return result
+        return self.tokenizer(*args, padding=self.padding, max_length=self.max_seq_length, truncation=True)
 
     def get_train_dataset(self):
         self.train_dataset = self.raw_datasets["train"]
@@ -148,10 +147,9 @@ def post_process(output):
 
 def create_dataloader(data_dir, batchsize, *args, **kwargs):
     bert_dataset = BertDataset("Intel/bert-base-uncased-mrpc")
-    eval_dataloader = torch.utils.data.DataLoader(
+    return torch.utils.data.DataLoader(
         BertDatasetWrapper(bert_dataset.get_eval_dataset()), batch_size=batchsize, drop_last=True
     )
-    return eval_dataloader
 
 
 # -------------------------------------------------------------------------
@@ -160,9 +158,7 @@ def create_dataloader(data_dir, batchsize, *args, **kwargs):
 
 
 class IncBertDataset:
-    """
-    Dataset for Intel® Neural Compressor must implement __iter__ or __getitem__ magic method.
-    """
+    """Dataset for Intel® Neural Compressor must implement __iter__ or __getitem__ magic method."""
 
     def __init__(self, dataset):
         self.dataset = dataset
@@ -185,8 +181,7 @@ class IncBertDataset:
 def inc_glue_calibration_reader(data_dir, batch_size=1, *args, **kwargs):
     bert_dataset = BertDataset("Intel/bert-base-uncased-mrpc")
     bert_dataset = IncBertDataset(bert_dataset.get_eval_dataset())
-    calib_dataloader = DefaultDataLoader(dataset=bert_dataset, batch_size=batch_size)
-    return calib_dataloader
+    return DefaultDataLoader(dataset=bert_dataset, batch_size=batch_size)
 
 
 # -------------------------------------------------------------------------
@@ -202,11 +197,11 @@ def eval_accuracy(model: OliveModel, data_dir, batch_size, device, execution_pro
     if model.framework == Framework.ONNX:
         input_names = [i.name for i in sess.get_inputs()]
         output_names = [o.name for o in sess.get_outputs()]
-        for inputs, labels in dataloader:
-            if isinstance(inputs, dict):
-                input_dict = {k: inputs[k].tolist() for k in inputs.keys()}
+        for inputs_i, labels in dataloader:
+            if isinstance(inputs_i, dict):
+                input_dict = {k: inputs_i[k].tolist() for k in inputs_i}
             else:
-                inputs = inputs.tolist()
+                inputs = inputs_i.tolist()
                 input_dict = dict(zip(input_names, [inputs]))
             res = sess.run(input_feed=input_dict, output_names=None)
             if len(output_names) == 1:
@@ -288,7 +283,7 @@ def compute_metrics(p: EvalPrediction):
 
 
 def qat_post_process(output):
-    if isinstance(output, transformers.modeling_outputs.SequenceClassifierOutput) or isinstance(output, dict):
+    if isinstance(output, (transformers.modeling_outputs.SequenceClassifierOutput, dict)):
         _, preds = torch.max(output["logits"], dim=1)
     else:
         try:

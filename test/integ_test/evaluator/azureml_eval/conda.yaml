@@ -5,8 +5,7 @@ dependencies:
   - python=3.8.13
   - pip=22.3.1
   - pip:
-      - azureml-defaults
-      - azureml-dataprep==4.8.4
+      - azureml-dataprep!=4.12.0
       - onnxruntime
       - datasets
       - transformers

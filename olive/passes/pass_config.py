@@ -9,22 +9,18 @@ from typing import Callable, Dict, Optional, Type, Union
 from pydantic import create_model, validator
 
 from olive.common.config_utils import ConfigBase, ConfigParam, ParamCategory, validate_object, validate_resource_path
-from olive.data.config import DataConfig
 from olive.strategy.search_parameter import SearchParameter, json_to_search_parameter
 
 
 class PassParamDefault(str, Enum):
-    """
-    Default values for passes.
-    """
+    """Default values for passes."""
 
     DEFAULT_VALUE = "DEFAULT_VALUE"
     SEARCHABLE_VALUES = "SEARCHABLE_VALUES"
 
 
 class PassConfigParam(ConfigParam):
-    """
-    Dataclass for pass configuration parameters.
+    """Dataclass for pass configuration parameters.
 
     Parameters
     ----------
@@ -56,7 +52,7 @@ class PassConfigParam(ConfigParam):
         return f"({', '.join(repr_list)})"
 
 
-# TODO: set types for user_script and script_dir once we decide on a convention
+# TODO(jambayk): set types for user_script and script_dir once we decide on a convention
 def get_user_script_config(
     required: Optional[bool] = False, allow_path: Optional[bool] = False
 ) -> Dict[str, PassConfigParam]:
@@ -81,21 +77,7 @@ def get_user_script_config(
             ),
         ),
     }
-    return user_script_config
-
-
-def get_data_config(required: Optional[bool] = False):
-    data_config = {
-        "data_config": PassConfigParam(
-            type_=Union[DataConfig, str],
-            required=required,
-            description="""
-                Data config for calibration, required if quant_mode is 'static'.
-                If not provided, a default DataConfig will be used.
-            """,
-        )
-    }
-    return data_config
+    return user_script_config  # noqa: RET504
 
 
 class PassConfigBase(ConfigBase):
@@ -106,7 +88,7 @@ class PassConfigBase(ConfigBase):
         finally:
             if field.required and isinstance(v, PassParamDefault):
                 raise ValueError(f"{field.name} is required and cannot be set to {v.value}")
-            return v
+            return v  # noqa: B012
 
     @validator("*", pre=True)
     def _validate_search_parameter(cls, v):
@@ -121,9 +103,7 @@ def create_config_class(
     disable_search: Optional[bool] = False,
     validators: Dict[str, Callable] = None,
 ) -> Type[PassConfigBase]:
-    """
-    Create a Pydantic model class from a configuration dictionary.
-    """
+    """Create a Pydantic model class from a configuration dictionary."""
     config = {}
     validators = validators.copy() if validators else {}
     for param, param_config in default_config.items():

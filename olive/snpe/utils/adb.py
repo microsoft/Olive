@@ -11,8 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_snpe_android_root() -> str:
-    """
-    Get the SNPE Android root directory from the SNPE_ANDROID_ROOT environment variable.
+    """Get the SNPE Android root directory from the SNPE_ANDROID_ROOT environment variable.
 
     On Linux, this is the same as the SNPE_ROOT environment variable.
     On Windows, this is the complete (non-Windows) unzipped SNPE SDK directory.
@@ -21,14 +20,13 @@ def get_snpe_android_root() -> str:
         snpe_android_root = os.environ["SNPE_ANDROID_ROOT"]
         logger.debug(f"SNPE_ANDROID_ROOT is set to {snpe_android_root}")
     except KeyError:
-        raise ValueError("SNPE_ANDROID_ROOT is not set")
+        raise ValueError("SNPE_ANDROID_ROOT is not set") from None
 
     return snpe_android_root
 
 
 def get_snpe_android_arch(snpe_android_root: str) -> str:
-    """
-    Get the SNPE Android architecture from the SNPE Android root directory.
+    """Get the SNPE Android architecture from the SNPE Android root directory.
 
     snpe_android_root: The unzipped SNPE SDK directory
     """
@@ -48,8 +46,7 @@ def get_snpe_android_arch(snpe_android_root: str) -> str:
 def run_adb_command(
     cmd: str, android_target: str, shell_cmd: bool = False, runs: int = 1, sleep: int = 0, log_error: bool = True
 ) -> Tuple[str, str]:
-    """
-    Run an ADB command on the target Android device.
+    """Run an ADB command on the target Android device.
 
     cmd: The command to run
     android_target: The target Android device
@@ -94,8 +91,7 @@ def run_adb_command(
 
 
 def adb_push(src: str, dst: str, android_target: str, clean: bool = False):
-    """
-    Push a file or directory to the target Android device.
+    """Push a file or directory to the target Android device.
 
     src: The source file or directory
     dst: The destination directory
@@ -122,8 +118,7 @@ def adb_push(src: str, dst: str, android_target: str, clean: bool = False):
 
 
 def get_snpe_adb_env(android_target: str, push_snpe: bool = True) -> dict:
-    """
-    Get the environment variables for running SNPE on the target Android device.
+    """Get the environment variables for running SNPE on the target Android device.
 
     android_target: The target Android device
     push_snpe: Whether to push the SNPE SDK to the target Android device
@@ -156,18 +151,15 @@ def get_snpe_adb_env(android_target: str, push_snpe: bool = True) -> dict:
             run_adb_command(f"chmod u+x {adb_bin_dir}/{file.name}", android_target, shell_cmd=True)
 
     # environment variables
-    env = {
+    return {
         "LD_LIBRARY_PATH": f"$LD_LIBRARY_PATH:{adb_lib_dir}",
         "PATH": f"$PATH:{adb_bin_dir}",
         "ADSP_LIBRARY_PATH": f"'{adb_dsp_lib_dir};/system/lib/rfsa/adsp;/system/vendor/lib/rfsa/adsp;/dsp'",
     }
 
-    return env
-
 
 def prepare_snpe_adb(android_target: str):
-    """
-    Prepare the target Android device for running SNPE.
+    """Prepare the target Android device for running SNPE.
 
     android_target: The target Android device
     """
@@ -178,8 +170,7 @@ def prepare_snpe_adb(android_target: str):
 def run_snpe_adb_command(
     cmd: str, android_target: str, push_snpe: bool = True, runs: int = 1, sleep: int = 0, log_error: bool = True
 ):
-    """
-    Run a SNPE command on the target Android device.
+    """Run a SNPE command on the target Android device.
 
     cmd: The command to run
     android_target: The target Android device

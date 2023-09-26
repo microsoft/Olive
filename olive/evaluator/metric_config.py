@@ -59,7 +59,7 @@ def get_user_config_properties_from_metric_type(metric_type):
     return list(user_config_class.__fields__)
 
 
-# TODO: automate latency metric config also we standardize accuracy metric config
+# TODO(jambayk): automate latency metric config also we standardize accuracy metric config
 class LatencyMetricConfig(ConfigBase):
     warmup_num: int = WARMUP_NUM
     repeat_test_num: int = REPEAT_TEST_NUM
@@ -67,7 +67,7 @@ class LatencyMetricConfig(ConfigBase):
 
 
 class MetricGoal(ConfigBase):
-    type: str  # threshold , deviation, percent-deviation
+    type: str  # threshold , deviation, percent-deviation, # noqa: A003
     value: float
 
     @validator("type")

@@ -11,9 +11,7 @@ from olive.strategy.utils import order_search_parameters
 
 
 class SearchSpace:
-    """
-    Search space for a search algorithm.
-    """
+    """Search space for a search algorithm."""
 
     def __init__(self, search_space: Dict[str, Dict[str, SearchParameter]], seed: Optional[int] = 1):
         # search_space is dictionary of format: {"pass_id/space_name": {"param_name": SearchParameter}
@@ -24,33 +22,25 @@ class SearchSpace:
         self.rng = Random(self._seed)
 
     def _order_search_space(self, search_space) -> List[Tuple[str, str]]:
-        """
-        Order the search space by topological order of parameters for each pass_id/space_name.
-        """
+        """Order the search space by topological order of parameters for each pass_id/space_name."""
         full_iter_order = []
-        for space_name, search_space in search_space.items():
-            iter_order = order_search_parameters(search_space)
+        for space_name, space_item in search_space.items():
+            iter_order = order_search_parameters(space_item)
             for param_name in iter_order:
                 full_iter_order.append((space_name, param_name))
         return full_iter_order
 
     def set_seed(self, seed: int):
-        """
-        Set the random seed for the search space.
-        """
+        """Set the random seed for the search space."""
         self._seed = seed
         self.reset_rng()
 
     def reset_rng(self):
-        """
-        Reset the random number generator.
-        """
+        """Reset the random number generator."""
         self.rng = Random(self._seed)
 
     def random_sample(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Sample a random configuration from the search space.
-        """
+        """Sample a random configuration from the search space."""
         # initialize search point
         search_point = deepcopy(self._empty_search_point)
 
@@ -90,9 +80,7 @@ class SearchSpace:
             yield from self._iterate_util(full_iter_order, search_point, index + 1)
 
     def iterate(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Iterate over all possible configurations in the search space.
-        """
+        """Iterate over all possible configurations in the search space."""
         # initialize search point
         search_point = deepcopy(self._empty_search_point)
 
@@ -100,32 +88,21 @@ class SearchSpace:
         yield from self._iterate_util(self._iter_order, search_point, 0)
 
     def empty(self) -> bool:
-        """
-        Check if the search space is empty.
-        """
-        for _, v in self._search_space.items():
-            if v:
-                return False
-        return True
+        """Check if the search space is empty."""
+        return all(not v for v in self._search_space.values())
 
     def size(self) -> int:
-        """
-        Get the size of the search space.
-        """
+        """Get the size of the search space."""
         size = 0
         for _ in self.iterate():
             size += 1
         return size
 
     def empty_search_point(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Get an empty search point.
-        """
+        """Get an empty search point."""
         return deepcopy(self._empty_search_point)
 
     def iter_params(self) -> Tuple[str, str, SearchParameter]:
-        """
-        Iterate over the search parameters in topological order.
-        """
+        """Iterate over the search parameters in topological order."""
         for space_name, param_name in self._iter_order:
             yield space_name, param_name, self._search_space[space_name][param_name]

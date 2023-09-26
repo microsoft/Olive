@@ -9,8 +9,7 @@ def resolve_input_list(
     input_path_parent: str = None,
     resolved_filename: str = "input_list.txt",
 ) -> str:
-    """
-    Resolve the paths in an input list file to absolute paths.
+    """Resolve the paths in an input list file to absolute paths.
 
     data_dir: The directory to make the resolved paths children of.
     input_list_file: The input list file to resolve. Unless input_path_parent is specified, the paths in the input
@@ -23,32 +22,32 @@ def resolve_input_list(
     """
     resolved_input_list_file = (Path(dest_dir) / resolved_filename).resolve()
 
-    with open(input_list_file, "r") as input_list, open(resolved_input_list_file, "w") as resolved_input_list:
+    with Path(input_list_file).open() as input_list, resolved_input_list_file.open("w") as resolved_input_list:
         for line in input_list:
             # skip output lines
-            if line.startswith("#") or line.startswith("%"):
+            if line.startswith(("#", "%")):
                 resolved_input_list.write(line)
                 continue
 
             # split the line into inputs
             inputs = line.strip().split(" ")
-            if len(inputs) > 1 and not all([":=" in x for x in inputs]):
+            if len(inputs) > 1 and not all(":=" in x for x in inputs):
                 raise ValueError(
                     "Invalid input list. For multiple inputs, input lines must be of the form:"
                     " <input_layer_name>:=<input_layer_path>[<space><input_layer_name>:=<input_layer_path>]"
                 )
             # line to write to the resolved input list
             inputs_line = ""
-            for input in inputs:
-                if ":=" in input:
+            for input_item in inputs:
+                if ":=" in input_item:
                     # multiple inputs on the same line
-                    input_name, input_path = input.split(":=")
+                    input_name, input_path = input_item.split(":=")
                     if input_path_parent is not None:
                         input_path = Path(input_path).relative_to(Path(input_path_parent))
                     input_path = (Path(data_dir) / input_path).as_posix()
                     inputs_line += f"{input_name}:={input_path} "
                 else:
-                    input_path = input
+                    input_path = input_item
                     if input_path_parent is not None:
                         input_path = Path(input_path).relative_to(Path(input_path_parent))
                     input_path = (Path(data_dir) / input_path).as_posix()
@@ -59,12 +58,9 @@ def resolve_input_list(
 
 
 def get_dir_members(dir_path: str) -> set:
-    """
-    Get the members of a directory in sorted order.
-    """
+    """Get the members of a directory in sorted order."""
     members = [member.relative_to(dir_path) for member in dir_path.glob("**/*")]
-    members = sorted(set(members))
-    return members
+    return sorted(set(members))
 
 
 def create_input_list(
@@ -78,8 +74,7 @@ def create_input_list(
     append_0: bool = False,
     num_samples: int = None,
 ) -> str:
-    """
-    Create an input list file for a data directory.
+    """Create an input list file for a data directory.
 
     data_dir: The data directory to create the input list file for.
     input_names: The names of the inputs.
@@ -133,7 +128,7 @@ def create_input_list(
         input_dir_members = input_dir_members[:num_samples]
     for member in input_dir_members:
         if not add_input_names:
-            input_list_content += f"{input_dirs[0]}/{member.as_posix()}" + "\n"
+            input_list_content += f"{input_dirs[0]}/{member.as_posix()}" + "\n"  # noqa: ISC003
         else:
             input_list_content += (
                 " ".join(
@@ -146,21 +141,19 @@ def create_input_list(
             )
 
     input_list_file = input_list_file or str(data_dir_path / "input_list.txt")
-    with open(input_list_file, "wb") as f:
+    with Path(input_list_file).open("wb") as f:
         f.write(input_list_content.encode("utf-8"))
 
     return input_list_file
 
 
 def get_input_list(data_dir: str, input_list_file: str, tmp_dir: str):
-    """
-    Get the resolved input list file.
+    """Get the resolved input list file.
 
     data_dir: The data directory.
     input_list_file: Name of the input list file. This file is assumed to be in the data directory.
     tmp_dir: The directory to write the resolved input list file to.
     """
-
     data_dir_path = Path(data_dir).resolve()
     if not data_dir_path.is_dir():
         raise FileNotFoundError(f"Data directory '{data_dir}' ({str(data_dir_path)}) does not exist")
@@ -175,17 +168,16 @@ def get_input_list(data_dir: str, input_list_file: str, tmp_dir: str):
 
 
 def get_input_ids(input_list_file: str) -> List[str]:
-    """
-    Get the input IDs from an input list file.
+    """Get the input IDs from an input list file.
 
     Only returns one id per sample (line) if there are multiple inputs.
     Assumes all inputs have the same id for a given sample.
     """
     input_ids = []
-    with open(input_list_file, "r") as input_list:
+    with Path(input_list_file).open() as input_list:
         for line in input_list:
             # skip output lines
-            if line.startswith("#") or line.startswith("%"):
+            if line.startswith(("#", "%")):
                 continue
 
             # split the line into inputs

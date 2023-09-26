@@ -13,7 +13,12 @@
                     "split": "validation",
                     "input_cols": ["sentence1", "sentence2"],
                     "label_cols": ["label"],
-                    "batch_size": 1
+                    "batch_size": 1,
+                    "component_kwargs": {
+                        "pre_process_data": {
+                            "align_labels": true
+                        }
+                    }
                 }
             },
             "io_config" : {
@@ -63,7 +68,7 @@
                     "sub_types": [
                         {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                         {"name": "f1_score", "metric_config": {"multiclass": false}},
-                        {"name": "auc", "metric_config": {"reorder": true}}
+                        {"name": "auroc", "metric_config": {"num_classes": 2}}
                     ]
                 },
                 {
@@ -96,7 +101,10 @@
             }
         },
         "quantization": {
-            "type": "OnnxQuantization"
+            "type": "OnnxQuantization",
+            "config": {
+                "data_config": "__input_model_data_config__"
+            }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",

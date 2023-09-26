@@ -9,12 +9,12 @@ import sys
 from pathlib import Path
 
 import pytest
-from utils import check_no_search_output
+from utils import check_output
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
-    """setup any state specific to the execution of the given module."""
+    """Setups any state specific to the execution of the given module."""
     cur_dir = Path(__file__).resolve().parent.parent
     example_dir = str(cur_dir / "whisper")
     os.chdir(example_dir)
@@ -23,7 +23,7 @@ def setup():
     # prepare configs
     from prepare_whisper_configs import main as prepare_whisper_configs
 
-    prepare_whisper_configs([])
+    prepare_whisper_configs(["--package_model"])
 
     yield
     os.chdir(cur_dir)
@@ -39,11 +39,12 @@ def test_whisper(device_precision):
 
     device, precision = device_precision
     config_file = f"whisper_{device}_{precision}.json"
-    olive_config = json.load(open(config_file, "r"))
+    with open(config_file) as f:  # noqa: PTH123
+        olive_config = json.load(f)
 
     # test workflow
     result = olive_run(olive_config)
-    check_no_search_output(result)
+    check_output(result)
 
     # test transcription
     from test_transcription import main as test_transcription

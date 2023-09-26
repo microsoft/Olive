@@ -47,7 +47,7 @@
             "config": {
                 "model_type": "gpt2",
                 "float16": true,
-                "use_gpu": false,
+                "use_gpu": true,
                 "keep_io_types": true,
                 "num_heads": 32,
                 "hidden_size": 4096,
@@ -66,6 +66,6 @@
         "output_name": "ollama",
         "target": "local_system",
         "host": "local_system",
-        "output_dir": "footprints"
+        "output_dir": "models/open_llama"
     }
 }

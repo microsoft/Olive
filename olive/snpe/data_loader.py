@@ -18,14 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 class SNPEDataLoader(ABC):
-    """
-    Abstraction for logical "SNPEDataLoader", it contains data path and related metadata.
-    """
+    """Abstraction for logical "SNPEDataLoader", it contains data path and related metadata."""
 
     def __init__(self, config: dict, batch_size: int = None):
-        """
-        :param config: data loader specific config
-        """
+        """:param config: data loader specific config."""
         self.config = config
         self.batch_size = batch_size
         self.tmp_dir = None
@@ -34,11 +30,11 @@ class SNPEDataLoader(ABC):
 
     @abstractmethod
     def load_data(self) -> Tuple[str, str, Any]:
-        """
-        Return path to data directory, input list file and loaded annotation
+        """Return path to data directory, input list file and loaded annotation.
+
         Derived class should override this method
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def prepare_batches(self):
         if self.batch_size is None:
@@ -55,9 +51,9 @@ class SNPEDataLoader(ABC):
 
         self.batch_input_list_headers = []
         self.batch_input_list_contents = []
-        with open(self.input_list, "r") as f, open(batch_input_list, "r") as f_batch:
+        with open(self.input_list) as f, open(batch_input_list) as f_batch:  # noqa: PTH123
             for line, line_batch in zip(f, f_batch):
-                if line.startswith("#") or line.startswith("%"):
+                if line.startswith(("#", "%")):
                     self.batch_input_list_headers.append(line.strip())
                 else:
                     self.batch_input_list_contents.append((line.strip(), line_batch.strip()))
@@ -65,16 +61,16 @@ class SNPEDataLoader(ABC):
         self.batch_input_list_metadata = []
         for line, line_batch in self.batch_input_list_contents:
             to_copy = []
-            for input, input_batch in zip(line.split(), line_batch.split()):
-                if ":=" in input:
-                    to_copy.append((input.split(":=")[1], input_batch.split(":=")[1]))
+            for input_str, input_batch in zip(line.split(), line_batch.split()):
+                if ":=" in input_str:
+                    to_copy.append((input_str.split(":=")[1], input_batch.split(":=")[1]))
                 else:
-                    to_copy.append((input, input_batch))
+                    to_copy.append((input_str, input_batch))
             self.batch_input_list_metadata.append((line_batch, to_copy))
 
         self.batches = []
         for i in range(0, len(self.batch_input_list_metadata), self.batch_size):
-            self.batches.append(self.batch_input_list_metadata[i : i + self.batch_size])  # noqa: E203
+            self.batches.append(self.batch_input_list_metadata[i : i + self.batch_size])  # noqa: E203, RUF100
         self.num_batches = len(self.batches)
 
     def get_batch(self, batch_id):
@@ -87,25 +83,25 @@ class SNPEDataLoader(ABC):
             annotation = None
             if self.annotation is not None:
                 annotation = self.annotation[
-                    self.batch_size * batch_id : self.batch_size * (batch_id + 1)  # noqa: E203
+                    self.batch_size * batch_id : self.batch_size * (batch_id + 1)  # noqa: E203, RUF100
                 ]
             batch = self.batches[batch_id]
 
             shutil.rmtree(self.batch_dir, ignore_errors=True)
             for _, to_copy in batch:
-                for input, input_batch in to_copy:
+                for input_str, input_batch in to_copy:
                     Path(input_batch).parent.mkdir(parents=True, exist_ok=True)
                     # Path(input_batch).symlink_to(input)
-                    shutil.copy(input, input_batch)
+                    shutil.copy(input_str, input_batch)
 
-            batch_input_list = str(Path(self.batch_dir) / "input_list.txt")
-            with open(batch_input_list, "w") as f:
+            batch_input_list = Path(self.batch_dir) / "input_list.txt"
+            with batch_input_list.open("w") as f:
                 for header in self.batch_input_list_headers:
                     f.write(f"{header}\n")
                 for line_batch, _ in batch:
                     f.write(f"{line_batch}\n")
 
-            return self.batch_dir, batch_input_list, annotation
+            return self.batch_dir, str(batch_input_list), annotation
 
     def __len__(self):
         return self.num_batches
@@ -196,7 +192,7 @@ class SNPERandomDataLoader(SNPEDataLoader):
         ):
             input_dir = data_dir / input_name
             input_dir.mkdir(parents=True, exist_ok=True)
-            raw_shape = np.product(input_shape)
+            raw_shape = np.product(input_shape)  # noqa: NPY003
             name_length = len(str(self.config["num_samples"]))
             for i in range(self.config["num_samples"]):
                 input_file = input_dir / (f"{i}".zfill(name_length) + ".raw")
@@ -220,12 +216,11 @@ class SNPERandomDataLoader(SNPEDataLoader):
 
 
 class SNPECommonDataLoader(SNPEDataLoader):
-    """
-    SNPE dataloader created from a common dataloader such as torch.data.DataLoader
-    """
+    """SNPE dataloader created from a common dataloader such as torch.data.DataLoader."""
 
     def __init__(self, dataloader: Any, io_config: dict, batch_size: int = None):
-        """
+        """Intialize SNPE Dataloader.
+
         :param dataloader: dataloader object. Dataloader must be iterable and return a tuple of (input, target).
         input is a dictionary of input names and input tensors.
         :param io_config: dictionary containing input and output names and shapes of the model.
@@ -271,11 +266,11 @@ class SNPECommonDataLoader(SNPEDataLoader):
             # e.g. source_shape = [1, 3, 224, 224], target_shape = [1, 224, 224, 3]
             #      -> permutation = [0, 2, 3, 1]
             # NCDHW -> NDHWC, NCHW -> NHWC, NFC -> NCF
-            channel_permutation = [0] + list(range(2, len(source_shape))) + [1]
+            channel_permutation = [0, *list(range(2, len(source_shape))), 1]
             # NTF -> TNF
-            # TODO: confirm if it is NTF -> TNF or TNF -> NTF. Doesn't really matter since the first two
+            # TODO(jambayk): confirm if it is NTF -> TNF or TNF -> NTF. Doesn't really matter since the first two
             # dimensions are transposed anyway
-            time_permutation = [1, 0] + list(range(2, len(source_shape)))
+            time_permutation = [1, 0, *list(range(2, len(source_shape)))]
             if source_shape == target_shape:
                 permutation = None  # no permutation needed
             elif target_shape == [source_shape[idx] for idx in channel_permutation]:
@@ -299,19 +294,20 @@ class SNPECommonDataLoader(SNPEDataLoader):
         annotations = []
         num_samples = len(self.config["dataloader"])
         sample_digits = len(str(num_samples))
-        for i, (input_data, annotation) in enumerate(self.config["dataloader"]):
-            if isinstance(input_data, tuple):
-                input_data = dict(zip(input_specs.keys(), input_data))
-            elif isinstance(input_data, torch.Tensor) or isinstance(input_data, np.ndarray):
-                input_data = dict(zip(input_specs.keys(), [input_data]))
+        for i, (input_data_i, annotation) in enumerate(self.config["dataloader"]):
+            if isinstance(input_data_i, tuple):
+                input_data = dict(zip(input_specs.keys(), input_data_i))
+            elif isinstance(input_data_i, (torch.Tensor, np.ndarray)):
+                input_data = dict(zip(input_specs.keys(), [input_data_i]))
             else:
+                input_data = input_data_i
                 assert isinstance(
                     input_data, dict
                 ), f"Input data must be a tuple, torch.Tensor, np.ndarray, or dict. Got {type(input_data)}"
 
             input_file_name = f"{i}.bin".zfill(sample_digits + 4)
             input_order.append(input_file_name)
-            for input_name, input_spec in input_specs.items():
+            for input_spec in input_specs.values():
                 data = input_data[input_spec["source_name"]]
                 # snpe data loader only supports float32
                 data = np.array(data, dtype=np.float32)
@@ -334,7 +330,7 @@ class SNPECommonDataLoader(SNPEDataLoader):
         input_list_file = input_list_utils.create_input_list(
             data_dir=str(data_dir),
             input_names=list(input_specs.keys()),
-            input_dirs=[input_specs[input_name]["source_name"] for input_name in input_specs.keys()],
+            input_dirs=[input_specs[input_name]["source_name"] for input_name in input_specs],
             add_input_names=len(input_specs) > 1,
             add_output_names=len(self.config["io_config"]["output_names"]) > 1,
             output_names=self.config["io_config"]["output_names"],

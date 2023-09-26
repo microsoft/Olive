@@ -2,17 +2,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import json
 import os
 from pathlib import Path
 
 import pytest
-from utils import check_no_search_output, update_azureml_config
+from utils import check_output, patch_config
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
-    """setup any state specific to the execution of the given module."""
+    """Setups any state specific to the execution of the given module."""
     cur_dir = Path(__file__).resolve().parent.parent
     example_dir = cur_dir / "bert"
     os.chdir(example_dir)
@@ -20,20 +19,27 @@ def setup():
     os.chdir(cur_dir)
 
 
-def test_bert():
+@pytest.mark.parametrize(
+    "olive_test_knob",
+    [
+        # aml system test
+        ("bert_ptq_cpu.json", "tpe", "joint", "aml_system"),
+        # aml model test in local system
+        ("bert_ptq_cpu_aml.json", False, None, "local_system"),
+        # aml model test in aml system
+        ("bert_ptq_cpu_aml.json", False, None, "aml_system"),
+    ],
+)
+def test_bert(olive_test_knob):
+    # olive_config: (config_json_path, search_algorithm, execution_order, system)
+    # bert_ptq_cpu.json: use huggingface model id
+    # bert_ptq_cpu_aml.json: use aml model path
     from olive.workflows import run as olive_run
 
-    olive_config = None
-    with open("bert_ptq_cpu_aml.json", "r") as fin:
-        olive_config = json.load(fin)
-
-    # set log severity to debug
-    olive_config["engine"]["log_severity_level"] = 0
-    # set cache clean to True
-    olive_config["engine"]["clean_cache"] = True
-
-    # update azureml config
-    update_azureml_config(olive_config)
+    olive_config = patch_config(*olive_test_knob)
+    if olive_test_knob[3] == "aml_system":
+        # remove the invalid OpenVINOExecutionProvider for bert aml system.
+        olive_config["engine"]["execution_providers"] = ["CPUExecutionProvider"]
 
     output = olive_run(olive_config)
-    check_no_search_output(output)
+    check_output(output)

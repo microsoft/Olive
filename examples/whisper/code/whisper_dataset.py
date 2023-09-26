@@ -33,7 +33,7 @@ class WhisperDataset:
         self.data = []
         for audio_file in audio_files:
             if use_audio_decoder:
-                with open(audio_file, "rb") as _f:
+                with open(audio_file, "rb") as _f:  # noqa: PTH123
                     audio_blob = np.asarray(list(_f.read()), dtype=np.uint8)
                 audio_input_name = "audio_stream"
             else:
@@ -59,7 +59,7 @@ class WhisperDataset:
             config = AutoConfig.from_pretrained(model_name)
             processor = AutoProcessor.from_pretrained(model_name)
             forced_decoder_ids = processor.get_decoder_prompt_ids(language=language, task=task)
-            forced_decoder_ids = [config.decoder_start_token_id] + list(map(lambda token: token[1], forced_decoder_ids))
+            forced_decoder_ids = [config.decoder_start_token_id, *[token[1] for token in forced_decoder_ids]]
             inputs["decoder_input_ids"] = np.asarray([forced_decoder_ids], dtype=np.int32)
 
             self.data.append(inputs)

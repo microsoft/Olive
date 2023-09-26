@@ -24,6 +24,7 @@
     },
     "engine": {
         "host": "local_system",
+        "evaluate_input_model": false,
         "clean_cache": true,
         "cache_dir": "cache",
         "output_dir": "models"

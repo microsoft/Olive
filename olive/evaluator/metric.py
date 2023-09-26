@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import json
 import logging
 from enum import Enum
 from typing import ClassVar, Dict, List, Optional, Union
@@ -27,7 +28,7 @@ class AccuracySubType(str, Enum):
     F1_SCORE = "f1_score"
     PRECISION = "precision"
     RECALL = "recall"
-    AUC = "auc"
+    AUROC = "auroc"
     PERPLEXITY = "perplexity"
 
 
@@ -79,7 +80,7 @@ class SubMetric(ConfigBase):
 
 class Metric(ConfigBase):
     name: str
-    type: MetricType
+    type: MetricType  # noqa: A003
     backend: Optional[str] = "torch_metrics"
     sub_types: List[SubMetric]
     user_config: ConfigBase = None
@@ -126,7 +127,7 @@ class Metric(ConfigBase):
         except ValueError:
             raise ValueError(
                 f"sub_type {v['name']} is not in {list(sub_type_enum.__members__.keys())} for {values['type']} metric"
-            )
+            ) from None
 
         # metric_config
         metric_config_cls = None
@@ -145,7 +146,7 @@ class Metric(ConfigBase):
 
         return v
 
-    @validator("user_config", pre=True)
+    @validator("user_config", pre=True, always=True)
     def validate_user_config(cls, v, values):
         if "type" not in values:
             raise ValueError("Invalid type")
@@ -174,7 +175,7 @@ class MetricResult(ConfigDictBase):
 
     def __str__(self) -> str:
         repr_obj = {k: v.value for k, v in self.__root__.items()}
-        return f"{repr_obj}"
+        return json.dumps(repr_obj, indent=2)
 
 
 def joint_metric_key(metric_name, sub_type_name):

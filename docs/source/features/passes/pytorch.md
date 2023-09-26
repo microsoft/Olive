@@ -2,6 +2,34 @@
 
 PyTorch is an optimized tensor library for deep learning using GPUs and CPUs.
 
+## QLoRA
+`QLoRA` is an efficient finetuning approach that reduces memory usage by backpropagating gradients through a frozen, 4-bit quantized pretrained model into Low Rank Adapters (LoRA). It is based on
+the QLoRA [paper](https://arxiv.org/abs/2305.14314) and [code](https://github.com/artidoro/qlora/blob/main/qlora.py). More information on LoRA can be found in the [paper](https://arxiv.org/abs/2106.09685).
+
+The output model is the input transformers model along with the quantization config and the fine-tuned LoRA adapters. The adapters can be loaded and/or merged into the original model using the
+`peft` library from Hugging Face.
+
+This pass only supports Hugging Face transformers PyTorch models. Please refer to [QLoRA](qlora) for more details about the pass and its config parameters.
+
+**Note:** QLoRA requires a GPU to run.
+
+### Example Configuration
+```json
+{
+    "type": "QLoRA",
+    "config": {
+        "compute_dtype": "bfloat16",
+        "quant_type": "nf4",
+        "train_data_config": // ...,
+        "training_args": {
+            "learning_rate": 0.0002,
+            // ...
+        }
+    }
+}
+```
+Please refer to [QLoRA HFTrainingArguments](qlora_hf_training_arguments) for more details on supported the `"training_args"` and their default values.
+
 ## Quantization Aware Training
 The Quantization Aware Training (QAT) technique is used to improve the performance and efficiency of deep learning models by quantizing their
 weights and activations to lower bit-widths. The technique is applied during training, where the weights and activations are fake quantized
@@ -67,6 +95,8 @@ as 2:4 and 4:8 patterns.
 
 Please refer to the original paper linked above for more details on the algorithm and performance results for different models, sparsities and datasets.
 
+This pass only supports Hugging Face transformers PyTorch models. Please refer to [SparseGPT](sparsegpt) for more details on the types of transformers models supported.
+
 **Note:** TensorRT can accelerate inference on 2:4 sparse models as described in [this blog](https://developer.nvidia.com/blog/accelerating-inference-with-sparsity-using-ampere-and-tensorrt/).
 
 ### Example Configuration
@@ -80,5 +110,19 @@ Please refer to the original paper linked above for more details on the algorith
 {
     "type": "SparseGPT",
     "config": {"sparsity": [2,4]}
+}
+```
+
+## TorchTRTConversion
+`TorchTRTConversion` converts the `torch.nn.Linear` modules in the transformer layers in a Hugging Face PyTorch model to `TRTModules` from `torch_tensorrt` with fp16 precision and sparse weights, if
+applicable. `torch_tensorrt` is an extension to `torch` where TensorRT compiled engines can be used like regular `torch.nn.Module`s. This pass can be used to accelerate inference on transformer models
+with sparse weights by taking advantage of the 2:4 structured sparsity pattern supported by TensorRT.
+
+This pass only supports Hugging Face transformers PyTorch models. Please refer to [TorchTRTConversion](torch_trt_conversion) for more details on the types of transformers models supported.
+
+### Example Configuration
+```json
+{
+    "type": "TorchTRTConversion"
 }
 ```

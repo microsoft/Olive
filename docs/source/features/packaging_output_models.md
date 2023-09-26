@@ -21,6 +21,27 @@ Zipfile packaging will generate a ZIP file which includes 3 folders: `CandidateM
 
 Each `BestCandidateModel` folder will include model file/folder. The folder also includes a json file which includes the Olive Pass run history configurations since input model, a json file with performance metrics and a json file for inference settings for the candidate model if the candidate model is an ONNX model.
 
+##### Inference config file
+The inference config file is a json file including `execution_provider` and `session_options`. e.g.:
+
+```
+{
+    "execution_provider": [
+        [
+            "CPUExecutionProvider",
+            {}
+        ]
+    ],
+    "session_options": {
+        "execution_mode": 1,
+        "graph_optimization_level": 99,
+        "extra_session_config": null,
+        "inter_op_num_threads": 1,
+        "intra_op_num_threads": 64
+    }
+}
+```
+
 #### SampleCode
 Olive will only provide sample codes for ONNX model. Sample code supports 3 different programming languages: `C++`, `C#` and `Python`. And a code snippet introducing how to use Olive output artifacts to inference candidate model with recommended inference configurations.
 
@@ -33,6 +54,8 @@ Olive packaging configuration is configured in `PackagingConfig` in Engine confi
       Olive packaging type. Olive will package different artifacts based on `type`.
     * `name [str]`:
       For `PackagingType.Zipfile` type, Olive will generate a ZIP file with `name` prefix: `<name>.zip`. By default, the output artifacts will be named as `OutputModels.zip`.
+    * `export_in_mlflow_format [bool]`:
+      Export model in mlflow format. This is `false` by default.
 
 You can add `PackagingConfig` to Engine configurations. e.g.:
 

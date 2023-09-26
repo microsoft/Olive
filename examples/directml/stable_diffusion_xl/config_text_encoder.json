@@ -79,6 +79,7 @@
         },
         "optimize": {
             "type": "OrtTransformersOptimization",
+            "disable_search": true,
             "config": {
                 "model_type": "clip",
                 "float16": true,

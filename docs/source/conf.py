@@ -3,6 +3,7 @@ import sys
 
 import sphinx_rtd_theme
 
+# ruff: noqa
 sys.path.append(os.path.abspath("exts"))
 # Configuration file for the Sphinx documentation builder.
 #
@@ -63,6 +64,9 @@ html_static_path = ["_static"]
 html_css_files = [
     "css/width.css",
 ]
+html_js_files = [
+    "js/custom_version.js",
+]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -76,6 +80,7 @@ autodoc_pydantic_settings_show_validator_members = False
 autodoc_pydantic_settings_show_field_summary = False
 autodoc_pydantic_settings_show_json = False
 autodoc_pydantic_field_list_validators = False
+autodoc_pydantic_settings_member_order = "bysource"  # is groupwise and alphabetical otherwise
 
 # disable the anchor check since https://github.com/sphinx-doc/sphinx/issues/9016
 # we could enable it when the issue is fixed

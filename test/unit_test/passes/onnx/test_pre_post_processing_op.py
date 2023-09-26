@@ -1,30 +1,125 @@
-import tempfile
-from pathlib import Path
-
-from olive.model import PyTorchModel
+from olive.model import ONNXModel, PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.append_pre_post_processing_ops import AppendPrePostProcessingOps
 from olive.passes.onnx.conversion import OnnxConversion
-from olive.systems.local import LocalSystem
 
 
-def test_pre_post_processing_op():
+def test_pre_post_processing_op(tmp_path):
     # setup
-    local_system = LocalSystem()
     p = create_pass_from_dict(
         AppendPrePostProcessingOps,
         {"tool_command": "superresolution", "tool_command_args": {"output_format": "png"}},
         disable_search=True,
     )
-    with tempfile.TemporaryDirectory() as tempdir:
-        input_model = get_superresolution_model(tempdir, local_system)
-        output_folder = str(Path(tempdir) / "onnx")
 
-        # execute
-        local_system.run_pass(p, input_model, None, output_folder)
+    pytorch_model = get_superresolution_model()
+    input_model = convert_superresolution_model(pytorch_model, tmp_path)
+    output_folder = str(tmp_path / "onnx")
+
+    # execute
+    p.run(input_model, None, output_folder)
 
 
-def get_superresolution_model(tempdir, local_system):
+def test_pre_post_pipeline(tmp_path):
+    config = {
+        "pre": [
+            {"ConvertImageToBGR": {}},
+            {
+                "Resize": {
+                    "resize_to": [
+                        {"type": "__model_input__", "input_index": 0, "dim_index": -2},
+                        {"type": "__model_input__", "input_index": 0, "dim_index": -1},
+                    ]
+                }
+            },
+            {
+                "CenterCrop": {
+                    "height": {"type": "__model_input__", "input_index": 0, "dim_index": -2},
+                    "width": {"type": "__model_input__", "input_index": 0, "dim_index": -1},
+                }
+            },
+            {"PixelsToYCbCr": {"layout": "BGR"}},
+            {"ImageBytesToFloat": {}},
+            {"Unsqueeze": {"axes": [0, 1]}},
+        ],
+        "post": [
+            {"Squeeze": {"axes": [0, 1]}},
+            {"FloatToImageBytes": {"name": "Y1_uint8"}},
+            {
+                "Resize": {
+                    "params": {
+                        "resize_to": [
+                            {"type": "__model_output__", "output_index": 0, "dim_index": -2},
+                            {"type": "__model_output__", "output_index": 0, "dim_index": -1},
+                        ],
+                        "layout": "HW",
+                    },
+                    "io_map": [["PixelsToYCbCr", 1, 0]],
+                }
+            },
+            {"FloatToImageBytes": {"multiplier": 1.0, "name": "Cb1_uint8"}},
+            {
+                "Resize": {
+                    "params": {
+                        "resize_to": [
+                            {"type": "__model_output__", "output_index": 0, "dim_index": -2},
+                            {"type": "__model_output__", "output_index": 0, "dim_index": -1},
+                        ],
+                        "layout": "HW",
+                    },
+                    "io_map": [["PixelsToYCbCr", 2, 0]],
+                }
+            },
+            {"FloatToImageBytes": {"multiplier": 1.0, "name": "Cr1_uint8"}},
+            {
+                "YCbCrToPixels": {
+                    "params": {
+                        "layout": "BGR",
+                    },
+                    "io_map": [
+                        ["Y1_uint8", 0, 0],
+                        ["Cb1_uint8", 0, 1],
+                        ["Cr1_uint8", 0, 2],
+                    ],
+                }
+            },
+            {"ConvertBGRToImage": {"image_format": "png"}},
+        ],
+        "tool_command_args": [
+            {
+                "name": "image",
+                "data_type": "uint8",
+                "shape": ["num_bytes"],
+            }
+        ],
+        "target_opset": 16,
+    }
+
+    p = create_pass_from_dict(
+        AppendPrePostProcessingOps,
+        config,
+        disable_search=True,
+    )
+    assert p is not None
+
+    pytorch_model = get_superresolution_model()
+    input_model = convert_superresolution_model(pytorch_model, tmp_path)
+    input_model_graph = input_model.get_graph()
+    assert input_model_graph.node[0].op_type == "Conv"
+    output_folder = str(tmp_path / "onnx_pre_post")
+
+    # execute
+    model = p.run(input_model, None, output_folder)
+    assert model is not None
+    assert isinstance(model, ONNXModel)
+    graph = model.get_graph()
+
+    # assert the first node is ConvertImageToBGR
+    assert graph.node[0].op_type == "DecodeImage"
+    assert graph.node[0].domain == "com.microsoft.extensions"
+
+
+def get_superresolution_model():
     import torch.nn as nn
     import torch.nn.init as init
 
@@ -33,7 +128,7 @@ def get_superresolution_model(tempdir, local_system):
 
     class SuperResolutionNet(nn.Module):
         def __init__(self, upscale_factor, inplace=False):
-            super(SuperResolutionNet, self).__init__()
+            super().__init__()
 
             self.relu = nn.ReLU(inplace=inplace)
             self.conv1 = nn.Conv2d(1, 64, (5, 5), (1, 1), (2, 2))
@@ -48,7 +143,7 @@ def get_superresolution_model(tempdir, local_system):
             x = self.relu(self.conv1(x))
             x = self.relu(self.conv2(x))
             x = self.relu(self.conv3(x))
-            x = self.pixel_shuffle(self.conv4(x))
+            return self.pixel_shuffle(self.conv4(x))
             return x
 
         def _initialize_weights(self):
@@ -72,7 +167,7 @@ def get_superresolution_model(tempdir, local_system):
 
         return torch_model
 
-    pytorch_model = PyTorchModel(
+    return PyTorchModel(
         model_loader=load_pytorch_model,
         io_config={
             "input_names": ["input"],
@@ -81,7 +176,8 @@ def get_superresolution_model(tempdir, local_system):
             "output_names": ["output"],
         },
     )
-    onnx_conversion_pass = create_pass_from_dict(OnnxConversion, {"target_opset": 15}, disable_search=True)
-    onnx_model = local_system.run_pass(onnx_conversion_pass, pytorch_model, None, str(Path(tempdir) / "onnx"))
 
-    return onnx_model
+
+def convert_superresolution_model(pytorch_model, tmp_path):
+    onnx_conversion_pass = create_pass_from_dict(OnnxConversion, {"target_opset": 15}, disable_search=True)
+    return onnx_conversion_pass.run(pytorch_model, None, str(tmp_path / "onnx"))

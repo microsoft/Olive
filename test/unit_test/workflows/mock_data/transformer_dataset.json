@@ -39,7 +39,7 @@
                     "sub_types": [
                         {"name": "accuracy_score", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                         {"name": "f1_score", "metric_config": {"multiclass": false}},
-                        {"name": "auc", "metric_config": {"reorder": true}}
+                        {"name": "auroc", "metric_config": {"num_classes": 2}}
                     ]
                 },
                 {
@@ -64,10 +64,14 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
+            "disable_search": true,
             "config": {"model_type": "bert"}
         },
         "quantization": {
-            "type": "OnnxQuantization"
+            "type": "OnnxQuantization",
+            "config": {
+                "data_config": "__input_model_data_config__"
+            }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",

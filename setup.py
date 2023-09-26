@@ -3,10 +3,12 @@ import os
 
 from setuptools import find_packages, setup
 
+# ruff: noqa: PTH123
+
 
 def read(rel_path):
     here = os.path.abspath(os.path.dirname(__file__))
-    with open(os.path.join(here, rel_path), "r") as fp:
+    with open(os.path.join(here, rel_path)) as fp:
         return fp.read()
 
 
@@ -20,9 +22,8 @@ def get_version(rel_path):
 
 def get_extra_deps(rel_path):
     here = os.path.abspath(os.path.dirname(__file__))
-    with open(os.path.join(here, rel_path), "r") as fp:
-        extra_deps = json.load(fp)
-    return extra_deps
+    with open(os.path.join(here, rel_path)) as fp:
+        return json.load(fp)
 
 
 # use techniques described at https://packaging.python.org/en/latest/guides/single-sourcing-package-version/
@@ -47,7 +48,6 @@ CLASSIFIERS = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -74,6 +74,7 @@ setup(
     url="https://microsoft.github.io/Olive/",
     download_url="https://github.com/microsoft/Olive/tags",
     packages=find_packages(exclude=("test", "examples*")),
+    python_requires=">=3.8.0",
     install_requires=requirements,
     extras_require=EXTRAS,
     include_package_data=True,
