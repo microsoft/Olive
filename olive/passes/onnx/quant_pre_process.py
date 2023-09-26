@@ -5,10 +5,8 @@
 # --------------------------------------------------------------------------
 
 import logging
-import shutil
 import tempfile
 import traceback
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -63,7 +61,7 @@ def quant_pre_process(
         external_data_location: The file location to save the external file
         external_data_size_threshold: The size threshold for external data
     """
-    with TemporaryDirectory(prefix="pre.quant.") as quant_tmp_dir:
+    with tempfile.TemporaryDirectory(prefix="pre.quant.") as quant_tmp_dir:
         temp_path = Path(quant_tmp_dir)
         model = None
 
@@ -80,7 +78,7 @@ def quant_pre_process(
         if not skip_optimization:
             # Use ORT optimizers (native code) to optimize model
             if not skip_symbolic_shape:
-                # Need to save the inferenced model to file so as to run the optimizer
+                # Need to save the inferred model to file so as to run the optimizer
                 input_model_path = str(temp_path / "symbolic_shape_inferred.onnx")
                 if save_as_external_data:
                     onnx.save_model(
@@ -100,7 +98,11 @@ def quant_pre_process(
                 sess_option = onnxruntime.SessionOptions()
                 sess_option.optimized_model_filepath = opt_model_path
                 sess_option.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_BASIC
-                _ = onnxruntime.InferenceSession(input_model_path, sess_option, providers=["CPUExecutionProvider"])
+                sess = onnxruntime.InferenceSession(input_model_path, sess_option, providers=["CPUExecutionProvider"])
+                sess._reset_session(providers=["CPUExecutionProvider"], provider_options=None)
+                # Close the session to avoid the cleanup error on Windows for temp folders
+                # https://github.com/microsoft/onnxruntime/issues/17627
+                del sess
             except Exception:
                 logger.error(
                     "ONNX Runtime Model Optimization Failed! Consider rerun with option `--skip_optimization'."
@@ -150,17 +152,3 @@ def quant_pre_process(
         )
     else:
         onnx.save(model, output_model_path)
-
-
-@contextmanager
-def TemporaryDirectory(**kwargs):
-    # TODO(myguo): this is a workaround for issue https://github.com/microsoft/onnxruntime/issues/17627
-    # on Windows.
-    name = tempfile.mkdtemp(**kwargs)
-    try:
-        yield name
-    finally:
-        try:
-            shutil.rmtree(name)
-        except OSError:
-            logger.warning(f"Failed to remove: {name}", exc_info=True)
