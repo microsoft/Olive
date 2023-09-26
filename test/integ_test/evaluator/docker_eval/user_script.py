@@ -17,7 +17,7 @@ def create_dataloader(data_dir, batch_size, *args, **kwargs):
 
 
 def openvino_post_process(res):
-    res = list(res.values())[0]
+    res = next(iter(res.values()))
     return res.argmax(1)
 
 

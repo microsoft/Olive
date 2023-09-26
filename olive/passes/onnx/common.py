@@ -92,7 +92,7 @@ def model_proto_to_file(
                 )
                 return True
             except Exception:
-                raise e
+                raise e from None
 
     # location for external data
     external_data_path = output_dir / (external_data_name if external_data_name else f"{output_path.name}.data")

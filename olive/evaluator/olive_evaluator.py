@@ -41,7 +41,9 @@ from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 logger = logging.getLogger(__name__)
 
 
-OliveModelOutput = collections.namedtuple("OliveModelOutput", ["preds", "logits"])
+class OliveModelOutput(NamedTuple):
+    preds: Any
+    logits: Any
 
 
 class OliveEvaluator(ABC):
@@ -865,7 +867,7 @@ class OpenVINOEvaluator(OliveEvaluator, framework=Framework.OPENVINO):
             result = session.infer_new_request({0: input_data})
             outputs = post_func(result) if post_func else result
             if not isinstance(labels, list):
-                labels = [labels]  # ruff: noqa: PLW2901
+                labels = [labels]  # noqa: PLW2901
             preds.extend(outputs)
             targets.extend(labels)
             logits.extend(result)
