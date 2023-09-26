@@ -74,11 +74,11 @@ def run_llama_v2_io_binding(
             x_shape = inputs_meta.shape
         elif inputs_meta.name == "attn_mask":
             attn_mask_shape = inputs_meta.shape
-        elif inputs_meta.name == "k_cache":
+        elif inputs_meta.name == "cache.0.key":
             cache_shape = inputs_meta.shape
 
+    n_layers = 32
     hidden_size = x_shape[2]
-    n_layers = cache_shape[1]
     n_heads = cache_shape[3]
     attn_mask_shape[1] = max_seq_len
 
@@ -91,15 +91,13 @@ def run_llama_v2_io_binding(
 
     # Create the attention mask.
     attn_mask = -10000.0 * np.triu(np.ones(attn_mask_shape), k=1).astype(data_type)
+
+    # TODO: Set attn_mask and attn_mask_out to the same binding once the I/O binding issue has been figured out
     attn_mask = onnxruntime.OrtValue.ortvalue_from_numpy(attn_mask, binding_device)
+    attn_mask_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(attn_mask_shape, np.float16, binding_device)
 
     # Create the K and V caches.
     head_dim = int(hidden_size / n_heads)
-
-    cache_shape = (1, n_layers, max_seq_len, n_heads, head_dim)
-    initial_cache = np.zeros(cache_shape, dtype=data_type)
-    k_cache = onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device)
-    v_cache = onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device)
 
     # Create the argmax sampling's I/O binding
     next_token = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1,), np.int64, binding_device)
@@ -118,11 +116,21 @@ def run_llama_v2_io_binding(
     logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(logits_shape, data_type, binding_device)
     llm_io_binding = llm_session.io_binding()
     llm_io_binding.bind_ortvalue_output("logits", logits)
-    llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask)
-    llm_io_binding.bind_ortvalue_output("k_out", k_cache)
-    llm_io_binding.bind_ortvalue_output("v_out", v_cache)
+    llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
     llm_io_binding.bind_ortvalue_output("cos_out", cos)
     llm_io_binding.bind_ortvalue_output("sin_out", sin)
+
+    cache_shape = (1, 1, max_seq_len, n_heads, head_dim)
+    initial_cache = np.zeros(cache_shape, dtype=data_type)
+    k_caches = []
+    v_caches = []
+
+    for layer_idx in range(n_layers):
+        k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
+        v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
+        llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches[-1])
+        llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches[-1])
+
     llm_io_binding.bind_cpu_input("use_cache_branch", np.zeros([1], dtype=np.bool_))
 
     update_embeddings_io_binding = update_embeddings_session.io_binding()
@@ -141,11 +149,15 @@ def run_llama_v2_io_binding(
         # Run the LLM model
         llm_io_binding.bind_ortvalue_input("x", x)
         llm_io_binding.bind_ortvalue_input("attn_mask", attn_mask)
-        llm_io_binding.bind_ortvalue_input("k_cache", k_cache)
-        llm_io_binding.bind_ortvalue_input("v_cache", v_cache)
         llm_io_binding.bind_ortvalue_input("x_increment", x_increment)
         llm_io_binding.bind_ortvalue_input("cos", cos)
         llm_io_binding.bind_ortvalue_input("sin", sin)
+        llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
+
+        for layer_idx in range(n_layers):
+            llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
+            llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
+
         llm_session.run_with_iobinding(llm_io_binding)
         llm_io_binding.synchronize_outputs()
 
@@ -156,8 +168,8 @@ def run_llama_v2_io_binding(
         output_tokens.append(next_token.numpy().item())
 
         # Stop if/when we get an ENDOFTEXT token before reaching maximum sequence length
-        if output_tokens[-1] == tokenizer.eos_id:
-            break
+        # if output_tokens[-1] == tokenizer.eos_id:
+        #     break
 
         # Update the embeddings for the next iteration
         update_embeddings_io_binding.bind_ortvalue_input("tokens", next_token)
@@ -165,6 +177,8 @@ def run_llama_v2_io_binding(
         if idx == 0:
             llm_io_binding.bind_cpu_input("use_cache_branch", np.ones([1], dtype=np.bool_))
             update_embeddings_io_binding.bind_ortvalue_output("embeddings", x_increment)
+
+        attn_mask_out, attn_mask = attn_mask, attn_mask_out
 
     after_time = time.perf_counter()
     print(f"Execution took {after_time - before_time:0.4f} seconds")

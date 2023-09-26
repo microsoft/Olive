@@ -47,33 +47,27 @@ class DecoderModel(torch.nn.Module):
         assert self.tok_embeddings is not None
         return self.tok_embeddings.weight
 
-    def forward_use_cache(self, x_increment, attn_mask, k_cache, v_cache, cos, sin):
-        split_k_caches = torch.split(k_cache, split_size_or_sections=1, dim=1)
-        split_v_caches = torch.split(v_cache, split_size_or_sections=1, dim=1)
-        split_k_caches_out = []
-        split_v_caches_out = []
+    def forward_use_cache(self, x_increment, attn_mask, cos, sin, cache):
+        k_caches = []
+        v_caches = []
 
         # For the cache model, we always work on the last element
-        pos = k_cache.size(2) - 1
+        pos = attn_mask.size(2) - 1
 
-        for layer, split_k_cache, split_v_cache in zip(self.layers, split_k_caches, split_v_caches):
-            split_k_cache = split_k_cache.clone().detach()
-            split_v_cache = split_v_cache.clone().detach()
-            x_increment, split_k_cache, split_v_cache = layer(
-                x_increment, attn_mask, cos, sin, split_k_cache, split_v_cache, pos
-            )
-            split_k_caches_out.append(split_k_cache)
-            split_v_caches_out.append(split_v_cache)
+        for layer_idx, layer in enumerate(self.layers):
+            k_cache = cache[layer_idx]["key"].clone().detach()
+            v_cache = cache[layer_idx]["value"].clone().detach()
 
-        k_cache = torch.cat(split_k_caches_out, dim=1)
-        v_cache = torch.cat(split_v_caches_out, dim=1)
+            x_increment, k_cache, v_cache = layer(x_increment, attn_mask, cos, sin, k_cache, v_cache, pos)
+            k_cache = torch.roll(k_cache, shifts=-1, dims=2)
+            v_cache = torch.roll(v_cache, shifts=-1, dims=2)
+            k_caches.append(k_cache)
+            v_caches.append(v_cache)
 
         x_increment = self.norm(x_increment)
 
         logits = self.output(x_increment[:, -1, :])
 
-        k_cache = torch.roll(k_cache, shifts=-1, dims=2)
-        v_cache = torch.roll(v_cache, shifts=-1, dims=2)
         cos = torch.roll(cos, shifts=-1, dims=1)
         sin = torch.roll(sin, shifts=-1, dims=1)
 
@@ -84,41 +78,43 @@ class DecoderModel(torch.nn.Module):
         attn_mask = torch.roll(attn_mask, shifts=-1, dims=2)
         attn_mask[:, -1, -1] = 0.0
 
-        return logits, attn_mask, k_cache, v_cache, cos, sin
+        return_values = [logits, attn_mask, cos, sin]
 
-    def forward_no_cache(self, x, attn_mask, k_cache, v_cache):
-        max_seq_len = k_cache.size(2)
+        for k_cache, v_cache in zip(k_caches, v_caches):
+            return_values.append(k_cache)
+            return_values.append(v_cache)
+
+        return tuple(return_values)
+
+    def forward_no_cache(self, x, attn_mask, cache):
+        k_caches = []
+        v_caches = []
+
+        max_seq_len = attn_mask.size(1)
         cos, sin = rotary_mat(self.hidden_size, self.n_heads, max_seq_len, head_scale=1.0)
-
-        split_k_caches = torch.split(k_cache, split_size_or_sections=1, dim=1)
-        split_v_caches = torch.split(v_cache, split_size_or_sections=1, dim=1)
-        split_k_caches_out = []
-        split_v_caches_out = []
-
-        for layer, split_k_cache, split_v_cache in zip(self.layers, split_k_caches, split_v_caches):
-            split_k_cache = split_k_cache.clone().detach()
-            split_v_cache = split_v_cache.clone().detach()
-            x, split_k_cache, split_v_cache = layer(x, attn_mask, cos, sin, split_k_cache, split_v_cache, 0)
-            split_k_caches_out.append(split_k_cache)
-            split_v_caches_out.append(split_v_cache)
-
-        k_cache = torch.cat(split_k_caches_out, dim=1)
-        v_cache = torch.cat(split_v_caches_out, dim=1)
-
-        x = self.norm(x)
-
-        logits = self.output(x[:, -1, :])
 
         seq_len = x.size(1)
         next_seq_len = seq_len + 1
         remaining_seq_len = max_seq_len - next_seq_len
 
-        # torch.roll doesn't support a tensor as the shifts argument, so we manually slice and concat instead
-        k_cache_parts = torch.split(k_cache, [next_seq_len, remaining_seq_len], dim=2)
-        k_cache = torch.cat([k_cache_parts[1], k_cache_parts[0]], dim=2)
+        for layer_idx, layer in enumerate(self.layers):
+            k_cache = cache[layer_idx]["key"].clone().detach()
+            v_cache = cache[layer_idx]["value"].clone().detach()
 
-        v_cache_parts = torch.split(v_cache, [next_seq_len, remaining_seq_len], dim=2)
-        v_cache = torch.cat([v_cache_parts[1], v_cache_parts[0]], dim=2)
+            x, k_cache, v_cache = layer(x, attn_mask, cos, sin, k_cache, v_cache, 0)
+
+            # torch.roll doesn't support a tensor as the shifts argument, so we manually slice and concat instead
+            k_cache_parts = torch.split(k_cache, [next_seq_len, remaining_seq_len], dim=2)
+            k_cache = torch.cat([k_cache_parts[1], k_cache_parts[0]], dim=2)
+
+            v_cache_parts = torch.split(v_cache, [next_seq_len, remaining_seq_len], dim=2)
+            v_cache = torch.cat([v_cache_parts[1], v_cache_parts[0]], dim=2)
+
+            k_caches.append(k_cache)
+            v_caches.append(v_cache)
+
+        x = self.norm(x)
+        logits = self.output(x[:, -1, :])
 
         cos_parts = torch.split(cos, [next_seq_len, remaining_seq_len], dim=1)
         cos = torch.cat([cos_parts[1], cos_parts[0]], dim=1)
@@ -128,7 +124,13 @@ class DecoderModel(torch.nn.Module):
 
         attn_mask[:, :, :-next_seq_len] = -10000.0
 
-        return logits, attn_mask, k_cache, v_cache, cos, sin
+        return_values = [logits, attn_mask, cos, sin]
+
+        for k_cache, v_cache in zip(k_caches, v_caches):
+            return_values.append(k_cache)
+            return_values.append(v_cache)
+
+        return tuple(return_values)
 
     def set_use_cache(self, use_cache):
         self.forward = self.forward_use_cache if use_cache else self.forward_no_cache
