@@ -91,7 +91,14 @@ class OnnxConversion(Pass):
 
         # TODO(trajep): add e2e test for model on cpu but data on gpu; model on gpu but data on cpu
         # put pytorch_model and dummy_inputs at the same device
-        pytorch_model.to(device)
+        if (hasattr(pytorch_model, "is_loaded_in_8bit") and pytorch_model.is_loaded_in_8bit) or (
+            hasattr(pytorch_model, "is_loaded_in_4bit") and pytorch_model.is_loaded_in_4bit
+        ):
+            # quantized model does not support to(device)
+            # they are already on device
+            pass
+        else:
+            pytorch_model.to(device)
         dummy_inputs = tensor_data_to_device(dummy_inputs, device)
         if isinstance(pytorch_model, torch.jit.RecursiveScriptModule):
             pytorch_model = TraceModelWrapper(pytorch_model)
