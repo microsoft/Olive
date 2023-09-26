@@ -140,21 +140,6 @@ command = [
 ]
 
 [[linter]]
-code = 'NEWLINE'
-include_patterns = ['**']
-exclude_patterns = []
-command = [
-  'python',
-  '-m',
-  'lintrunner_adapters',
-  'run',
-  'newlines_linter',
-  '--',
-  '@{{PATHSFILE}}'
-]
-is_formatter = true
-
-[[linter]]
 code = 'SPACES'
 include_patterns = ['**']
 exclude_patterns = []
