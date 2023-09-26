@@ -81,7 +81,7 @@ class AzureMLClientConfig(ConfigBase):
             }
 
     def create_client(self):
-        """Create an MLClient instancaaaae."""
+        """Create an MLClient instance."""
         from azure.ai.ml import MLClient
 
         # set logger level to error to avoid too many logs from azure sdkssdfsfdfs

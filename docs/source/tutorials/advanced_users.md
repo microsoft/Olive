@@ -10,7 +10,7 @@ from olive.workflows import run as olive_run
 olive_run(user_provided_info_json_file)
 ```
 
-Olive providestts Python interface to advanced user to instantiate, register and run individual optimization techniques. These
+Olive provides Python interface to advanced user to instantiate, register and run individual optimization techniques. These
 approach may not take advantage of all the features supported by standard Olive interface.
 
 Now, let's take a look at how you can use advance Python interface.
