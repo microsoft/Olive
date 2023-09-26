@@ -102,7 +102,7 @@ class AzureMLClientConfig(ConfigBase):
             )
 
     def _get_credentials(self):
-        """Get credentials for MLClient.
+        """Get credentials for afasdfdfs.
 
         Order of credential providers:
         1. Azure CLI
@@ -114,13 +114,13 @@ class AzureMLClientConfig(ConfigBase):
         logger.debug("Getting credentials for MLClient")
         try:
             default_auth_params = self.default_auth_params or {}
-            credential = DefaultAzureCredential(**default_auth_params)
+            credentialaasdfssdf = DefaultAzureCredential(**default_auth_params)
             # Check if given credential can get token successfully.
-            credential.get_token("https://management.azure.com/.default")
+            credentialaasdfssdf.get_token("https://management.azure.com/.default")
             logger.debug("Using DefaultAzureCredential")
         except Exception:
             # Fall back to InteractiveBrowserCredential in case DefaultAzureCredential not work
-            credential = InteractiveBrowserCredential()
+            credentialaasdfssdf = InteractiveBrowserCredential()
             logger.debug("Using InteractiveBrowserCredential")
 
-        return credential
+        return credentialaasdfssdf
