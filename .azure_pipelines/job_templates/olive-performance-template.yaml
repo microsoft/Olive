@@ -22,11 +22,19 @@ jobs:
       versionSpec: 3.8
     displayName: Use Python 3.8
 
-  - script: make install-olive INSTALL_EXTRAS=[$(device)]
+  - script: python -m pip install .[$(device)]
     displayName: Install Olive
 
-  - script: make performance MODEL_NAME=$(MODEL_NAME) DEVICE=${{ parameters.device }}
+  - script: |
+      python -m pip install -r $(Build.SourcesDirectory)/.azure_pipelines/performance_check/requirements-${{ parameters.device }}.txt
+      python $(Build.SourcesDirectory)/.azure_pipelines/performance_check/run_performance_check.py --model_name $model_name --device ${{ parameters.device }}
     displayName: Run performance comparison
+
+  - task: DeleteFiles@1
+    inputs:
+      Contents: |
+        .azure_pipelines/performance_check/run_cache
+    displayName: Cleanup the performance cache folder
 
   - task: CredScan@3
     displayName: 'Run CredScan'
@@ -41,6 +49,6 @@ jobs:
       alertWarningLevel: 'High'
     displayName: Component Detection
 
-  - script: make clean WINDOWS=$(WINDOWS)
+  - script: git clean -dfX
     condition: always()
     displayName: Clean remaining artifacts
