@@ -401,10 +401,10 @@
 <dl class="std option">
 <dt class="sig sig-object std" id="cmdoption-arg-only_onnxruntime">
 <span class="sig-name descname"><span class="pre">only_onnxruntime</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-only_onnxruntime" title="Permalink to this definition">¶</a></dt>
-<dd><p>Whether only use onnxruntime to optimize model, and no python fusion.</p>
+<dd><p>Whether only use onnxruntime to optimize model, and no python fusion. Disable some optimizers that might cause failure in symbolic shape inference or attention fusion, when opt_level &gt; 1.</p>
 <p><strong>type:</strong> bool</p>
 <p><strong>default_value:</strong> False</p>
-<p><strong>searchable_values:</strong> Categorical([True, False])</p>
+<p><strong>searchable_values:</strong> Conditional(parents: (‘opt_level’,), support: {(2,): Categorical([False]), (99,): Categorical([False])}, default: Categorical([True, False]))</p>
 </dd></dl>
 
 <dl class="std option">
@@ -1137,7 +1137,8 @@
 <span class="sig-name descname"><span class="pre">calibrate_method</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-calibrate_method" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Current calibration methods supported are MinMax and Entropy,
-            Please use CalibrationMethod.MinMax or CalibrationMethod.Entropy as options.</p>
+            Please use CalibrationMethod.MinMax or CalibrationMethod.Entropy as options.
+            Percentile is not supported for onnxruntime==1.16.0, please avoid to set/search it.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> MinMax</p>
 <p><strong>searchable_values:</strong> Categorical([‘MinMax’, ‘Entropy’, ‘Percentile’])</p>
@@ -1423,7 +1424,8 @@
 <span class="sig-name descname"><span class="pre">calibrate_method</span></span><span class="sig-prename descclassname"></span><a class="headerlink" href="#cmdoption-arg-64" title="Permalink to this definition">¶</a></dt>
 <dd><p>
             Current calibration methods supported are MinMax and Entropy,
-            Please use CalibrationMethod.MinMax or CalibrationMethod.Entropy as options.</p>
+            Please use CalibrationMethod.MinMax or CalibrationMethod.Entropy as options.
+            Percentile is not supported for onnxruntime==1.16.0, please avoid to set/search it.</p>
 <p><strong>type:</strong> str</p>
 <p><strong>default_value:</strong> ConditionalDefault(parents: (‘quant_mode’,), support: {(‘static’,): ‘MinMax’, (‘dynamic’,): &lt;SpecialParamValue.IGNORED: ‘OLIVE_IGNORED_PARAM_VALUE’&gt;}, default: OLIVE_INVALID_PARAM_VALUE)</p>
 <p><strong>searchable_values:</strong> Conditional(parents: (‘quant_mode’,), support: {(‘static’,): Categorical([‘MinMax’, ‘Entropy’, ‘Percentile’])}, default: Categorical([&lt;SpecialParamValue.IGNORED: ‘OLIVE_IGNORED_PARAM_VALUE’&gt;]))</p>
