@@ -168,8 +168,8 @@ def run_llama_v2_io_binding(
         output_tokens.append(next_token.numpy().item())
 
         # Stop if/when we get an ENDOFTEXT token before reaching maximum sequence length
-        # if output_tokens[-1] == tokenizer.eos_id:
-        #     break
+        if output_tokens[-1] == tokenizer.eos_id:
+            break
 
         # Update the embeddings for the next iteration
         update_embeddings_io_binding.bind_ortvalue_input("tokens", next_token)
