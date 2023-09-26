@@ -95,7 +95,7 @@ class TestRunConfig:
         are called sequentially until one of them succeeds:
             EnvironmentCredential -> ManagedIdentityCredential -> SharedTokenCacheCredential
             -> AzureCliCredential -> AzurePowerShellCredential -> InteractiveBrowserCredential
-        https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python # noqa: E501
+        https://learn.microsoft.com/en-us/python/api/azure-identity/azure.identity.defaultazurecredential?view=azure-python
         """
         with self.user_script_config_file.open() as f:
             user_script_config = json.load(f)

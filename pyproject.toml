@@ -26,6 +26,7 @@ disable = [
 ]
 
 [tool.ruff]
+line-length = 120
 target-version = "py38"
 select = [
     "A", # flake8-builtins
@@ -56,6 +57,7 @@ select = [
     "T10", # flake8-debugger
     "TCH", # flake8-type-checking
     "TD", # flake8-todo
+    "TID", # flake8-tidy-imports
     "UP", # pyupgrade
     "W", # pycodestyle
     "YTT", # flake8-2020
@@ -76,7 +78,6 @@ ignore = [
     "D107", # Ignore missing docstring in __init__
     "D406", # Ignore new line after section name
     "D407", # Ignore dashed-underline-after-section
-    "E501", # Line length controlled by black
     "N803", # Argument casing
     "N812", # Allow import torch.nn.functional as F
     "N999", # Module names
@@ -114,6 +115,10 @@ unfixable = [
     "F401", # Unused imports
     "SIM112", # Use upper case for env vars
 ]
+
+[tool.ruff.flake8-tidy-imports]
+# Disallow all relative imports.
+ban-relative-imports = "all"
 
 [tool.ruff.pep8-naming]
 # Allow Pydantic's `@validator` decorator to trigger class method treatment.
