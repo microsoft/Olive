@@ -208,19 +208,3 @@ init_command = [
   '--dry-run={{DRYRUN}}',
   'toml-sort==0.23.1'
 ]
-
-[[linter]]
-code = 'RUSTFMT'
-include_patterns = ['**/*.rs']
-command = [
-    'python',
-    '-m',
-    'lintrunner_adapters',
-    'run',
-    'rustfmt_linter',
-    '--binary=rustfmt',
-    '--config-path=rust/rustfmt.toml',
-    '--',
-    '@{{PATHSFILE}}'
-]
-is_formatter = true
