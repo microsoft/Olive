@@ -39,7 +39,7 @@ python -m pip install onnxruntime-extensions
 ### Option 2: install by local wheel
 * For Windows
   Please install it by "`python -m pip install ONNXRuntime/<onnxruntime-extensions.whl>`"
-* For Linux  
+* For Linux
     * Nightly
       The packages are not ready yet, so it could be installed from source. Please make sure the compiler toolkit like gcc(later than g++ 8.0) or clang, and the tool cmake are installed before the following command:
       `python -m pip install git+https://github.com/microsoft/onnxruntime-extensions.git`

@@ -164,7 +164,9 @@ command = [
 code = 'TABS'
 include_patterns = ['**']
 exclude_patterns = [
-  '.lintrunner.toml'
+  '.lintrunner.toml',
+  '**/Makefile',
+  '**/*.bat'
 ]
 command = [
   'python',
