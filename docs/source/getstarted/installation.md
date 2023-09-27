@@ -62,7 +62,5 @@ pip install -e .
 ```
 
 ## Optional Dependencies
-Olive has optional dependencies that can be installed to enable additional features. These dependencies can be installed as extras:
-- **azureml**: To enable AzureML integration. Packages: `azure-ai-ml, azure-identity`
-- **docker**: To enable docker integration. Packages: `docker`
-- **openvino**: To use OpenVINO related passes. Packages: `openvino==2022.3.0, openvino-dev[tensorflow,onnx]==2022.3.0`
+Olive has optional dependencies that can be installed to enable additional features. Please refer to [extra dependencies](https://github.com/microsoft/Olive/blob/main/olive/extra_dependencies.json)
+for the list of extras and their dependencies.
