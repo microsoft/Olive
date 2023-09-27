@@ -169,7 +169,9 @@
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<span class="n">OliveModelOutput</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">namedtuple</span><span class="p">(</span><span class="s2">&quot;OliveModelOutput&quot;</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;preds&quot;</span><span class="p">,</span> <span class="s2">&quot;logits&quot;</span><span class="p">])</span>
+<span class="k">class</span> <span class="nc">OliveModelOutput</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">preds</span><span class="p">:</span> <span class="n">Any</span>
+    <span class="n">logits</span><span class="p">:</span> <span class="n">Any</span>
 
 
 <div class="viewcode-block" id="OliveEvaluator"><a class="viewcode-back" href="../../../api/evaluator.html#olive.evaluator.olive_evaluator.OliveEvaluator">[docs]</a><span class="k">class</span> <span class="nc">OliveEvaluator</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
@@ -993,7 +995,7 @@
             <span class="n">result</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">infer_new_request</span><span class="p">({</span><span class="mi">0</span><span class="p">:</span> <span class="n">input_data</span><span class="p">})</span>
             <span class="n">outputs</span> <span class="o">=</span> <span class="n">post_func</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">post_func</span> <span class="k">else</span> <span class="n">result</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-                <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">labels</span><span class="p">]</span>  <span class="c1"># ruff: noqa: PLW2901</span>
+                <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">labels</span><span class="p">]</span>  <span class="c1"># noqa: PLW2901</span>
             <span class="n">preds</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">outputs</span><span class="p">)</span>
             <span class="n">targets</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
             <span class="n">logits</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
