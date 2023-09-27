@@ -77,7 +77,6 @@ jobs:
 
             coverage run --source=$(Build.SourcesDirectory)/olive -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test-TestOlive.xml $(Build.SourcesDirectory)/test/$(testType)
             coverage xml
-
         displayName: Test Olive
         env:
           OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
