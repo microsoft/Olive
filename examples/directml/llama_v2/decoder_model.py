@@ -48,6 +48,7 @@ class DecoderModel(torch.nn.Module):
         return self.tok_embeddings.weight
 
     def forward_use_cache(self, x_increment, attn_mask, cos, sin, cache):
+        use_cache = True
         k_caches = []
         v_caches = []
 
@@ -58,7 +59,7 @@ class DecoderModel(torch.nn.Module):
             k_cache = cache[layer_idx]["key"].clone().detach()
             v_cache = cache[layer_idx]["value"].clone().detach()
 
-            x_increment, k_cache, v_cache = layer(x_increment, attn_mask, cos, sin, k_cache, v_cache, pos)
+            x_increment, k_cache, v_cache = layer(use_cache, x_increment, attn_mask, cos, sin, k_cache, v_cache, pos)
             k_cache = torch.roll(k_cache, shifts=-1, dims=2)
             v_cache = torch.roll(v_cache, shifts=-1, dims=2)
             k_caches.append(k_cache)
@@ -87,6 +88,7 @@ class DecoderModel(torch.nn.Module):
         return tuple(return_values)
 
     def forward_no_cache(self, x, attn_mask, cache):
+        use_cache = False
         k_caches = []
         v_caches = []
 
@@ -101,7 +103,7 @@ class DecoderModel(torch.nn.Module):
             k_cache = cache[layer_idx]["key"].clone().detach()
             v_cache = cache[layer_idx]["value"].clone().detach()
 
-            x, k_cache, v_cache = layer(x, attn_mask, cos, sin, k_cache, v_cache, 0)
+            x, k_cache, v_cache = layer(use_cache, x, attn_mask, cos, sin, k_cache, v_cache, 0)
 
             # torch.roll doesn't support a tensor as the shifts argument, so we manually slice and concat instead
             k_cache_parts = torch.split(k_cache, [next_seq_len, remaining_seq_len], dim=2)
@@ -204,6 +206,7 @@ class TransformerLayer(torch.nn.Module):
 
     def forward(
         self,
+        use_cache: bool,
         x: torch.Tensor,
         attn_mask: torch.Tensor,
         cos: torch.Tensor,
@@ -214,10 +217,33 @@ class TransformerLayer(torch.nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Dimension of x is [batch_size, seq_len, hidden_size] Dimension of
         # k_cache and v_cache is [batch_size, n_layers, pos, n_heads, head_dim]
-        h, k_out, v_out = self.attention(self.attention_norm(x), attn_mask, cos, sin, k_cache, v_cache, pos)
+        h, k_out, v_out = self.attention(use_cache, self.attention_norm(x), attn_mask, cos, sin, k_cache, v_cache, pos)
 
         h = x + h
         return h + self.feed_forward(self.ffn_norm(h)), k_out, v_out
+
+
+class UpdateCache(torch.nn.Module):
+    def __init__(
+        self,
+    ) -> None:
+        super().__init__()
+
+    def forward(self, k_cache, v_cache, key, value, pos, pos_end):
+        k_cache[:, 0, pos:pos_end, :, :] = key
+        v_cache[:, 0, pos:pos_end, :, :] = value
+        return k_cache, v_cache
+
+
+class ApplyMask(torch.nn.Module):
+    def __init__(
+        self,
+    ) -> None:
+        super().__init__()
+
+    def forward(self, score, attn_mask, pos, pos_end):
+        score = score + attn_mask[:, pos:pos_end, :pos_end]
+        return score
 
 
 class SelfAttention(torch.nn.Module):
@@ -235,6 +261,8 @@ class SelfAttention(torch.nn.Module):
         self.wk = torch.nn.Linear(hidden_size, hidden_size, bias=use_biases, device=device)
         self.wv = torch.nn.Linear(hidden_size, hidden_size, bias=use_biases, device=device)
         self.wo = torch.nn.Linear(hidden_size, hidden_size, bias=use_biases, device=device)
+        self.update_cache = UpdateCache()
+        self.apply_mask = ApplyMask()
 
         self.hidden_size = hidden_size
         self.n_heads = n_heads
@@ -251,6 +279,7 @@ class SelfAttention(torch.nn.Module):
 
     def forward(
         self,
+        use_cache: bool,
         x: torch.Tensor,
         attn_mask: torch.Tensor,
         cos: torch.Tensor,
@@ -283,20 +312,29 @@ class SelfAttention(torch.nn.Module):
 
         # Append new entries to the end of k, v cache
         pos_end = pos + seq_len
-        k_cache[:, 0, pos:pos_end, :, :] = key
-        v_cache[:, 0, pos:pos_end, :, :] = value
-        key = k_cache[:, 0, :pos_end, :, :]
-        value = v_cache[:, 0, :pos_end, :, :]
+        # k_cache[:, 0, pos:pos_end, :, :] = key
+        # v_cache[:, 0, pos:pos_end, :, :] = value
+        # key = k_cache[:, 0, :pos_end, :, :]
+        # value = v_cache[:, 0, :pos_end, :, :]
+        k_cache, v_cache = self.update_cache(k_cache, v_cache, key, value, pos, pos_end)
+
+        if use_cache:
+            key = torch.reshape(k_cache, [batch_size, pos_end, self.n_heads, self.head_dim])
+            value = torch.reshape(v_cache, [batch_size, pos_end, self.n_heads, self.head_dim])
+        else:
+            key = k_cache[:, 0, :pos_end, :, :]
+            value = v_cache[:, 0, :pos_end, :, :]
 
         query = query.permute([0, 2, 1, 3]).reshape([batch_size * self.n_heads, seq_len, self.head_dim])
-        key = key.permute([0, 2, 3, 1]).reshape([batch_size * self.n_heads, self.head_dim, seq_len + pos])
-        value = value.permute([0, 2, 1, 3]).reshape([batch_size * self.n_heads, seq_len + pos, self.head_dim])
+        key = key.permute([0, 2, 3, 1]).reshape([batch_size * self.n_heads, self.head_dim, pos_end])
+        value = value.permute([0, 2, 1, 3]).reshape([batch_size * self.n_heads, pos_end, self.head_dim])
 
         # Calculate attention scores
         score = torch.matmul(query, key) / self.scale
 
         # Dimension of score is [n_heads, seq_len, pos + seq_len]
-        score = score + attn_mask[:, pos:pos_end, :pos_end]
+        # score = score + attn_mask[:, pos:pos_end, :pos_end]
+        score = self.apply_mask(score, attn_mask, pos, pos_end)
 
         # Calculate attention values
         prob = torch.nn.functional.softmax(score, dim=-1)
