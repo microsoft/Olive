@@ -53,13 +53,20 @@ class DecoderModel(torch.nn.Module):
         v_caches = []
 
         # For the cache model, we always work on the last element
-        pos = attn_mask.size(2) - 1
+        pos_end = attn_mask.size(2)
+        pos = pos_end - 1
+
+        sliced_cos = cos[:, pos:pos_end, :, :]
+        sliced_sin = sin[:, pos:pos_end, :, :]
 
         for layer_idx, layer in enumerate(self.layers):
             k_cache = cache[layer_idx]["key"].clone().detach()
             v_cache = cache[layer_idx]["value"].clone().detach()
 
-            x_increment, k_cache, v_cache = layer(use_cache, x_increment, attn_mask, cos, sin, k_cache, v_cache, pos)
+            x_increment, k_cache, v_cache = layer(
+                use_cache, x_increment, attn_mask, sliced_cos, sliced_sin, k_cache, v_cache, pos
+            )
+
             k_cache = torch.roll(k_cache, shifts=-1, dims=2)
             v_cache = torch.roll(v_cache, shifts=-1, dims=2)
             k_caches.append(k_cache)
@@ -99,11 +106,14 @@ class DecoderModel(torch.nn.Module):
         next_seq_len = seq_len + 1
         remaining_seq_len = max_seq_len - next_seq_len
 
+        sliced_cos = cos[:, :seq_len, :, :]
+        sliced_sin = sin[:, :seq_len, :, :]
+
         for layer_idx, layer in enumerate(self.layers):
             k_cache = cache[layer_idx]["key"].clone().detach()
             v_cache = cache[layer_idx]["value"].clone().detach()
 
-            x, k_cache, v_cache = layer(use_cache, x, attn_mask, cos, sin, k_cache, v_cache, 0)
+            x, k_cache, v_cache = layer(use_cache, x, attn_mask, sliced_cos, sliced_sin, k_cache, v_cache, 0)
 
             # torch.roll doesn't support a tensor as the shifts argument, so we manually slice and concat instead
             k_cache_parts = torch.split(k_cache, [next_seq_len, remaining_seq_len], dim=2)
@@ -209,15 +219,17 @@ class TransformerLayer(torch.nn.Module):
         use_cache: bool,
         x: torch.Tensor,
         attn_mask: torch.Tensor,
-        cos: torch.Tensor,
-        sin: torch.Tensor,
+        sliced_cos: torch.Tensor,
+        sliced_sin: torch.Tensor,
         k_cache: torch.Tensor,
         v_cache: torch.Tensor,
         pos: int,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Dimension of x is [batch_size, seq_len, hidden_size] Dimension of
         # k_cache and v_cache is [batch_size, n_layers, pos, n_heads, head_dim]
-        h, k_out, v_out = self.attention(use_cache, self.attention_norm(x), attn_mask, cos, sin, k_cache, v_cache, pos)
+        h, k_out, v_out = self.attention(
+            use_cache, self.attention_norm(x), attn_mask, sliced_cos, sliced_sin, k_cache, v_cache, pos
+        )
 
         h = x + h
         return h + self.feed_forward(self.ffn_norm(h)), k_out, v_out
@@ -246,6 +258,44 @@ class ApplyMask(torch.nn.Module):
         return score
 
 
+class RotateTensor(torch.nn.Module):
+    def __init__(
+        self,
+    ) -> None:
+        super().__init__()
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        sliced_cos: torch.Tensor,
+        sliced_sin: torch.Tensor,
+        interleaved: bool = False,
+    ) -> torch.Tensor:
+        rot_dim = 2 * sliced_cos.shape[3]
+
+        x_rot = x[:, :, :, :rot_dim]
+
+        if interleaved:
+            x1 = x_rot[:, :, :, 0::2]
+            x2 = x_rot[:, :, :, 1::2]
+        else:
+            half = x_rot.shape[-1] // 2
+            whole = 2 * half
+            x1 = x[:, :, :, 0:half]
+            x2 = x[:, :, :, half:whole]
+
+        real = sliced_cos * x1 - sliced_sin * x2
+        imag = sliced_sin * x1 + sliced_cos * x2
+
+        if interleaved:
+            x_rot[:, :, :, 0::2] = real
+            x_rot[:, :, :, 1::2] = imag
+        else:
+            x_rot = torch.cat((real, imag), dim=-1)
+
+        return x_rot
+
+
 class SelfAttention(torch.nn.Module):
     def __init__(
         self,
@@ -263,6 +313,7 @@ class SelfAttention(torch.nn.Module):
         self.wo = torch.nn.Linear(hidden_size, hidden_size, bias=use_biases, device=device)
         self.update_cache = UpdateCache()
         self.apply_mask = ApplyMask()
+        self.rotate_tensor = RotateTensor()
 
         self.hidden_size = hidden_size
         self.n_heads = n_heads
@@ -282,8 +333,8 @@ class SelfAttention(torch.nn.Module):
         use_cache: bool,
         x: torch.Tensor,
         attn_mask: torch.Tensor,
-        cos: torch.Tensor,
-        sin: torch.Tensor,
+        sliced_cos: torch.Tensor,
+        sliced_sin: torch.Tensor,
         k_cache: torch.Tensor,
         v_cache: torch.Tensor,
         pos: int,
@@ -305,17 +356,11 @@ class SelfAttention(torch.nn.Module):
         value = torch.reshape(value, [batch_size, seq_len, self.n_heads, self.head_dim])
 
         # Apply rotary positional embedding
-        query = rotate_tensor(query, cos, sin, pos, self.interleaved)
-        key = rotate_tensor(key, cos, sin, pos, self.interleaved)
-        query = query.to(x.dtype)
-        key = key.to(x.dtype)
+        query = self.rotate_tensor(query, sliced_cos, sliced_sin, self.interleaved)
+        key = self.rotate_tensor(key, sliced_cos, sliced_sin, self.interleaved)
 
         # Append new entries to the end of k, v cache
         pos_end = pos + seq_len
-        # k_cache[:, 0, pos:pos_end, :, :] = key
-        # v_cache[:, 0, pos:pos_end, :, :] = value
-        # key = k_cache[:, 0, :pos_end, :, :]
-        # value = v_cache[:, 0, :pos_end, :, :]
         k_cache, v_cache = self.update_cache(k_cache, v_cache, key, value, pos, pos_end)
 
         if use_cache:
@@ -366,40 +411,3 @@ class ProjLayerSiluMatMul(torch.nn.Module):
         w1x = self.w1(x)
 
         return self.w2(w1x * torch.sigmoid(w1x) * self.w3(x))
-
-
-def rotate_tensor(
-    x: torch.Tensor,
-    cos: torch.Tensor,
-    sin: torch.Tensor,
-    pos: int,
-    interleaved: bool = False,
-) -> torch.Tensor:
-    rot_dim = 2 * cos.shape[3]
-
-    x_rot = x[:, :, :, :rot_dim]
-
-    if interleaved:
-        x1 = x_rot[:, :, :, 0::2]
-        x2 = x_rot[:, :, :, 1::2]
-    else:
-        half = x_rot.shape[-1] // 2
-        whole = 2 * half
-        x1 = x[:, :, :, 0:half]
-        x2 = x[:, :, :, half:whole]
-
-    seq_len = x.shape[1]
-    pos_end = pos + seq_len
-    cos_x = cos[:, pos:pos_end, :, :]
-    sin_x = sin[:, pos:pos_end, :, :]
-
-    real = cos_x * x1 - sin_x * x2
-    imag = sin_x * x1 + cos_x * x2
-
-    if interleaved:
-        x_rot[:, :, :, 0::2] = real
-        x_rot[:, :, :, 1::2] = imag
-    else:
-        x_rot = torch.cat((real, imag), dim=-1)
-
-    return x_rot
