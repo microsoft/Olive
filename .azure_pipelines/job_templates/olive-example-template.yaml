@@ -67,6 +67,7 @@ jobs:
       inputs:
         testResultsFiles: '**/*TestOlive*.xml'
         testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
+        failTaskOnFailedTests: true
       displayName: Upload pipeline run test results
 
     - script: git clean -dfX
