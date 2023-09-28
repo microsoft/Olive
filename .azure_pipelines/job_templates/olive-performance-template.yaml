@@ -27,7 +27,7 @@ jobs:
 
   - script: |
       python -m pip install -r $(Build.SourcesDirectory)/.azure_pipelines/performance_check/requirements-${{ parameters.device }}.txt
-      python $(Build.SourcesDirectory)/.azure_pipelines/performance_check/run_performance_check.py --model_name $model_name --device ${{ parameters.device }}
+      python $(Build.SourcesDirectory)/.azure_pipelines/performance_check/run_performance_check.py --model_name $(model_name) --device ${{ parameters.device }}
     displayName: Run performance comparison
 
   - task: DeleteFiles@1
