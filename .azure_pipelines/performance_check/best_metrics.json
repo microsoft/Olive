@@ -1,0 +1,42 @@
+{
+    "bert": {
+        "cpu": {
+            "accuracy-accuracy": 0.88,
+            "latency-avg": 27.1239
+        },
+        "gpu": {
+            "accuracy-accuracy": 0.89,
+            "latency-avg": 1.61
+        }
+    },
+    "deberta": {
+        "cpu": {
+            "accuracy-accuracy": 0.92,
+            "latency-avg": 4.21
+        },
+        "gpu": {
+            "accuracy-accuracy": 0.92,
+            "latency-avg": 4.21
+        }
+    },
+    "distilbert": {
+        "cpu": {
+            "accuracy-accuracy": 0.92,
+            "latency-avg": 4.21
+        },
+        "gpu": {
+            "accuracy-accuracy": 0.92,
+            "latency-avg": 4.21
+        }
+    },
+    "roberta_large": {
+        "cpu": {
+            "accuracy-accuracy": 0.92,
+            "latency-avg": 4.21
+        },
+        "gpu": {
+            "accuracy-accuracy": 0.92,
+            "latency-avg": 4.21
+        }
+    },
+}

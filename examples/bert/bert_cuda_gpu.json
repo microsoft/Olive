@@ -16,6 +16,30 @@
             }
         }
     },
+    "systems": {
+        "aml_gpu_system": {
+            "type": "AzureML",
+            "config": {
+                "accelerators": ["GPU"],
+                "aml_compute": "gpu-cluster",
+                "aml_docker_config": {
+                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-cuda11.6-cudnn8-ubuntu20.04",
+                    "conda_file_path": "conda_gpu.yaml"
+                }
+            }
+        },
+        "aml_arc_system": {
+            "type": "AzureML",
+            "config": {
+                "accelerators": ["NPU"],
+                "aml_compute": "olive-intel-npu",
+                "aml_docker_config": {
+                    "base_image": "mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04",
+                    "conda_file_path": "conda.yaml"
+                }
+            }
+        }
+    },
     "evaluators": {
         "common_evaluator": {
             "metrics":[
@@ -74,8 +98,14 @@
                 "seed": 0
             }
         },
+        "packaging_config": {
+            "type": "Zipfile",
+            "name": "OutputModels"
+        },
         "evaluator": "common_evaluator",
         "execution_providers": ["CUDAExecutionProvider"],
+        "host": "local_system",
+        "target": "local_system",
         "cache_dir": "cache",
         "output_dir" : "models/bert_cuda"
     }

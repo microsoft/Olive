@@ -70,6 +70,7 @@ MODEL_NAME_TO_CONFIG_MAP = {
             "label_cols": ["label"],
             "batch_size": 1,
             "max_samples": 100,
+            "component_kwargs": {"pre_process_data": {"align_labels": True}},
         },
     },
     "roberta_large": {
@@ -237,11 +238,11 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
         olive_config = f"{model_name}.json" if device == "cpu" else f"{model_name}_gpu.json"
         olive_config_path = cur_dir / "configs" / olive_config
         run_with_config("olive", olive_config_path, metric_res)
-    print(metric_res)
     for model, v in metric_res.items():
         for metric_name, metric_value_list in v.items():
             vsum = sum(float(v) for v in metric_value_list)
-            metric_res[model][metric_name] = vsum / len(metric_value_list)
+            metric_res[model][metric_name] = round((vsum / len(metric_value_list)), 4)
+    print(metric_res)
     return metric_res
 
 
@@ -254,6 +255,20 @@ def print_perf_table(metric_res, device):
     rows = [[key, *list(values.values())] for key, values in metric_res.items()]
     table = tabulate(rows, headers=columns, tablefmt="pipe")
     print(table)
+
+
+def regression_check(metric, device):
+    metric_data_path = Path(__file__).absolute().parent / "best_metrics.json"
+    if not metric_data_path.exists():
+        metric_data_path.touch()
+    with open(metric_data_path) as f:
+        data = json.load(f)
+
+
+def no_regression(actual, expected, rel_tol):
+    if actual > expected:
+        return True
+    return abs(actual - expected) <= rel_tol * abs(expected)
 
 
 def main():
@@ -294,6 +309,7 @@ def main():
         nvidia_smi = subprocess.check_output(["nvidia-smi"])
         print(nvidia_smi.decode("utf-8"))
     print_perf_table(metric_res, device)
+    regression_check(metric_res["olive"], device)
 
 
 if __name__ == "__main__":

@@ -101,6 +101,22 @@ class AzureMLClientConfig(ConfigBase):
                 credential=self._get_credentials(), path=self.aml_config_path, read_timeout=self.read_timeout
             )
 
+    def create_registry_client(self, registry_name: str):
+        """Create an MLClient instance."""
+        from azure.ai.ml import MLClient
+
+        # set logger level to error to avoid too many logs from azure sdk
+        logging.getLogger("azure.ai.ml").setLevel(logging.ERROR)
+        logging.getLogger("azure.identity").setLevel(logging.ERROR)
+
+        return MLClient(
+            credential=self._get_credentials(),
+            subscription_id=self.subscription_id,
+            resource_group_name=self.resource_group,
+            registry_name=registry_name,
+            read_timeout=self.read_timeout,
+        )
+
     def _get_credentials(self):
         """Get credentials for MLClient.
 
