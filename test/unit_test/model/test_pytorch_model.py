@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 import mlflow
 import pandas as pd
 import pytest
+import torch
 import transformers
 from azureml.evaluate import mlflow as aml_mlflow
 
@@ -42,6 +43,13 @@ class TestPyTorchMLflowModel(unittest.TestCase):
             hf_conf=self.hf_conf,
         )
 
+    def test_hf_model_attributes(self):
+        self.setup()
+
+        olive_model = PyTorchModel(hf_config={"task": self.task, "model_name": self.architecture})
+        # model_attributes will be delayed loaded until pass run
+        assert olive_model.model_attributes == transformers.AutoConfig.from_pretrained(self.architecture).to_dict()
+
     def test_load_model(self):
         self.setup()
 
@@ -49,7 +57,7 @@ class TestPyTorchMLflowModel(unittest.TestCase):
         mlflow_model = mlflow.pyfunc.load_model(self.model_path)
 
         sample_input = {"inputs": {"input_string": self.input_text}}
-        mlflow_predict_result = mlflow_model.predict(pd.DataFrame.from_dict(sample_input)).values[0]
+        mlflow_predict_result = mlflow_model.predict(pd.DataFrame.from_dict(sample_input)).values[0]  # noqa: PD011
 
         encoded_input = self.tokenizer(
             self.input_text,
@@ -75,6 +83,7 @@ class TestPyTorchHFModel(unittest.TestCase):
         self.task = "text-classification"
         self.model_class = "BertForSequenceClassification"
         self.model_name = "Intel/bert-base-uncased-mrpc"
+        self.torch_dtype = "float16"
 
     def test_hf_config_task(self):
         self.setup()
@@ -91,6 +100,19 @@ class TestPyTorchHFModel(unittest.TestCase):
 
         pytorch_model = olive_model.load_model()
         assert isinstance(pytorch_model, transformers.BertForSequenceClassification)
+
+    def test_hf_model_loading_args(self):
+        self.setup()
+
+        olive_model = PyTorchModel(
+            hf_config={
+                "task": self.task,
+                "model_name": self.model_name,
+                "model_loading_args": {"torch_dtype": self.torch_dtype},
+            }
+        )
+        pytorch_model = olive_model.load_model()
+        assert pytorch_model.dtype == getattr(torch, self.torch_dtype)
 
 
 class TestPytorchDummyInput:
@@ -173,3 +195,15 @@ class TestPytorchDummyInput:
 
         get_hf_model_dummy_input.assert_called_once_with(self.model_name, self.task, None)
         assert dummy_inputs == 1
+
+
+class TestPyTorchModel:
+    def test_model_to_json(self, tmp_path):
+        script_dir = tmp_path / "model"
+        script_dir.mkdir(exist_ok=True)
+        model = PyTorchModel(model_path="test_path", script_dir=script_dir)
+        model.set_resource("model_script", "model_script")
+        model_json = model.to_json()
+        assert model_json["config"]["model_path"] == "test_path"
+        assert model_json["config"]["script_dir"] == str(script_dir)
+        assert model_json["config"]["model_script"] == "model_script"

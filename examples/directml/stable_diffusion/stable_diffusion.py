@@ -4,7 +4,6 @@
 # --------------------------------------------------------------------------
 import argparse
 import json
-import os
 import shutil
 import threading
 import tkinter as tk
@@ -192,19 +191,11 @@ def optimize(
     print("Download stable diffusion PyTorch pipeline...")
     pipeline = DiffusionPipeline.from_pretrained(base_model_id, torch_dtype=torch.float32)
 
-    model_info = dict()
+    model_info = {}
 
-    submodel_names = ["vae_encoder", "vae_decoder", "unet"]
+    submodel_names = ["vae_encoder", "vae_decoder", "unet", "text_encoder"]
 
-    has_text_encoder = getattr(pipeline, "text_encoder", None) is not None
-    has_text_encoder_2 = getattr(pipeline, "text_encoder_2", None) is not None
     has_safety_checker = getattr(pipeline, "safety_checker", None) is not None
-
-    if has_text_encoder:
-        submodel_names.append("text_encoder")
-
-    if has_text_encoder_2:
-        submodel_names.append("text_encoder_2")
 
     if has_safety_checker:
         submodel_names.append("safety_checker")
@@ -213,7 +204,7 @@ def optimize(
         print(f"\nOptimizing {submodel_name}")
 
         olive_config = None
-        with open(script_dir / f"config_{submodel_name}.json", "r") as fin:
+        with (script_dir / f"config_{submodel_name}.json").open() as fin:
             olive_config = json.load(fin)
 
         if submodel_name in ("unet", "text_encoder"):
@@ -234,7 +225,7 @@ def optimize(
 
             conversion_footprint = None
             optimizer_footprint = None
-            for _, footprint in footprints.items():
+            for footprint in footprints.values():
                 if footprint["from_pass"] == "OnnxConversion":
                     conversion_footprint = footprint
                 elif footprint["from_pass"] == "OrtTransformersOptimization":
@@ -266,39 +257,28 @@ def optimize(
     else:
         safety_checker = None
 
-    # TODO: Enable inference with XL models when available
-    # XL model inference is not supported yet because the diffusers library doesn't have an ONNX pipeline for it
-    if has_text_encoder:
-        onnx_pipeline = OnnxStableDiffusionPipeline(
-            vae_encoder=OnnxRuntimeModel.from_pretrained(model_info["vae_encoder"]["unoptimized"]["path"].parent),
-            vae_decoder=OnnxRuntimeModel.from_pretrained(model_info["vae_decoder"]["unoptimized"]["path"].parent),
-            text_encoder=OnnxRuntimeModel.from_pretrained(model_info["text_encoder"]["unoptimized"]["path"].parent),
-            tokenizer=pipeline.tokenizer,
-            unet=OnnxRuntimeModel.from_pretrained(model_info["unet"]["unoptimized"]["path"].parent),
-            scheduler=pipeline.scheduler,
-            safety_checker=safety_checker,
-            feature_extractor=pipeline.feature_extractor,
-            requires_safety_checker=True,
-        )
+    onnx_pipeline = OnnxStableDiffusionPipeline(
+        vae_encoder=OnnxRuntimeModel.from_pretrained(model_info["vae_encoder"]["unoptimized"]["path"].parent),
+        vae_decoder=OnnxRuntimeModel.from_pretrained(model_info["vae_decoder"]["unoptimized"]["path"].parent),
+        text_encoder=OnnxRuntimeModel.from_pretrained(model_info["text_encoder"]["unoptimized"]["path"].parent),
+        tokenizer=pipeline.tokenizer,
+        unet=OnnxRuntimeModel.from_pretrained(model_info["unet"]["unoptimized"]["path"].parent),
+        scheduler=pipeline.scheduler,
+        safety_checker=safety_checker,
+        feature_extractor=pipeline.feature_extractor,
+        requires_safety_checker=True,
+    )
 
-        print("Saving unoptimized models...")
-        onnx_pipeline.save_pretrained(unoptimized_model_dir)
+    print("Saving unoptimized models...")
+    onnx_pipeline.save_pretrained(unoptimized_model_dir)
 
-        # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
-        print("Copying optimized models...")
-        shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))
-        for submodel_name in submodel_names:
-            src_path = model_info[submodel_name]["optimized"]["path"]
-            dst_path = optimized_model_dir / submodel_name / "model.onnx"
-            shutil.copyfile(src_path, dst_path)
-    else:
-        # For XL models, just copy the optimized models for now without the whole structure
-        print("Copying optimized models...")
-        for submodel_name in submodel_names:
-            src_path = model_info[submodel_name]["optimized"]["path"]
-            dst_path = optimized_model_dir / submodel_name / "model.onnx"
-            os.makedirs(optimized_model_dir / submodel_name, exist_ok=True)
-            shutil.copyfile(src_path, dst_path)
+    # Create a copy of the unoptimized model directory, then overwrite with optimized models from the olive cache.
+    print("Copying optimized models...")
+    shutil.copytree(unoptimized_model_dir, optimized_model_dir, ignore=shutil.ignore_patterns("weights.pb"))
+    for submodel_name in submodel_names:
+        src_path = model_info[submodel_name]["optimized"]["path"]
+        dst_path = optimized_model_dir / submodel_name / "model.onnx"
+        shutil.copyfile(src_path, dst_path)
 
     print(f"The optimized pipeline is located here: {optimized_model_dir}")
 
@@ -343,13 +323,12 @@ if __name__ == "__main__":
         "stabilityai/stable-diffusion-2-base": 768,
         "stabilityai/stable-diffusion-2-1": 768,
         "stabilityai/stable-diffusion-2-1-base": 768,
-        "stabilityai/stable-diffusion-xl-refiner-0.9": 1024,
     }
 
     if args.model_id not in list(model_to_image_size.keys()):
         print(
-            f"WARNING: {args.model_id} is not an officially supported model for this example and may not work as "
-            + "expected."
+            f"WARNING: {args.model_id} is not an officially supported model for this example and may not work "
+            "as expected."
         )
 
     if version.parse(ort.__version__) < version.parse("1.15.0"):
@@ -366,20 +345,12 @@ if __name__ == "__main__":
     config.image_size = model_to_image_size.get(args.model_id, 512)
 
     if args.optimize or not optimized_model_dir.exists():
-        # TODO: clean up warning filter (mostly during conversion from torch to ONNX)
+        # TODO(jstoecker): clean up warning filter (mostly during conversion from torch to ONNX)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             optimize(args.model_id, unoptimized_model_dir, optimized_model_dir)
 
-    xl_models = [
-        "stabilityai/stable-diffusion-xl-refiner-0.9",
-    ]
-
-    is_xl_model = args.model_id in xl_models
-
-    # TODO: Enable inference with XL models when available
-    # XL model inference is not supported yet because the diffusers library doesn't have an ONNX pipeline for it
-    if not args.optimize and not is_xl_model:
+    if not args.optimize:
         model_dir = unoptimized_model_dir if args.test_unoptimized else optimized_model_dir
         use_static_dims = not args.dynamic_dims
 

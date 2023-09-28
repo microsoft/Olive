@@ -27,7 +27,7 @@ class ModelOptimizer:
         self.graph = self.onnx_model.graph()
 
         node_idx = 0
-        self.node_name2module = dict()
+        self.node_name2module = {}
 
         for node in self.graph.node:
             if node.name == "":
@@ -39,7 +39,7 @@ class ModelOptimizer:
         self.fuse_transpose_qat()
 
     def fuse_transpose_qat(self):
-        for node_name in self.node_name2module.keys():
+        for node_name in self.node_name2module:
             node = self.node_name2module[node_name][0]
             node_index = self.node_name2module[node_name][1]
             if node.op_type == "Transpose":

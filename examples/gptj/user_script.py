@@ -13,8 +13,7 @@ ort.set_default_logger_severity(3)
 
 def tokenize_function(examples):
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
-    example = tokenizer(examples["text"])
-    return example
+    return tokenizer(examples["text"])
 
 
 class Dataloader:
@@ -51,7 +50,7 @@ class Dataloader:
 
     def __iter__(self):
         try:
-            for (input_ids, attention_mask), last_ind in self.dataloader:
+            for (input_ids, _attention_mask), last_ind in self.dataloader:
                 yield input_ids, last_ind
         except StopIteration:
             return
@@ -78,13 +77,11 @@ class OnnxDataloader(Dataloader):
 
 
 def create_pt_dataloader(data_dir, batch_size, *args, **kwargs):
-    dataloader = Dataloader(batch_size=batch_size)
-    return dataloader
+    return Dataloader(batch_size=batch_size)
 
 
 def create_onnx_dataloader(data_dir, batch_size=1, *args, **kwargs):
-    dataloader = OnnxDataloader(batch_size=batch_size)
-    return dataloader
+    return OnnxDataloader(batch_size=batch_size)
 
 
 def create_dataloader(data_dir, batch_size, *args, **kwargs):

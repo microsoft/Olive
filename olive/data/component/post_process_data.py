@@ -47,12 +47,11 @@ def ner_post_process(_output_data, **kwargs):
         logits = _output_data.logits
     else:
         logits = _output_data
-    preds = torch.argmax(logits, dim=-1)
-    return preds
+    return torch.argmax(logits, dim=-1)
 
 
 @Registry.register_post_process()
-def text_generatation_post_process(_output_data, **kwargs):
+def text_generation_post_process(_output_data, **kwargs):
     """Post-process data for text generation task.
 
     Args:

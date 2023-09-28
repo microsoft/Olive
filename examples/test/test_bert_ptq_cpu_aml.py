@@ -6,12 +6,12 @@ import os
 from pathlib import Path
 
 import pytest
-from utils import check_no_search_output, check_search_output, patch_config
+from utils import check_output, patch_config
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
-    """setup any state specific to the execution of the given module."""
+    """Setups any state specific to the execution of the given module."""
     cur_dir = Path(__file__).resolve().parent.parent
     example_dir = cur_dir / "bert"
     os.chdir(example_dir)
@@ -37,5 +37,9 @@ def test_bert(olive_test_knob):
     from olive.workflows import run as olive_run
 
     olive_config = patch_config(*olive_test_knob)
+    if olive_test_knob[3] == "aml_system":
+        # remove the invalid OpenVINOExecutionProvider for bert aml system.
+        olive_config["engine"]["execution_providers"] = ["CPUExecutionProvider"]
+
     output = olive_run(olive_config)
-    check_no_search_output(output) if not olive_test_knob[1] else check_search_output(output)
+    check_output(output)

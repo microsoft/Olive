@@ -31,7 +31,7 @@ takes an `AcceleratorSpec` as input and returns `Dict[str, PassConfigParam]`.
 - `execution_provider`: execution provider for the accelerator. For example, `CPUExecutionProvider`, `CUDAExecutionProvider` etc.
     Please note if user specify some execution providers that don't belong to the installed onnxruntime, these execution providers
     will be ignored. For example, if user specify CUDA, TensorRT, DML execution provider, but the onnxruntime-gpu is installed then
-    the DML execution provider will be ignored since it is only available in onnxruntime-directml package.  
+    the DML execution provider will be ignored since it is only available in onnxruntime-directml package.
 
 `PassConfigParam` is a dataclass that holds the information about the configuration option. The dataclass has the following fields:
 

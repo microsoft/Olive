@@ -50,16 +50,14 @@
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
             "config": {
-                "model_type": "bert",
-                "num_heads": 12,
-                "hidden_size": 768,
                 "float16": true
             }
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",
             "config": {
-                "enable_cuda_graph": true
+                "enable_cuda_graph": true,
+                "data_config": "__input_model_data_config__"
             }
         }
     },
@@ -78,7 +76,6 @@
         },
         "evaluator": "common_evaluator",
         "execution_providers": ["CUDAExecutionProvider"],
-        "clean_cache": true,
         "cache_dir": "cache",
         "output_dir" : "models/bert_cuda"
     }

@@ -82,7 +82,7 @@ Please refer to [OrtTransformersOptimization](ort_transformers_optimization) for
 `AppendPrePostProcessingOps` also supports pre/post processing ops by leveraging the [onnxruntime-extension steps](https://github.com/microsoft/onnxruntime-extensions/tree/main/onnxruntime_extensions/tools/pre_post_processing/steps) and `PrePostProcessor`.
 You can refer to [here](https://github.com/microsoft/onnxruntime-extensions/blob/main/onnxruntime_extensions/tools/Example%20usage%20of%20the%20PrePostProcessor.md) to see how to leverage `PrePostProcessor` to customize pre and post processing ops.
 
-* Olive introduces two placeholders to represent the model input/ouput shape dimension value: `__model_input__` and `__model_output__`.
+* Olive introduces two placeholders to represent the model input/output shape dimension value: `__model_input__` and `__model_output__`.
 * To support the IoMapEntry, the step need choose use the full form. For example:
 ```json
     "YCbCrToPixels": {

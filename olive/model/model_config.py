@@ -10,7 +10,7 @@ from olive.common.config_utils import ConfigBase
 
 
 class IOConfig(ConfigBase):
-    # TODO remove input names, shapes and types, turn to use olive dataset config.
+    # TODO(trajep): remove input names, shapes and types, turn to use olive dataset config.
     input_names: List[str]
     input_shapes: List[List[int]] = None
     input_types: List[str] = None
@@ -65,7 +65,7 @@ class IOConfig(ConfigBase):
             try:
                 int(dim_param)
             except ValueError:
-                raise ValueError(f"Invalid string_to_int_dim_params: {dim_param}. Must be castable to int.")
+                raise ValueError(f"Invalid string_to_int_dim_params: {dim_param}. Must be castable to int.") from None
         return v
 
 

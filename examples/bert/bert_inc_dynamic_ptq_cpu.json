@@ -52,7 +52,7 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "config": {"model_type": "bert"}
+            "disable_search": true
         },
         "dynamic_quantization": {
             "type": "IncDynamicQuantization"

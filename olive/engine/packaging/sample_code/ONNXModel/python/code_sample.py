@@ -6,6 +6,8 @@ import json
 
 import onnxruntime
 
+# ruff: noqa
+
 
 def run():
     # Load inference configuration json file

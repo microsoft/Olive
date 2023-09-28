@@ -11,21 +11,18 @@ logger = logging.getLogger(__name__)
 
 
 def get_snpe_root() -> str:
-    """
-    Get the SNPE root directory from the SNPE_ROOT environment variable.
-    """
+    """Get the SNPE root directory from the SNPE_ROOT environment variable."""
     try:
         snpe_root = os.environ["SNPE_ROOT"]
         logger.debug(f"SNPE_ROOT is set to {snpe_root}")
     except KeyError:
-        raise ValueError("SNPE_ROOT is not set")
+        raise ValueError("SNPE_ROOT is not set") from None
 
     return snpe_root
 
 
 def get_snpe_target_arch(fail_on_unsupported: bool = True) -> str:
-    """
-    Get the SNPE target architecture from the system and processor.
+    """Get the SNPE target architecture from the system and processor.
 
     fail_on_unsupported: Whether to raise an exception if the system or processor is not supported
     """
@@ -51,8 +48,7 @@ def get_snpe_target_arch(fail_on_unsupported: bool = True) -> str:
 
 
 def get_snpe_win_arch_name(snpe_root: str, snpe_target_arch: str) -> str:
-    """
-    Get the SNPE ARM64-Windows architecture name from the SNPE root directory.
+    """Get the SNPE ARM64-Windows architecture name from the SNPE root directory.
 
     snpe_root: The unzipped SNPE SDK directory
     snpe_target_arch: The SNPE target architecture
@@ -74,8 +70,7 @@ def get_snpe_win_arch_name(snpe_root: str, snpe_target_arch: str) -> str:
 
 
 def get_snpe_env(dev: bool = False) -> dict:
-    """
-    Get the SNPE environment variables.
+    """Get the SNPE environment variables.
 
     dev: Whether to use the SNPE development environment. Only supported on x64-Linux
     """
@@ -129,8 +124,7 @@ def get_snpe_env(dev: bool = False) -> dict:
 def run_snpe_command(
     cmd: str, dev: bool = False, runs: int = 1, sleep: int = 0, log_error: bool = True
 ) -> Tuple[str, str]:
-    """
-    Run a SNPE command.
+    """Run a SNPE command.
 
     cmd: The command to run
     dev: Whether to use the SNPE development environment. Only supported on x64-Linux

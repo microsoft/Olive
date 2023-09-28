@@ -70,7 +70,7 @@ class AzureMLClientConfig(ConfigBase):
         """Get the workspace config as a dict."""
         if self.aml_config_path:
             # If aml_config_path is provided, load the config from the file.
-            with open(self.aml_config_path, "r") as f:
+            with open(self.aml_config_path) as f:  # noqa: PTH123
                 return json.load(f)
         else:
             # If aml_config_path is not provided, return the config from the class.
@@ -102,8 +102,7 @@ class AzureMLClientConfig(ConfigBase):
             )
 
     def _get_credentials(self):
-        """
-        Get credentials for MLClient.
+        """Get credentials for MLClient.
 
         Order of credential providers:
         1. Azure CLI

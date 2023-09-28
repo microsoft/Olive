@@ -26,24 +26,19 @@ Install the necessary python packages:
 python -m pip install -r requirements.txt
 ```
 
-**Note:** Multilingual support requires ONNX Runtime 1.16.0+ which is not released yet. Must be built from or after commit https://github.com/microsoft/onnxruntime/commit/4b69226fca914753844a3291818ce23ac2f00d8c.
-
-After running the above, uninstall pre-existing ONNX Runtime package and install the latest nightly build of ONNX Runtime as follows:
-```bash
-python -m pip uninstall -y onnxruntime ort-nightly
-python -m pip install ort-nightly --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
-```
+Note: Multilingual support requires onnxruntime>=1.16.0
 
 ### Prepare workflow config json
 ```
-python prepare_whisper_configs.py [--model_name MODEL_NAME] [--no_audio_decoder] [--multilingual]
+python prepare_whisper_configs.py [--model_name MODEL_NAME] [--no_audio_decoder] [--multilingual] [--package_model]
 
 # For example, using whisper tiny model
 python prepare_whisper_configs.py --model_name openai/whisper-tiny.en
 ```
 
-`--model_name MODEL_NAME` is the name or path of the whisper model. The default value is `openai/whisper-tiny.en`.  
+`--model_name MODEL_NAME` is the name or path of the whisper model. The default value is `openai/whisper-tiny.en`.
 `--no_audio_decoder` is optional. If not provided, will use audio decoder in the preprocessing ops.
+`--package_model` is optional. If provided, will package the optimized model along with the required onnxruntime packages and sample code to run inference into a zip file.
 
 **Note:** If `--no_audio_decoder` is provided, you need to install `librosa` package before running the optimization steps below.
 
@@ -122,9 +117,22 @@ python test_transcription.py --config whisper_{device}_{precision}.json [--auto_
 python test_transcription.py --config whisper_cpu_int8.json
 ```
 
-`--audio_path` Optional. Path to audio file. If not provided, will use the test data from the config
+`--audio_path` Optional. Path to audio file. If not provided, will use a default audio file.
 
 `--language` Optional. Language spoken in audio. Default is `english`. Only used when `--multilingual` is provided to `prepare_whisper_configs.py`
 
 `--task` Optional. Whether to perform X->X speech recognition ('transcribe') or X->English translation ('translate'). Default is `transcribe`. Only used
 when `--multilingual` is provided to `prepare_whisper_configs.py`
+
+## FAQ
+The following are some common issues that may be encountered when running this example.
+1. `INVALID_GRAPH / Error Node (BeamSearch_node) has input size 12 not in range [min=5, max=10]` or similar error when running inference using the optimized model.
+This is likely due to:
+    - Mismatch between the versions of onnxruntime used to run the optimization workflow and the inference. To fix this, please use the same version of
+    onnxruntime for both.
+    - Mismatch between the versions of onnxruntime used in a previously cached run and the currently installed version. To fix this, please delete the `cache` folder
+    and run the workflow again.
+
+2. Whenever you install a new version of onnxruntime (such as ort-nightly), you may need to delete the `cache` folder and run the workflow again. This is because the cache doesn't
+distinguish between different versions of onnxruntime and will use the cached models from a previous run. There might be incompatibilities between the cached models and the new
+version of onnxruntime.

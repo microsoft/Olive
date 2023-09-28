@@ -1,9 +1,9 @@
-diffusers
-transformers
-onnx
 accelerate
+diffusers
+onnx
+onnxruntime-directml>=1.15.0
+pillow
+protobuf==3.20.3 # protobuf 4.x aborts with OOM when optimizing unet
 torch==1.13.1 # torch2 exports aten::scaled_dot_product_attention, which isn't supported in current ONNX opsets
 torchvision==0.14.1
-pillow
-onnxruntime-directml>=1.15.0
-protobuf==3.20.3 # protobuf 4.x aborts with OOM when optimizing unet
+transformers

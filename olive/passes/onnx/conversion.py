@@ -30,7 +30,7 @@ class TraceModelWrapper(torch.nn.Module):
 
     def forward(self, *input_data, **input_dict):
         if isinstance(self.model(*input_data, **input_dict), dict):
-            return [val for val in self.model(*input_data, **input_dict).values()]
+            return list(self.model(*input_data, **input_dict).values())
         return self.model(*input_data, **input_dict)
 
 
@@ -72,9 +72,15 @@ class OnnxConversion(Pass):
             for component_name in model.components:
                 component_model = model.get_component(component_name)
                 component_output_path = Path(output_model_path).with_suffix("") / component_name
-                onnx_models.append(self._run_for_config(component_model, data_root, config, str(component_output_path)))
+                output_model_component = self._run_for_config(
+                    component_model, data_root, config, str(component_output_path)
+                )
+                output_model_component.model_attributes = (
+                    output_model_component.model_attributes or model.model_attributes
+                )
+                onnx_models.append(output_model_component)
                 component_names.append(component_name)
-            return CompositeOnnxModel(onnx_models, component_names, hf_config=model.hf_config)
+            return CompositeOnnxModel(onnx_models, component_names)
 
         # get dummy inputs
         dummy_inputs = model.get_dummy_inputs()
@@ -83,7 +89,7 @@ class OnnxConversion(Pass):
         pytorch_model = model.load_model()
         pytorch_model.eval()
 
-        # TODO: add e2e test for model on cpu but data on gpu; model on gpu but data on cpu
+        # TODO(trajep): add e2e test for model on cpu but data on gpu; model on gpu but data on cpu
         # put pytorch_model and dummy_inputs at the same device
         pytorch_model.to(device)
         dummy_inputs = tensor_data_to_device(dummy_inputs, device)
@@ -92,13 +98,13 @@ class OnnxConversion(Pass):
 
         onnx_model = None
         if config["use_dynamo_exporter"]:
-            # TODO: remove this import check once torch.onnx.dynamo_export is available in stable pytorch
+            # TODO(xiaoyu): remove this import check once torch.onnx.dynamo_export is available in stable pytorch
             try:
                 from torch.onnx import dynamo_export
             except ImportError:
                 raise ImportError(
                     "torch.onnx.dynamo_export is not available. Please upgrade your pytorch version to nightly build."
-                )
+                ) from None
             exported = dynamo_export(
                 pytorch_model,
                 *dummy_inputs,
@@ -133,11 +139,11 @@ class OnnxConversion(Pass):
                 from transformers.modeling_utils import PreTrainedModel
 
                 if issubclass(type(pytorch_model), PreTrainedModel):
-                    for name, input in dummy_inputs.items():
-                        if isinstance(input, list):
+                    for name, dm_input in dummy_inputs.items():
+                        if isinstance(dm_input, list):
                             key_value_names = set(
-                                [f"{name}.{idx}.key" for idx in range(len(input))]
-                                + [f"{name}.{idx}.value" for idx in range(len(input))]
+                                [f"{name}.{idx}.key" for idx in range(len(dm_input))]
+                                + [f"{name}.{idx}.value" for idx in range(len(dm_input))]
                             )
                             if key_value_names.issubset(set(input_names)):
                                 dummy_input_keys.discard(name)

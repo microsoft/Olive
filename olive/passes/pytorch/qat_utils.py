@@ -27,8 +27,7 @@ class QuantizedModule(torch.nn.Module):
     def forward(self, x):
         x = self.quant(x)
         x = self.model(x)
-        x = self.dequant(x)
-        return x
+        return self.dequant(x)
 
 
 class QatTrainer:
@@ -103,15 +102,13 @@ class QatTrainer:
 
         quantized_model.eval()
         quantized_model.to("cpu")
-        quantized_model = self.post_qat(quantized_model, model_input_tensor)
-        return quantized_model
+        return self.post_qat(quantized_model, model_input_tensor)
 
     def prepare_qat(self, model: torch.nn.Module, qconfig: torch.quantization.QConfig) -> torch.nn.Module:
         self.fuse_modules(model)
         self.replace_modules(model, qconfig)
         model.train()
-        model_prepared = torch.ao.quantization.prepare_qat(model, inplace=False)
-        return model_prepared
+        return torch.ao.quantization.prepare_qat(model, inplace=False)
 
     def post_qat(self, model: torch.nn.Module, model_input_tensor) -> torch.nn.Module:
         model.apply(torch.quantization.disable_observer)
@@ -127,11 +124,10 @@ class QatTrainer:
         if isinstance(original_config["dummy_inputs_func"], str):
             to_keep += ["model_script", "script_dir"]
         config_to_keep = {k: original_config[k] for k in to_keep}
-        # TODO: Add PyTorch model type flag
-        qat_pytorch_model = PyTorchModel(
+        # TODO(jambayk): Add PyTorch model type flag
+        return PyTorchModel(
             model_path=self.output_model_path, model_file_format=ModelFileFormat.PYTORCH_TORCH_SCRIPT, **config_to_keep
         )
-        return qat_pytorch_model
 
     def fuse_modules(self, model: torch.nn.Module):
         if self.config.modules_to_fuse:
@@ -157,10 +153,9 @@ class QatTrainer:
                 self.replace_modules(child, qconfig, op_name)
             if type(child) in white_list:
                 if type(child) not in skip_list:
-                    if not type(child) in skip_list:
-                        new = QuantizedModule(child)
-                        new.qconfig = qconfig
-                        setattr(module, name, new)
+                    new = QuantizedModule(child)
+                    new.qconfig = qconfig
+                    setattr(module, name, new)
 
     def _recursive_hasattr(self, obj, attribs, state=True):
         if "." in attribs:
@@ -185,8 +180,7 @@ class DefaultPTLModule(LightningModule):
         self.loss_module = torch.nn.CrossEntropyLoss()
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
-        return optimizer
+        return torch.optim.Adam(self.model.parameters(), lr=1e-3)
 
     def training_step(self, batch, batch_idx):
         data, labels = batch
@@ -194,8 +188,7 @@ class DefaultPTLModule(LightningModule):
             preds = self.model(**data)
         else:
             preds = self.model(data)
-        loss = self.loss_module(preds, labels)
-        return loss
+        return self.loss_module(preds, labels)
 
     def train_dataloader(self):
         return self.training_dataloader

@@ -6,12 +6,12 @@ import os
 from pathlib import Path
 
 import pytest
-from utils import check_search_output, patch_config
+from utils import check_output, patch_config
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
-    """setup any state specific to the execution of the given module."""
+    """Setups any state specific to the execution of the given module."""
     cur_dir = Path(__file__).resolve().parent.parent
     example_dir = cur_dir / "bert"
     os.chdir(example_dir)
@@ -30,4 +30,4 @@ def test_bert(search_algorithm, execution_order, system, olive_json):
     olive_config = patch_config(olive_json, search_algorithm, execution_order, system)
 
     footprint = olive_run(olive_config)
-    check_search_output(footprint)
+    check_output(footprint)

@@ -18,7 +18,7 @@ class TestResourcePath:
 
         # create a local file
         self.local_file = self.tmp_dir_path / "local_file.txt"
-        with open(self.local_file, "w") as f:
+        with self.local_file.open("w") as f:
             f.write("local file content")
 
         # create a local folder

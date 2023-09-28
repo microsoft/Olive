@@ -51,7 +51,7 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "config": {"model_type": "bert"}
+            "disable_search": true
         },
         "static_quantization": {
             "type": "IncStaticQuantization",

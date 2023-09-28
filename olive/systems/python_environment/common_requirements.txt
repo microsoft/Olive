@@ -1,0 +1,4 @@
+numpy
+protobuf<4.0.0
+psutil
+pydantic<2.0.0

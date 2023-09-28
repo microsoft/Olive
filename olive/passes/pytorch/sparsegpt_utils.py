@@ -6,81 +6,70 @@
 # https://github.com/IST-DASLab/sparsegpt
 # https://arxiv.org/abs/2301.00774
 # -------------------------------------------------------------------------
+import logging
 import math
 
 import torch
 import transformers
 
-# model_type -> name for layers
-layers_map = {
-    "bloom": "transformer.h",
-    "gpt2": "transformer.h",
-    "gpt_neox": "gpt_neox.layers",
-    "llama": "model.layers",
-    "opt": "model.decoder.layers",
-}
+from olive.common.utils import get_attr
+from olive.model.hf_mappings import MODELS_TO_EMBEDDINGS_MAPPING, MODELS_TO_LAYERS_MAPPING
 
-# model_type -> name for embedding, these are the modules before the first layer
-embedding_map = {
-    "bloom": ["transformer.word_embeddings", "transformer.word_embeddings_layernorm"],
-    "gpt2": ["transformer.wte", "transformer.wpe"],
-    "gpt_neox": ["gpt_neox.embed_in"],
-    "llama": ["model.embed_tokens", "model.norm"],
-    "opt": [
-        "model.decoder.embed_tokens",
-        "model.decoder.embed_positions",
-        "model.model.decoder.project_out",
-        "model.model.decoder.project_in",
-    ],
-}
+logger = logging.getLogger(__name__)
+
+# ruff: noqa: N802, N806, RUF100
+
+# model types supported by SparseGPT
+supported_models = ["bloom", "gpt2", "gpt_neox", "llama", "opt"]
 
 # additional inputs to the layers for each model type
 # all model types are expected to have "input_ids" and "attention_mask"
 additional_inputs = {"bloom": ["alibi"], "gpt_neox": ["position_ids"]}
 
 
-def _get_attr(module, attr):
-    """Get attribute from module.
-
-    :param module: module to get attribute from
-    :param attr: attribute name, can be a string with dot notation
-    :return: attribute
-    """
-    attr = attr.split(".")
-    for a in attr:
-        if hasattr(module, a):
-            module = getattr(module, a)
-        else:
-            return None
-    return module
-
-
 def get_layers(model, model_type):
     """Get the layers from model based on model type."""
-    layers = layers_map[model_type]
-    return _get_attr(model, layers)
+    layers = MODELS_TO_LAYERS_MAPPING[model_type]
+    return get_attr(model, layers)
 
 
-def get_layer_submodules(
-    module, submodule_types=[torch.nn.Conv2d, torch.nn.Linear, transformers.Conv1D], layer_name_filter=None, name=""
-):
+def get_layer_submodules(module, submodule_types=None, layer_name_filter=None, name=""):
+    submodule_types = submodule_types or [torch.nn.Conv2d, torch.nn.Linear, transformers.Conv1D]
+    """Get the submodules of a module based on the submodule types."""
     if type(module) in submodule_types:
-        if layer_name_filter and not any([s in name for s in layer_name_filter]):
+        if layer_name_filter and not any(s in name for s in layer_name_filter):
             # skip this layer
             return {}
         return {name: module}
 
     submodules = {}
-    for submodule_name, submodule in module.named_children():
-        submodule_name = name + "." + submodule_name if name else submodule_name
+    for submodule_name_k, submodule in module.named_children():
+        submodule_name = name + "." + submodule_name_k if name else submodule_name_k
         submodules.update(get_layer_submodules(submodule, submodule_types, layer_name_filter, submodule_name))
     return submodules
+
+
+def validate_min_max_layers(min_layer, max_layer, num_layers):
+    """Verify min_layer and max_layer are valid and return the valid range."""
+    min_layer = min_layer or 0
+    if min_layer < 0:
+        # if user specified min_layer < 0, set min_layer to 0
+        logger.warning(f"min_layer ({min_layer}) is less than 0. Setting to 0.")
+        min_layer = 0
+    max_layer = max_layer or num_layers
+    if max_layer > num_layers:
+        # if user specified max_layer > number of layers, set max_layer to number of layers
+        logger.warning(
+            f"max_layer ({max_layer}) is greater than number of layers ({num_layers}). Setting to {num_layers}."
+        )
+        max_layer = num_layers
+        # don't need to worry about min_layer since if min_layer >= max_layer, the range will be empty
+    return min_layer, max_layer
 
 
 @torch.no_grad()
 def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
     """Get the layers from model based on model type."""
-
     num_samples = num_samples or len(dataloader.dataset)
     first_batch = next(iter(dataloader))
     # sequence length
@@ -106,12 +95,12 @@ def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
             super().__init__()
             self.module = module
 
-        def forward(self, input, **kwargs):
+        def forward(self, inputs, **kwargs):
             # handle batch dimension
-            for batch in range(input.shape[0]):
+            for batch in range(inputs.shape[0]):
                 if cache["i"] >= num_samples:
                     break
-                inputs[cache["i"]] = input[batch]
+                inputs[cache["i"]] = inputs[batch]
                 cache["i"] += 1
             cache["attention_mask"] = kwargs.get("attention_mask")
             for input_name in additional_input:
@@ -119,8 +108,8 @@ def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
             raise ValueError("Stop forward propagation")
 
     # put all modules until the first layer on the device
-    for name in embedding_map[model_type]:
-        module = _get_attr(model, name)
+    for name in MODELS_TO_EMBEDDINGS_MAPPING[model_type]:
+        module = get_attr(model, name)
         if module:
             module.to(device)
 
@@ -142,8 +131,8 @@ def catch_layer_inputs(model, model_type, dataloader, device, num_samples=None):
     layers[0] = layers[0].module
 
     # put all modules until the first layer back on the CPU
-    for name in embedding_map[model_type]:
-        module = _get_attr(model, name)
+    for name in MODELS_TO_EMBEDDINGS_MAPPING[model_type]:
+        module = get_attr(model, name)
         if module:
             module.to("cpu")
 
@@ -183,25 +172,25 @@ class SparseGPTModule:
             W = W.t()
         return W.float()
 
-    def add_batch(self, input):
+    def add_batch(self, batch_input):
         # add batch dim if needed
-        if input.ndim == 2:
-            input = input.unsqueeze(0)
+        if batch_input.ndim == 2:
+            batch_input = batch_input.unsqueeze(0)
         # get number of samples
-        num_samples = input.shape[0]
+        num_samples = batch_input.shape[0]
         # prepare input for linear layer
-        if isinstance(self.layer, torch.nn.Linear) or isinstance(self.layer, transformers.Conv1D):
-            if input.ndim == 3:
+        if isinstance(self.layer, (torch.nn.Linear, transformers.Conv1D)):
+            if batch_input.ndim == 3:
                 # flatten the batch and sequence dimensions
-                input = input.reshape(-1, input.shape[-1])
-            input = input.t()
+                batch_input = batch_input.reshape(-1, batch_input.shape[-1])
+            batch_input = batch_input.t()
 
         # renormalize H
         self.H *= self.num_samples / (self.num_samples + num_samples)
         # add new samples
         self.num_samples += num_samples
-        input = math.sqrt(2 / self.num_samples) * input.float()
-        self.H += input.matmul(input.t())
+        batch_input = math.sqrt(2 / self.num_samples) * batch_input.float()
+        self.H += batch_input.matmul(batch_input.t())
 
     def prune(self, mode, sparsity=None, n=None, m=None, blocksize=128, percdamp=0.01):
         W = self.get_W()
@@ -258,8 +247,8 @@ class SparseGPTModule:
                 if mode == "structured" and col % m == 0:
                     # every mth column, set bottom n weights to True (prune)
                     magnitude = (
-                        W1[:, col : (col + m)] ** 2  # noqa: E203
-                        / (torch.diag(Hinv1)[col : (col + m)].reshape((1, -1))) ** 2  # noqa: E203
+                        W1[:, col : (col + m)] ** 2  # noqa: E203, RUF100
+                        / (torch.diag(Hinv1)[col : (col + m)].reshape((1, -1))) ** 2  # noqa: E203, RUF100
                     )
                     mask1.scatter_(1, col + torch.topk(magnitude, n, dim=1, largest=False)[1], True)
 

@@ -75,6 +75,7 @@ stages:
 
       # commit and push the docs
       - script: |
+          ls -d */ | grep -E "[0-9]+\.[0-9]+\.[0-9]+" | xargs -I {} cp ./_static/js/custom_version.js {}_static/js/
           git add -A
           git commit -m "Update docs from $(Build.SourceVersion)"
           git push origin gh-pages

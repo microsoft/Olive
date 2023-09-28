@@ -12,5 +12,5 @@ def post_process(res):
 
 
 def create_dataloader(data_dir, batch_size, *args, **kwargs):
-    dataset = datasets.MNIST(data_dir, transform=ToTensor())
+    dataset = datasets.MNIST(data_dir, download=True, transform=ToTensor())
     return torch.utils.data.DataLoader(dataset, batch_size)

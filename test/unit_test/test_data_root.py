@@ -38,8 +38,7 @@ def post_processing_func(output):
 
 
 def create_dataloader(datadir, batchsize, *args, **kwargs):
-    dataloader = DataLoader(DummyDataset(1))
-    return dataloader
+    return DataLoader(DummyDataset(1))
 
 
 def get_dataloader_config():
@@ -161,7 +160,7 @@ def get_data_config():
 
 def concat_data_dir(data_root, data_dir):
     if data_root is None:
-        data_dir = data_dir
+        pass
     elif data_root.startswith("azureml://"):
         data_dir = data_root + "/" + data_dir
     else:
@@ -228,16 +227,5 @@ def test_data_root_for_dataset(mock_get_local_path, data_config):
     mock.assert_called_with(data_dir=concat_data_dir(data_root, "data"))
 
     data_dir_expected = concat_data_dir(data_root, "perfdata")
-    found = mock_called_with(mock, data_dir=data_dir_expected)
-    assert found
-
+    mock.assert_any_call(data_dir=data_dir_expected)
     assert best is not None
-
-
-def mock_called_with(mock, **expected_kwargs):
-    for call in mock.call_args_list:
-        for key, value in expected_kwargs.items():
-            if key in call.kwargs:
-                if call.kwargs[key] == value:
-                    return True
-    return False

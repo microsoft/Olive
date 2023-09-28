@@ -10,36 +10,34 @@ from olive.common.utils import flatten_dict, unflatten_dict
 
 
 class SearchParameter(ABC):
-    """
-    Base class for search elements.
+    """Base class for search elements.
+
     Each search element should derive its own class.
     """
 
+    @abstractmethod
     def __init__(self, **kwargs):
         pass
 
     @abstractmethod
     def get_support(self) -> List[Any]:
-        """
-        get the support for the search parameter
-        """
-        raise NotImplementedError()
+        """Get the support for the search parameter."""
+        raise NotImplementedError
 
     @abstractmethod
     def __repr__(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     @abstractmethod
     def to_json(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class SpecialParamValue(str, Enum):
-    """
-    Special values for parameters.
+    """Special values for parameters.
 
     IGNORED: the parameter gets the value "OLIVE_IGNORED_PARAM_VALUE". The pass might ignore this parameter.
-    INVALID: Any seach point with this value is invalid. The search algorithm will not suggest such a search point.
+    INVALID: Any search point with this value is invalid. The search algorithm will not suggest such a search point.
     """
 
     IGNORED = "OLIVE_IGNORED_PARAM_VALUE"
@@ -47,8 +45,7 @@ class SpecialParamValue(str, Enum):
 
 
 class Categorical(SearchParameter):
-    """
-    Search parameter that supports a list of values
+    """Search parameter that supports a list of values.
 
     Examples
     --------
@@ -59,9 +56,7 @@ class Categorical(SearchParameter):
         self.support = support
 
     def get_support(self) -> Union[List[str], List[int], List[float], List[bool]]:
-        """
-        get the support for the search parameter
-        """
+        """Get the support for the search parameter."""
         return self.support
 
     def __repr__(self):
@@ -72,8 +67,7 @@ class Categorical(SearchParameter):
 
 
 class Boolean(Categorical):
-    """
-    Search parameter that supports a boolean value
+    """Search parameter that supports a boolean value.
 
     Examples
     --------
@@ -85,8 +79,7 @@ class Boolean(Categorical):
 
 
 class Conditional(SearchParameter):
-    """
-    Conditional search parameter
+    """Conditional search parameter.
 
     Examples
     --------
@@ -136,17 +129,13 @@ class Conditional(SearchParameter):
         self.default = default or self.get_invalid_choice()
 
     def get_support(self, parent_values: Dict[str, Any]) -> Union[List[str], List[int], List[float], List[bool]]:
-        """
-        get the support for the search parameter for a given parent value
-        """
+        """Get the support for the search parameter for a given parent value."""
         assert parent_values.keys() == set(self.parents), "parent values keys do not match the parents"
         parent_values = tuple([parent_values[parent] for parent in self.parents])
         return self.support.get(parent_values, self.default).get_support()
 
     def condition(self, parent_values: Dict[str, Any]) -> SearchParameter:
-        """
-        Fix the parent value and return a new search parameter
-        """
+        """Fix the parent value and return a new search parameter."""
         assert set(parent_values.keys()).issubset(set(self.parents)), "parent values keys not a subset of the parents"
 
         # if there is only one parent, return the support for the given parent value
@@ -155,13 +144,15 @@ class Conditional(SearchParameter):
             return self.support.get(parent_values, self.default)
 
         # condition the first parent and create a new conditional
-        for parent_idx, parent in enumerate(self.parents):
+        parent_idx = len(self.parents) - 1
+        for i, parent in enumerate(self.parents):
             if parent in parent_values:
                 parent_value = parent_values[parent]
+                parent_idx = i
                 break
-        new_parents = self.parents[:parent_idx] + self.parents[parent_idx + 1 :]  # noqa: E203
+        new_parents = self.parents[:parent_idx] + self.parents[parent_idx + 1 :]  # noqa: E203, RUF100
         new_support = {
-            key[:parent_idx] + key[parent_idx + 1 :]: value  # noqa: E203
+            key[:parent_idx] + key[parent_idx + 1 :]: value  # noqa: E203, RUF100
             for key, value in self.support.items()
             if key[parent_idx] == parent_value
         }
@@ -196,22 +187,17 @@ class Conditional(SearchParameter):
 
     @staticmethod
     def get_invalid_choice():
-        """
-        Return a categorical search parameter with the invalid choice
-        """
+        """Return a categorical search parameter with the invalid choice."""
         return Categorical([SpecialParamValue.INVALID])
 
     @staticmethod
     def get_ignored_choice():
-        """
-        Return a categorical search parameter with the ignored choice
-        """
+        """Return a categorical search parameter with the ignored choice."""
         return Categorical([SpecialParamValue.IGNORED])
 
 
 class ConditionalDefault(Conditional):
-    """
-    Parameter with conditional default value
+    """Parameter with conditional default value.
 
     Examples
     --------
@@ -243,26 +229,21 @@ class ConditionalDefault(Conditional):
         super().__init__(parents, support, default)
 
     def get_support(self, parent_values: Dict[str, Any]) -> Union[bool, int, float, str]:
-        """
-        get the support for the search parameter for a given parent value
-        """
+        """Get the support for the search parameter for a given parent value."""
         return super().get_support(parent_values)[0]
 
     def condition(self, parent_values: Dict[str, Any]) -> Union[bool, int, float, str, "ConditionalDefault"]:
-        """
-        Fix the parent value and return a new search parameter
-        """
+        """Fix the parent value and return a new search parameter."""
         value = super().condition(parent_values)
         if isinstance(value, Categorical):
             return value.get_support()[0]
         if isinstance(value, Conditional):
             return self.conditional_to_conditional_default(value)
+        raise ValueError(f"Unknown search parameter type {type(value)}")
 
     @staticmethod
     def conditional_to_conditional_default(conditional: Conditional) -> "ConditionalDefault":
-        """
-        Convert a conditional to a conditional default
-        """
+        """Convert a conditional to a conditional default."""
         support = {}
         for key, value in conditional.support.items():
             assert isinstance(value, Categorical), "Conditional support must be categorical"
@@ -274,9 +255,7 @@ class ConditionalDefault(Conditional):
 
     @staticmethod
     def conditional_default_to_conditional(conditional_default: "ConditionalDefault") -> Conditional:
-        """
-        Convert a conditional default to a conditional
-        """
+        """Convert a conditional default to a conditional."""
         return Conditional(conditional_default.parents, conditional_default.support, conditional_default.default)
 
     def __repr__(self):
@@ -291,31 +270,26 @@ class ConditionalDefault(Conditional):
 
     @staticmethod
     def get_invalid_choice():
-        """
-        Return a categorical search parameter with the invalid choice
-        """
+        """Return a categorical search parameter with the invalid choice."""
         return SpecialParamValue.INVALID
 
     @staticmethod
     def get_ignored_choice():
-        """
-        Return a categorical search parameter with the ignored choice
-        """
+        """Return a categorical search parameter with the ignored choice."""
         return SpecialParamValue.IGNORED
 
 
 def json_to_search_parameter(json: Dict[str, Any]) -> SearchParameter:
-    """
-    Convert a json to a search parameter
-    """
+    """Convert a json to a search parameter."""
     assert json["olive_parameter_type"] == "SearchParameter", "Not a search parameter"
     search_parameter_type = json["type"]
     if search_parameter_type == "Categorical":
         return Categorical(json["support"])
     if search_parameter_type == "Conditional" or search_parameter_type == "ConditionalDefault":
-        stop_condition = lambda x: (  # noqa: E731
-            isinstance(x, dict) and x.get("olive_parameter_type") == "SearchParameter"
-        )
+
+        def stop_condition(x):
+            return isinstance(x, dict) and x.get("olive_parameter_type") == "SearchParameter"
+
         support = flatten_dict(json["support"], stop_condition=stop_condition)
         for key, value in support.items():
             support[key] = json_to_search_parameter(value)

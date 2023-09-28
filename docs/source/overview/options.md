@@ -86,7 +86,7 @@ case insensitive.
 
     - `model_path: [str | Dict]` The model path can be a string or a dictionary. If it is a string, it is either a string name
     used by the model loader or the path to the model file/directory. If it is a dictionary, it contains information about the model path.
-    Please refer to [Configuring Model Path](configuring_model_path) for the more information of the model path dictionary.
+    Please refer to [Configuring Model Path](../tutorials/configure_model_path.md) for the more information of the model path dictionary.
 
     - `model_loader: [str]` The name of the function provided by the user to load the model. The function should take the model path as
     input and return the loaded model.
@@ -113,9 +113,6 @@ case insensitive.
                 - `component_func: [str]`: The component function name will be loaded from `model_script`.
                 - `dummy_inputs_func: [str]`: The dummy input function name will be loaded from `model_script`.
 
-        - `config: [str]`: The config of the model can be provided as well. Such as `WhisperConfig`. See
-        [huggingface configurations](https://huggingface.co/docs/transformers/main_classes/configuration)
-
         - `dataset: [dict]`: If you want to use the huggingface dataset, you need to provide the dataset config. See [huggingface datasets](https://huggingface.co/docs/datasets/loading). Olive exposes the following configs(which will be extended in the future):
             ```python
             "dataset": {
@@ -127,6 +124,12 @@ case insensitive.
                 "input_cols": ["sentence1", "sentence2"],  # the input columns of the dataset
                 "label_cols": ["label"],  # the label columns of the dataset
                 "batch_size": 1  # the batch size of the dataloader
+                "component_kwargs": {
+                    "pre_process_data": {
+                        "align_labels": true # whether to align the dataset labels with huggingface model config(label2id), more details in https://huggingface.co/docs/datasets/nlp_process#align
+                        "model_config_path": "model_config.json" # model config used to process dataset, if not set, it will use the model name to fetch config from huggingface hub.
+                    }
+                }
             }
             ```
             For cases where you do not want to use the huggingface model but want to use the huggingface dataset, you can provide `dataset` config only like above.

@@ -8,7 +8,7 @@ import pprint
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
-import numpy
+import numpy as np
 import onnx
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
@@ -43,7 +43,7 @@ _expert_pattern = [
 
 
 def _dump_graph(node: Message, filepath: str):
-    with open(filepath, "wt") as strm:
+    with open(filepath, "w") as strm:  # noqa: PTH123
         json.dump(MessageToDict(node), fp=strm, indent=2, sort_keys=True, separators=_json_separators)
         strm.flush()
 
@@ -60,7 +60,7 @@ def _iterate_experts(model: OnnxModel, producers: Dict[str, Message]):
 def _create_node_name(model: OnnxModel, op_type: str, prefix_a: str, prefix_b: str):
     prefix = ""
     last_slash = -1
-    for i in range(0, min(len(prefix_a), len(prefix_b))):
+    for i in range(min(len(prefix_a), len(prefix_b))):
         if prefix_a[i] == prefix_b[i]:
             prefix += prefix_a[i]
             if prefix_a[i] == "/":
@@ -135,7 +135,7 @@ def _replace_constant_value(constant: Message, value: int):
         if attr.name == "value":
             attr.CopyFrom(
                 onnx.helper.make_attribute(
-                    attr.name, onnx.numpy_helper.from_array(numpy.array([value], numpy.int64)), attr.doc_string
+                    attr.name, onnx.numpy_helper.from_array(np.array([value], np.int64)), attr.doc_string
                 )
             )
             return
@@ -213,7 +213,7 @@ def run(world_size: int, input_filepath: str, output_dirpath: str, debug: bool =
         experts.append([n.name for n in expert])
 
     output_filepaths = []
-    for rank in range(0, world_size):
+    for rank in range(world_size):
         rank_model = OnnxModel(onnx.load_model(input_filepath))
         producers = rank_model.output_name_to_node()
         consumers = rank_model.input_name_to_nodes()
@@ -235,23 +235,15 @@ def run(world_size: int, input_filepath: str, output_dirpath: str, debug: bool =
     return output_filepaths
 
 
-def _validate_distributor_config(v, values, field):
-    if v is None:
-        return v
-
-    if "world_size" not in values:
-        raise ValueError("Missing world_size")
-    if int(values["world_size"]) < 2:
+def _validate_world_size(v):
+    if int(v) < 2:
         raise ValueError("world_size should be >= 2")
 
     return v
 
 
 class MoEExpertsDistributor(Pass):
-    """
-    Split the input model (and insert necessary communication operations)
-    to prepare for distributed inferencing.
-    """
+    """Split the input model (and insert necessary communication operations) to prepare for distributed inferencing."""
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -268,8 +260,10 @@ class MoEExpertsDistributor(Pass):
 
     @staticmethod
     def _validators() -> Dict[str, Callable]:
-        return {"validate_distributor_config": validator("world_size")(_validate_distributor_config)}
+        return {"validate_distributor_config": validator("world_size", allow_reuse=True)(_validate_world_size)}
 
-    def _run_for_config(self, model: ONNXModel, config: Dict[str, Any], output_model_path: str) -> DistributedOnnxModel:
+    def _run_for_config(
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> DistributedOnnxModel:
         output_filepaths = run(config["world_size"], model.model_path, output_model_path)
         return DistributedOnnxModel(output_filepaths)

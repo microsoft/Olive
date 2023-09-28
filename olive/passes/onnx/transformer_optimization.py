@@ -9,17 +9,21 @@ from typing import Any, Dict, List, Union
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
+from olive.model.hf_mappings import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_HEADS_NAMES
 from olive.passes import Pass
 from olive.passes.onnx.common import get_external_data_config, model_proto_to_olive_model
 from olive.passes.pass_config import PassConfigParam
-from olive.strategy.search_parameter import Boolean, Categorical
+from olive.strategy.search_parameter import Boolean, Categorical, Conditional
 
 logger = logging.getLogger(__name__)
 
 
 class OrtTransformersOptimization(Pass):
-    """Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time.
-    It is based on onnxruntime.transformers.optimizer."""
+    """Use ONNX Transformer Optimizer to optimize transformer based models.
+
+    Optimize transformer based models in scenarios where ONNX Runtime does not apply the optimization at load time.
+    It is based on onnxruntime.transformers.optimizer.
+    """
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -30,7 +34,7 @@ class OrtTransformersOptimization(Pass):
         config = {
             "model_type": PassConfigParam(
                 type_=str,
-                required=True,
+                default_value=None,
                 description=(
                     "Transformer based model type, including bert (exported by PyTorch), gpt2 (exported by PyTorch), "
                     "bert_tf (BERT exported by tf2onnx), bert_keras (BERT exported by keras2onnx), and "
@@ -39,7 +43,7 @@ class OrtTransformersOptimization(Pass):
             ),
             "num_heads": PassConfigParam(type_=int, default_value=0, description="Number of attention heads."),
             "hidden_size": PassConfigParam(type_=int, default_value=0, description="Number of hidden nodes."),
-            # TODO: Figure out what the expected type is
+            # TODO(jambayk): Figure out what the expected type is
             "optimization_options": PassConfigParam(
                 type_=Union[Dict[str, Any], FusionOptions],
                 default_value=None,
@@ -58,8 +62,19 @@ class OrtTransformersOptimization(Pass):
             "only_onnxruntime": PassConfigParam(
                 type_=bool,
                 default_value=False,
-                searchable_values=Boolean(),
-                description="Whether only use onnxruntime to optimize model, and no python fusion.",
+                searchable_values=Conditional(
+                    parents=("opt_level",),
+                    support={
+                        (2,): Categorical([False]),
+                        (99,): Categorical([False]),
+                    },
+                    default=Boolean(),
+                ),
+                description=(
+                    "Whether only use onnxruntime to optimize model, and no python fusion."
+                    " Disable some optimizers that might cause failure in symbolic shape inference or attention fusion,"
+                    " when opt_level > 1."
+                ),
             ),
             "float16": PassConfigParam(
                 type_=bool, default_value=False, description="Whether half-precision float will be used."
@@ -97,6 +112,23 @@ class OrtTransformersOptimization(Pass):
         if search_point.get("use_gpu") and accelerator_spec.execution_provider == "CPUExecutionProvider":
             logger.info("CPUExecutionProvider does not support GPU inference, please avoid to use use_gpu.")
             return False
+        if search_point.get("only_onnxruntime") and search_point.get("opt_level") <= 0:
+            logger.info("Please specify a positive value for opt_level when only_onnxruntime is True")
+            return False
+        if (
+            search_point.get("opt_level") == 0
+            and search_point.get("only_onnxruntime")
+            and search_point.get("num_heads") == 0
+            and search_point.get("hidden_size") == 0
+        ):
+            from onnxruntime import __version__ as OrtVersion
+            from packaging import version
+
+            if version.parse(OrtVersion) <= version.parse("1.16.0"):
+                logger.info(
+                    "Ignore this search point because the issue https://github.com/microsoft/onnxruntime/issues/17254"
+                )
+            return False
         return True
 
     @staticmethod
@@ -122,6 +154,26 @@ class OrtTransformersOptimization(Pass):
         )
         for key in get_external_data_config():
             del run_config[key]
+
+        if model.model_attributes:
+            model_config = model.model_attributes
+            input_model_type = model_config.get("model_type", "")
+            _model_type = MODEL_TYPE_MAPPING.get(input_model_type, input_model_type)
+            run_config["model_type"] = run_config["model_type"] or _model_type
+            assert run_config["model_type"] in transformers_optimizer.MODEL_TYPES, (
+                f"Unsupported model type: {run_config['model_type']}, please select one from "
+                "{transformers_optimizer.MODEL_TYPES} which need to be set under OrtTransformersOptimization.config"
+            )
+            if run_config["num_heads"] == 0:
+                for num_heads_name in NUM_HEADS_NAMES:
+                    if num_heads_name in model_config:
+                        run_config["num_heads"] = model_config[num_heads_name]
+                        break
+            if run_config["hidden_size"] == 0:
+                for hidden_size_name in HIDDEN_SIZE_NAMES:
+                    if hidden_size_name in model_config:
+                        run_config["hidden_size"] = model_config[hidden_size_name]
+                        break
 
         output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
 

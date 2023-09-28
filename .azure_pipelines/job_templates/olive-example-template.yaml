@@ -1,0 +1,74 @@
+# Olive Build and Test Pipeline template for examples on Azure DevOps
+
+parameters:
+  name: ''
+  pool: ''
+  python_version: '3.8'
+  onnxruntime: 'onnxruntime'
+
+jobs:
+  - job: ${{parameters.name}}_Test_Examples
+    timeoutInMinutes: 300
+    pool:
+      name: ${{ parameters.pool}}
+    strategy:
+      matrix:
+        ${{ insert }}: ${{ parameters.examples }}
+    variables:
+      runCodesignValidationInjection: false
+
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: ${{ parameters.python_version }}
+      displayName: Use Python ${{ parameters.python_version }}
+
+    - script: python -m pip install .
+      displayName: Install Olive
+
+    - ${{ if startsWith(parameters.onnxruntime, 'ort-nightly') }}:
+      - script: |
+          pip install onnxruntime
+          pip uninstall -y onnxruntime
+          pip install ${{ parameters.onnxruntime }} --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+        displayName: Install ${{ parameters.onnxruntime }}
+    - ${{ else }}:
+      - script: |
+          pip install ${{ parameters.onnxruntime }}
+        displayName: Install ${{ parameters.onnxruntime }}
+
+    - task: AzureCLI@1
+      inputs:
+        azureSubscription: $(OLIVE_RG_SERVICE_CONNECTION)
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          python -m pip install pytest
+          python -m pip install -r $(Build.SourcesDirectory)/examples/$(exampleFolder)/requirements.txt
+          python -m pytest -v -s --log-cli-level=WARNING --junitxml=$(Build.SourcesDirectory)/logs/test_examples-TestOlive.xml $(Build.SourcesDirectory)/examples/test/test_$(exampleName).py
+      displayName: Test Examples
+      env:
+        OLIVEWHEELS_STORAGE_CONNECTION_STRING: $(olive-wheels-storage-connection-string)
+        WORKSPACE_SUBSCRIPTION_ID: $(workspace-subscription-id)
+        WORKSPACE_RESOURCE_GROUP: $(workspace-resource-group)
+        WORKSPACE_NAME: $(workspace-name)
+        AZURE_TENANT_ID: $(azure-tenant-id)
+        AZURE_CLIENT_ID: $(olive-rg-sp-id)
+        AZURE_CLIENT_SECRET: $(olive-rg-sp-secret)
+
+    - task: ComponentGovernanceComponentDetection@0
+      inputs:
+        scanType: 'Register'
+        verbosity: 'Verbose'
+        alertWarningLevel: 'High'
+      displayName: Component Detection
+
+    - task: PublishTestResults@2
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFiles: '**/*TestOlive*.xml'
+        testRunTitle: '$(Build.BuildNumber)[$(Agent.JobName)]'
+      displayName: Upload pipeline run test results
+
+    - script: git clean -dfX
+      condition: always()
+      displayName: Clean remaining artifacts

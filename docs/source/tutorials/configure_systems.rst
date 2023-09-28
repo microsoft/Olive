@@ -94,12 +94,41 @@ System Configuration
                 }
             )
 
+Olive can also manage the environment by setting :code:`olive_managed_env = True`
+
+.. tabs::
+    .. tab:: Config JSON
+
+        .. code-block:: json
+
+            {
+                "type": "AzureML",
+                "config": {
+                    "aml_compute": "cpu-cluster",
+                    "accelerators": ["cpu"],
+                    "olive_managed_env": true,
+                }
+            }
+
+    .. tab:: Python Class
+
+        .. code-block:: python
+
+            from olive.systems.azureml import AzureMLSystem
+
+            aml_system = AzureMLSystem(
+                aml_compute="cpu-cluster",
+                accelerators=["cpu"],
+                olive_managed_env=True,
+            )
+
+
 Please refer to this `example <https://github.com/microsoft/Olive/blob/main/examples/bert/conda.yaml>`__
 for :code:`"conda.yaml"`.
 
 .. important::
 
-    The AzureML environment must have :code:`olive-ai` installed!
+    The AzureML environment must have :code:`olive-ai` installed if :code:`olive_managed_env = False`
 
 Please refer to :ref:`azureml_system_config` for more details on the config options.
 
@@ -175,6 +204,35 @@ System Configuration
             )
             docker_system = DockerSystem(local_docker_config=local_docker_config)
 
+Olive can manage the environment by setting :code:`olive_managed_env = True`
+
+.. tabs::
+    .. tab:: Config JSON
+
+        .. code-block:: json
+
+            {
+                "type": "Docker",
+                "config": {
+                    "accelerators": ["cpu"],
+                    "olive_managed_env": true,
+                    "requirements_file": "mnist_requirements.txt"
+                    }
+                }
+            }
+
+    .. tab:: Python Class
+
+        .. code-block:: python
+
+            from olive.systems.docker import DockerSystem
+
+            docker_system = DockerSystem(
+                accelerators=["cpu"],
+                olive_managed_env=True,
+                requirements_file="mnist_requirements.txt",
+            )
+
 Please refer to this `example <https://github.com/microsoft/Olive/tree/main/examples/bert/docker>`__
 for :code:`"docker"` and :code:`"Dockerfile"`.
 
@@ -212,8 +270,33 @@ Python Environment System
                 device = Device.CPU
             )
 
+Olive can also manage the environment by setting :code:`olive_managed_env = True`. This feature works best when used from Conda.
+
+.. tabs::
+    .. tab:: Config JSON
+
+        .. code-block:: json
+
+            {
+                "type": "PythonEnvironment",
+                "config": {
+                    "accelerators": ["cpu"],
+                    "olive_managed_env": true,
+                }
+            }
+    .. tab:: Python Class
+        .. code-block:: python
+
+            from olive.systems.python_environment import PythonEnvironmentSystem
+            from olive.system.common import Device
+
+            python_environment_system = PythonEnvironmentSystem(
+                olive_managed_env = True,
+                device = Device.CPU
+            )
+
 .. important::
 
-    The python environment system can only be used to evaluate onnx models. It must have :code:`onnxruntime` installed!
+    The python environment system can only be used to evaluate onnx models. It must have :code:`onnxruntime` installed if :code:`olive_managed_env = False` !
 
 Please refer to :ref:`python_environment_system_config` for more details on the config options.

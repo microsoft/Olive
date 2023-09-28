@@ -15,6 +15,8 @@ import pytest
 from olive.cache import clean_pass_run_cache, create_cache, download_resource, get_cache_sub_dirs, save_model
 from olive.resource_path import AzureMLModel
 
+# ruff: noqa: PTH123
+
 
 class TestCache:
     @pytest.mark.parametrize(
@@ -35,7 +37,8 @@ class TestCache:
             model_p = str(model_folder)
         else:
             model_p = str(model_cache_dir / model_path)
-            open(model_p, "w")
+            with open(model_p, "w") as _:
+                pass
 
         run_cache_file_path = str((run_cache_dir / f"{pass_type}-p(･◡･)p.json").resolve())
         with open(run_cache_file_path, "w") as run_cache_file:
@@ -52,7 +55,8 @@ class TestCache:
             model_cache_file.write(model_data)
 
         evaluation_cache_file_path = str((evaluation_cache_dir / "0_p(･◡･)p.json").resolve())
-        open(evaluation_cache_file_path, "w")
+        with open(evaluation_cache_file_path, "w") as _:
+            pass
 
         # execute
         clean_pass_run_cache(pass_type, cache_dir)
@@ -81,17 +85,21 @@ class TestCache:
             model_folder = model_cache_dir / model_path
             model_folder.mkdir(parents=True, exist_ok=True)
             model_p = str(model_folder)
+            # create a dummy .onnx file in the folder
+            onnx_file = model_folder / "dummy.onnx"
+            onnx_file.touch()
         else:
             model_p = str(model_cache_dir / model_path)
-            open(model_p, "w")
+            Path(model_p).touch()
 
         # cache model to cache_dir
         model_id = "0"
         model_cache_dir = cache_dir / "models"
         model_cache_dir.mkdir(parents=True, exist_ok=True)
         model_cache_file_path = str((model_cache_dir / f"{model_id}_p(･◡･)p.json").resolve())
-        model_json = {"type": "onnx", "config": {"model_path": model_p}}
-        json.dump(model_json, open(model_cache_file_path, "w"))
+        model_json = {"type": "onnxmodel", "config": {"model_path": model_p}}
+        with open(model_cache_file_path, "w") as f:
+            json.dump(model_json, f)
 
         # output model to output_dir
         output_dir = cache_dir / "output"
@@ -106,7 +114,8 @@ class TestCache:
         assert output_model_path == output_json["config"]["model_path"]
         assert os.path.exists(output_model_path)
         assert os.path.exists(output_json_path)
-        assert output_model_path == json.load(open(output_json_path))["config"]["model_path"]
+        with open(output_json_path) as f:
+            assert output_model_path == json.load(f)["config"]["model_path"]
 
         # cleanup
         shutil.rmtree(cache_dir)

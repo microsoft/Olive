@@ -62,7 +62,7 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "config": {"model_type": "bert"}
+            "disable_search": true
         },
         "perf_tuning": {
             "type": "OrtPerfTuning",

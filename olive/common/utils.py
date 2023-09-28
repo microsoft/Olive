@@ -26,7 +26,7 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
         path = env.get("PATH") if env else None
         cmd_exe = shutil.which(cmd[0], path=path)
         cmd[0] = cmd_exe
-    out = subprocess.run(cmd, env=env, cwd=cwd, capture_output=True)
+    out = subprocess.run(cmd, env=env, cwd=cwd, capture_output=True, check=False)
     returncode = out.returncode
     stdout = out.stdout.decode("utf-8")
     stderr = out.stderr.decode("utf-8")
@@ -34,6 +34,18 @@ def run_subprocess(cmd, env=None, cwd=None, check=False):  # pragma: no cover
         raise RuntimeError(f"Command '{cmd}' failed with return code {returncode} and error: {stderr}")
 
     return returncode, stdout, stderr
+
+
+def get_package_name_from_ep(execution_provider):
+    provider_package_mapping = {
+        "CPUExecutionProvider": ("onnxruntime", "ort-nightly"),
+        "CUDAExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
+        "TensorrtExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
+        "RocmExecutionProvider": ("onnxruntime-gpu", "ort-nightly-gpu"),
+        "OpenVINOExecutionProvider": ("onnxruntime-openvino", None),
+        "DmlExecutionProvider": ("onnxruntime-directml", "ort-nightly-directml"),
+    }
+    return provider_package_mapping.get(execution_provider, ("onnxruntime", "ort-nightly"))
 
 
 def hash_string(string):  # pragma: no cover
@@ -51,7 +63,7 @@ def hash_io_stream(f):  # pragma: no cover
 
 
 def hash_file(filename):  # pragma: no cover
-    with open(filename, "rb") as f:
+    with open(filename, "rb") as f:  # noqa: PTH123
         return hash_io_stream(f)
 
 
@@ -80,9 +92,7 @@ def hash_object(obj):  # pragma: no cover
 
 
 def unflatten_dict(dictionary):  # pragma: no cover
-    """
-    Unflatten a dictionary with keys of the form "a.b.c" into a nested dictionary.
-    """
+    """Unflatten a dictionary with keys of the form "a.b.c" into a nested dictionary."""
     result = {}
     for key, value in dictionary.items():
         parts = list(key)
@@ -96,23 +106,20 @@ def unflatten_dict(dictionary):  # pragma: no cover
 
 
 def flatten_dict(dictionary, stop_condition=None):  # pragma: no cover
-    """
-    Flatten a nested dictionary into a dictionary with keys of the form (a,b,c).
-    """
+    """Flatten a nested dictionary into a dictionary with keys of the form (a,b,c)."""
     result = {}
     for key, value in dictionary.items():
         if stop_condition is not None and stop_condition(value):
             result[(key,)] = value
         elif isinstance(value, dict):
-            result.update({(key,) + k: v for k, v in flatten_dict(value, stop_condition).items()})
+            result.update({(key, *k): v for k, v in flatten_dict(value, stop_condition).items()})
         else:
             result[(key,)] = value
     return result
 
 
 def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, exceptions=None):
-    """
-    Retry a function call using an exponential backoff.
+    """Retry a function call using an exponential backoff.
 
     Args:
         func: Function to call.
@@ -142,6 +149,7 @@ def retry_func(func, args=None, kwargs=None, max_tries=3, delay=5, backoff=2, ex
             logger.debug(f"Failed. Retrying in {sleep_time} seconds...")
             time.sleep(sleep_time)
             sleep_time *= backoff
+    return None
 
 
 def tensor_data_to_device(data, device: str):
@@ -159,6 +167,32 @@ def tensor_data_to_device(data, device: str):
     elif isinstance(data, tuple):
         return tuple(tensor_data_to_device(v, device) for v in data)
     elif isinstance(data, set):
-        return set(tensor_data_to_device(v, device) for v in data)
+        return {tensor_data_to_device(v, device) for v in data}
     else:
         return data
+
+
+def get_attr(module, attr, fail_on_not_found=False):
+    """Get attribute from module.
+
+    :param module: module to get attribute from.
+    :param attr: attribute name, can be a string with dot notation. If empty, return module.
+    :param fail_on_not_found: if True, raise AttributeError if attribute is not found.
+    :return: attribute
+    """
+    if not attr:
+        # return module if attr is empty
+        return module
+
+    attr = attr.split(".")
+    for a in attr:
+        try:
+            module = getattr(module, a)
+        except AttributeError as e:
+            not_found_message = f"Attribute {attr} not found."
+            if fail_on_not_found:
+                raise AttributeError(not_found_message) from e
+            else:
+                logger.warning(not_found_message)
+                return None
+    return module

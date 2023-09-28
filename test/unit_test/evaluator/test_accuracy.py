@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
+import torch
 
 from olive.evaluator.accuracy import AUROC, AccuracyScore, F1Score, Perplexity, Precision, Recall
 from olive.evaluator.olive_evaluator import OliveModelOutput
@@ -36,8 +37,8 @@ def test_evaluate_accuracyscore(mock_torchmetrics, mock_torch_tensor, metric_con
     actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.tensor.called_once_with(model_output)
-    mock_torch_tensor.tensor.called_once_with(targets)
+    mock_torch_tensor.assert_any_call(model_output.preds, dtype=torch.int32)
+    mock_torch_tensor.assert_any_call(targets, dtype=torch.int32)
     assert actual_res == expected_res
 
 
@@ -57,8 +58,8 @@ def test_evaluate_f1score(mock_torchmetrics, mock_torch_tensor):
     actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.tensor.called_once_with(model_output)
-    mock_torch_tensor.tensor.called_once_with(targets)
+    mock_torch_tensor.assert_any_call(model_output.preds, dtype=torch.int32)
+    mock_torch_tensor.assert_any_call(targets, dtype=torch.int32)
     assert actual_res == expected_res
 
 
@@ -78,8 +79,8 @@ def test_evaluate_precision(mock_torchmetrics, mock_torch_tensor):
     actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.tensor.called_once_with(model_output)
-    mock_torch_tensor.tensor.called_once_with(targets)
+    mock_torch_tensor.assert_any_call(model_output.preds, dtype=torch.int32)
+    mock_torch_tensor.assert_any_call(targets, dtype=torch.int32)
     assert actual_res == expected_res
 
 
@@ -99,8 +100,8 @@ def test_evaluate_recall(mock_torchmetrics, mock_torch_tensor):
     actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.tensor.called_once_with(model_output)
-    mock_torch_tensor.tensor.called_once_with(targets)
+    mock_torch_tensor.assert_any_call(model_output.preds, dtype=torch.int32)
+    mock_torch_tensor.assert_any_call(targets, dtype=torch.int32)
     assert actual_res == expected_res
 
 
@@ -120,8 +121,8 @@ def test_evaluate_auc(mock_torchmetrics, mock_torch_tensor):
     actual_res = acc.measure(model_output, targets)
 
     # assert
-    mock_torch_tensor.tensor.called_once_with(model_output)
-    mock_torch_tensor.tensor.called_once_with(targets)
+    mock_torch_tensor.assert_any_call(model_output.logits, dtype=torch.float)
+    mock_torch_tensor.assert_any_call(targets, dtype=torch.int32)
     assert actual_res == expected_res
 
 
@@ -145,6 +146,6 @@ def test_evaluate_perplexity(mock_torchmetrics, mock_torch_tensor):
 
     # assert
     for i in range(batch):
-        mock_torch_tensor.tensor.called_once_with(model_output.preds[i])
-        mock_torch_tensor.tensor.called_once_with(targets[i])
+        mock_torch_tensor.assert_any_call(model_output.preds[i], dtype=torch.float)
+        mock_torch_tensor.assert_any_call(targets[i], dtype=torch.long)
     assert actual_res == expected_res

@@ -14,12 +14,13 @@ import torchvision
 import torchvision.transforms as transforms
 from torchvision.models import ResNet50_Weights, resnet50
 
+# ruff: noqa: PLW2901
+
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--num_epochs", type=int, default=0)
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def get_directories():
@@ -62,7 +63,6 @@ def prepare_model(num_epochs=0, models_dir="models", data_dir="data"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Hyper-parameters
-    num_epochs = num_epochs
     learning_rate = 0.001
 
     # Image preprocessing modules
@@ -128,6 +128,15 @@ def prepare_model(num_epochs=0, models_dir="models", data_dir="data"):
     # Save the model
     model.to("cpu")
     torch.save(model, str(models_dir / "resnet_trained_for_cifar10.pt"))
+    dummy_input = torch.randn(1, 3, 32, 32)
+    torch.onnx.export(
+        model,
+        dummy_input,
+        str(models_dir / "resnet_trained_for_cifar10.onnx"),
+        input_names=["input"],
+        output_names=["output"],
+        dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+    )
 
 
 def main():

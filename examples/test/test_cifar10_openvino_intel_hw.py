@@ -6,20 +6,20 @@ import sys
 from pathlib import Path
 
 import pytest
-from utils import check_search_output
+from utils import check_output
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup():
-    """setup any state specific to the execution of the given module."""
-    CIFAR10_DIR = str(Path(__file__).resolve().parent.parent / "cifar10_openvino_intel_hw")
-    sys.path.append(CIFAR10_DIR)
+    """Setups any state specific to the execution of the given module."""
+    cifar10_dir = str(Path(__file__).resolve().parent.parent / "cifar10_openvino_intel_hw")
+    sys.path.append(cifar10_dir)
     yield
-    sys.path.remove(CIFAR10_DIR)
+    sys.path.remove(cifar10_dir)
 
 
 def test_cifar10():
     import cifar10
 
     metrics = cifar10.main()
-    check_search_output(metrics)
+    check_output(metrics)
