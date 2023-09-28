@@ -1,3 +1,8 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
 from pathlib import Path
 from test.unit_test.utils import get_hf_model_with_past, get_pytorch_model
 
