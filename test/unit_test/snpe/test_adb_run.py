@@ -27,7 +27,7 @@ def test_run_adb_command(mock_run_subprocess, mock_which, android_target):
     mock_which.side_effect = lambda x, path: x
     stdout, stderr = run_adb_command("version", android_target)
     mock_run_subprocess.assert_called_once_with(
-        f"adb -s {android_target} version".split(), capture_output=True, env=None, cwd=None
+        f"adb -s {android_target} version".split(), capture_output=True, env=None, cwd=None, check=False
     )
     assert stdout == "stdout"
     assert stderr == "stderr"
@@ -56,5 +56,6 @@ def test_run_snpe_command():
             capture_output=True,
             env=env,
             cwd=None,
+            check=False,
         )
         assert stdout.strip() == "stdout"
