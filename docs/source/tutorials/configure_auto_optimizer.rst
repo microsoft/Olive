@@ -44,7 +44,7 @@ Config Fields:
     3. precision[str]: default "fp32".
         - The precision of output model. It can be "placeholder", "fp32", "fp16" and "int8" for now. "placeholder" means the precision of output model is not specified and will be determined by above optimization factors.
 
-    4. required_pass_config[dict]: default None.
+    4. customized_pass_config[dict]: default None.
         - The passes with configs that user want to use. If this is provided, Auto Optimizer will firstly respect this config and then search for the best passes combination based on above optimization factors.
 
     5. disabled_passes[list]: default None.
@@ -70,7 +70,7 @@ Config Fields:
             "cache_dir": "cache",
             "output_dir" : "models/bert_gpu",
             "auto_optimizer_config": {
-                "required_pass_config": {
+                "customized_pass_config": {
                     "OnnxConversion": {
                         "target_opset": 15
                     }

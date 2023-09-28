@@ -51,9 +51,8 @@ class AutoOptimizerConfig(ConfigBase):
     # fine_tune: bool = False
 
     # required pass config like {"pass_name": {"param1": "value1", "param2": "value2"}
-    # to customized_pass_config
-    required_pass_config: Optional[Dict] = None
     disabled_passes: Optional[List] = None
+    customized_pass_config: Optional[Dict] = None
 
     # TODO(trajep): high level switch to enable/disable quant/compress/distill/sparse etc.
 
@@ -65,15 +64,14 @@ class AutoOptimizerConfig(ConfigBase):
             raise ValueError("opt_level must be in [0, 1, 99]")
         return v
 
-    @validator("required_pass_config", pre=True)
-    def check_pass_config(cls, v):
+    @validator("customized_pass_config")
+    def check_pass_config(cls, v, values):
         if not v:
             return v
-        required_pass_config = v.get("required_pass_config", {})
-        disabled_pass_config = v.get("disabled_pass_config", {})
-        # required_pass_config and disabled_pass_config should not have same pass config
-        for pass_name in required_pass_config:
-            if pass_name in disabled_pass_config:
+        disabled_passes = values.get("disabled_passes", [])
+        # customized_pass_config and disabled_pass_config should not have same pass config
+        for pass_name in v:
+            if pass_name in disabled_passes:
                 raise ValueError(f"{pass_name} is both required and disabled")
         return v
 
@@ -92,7 +90,7 @@ class AutoOptimizer:
         self.evaluator_config = evaluator_config
         self.accelerator_spec = accelerator_spec
         self.auto_optimizer_config = auto_optimizer_config or AutoOptimizerConfig()
-        self.auto_optimizer_config.required_pass_config = self.auto_optimizer_config.required_pass_config or {}
+        self.auto_optimizer_config.customized_pass_config = self.auto_optimizer_config.customized_pass_config or {}
         self.auto_optimizer_config.disabled_passes = self.auto_optimizer_config.disabled_passes or []
         self.data_configs = data_configs or {}
         self.initialize()
@@ -156,7 +154,7 @@ class AutoOptimizer:
 
         for pass_item in pass_flows:
             for p_name in pass_item:
-                user_defined_config = self.auto_optimizer_config.required_pass_config.get(p_name, {})
+                user_defined_config = self.auto_optimizer_config.customized_pass_config.get(p_name, {})
                 if p_name not in pass_config:
                     pass_config[p_name] = user_defined_config
                 else:

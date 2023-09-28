@@ -115,3 +115,11 @@ class TestAutoOptimizer:
         pass_config, pass_flows = auto_optimizer.suggest()
         assert pass_config, "Expect pass_config to be populated by auto optimizer"
         assert pass_flows == expected_pass_flows
+
+
+class TestAutoOptimizerConfig:
+    def test_pass_conflicts(self):
+        with pytest.raises(ValueError):
+            AutoOptimizerConfig(
+                customized_pass_config={"OnnxConversion": {"target_opset": 15}}, disabled_passes=["OnnxConversion"]
+            )
