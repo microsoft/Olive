@@ -12,7 +12,12 @@
                     "input_cols": ["sentence"],
                     "label_cols": ["label"],
                     "batch_size": 1,
-                    "max_samples": 100
+                    "max_samples": 100,
+                    "component_kwargs": {
+                        "pre_process_data": {
+                            "align_labels": true
+                        }
+                    }
                 }
             }
         }

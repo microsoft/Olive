@@ -70,6 +70,7 @@ MODEL_NAME_TO_CONFIG_MAP = {
             "label_cols": ["label"],
             "batch_size": 1,
             "max_samples": 100,
+            "component_kwargs": {"pre_process_data": {"align_labels": True}},
         },
     },
     "roberta_large": {
