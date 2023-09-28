@@ -345,7 +345,7 @@ class Pass(ABC):
         # Optimization pass still works on individual graphs.
         if isinstance(model, DistributedOnnxModel):
             output_filepaths = []
-            for rank in range(0, model.ranks):
+            for rank in range(model.ranks):
                 input_rank_model = model.load_model(rank)
                 rank_output_path = Path(output_model_path).with_suffix("") / str(rank)
                 output_rank_model = self._run_for_config(input_rank_model, data_root, config, rank_output_path)

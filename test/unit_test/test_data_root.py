@@ -160,7 +160,7 @@ def get_data_config():
 
 def concat_data_dir(data_root, data_dir):
     if data_root is None:
-        data_dir = data_dir
+        pass
     elif data_root.startswith("azureml://"):
         data_dir = data_root + "/" + data_dir
     else:

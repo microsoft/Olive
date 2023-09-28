@@ -36,7 +36,7 @@ def convertquantize(
     models_dir = Path(model).resolve().parent if output_dir is None else Path(output_dir).resolve()
     data_dir = Path(data).resolve()
     name = Path(model).resolve().stem if output_name is None else output_name
-    if type(config) is str:
+    if isinstance(config, str):
         with Path(config).resolve().open() as f:
             config = json.load(f)
 

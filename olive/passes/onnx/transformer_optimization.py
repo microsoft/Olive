@@ -177,14 +177,22 @@ class OrtTransformersOptimization(Pass):
 
         output_model_path = ONNXModel.resolve_path(os.path.join(output_model_path, os.path.basename(model.model_path)))
 
-        if config["optimization_options"]:
+        optimization_options = config["optimization_options"]
+
+        if optimization_options:
             self._set_fusion_options(run_config)
 
         optimizer = transformers_optimizer.optimize_model(input=model.model_path, **run_config)
 
         if config["float16"]:
+            force_fp16_inputs = {}
+            if optimization_options:
+                force_fp16_inputs = optimization_options.get("force_fp16_inputs", {})
+
             op_block_list = config["force_fp32_ops"]
-            optimizer.convert_float_to_float16(keep_io_types=config["keep_io_types"], op_block_list=op_block_list)
+            optimizer.convert_float_to_float16(
+                keep_io_types=config["keep_io_types"], op_block_list=op_block_list, force_fp16_inputs=force_fp16_inputs
+            )
 
         if config["input_int32"]:
             optimizer.change_graph_inputs_to_int32()

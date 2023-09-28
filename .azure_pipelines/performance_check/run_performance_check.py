@@ -158,9 +158,9 @@ def export_optimum_dynamic_quantization(onnx_model_path, model_root_path):
 def run_with_config(tool, olive_config, metric_res):
     outputs = olive_run(olive_config)
     if tool == "olive":
-        metric = str(list(list(outputs.values())[0].nodes.values())[0].metrics.value)
+        metric = str(next(iter(next(iter(outputs.values())).nodes.values())).metrics.value)
     else:
-        metric = str(list(outputs.values())[0])
+        metric = str(next(iter(outputs.values())))
     metric_dict = ast.literal_eval(metric)
 
     for metric_name, metric_value in metric_dict.items():

@@ -63,7 +63,6 @@ def prepare_model(num_epochs=0, models_dir="models", data_dir="data"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Hyper-parameters
-    num_epochs = num_epochs
     learning_rate = 0.001
 
     # Image preprocessing modules
