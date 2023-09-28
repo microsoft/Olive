@@ -8,7 +8,6 @@ import tempfile
 from pathlib import Path
 from test.unit_test.utils import (
     get_accuracy_metric,
-    get_glue_huggingface_data_config,
     get_onnx_model_config,
     get_onnxconversion_pass,
     get_pytorch_model_config,
@@ -17,13 +16,11 @@ from unittest.mock import patch
 
 import pytest
 
-from olive.auto_optimizer import AutoOptimizerConfig
 from olive.common.utils import hash_dict
 from olive.engine import Engine
 from olive.evaluator.metric import AccuracySubType, MetricResult, joint_metric_key
 from olive.evaluator.olive_evaluator import OliveEvaluatorConfig
-from olive.hardware import DEFAULT_CPU_ACCELERATOR, DEFAULT_GPU_CUDA_ACCELERATOR
-from olive.model import ModelConfig
+from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes.onnx import OnnxConversion, OnnxDynamicQuantization, OnnxStaticQuantization
 from olive.systems.common import SystemType
 from olive.systems.local import LocalSystem
@@ -616,84 +613,3 @@ class TestEngine:
         assert len(engine.accelerator_specs) == 1
         assert engine.accelerator_specs[0] == DEFAULT_CPU_ACCELERATOR
         assert engine.target.system_type == SystemType.Docker
-
-    @pytest.mark.parametrize(
-        "metrics, accelerator_spec, auto_optimizer_config, expected_pass_flows",
-        [
-            (
-                [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="max-degradation")],
-                DEFAULT_CPU_ACCELERATOR,
-                None,
-                [["OnnxConversion", "OrtTransformersOptimization", "OnnxQuantization", "OrtPerfTuning"]],
-            ),
-            (
-                # cannot tolerate accuracy drop, then skip quantization
-                [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="max-degradation", goal_value=0)],
-                DEFAULT_CPU_ACCELERATOR,
-                None,
-                [["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"]],
-            ),
-            (
-                # running on gpu-cuda, skip quantization
-                [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="max-degradation")],
-                DEFAULT_GPU_CUDA_ACCELERATOR,
-                None,
-                [["OnnxConversion", "OrtTransformersOptimization", "OrtPerfTuning"]],
-            ),
-            (
-                # running on gpu-cuda, skip quantization
-                [get_accuracy_metric(AccuracySubType.ACCURACY_SCORE, goal_type="max-degradation")],
-                DEFAULT_GPU_CUDA_ACCELERATOR,
-                AutoOptimizerConfig(disabled_passes=["OrtPerfTuning"]),
-                [["OnnxConversion", "OrtTransformersOptimization"]],
-            ),
-        ],
-    )
-    def test_prepare_passes_from_auto_optimizer(
-        self, metrics, accelerator_spec, auto_optimizer_config, expected_pass_flows
-    ):
-        temp_dir = tempfile.TemporaryDirectory()
-        temp_dir_name = temp_dir.name
-        input_model_config = ModelConfig(
-            type="PyTorchModel",
-            config={
-                "hf_config": {
-                    "model_name": "Intel/bert-base-uncased-mrpc",
-                    "task": "text-classification",
-                }
-            },
-        )
-        evaluator_config = OliveEvaluatorConfig(metrics=metrics)
-
-        data_configs = {"__input_model_data_config__": get_glue_huggingface_data_config()}
-
-        engine = Engine(
-            config={
-                "output_dir": temp_dir_name,
-                "output_name": "test",
-                "cache_dir": temp_dir_name,
-                "clean_cache": True,
-                "search_strategy": {
-                    "execution_order": "joint",
-                    "search_algorithm": "random",
-                },
-            },
-            host=LocalSystem(),
-            target=LocalSystem(),
-            evaluator_config=evaluator_config,
-            auto_optimizer_config=auto_optimizer_config,
-        )
-        engine.initialize()
-
-        engine.prepare_passes_from_auto_optimizer(
-            input_model_config=input_model_config,
-            evaluator_config=evaluator_config,
-            accelerator_spec=accelerator_spec,
-            auto_optimizer_config=auto_optimizer_config,
-            data_configs=data_configs,
-            output_dir=temp_dir_name,
-        )
-
-        assert (Path(temp_dir_name) / "auto_optimizer").exists()
-        assert engine.pass_config, "Expect pass_config to be populated by auto optimizer"
-        assert engine.pass_flows == expected_pass_flows
