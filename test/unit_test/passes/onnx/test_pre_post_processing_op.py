@@ -1,3 +1,8 @@
+# -------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+# --------------------------------------------------------------------------
+
 from olive.model import ONNXModel, PyTorchModel
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.append_pre_post_processing_ops import AppendPrePostProcessingOps
