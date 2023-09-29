@@ -505,10 +505,7 @@ class PyTorchModel(OliveModel):
         self.hf_config = None
         if hf_config:
             self.hf_config = validate_config(hf_config, HFConfig)
-            hf_model_config = self.get_hf_model_config().to_dict()
-            model_attr = self.model_attributes or {}
-            hf_model_config.update(model_attr)
-            self.model_attributes = hf_model_config
+        self.reset_model_attributes(model_attributes)
 
         # ensure that script_dirs are local folder
         script_dir_resource = create_resource_path(self.script_dir)
@@ -536,6 +533,15 @@ class PyTorchModel(OliveModel):
     @property
     def model_script(self) -> str:
         return self.get_resource("model_script")
+
+    def reset_model_attributes(self, model_attributes: Optional[Dict]):
+        """Reset model_attributes with hf_model_config + new attributes."""
+        model_attributes = model_attributes or {}
+        if self.hf_config:
+            hf_model_config = self.get_hf_model_config().to_dict()
+            hf_model_config.update(model_attributes)
+            model_attributes = hf_model_config
+        self.model_attributes = model_attributes
 
     def load_model(self, rank: int = None) -> torch.nn.Module:
         if self.model is not None:
@@ -713,6 +719,15 @@ class PyTorchModel(OliveModel):
             model_attributes=self.model_attributes,
         )
 
+    def get_model_attributes_without_hf_config(self):
+        """Get model_attributes without attributes from hf_model_config."""
+        model_attributes = deepcopy(self.model_attributes)
+        if model_attributes and self.hf_config:
+            for key, value in self.get_hf_model_config().to_dict().items():
+                if key in model_attributes and model_attributes[key] == value:
+                    del model_attributes[key]
+        return model_attributes or None
+
     def to_json(self, check_object: bool = False):
         config = super().to_json(check_object)
         config["config"].update(
@@ -725,15 +740,7 @@ class PyTorchModel(OliveModel):
             }
         )
         # clean up redundant information in model_attributes
-        config["config"].pop("model_attributes", None)
-        # using a copy of self.model_attributes since config["config"]["model_attributes"] is already
-        # serialized and might not match self.model_attributes
-        model_attributes = deepcopy(self.model_attributes)
-        if model_attributes and self.hf_config:
-            for key, value in self.get_hf_model_config().to_dict().items():
-                if key in model_attributes and model_attributes[key] == value:
-                    del model_attributes[key]
-        config["config"]["model_attributes"] = model_attributes or None
+        config["config"]["model_attributes"] = self.get_model_attributes_without_hf_config()
         return serialize_to_json(config, check_object)
 
 

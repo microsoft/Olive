@@ -79,9 +79,10 @@ class DeQuantizeHF(Pass):
         new_model.model = None
         new_model.set_resource("model_path", output_model_path)
         new_model.set_resource("adapter_path", model.get_resource("adapter_path"))
-        if new_model.hf_config.model_loading_args:
-            new_model.hf_config.model_loading_args.quantization_method = None
-            new_model.hf_config.model_loading_args.quantization_config = None
+        new_model.hf_config.model_loading_args.quantization_method = None
+        new_model.hf_config.model_loading_args.quantization_config = None
+        # don't want the attributes from old hf_config to overwrite the new ones
+        new_model.reset_model_attributes(model.get_model_attributes_without_hf_config())
         # TODO(jambayk): what about the torch_dtype? should it be set to None?
 
         return new_model
