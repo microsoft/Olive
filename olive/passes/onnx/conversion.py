@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib
 import logging
 import tempfile
 from pathlib import Path
@@ -89,6 +90,14 @@ class OnnxConversion(Pass):
         pytorch_model = model.load_model()
         pytorch_model.eval()
 
+        # if pytorch_model is PeftModel, we need to get the base model
+        # otherwise, the model forward has signature (*args, **kwargs) and torch.onnx.export ignores the dummy_inputs
+        if importlib.util.find_spec("peft"):
+            from peft import PeftModel
+
+            if isinstance(pytorch_model, PeftModel):
+                pytorch_model = pytorch_model.get_base_model()
+
         # TODO(trajep): add e2e test for model on cpu but data on gpu; model on gpu but data on cpu
         # put pytorch_model and dummy_inputs at the same device
         pytorch_model.to(device)
@@ -164,12 +173,9 @@ class OnnxConversion(Pass):
             tmp_dir_path = Path(tmp_dir.name)
             tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
 
-            # TODO(jambayk): support exporting transformer models with adapters
-            # right now, it fails since torch.onnx.export ignores the dummy_inputs when provided as a dict
-            # report to exporter team about this issue
             torch.onnx.export(
                 pytorch_model,
-                dummy_inputs["input_ids"],
+                dummy_inputs,
                 tmp_model_path,
                 export_params=True,
                 opset_version=config["target_opset"],
