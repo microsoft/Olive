@@ -210,7 +210,7 @@ class QLoRA(Pass):
         config.training_args = config.training_args or HFTrainingArguments()
 
         # get model and tokenizer
-        new_model, pytorch_model, tokenizer = self.get_model_tokenizer(model, config)
+        new_model, pytorch_model, tokenizer, quantized_modules = self.get_model_tokenizer(model, config)
 
         # get datasets
         train_dataset, eval_dataset = self.get_datasets(config, data_root)
@@ -281,6 +281,8 @@ class QLoRA(Pass):
 
         # set adapter_path
         new_model.set_resource("adapter_path", adapter_path)
+        # add quantized_modules attributes
+        new_model.model_attributes["quantized_modules"] = quantized_modules
 
         return new_model
 
@@ -391,12 +393,12 @@ class QLoRA(Pass):
         logger.debug("Adding LoRA modules")
         # this doesn't pick up the embedding layer and projection layer since those are not quantized
         # this is good since we don't want to touch those, LoRA might not work with input output embedding layers
-        modules = cls.find_all_linear_names(pytorch_model)
+        quantized_modules = cls.find_all_linear_names(pytorch_model)
         lora_config = LoraConfig(
             r=config.lora_r,
             lora_alpha=config.lora_alpha,
             lora_dropout=config.lora_dropout,
-            target_modules=modules,
+            target_modules=quantized_modules,
             bias="none",
             task_type=peft_task_type,
         )
@@ -408,7 +410,7 @@ class QLoRA(Pass):
                 # TODO(jambayk): why only cast for bfloat16? https://github.com/artidoro/qlora/blob/main/qlora.py#L397
                 module.to(compute_dtype)
 
-        return new_model, pytorch_model, tokenizer
+        return new_model, pytorch_model, tokenizer, quantized_modules
 
     @staticmethod
     def smart_tokenizer_and_embedding_resize(

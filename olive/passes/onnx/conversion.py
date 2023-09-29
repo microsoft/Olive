@@ -2,6 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import importlib
 import logging
 import tempfile
 from pathlib import Path
@@ -88,6 +89,14 @@ class OnnxConversion(Pass):
         # convert the model
         pytorch_model = model.load_model()
         pytorch_model.eval()
+
+        # if pytorch_model is PeftModel, we need to get the base model
+        # otherwise, the model forward has signature (*args, **kwargs) and torch.onnx.export ignores the dummy_inputs
+        if importlib.util.find_spec("peft"):
+            from peft import PeftModel
+
+            if isinstance(pytorch_model, PeftModel):
+                pytorch_model = pytorch_model.get_base_model()
 
         # TODO(trajep): add e2e test for model on cpu but data on gpu; model on gpu but data on cpu
         # put pytorch_model and dummy_inputs at the same device
