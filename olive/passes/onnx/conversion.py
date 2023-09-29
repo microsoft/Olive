@@ -164,9 +164,12 @@ class OnnxConversion(Pass):
             tmp_dir_path = Path(tmp_dir.name)
             tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
 
+            # TODO(jambayk): support exporting transformer models with adapters
+            # right now, it fails since torch.onnx.export ignores the dummy_inputs when provided as a dict
+            # report to exporter team about this issue
             torch.onnx.export(
                 pytorch_model,
-                dummy_inputs,
+                dummy_inputs["input_ids"],
                 tmp_model_path,
                 export_params=True,
                 opset_version=config["target_opset"],
