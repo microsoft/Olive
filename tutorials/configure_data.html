@@ -505,7 +505,7 @@ Convert the raw data config to the data container.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.data.registry</span> <span class="kn">import</span> <span class="n">Registry</span>
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register_dataset</span><span class="p">()</span>
-<span class="k">def</span> <span class="nf">customized_huggingface_dataset</span><span class="p">(</span><span class="n">dataset</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">customized_huggingface_dataset</span><span class="p">(</span><span class="n">data_dir</span><span class="p">):</span>
     <span class="o">...</span>
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register_pre_process</span><span class="p">()</span>
@@ -540,6 +540,18 @@ Convert the raw data config to the data container.</p>
 </dl>
 </li>
 </ol>
+</dd>
+</dl>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<dl class="simple">
+<dt>The components will be called with the following arguments along with any additional keyword arguments provided in the config:</dt><dd><ul class="simple">
+<li><p>load_dataset: <cite>data_dir</cite> (keyword, optional)</p></li>
+<li><p>pre_process_data: <cite>dataset</cite> (positional)</p></li>
+<li><p>post_process_data: <cite>output</cite> (positional)</p></li>
+<li><p>dataloader: <cite>dataset</cite> (positional)</p></li>
+</ul>
 </dd>
 </dl>
 </div>

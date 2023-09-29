@@ -393,7 +393,7 @@ The above case shows to rewrite all the components in data config. But sometime,
         from olive.data.registry import Registry
 
         @Registry.register_dataset()
-        def customized_huggingface_dataset(dataset):
+        def customized_huggingface_dataset(data_dir):
             ...
 
         @Registry.register_pre_process()
@@ -415,3 +415,10 @@ The above case shows to rewrite all the components in data config. But sometime,
         2. dummy_dataset_dataroot:
             - user_script https://github.com/microsoft/Olive/blob/main/test/unit_test/test_data_root.py#L31
             - json_config https://github.com/microsoft/Olive/blob/main/test/unit_test/test_data_root.py#L107
+
+.. note::
+    The components will be called with the following arguments along with any additional keyword arguments provided in the config:
+        - load_dataset: `data_dir` (keyword, optional)
+        - pre_process_data: `dataset` (positional)
+        - post_process_data: `output` (positional)
+        - dataloader: `dataset` (positional)
