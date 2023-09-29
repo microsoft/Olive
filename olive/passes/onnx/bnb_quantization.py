@@ -67,6 +67,8 @@ class OnnxBNBQuantization(Pass):
             if key not in quantization_config:
                 raise ValueError(f"{key} is required in quantization_config.")
 
+        output_model_path = ONNXModel.resolve_path(output_model_path)
+
         onnx_model = model.load_model()
         # use a stack to keep track of sub-graphs
         graph_stack = [onnx_model.graph]
@@ -105,13 +107,13 @@ class OnnxBNBQuantization(Pass):
                     if attr.type == onnx.AttributeProto.GRAPH:
                         # recursive call to take care of sub-graph
                         graph_stack.append(attr.g)
-                        kv = {attr.name: cls.process_subgraph(graph_stack)}
+                        kv = {attr.name: cls.process_subgraph(graph_stack, quantized_modules, quantization_config)}
                     elif attr.type == onnx.AttributeProto.GRAPH:
                         value = []
                         for subgraph in attr.graphs:
                             # recursive call to take care of sub-graph
                             graph_stack.append(subgraph)
-                            value.extend([cls.process_subgraph(graph_stack)])
+                            value.extend([cls.process_subgraph(graph_stack, quantized_modules, quantization_config)])
                         kv = {attr.name: value}
                     else:
                         kv = attribute_to_kwarg(attr)
