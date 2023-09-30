@@ -120,9 +120,6 @@ class OnnxConversion(Pass):
                 export_options=torch.onnx.ExportOptions(opset_version=config["target_opset"], dynamic_shapes=True),
             )
             onnx_model = exported.model_proto
-
-            # save the model to the output path
-            olive_model = model_proto_to_olive_model(onnx_model, output_model_path, config)
         else:
             # Standard ONNX export
 
@@ -172,43 +169,42 @@ class OnnxConversion(Pass):
             # there might be multiple files created during export, so we need to track the dir
             # if there are other processes writing to the same dir, we might end up deleting files created by
             # other processes
-            with tempfile.TemporaryDirectory(prefix="olive_tmp") as tmp_dir:
-                tmp_dir_path = Path(tmp_dir)
-                tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
+            tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+            tmp_dir_path = Path(tmp_dir.name)
+            tmp_model_path = str(tmp_dir_path / Path(output_model_path).name)
 
-                torch.onnx.export(
-                    pytorch_model,
-                    dummy_inputs,
-                    tmp_model_path,
-                    export_params=True,
-                    opset_version=config["target_opset"],
-                    input_names=input_names,
-                    output_names=output_names,
-                    dynamic_axes=dynamic_axes,
-                )
-                onnx_model = onnx.load(tmp_model_path)
+            torch.onnx.export(
+                pytorch_model,
+                dummy_inputs,
+                tmp_model_path,
+                export_params=True,
+                opset_version=config["target_opset"],
+                input_names=input_names,
+                output_names=output_names,
+                dynamic_axes=dynamic_axes,
+            )
+            onnx_model = onnx.load(tmp_model_path)
 
-                # Workaround as described under IOConfig.string_to_int_dim_params: change numeric dim_param to dim_value
-                if io_config.string_to_int_dim_params:
-                    for tensor in onnx_model.graph.output:
-                        for dim_proto in tensor.type.tensor_type.shape.dim:
-                            if (
-                                dim_proto.HasField("dim_param")
-                                and dim_proto.dim_param in io_config.string_to_int_dim_params
-                            ):
-                                dim_value = int(dim_proto.dim_param)
-                                dim_proto.Clear()
-                                dim_proto.dim_value = dim_value
+            # the model is loaded into memory, so it's safe to delete previously exported file(s)
+            tmp_dir.cleanup()
 
-                # save the model to the output path
-                # saving before temp dir is deleted to avoid missing external data for large models
-                olive_model = model_proto_to_olive_model(onnx_model, output_model_path, config)
+            # Workaround as described under IOConfig.string_to_int_dim_params: change numeric dim_param to dim_value
+            if io_config.string_to_int_dim_params:
+                for tensor in onnx_model.graph.output:
+                    for dim_proto in tensor.type.tensor_type.shape.dim:
+                        if (
+                            dim_proto.HasField("dim_param")
+                            and dim_proto.dim_param in io_config.string_to_int_dim_params
+                        ):
+                            dim_value = int(dim_proto.dim_param)
+                            dim_proto.Clear()
+                            dim_proto.dim_value = dim_value
 
         # Reset to CPU so the resource consumed on GPU could be free.
         if device != "cpu":
             pytorch_model.to("cpu")
-
-        return olive_model
+        # save the model to the output path and return the model
+        return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
 
 class DeviceSpecificOnnxConversion(OnnxConversion):
