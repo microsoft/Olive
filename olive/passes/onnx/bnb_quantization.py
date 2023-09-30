@@ -181,7 +181,6 @@ class OnnxBNBQuantization(Pass):
         # data_type is an array mapping from quantized value to original value
         # but we don't need to use data_type since it's already hard-coded in the kernel
         # compressed_stats is a another quantization stat for the double quantization
-        # TODO(jambayk): handle compressed_stats
         absmax, shape, dtype, blocksize, compressed_stats, quant_type, data_type = quant_state
         del data_type
 
@@ -194,13 +193,45 @@ class OnnxBNBQuantization(Pass):
         Bs_graph.initializer.extend([B_quant, B_shape])
 
         kwargs = {}
-        # TODO(jambayk): find an appropriate attribute type for dtype
-        kwargs["dtype"] = str(dtype)
+        # TODO(jambayk): Generalize this to support other dtypes, create a utility function
+        torch_dtype_to_onnx_dtype = {
+            torch.float32: TensorProto.FLOAT,
+            torch.float16: TensorProto.FLOAT16,
+            torch.bfloat16: TensorProto.BFLOAT16,
+        }
+        kwargs["dtype"] = torch_dtype_to_onnx_dtype[dtype]
         kwargs["blocksize"] = blocksize
         kwargs["quant_type"] = quant_type
+        kwargs["double_quantized"] = compressed_stats is not None
+
+        nested_inputs = []
+        if compressed_stats:
+            offset, quant_state2 = compressed_stats
+            # nested_absmax is a tensor, torch.float32 -> initializer
+            # nested_code is a tensor, torch.float32 -> initializer
+            # nested_blacksize is an int -> attribute
+            # the rest are always False, torch.float32, None, None
+            nested_absmax, nested_code, nested_blocksize, _, _, _, _ = quant_state2
+
+            B_offset = onnx.numpy_helper.from_array(offset.cpu().numpy())  # noqa: N806
+            B_offset.name = B.name + "_offset"
+
+            B_nested_absmax = onnx.numpy_helper.from_array(nested_absmax.cpu().numpy())  # noqa: N806
+            B_nested_absmax.name = B.name + "_nested_absmax"
+
+            # TODO(jambayk): nested_code is same for all nodes, can we make it shared?
+            B_nested_code = onnx.numpy_helper.from_array(nested_code.cpu().numpy())  # noqa: N806
+            B_nested_code.name = B.name + "_nested_code"
+
+            Bs_graph.initializer.extend([B_offset, B_nested_absmax, B_nested_code])
+
+            # create nested inputs and attributes
+            nested_inputs = [B_offset.name, B_nested_absmax.name, B_nested_code.name]
+            kwargs["nested_blocksize"] = nested_blocksize
+
         return onnx.helper.make_node(
             "MatMulBnb4",
-            inputs=[node.input[0], B_quant.name, B_absmax.name, B_shape.name],
+            inputs=[node.input[0], B_quant.name, B_absmax.name, B_shape.name, *nested_inputs],
             outputs=[node.output[0]],
             name=node.name + "_Bnb4" if node.name else "",
             domain="com.microsoft",
@@ -216,7 +247,8 @@ class OnnxBNBQuantization(Pass):
         # not sure if this is intentional since they have kernels for float32 and bfloat16
         # https://github.com/TimDettmers/bitsandbytes/blob/0.41.0/bitsandbytes/nn/modules.py#L156
         # we will use float16 for now
-        weight = torch.from_numpy(weight).half().cuda()
+        # .copy() to avoid numpy not writable warning when converting to torch
+        weight = torch.from_numpy(weight.copy()).half().cuda()
         weight_4bit, quant_state = quantize_4bit(
             weight,
             compress_statistics=quantization_config["bnb_4bit_use_double_quant"],
