@@ -36,9 +36,31 @@ class Tokenizer:
         return self.sp_model.decode(t)
 
 
+def rotary_mat(
+    hidden_size: int,
+    n_heads: int,
+    max_seq_len: int,
+    theta: float = 10000.0,
+    head_scale=1.0,
+    dtype=np.float16,
+) -> tuple[np.ndarray, np.ndarray]:
+    head_dim = head_scale * hidden_size / n_heads
+
+    pos = np.arange(0, 2 * (head_dim // 2), step=2, dtype=dtype)
+    freqs = 1.0 / (theta ** (pos / head_dim))
+
+    idx = np.arange(max_seq_len, dtype=dtype)
+    freqs = np.outer(idx, freqs)
+
+    cos = np.reshape(np.cos(freqs), [1, max_seq_len, 1, -1])
+    sin = np.reshape(np.sin(freqs), [1, max_seq_len, 1, -1])
+
+    return cos, sin
+
+
 def run_llama_v2_io_binding(
     prompt: str,
-    max_seq_len: int = 2048,
+    padding: int = 128,
     max_gen_len: int = 256,
 ) -> str:
     onnxruntime.set_default_logger_severity(3)
@@ -59,7 +81,6 @@ def run_llama_v2_io_binding(
     )
 
     llm_session_options = onnxruntime.SessionOptions()
-    llm_session_options.add_free_dimension_override_by_name("max_seq_len", max_seq_len)
     llm_session = onnxruntime.InferenceSession(
         "models/optimized/llama_v2/llama_v2/decoder_model_merged.onnx",
         sess_options=llm_session_options,
@@ -72,15 +93,12 @@ def run_llama_v2_io_binding(
     for inputs_meta in llm_session._inputs_meta:
         if inputs_meta.name == "x":
             x_shape = inputs_meta.shape
-        elif inputs_meta.name == "attn_mask":
-            attn_mask_shape = inputs_meta.shape
         elif inputs_meta.name == "cache.0.key":
             cache_shape = inputs_meta.shape
 
     n_layers = 32
     hidden_size = x_shape[2]
     n_heads = cache_shape[3]
-    attn_mask_shape[1] = max_seq_len
 
     binding_device = "dml"
 
@@ -88,11 +106,6 @@ def run_llama_v2_io_binding(
     tokenizer = Tokenizer(model_path="models/optimized/llama_v2/tokenizer.model")
     tokens = tokenizer.encode(prompt, bos=True, eos=False)
     tokens = onnxruntime.OrtValue.ortvalue_from_numpy(np.asarray(tokens, dtype=np.int64), binding_device)
-
-    # Create the attention mask.
-    attn_mask = -10000.0 * np.triu(np.ones(attn_mask_shape), k=1).astype(data_type)
-    attn_mask = onnxruntime.OrtValue.ortvalue_from_numpy(attn_mask, binding_device)
-    attn_mask_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(attn_mask_shape, data_type, binding_device)
 
     # Create the K and V caches.
     head_dim = int(hidden_size / n_heads)
@@ -102,61 +115,91 @@ def run_llama_v2_io_binding(
     argmax_sampling_io_binding = argmax_sampling_session.io_binding()
     argmax_sampling_io_binding.bind_ortvalue_output("next_token", next_token)
 
-    x = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
-        (1, tokens.shape()[0], hidden_size), data_type, binding_device
-    )
+    seq_len = tokens.shape()[0]
+
+    x = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, seq_len, hidden_size), data_type, binding_device)
     x_increment = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, 1, hidden_size), data_type, binding_device)
-    cos = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, max_seq_len, 1, 64), data_type, binding_device)
-    cos_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, max_seq_len, 1, 64), data_type, binding_device)
-    sin = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, max_seq_len, 1, 64), data_type, binding_device)
-    sin_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type((1, max_seq_len, 1, 64), data_type, binding_device)
 
     # Create the LLM model's I/O binding
     logits_shape = (1, tokenizer.n_words)
     logits = onnxruntime.OrtValue.ortvalue_from_shape_and_type(logits_shape, data_type, binding_device)
     llm_io_binding = llm_session.io_binding()
     llm_io_binding.bind_ortvalue_output("logits", logits)
-
-    cache_shape = (1, 1, max_seq_len, n_heads, head_dim)
-    initial_cache = np.zeros(cache_shape, dtype=data_type)
-    k_caches = []
-    v_caches = []
-
-    for layer_idx in range(n_layers):
-        k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
-        v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
-        llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches[-1])
-        llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches[-1])
-
     llm_io_binding.bind_cpu_input("use_cache_branch", np.zeros([1], dtype=np.bool_))
 
     update_embeddings_io_binding = update_embeddings_session.io_binding()
     update_embeddings_io_binding.bind_ortvalue_input("tokens", tokens)
     update_embeddings_io_binding.bind_ortvalue_output("embeddings", x)
 
+    k_caches = [None] * n_layers
+    v_caches = [None] * n_layers
+
     before_time = time.perf_counter()
 
     # Iteratively generate tokens.
     output_tokens = []
     for idx in range(max_gen_len):
+        if idx == 0 or seq_len % padding == 0:
+            padded_seq_len = padding * (seq_len // padding + 1)
+            cos, sin = rotary_mat(hidden_size, n_heads, padded_seq_len, head_scale=1.0)
+
+            if idx > 0:
+                cos = np.roll(cos, padding, axis=1)
+                sin = np.roll(sin, padding, axis=1)
+
+            cos = onnxruntime.OrtValue.ortvalue_from_numpy(cos, binding_device)
+            cos_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+                (1, padded_seq_len, 1, 64), data_type, binding_device
+            )
+
+            sin = onnxruntime.OrtValue.ortvalue_from_numpy(sin, binding_device)
+            sin_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+                (1, padded_seq_len, 1, 64), data_type, binding_device
+            )
+
+            attn_mask = -10000.0 * np.triu(np.ones((1, padded_seq_len, padded_seq_len)), k=1).astype(data_type)
+            attn_mask = onnxruntime.OrtValue.ortvalue_from_numpy(attn_mask, binding_device)
+            attn_mask_out = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+                (1, padded_seq_len, padded_seq_len), data_type, binding_device
+            )
+
+            for layer_idx in range(n_layers):
+                if idx == 0:
+                    k_caches[layer_idx] = np.zeros((1, 1, padded_seq_len, n_heads, head_dim), dtype=data_type)
+                    v_caches[layer_idx] = np.zeros((1, 1, padded_seq_len, n_heads, head_dim), dtype=data_type)
+                else:
+                    k_caches[layer_idx] = np.pad(
+                        k_caches[layer_idx].numpy(), ((0, 0), (0, 0), (padding, 0), (0, 0), (0, 0))
+                    )
+                    v_caches[layer_idx] = np.pad(
+                        v_caches[layer_idx].numpy(), ((0, 0), (0, 0), (padding, 0), (0, 0), (0, 0))
+                    )
+
+                k_caches[layer_idx] = onnxruntime.OrtValue.ortvalue_from_numpy(k_caches[layer_idx], binding_device)
+                v_caches[layer_idx] = onnxruntime.OrtValue.ortvalue_from_numpy(v_caches[layer_idx], binding_device)
+
+                llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
+                llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
+                llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches[layer_idx])
+                llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches[layer_idx])
+
+        llm_io_binding.bind_ortvalue_input("x", x)
+        llm_io_binding.bind_ortvalue_input("x_increment", x_increment)
+
+        llm_io_binding.bind_ortvalue_input("attn_mask", attn_mask)
+        llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
+
+        llm_io_binding.bind_ortvalue_input("cos", cos)
+        llm_io_binding.bind_ortvalue_output("cos_out", cos_out)
+
+        llm_io_binding.bind_ortvalue_input("sin", sin)
+        llm_io_binding.bind_ortvalue_output("sin_out", sin_out)
+
         # Update the embeddings
         update_embeddings_session.run_with_iobinding(update_embeddings_io_binding)
         update_embeddings_io_binding.synchronize_outputs()
 
         # Run the LLM model
-        llm_io_binding.bind_ortvalue_input("x", x)
-        llm_io_binding.bind_ortvalue_input("attn_mask", attn_mask)
-        llm_io_binding.bind_ortvalue_input("x_increment", x_increment)
-        llm_io_binding.bind_ortvalue_input("cos", cos)
-        llm_io_binding.bind_ortvalue_input("sin", sin)
-        llm_io_binding.bind_ortvalue_output("attn_mask_out", attn_mask_out)
-        llm_io_binding.bind_ortvalue_output("cos_out", cos_out)
-        llm_io_binding.bind_ortvalue_output("sin_out", sin_out)
-
-        for layer_idx in range(n_layers):
-            llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
-            llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
-
         llm_session.run_with_iobinding(llm_io_binding)
         llm_io_binding.synchronize_outputs()
 
@@ -180,6 +223,7 @@ def run_llama_v2_io_binding(
         attn_mask_out, attn_mask = attn_mask, attn_mask_out
         cos_out, cos = cos, cos_out
         sin_out, sin = sin, sin_out
+        seq_len += 1
 
     after_time = time.perf_counter()
     print(f"Execution took {after_time - before_time:0.4f} seconds")
@@ -192,11 +236,11 @@ def run_llama_v2_io_binding(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--prompt", type=str, default="What is the lightest element?")
-    parser.add_argument("--max_seq_len", type=int, default=2048)
+    parser.add_argument("--padding", type=int, default=128)
     parser.add_argument("--max_gen_len", type=int, default=256)
     args = parser.parse_args()
     run_llama_v2_io_binding(
         args.prompt,
-        args.max_seq_len,
+        args.padding,
         args.max_gen_len,
     )

@@ -498,8 +498,6 @@
                     "enable_bias_add": false
                 },
                 "force_fp32_nodes": [
-                    "/Cos",
-                    "/Sin",
                     "/layers.0/attention_norm/Pow",
                     "/layers.1/attention_norm/Pow",
                     "/layers.2/attention_norm/Pow",
