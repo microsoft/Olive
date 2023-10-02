@@ -1016,6 +1016,8 @@
 
 
 <div class="viewcode-block" id="DistributedOnnxModel"><a class="viewcode-back" href="../../api/models.html#olive.model.DistributedOnnxModel">[docs]</a><span class="k">class</span> <span class="nc">DistributedOnnxModel</span><span class="p">(</span><span class="n">ONNXModelBase</span><span class="p">):</span>
+    <span class="n">resource_keys</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;model_filepaths&quot;</span><span class="p">]</span>
+
     <span class="n">EXECUTION_PROVIDERS</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;cpu&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">],</span>
         <span class="s2">&quot;gpu&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">],</span>
