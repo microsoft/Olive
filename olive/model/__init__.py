@@ -541,22 +541,22 @@ class PyTorchModel(OliveModel):
         if self.model is not None:
             return self.model
 
+        # Load special path or format model -> load model from hf config -> load normal path model
         if self.model_loader is not None:
             user_module_loader = UserModuleLoader(self.model_script, self.script_dir)
             model = user_module_loader.call_object(self.model_loader, self.model_path)
+        elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
+            model = torch.jit.load(self.model_path)
+        elif self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
+            model = self.load_mlflow_model()
         elif self.hf_config and (self.hf_config.model_class or self.hf_config.task):
             model = self.hf_config.load_model(self.model_path)
+        elif self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
+            model = torch.load(self.model_path)
+        elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
+            raise ValueError("Please use customized model loader to load state dict of model.")
         else:
-            if self.model_file_format == ModelFileFormat.PYTORCH_ENTIRE_MODEL:
-                model = torch.load(self.model_path)
-            elif self.model_file_format == ModelFileFormat.PYTORCH_TORCH_SCRIPT:
-                model = torch.jit.load(self.model_path)
-            elif self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL:
-                model = self.load_mlflow_model()
-            elif self.model_file_format == ModelFileFormat.PYTORCH_STATE_DICT:
-                raise ValueError("Please use customized model loader to load state dict of model.")
-            else:
-                raise ValueError(f"Unsupported model file format: {self.model_file_format}")
+            raise ValueError(f"Unsupported model file format: {self.model_file_format}")
 
         # we only have peft adapters for now
         adapter_path = self.get_resource("adapter_path")
@@ -570,6 +570,7 @@ class PyTorchModel(OliveModel):
         return model
 
     def load_mlflow_model(self):
+        logger.info(f"Loading MLFlow model from {self.model_path}")
         tmp_dir = tempfile.TemporaryDirectory(prefix="mlflow_tmp")
         tmp_dir_path = Path(tmp_dir.name)
 
@@ -669,7 +670,11 @@ class PyTorchModel(OliveModel):
     def get_hf_model_config(self):
         if self.hf_config is None:
             raise ValueError("HF model_config is not available")
-        return self.hf_config.load_model_config(self.model_path)
+        return (
+            self.hf_config.load_model_config(self.hf_config.model_name)
+            if self.model_file_format == ModelFileFormat.PYTORCH_MLFLOW_MODEL
+            else self.hf_config.load_model_config(self.model_path)
+        )
 
     @property
     def components(self) -> List[str]:
