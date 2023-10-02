@@ -10,7 +10,9 @@
         "distribute": {
             "type": "MoEExpertsDistributor",
             "config": {
-                "world_size": 2
+                "world_size": 2,
+                "use_external_data_format": false,
+                "all_tensors_to_one_file": false
             }
         }
     },
