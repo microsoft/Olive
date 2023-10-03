@@ -22,12 +22,13 @@ include(FetchContent)
 # FetchContent_makeAvailable(onnxruntime)
 
 # local copy with missing header
-set(onnxruntime_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/onnxruntime-src)
+# set(onnxruntime_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/onnxruntime-src)
 
-message(STATUS "ONNX Runtime source dir: ${onnxruntime_SOURCE_DIR}")
+# message(STATUS "ONNX Runtime source dir: ${onnxruntime_SOURCE_DIR}")
 
-set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
-set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
+# set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
+# set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
+set(ONNXRUNTIME_INCLUDE_DIR ${ONNXRUNTIME_DIR}/include/onnxruntime/core/session)
 
 set(custom_op_src_patterns
     "${CMAKE_CURRENT_SOURCE_DIR}/csrc/*.h"
