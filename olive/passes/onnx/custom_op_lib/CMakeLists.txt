@@ -9,7 +9,7 @@ project(bnb_custom_op C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 if(WIN32)
-	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
+    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
 ENDIF()
 
 include(custom_op_lib.cmake)
