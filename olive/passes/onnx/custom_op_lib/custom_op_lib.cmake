@@ -2,18 +2,32 @@
 enable_language(CUDA)
 
 include(FetchContent)
-find_package(Patch)
 
-# add gsl
-FetchContent_Declare(
-    GSL
-    URL https://github.com/microsoft/GSL/archive/refs/tags/v4.0.0.zip
-    URL_HASH SHA1=cf368104cd22a87b4dd0c80228919bb2df3e2a14
-    PATCH_COMMAND ${Patch_EXECUTABLE} --binary --ignore-whitespace -p1 < ${ONNXRUNTIME_DIR}/cmake/patches/gsl/1064.patch
-)
-FetchContent_MakeAvailable(GSL)
-set(GSL_TARGET Microsoft.GSL::GSL)
+# ort package is missing onnxruntime_float16.h
+# download and make available onnxruntime
+# set(ONNXRUNTIME_VER "1.16.0")
+# if(WIN32)
+#     set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-win-x64-gpu-${ONNXRUNTIME_VER}.zip")
+# else()
+#     set(ONNXRUNTIME_URL "v${ONNXRUNTIME_VER}/onnxruntime-linux-x64-gpu-${ONNXRUNTIME_VER}.tgz")
+# endif()
+# set(ort_fetch_URL "https://github.com/microsoft/onnxruntime/releases/download/${ONNXRUNTIME_URL}")
 
+# message(STATUS "ONNX Runtime URL: ${ort_fetch_URL}")
+# FetchContent_Declare(
+# onnxruntime
+# URL ${ort_fetch_URL}
+# )
+
+# FetchContent_makeAvailable(onnxruntime)
+
+# local copy with missing header
+set(onnxruntime_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/onnxruntime-src)
+
+message(STATUS "ONNX Runtime source dir: ${onnxruntime_SOURCE_DIR}")
+
+set(ONNXRUNTIME_INCLUDE_DIR ${onnxruntime_SOURCE_DIR}/include)
+set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
 
 set(custom_op_src_patterns
     "${CMAKE_CURRENT_SOURCE_DIR}/csrc/*.h"
@@ -24,10 +38,10 @@ set(custom_op_src_patterns
     "${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/*.cu"
 )
 
-set(custom_op_lib_include ${ONNXRUNTIME_DIR}/include/onnxruntime)
+set(custom_op_lib_include ${ONNXRUNTIME_INCLUDE_DIR})
 set(custom_op_lib_option)
-set(custom_op_lib_link_dir)
-set(custom_op_lib_link ${GSL_TARGET})
+# set(custom_op_lib_link_dir ${ONNXRUNTIME_LIB_DIR})
+# set(custom_op_lib_link onnxruntime)
 
 
 # always build cuda for now
@@ -40,15 +54,12 @@ file(GLOB custom_op_src ${custom_op_src_patterns})
 add_library(custom_op_lib SHARED ${custom_op_src})
 target_compile_options(custom_op_lib PRIVATE ${custom_op_lib_option})
 target_include_directories(custom_op_lib PRIVATE ${custom_op_lib_include})
-target_link_libraries(custom_op_lib PRIVATE ${custom_op_lib_link})
+# target_link_directories(custom_op_lib PRIVATE ${custom_op_lib_link_dir})
+# target_link_libraries(custom_op_lib PRIVATE ${custom_op_lib_link})
 
-if (UNIX)
-    if (APPLE)
-        set(ONNXRUNTIME_CUSTOM_OP_LIB_LINK_FLAG "-Xlinker -dead_strip")
-    else()
-        set(ONNXRUNTIME_CUSTOM_OP_LIB_LINK_FLAG "-Xlinker --version-script=${CMAKE_CURRENT_SOURCE_DIR}/csrc/custom_op_library.lds -Xlinker --no-undefined -Xlinker --gc-sections -z noexecstack")
-    endif()
-else()
+if (WIN32)
     set(ONNXRUNTIME_CUSTOM_OP_LIB_LINK_FLAG "-DEF:${CMAKE_CURRENT_SOURCE_DIR}/csrc/custom_op_library.def")
+else()
+    set(ONNXRUNTIME_CUSTOM_OP_LIB_LINK_FLAG "-Xlinker --version-script=${CMAKE_CURRENT_SOURCE_DIR}/csrc/custom_op_library.lds -Xlinker --no-undefined -Xlinker --gc-sections -z noexecstack")
 endif()
 set_property(TARGET custom_op_lib APPEND_STRING PROPERTY LINK_FLAGS ${ONNXRUNTIME_CUSTOM_OP_LIB_LINK_FLAG})

@@ -1,20 +1,21 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include "core/session/onnxruntime_cxx_api.h"
-#include "core/framework/float16.h"
+#define ORT_API_MANUAL_INIT
+#include "onnxruntime_cxx_api.h"
+#undef ORT_API_MANUAL_INIT
 
 namespace Cuda {
 
 // template for float and float16
 template <typename T>
-struct MatMulBNBKernel {
-    MatMulBNBKernel(const OrtKernelInfo* kernel_info) {
+struct MatMulBnb4Kernel {
+    MatMulBnb4Kernel(const OrtKernelInfo* kernel_info) {
         Ort::ConstKernelInfo info{kernel_info};
         dtype_ = info.GetAttribute<int64_t>("dtype");
         blocksize_ = info.GetAttribute<int64_t>("blocksize");
         quant_type_ = info.GetAttribute<int64_t>("quant_type");
-        double_quant_ = info.GetAttribute<int64_t>("double_quant");
+        double_quant_ = info.GetAttribute<int64_t>("double_quantized");
         // TODO: how to handle optional attributes?
         nested_blocksize_ = info.GetAttribute<int64_t>("nested_blocksize");
     }
@@ -30,12 +31,12 @@ struct MatMulBNBKernel {
 };
 
 template <typename T>
-struct MatMulBNB : Ort::CustomOpBase<MatMulBNB<T>, MatMulBNBKernel<T>> {
+struct MatMulBnb4 : Ort::CustomOpBase<MatMulBnb4<T>, MatMulBnb4Kernel<T>> {
     void* CreateKernel(const OrtApi& /* api */, const OrtKernelInfo* info) const {
-        return new MatMulBNBKernel<T>(info);
+        return new MatMulBnb4Kernel<T>(info);
     };
 
-    const char* GetName() const { return "MatMulBNB"; };
+    const char* GetName() const { return "MatMulBnb4"; };
 
     const char* GetExecutionProviderType() const { return "CUDAExecutionProvider"; };
 
@@ -49,10 +50,7 @@ struct MatMulBNB : Ort::CustomOpBase<MatMulBNB<T>, MatMulBNBKernel<T>> {
     }
     ONNXTensorElementDataType GetInputType(size_t index) const {
         if (index == 0)
-            if (std::is_same_v<T, onnxruntime::MLFloat16>)
-                return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
-            else
-                return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+            return Ort::TypeToTensorType<T>::type;
         else if (index == 1)
             return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
         else if (index == 2)
@@ -64,21 +62,9 @@ struct MatMulBNB : Ort::CustomOpBase<MatMulBNB<T>, MatMulBNBKernel<T>> {
     }
 
     size_t GetOutputTypeCount() const { return 1; };
-    ONNXTensorElementDataType GetOutputType(size_t /*index*/) const {
-        if (std::is_same_v<T, onnxruntime::MLFloat16>)
-            return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
-        else
-            return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
-    };
+    ONNXTensorElementDataType GetOutputType(size_t /*index*/) const { return Ort::TypeToTensorType<T>::type; };
 };
 
 void RegisterOps(Ort::CustomOpDomain& domain);
-// void RegisterOps(Ort::CustomOpDomain& domain) {
-//     static const MatMulBNB<float> c_MatMulBNB_float;
-//     static const MatMulBNB<onnxruntime::MLFloat16> c_MatMulBNB_float16;
-
-//     domain.Add(&c_MatMulBNB_float);
-//     domain.Add(&c_MatMulBNB_float16);
-// }
 
 }  // namespace Cuda

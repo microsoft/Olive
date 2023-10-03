@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import logging
+from enum import Enum
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
@@ -17,6 +18,12 @@ from olive.passes.onnx.common import get_external_data_config, model_proto_to_ol
 from olive.passes.pass_config import PassConfigParam
 
 logger = logging.getLogger(__name__)
+
+
+class QuantType(Enum):
+    General8bit = 0
+    FP4 = 1
+    NF4 = 2
 
 
 class OnnxBNBQuantization(Pass):
@@ -74,12 +81,13 @@ class OnnxBNBQuantization(Pass):
         graph_stack = [onnx_model.graph]
         opset_import = onnx_model.opset_import
 
-        has_ms_domain = False
-        for opset in opset_import:
-            if opset.domain == "com.microsoft":
-                has_ms_domain = True
-        if not has_ms_domain:
-            opset_import.extend([onnx.helper.make_opsetid("com.microsoft", 1)])
+        # has_ms_domain = False
+        # for opset in opset_import:
+        #     if opset.domain == "com.microsoft":
+        #         has_ms_domain = True
+        # if not has_ms_domain:
+        #     opset_import.extend([onnx.helper.make_opsetid("com.microsoft", 1)])
+        opset_import.extend([onnx.helper.make_opsetid("olive", 1)])
 
         self.process_subgraph(graph_stack, quantized_modules, quantization_config)
 
@@ -190,7 +198,7 @@ class OnnxBNBQuantization(Pass):
         B_shape = onnx.numpy_helper.from_array(np.array([shape[0], shape[1]]).astype(np.int64))  # noqa: N806
         B_shape.name = B.name + "_shape"
 
-        Bs_graph.initializer.extend([B_quant, B_shape])
+        Bs_graph.initializer.extend([B_quant, B_absmax, B_shape])
 
         kwargs = {}
         # TODO(jambayk): Generalize this to support other dtypes, create a utility function
@@ -201,7 +209,8 @@ class OnnxBNBQuantization(Pass):
         }
         kwargs["dtype"] = torch_dtype_to_onnx_dtype[dtype]
         kwargs["blocksize"] = blocksize
-        kwargs["quant_type"] = quant_type
+        # only need to worry about nf4 and fp4 for now
+        kwargs["quant_type"] = QuantType[quant_type.upper()].value
         kwargs["double_quantized"] = compressed_stats is not None
 
         nested_inputs = []
@@ -234,7 +243,7 @@ class OnnxBNBQuantization(Pass):
             inputs=[node.input[0], B_quant.name, B_absmax.name, B_shape.name, *nested_inputs],
             outputs=[node.output[0]],
             name=node.name + "_Bnb4" if node.name else "",
-            domain="com.microsoft",
+            domain="olive",
             **kwargs,
         )
 

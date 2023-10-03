@@ -1,5 +1,5 @@
 #pragma once
-#include "core/session/onnxruntime_cxx_api.h"
+#include "onnxruntime_c_api.h"
 
 #ifdef __cplusplus
 extern "C" {
