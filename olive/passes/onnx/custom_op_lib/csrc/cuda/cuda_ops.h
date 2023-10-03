@@ -1,10 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#define ORT_API_MANUAL_INIT
-#include "onnxruntime_cxx_api.h"
-#undef ORT_API_MANUAL_INIT
-
+#include "core/session/onnxruntime_cxx_api.h"
 #include "core/framework/float16.h"
 
 namespace Cuda {
@@ -34,7 +31,7 @@ struct MatMulBNBKernel {
 
 template <typename T>
 struct MatMulBNB : Ort::CustomOpBase<MatMulBNB<T>, MatMulBNBKernel<T>> {
-    void* CreateKernel(Ort::CustomOpApi api, const OrtKernelInfo* info) const {
+    void* CreateKernel(const OrtApi& /* api */, const OrtKernelInfo* info) const {
         return new MatMulBNBKernel<T>(info);
     };
 
@@ -52,7 +49,10 @@ struct MatMulBNB : Ort::CustomOpBase<MatMulBNB<T>, MatMulBNBKernel<T>> {
     }
     ONNXTensorElementDataType GetInputType(size_t index) const {
         if (index == 0)
-            return TypeToTensorType<T>::type;
+            if (std::is_same_v<T, onnxruntime::MLFloat16>)
+                return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
+            else
+                return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
         else if (index == 1)
             return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
         else if (index == 2)
@@ -64,15 +64,21 @@ struct MatMulBNB : Ort::CustomOpBase<MatMulBNB<T>, MatMulBNBKernel<T>> {
     }
 
     size_t GetOutputTypeCount() const { return 1; };
-    ONNXTensorElementDataType GetOutputType(size_t /*index*/) const { return TypeToTensorType<T>::type; };
+    ONNXTensorElementDataType GetOutputType(size_t /*index*/) const {
+        if (std::is_same_v<T, onnxruntime::MLFloat16>)
+            return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
+        else
+            return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+    };
 };
 
-void RegisterOps(Ort::CustomOpDomain& domain) {
-    static const MatMulBNB<float> c_MatMulBNB_float;
-    static const MatMulBNB<MLFloat16> c_MatMulBNB_float16;
+void RegisterOps(Ort::CustomOpDomain& domain);
+// void RegisterOps(Ort::CustomOpDomain& domain) {
+//     static const MatMulBNB<float> c_MatMulBNB_float;
+//     static const MatMulBNB<onnxruntime::MLFloat16> c_MatMulBNB_float16;
 
-    domain.Add(&c_MatMulBNB_float);
-    domain.Add(&c_MatMulBNB_float16);
-}
+//     domain.Add(&c_MatMulBNB_float);
+//     domain.Add(&c_MatMulBNB_float16);
+// }
 
 }  // namespace Cuda
