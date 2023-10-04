@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import onnx
 import torch
+from onnx.mapping import NP_TYPE_TO_TENSOR_TYPE
 from onnx.onnx_pb import GraphProto, NodeProto, TensorProto
 
 from olive.hardware import AcceleratorSpec
@@ -239,16 +240,15 @@ class OnnxBNBQuantization(Pass):
             kwargs["nested_blocksize"] = nested_blocksize
 
         dequantize_node_name = node.name + "_BnbDequantize"
-
         dequantize_node_output = onnx.helper.make_tensor_value_info(
             name=dequantize_node_name + "_output",
-            elem_type=torch_dtype_to_onnx_dtype[dtype],
+            elem_type=NP_TYPE_TO_TENSOR_TYPE[B_array.dtype],
             shape=B_array.shape,
         )
         Bs_graph.value_info.append(dequantize_node_output)
         dequantize_node = onnx.helper.make_node(
             "BnbDequantize",
-            inputs=[B_quant.name, B_absmax.name, B_shape.name, *nested_inputs],
+            inputs=[node.input[0], B_quant.name, B_absmax.name, B_shape.name, *nested_inputs],
             outputs=[dequantize_node_output.name],
             name=dequantize_node_name,
             domain="olive",
