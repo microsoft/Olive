@@ -26,6 +26,7 @@ class ResourceType(str, Enum):
     LocalFolder = "folder"
     StringName = "string_name"
     AzureMLModel = "azureml_model"
+    AzureMLRegistryModel = "azureml_registry_model"
     AzureMLDatastore = "azureml_datastore"
     AzureMLJobOutput = "azureml_job_output"
 
@@ -34,7 +35,11 @@ class ResourceType(str, Enum):
 
 
 LOCAL_RESOURCE_TYPES = [ResourceType.LocalFile, ResourceType.LocalFolder]
-AZUREML_RESOURCE_TYPES = [ResourceType.AzureMLModel, ResourceType.AzureMLDatastore, ResourceType.AzureMLJobOutput]
+AZUREML_RESOURCE_TYPES = [
+    ResourceType.AzureMLModel,
+    ResourceType.AzureMLDatastore,
+    ResourceType.AzureMLJobOutput,
+]
 
 
 class ResourcePath(AutoConfigClass):
@@ -285,7 +290,57 @@ def _get_azureml_resource_prefix(workspace_config: Dict[str, str]) -> str:
     )
 
 
-class AzureMLModel(ResourcePath):
+class AzureMLResource(ResourcePath):
+    """Base class for AzureML resource paths."""
+
+    @abstractmethod
+    def get_path(self) -> str:
+        raise NotImplementedError
+
+    def save_to_dir(
+        self,
+        dir_path: Union[Path, str],
+        ml_client,
+        azureml_client_config: AzureMLClientConfig,
+        overwrite: bool,
+        name: str = None,
+    ) -> str:
+        # directory to save the resource to
+        dir_path = Path(dir_path).resolve()
+        dir_path.mkdir(parents=True, exist_ok=True)
+
+        # azureml model
+        model = ml_client.models.get(self.config.name, version=self.config.version)
+        model_path = Path(model.path)
+
+        # path to save the resource to
+        if name:
+            new_path_name = Path(name).with_suffix(model_path.suffix).name
+        else:
+            new_path_name = model_path.name
+        new_path = dir_path / new_path_name
+        _overwrite_helper(new_path, overwrite)
+
+        # download the resource to the new path
+        logger.debug(f"Downloading model {self.config.name} version {self.config.version} to {new_path}.")
+        from azure.core.exceptions import ServiceResponseError
+
+        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as tempdir:
+            temp_dir = Path(tempdir)
+            retry_func(
+                ml_client.models.download,
+                [self.config.name],
+                {"version": self.config.version, "download_path": temp_dir},
+                max_tries=azureml_client_config.max_operation_retries,
+                delay=azureml_client_config.operation_retry_interval,
+                exceptions=ServiceResponseError,
+            )
+            new_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(temp_dir / self.config.name / model_path.name, new_path)
+        return str(new_path)
+
+
+class AzureMLModel(AzureMLResource):
     """AzureML Model resource path."""
 
     name = ResourceType.AzureMLModel
@@ -307,42 +362,37 @@ class AzureMLModel(ResourcePath):
         return self.config.azureml_client
 
     def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
-        # directory to save the resource to
-        dir_path = Path(dir_path).resolve()
-        dir_path.mkdir(parents=True, exist_ok=True)
-
-        # azureml client
         ml_client = self.config.azureml_client.create_client()
+        return super().save_to_dir(dir_path, ml_client, self.config.azureml_client, overwrite, name)
 
-        # azureml model
-        model = ml_client.models.get(self.config.name, self.config.version)
-        model_path = Path(model.path)
 
-        # path to save the resource to
-        if name:
-            new_path_name = Path(name).with_suffix(model_path.suffix).name
-        else:
-            new_path_name = model_path.name
-        new_path = dir_path / new_path_name
-        _overwrite_helper(new_path, overwrite)
+class AzureMLRegistryModel(AzureMLResource):
+    """AzureML Model resource path."""
 
-        # download the resource to the new path
-        logger.debug(f"Downloading model {self.config.name} version {self.config.version} to {new_path}.")
-        from azure.core.exceptions import ServiceResponseError
+    name = ResourceType.AzureMLRegistryModel
 
-        with tempfile.TemporaryDirectory(dir=dir_path, prefix="olive_tmp") as tempdir:
-            temp_dir = Path(tempdir)
-            retry_func(
-                ml_client.models.download,
-                [self.config.name],
-                {"version": self.config.version, "download_path": temp_dir},
-                max_tries=self.config.azureml_client.max_operation_retries,
-                delay=self.config.azureml_client.operation_retry_interval,
-                exceptions=ServiceResponseError,
-            )
-            new_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(temp_dir / self.config.name / model_path.name, new_path)
-        return str(new_path)
+    @staticmethod
+    def _default_config() -> Dict[str, Any]:
+        return {
+            "azureml_client": ConfigParam(
+                type_=AzureMLClientConfig, required=False, description="AzureML client config."
+            ),
+            "registry_name": ConfigParam(type_=str, required=True, description="Name of the registry."),
+            "name": ConfigParam(type_=str, required=True, description="Name of the model."),
+            "version": ConfigParam(type_=Union[int, str], required=True, description="Version of the model."),
+        }
+
+    def get_path(self) -> str:
+        return (
+            f"azureml://registries/{self.config.registry_name}/models/{self.config.name}/versions/{self.config.version}"
+        )
+
+    def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
+        # azureml client
+        azureml_client_config = self.config.azureml_client or AzureMLClientConfig()
+
+        ml_client = azureml_client_config.create_registry_client(self.config.registry_name)
+        return super().save_to_dir(dir_path, ml_client, azureml_client_config, overwrite, name)
 
 
 def _datastore_url_validator(v, values, **kwargs):

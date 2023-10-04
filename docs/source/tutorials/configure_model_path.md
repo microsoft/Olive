@@ -73,6 +73,22 @@ Models registered in an Azure Machine Learning workspace.
 }
 ```
 
+### AzureML Registry Model
+Models curated in an Azure Machine Learning or models in your own registry. Azure ML curated model doesn't require an `azureml_client` config section, but you can still add this section for additional `mlclient` configuration.
+
+```json
+{
+    "model_path": {
+        "type": "azureml_registry_model",
+        "config": {
+            "name": "model_name",
+            "registry_name": "registry_name",
+            "version": 1
+        }
+    }
+}
+```
+
 ### AzureML Datastore
 Model files or folders stored in an Azure Machine Learning datastore.
 
