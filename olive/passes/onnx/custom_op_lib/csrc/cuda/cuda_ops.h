@@ -7,8 +7,6 @@
 
 namespace Cuda {
 
-// template for float and float16
-template <typename T>
 struct BnbDequantizeKernel {
     BnbDequantizeKernel(const OrtKernelInfo* kernel_info) {
         Ort::ConstKernelInfo info{kernel_info};
@@ -30,39 +28,36 @@ struct BnbDequantizeKernel {
         int64_t nested_blocksize_;
 };
 
-template <typename T>
-struct BnbDequantize : Ort::CustomOpBase<BnbDequantize<T>, BnbDequantizeKernel<T>> {
+struct BnbDequantize : Ort::CustomOpBase<BnbDequantize, BnbDequantizeKernel> {
     void* CreateKernel(const OrtApi& /* api */, const OrtKernelInfo* info) const {
-        return new BnbDequantizeKernel<T>(info);
+        return new BnbDequantizeKernel(info);
     };
 
     const char* GetName() const { return "BnbDequantize"; };
 
     const char* GetExecutionProviderType() const { return "CUDAExecutionProvider"; };
 
-    size_t GetInputTypeCount() const { return 7; };
+    size_t GetInputTypeCount() const { return 6; };
     OrtCustomOpInputOutputCharacteristic GetInputCharacteristic(size_t index) const {
-        // First 4 inputs are required, last 3 depends on whether it is double quantized
-        if (index >= 4)
+        // First 3 inputs are required, last 3 depends on whether it is double quantized
+        if (index >= 3)
             return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
 
          return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
     }
     ONNXTensorElementDataType GetInputType(size_t index) const {
         if (index == 0)
-            return Ort::TypeToTensorType<T>::type;
-        else if (index == 1)
             return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
-        else if (index == 2)
+        else if (index == 1)
             return ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
-        else if (index == 3)
+        else if (index == 2)
             return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
         else
             return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
     }
 
     size_t GetOutputTypeCount() const { return 1; };
-    ONNXTensorElementDataType GetOutputType(size_t /*index*/) const { return Ort::TypeToTensorType<T>::type; };
+    ONNXTensorElementDataType GetOutputType(size_t /*index*/) const { return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT; };
 };
 
 void RegisterOps(Ort::CustomOpDomain& domain);
