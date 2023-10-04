@@ -76,6 +76,7 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Azure ML integration</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#olive-core">Olive Core</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#using-azureml-registered-model">Using AzureML registered model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#using-azureml-curated-model">Using AzureML curated model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#using-model-stored-in-azureml-datastore">Using model stored in AzureML datastore</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#using-a-model-from-an-azureml-job-output">Using a model from an AzureML job output</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#using-data-stored-in-azureml-datastore">Using data stored in AzureML datastore</a></li>
@@ -154,6 +155,21 @@
         <span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="s2">&quot;&lt;model_version&gt;&quot;</span>
     <span class="p">}</span>
  <span class="p">}</span>
+</pre></div>
+</div>
+<p>Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.</p>
+</section>
+<section id="using-azureml-curated-model">
+<h3>Using AzureML curated model<a class="headerlink" href="#using-azureml-curated-model" title="Permalink to this heading">¶</a></h3>
+<p>You can run Olive workflow with AML registered model. In the input model section, define the model config as:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="s2">&quot;model_path&quot;</span><span class="p">:</span> <span class="p">{</span>
+    <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;azureml_registry_model&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;model_name&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;registry_name&quot;</span><span class="p">:</span> <span class="s2">&quot;registry_name&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;version&quot;</span><span class="p">:</span> <span class="mi">1</span>
+    <span class="p">}</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 <p>Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.</p>

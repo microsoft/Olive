@@ -100,6 +100,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.AzureMLDatastore"><code class="docutils literal notranslate"><span class="pre">ResourceType.AzureMLDatastore</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.AzureMLJobOutput"><code class="docutils literal notranslate"><span class="pre">ResourceType.AzureMLJobOutput</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.AzureMLModel"><code class="docutils literal notranslate"><span class="pre">ResourceType.AzureMLModel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.AzureMLRegistryModel"><code class="docutils literal notranslate"><span class="pre">ResourceType.AzureMLRegistryModel</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.LocalFile"><code class="docutils literal notranslate"><span class="pre">ResourceType.LocalFile</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.LocalFolder"><code class="docutils literal notranslate"><span class="pre">ResourceType.LocalFolder</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#olive.resource_path.ResourceType.StringName"><code class="docutils literal notranslate"><span class="pre">ResourceType.StringName</span></code></a></li>
@@ -172,6 +173,11 @@
 <dl class="py attribute">
 <dt class="sig sig-object py" id="olive.resource_path.ResourceType.AzureMLModel">
 <span class="sig-name descname"><span class="pre">AzureMLModel</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'azureml_model'</span></em><a class="headerlink" href="#olive.resource_path.ResourceType.AzureMLModel" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="olive.resource_path.ResourceType.AzureMLRegistryModel">
+<span class="sig-name descname"><span class="pre">AzureMLRegistryModel</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'azureml_registry_model'</span></em><a class="headerlink" href="#olive.resource_path.ResourceType.AzureMLRegistryModel" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -316,6 +322,12 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.create_client">
 <span class="sig-name descname"><span class="pre">create_client</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/azureml/azureml_client.html#AzureMLClientConfig.create_client"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.create_client" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create an MLClient instance.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="olive.azureml.azureml_client.AzureMLClientConfig.create_registry_client">
+<span class="sig-name descname"><span class="pre">create_registry_client</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">registry_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/olive/azureml/azureml_client.html#AzureMLClientConfig.create_registry_client"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#olive.azureml.azureml_client.AzureMLClientConfig.create_registry_client" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create an MLClient instance.</p>
 </dd></dl>
 

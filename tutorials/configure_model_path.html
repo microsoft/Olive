@@ -95,6 +95,7 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#remote-model-path">Remote Model Path</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#azureml-model">AzureML Model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#azureml-registry-model">AzureML Registry Model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#azureml-datastore">AzureML Datastore</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#azureml-job-output">AzureML Job Output</a></li>
 </ul>
@@ -210,6 +211,22 @@ infer if it is a string name, local file or local directory.</p>
 <span class="w">                </span><span class="nt">&quot;workspace_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_workspace&quot;</span>
 <span class="w">            </span><span class="p">},</span>
 <span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;my_model&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="azureml-registry-model">
+<h3>AzureML Registry Model<a class="headerlink" href="#azureml-registry-model" title="Permalink to this heading">¶</a></h3>
+<p>Models curated in an Azure Machine Learning or models in your own registry. Azure ML curated model doesn’t require an <code class="docutils literal notranslate"><span class="pre">azureml_client</span></code> config section, but you can still add this section for additional <code class="docutils literal notranslate"><span class="pre">mlclient</span></code> configuration.</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;model_path&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;azureml_registry_model&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;config&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;model_name&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nt">&quot;registry_name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;registry_name&quot;</span><span class="p">,</span>
 <span class="w">            </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
