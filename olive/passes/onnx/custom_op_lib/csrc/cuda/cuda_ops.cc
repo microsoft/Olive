@@ -10,7 +10,6 @@
 
 #include "cuda_ops.h"
 
-// using namespace Ort::Custom;
 
 namespace Cuda {
 
@@ -35,6 +34,22 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
         const Ort::Custom::Tensor<float_t>& absmax_float = Ort::Custom::Tensor<float_t>(context, 2, 1);
         absmax_value = absmax_float.Data();
     }
+
+    // trying to cast to std::vector but it doesn't work
+    // const int64_t* B_shape_data = B_shape.Data();
+    // std::cout << "B_shape_data: " << B_shape.NumberOfElement() << std::endl;
+    // const std::vector<int64_t> B_shape_vec(B_shape_data, B_shape_data + B_shape.NumberOfElement());
+
+    // same when doing it manually
+    // Ort::KernelContext ctx(context);
+    // auto B_shape_ = ctx.GetInput(3);
+    // const int64_t* B_shape_data_ = B_shape_.GetTensorData<int64_t>();
+    // size_t B_shape_size = B_shape_.GetTensorTypeAndShapeInfo().GetElementCount();
+    // std::cout << "B_shape_data_: " << B_shape_size << std::endl;
+    // const std::vector<int64_t> B_shape_vec(B_shape_data_, B_shape_data_ + B_shape_size);
+
+    // Ort::Custom::Tensor<T> B_dequant = Ort::Custom::Tensor<T>(context, 0, 0);
+    // T* B_dequant_data = B_dequant.Allocate(B_shape_vec);
 }
 
 void RegisterOps(Ort::CustomOpDomain& domain) {
