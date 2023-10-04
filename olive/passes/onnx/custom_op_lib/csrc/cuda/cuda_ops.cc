@@ -15,8 +15,11 @@
 namespace Cuda {
 
 template <typename T>
-void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
-    const Ort::Custom::Tensor<T>& A = Ort::Custom::Tensor<T>(context, 0, 1);
+void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
+    // first input is not used currently
+    // keeping it to infer the type of the weight
+    // might also help execution order so that the BnbDequantize node has a parent
+    // TODO(jambayk): clean this up so that we don't need to pass the first input
     const Ort::Custom::Tensor<u_int8_t>& B_quant = Ort::Custom::Tensor<u_int8_t>(context, 1, 1);
     const Ort::Custom::Tensor<int64_t>& B_shape = Ort::Custom::Tensor<int64_t>(context, 3, 1);
 
@@ -32,15 +35,14 @@ void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
         const Ort::Custom::Tensor<float_t>& absmax_float = Ort::Custom::Tensor<float_t>(context, 2, 1);
         absmax_value = absmax_float.Data();
     }
-
 }
 
 void RegisterOps(Ort::CustomOpDomain& domain) {
-    static const MatMulBnb4<float_t> c_MatMulBnb4_float;
-    static const MatMulBnb4<Ort::Float16_t> c_MatMulBnb4_float16;
+    static const BnbDequantize<float_t> c_BnbDequantize_float;
+    static const BnbDequantize<Ort::Float16_t> c_BnbDequantize_float16;
 
-    domain.Add(&c_MatMulBnb4_float);
-    domain.Add(&c_MatMulBnb4_float16);
+    domain.Add(&c_BnbDequantize_float);
+    domain.Add(&c_BnbDequantize_float16);
 }
 
 }  // namespace Cuda

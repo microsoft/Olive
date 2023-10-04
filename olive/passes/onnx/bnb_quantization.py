@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import onnx
 import torch
+from onnx.mapping import NP_TYPE_TO_TENSOR_TYPE
 from onnx.onnx_pb import GraphProto, NodeProto, TensorProto
 
 from olive.hardware import AcceleratorSpec
@@ -130,7 +131,7 @@ class OnnxBNBQuantization(Pass):
                     node.op_type, node.input, node.output, name=node.name, **kwargs
                 )
 
-            new_nodes.append(cls.create_matmul_bnb4_node(node, graph_stack, quantized_modules, quantization_config))
+            new_nodes.extend(cls.create_matmul_bnb4_nodes(node, graph_stack, quantized_modules, quantization_config))
 
         graph.ClearField("node")
         graph.node.extend(new_nodes)
@@ -138,20 +139,20 @@ class OnnxBNBQuantization(Pass):
         return graph
 
     @classmethod
-    def create_matmul_bnb4_node(
+    def create_matmul_bnb4_nodes(
         cls,
         node: NodeProto,
         graph_stack: List[GraphProto],
         quantized_modules: List[str],
         quantization_config: Dict[str, Any],
     ) -> NodeProto:
-        """Create a MatMulBnb4 node from a MatMul node.
+        """Create a BnbDequantize node and a MatMul node for the given MatMul node.
 
-        If the node is MatMul with const weight and part of quantized_modules, quantize the weight with 4bit, and
-        return the new node.
+        If the node is MatMul with const weight and part of quantized_modules, quantize the weight with 4bit.
+        Create a BnbDequantize node and a MatMul node to replace the original MatMul node.
         """
         if node.op_type != "MatMul":
-            return node  # only care about MatMul for now
+            return [node]  # only care about MatMul for now
 
         is_quantized_module = False
         for module in quantized_modules:
@@ -159,16 +160,16 @@ class OnnxBNBQuantization(Pass):
                 is_quantized_module = True
                 break
         if not is_quantized_module:
-            return node
+            return [node]
 
         inputB = node.input[1]  # noqa: N806
         B, Bs_graph = cls.get_initializer(inputB, graph_stack)  # noqa: N806
         if B is None:
-            return node  # only care about constant weight
+            return [node]  # only care about constant weight
 
         B_array = onnx.numpy_helper.to_array(B)  # noqa: N806
         if len(B_array.shape) != 2:
-            return node  # can only process 2-D matrix
+            return [node]  # can only process 2-D matrix
 
         # torch.uint8 -> initializer
         weight_4bit, quant_state = cls.quantize_weight(B_array, quantization_config)
@@ -238,14 +239,29 @@ class OnnxBNBQuantization(Pass):
             nested_inputs = [B_offset.name, B_nested_absmax.name, B_nested_code.name]
             kwargs["nested_blocksize"] = nested_blocksize
 
-        return onnx.helper.make_node(
-            "MatMulBnb4",
+        dequantize_node_name = node.name + "_BnbDequantize"
+        dequantize_node_output = onnx.helper.make_tensor_value_info(
+            name=dequantize_node_name + "_output",
+            elem_type=NP_TYPE_TO_TENSOR_TYPE[B_array.dtype],
+            shape=B_array.shape,
+        )
+        Bs_graph.value_info.append(dequantize_node_output)
+        dequantize_node = onnx.helper.make_node(
+            "BnbDequantize",
             inputs=[node.input[0], B_quant.name, B_absmax.name, B_shape.name, *nested_inputs],
-            outputs=[node.output[0]],
-            name=node.name + "_Bnb4" if node.name else "",
+            outputs=[dequantize_node_output.name],
+            name=dequantize_node_name,
             domain="olive",
             **kwargs,
         )
+        matmul_node = onnx.helper.make_node(
+            "MatMul",
+            inputs=[node.input[0], dequantize_node_output.name],
+            outputs=[node.output[0]],
+            name=node.name,
+            **{attr.name: attr for attr in node.attribute},
+        )
+        return [dequantize_node, matmul_node]
 
     @staticmethod
     def quantize_weight(weight: np.ndarray, quantization_config: Dict[str, Any]) -> Tuple[np.ndarray, Any]:

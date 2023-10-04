@@ -9,8 +9,8 @@ namespace Cuda {
 
 // template for float and float16
 template <typename T>
-struct MatMulBnb4Kernel {
-    MatMulBnb4Kernel(const OrtKernelInfo* kernel_info) {
+struct BnbDequantizeKernel {
+    BnbDequantizeKernel(const OrtKernelInfo* kernel_info) {
         Ort::ConstKernelInfo info{kernel_info};
         dtype_ = info.GetAttribute<int64_t>("dtype");
         blocksize_ = info.GetAttribute<int64_t>("blocksize");
@@ -31,12 +31,12 @@ struct MatMulBnb4Kernel {
 };
 
 template <typename T>
-struct MatMulBnb4 : Ort::CustomOpBase<MatMulBnb4<T>, MatMulBnb4Kernel<T>> {
+struct BnbDequantize : Ort::CustomOpBase<BnbDequantize<T>, BnbDequantizeKernel<T>> {
     void* CreateKernel(const OrtApi& /* api */, const OrtKernelInfo* info) const {
-        return new MatMulBnb4Kernel<T>(info);
+        return new BnbDequantizeKernel<T>(info);
     };
 
-    const char* GetName() const { return "MatMulBnb4"; };
+    const char* GetName() const { return "BnbDequantize"; };
 
     const char* GetExecutionProviderType() const { return "CUDAExecutionProvider"; };
 
