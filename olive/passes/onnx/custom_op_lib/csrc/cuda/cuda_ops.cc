@@ -6,7 +6,7 @@
 #undef ORT_API_MANUAL_INIT
 
 #include <iostream>
-#include "onnxruntime_lite_custom_op.h"
+#include <cuda_runtime.h>
 
 #include "cuda_ops.h"
 
@@ -19,37 +19,35 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
     // keeping it to infer the type of the weight
     // might also help execution order so that the BnbDequantize node has a parent
     // TODO(jambayk): clean this up so that we don't need to pass the first input
-    const Ort::Custom::Tensor<u_int8_t>& B_quant = Ort::Custom::Tensor<u_int8_t>(context, 1, 1);
-    const Ort::Custom::Tensor<int64_t>& B_shape = Ort::Custom::Tensor<int64_t>(context, 3, 1);
+    Ort::KernelContext ctx(context);
+    auto B_quant = ctx.GetInput(1);
+    auto B_shape = ctx.GetInput(3);
 
     const float_t* absmax_value;
     if (double_quant_) {
-        const Ort::Custom::Tensor<u_int8_t>& absmax_int8 = Ort::Custom::Tensor<u_int8_t>(context, 2, 1);
-        const Ort::Custom::Tensor<float_t>& offset = Ort::Custom::Tensor<float_t>(context, 4, 1);
-        const Ort::Custom::Tensor<float_t>& nested_absmax = Ort::Custom::Tensor<float_t>(context, 5, 1);
-        const Ort::Custom::Tensor<float_t>& nested_code = Ort::Custom::Tensor<float_t>(context, 6, 1);
+        auto absmax_int8 = ctx.GetInput(2);
+        auto offset = ctx.GetInput(4);
+        auto nested_absmax = ctx.GetInput(5);
+        auto nested_code = ctx.GetInput(6);
 
-        // TODO(jambayk): dequantize absmax_int8
+        // TODO(jambayk): dequantize absmax_int8, move the value to device, return pointer
     } else {
-        const Ort::Custom::Tensor<float_t>& absmax_float = Ort::Custom::Tensor<float_t>(context, 2, 1);
-        absmax_value = absmax_float.Data();
+        auto absmax_float = ctx.GetInput(2);
+        absmax_value = absmax_float.GetTensorData<float_t>();
     }
 
-    // trying to cast to std::vector but it doesn't work
-    // const int64_t* B_shape_data = B_shape.Data();
-    // std::cout << "B_shape_data: " << B_shape.NumberOfElement() << std::endl;
-    // const std::vector<int64_t> B_shape_vec(B_shape_data, B_shape_data + B_shape.NumberOfElement());
+    // get shape of output
+    size_t B_shape_size = B_shape.GetTensorTypeAndShapeInfo().GetElementCount();
+    int64_t* B_shape_local = new int64_t[B_shape_size];
+    cudaMemcpyAsync(B_shape_local, B_shape.GetTensorData<int64_t>(), B_shape_size * sizeof(int64_t), cudaMemcpyDeviceToHost,
+               reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
 
-    // same when doing it manually
-    // Ort::KernelContext ctx(context);
-    // auto B_shape_ = ctx.GetInput(3);
-    // const int64_t* B_shape_data_ = B_shape_.GetTensorData<int64_t>();
-    // size_t B_shape_size = B_shape_.GetTensorTypeAndShapeInfo().GetElementCount();
-    // std::cout << "B_shape_data_: " << B_shape_size << std::endl;
-    // const std::vector<int64_t> B_shape_vec(B_shape_data_, B_shape_data_ + B_shape_size);
-
-    // Ort::Custom::Tensor<T> B_dequant = Ort::Custom::Tensor<T>(context, 0, 0);
-    // T* B_dequant_data = B_dequant.Allocate(B_shape_vec);
+    // get output and allocate memory
+    // TODO(jambayk): the output of the dequantize function can be different from T
+    // it depends on the dtype_ attribute
+    // need to find a better way to handle this
+    auto B_dequant = ctx.GetOutput(0, B_shape_local, B_shape_size);
+    T* B_dequant_data = B_dequant.GetTensorMutableData<T>();
 }
 
 void RegisterOps(Ort::CustomOpDomain& domain) {

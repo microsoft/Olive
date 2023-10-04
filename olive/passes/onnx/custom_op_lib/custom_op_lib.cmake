@@ -41,13 +41,16 @@ set(custom_op_src_patterns
 
 set(custom_op_lib_include ${ONNXRUNTIME_INCLUDE_DIR})
 set(custom_op_lib_option)
+set(custom_op_lib_link)
+set(custom_op_lib_link_dir)
 # set(custom_op_lib_link_dir ${ONNXRUNTIME_LIB_DIR})
 # set(custom_op_lib_link onnxruntime)
 
 
 # always build cuda for now
 list(APPEND custom_op_lib_include ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-# list(APPEND custom_op_lib_link cudart)
+list(APPEND custom_op_lib_link_dir ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
+list(APPEND custom_op_lib_link cudart)
 
 # add custom op library
 file(GLOB custom_op_src ${custom_op_src_patterns})
@@ -55,8 +58,8 @@ file(GLOB custom_op_src ${custom_op_src_patterns})
 add_library(custom_op_lib SHARED ${custom_op_src})
 target_compile_options(custom_op_lib PRIVATE ${custom_op_lib_option})
 target_include_directories(custom_op_lib PRIVATE ${custom_op_lib_include})
-# target_link_directories(custom_op_lib PRIVATE ${custom_op_lib_link_dir})
-# target_link_libraries(custom_op_lib PRIVATE ${custom_op_lib_link})
+target_link_directories(custom_op_lib PRIVATE ${custom_op_lib_link_dir})
+target_link_libraries(custom_op_lib PRIVATE ${custom_op_lib_link})
 
 if (WIN32)
     set(ONNXRUNTIME_CUSTOM_OP_LIB_LINK_FLAG "-DEF:${CMAKE_CURRENT_SOURCE_DIR}/csrc/custom_op_library.def")
