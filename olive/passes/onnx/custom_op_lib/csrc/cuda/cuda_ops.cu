@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include <iostream>
+#include <cuda_fp16.h>
 
 #include "common.h"
 #include "kernels.cuh"
@@ -18,6 +19,7 @@
 template<typename T, int DATA_TYPE>
 void dequantizeBlockwise(float *code, const unsigned char *A, const float *absmax, T *out, int blocksize, const int n, cudaStream_t stream)
 {
+  std::cout << "dequantizeBlockwise: " << DATA_TYPE << std::endl;
   int num_blocks = n/blocksize;
   num_blocks = n % blocksize == 0 ? num_blocks : num_blocks + 1;
   int tile_size = (DATA_TYPE > 0) ? 1024 : 512;
@@ -33,3 +35,7 @@ void dequantizeBlockwise(float *code, const unsigned char *A, const float *absma
 template void dequantizeBlockwise<float, General8bit>(float *code, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
 template void dequantizeBlockwise<float, FP4>(float *code, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
 template void dequantizeBlockwise<float, NF4>(float *code, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
+
+template void dequantizeBlockwise<half, General8bit>(float *code, const unsigned char *A, const float *absmax, half *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<half, FP4>(float *code, const unsigned char *A, const float *absmax, half *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<half, NF4>(float *code, const unsigned char *A, const float *absmax, half *out, int blocksize, const int n, cudaStream_t stream);

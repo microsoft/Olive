@@ -16,8 +16,7 @@ struct BnbDequantizeKernel {
         blocksize_ = info.GetAttribute<int64_t>("blocksize");
         quant_type_ = info.GetAttribute<int64_t>("quant_type");
         double_quant_ = info.GetAttribute<int64_t>("double_quantized");
-        // TODO: how to handle optional attributes?
-        nested_blocksize_ = info.GetAttribute<int64_t>("nested_blocksize");
+        if (double_quant_) nested_blocksize_ = info.GetAttribute<int64_t>("nested_blocksize");
     }
 
     void Compute(OrtKernelContext* context);

@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <cuda_runtime.h>
+#include <cuda_fp16.h>
 
 #include "common.h"
 #include "cuda_ops.h"
@@ -48,34 +49,57 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
     // TODO(jambayk): currently, output type is same as T. It is forced in the quantizer pass
     // find ways to cast to T if this is not the case in the future
     auto B_dequant = ctx.GetOutput(0, B_shape_local, B_shape_size);
-    T* B_dequant_data = B_dequant.GetTensorMutableData<T>();
+    void* B_dequant_data = B_dequant.GetTensorMutableData<T>();
 
     // dequantize using cuda kernel
     const u_int8_t* B_quant_data = B_quant.GetTensorData<u_int8_t>();
-    // int B_quant_numel = B_quant.GetTensorTypeAndShapeInfo().GetElementCount();
-    const int B_quant_numel = 1;
-    switch (dtype_)
-    {
-    case 1:
-        dequantizeBlockwise<T, FP4>(nullptr, B_quant_data, absmax_value, B_dequant_data, blocksize_, B_quant_numel,
+    int B_quant_numel = B_quant.GetTensorTypeAndShapeInfo().GetElementCount();
+    if (std::is_same_v<T, Ort::Float16_t>) {
+        half* out = static_cast<half*>(B_dequant_data);
+        switch (quant_type_)
+        {
+        case 1:
+            std::cout << "half fp4" << std::endl;
+            dequantizeBlockwise<half, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_quant_numel,
+                                        reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
+            break;
+        case 2:
+            std::cout << "half nf4" << std::endl;
+            dequantizeBlockwise<half, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_quant_numel,
+                                        reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
+            break;
+        default:
+            std::cout << "Unsupported quant_type for half" << quant_type_ << std::endl;
+            // this should never happen
+            break;
+        }
+        return;
+    }
+    else {
+        T* out = static_cast<T*>(B_dequant_data);
+        switch (quant_type_)
+        {
+        case 1:
+            dequantizeBlockwise<T, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_quant_numel,
+                                        reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
+            break;
+        case 2:
+            dequantizeBlockwise<T, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_quant_numel,
                                     reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
-        break;
-    case 2:
-        dequantizeBlockwise<T, NF4>(nullptr, B_quant_data, absmax_value, B_dequant_data, blocksize_, B_quant_numel,
-                                    reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
-        break;
-    default:
-        // this should never happen
-        break;
+            break;
+        default:
+            // this should never happen
+            break;
+        }
     }
 }
 
 void RegisterOps(Ort::CustomOpDomain& domain) {
     static const BnbDequantize<float_t> c_BnbDequantize_float;
-    // static const BnbDequantize<Ort::Float16_t> c_BnbDequantize_float16;
+    static const BnbDequantize<Ort::Float16_t> c_BnbDequantize_float16;
 
     domain.Add(&c_BnbDequantize_float);
-    // domain.Add(&c_BnbDequantize_float16);
+    domain.Add(&c_BnbDequantize_float16);
 }
 
 }  // namespace Cuda

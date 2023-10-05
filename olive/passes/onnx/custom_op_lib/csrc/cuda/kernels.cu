@@ -3,6 +3,7 @@
 
 #include <float.h>
 #include <cub/cub.cuh>
+#include <cuda_fp16.h>
 
 #include "common.h"
 #include "kernels.cuh"
@@ -160,3 +161,6 @@ __global__ void kDequantizeBlockwise(float *code, const unsigned char *A, const 
 template __global__ void kDequantizeBlockwise<float, 512, 64, 8, General8bit>(float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
 template __global__ void kDequantizeBlockwise<float, 512, 64, 8, FP4>(float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
 template __global__ void kDequantizeBlockwise<float, 512, 64, 8, NF4>(float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
+template __global__ void kDequantizeBlockwise<half, 512, 64, 8, FP4>(float *code, const unsigned char *A, const float *absmax, half *out, const int blocksize, const int n);
+template __global__ void kDequantizeBlockwise<half, 512, 64, 8, General8bit>(float *code, const unsigned char *A, const float *absmax, half *out, const int blocksize, const int n);
+template __global__ void kDequantizeBlockwise<half, 512, 64, 8, NF4>(float *code, const unsigned char *A, const float *absmax, half *out, const int blocksize, const int n);
