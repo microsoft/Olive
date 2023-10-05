@@ -3,8 +3,9 @@
 
 #include <iostream>
 
-#include "cuda_ops.cuh"
+#include "common.h"
 #include "kernels.cuh"
+#include "cuda_ops.cuh"
 
 #define CUDA_CHECK_RETURN(value) {                      \
   cudaError_t _m_cudaStat = value;                    \
@@ -15,16 +16,20 @@
   } }
 
 template<typename T, int DATA_TYPE>
-void dequantizeBlockwise(float *code, const unsigned char *A, const float *absmax, T *out, int blocksize, const int n)
+void dequantizeBlockwise(float *code, const unsigned char *A, const float *absmax, T *out, int blocksize, const int n, cudaStream_t stream)
 {
   int num_blocks = n/blocksize;
   num_blocks = n % blocksize == 0 ? num_blocks : num_blocks + 1;
   int tile_size = (DATA_TYPE > 0) ? 1024 : 512;
 
   if(DATA_TYPE > 0)
-    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64>>>(code, A, absmax, out, blocksize/2, n);
+    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64, 0, stream>>>(code, A, absmax, out, blocksize/2, n);
   else
-    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64>>>(code, A, absmax, out, blocksize, n);
+    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64, 0, stream>>>(code, A, absmax, out, blocksize, n);
 
-  CUDA_CHECK_RETURN(cudaPeekAtLastError());
+  // CUDA_CHECK_RETURN(cudaPeekAtLastError());
 }
+
+template void dequantizeBlockwise<float, General8bit>(float *code, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<float, FP4>(float *code, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<float, NF4>(float *code, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);

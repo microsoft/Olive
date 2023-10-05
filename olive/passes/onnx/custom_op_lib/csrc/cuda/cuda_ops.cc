@@ -57,10 +57,12 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
     switch (dtype_)
     {
     case 1:
-        dequantizeBlockwise<T, FP4>(nullptr, B_quant_data, absmax_value, B_dequant_data, blocksize_, B_quant_numel);
+        dequantizeBlockwise<T, FP4>(nullptr, B_quant_data, absmax_value, B_dequant_data, blocksize_, B_quant_numel,
+                                    reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
         break;
     case 2:
-        dequantizeBlockwise<T, NF4>(nullptr, B_quant_data, absmax_value, B_dequant_data, blocksize_, B_quant_numel);
+        dequantizeBlockwise<T, NF4>(nullptr, B_quant_data, absmax_value, B_dequant_data, blocksize_, B_quant_numel,
+                                    reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
         break;
     default:
         // this should never happen

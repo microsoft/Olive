@@ -156,3 +156,7 @@ __global__ void kDequantizeBlockwise(float *code, const unsigned char *A, const 
     StoreT(storet).Store(&(out[(DATA_TYPE > 0) ? i*2 : i]), vals, valid_items_store);
   }
 }
+
+template __global__ void kDequantizeBlockwise<float, 512, 64, 8, General8bit>(float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
+template __global__ void kDequantizeBlockwise<float, 512, 64, 8, FP4>(float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
+template __global__ void kDequantizeBlockwise<float, 512, 64, 8, NF4>(float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
