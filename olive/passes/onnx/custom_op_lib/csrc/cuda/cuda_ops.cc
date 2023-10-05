@@ -8,7 +8,9 @@
 #include <iostream>
 #include <cuda_runtime.h>
 
+#include "common.h"
 #include "cuda_ops.h"
+#include "cuda_ops.cuh"
 
 
 namespace Cuda {
@@ -43,19 +45,35 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
                reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
 
     // get output and allocate memory
-    // TODO(jambayk): the output of the dequantize function can be different from T
-    // it depends on the dtype_ attribute
-    // need to find a better way to handle this
+    // TODO(jambayk): currently, output type is same as T. It is forced in the quantizer pass
+    // find ways to cast to T if this is not the case in the future
     auto B_dequant = ctx.GetOutput(0, B_shape_local, B_shape_size);
     T* B_dequant_data = B_dequant.GetTensorMutableData<T>();
+
+    // dequantize using cuda kernel
+    const u_int8_t* B_quant_data = B_quant.GetTensorData<u_int8_t>();
+    // int B_quant_numel = B_quant.GetTensorTypeAndShapeInfo().GetElementCount();
+    const int B_quant_numel = 1;
+    switch (dtype_)
+    {
+    case 1:
+        dequantizeBlockwise<T, FP4>(nullptr, B_quant_data, absmax_value, B_dequant_data, blocksize_, B_quant_numel);
+        break;
+    case 2:
+        dequantizeBlockwise<T, NF4>(nullptr, B_quant_data, absmax_value, B_dequant_data, blocksize_, B_quant_numel);
+        break;
+    default:
+        // this should never happen
+        break;
+    }
 }
 
 void RegisterOps(Ort::CustomOpDomain& domain) {
     static const BnbDequantize<float_t> c_BnbDequantize_float;
-    static const BnbDequantize<Ort::Float16_t> c_BnbDequantize_float16;
+    // static const BnbDequantize<Ort::Float16_t> c_BnbDequantize_float16;
 
     domain.Add(&c_BnbDequantize_float);
-    domain.Add(&c_BnbDequantize_float16);
+    // domain.Add(&c_BnbDequantize_float16);
 }
 
 }  // namespace Cuda

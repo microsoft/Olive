@@ -271,9 +271,11 @@ class OnnxBNBQuantization(Pass):
         # NOTE: bitsandbytes Linear4bit always uses float16 as backend dtype
         # not sure if this is intentional since they have kernels for float32 and bfloat16
         # https://github.com/TimDettmers/bitsandbytes/blob/0.41.0/bitsandbytes/nn/modules.py#L156
-        # we will use float16 for now
+        # we use the same type as the original weight to not introduce many different types and casts
+        # TODO(jambayk): rethink this if we want to be fully flexible and can easily cast between types
+        # in the custom op kernel, or if the model performance suffers from not using float16
         # .copy() to avoid numpy not writable warning when converting to torch
-        weight = torch.from_numpy(weight.copy()).half().cuda()
+        weight = torch.from_numpy(weight.copy()).cuda()
         weight_4bit, quant_state = quantize_4bit(
             weight,
             compress_statistics=quantization_config["bnb_4bit_use_double_quant"],

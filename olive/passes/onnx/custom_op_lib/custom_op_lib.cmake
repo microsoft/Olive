@@ -1,5 +1,5 @@
 # always build cuda for now
-enable_language(CUDA)
+# enable_language(CUDA)
 
 include(FetchContent)
 
@@ -30,14 +30,14 @@ include(FetchContent)
 # set(ONNXRUNTIME_LIB_DIR ${onnxruntime_SOURCE_DIR}/lib)
 set(ONNXRUNTIME_INCLUDE_DIR ${ONNXRUNTIME_DIR}/include/onnxruntime/core/session)
 
-set(custom_op_src_patterns
-    "${CMAKE_CURRENT_SOURCE_DIR}/csrc/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/csrc/*.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/*.h"
-    "${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/*.cc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/*.cuh"
-    "${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/*.cu"
-)
+# set(custom_op_src_patterns
+#     "${CMAKE_CURRENT_SOURCE_DIR}/csrc/*.h"
+#     "${CMAKE_CURRENT_SOURCE_DIR}/csrc/*.cc"
+#     "${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/*.cuh"
+#     "${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/*.h"
+#     "${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/*.cu"
+#     "${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/*.cc"
+# )
 
 set(custom_op_lib_include ${ONNXRUNTIME_INCLUDE_DIR})
 set(custom_op_lib_option)
@@ -51,11 +51,24 @@ set(custom_op_lib_link_dir)
 list(APPEND custom_op_lib_include ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 list(APPEND custom_op_lib_link_dir ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
 list(APPEND custom_op_lib_link cudart)
+# list(APPEND custom_op_lib_link cudart cublas cublasLt cusparse)
 
 # add custom op library
-file(GLOB custom_op_src ${custom_op_src_patterns})
+# file(GLOB custom_op_src ${custom_op_src_patterns})
 
-add_library(custom_op_lib SHARED ${custom_op_src})
+# add_library(custom_op_lib SHARED ${custom_op_src})
+add_library(custom_op_lib SHARED
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/custom_op_library.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/custom_op_library.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/cuda_ops.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/cuda_ops.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/cuda_ops.cu
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/cuda_ops.cuh
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/kernels.cu
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/kernels.cuh
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/common.h
+)
+
 target_compile_options(custom_op_lib PRIVATE ${custom_op_lib_option})
 target_include_directories(custom_op_lib PRIVATE ${custom_op_lib_include})
 target_link_directories(custom_op_lib PRIVATE ${custom_op_lib_link_dir})

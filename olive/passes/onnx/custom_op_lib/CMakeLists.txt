@@ -5,7 +5,7 @@
 cmake_minimum_required(VERSION 3.26)
 
 # Project
-project(bnb_custom_op C CXX)
+project(bnb_custom_op C CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 20)
 if(WIN32)
