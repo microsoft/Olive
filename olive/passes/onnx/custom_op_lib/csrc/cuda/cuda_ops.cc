@@ -59,12 +59,10 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
         switch (quant_type_)
         {
         case 1:
-            std::cout << "half fp4" << std::endl;
             dequantizeBlockwise<half, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_quant_numel,
                                         reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
             break;
         case 2:
-            std::cout << "half nf4" << std::endl;
             dequantizeBlockwise<half, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_quant_numel,
                                         reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
             break;

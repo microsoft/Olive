@@ -243,7 +243,7 @@ class OnnxBNBQuantization(Pass):
         dequantize_node_output = onnx.helper.make_tensor_value_info(
             name=dequantize_node_name + "_output",
             elem_type=NP_TYPE_TO_TENSOR_TYPE[B_array.dtype],
-            shape=B_array.shape,
+            shape=[B_array.shape[1], B_array.shape[0]],
         )
         Bs_graph.value_info.append(dequantize_node_output)
         dequantize_node = onnx.helper.make_node(
@@ -254,35 +254,49 @@ class OnnxBNBQuantization(Pass):
             domain="olive",
             **kwargs,
         )
+        transpose_node = onnx.helper.make_node(
+            "Transpose",
+            inputs=[dequantize_node_output.name],
+            outputs=[dequantize_node_output.name + "_transposed"],
+            name=dequantize_node_name + "_transpose",
+            perm=[1, 0],
+        )
         matmul_node = onnx.helper.make_node(
             "MatMul",
-            inputs=[node.input[0], dequantize_node_output.name],
+            inputs=[node.input[0], dequantize_node_output.name + "_transposed"],
             outputs=[node.output[0]],
             name=node.name,
             **{attr.name: attr for attr in node.attribute},
         )
-        return [dequantize_node, matmul_node]
+        return [dequantize_node, transpose_node, matmul_node]
 
     @staticmethod
+    @torch.no_grad()
     def quantize_weight(weight: np.ndarray, quantization_config: Dict[str, Any]) -> Tuple[np.ndarray, Any]:
         """Quantize weight using bitsandbytes."""
-        from bitsandbytes.functional import quantize_4bit
+        # from bitsandbytes.functional import quantize_4bit
+        import bitsandbytes as bnb
 
         # NOTE: bitsandbytes Linear4bit always uses float16 as backend dtype
         # not sure if this is intentional since they have kernels for float32 and bfloat16
         # https://github.com/TimDettmers/bitsandbytes/blob/0.41.0/bitsandbytes/nn/modules.py#L156
-        # we use the same type as the original weight to not introduce many different types and casts
-        # TODO(jambayk): rethink this if we want to be fully flexible and can easily cast between types
-        # in the custom op kernel, or if the model performance suffers from not using float16
+        # we use float16 during quantization (through the Linear4bit module) but use the original dtype
+        # during dequantization
+        # otherwise, there are complications with the typing of the dequantization op
+        # TODO(jambayk): look into this again if model accuracy suffers for float models
+        # for some reason directly calling quantize_4bit doesn't give the same result as using the Linear4bit module
         # .copy() to avoid numpy not writable warning when converting to torch
-        weight = torch.from_numpy(weight.copy()).cuda()
-        weight_4bit, quant_state = quantize_4bit(
-            weight,
+        weight = torch.from_numpy(weight.copy()).t()
+        bnb_linear = bnb.nn.Linear4bit(
+            weight.shape[1],
+            weight.shape[0],
+            bias=False,
             compress_statistics=quantization_config["bnb_4bit_use_double_quant"],
             quant_type=quantization_config["bnb_4bit_quant_type"],
         )
-        weight_4bit = weight_4bit.t()
-        return weight_4bit, quant_state
+        bnb_linear.weight.data = weight
+        bnb_linear.cuda()
+        return bnb_linear.weight.data.t(), bnb_linear.weight.quant_state
 
     @staticmethod
     def get_initializer(name, graph_path: List[GraphProto]) -> Tuple[TensorProto, GraphProto]:
