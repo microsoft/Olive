@@ -8,6 +8,13 @@
 #include "common.h"
 #include "kernels.cuh"
 
+__global__ void kAddOffset(float *out, const float *offset, int n) {
+  int idx = threadIdx.x + blockIdx.x * blockDim.x;
+  if (idx < n) {
+    out[idx] += *offset;
+  }
+}
+
 
 __device__ float dDequantizeFP4Tree(unsigned char val, float absmax)
 {
@@ -93,7 +100,7 @@ __device__ float dDequantizeNF4(unsigned char val)
 
 
 template<typename T, int TILE_SIZE, int THREADS, int NUM_PER_TH, int DATA_TYPE>
-__global__ void kDequantizeBlockwise(float *code, const unsigned char *A, const float *absmax, T *out, const int blocksize, const int n)
+__global__ void kDequantizeBlockwise(const float *code, const unsigned char *A, const float *absmax, T *out, const int blocksize, const int n)
 {
   const int n_load = (gridDim.x * TILE_SIZE);
   int valid_items_load = 0;
@@ -158,9 +165,9 @@ __global__ void kDequantizeBlockwise(float *code, const unsigned char *A, const 
   }
 }
 
-template __global__ void kDequantizeBlockwise<float, 512, 64, 8, General8bit>(float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
-template __global__ void kDequantizeBlockwise<float, 512, 64, 8, FP4>(float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
-template __global__ void kDequantizeBlockwise<float, 512, 64, 8, NF4>(float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
-template __global__ void kDequantizeBlockwise<half, 512, 64, 8, FP4>(float *code, const unsigned char *A, const float *absmax, half *out, const int blocksize, const int n);
-template __global__ void kDequantizeBlockwise<half, 512, 64, 8, General8bit>(float *code, const unsigned char *A, const float *absmax, half *out, const int blocksize, const int n);
-template __global__ void kDequantizeBlockwise<half, 512, 64, 8, NF4>(float *code, const unsigned char *A, const float *absmax, half *out, const int blocksize, const int n);
+template __global__ void kDequantizeBlockwise<float, 512, 64, 8, General8bit>(const float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
+template __global__ void kDequantizeBlockwise<float, 512, 64, 8, FP4>(const float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
+template __global__ void kDequantizeBlockwise<float, 512, 64, 8, NF4>(const float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
+template __global__ void kDequantizeBlockwise<half, 512, 64, 8, FP4>(const float *code, const unsigned char *A, const float *absmax, half *out, const int blocksize, const int n);
+template __global__ void kDequantizeBlockwise<half, 512, 64, 8, General8bit>(const float *code, const unsigned char *A, const float *absmax, half *out, const int blocksize, const int n);
+template __global__ void kDequantizeBlockwise<half, 512, 64, 8, NF4>(const float *code, const unsigned char *A, const float *absmax, half *out, const int blocksize, const int n);

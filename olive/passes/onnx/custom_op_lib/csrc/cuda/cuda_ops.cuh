@@ -6,7 +6,9 @@
 #ifndef cuda_ops
 #define cuda_ops
 
+void addOffset(float *out, const float *offset, int n, cudaStream_t stream);
+
 template<typename T, int DATA_TYPE>
-void dequantizeBlockwise(float *code, const unsigned char *A, const float *absmax, T *out, int block_size, const int n, cudaStream_t stream);
+void dequantizeBlockwise(const float *code, const unsigned char *A, const float *absmax, T *out, int block_size, const int n, cudaStream_t stream);
 
 #endif

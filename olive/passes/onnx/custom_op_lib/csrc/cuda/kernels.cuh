@@ -6,7 +6,9 @@
 #ifndef kernels
 #define kernels
 
+__global__ void kAddOffset(float *out, const float *offset, int n);
+
 template<typename T, int TILE_SIZE, int THREADS, int NUM_PER_TH, int DATA_TYPE>
-__global__ void kDequantizeBlockwise(float *code, const unsigned char *A, const float *absmax, T *out, const int blocksize, const int n);
+__global__ void kDequantizeBlockwise(const float *code, const unsigned char *A, const float *absmax, T *out, const int blocksize, const int n);
 
 #endif

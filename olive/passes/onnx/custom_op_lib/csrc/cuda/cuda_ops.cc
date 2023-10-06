@@ -24,17 +24,30 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
     // might also help execution order so that the BnbDequantize node has a parent
     // TODO(jambayk): clean this up so that we don't need to pass the first input
     Ort::KernelContext ctx(context);
+    cudaStream_t stream = reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream());
+
     auto B_quant = ctx.GetInput(1);
     auto B_shape = ctx.GetInput(3);
 
     const float_t* absmax_value;
+    float_t* absmax_value_empty;
     if (double_quant_) {
         auto absmax_int8 = ctx.GetInput(2);
         auto offset = ctx.GetInput(4);
         auto nested_absmax = ctx.GetInput(5);
         auto nested_code = ctx.GetInput(6);
 
-        // TODO(jambayk): dequantize absmax_int8, move the value to device, return pointer
+        // TODO(jambayk): see if ort api has easier way to get
+        int absmax_int8_numel = absmax_int8.GetTensorTypeAndShapeInfo().GetElementCount();
+        cudaMalloc(&absmax_value_empty, sizeof(float_t) * absmax_int8_numel);
+
+        // dequantize nested absmax
+        dequantizeBlockwise<float_t, General8bit>(nested_code.GetTensorData<float_t>(), absmax_int8.GetTensorData<u_int8_t>(),
+                                                  nested_absmax.GetTensorData<float_t>(), absmax_value_empty, nested_blocksize_,
+                                                  absmax_int8_numel, stream);
+        // add offset to nested absmax
+        addOffset(absmax_value_empty, offset.GetTensorData<float_t>(), absmax_int8_numel, stream);
+        absmax_value = absmax_value_empty;
     } else {
         auto absmax_float = ctx.GetInput(2);
         absmax_value = absmax_float.GetTensorData<float_t>();
@@ -44,8 +57,7 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
     // only support 2D weights so B_shape_size is always 2, just to be safe
     size_t B_shape_size = B_shape.GetTensorTypeAndShapeInfo().GetElementCount();
     int64_t* B_shape_local = new int64_t[B_shape_size];
-    cudaMemcpyAsync(B_shape_local, B_shape.GetTensorData<int64_t>(), B_shape_size * sizeof(int64_t), cudaMemcpyDeviceToHost,
-               reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
+    cudaMemcpyAsync(B_shape_local, B_shape.GetTensorData<int64_t>(), B_shape_size * sizeof(int64_t), cudaMemcpyDeviceToHost, stream);
 
     // get output and allocate memory
     // TODO(jambayk): currently, output type is same as T. It is forced in the quantizer pass
@@ -55,6 +67,7 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
     // could get using B_dequant.GetTensorTypeAndShapeInfo().GetElementCount()
     // but want to calulate using B_shape_local to be safe
     int B_dequant_numel = std::accumulate(B_shape_local, B_shape_local + B_shape_size, 1LL, std::multiplies<int64_t>());
+    delete[] B_shape_local;
 
     // dequantize using cuda kernel
     const u_int8_t* B_quant_data = B_quant.GetTensorData<u_int8_t>();
@@ -63,12 +76,10 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
         switch (quant_type_)
         {
         case 1:
-            dequantizeBlockwise<half, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_dequant_numel,
-                                        reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
+            dequantizeBlockwise<half, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_dequant_numel, stream);
             break;
         case 2:
-            dequantizeBlockwise<half, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_dequant_numel,
-                                        reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
+            dequantizeBlockwise<half, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_dequant_numel, stream);
             break;
         default:
             std::cout << "Unsupported quant_type for half" << quant_type_ << std::endl;
@@ -82,17 +93,20 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
         switch (quant_type_)
         {
         case 1:
-            dequantizeBlockwise<T, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_dequant_numel,
-                                        reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
+            dequantizeBlockwise<T, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_dequant_numel, stream);
             break;
         case 2:
-            dequantizeBlockwise<T, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_dequant_numel,
-                                    reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream()));
+            dequantizeBlockwise<T, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_dequant_numel, stream);
             break;
         default:
             // this should never happen
             break;
         }
+    }
+
+    // free memory
+    if (double_quant_) {
+        cudaFree(absmax_value_empty);
     }
 }
 
