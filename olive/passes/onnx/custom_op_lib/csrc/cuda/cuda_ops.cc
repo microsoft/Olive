@@ -42,7 +42,7 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
         cudaMalloc(&absmax_value_empty, sizeof(float_t) * absmax_int8_numel);
 
         // dequantize nested absmax
-        dequantizeBlockwise<float_t, General8bit>(nested_code.GetTensorData<float_t>(), absmax_int8.GetTensorData<u_int8_t>(),
+        dequantizeBlockwise<float_t, General8bit>(nested_code.GetTensorData<float_t>(), absmax_int8.GetTensorData<uint8_t>(),
                                                   nested_absmax.GetTensorData<float_t>(), absmax_value_empty, nested_blocksize_,
                                                   absmax_int8_numel, stream);
         // add offset to nested absmax
@@ -70,7 +70,7 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
     delete[] B_shape_local;
 
     // dequantize using cuda kernel
-    const u_int8_t* B_quant_data = B_quant.GetTensorData<u_int8_t>();
+    const uint8_t* B_quant_data = B_quant.GetTensorData<uint8_t>();
     if (std::is_same_v<T, Ort::Float16_t>) {
         half* out = static_cast<half*>(B_dequant_data);
         switch (quant_type_)

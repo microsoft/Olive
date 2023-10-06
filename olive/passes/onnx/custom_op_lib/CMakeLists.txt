@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 # Minimum CMake required
-cmake_minimum_required(VERSION 3.26)
+cmake_minimum_required(VERSION 3.20)
 
 # Project
 project(bnb_custom_op C CXX CUDA)
