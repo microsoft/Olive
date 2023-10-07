@@ -64,8 +64,9 @@ class DockerSystem(OliveSystem):
                             tag=local_docker_config.image_name,
                             buildargs=local_docker_config.build_args,
                         )
-                        _print_docker_logs(build_logs, logging.INFO)
+                        _print_docker_logs(build_logs, logging.DEBUG)
                     except BuildError as e:
+                        logger.error(f"Image build failed with error: {e}")
                         _print_docker_logs(e.build_log, logging.ERROR)
                         raise
                 elif local_docker_config.requirements_file_path:
@@ -86,8 +87,9 @@ class DockerSystem(OliveSystem):
                                 tag=local_docker_config.image_name,
                                 buildargs=local_docker_config.build_args,
                             )
-                            _print_docker_logs(build_logs, logging.INFO)
+                            _print_docker_logs(build_logs, logging.DEBUG)
                         except BuildError as e:
+                            logger.error(f"Image build failed with error: {e}")
                             _print_docker_logs(e.build_log, logging.ERROR)
                             raise
                 logger.info(f"Image {local_docker_config.image_name} build successfully.")
@@ -231,9 +233,13 @@ class DockerSystem(OliveSystem):
         logger.info(f"Image {self.image.tags[0]} removed successfully.")
 
 
-def _print_docker_logs(logs, level=logging.INFO):
+def _print_docker_logs(logs, level=logging.DEBUG):
+    msgs = []
     for log in logs:
         if "stream" in log:
-            logger.log(level, str(log["stream"]).strip())
+            msgs.append(str(log["stream"]).strip())
         else:
-            logger.log(level, str(log).strip())
+            msgs.append(str(log).strip())
+
+    message = "\n".join(msgs)
+    logger.log(level, message)
