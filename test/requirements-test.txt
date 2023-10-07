@@ -2,13 +2,13 @@ accelerate
 azure-ai-ml
 azure-identity
 azure-storage-blob
-azureml-evaluate-mlflow==0.0.25
+azureml-evaluate-mlflow
 azureml-fsspec
 coverage
 datasets
 docker
 evaluate
-mlflow===2.7.1
+mlflow
 neural-compressor
 onnxconverter_common
 onnxruntime-extensions
