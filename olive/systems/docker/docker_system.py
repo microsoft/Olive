@@ -60,14 +60,26 @@ class DockerSystem(OliveSystem):
                 if local_docker_config.build_context_path and local_docker_config.dockerfile:
                     build_context_path = local_docker_config.build_context_path
                     logger.info(f"Building image from Dockerfile {build_context_path}/{local_docker_config.dockerfile}")
-                    image_id = build_image(
-                        self.docker_client,
-                        path=build_context_path,
-                        dockerfile=local_docker_config.dockerfile,
-                        tag=local_docker_config.image_name,
-                        buildargs=local_docker_config.build_args,
-                    )
-                    self.image = self.docker_client.images.get(image_id)
+                    try:
+                        self.image = self.docker_client.images.build(
+                            path=build_context_path,
+                            dockerfile=local_docker_config.dockerfile,
+                            tag=local_docker_config.image_name,
+                            buildargs=local_docker_config.build_args,
+                        )[0]
+                    except BuildError as e:
+                        logger.error(
+                            f"Failed to build image {local_docker_config.image_name} with error: {e.build_log}"
+                        )
+                        raise
+                    # image_id = build_image(
+                    #     self.docker_client,
+                    #     path=build_context_path,
+                    #     dockerfile=local_docker_config.dockerfile,
+                    #     tag=local_docker_config.image_name,
+                    #     buildargs=local_docker_config.build_args,
+                    # )
+                    # self.image = self.docker_client.images.get(image_id)
                 elif local_docker_config.requirements_file_path:
                     logger.info(
                         f"Building image from Olive default Dockerfile with buildargs {local_docker_config.build_args} "
@@ -79,14 +91,26 @@ class DockerSystem(OliveSystem):
                         shutil.copy2(dockerfile_path, build_context_path)
                         shutil.copy2(local_docker_config.requirements_file_path, build_context_path)
 
-                        image_id = build_image(
-                            self.docker_client,
-                            path=build_context_path,
-                            dockerfile=self.BASE_DOCKERFILE,
-                            tag=local_docker_config.image_name,
-                            buildargs=local_docker_config.build_args,
-                        )
-                        self.image = self.docker_client.images.get(image_id)
+                        # image_id = build_image(
+                        #     self.docker_client,
+                        #     path=build_context_path,
+                        #     dockerfile=self.BASE_DOCKERFILE,
+                        #     tag=local_docker_config.image_name,
+                        #     buildargs=local_docker_config.build_args,
+                        # )
+                        # self.image = self.docker_client.images.get(image_id)
+                        try:
+                            self.image = self.docker_client.images.build(
+                                path=build_context_path,
+                                dockerfile=self.BASE_DOCKERFILE,
+                                tag=local_docker_config.image_name,
+                                buildargs=local_docker_config.build_args,
+                            )[0]
+                        except BuildError as e:
+                            logger.error(
+                                f"Failed to build image {local_docker_config.image_name} with error: {e.build_log}"
+                            )
+                            raise
                 logger.info(f"Image {local_docker_config.image_name} build successfully.")
 
     def run_pass(
