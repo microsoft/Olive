@@ -109,7 +109,11 @@ class Footprint:
                 if _goal is None:
                     is_goals_met.append(True)
                 else:
-                    is_goals_met.append(v.metrics.value[metric_name].value * cmp_direction >= _goal)
+                    is_goals_met.append(
+                        v.metrics.value[metric_name].value >= _goal
+                        if cmp_direction == 1
+                        else v.metrics.value[metric_name].value <= _goal
+                    )
             self.nodes[k].metrics.is_goals_met = all(is_goals_met)
 
     def record(self, foot_print_node: FootprintNode = None, **kwargs):
