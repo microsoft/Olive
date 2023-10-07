@@ -139,6 +139,7 @@
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">docker</span>
+<span class="kn">from</span> <span class="nn">docker.errors</span> <span class="kn">import</span> <span class="n">BuildError</span><span class="p">,</span> <span class="n">ContainerError</span>
 
 <span class="kn">import</span> <span class="nn">olive.systems.docker.utils</span> <span class="k">as</span> <span class="nn">docker_utils</span>
 <span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">validate_config</span>
@@ -184,12 +185,19 @@
                 <span class="k">if</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_context_path</span> <span class="ow">and</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">dockerfile</span><span class="p">:</span>
                     <span class="n">build_context_path</span> <span class="o">=</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_context_path</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Building image from Dockerfile </span><span class="si">{</span><span class="n">build_context_path</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">dockerfile</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                    <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
-                        <span class="n">path</span><span class="o">=</span><span class="n">build_context_path</span><span class="p">,</span>
-                        <span class="n">dockerfile</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">dockerfile</span><span class="p">,</span>
-                        <span class="n">tag</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="p">,</span>
-                        <span class="n">buildargs</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_args</span><span class="p">,</span>
-                    <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="n">build_logs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+                            <span class="n">path</span><span class="o">=</span><span class="n">build_context_path</span><span class="p">,</span>
+                            <span class="n">dockerfile</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">dockerfile</span><span class="p">,</span>
+                            <span class="n">tag</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="p">,</span>
+                            <span class="n">buildargs</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_args</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Image </span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="si">}</span><span class="s2"> build successfully.&quot;</span><span class="p">)</span>
+                        <span class="n">_print_docker_logs</span><span class="p">(</span><span class="n">build_logs</span><span class="p">,</span> <span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+                    <span class="k">except</span> <span class="n">BuildError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Image build failed with error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                        <span class="n">_print_docker_logs</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">build_log</span><span class="p">,</span> <span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+                        <span class="k">raise</span>
                 <span class="k">elif</span> <span class="n">local_docker_config</span><span class="o">.</span><span class="n">requirements_file_path</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;Building image from Olive default Dockerfile with buildargs </span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_args</span><span class="si">}</span><span class="s2"> &quot;</span>
@@ -200,13 +208,20 @@
                         <span class="n">build_context_path</span> <span class="o">=</span> <span class="n">tempdir</span>
                         <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">dockerfile_path</span><span class="p">,</span> <span class="n">build_context_path</span><span class="p">)</span>
                         <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">requirements_file_path</span><span class="p">,</span> <span class="n">build_context_path</span><span class="p">)</span>
-                        <span class="bp">self</span><span class="o">.</span><span class="n">image</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
-                            <span class="n">path</span><span class="o">=</span><span class="n">build_context_path</span><span class="p">,</span>
-                            <span class="n">dockerfile</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">BASE_DOCKERFILE</span><span class="p">,</span>
-                            <span class="n">tag</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="p">,</span>
-                            <span class="n">buildargs</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_args</span><span class="p">,</span>
-                        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Image </span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="si">}</span><span class="s2"> build successfully.&quot;</span><span class="p">)</span>
+
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="n">build_logs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+                                <span class="n">path</span><span class="o">=</span><span class="n">build_context_path</span><span class="p">,</span>
+                                <span class="n">dockerfile</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">BASE_DOCKERFILE</span><span class="p">,</span>
+                                <span class="n">tag</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="p">,</span>
+                                <span class="n">buildargs</span><span class="o">=</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">build_args</span><span class="p">,</span>
+                            <span class="p">)</span>
+                            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Image </span><span class="si">{</span><span class="n">local_docker_config</span><span class="o">.</span><span class="n">image_name</span><span class="si">}</span><span class="s2"> build successfully.&quot;</span><span class="p">)</span>
+                            <span class="n">_print_docker_logs</span><span class="p">(</span><span class="n">build_logs</span><span class="p">,</span> <span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+                        <span class="k">except</span> <span class="n">BuildError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Image build failed with error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                            <span class="n">_print_docker_logs</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">build_log</span><span class="p">,</span> <span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+                            <span class="k">raise</span>
 
     <span class="k">def</span> <span class="nf">run_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -335,7 +350,7 @@
         <span class="n">container</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">exit_code</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">error_msg</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">docker_logs</span><span class="p">)</span>
-            <span class="k">raise</span> <span class="n">docker</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">ContainerError</span><span class="p">(</span>
+            <span class="k">raise</span> <span class="n">ContainerError</span><span class="p">(</span>
                 <span class="n">container</span><span class="p">,</span> <span class="n">exit_code</span><span class="p">,</span> <span class="n">eval_command</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Docker container evaluation failed with: </span><span class="si">{</span><span class="n">error_msg</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Docker container evaluation completed successfully&quot;</span><span class="p">)</span>
@@ -345,6 +360,18 @@
     <span class="k">def</span> <span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">docker_client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Image </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> removed successfully.&quot;</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_print_docker_logs</span><span class="p">(</span><span class="n">logs</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+    <span class="n">msgs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">log</span> <span class="ow">in</span> <span class="n">logs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;stream&quot;</span> <span class="ow">in</span> <span class="n">log</span><span class="p">:</span>
+            <span class="n">msgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">log</span><span class="p">[</span><span class="s2">&quot;stream&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">msgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">log</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+
+    <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">msgs</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">level</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
 </pre></div>
 
            </div>
