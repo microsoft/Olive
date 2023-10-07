@@ -146,7 +146,7 @@ class TestEngine:
                 "metrics": {
                     "value": metric_result_dict,
                     "cmp_direction": {},
-                    "is_goals_met": True,
+                    "if_goals_met": True,
                 },
             }
             for model_id in model_ids
@@ -178,7 +178,7 @@ class TestEngine:
             assert engine.get_model_json_path(actual_res.nodes[model_id].model_id).exists()
             for k, v in result.items():
                 if k == "metrics":
-                    assert actual_res.nodes[model_id].metrics.is_goals_met
+                    assert actual_res.nodes[model_id].metrics.if_goals_met
                 else:
                     assert getattr(actual_res.nodes[model_id], k) == v
 

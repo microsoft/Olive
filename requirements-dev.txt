@@ -2,5 +2,7 @@
 addict
 black
 flake8
+lintrunner
+lintrunner-adapters
 pre-commit
 pytest

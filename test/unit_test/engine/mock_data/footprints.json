@@ -35,7 +35,7 @@
                 "accuracy-f1_score": 1,
                 "latency-avg": -1
             },
-            "is_goals_met": true
+            "if_goals_met": true
         }
     },
     "node1": {
@@ -74,7 +74,7 @@
                 "accuracy-f1_score": 1,
                 "latency-avg": -1
             },
-            "is_goals_met": true
+            "if_goals_met": true
         }
     },
     "node0": {

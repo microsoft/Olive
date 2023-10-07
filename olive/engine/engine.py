@@ -1113,7 +1113,7 @@ class Engine:
                 model_id=model_id,
                 metrics=FootprintNodeMetric(
                     value=signal,
-                    is_goals_met=False,
+                    if_goals_met=False,
                 ),
             )
             return signal
@@ -1132,7 +1132,7 @@ class Engine:
             model_id=model_id,
             metrics=FootprintNodeMetric(
                 value=signal,
-                is_goals_met=False,
+                if_goals_met=False,
             ),
         )
         return signal
