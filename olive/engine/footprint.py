@@ -131,7 +131,7 @@ class Footprint:
         return {
             k: v
             for k, v in self.nodes.items()
-            if not self._is_empty_metric(v.metrics) and v.parent_model_id is not None
+            if not self._is_empty_metric(v.metrics) and v.parent_model_id is not None and v.metrics.if_goals_met
         }
 
     def mark_pareto_frontier(self):
