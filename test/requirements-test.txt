@@ -9,6 +9,7 @@ coverage
 datasets
 docker
 evaluate
+mlflow
 neural-compressor
 onnxconverter_common
 onnxruntime-extensions
