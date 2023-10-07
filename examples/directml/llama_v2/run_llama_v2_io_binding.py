@@ -40,11 +40,19 @@ def run_llama_v2_io_binding(
     prompt: str,
     max_seq_len: int = 2048,
     max_gen_len: int = 256,
+    disable_metacommands: bool = False,
 ) -> str:
     onnxruntime.set_default_logger_severity(3)
 
     # Create the ONNX session
-    providers = ["DmlExecutionProvider"]
+    providers = [
+        (
+            "DmlExecutionProvider",
+            {
+                "disable_metacommands": disable_metacommands,
+            },
+        )
+    ]
 
     update_embeddings_session = onnxruntime.InferenceSession(
         "models/optimized/llama_v2/update_embeddings/model.onnx",
@@ -194,9 +202,11 @@ if __name__ == "__main__":
     parser.add_argument("--prompt", type=str, default="What is the lightest element?")
     parser.add_argument("--max_seq_len", type=int, default=2048)
     parser.add_argument("--max_gen_len", type=int, default=256)
+    parser.add_argument("--disable_metacommands", action="store_true")
     args = parser.parse_args()
     run_llama_v2_io_binding(
         args.prompt,
         args.max_seq_len,
         args.max_gen_len,
+        args.disable_metacommands,
     )
