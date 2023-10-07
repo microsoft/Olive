@@ -3,10 +3,8 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import copy
-import itertools
 import json
 import logging
-import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -14,7 +12,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import docker
 from docker.errors import BuildError, ContainerError
-from docker.utils.json_stream import json_stream
 
 import olive.systems.docker.utils as docker_utils
 from olive.common.config_utils import validate_config
@@ -61,25 +58,16 @@ class DockerSystem(OliveSystem):
                     build_context_path = local_docker_config.build_context_path
                     logger.info(f"Building image from Dockerfile {build_context_path}/{local_docker_config.dockerfile}")
                     try:
-                        self.image = self.docker_client.images.build(
+                        self.image, build_logs = self.docker_client.images.build(
                             path=build_context_path,
                             dockerfile=local_docker_config.dockerfile,
                             tag=local_docker_config.image_name,
                             buildargs=local_docker_config.build_args,
-                        )[0]
-                    except BuildError as e:
-                        logger.error(
-                            f"Failed to build image {local_docker_config.image_name} with error: {e.build_log}"
                         )
+                        _print_docker_logs(build_logs, logging.INFO)
+                    except BuildError as e:
+                        _print_docker_logs(e.build_log, logging.ERROR)
                         raise
-                    # image_id = build_image(
-                    #     self.docker_client,
-                    #     path=build_context_path,
-                    #     dockerfile=local_docker_config.dockerfile,
-                    #     tag=local_docker_config.image_name,
-                    #     buildargs=local_docker_config.build_args,
-                    # )
-                    # self.image = self.docker_client.images.get(image_id)
                 elif local_docker_config.requirements_file_path:
                     logger.info(
                         f"Building image from Olive default Dockerfile with buildargs {local_docker_config.build_args} "
@@ -91,25 +79,16 @@ class DockerSystem(OliveSystem):
                         shutil.copy2(dockerfile_path, build_context_path)
                         shutil.copy2(local_docker_config.requirements_file_path, build_context_path)
 
-                        # image_id = build_image(
-                        #     self.docker_client,
-                        #     path=build_context_path,
-                        #     dockerfile=self.BASE_DOCKERFILE,
-                        #     tag=local_docker_config.image_name,
-                        #     buildargs=local_docker_config.build_args,
-                        # )
-                        # self.image = self.docker_client.images.get(image_id)
                         try:
-                            self.image = self.docker_client.images.build(
+                            self.image, build_logs = self.docker_client.images.build(
                                 path=build_context_path,
                                 dockerfile=self.BASE_DOCKERFILE,
                                 tag=local_docker_config.image_name,
                                 buildargs=local_docker_config.build_args,
-                            )[0]
-                        except BuildError as e:
-                            logger.error(
-                                f"Failed to build image {local_docker_config.image_name} with error: {e.build_log}"
                             )
+                            _print_docker_logs(build_logs, logging.INFO)
+                        except BuildError as e:
+                            _print_docker_logs(e.build_log, logging.ERROR)
                             raise
                 logger.info(f"Image {local_docker_config.image_name} build successfully.")
 
@@ -252,31 +231,9 @@ class DockerSystem(OliveSystem):
         logger.info(f"Image {self.image.tags[0]} removed successfully.")
 
 
-def build_image(client, **kwargs):
-    resp = client.api.build(**kwargs)
-    last_event = None
-    image_id = None
-    result_stream, internal_stream = itertools.tee(json_stream(resp))
-    errors = []
-    info = []
-    for chunk in internal_stream:
-        if "error" in chunk:
-            errors.append(chunk["error"])
-        if "stream" in chunk:
-            stream = chunk["stream"]
-            info.append(stream.strip())
-            match = re.search(r"(^Successfully built |sha256:)([0-9a-f]+)$", stream)
-            if match:
-                image_id = match.group(2)
-        last_event = chunk
-
-    info.extend(result_stream)
-
-    logger.info("\n".join(info))
-    if errors:
-        msg = "\n".join(errors)
-        logger.error(msg)
-        raise BuildError(msg, result_stream)
-    if image_id:
-        return image_id
-    raise BuildError(last_event or "Unknown", result_stream)
+def _print_docker_logs(logs, level=logging.INFO):
+    for log in logs:
+        if "stream" in log:
+            logger.log(level, str(log["stream"]).strip())
+        else:
+            logger.log(level, str(log).strip())
