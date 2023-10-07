@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import docker
+from docker.errors import BuildError, ContainerError
 
 import olive.systems.docker.utils as docker_utils
 from olive.common.config_utils import validate_config
@@ -56,12 +57,19 @@ class DockerSystem(OliveSystem):
                 if local_docker_config.build_context_path and local_docker_config.dockerfile:
                     build_context_path = local_docker_config.build_context_path
                     logger.info(f"Building image from Dockerfile {build_context_path}/{local_docker_config.dockerfile}")
-                    self.image = self.docker_client.images.build(
-                        path=build_context_path,
-                        dockerfile=local_docker_config.dockerfile,
-                        tag=local_docker_config.image_name,
-                        buildargs=local_docker_config.build_args,
-                    )[0]
+                    try:
+                        self.image, build_logs = self.docker_client.images.build(
+                            path=build_context_path,
+                            dockerfile=local_docker_config.dockerfile,
+                            tag=local_docker_config.image_name,
+                            buildargs=local_docker_config.build_args,
+                        )
+                        logger.info(f"Image {local_docker_config.image_name} build successfully.")
+                        _print_docker_logs(build_logs, logging.DEBUG)
+                    except BuildError as e:
+                        logger.error(f"Image build failed with error: {e}")
+                        _print_docker_logs(e.build_log, logging.ERROR)
+                        raise
                 elif local_docker_config.requirements_file_path:
                     logger.info(
                         f"Building image from Olive default Dockerfile with buildargs {local_docker_config.build_args} "
@@ -72,13 +80,20 @@ class DockerSystem(OliveSystem):
                         build_context_path = tempdir
                         shutil.copy2(dockerfile_path, build_context_path)
                         shutil.copy2(local_docker_config.requirements_file_path, build_context_path)
-                        self.image = self.docker_client.images.build(
-                            path=build_context_path,
-                            dockerfile=self.BASE_DOCKERFILE,
-                            tag=local_docker_config.image_name,
-                            buildargs=local_docker_config.build_args,
-                        )[0]
-                logger.info(f"Image {local_docker_config.image_name} build successfully.")
+
+                        try:
+                            self.image, build_logs = self.docker_client.images.build(
+                                path=build_context_path,
+                                dockerfile=self.BASE_DOCKERFILE,
+                                tag=local_docker_config.image_name,
+                                buildargs=local_docker_config.build_args,
+                            )
+                            logger.info(f"Image {local_docker_config.image_name} build successfully.")
+                            _print_docker_logs(build_logs, logging.DEBUG)
+                        except BuildError as e:
+                            logger.error(f"Image build failed with error: {e}")
+                            _print_docker_logs(e.build_log, logging.ERROR)
+                            raise
 
     def run_pass(
         self,
@@ -207,7 +222,7 @@ class DockerSystem(OliveSystem):
         container.remove()
         if exit_code != 0:
             error_msg = "\n".join(docker_logs)
-            raise docker.errors.ContainerError(
+            raise ContainerError(
                 container, exit_code, eval_command, self.image, f"Docker container evaluation failed with: {error_msg}"
             )
         logger.debug("Docker container evaluation completed successfully")
@@ -217,3 +232,15 @@ class DockerSystem(OliveSystem):
     def remove(self):
         self.docker_client.images.remove(self.image.tags[0], force=True)
         logger.info(f"Image {self.image.tags[0]} removed successfully.")
+
+
+def _print_docker_logs(logs, level=logging.DEBUG):
+    msgs = []
+    for log in logs:
+        if "stream" in log:
+            msgs.append(str(log["stream"]).strip())
+        else:
+            msgs.append(str(log).strip())
+
+    message = "\n".join(msgs)
+    logger.log(level, message)

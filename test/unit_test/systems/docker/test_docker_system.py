@@ -49,7 +49,7 @@ class TestDockerSystem:
             image_name="image_name", build_context_path="build_context_path", dockerfile="dockerfile"
         )
         mock_docker_client.images.get.side_effect = docker.errors.ImageNotFound("msg")
-        mock_docker_client.images.build = MagicMock()
+        mock_docker_client.images.build.return_value = (MagicMock(), [{"stream": "Successfully built mock_image_id"}])
 
         # execute
         DockerSystem(docker_config, is_dev=True)
@@ -78,7 +78,7 @@ class TestDockerSystem:
             requirements_file_path="requirements_file_path",
         )
         mock_docker_client.images.get.side_effect = docker.errors.ImageNotFound("msg")
-        mock_docker_client.images.build = MagicMock()
+        mock_docker_client.images.build.return_value = (MagicMock(), [{"stream": "Successfully built mock_image_id"}])
 
         # execute
         docker_system = DockerSystem(docker_config, is_dev=True)
