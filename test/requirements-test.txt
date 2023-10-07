@@ -2,8 +2,7 @@ accelerate
 azure-ai-ml
 azure-identity
 azure-storage-blob
-# azureml-evaluate-mlflow>=0.0.14 will pin mlflow/mlflow-skinny to 2.3.1
-azureml-evaluate-mlflow>=0.0.14
+azureml-evaluate-mlflow==0.0.25
 azureml-fsspec
 coverage
 datasets
