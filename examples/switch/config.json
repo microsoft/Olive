@@ -3,7 +3,7 @@
     "input_model":{
         "type": "OnnxModel",
         "config": {
-            "model_path": "model_4n_2l_8e.onnx"
+            "model_path": "model.onnx"
         }
     },
     "passes": {

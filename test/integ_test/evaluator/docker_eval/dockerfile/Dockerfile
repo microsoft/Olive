@@ -5,9 +5,9 @@
 FROM mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu20.04
 
 RUN apt-get -y update && apt-get -y upgrade
+RUN pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu --no-cache-dir
 RUN pip install onnxruntime \
             datasets \
-            torchvision \
             transformers \
             openvino \
             openvino-dev \

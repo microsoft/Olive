@@ -215,6 +215,7 @@ class HFConfig(ConfigBase):
     def load_model(self, model_path: str = None):
         """Load model from model_path or model_name."""
         model_name_or_path = model_path or self.model_name
+        logger.info(f"Loading Huggingface model from {model_name_or_path}")
         loading_args = self.model_loading_args.get_loading_args() if self.model_loading_args else {}
         if self.task:
             model = load_huggingface_model_from_task(self.task, model_name_or_path, **loading_args)

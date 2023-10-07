@@ -16,6 +16,22 @@ You can run Olive workflow with your AML workspace registered model. In the inpu
 ```
 Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.
 
+
+### Using AzureML curated model
+You can run Olive workflow with AML registered model. In the input model section, define the model config as:
+```
+"model_path": {
+    "type": "azureml_registry_model",
+    "config": {
+        "name": "model_name",
+        "registry_name": "registry_name",
+        "version": 1
+    }
+}
+```
+Olive will automatically download the model and run the workflow in the specified target or host with this model as input model.
+
+
 ### Using model stored in AzureML datastore
 You can specify your model path from an AzureML datastore as:
 ```

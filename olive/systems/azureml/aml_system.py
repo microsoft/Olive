@@ -43,6 +43,7 @@ RESOURCE_TYPE_TO_ASSET_TYPE = {
     ResourceType.LocalFolder: AssetTypes.URI_FOLDER,
     ResourceType.StringName: None,
     ResourceType.AzureMLModel: AssetTypes.CUSTOM_MODEL,
+    ResourceType.AzureMLRegistryModel: AssetTypes.CUSTOM_MODEL,
     ResourceType.AzureMLDatastore: None,
     ResourceType.AzureMLJobOutput: AssetTypes.CUSTOM_MODEL,
 }

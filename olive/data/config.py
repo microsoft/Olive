@@ -98,30 +98,35 @@ class DataConfig(ConfigBase):
     def fill_in_params(self):
         """Fill in the default parameters for each component.
 
-        1. If params_config["component_kwargs"] is not None, use the params_config["component_kwargs"]
-        to update component.params
-        2. if params_config is not None, use the params_config to fill in the params. Overrides the
-        component.params
-        3. if params_config is None, use the default params from the function signature
-        4. if there is already define params under the component, use the params directly
+        For each component, we will do the following steps:
+            1. If params_config["component_kwargs"] is not None, use the params_config["component_kwargs"]
+            to update component.params. Higher priority than the following steps.
+        Loop over the parameters from the function signature of the component:
+            2. If defined in params_config, use it to fill in the params
+            3. Else if already defined in component.params, use it directly
+            4. Else Use the default value from the function signature
+
+        Priority is: component_kwargs > params_config > component.params > default value
         """
         from inspect import signature
 
-        self.params_config = self.params_config or {}
+        self.params_config = deepcopy(self.params_config) or {}
         component_kwargs = self.params_config.pop("component_kwargs", {})
         for k, v in self.components.items():
             component = Registry.get_component(k, v.type)
             # 1. use the params_config["component_kwargs"] to update component.params
-            if k in component_kwargs:
-                v.params.update(component_kwargs[k])
-            # 2. user function signature to fill params firstly
+            v.params.update(component_kwargs.get(k, {}))
             params = signature(component).parameters
             for param, info in params.items():
-                # 3. override the params with params_config
+                # 1. skip the params already defined in component_kwargs
+                if param in component_kwargs.get(k, {}):
+                    continue
+                # 2. Update the param using params_config
                 if param in self.params_config:
                     v.params[param] = self.params_config[param]
                     continue
-                # 4. if it already defined params under the component, use the params directly
+                # 3. Use value from component.params if already defined
+                # 4. Use the default value from the function signature
                 # TRICKY TRICKY TRICKY by myguo: not change the preprocess parameter by removing the leading underscore.
                 # for example, change _dataset to dataset will trigger bug.
                 # I did hit the issue. So I add this check here.
