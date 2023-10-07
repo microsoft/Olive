@@ -230,8 +230,6 @@ class DockerSystem(OliveSystem):
 
 def build_image(client, **kwargs):
     resp = client.api.build(**kwargs)
-    assert isinstance(resp, dict)
-
     last_event = None
     image_id = None
     result_stream, internal_stream = itertools.tee(json_stream(resp))
