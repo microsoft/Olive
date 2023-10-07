@@ -3,14 +3,18 @@
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
 import copy
+import itertools
 import json
 import logging
+import re
 import shutil
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import docker
+from docker.errors import BuildError, ContainerError
+from docker.utils.json_stream import json_stream
 
 import olive.systems.docker.utils as docker_utils
 from olive.common.config_utils import validate_config
@@ -56,12 +60,14 @@ class DockerSystem(OliveSystem):
                 if local_docker_config.build_context_path and local_docker_config.dockerfile:
                     build_context_path = local_docker_config.build_context_path
                     logger.info(f"Building image from Dockerfile {build_context_path}/{local_docker_config.dockerfile}")
-                    self.image = self.docker_client.images.build(
+                    image_id = build_image(
+                        self.docker_client,
                         path=build_context_path,
                         dockerfile=local_docker_config.dockerfile,
                         tag=local_docker_config.image_name,
                         buildargs=local_docker_config.build_args,
-                    )[0]
+                    )
+                    self.image = self.docker_client.images.get(image_id)
                 elif local_docker_config.requirements_file_path:
                     logger.info(
                         f"Building image from Olive default Dockerfile with buildargs {local_docker_config.build_args} "
@@ -72,12 +78,15 @@ class DockerSystem(OliveSystem):
                         build_context_path = tempdir
                         shutil.copy2(dockerfile_path, build_context_path)
                         shutil.copy2(local_docker_config.requirements_file_path, build_context_path)
-                        self.image = self.docker_client.images.build(
+
+                        image_id = build_image(
+                            self.docker_client,
                             path=build_context_path,
                             dockerfile=self.BASE_DOCKERFILE,
                             tag=local_docker_config.image_name,
                             buildargs=local_docker_config.build_args,
-                        )[0]
+                        )
+                        self.image = self.docker_client.images.get(image_id)
                 logger.info(f"Image {local_docker_config.image_name} build successfully.")
 
     def run_pass(
@@ -207,7 +216,7 @@ class DockerSystem(OliveSystem):
         container.remove()
         if exit_code != 0:
             error_msg = "\n".join(docker_logs)
-            raise docker.errors.ContainerError(
+            raise ContainerError(
                 container, exit_code, eval_command, self.image, f"Docker container evaluation failed with: {error_msg}"
             )
         logger.debug("Docker container evaluation completed successfully")
@@ -217,3 +226,35 @@ class DockerSystem(OliveSystem):
     def remove(self):
         self.docker_client.images.remove(self.image.tags[0], force=True)
         logger.info(f"Image {self.image.tags[0]} removed successfully.")
+
+
+def build_image(client, **kwargs):
+    resp = client.api.build(**kwargs)
+    assert isinstance(resp, dict)
+
+    last_event = None
+    image_id = None
+    result_stream, internal_stream = itertools.tee(json_stream(resp))
+    errors = []
+    info = []
+    for chunk in internal_stream:
+        if "error" in chunk:
+            errors.append(chunk["error"])
+        if "stream" in chunk:
+            stream = chunk["stream"]
+            info.append(stream.strip())
+            match = re.search(r"(^Successfully built |sha256:)([0-9a-f]+)$", stream)
+            if match:
+                image_id = match.group(2)
+        last_event = chunk
+
+    info.extend(result_stream)
+
+    logger.info("\n".join(info))
+    if errors:
+        msg = "\n".join(errors)
+        logger.error(msg)
+        raise BuildError(msg, result_stream)
+    if image_id:
+        return image_id
+    raise BuildError(last_event or "Unknown", result_stream)
