@@ -64,6 +64,7 @@ class DockerSystem(OliveSystem):
                             tag=local_docker_config.image_name,
                             buildargs=local_docker_config.build_args,
                         )
+                        logger.info(f"Image {local_docker_config.image_name} build successfully.")
                         _print_docker_logs(build_logs, logging.DEBUG)
                     except BuildError as e:
                         logger.error(f"Image build failed with error: {e}")
@@ -87,12 +88,12 @@ class DockerSystem(OliveSystem):
                                 tag=local_docker_config.image_name,
                                 buildargs=local_docker_config.build_args,
                             )
+                            logger.info(f"Image {local_docker_config.image_name} build successfully.")
                             _print_docker_logs(build_logs, logging.DEBUG)
                         except BuildError as e:
                             logger.error(f"Image build failed with error: {e}")
                             _print_docker_logs(e.build_log, logging.ERROR)
                             raise
-                logger.info(f"Image {local_docker_config.image_name} build successfully.")
 
     def run_pass(
         self,
