@@ -5,7 +5,7 @@ azure-storage-blob
 # azureml-evaluate-mlflow>=0.0.14 will pin mlflow/mlflow-skinny to 2.3.1
 azureml-evaluate-mlflow>=0.0.14
 azureml-fsspec
-azureml-metrics>=0.0.26
+azureml-metrics==0.0.29
 coverage
 datasets
 docker
