@@ -241,9 +241,14 @@ class UpdateCache(torch.nn.Module):
     ) -> None:
         super().__init__()
 
-    def forward(self, k_cache, v_cache, key, value, pos, pos_end):
-        k_cache[:, 0, pos:pos_end, :, :] = key
-        v_cache[:, 0, pos:pos_end, :, :] = value
+    def forward(self, use_cache, k_cache, v_cache, key, value, pos, pos_end):
+        if use_cache:
+            k_cache[:, 0, -1, :, :] = key
+            v_cache[:, 0, -1, :, :] = value
+        else:
+            k_cache[:, 0, pos:pos_end, :, :] = key
+            v_cache[:, 0, pos:pos_end, :, :] = value
+
         return k_cache, v_cache
 
 
@@ -361,7 +366,7 @@ class SelfAttention(torch.nn.Module):
 
         # Append new entries to the end of k, v cache
         pos_end = pos + seq_len
-        k_cache, v_cache = self.update_cache(k_cache, v_cache, key, value, pos, pos_end)
+        k_cache, v_cache = self.update_cache(use_cache, k_cache, v_cache, key, value, pos, pos_end)
 
         if use_cache:
             key = torch.reshape(k_cache, [batch_size, pos_end, self.n_heads, self.head_dim])
