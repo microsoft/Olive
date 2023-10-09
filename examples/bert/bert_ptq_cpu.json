@@ -24,7 +24,7 @@
                     "type": "accuracy",
                     "backend": "huggingface_metrics",
                     "sub_types": [
-                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.02}},
+                        {"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}},
                         {"name": "f1"}
                     ]
                 },
@@ -49,9 +49,12 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
+            "disable_search": true,
             "config": {
-                "float16": false,
-                "only_onnxruntime": false
+                "model_type": "bert",
+                "num_heads": 12,
+                "hidden_size": 768,
+                "float16": false
             }
         },
         "quantization": {
