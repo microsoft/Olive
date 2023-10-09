@@ -473,7 +473,9 @@
             "type": "OrtTransformersOptimization",
             "disable_search": true,
             "config": {
-                "model_type": "unet",
+                "model_type": "gpt2",
+                "num_heads": 32,
+                "hidden_size": 4096,
                 "float16": true,
                 "use_gpu": true,
                 "keep_io_types": false,
@@ -481,7 +483,7 @@
                     "enable_gelu": false,
                     "enable_layer_norm": false,
                     "enable_attention": false,
-                    "use_multi_head_attention": false,
+                    "use_multi_head_attention": true,
                     "enable_skip_layer_norm": false,
                     "enable_embed_layer_norm": false,
                     "enable_bias_skip_layer_norm": false,
@@ -493,8 +495,8 @@
                     "enable_nhwc_conv": false,
                     "enable_group_norm": false,
                     "enable_bias_splitgelu": false,
-                    "enable_packed_qkv": false,
-                    "enable_packed_kv": false,
+                    "enable_packed_qkv": true,
+                    "enable_packed_kv": true,
                     "enable_bias_add": false
                 },
                 "force_fp32_nodes": [
