@@ -134,7 +134,10 @@ class DecoderModel(torch.nn.Module):
         sin_parts = torch.split(sin, [next_seq_len, remaining_seq_len], dim=1)
         sin = torch.cat([sin_parts[1], sin_parts[0]], dim=1)
 
-        attn_mask[:, :, :-next_seq_len] = -10000.0
+        attn_mask_top = attn_mask[:, :-1, :]
+        unpadded_attn_mask = -10000.0 * torch.ones([attn_mask.shape[0], 1, attn_mask.shape[2] - next_seq_len])
+        attn_mask = torch.nn.functional.pad(unpadded_attn_mask, (0, next_seq_len))
+        attn_mask = torch.cat([attn_mask_top, attn_mask], dim=1)
 
         return_values = [logits, attn_mask, cos, sin]
 

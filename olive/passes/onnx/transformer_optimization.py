@@ -2,15 +2,10 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import gc
 import logging
 import os
 from copy import deepcopy
 from typing import Any, Dict, List, Union
-
-import onnx
-from onnx.shape_inference import infer_shapes_path
-from onnxruntime.transformers import float16
 
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
@@ -181,37 +176,9 @@ class OrtTransformersOptimization(Pass):
             op_block_list = config["force_fp32_ops"]
             node_block_list = config["force_fp32_nodes"]
 
-            # TODO (pavignol): Figure out why symbolic shape inference is failing. We need to use symbolic shape
-            # eventually if we want to do contrib op fusions
-            shape_inferred_model_path = os.path.dirname(model.model_path) + "/shape_inferred_model.onnx"
-
-            try:
-                # We need to save the optimized model to a temporary file since the model may be too big to call
-                # infer_shapes
-                onnx.save(
-                    optimizer.model,
-                    shape_inferred_model_path,
-                    save_as_external_data=True,
-                    all_tensors_to_one_file=True,
-                )
-                del optimizer.model
-                gc.collect()
-
-                infer_shapes_path(shape_inferred_model_path, output_path=shape_inferred_model_path)
-                optimizer.model = onnx.load(shape_inferred_model_path)
-                optimizer.model = float16.convert_float_to_float16(
-                    optimizer.model,
-                    disable_shape_infer=True,
-                    op_block_list=op_block_list,
-                    node_block_list=node_block_list,
-                )
-            finally:
-                os.remove(shape_inferred_model_path)
-
-            # optimizer.convert_float_to_float16(
-            #     keep_io_types=config["keep_io_types"],
-            #     op_block_list=op_block_list,
-            #     node_block_list=node_block_list)
+            optimizer.convert_float_to_float16(
+                keep_io_types=config["keep_io_types"], op_block_list=op_block_list, node_block_list=node_block_list
+            )
 
         if config["input_int32"]:
             optimizer.change_graph_inputs_to_int32()
