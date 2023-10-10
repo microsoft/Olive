@@ -52,13 +52,6 @@ class AzureMLClientConfig(ConfigBase):
 
     @validator("aml_config_path", always=True)
     def validate_aml_config_path(cls, v, values):
-        if v is None:
-            if values.get("subscription_id") is None:
-                raise ValueError("subscription_id must be provided if aml_config_path is not provided")
-            if values.get("resource_group") is None:
-                raise ValueError("resource_group must be provided if aml_config_path is not provided")
-            if values.get("workspace_name") is None:
-                raise ValueError("workspace_name must be provided if aml_config_path is not provided")
         if v is not None:
             if not Path(v).exists():
                 raise ValueError(f"aml_config_path {v} does not exist")
@@ -89,6 +82,12 @@ class AzureMLClientConfig(ConfigBase):
         logging.getLogger("azure.identity").setLevel(logging.ERROR)
 
         if self.aml_config_path is None:
+            if self.subscription_id is None:
+                raise ValueError("subscription_id must be provided if aml_config_path is not provided")
+            if self.resource_group is None:
+                raise ValueError("resource_group must be provided if aml_config_path is not provided")
+            if self.workspace_name is None:
+                raise ValueError("workspace_name must be provided if aml_config_path is not provided")
             return MLClient(
                 credential=self._get_credentials(),
                 subscription_id=self.subscription_id,
@@ -98,7 +97,9 @@ class AzureMLClientConfig(ConfigBase):
             )
         else:
             return MLClient.from_config(
-                credential=self._get_credentials(), path=self.aml_config_path, read_timeout=self.read_timeout
+                credential=self._get_credentials(),
+                path=self.aml_config_path,
+                read_timeout=self.read_timeout,
             )
 
     def create_registry_client(self, registry_name: str):
@@ -109,13 +110,7 @@ class AzureMLClientConfig(ConfigBase):
         logging.getLogger("azure.ai.ml").setLevel(logging.ERROR)
         logging.getLogger("azure.identity").setLevel(logging.ERROR)
 
-        return MLClient(
-            credential=self._get_credentials(),
-            subscription_id=self.subscription_id,
-            resource_group_name=self.resource_group,
-            registry_name=registry_name,
-            read_timeout=self.read_timeout,
-        )
+        return MLClient(credential=self._get_credentials(), registry_name=registry_name)
 
     def _get_credentials(self):
         """Get credentials for MLClient.

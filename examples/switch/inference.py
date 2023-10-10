@@ -111,6 +111,7 @@ def _main():
             pprint.pprint(results)
             raise Exception("Inference tests failed!")
 
+    print("Inference test completed successfully!")
     return 0
 
 
