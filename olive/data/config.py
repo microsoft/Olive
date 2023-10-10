@@ -48,7 +48,20 @@ class DataConfig(ConfigBase):
     # 2. update default_components from default_components_type
     # 3. update components from default_components
     components: Dict[str, DataComponentConfig] = None
+
+    # Customer should not update this field !!
+    # default_components is used to store mapping from default component name to component config
+    # which will be updated by default_components_type automatically for different subclass of
+    # DataContainer like: HuggingfaceContainer, DummyDataContainer
+    # key: is the value from DataComponentType
+    # value: is corresponding component config
     default_components: Dict[str, DataComponentConfig] = None
+
+    # Customer should not update this field !!
+    # default_components_type is used to store mapping from default component name to component type
+    # key: is the value from DataComponentType
+    # value: is corresponding component function name registered in Registry
+    # for example, {DataComponentType.LOAD_DATASET.value: "huggingface_dataset"}
     default_components_type: Dict[str, str] = None
 
     def __init__(self, **kwargs):
@@ -66,7 +79,7 @@ class DataConfig(ConfigBase):
         self._update_default_component_type()
         self._update_default_component()
         for k, v in self.default_components.items():
-            # do deepcopies here since we don't want to update the default_components
+            # do deepcopy here since we don't want to update the default_components
             if k not in self.components:
                 # v is a DataComponentConfig object, so we deepcopy it
                 self.components[k] = deepcopy(v)
