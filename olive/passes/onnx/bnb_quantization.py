@@ -151,15 +151,13 @@ class OnnxBNBQuantization(Pass):
         If the node is Gemm/Matmul with const weight and part of quantized_modules, quantize the weight with 4bit.
         Create a BnbDequantize node and a Gemm/MatMul node to replace the original Gemm/MatMul node.
         """
-        from onnxruntime.quantization.quant_utils import attribute_to_kwarg
-
-        # TODO(jambayk): see if we can use the bnb gemm kernel instead of doing dequantize + matmul
-        if node.op_type not in ["Gemm", "MatMul"]:
+        # only care about Matmul for now
+        if node.op_type != "MatMul":
             return [node]
 
         is_quantized_module = False
         for module in quantized_modules:
-            if node.name.endswith(f"{module}/MatMul") or node.name.endswith(f"{module}/Gemm"):
+            if node.name.endswith(f"{module}/MatMul"):
                 is_quantized_module = True
                 break
         if not is_quantized_module:
@@ -175,7 +173,7 @@ class OnnxBNBQuantization(Pass):
             return [node]  # can only process 2-D matrix
 
         # torch.uint8 -> initializer
-        weight_4bit, quant_state = cls.quantize_weight(B_array, quantization_config, node.op_type == "Gemm")
+        weight_4bit, quant_state = cls.quantize_weight(B_array, quantization_config)
 
         B_quant = onnx.numpy_helper.from_array(weight_4bit.cpu().numpy())  # noqa: N806
         B_quant.name = B.name + "_w4bit"
@@ -186,7 +184,7 @@ class OnnxBNBQuantization(Pass):
                 break
 
         # absmax is tensor, torch.uint8 -> initializer (not sure if it is always an array of 1 element)
-        # shape is torch.Size, 2 elements -> attribute or initializer?
+        # shape is torch.Size, 2 elements -> attributes, this is the transposed shape of the original weight
         # dtype is torch.dtype -> attribute (currently, it is always torch.float16)
         # blocksize is int -> attribute
         # quant_type is str -> attribute
@@ -199,10 +197,7 @@ class OnnxBNBQuantization(Pass):
         B_absmax = onnx.numpy_helper.from_array(absmax.cpu().numpy())  # noqa: N806
         B_absmax.name = B.name + "_absmax"
 
-        B_shape = onnx.numpy_helper.from_array(np.array([shape[0], shape[1]]).astype(np.int64))  # noqa: N806
-        B_shape.name = B.name + "_shape"
-
-        Bs_graph.initializer.extend([B_quant, B_absmax, B_shape])
+        Bs_graph.initializer.extend([B_quant, B_absmax])
 
         kwargs = {}
         # TODO(jambayk): Generalize this to support other dtypes, create a utility function
@@ -211,6 +206,9 @@ class OnnxBNBQuantization(Pass):
             torch.float16: TensorProto.FLOAT16,
             torch.bfloat16: TensorProto.BFLOAT16,
         }
+        rows, cols = B_array.shape
+        kwargs["K"] = rows  # in_features
+        kwargs["N"] = cols  # out_features
         kwargs["dtype"] = torch_dtype_to_onnx_dtype[dtype]
         kwargs["blocksize"] = blocksize
         # only need to worry about nf4 and fp4 for now
@@ -251,7 +249,7 @@ class OnnxBNBQuantization(Pass):
         Bs_graph.value_info.append(dequantize_node_output)
         dequantize_node = onnx.helper.make_node(
             "BnbDequantize",
-            inputs=[node.input[0], B_quant.name, B_absmax.name, B_shape.name, *nested_inputs],
+            inputs=[node.input[0], B_quant.name, B_absmax.name, *nested_inputs],
             outputs=[dequantize_node_output.name],
             name=dequantize_node_name,
             domain="olive",
@@ -259,43 +257,25 @@ class OnnxBNBQuantization(Pass):
         )
         # add output to graph, debug only
         # Bs_graph.output.extend([dequantize_node_output])
-        if node.op_type == "Gemm":
-            inputs = [node.input[0], dequantize_node_output.name]
-            if len(node.input) == 3:
-                inputs.append(node.input[2])
-            attributes = {}
-            for attr in node.attribute:
-                attributes.update(attribute_to_kwarg(attr))
-            gemm_node = onnx.helper.make_node(
-                "Gemm",
-                inputs=inputs,
-                outputs=[node.output[0]],
-                name=node.name,
-                **attributes,
-            )
-            return [dequantize_node, gemm_node]
-        else:
-            transpose_node = onnx.helper.make_node(
-                "Transpose",
-                inputs=[dequantize_node_output.name],
-                outputs=[dequantize_node_output.name + "_transposed"],
-                name=dequantize_node_name + "_transpose",
-                perm=[1, 0],
-            )
-            matmul_node = onnx.helper.make_node(
-                "MatMul",
-                inputs=[node.input[0], dequantize_node_output.name + "_transposed"],
-                outputs=[node.output[0]],
-                name=node.name,
-                **{attr.name: attr for attr in node.attribute},
-            )
-            return [dequantize_node, transpose_node, matmul_node]
+        transpose_node = onnx.helper.make_node(
+            "Transpose",
+            inputs=[dequantize_node_output.name],
+            outputs=[dequantize_node_output.name + "_transposed"],
+            name=dequantize_node_name + "_transpose",
+            perm=[1, 0],
+        )
+        matmul_node = onnx.helper.make_node(
+            "MatMul",
+            inputs=[node.input[0], dequantize_node_output.name + "_transposed"],
+            outputs=[node.output[0]],
+            name=node.name,
+            **{attr.name: attr for attr in node.attribute},
+        )
+        return [dequantize_node, transpose_node, matmul_node]
 
     @staticmethod
     @torch.no_grad()
-    def quantize_weight(
-        weight: np.ndarray, quantization_config: Dict[str, Any], gemm: bool = False
-    ) -> Tuple[np.ndarray, Any]:
+    def quantize_weight(weight: np.ndarray, quantization_config: Dict[str, Any]) -> Tuple[np.ndarray, Any]:
         """Quantize weight using bitsandbytes."""
         # from bitsandbytes.functional import quantize_4bit
         import bitsandbytes as bnb
@@ -309,9 +289,7 @@ class OnnxBNBQuantization(Pass):
         # TODO(jambayk): look into this again if model accuracy suffers for float models
         # for some reason directly calling quantize_4bit doesn't give the same result as using the Linear4bit module
         # .copy() to avoid numpy not writable warning when converting to torch
-        weight = torch.from_numpy(weight.copy())
-        if not gemm:
-            weight = weight.t()
+        weight = torch.from_numpy(weight.copy()).t()
         bnb_linear = bnb.nn.Linear4bit(
             weight.shape[1],
             weight.shape[0],

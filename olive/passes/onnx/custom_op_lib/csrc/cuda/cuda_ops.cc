@@ -27,15 +27,14 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
     cudaStream_t stream = reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream());
 
     auto B_quant = ctx.GetInput(1);
-    auto B_shape = ctx.GetInput(3);
 
     const float_t* absmax_value;
     float_t* absmax_value_empty;
     if (double_quant_) {
         auto absmax_int8 = ctx.GetInput(2);
-        auto offset = ctx.GetInput(4);
-        auto nested_absmax = ctx.GetInput(5);
-        auto nested_code = ctx.GetInput(6);
+        auto offset = ctx.GetInput(3);
+        auto nested_absmax = ctx.GetInput(4);
+        auto nested_code = ctx.GetInput(5);
 
         // TODO(jambayk): see if ort api has easier way to get
         int absmax_int8_numel = absmax_int8.GetTensorTypeAndShapeInfo().GetElementCount();
@@ -53,21 +52,12 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
         absmax_value = absmax_float.GetTensorData<float_t>();
     }
 
-    // get shape of output
-    // only support 2D weights so B_shape_size is always 2, just to be safe
-    size_t B_shape_size = B_shape.GetTensorTypeAndShapeInfo().GetElementCount();
-    int64_t* B_shape_local = new int64_t[B_shape_size];
-    cudaMemcpyAsync(B_shape_local, B_shape.GetTensorData<int64_t>(), B_shape_size * sizeof(int64_t), cudaMemcpyDeviceToHost, stream);
-
     // get output and allocate memory
     // TODO(jambayk): currently, output type is same as T. It is forced in the quantizer pass
     // find ways to cast to T if this is not the case in the future
-    auto B_dequant = ctx.GetOutput(0, B_shape_local, B_shape_size);
+    int64_t B_dequant_shape[2] = {N_, K_};
+    auto B_dequant = ctx.GetOutput(0, B_dequant_shape, 2);
     void* B_dequant_data = B_dequant.GetTensorMutableData<T>();
-    // could get using B_dequant.GetTensorTypeAndShapeInfo().GetElementCount()
-    // but want to calulate using B_shape_local to be safe
-    int B_dequant_numel = std::accumulate(B_shape_local, B_shape_local + B_shape_size, 1LL, std::multiplies<int64_t>());
-    delete[] B_shape_local;
 
     // dequantize using cuda kernel
     const uint8_t* B_quant_data = B_quant.GetTensorData<uint8_t>();
@@ -76,10 +66,10 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
         switch (quant_type_)
         {
         case 1:
-            dequantizeBlockwise<half, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_dequant_numel, stream);
+            dequantizeBlockwise<half, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
             break;
         case 2:
-            dequantizeBlockwise<half, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_dequant_numel, stream);
+            dequantizeBlockwise<half, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
             break;
         default:
             std::cout << "Unsupported quant_type for half" << quant_type_ << std::endl;
@@ -93,10 +83,10 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
         switch (quant_type_)
         {
         case 1:
-            dequantizeBlockwise<T, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_dequant_numel, stream);
+            dequantizeBlockwise<T, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
             break;
         case 2:
-            dequantizeBlockwise<T, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, B_dequant_numel, stream);
+            dequantizeBlockwise<T, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
             break;
         default:
             // this should never happen

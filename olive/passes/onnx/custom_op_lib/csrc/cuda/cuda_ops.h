@@ -12,6 +12,8 @@ template <typename T>
 struct BnbDequantizeKernel {
     BnbDequantizeKernel(const OrtKernelInfo* kernel_info) {
         Ort::ConstKernelInfo info{kernel_info};
+        K_ = info.GetAttribute<int64_t>("K");
+        N_ = info.GetAttribute<int64_t>("N");
         dtype_ = info.GetAttribute<int64_t>("dtype");
         blocksize_ = info.GetAttribute<int64_t>("blocksize");
         quant_type_ = info.GetAttribute<int64_t>("quant_type");
@@ -22,6 +24,8 @@ struct BnbDequantizeKernel {
     void Compute(OrtKernelContext* context);
 
     private:
+        int64_t K_;
+        int64_t N_;
         int64_t dtype_;
         int64_t blocksize_;
         int64_t quant_type_;
@@ -39,7 +43,7 @@ struct BnbDequantize : Ort::CustomOpBase<BnbDequantize<T>, BnbDequantizeKernel<T
 
     const char* GetExecutionProviderType() const { return "CUDAExecutionProvider"; };
 
-    size_t GetInputTypeCount() const { return 7; };
+    size_t GetInputTypeCount() const { return 6; };
     OrtCustomOpInputOutputCharacteristic GetInputCharacteristic(size_t index) const {
         // First 4 inputs are required, last 3 depends on whether it is double quantized
         if (index >= 4)
@@ -54,8 +58,6 @@ struct BnbDequantize : Ort::CustomOpBase<BnbDequantize<T>, BnbDequantizeKernel<T
             return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
         else if (index == 2)
             return ONNX_TENSOR_ELEMENT_DATA_TYPE_UNDEFINED;
-        else if (index == 3)
-            return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
         else
             return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
     }
