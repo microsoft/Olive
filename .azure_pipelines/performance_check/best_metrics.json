@@ -2,41 +2,58 @@
     "bert": {
         "cpu": {
             "accuracy-accuracy": 0.88,
-            "latency-avg": 27.1239
+            "latency-avg": {
+                "8272CL": 13.96,
+                "E5-2673": 30.0,
+                "8171M": 20.89
+            }
         },
         "gpu": {
-            "accuracy-accuracy": 0.89,
+            "accuracy-accuracy": 0.9,
             "latency-avg": 1.61
         }
     },
     "deberta": {
         "cpu": {
-            "accuracy-accuracy": 0.92,
-            "latency-avg": 4.21
+            "accuracy-accuracy": 0.84,
+            "latency-avg": {
+                "8272CL": 57.74,
+                "E5-2673": 117.00,
+                "8171M": 93.37
+            }
         },
         "gpu": {
-            "accuracy-accuracy": 0.92,
-            "latency-avg": 4.21
+            "accuracy-accuracy": 0.88,
+            "latency-avg": 8.011
         }
     },
     "distilbert": {
         "cpu": {
-            "accuracy-accuracy": 0.92,
-            "latency-avg": 4.21
+            "accuracy-accuracy": 0.94,
+            "latency-avg": {
+                "8272CL": 4.5,
+                "E5-2673": 11.0,
+                "8171M": 5.6,
+                "8370C": 4.57
+            }
         },
         "gpu": {
-            "accuracy-accuracy": 0.92,
-            "latency-avg": 4.21
+            "accuracy-accuracy": 0.94,
+            "latency-avg": 0.831
         }
     },
     "roberta_large": {
         "cpu": {
-            "accuracy-accuracy": 0.92,
-            "latency-avg": 4.21
+            "accuracy-accuracy": 0.88,
+            "latency-avg": {
+                "8272CL": 52.38,
+                "E5-2673": 140.34,
+                "8171M": 69.33
+            }
         },
         "gpu": {
-            "accuracy-accuracy": 0.92,
-            "latency-avg": 4.21
+            "accuracy-accuracy": 0.89,
+            "latency-avg": 6.164
         }
-    },
+    }
 }

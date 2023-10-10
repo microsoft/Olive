@@ -93,13 +93,13 @@ ACC_METRIC = {
     "name": "accuracy",
     "type": "accuracy",
     "backend": "huggingface_metrics",
-    "sub_types": [{"name": "accuracy", "priority": 1, "goal": {"type": "max-degradation", "value": 0.01}}],
+    "sub_types": [{"name": "accuracy", "priority": 1}],
 }
 
 LAT_METRIC = {
     "name": "latency",
     "type": "latency",
-    "sub_types": [{"name": "avg", "priority": 2, "goal": {"type": "percent-min-improvement", "value": 20}}],
+    "sub_types": [{"name": "avg", "priority": 2}],
 }
 
 
@@ -156,8 +156,10 @@ def export_optimum_dynamic_quantization(onnx_model_path, model_root_path):
 
 
 def run_with_config(tool, olive_config, metric_res):
+    print(f"Start evaluating {tool} model")
     outputs = olive_run(olive_config)
     if tool == "olive":
+        print(next(iter(outputs.values())).nodes.values())
         metric = str(next(iter(next(iter(outputs.values())).nodes.values())).metrics.value)
     else:
         metric = str(next(iter(outputs.values())))
@@ -238,6 +240,7 @@ def run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num):
         olive_config = f"{model_name}.json" if device == "cpu" else f"{model_name}_gpu.json"
         olive_config_path = cur_dir / "configs" / olive_config
         run_with_config("olive", olive_config_path, metric_res)
+    print(metric_res)
     for model, v in metric_res.items():
         for metric_name, metric_value_list in v.items():
             vsum = sum(float(v) for v in metric_value_list)
@@ -257,18 +260,62 @@ def print_perf_table(metric_res, device):
     print(table)
 
 
-def regression_check(metric, device):
-    metric_data_path = Path(__file__).absolute().parent / "best_metrics.json"
-    if not metric_data_path.exists():
-        metric_data_path.touch()
-    with open(metric_data_path) as f:
-        data = json.load(f)
+def regression_check(model_name, metrics, device, cpu_info):
+    best_metric_path = Path(__file__).absolute().parent / "best_metrics.json"
+    if not best_metric_path.exists():
+        print(f"Best metrics file {best_metric_path} does not exist, skip regression check")
+        return
+    metrics_of_interest = ["accuracy-accuracy", "latency-avg"]
+    regression_res = {}
+    with open(best_metric_path) as f:
+        best_metric_json = json.load(f)
+        best_metrics = best_metric_json[model_name][device]
+        for metric_name in metrics_of_interest:
+            # There are 3 types of cpus in our cpu pool
+            # Intel(R) Xeon(R) Platinum 8272CL CPU @ 2.60GHz
+            # Intel(R) Xeon(R) CPU E5-2673 v4 @ 2.30GHz
+            # Intel(R) Xeon(R) Platinum 8171M CPU @ 2.60GHz、
+            best_metric = best_metrics[metric_name]
+            if device == "cpu" and metric_name == "latency-avg":
+                if "8272CL" in cpu_info:
+                    best_metric = best_metric["8272CL"]
+                elif "E5-2673" in cpu_info:
+                    best_metric = best_metric["E5-2673"]
+                elif "8171M" in cpu_info:
+                    best_metric = best_metric["8171M"]
+                elif "8370C" in cpu_info:
+                    best_metric = best_metric["8370C"]
+                else:
+                    print(f"Unknown cpu type {cpu_info}, skip regression check")
+                    return
+            if best_metric == 0:
+                print("No data found, skip regression check")
+                return
+            no_regression, percentage_change = regression_cal(
+                best_metric, metrics[metric_name], metric_name.startswith("accuracy")
+            )
+            regression_res[metric_name] = {
+                "best_metric": best_metric,
+                "actual_metric": metrics[metric_name],
+                "no_regression": no_regression,
+                "percentage_change": percentage_change,
+            }
+        print(f"Regression check result: {regression_res}")
+        for metric_name, metric_value in regression_res.items():
+            assert metric_value["no_regression"], (
+                f"Regression check failed for {metric_name} metric with {metric_value['percentage_change']}"
+                "percentage change"
+            )
 
 
-def no_regression(actual, expected, rel_tol):
-    if actual > expected:
-        return True
-    return abs(actual - expected) <= rel_tol * abs(expected)
+def regression_cal(best_metric, real_metric, is_acc):
+    percentage_change = (real_metric - best_metric) / best_metric
+    tolerance = 0.01 if is_acc else 0.05
+    diff = real_metric - best_metric
+    if is_acc:
+        diff = -diff
+    no_regression = diff <= tolerance * abs(best_metric)
+    return no_regression, percentage_change
 
 
 def main():
@@ -297,10 +344,9 @@ def main():
         export_optimum_dynamic_quantization(onnx_model_path, model_root_path)
 
     metric_res = run_perf_comparison(cur_dir, model_name, device, model_root_path, test_num)
-
+    lscpu = subprocess.check_output(["lscpu"]).decode("utf-8")
+    print(lscpu)
     if device == "cpu":
-        lscpu = subprocess.check_output(["lscpu"])
-        print(lscpu.decode("utf-8"))
         import psutil
 
         process = [(proc.name(), proc.cpu_percent()) for proc in psutil.process_iter()]
@@ -309,7 +355,7 @@ def main():
         nvidia_smi = subprocess.check_output(["nvidia-smi"])
         print(nvidia_smi.decode("utf-8"))
     print_perf_table(metric_res, device)
-    regression_check(metric_res["olive"], device)
+    regression_check(model_name, metric_res["olive"], device, lscpu)
 
 
 if __name__ == "__main__":

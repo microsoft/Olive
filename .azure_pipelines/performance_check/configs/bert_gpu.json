@@ -79,7 +79,7 @@
         "evaluator": "common_evaluator",
         "execution_providers": ["CUDAExecutionProvider"],
         "clean_cache": true,
-        "cache_dir": "cache",
-        "output_dir" : "models/bert_gpu"
+        "cache_dir": "run_cache/olive/cache",
+        "output_dir" : "run_cache/olive/bert_gpu"
     }
 }
