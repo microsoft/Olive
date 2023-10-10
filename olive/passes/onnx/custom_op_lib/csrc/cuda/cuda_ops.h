@@ -46,7 +46,7 @@ struct BnbDequantize : Ort::CustomOpBase<BnbDequantize<T>, BnbDequantizeKernel<T
     size_t GetInputTypeCount() const { return 6; };
     OrtCustomOpInputOutputCharacteristic GetInputCharacteristic(size_t index) const {
         // First 4 inputs are required, last 3 depends on whether it is double quantized
-        if (index >= 4)
+        if (index >= 3)
             return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
 
          return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
