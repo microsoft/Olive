@@ -271,10 +271,12 @@ def regression_check(model_name, metrics, device, cpu_info):
         best_metric_json = json.load(f)
         best_metrics = best_metric_json[model_name][device]
         for metric_name in metrics_of_interest:
-            # There are 3 types of cpus in our cpu pool
+            # There are 4 types of cpus in our cpu pool
             # Intel(R) Xeon(R) Platinum 8272CL CPU @ 2.60GHz
             # Intel(R) Xeon(R) CPU E5-2673 v4 @ 2.30GHz
-            # Intel(R) Xeon(R) Platinum 8171M CPU @ 2.60GHz、
+            # Intel(R) Xeon(R) Platinum 8171M CPU @ 2.60GHz
+            # ? (8370C)
+            # Need to collect the best metrics for each type of cpu
             best_metric = best_metrics[metric_name]
             if device == "cpu" and metric_name == "latency-avg":
                 if "8272CL" in cpu_info:
