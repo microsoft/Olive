@@ -267,7 +267,7 @@ def regression_check(model_name, metrics, device, cpu_info):
         return
     metrics_of_interest = ["accuracy-accuracy", "latency-avg"]
     regression_res = {}
-    with open(best_metric_path) as f:
+    with best_metric_path.open("r") as f:
         best_metric_json = json.load(f)
         best_metrics = best_metric_json[model_name][device]
         for metric_name in metrics_of_interest:
