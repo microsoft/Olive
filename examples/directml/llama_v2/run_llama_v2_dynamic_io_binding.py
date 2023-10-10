@@ -142,6 +142,8 @@ def run_llama_v2_io_binding(
 
     k_caches = [None] * n_layers
     v_caches = [None] * n_layers
+    k_caches_out = [None] * n_layers
+    v_caches_out = [None] * n_layers
 
     before_time = time.perf_counter()
 
@@ -188,11 +190,12 @@ def run_llama_v2_io_binding(
 
                 k_caches[layer_idx] = onnxruntime.OrtValue.ortvalue_from_numpy(k_caches[layer_idx], binding_device)
                 v_caches[layer_idx] = onnxruntime.OrtValue.ortvalue_from_numpy(v_caches[layer_idx], binding_device)
-
-                llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
-                llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
-                llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches[layer_idx])
-                llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches[layer_idx])
+                k_caches_out[layer_idx] = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+                    k_caches[layer_idx].shape(), data_type, binding_device
+                )
+                v_caches_out[layer_idx] = onnxruntime.OrtValue.ortvalue_from_shape_and_type(
+                    v_caches[layer_idx].shape(), data_type, binding_device
+                )
 
         llm_io_binding.bind_ortvalue_input("x", x)
         llm_io_binding.bind_ortvalue_input("x_increment", x_increment)
@@ -209,6 +212,12 @@ def run_llama_v2_io_binding(
         # Update the embeddings
         update_embeddings_session.run_with_iobinding(update_embeddings_io_binding)
         update_embeddings_io_binding.synchronize_outputs()
+
+        for layer_idx in range(n_layers):
+            llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
+            llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
+            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches_out[layer_idx])
+            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches_out[layer_idx])
 
         # Run the LLM model
         llm_session.run_with_iobinding(llm_io_binding)
@@ -234,6 +243,8 @@ def run_llama_v2_io_binding(
         attn_mask_out, attn_mask = attn_mask, attn_mask_out
         cos_out, cos = cos, cos_out
         sin_out, sin = sin, sin_out
+        k_caches, k_caches_out = k_caches_out, k_caches
+        v_caches, v_caches_out = v_caches_out, v_caches
         seq_len += 1
 
     after_time = time.perf_counter()

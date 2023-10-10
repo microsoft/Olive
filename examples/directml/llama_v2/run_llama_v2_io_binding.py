@@ -131,12 +131,18 @@ def run_llama_v2_io_binding(
     initial_cache = np.zeros(cache_shape, dtype=data_type)
     k_caches = []
     v_caches = []
+    k_caches_out = []
+    v_caches_out = []
 
     for layer_idx in range(n_layers):
         k_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
         v_caches.append(onnxruntime.OrtValue.ortvalue_from_numpy(initial_cache, binding_device))
-        llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches[-1])
-        llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches[-1])
+        k_caches_out.append(
+            onnxruntime.OrtValue.ortvalue_from_shape_and_type(initial_cache.shape, initial_cache.dtype, binding_device)
+        )
+        v_caches_out.append(
+            onnxruntime.OrtValue.ortvalue_from_shape_and_type(initial_cache.shape, initial_cache.dtype, binding_device)
+        )
 
     llm_io_binding.bind_cpu_input("use_cache_branch", np.zeros([1], dtype=np.bool_))
 
@@ -166,6 +172,8 @@ def run_llama_v2_io_binding(
         for layer_idx in range(n_layers):
             llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.key", k_caches[layer_idx])
             llm_io_binding.bind_ortvalue_input(f"cache.{layer_idx}.value", v_caches[layer_idx])
+            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.key", k_caches_out[layer_idx])
+            llm_io_binding.bind_ortvalue_output(f"cache_out.{layer_idx}.value", v_caches_out[layer_idx])
 
         llm_session.run_with_iobinding(llm_io_binding)
         llm_io_binding.synchronize_outputs()
@@ -190,6 +198,8 @@ def run_llama_v2_io_binding(
         attn_mask_out, attn_mask = attn_mask, attn_mask_out
         cos_out, cos = cos, cos_out
         sin_out, sin = sin, sin_out
+        k_caches, k_caches_out = k_caches_out, k_caches
+        v_caches, v_caches_out = v_caches_out, v_caches
 
     after_time = time.perf_counter()
     print(f"Execution took {after_time - before_time:0.4f} seconds")
