@@ -63,6 +63,7 @@ def run_llama_v2_io_binding(
     padding: int = 512,
     max_gen_len: int = 256,
     disable_metacommands: bool = False,
+    ignore_eos: bool = False,
 ) -> str:
     onnxruntime.set_default_logger_severity(3)
 
@@ -230,7 +231,7 @@ def run_llama_v2_io_binding(
         output_tokens.append(next_token.numpy().item())
 
         # Stop if/when we get an ENDOFTEXT token before reaching maximum sequence length
-        if output_tokens[-1] == tokenizer.eos_id:
+        if not ignore_eos and output_tokens[-1] == tokenizer.eos_id:
             break
 
         # Update the embeddings for the next iteration
@@ -248,7 +249,9 @@ def run_llama_v2_io_binding(
         seq_len += 1
 
     after_time = time.perf_counter()
-    print(f"Execution took {after_time - before_time:0.4f} seconds")
+    duration = after_time - before_time
+    tokens_per_second = idx / duration
+    print(f"Execution took {duration:0.4f} seconds (generated {tokens_per_second:0.2f} tokens per second)")
 
     output_str = tokenizer.decode(output_tokens)
 
@@ -261,10 +264,12 @@ if __name__ == "__main__":
     parser.add_argument("--padding", type=int, default=512)
     parser.add_argument("--max_gen_len", type=int, default=256)
     parser.add_argument("--disable_metacommands", action="store_true")
+    parser.add_argument("--ignore_eos", action="store_true")
     args = parser.parse_args()
     run_llama_v2_io_binding(
         args.prompt,
         args.padding,
         args.max_gen_len,
         args.disable_metacommands,
+        args.ignore_eos,
     )
