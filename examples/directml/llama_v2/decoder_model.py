@@ -67,8 +67,6 @@ class DecoderModel(torch.nn.Module):
                 use_cache, x_increment, attn_mask, sliced_cos, sliced_sin, k_cache, v_cache, pos
             )
 
-            k_cache = torch.roll(k_cache, shifts=-1, dims=2)
-            v_cache = torch.roll(v_cache, shifts=-1, dims=2)
             k_caches.append(k_cache)
             v_caches.append(v_cache)
 
@@ -79,12 +77,11 @@ class DecoderModel(torch.nn.Module):
         cos = torch.roll(cos, shifts=-1, dims=1)
         sin = torch.roll(sin, shifts=-1, dims=1)
 
-        # For the increment iterations, we only ever use the last row of the mask. This row should look something
-        # like this: [-10000, -10000, -10000, -10000, 0, 0, 0, 0]. By rollowing it to the left, it becomes
-        # [-10000, -10000, -10000, 0, 0, 0, 0, -10000] and then all we have to do is set the last element to 0
-        # so it becomes [-10000, -10000, -10000, 0, 0, 0, 0, 0].
+        # For the increment iterations, we only ever use the last row of the mask. This row should look something like
+        # this: [0, 0, 0, 0, 1, 1, 1, 1]. By rolling it to the left, it becomes [0, 0, 0, 1, 1, 1, 1, 0] and then all
+        # we have to do is set the last element to 1 so it becomes [0, 0, 0, 1, 1, 1, 1, 1].
         attn_mask = torch.roll(attn_mask, shifts=-1, dims=2)
-        attn_mask[:, -1, -1] = 0.0
+        attn_mask[:, -1, -1] = 1
 
         return_values = [logits, attn_mask, cos, sin]
 
@@ -103,8 +100,7 @@ class DecoderModel(torch.nn.Module):
         cos, sin = rotary_mat(self.hidden_size, self.n_heads, max_seq_len, head_scale=1.0)
 
         seq_len = x.size(1)
-        next_seq_len = seq_len + 1
-        remaining_seq_len = max_seq_len - next_seq_len
+        remaining_seq_len = max_seq_len - seq_len
 
         sliced_cos = cos[:, :seq_len, :, :]
         sliced_sin = sin[:, :seq_len, :, :]
@@ -116,10 +112,10 @@ class DecoderModel(torch.nn.Module):
             x, k_cache, v_cache = layer(use_cache, x, attn_mask, sliced_cos, sliced_sin, k_cache, v_cache, 0)
 
             # torch.roll doesn't support a tensor as the shifts argument, so we manually slice and concat instead
-            k_cache_parts = torch.split(k_cache, [next_seq_len, remaining_seq_len], dim=2)
+            k_cache_parts = torch.split(k_cache, [seq_len, remaining_seq_len], dim=2)
             k_cache = torch.cat([k_cache_parts[1], k_cache_parts[0]], dim=2)
 
-            v_cache_parts = torch.split(v_cache, [next_seq_len, remaining_seq_len], dim=2)
+            v_cache_parts = torch.split(v_cache, [seq_len, remaining_seq_len], dim=2)
             v_cache = torch.cat([v_cache_parts[1], v_cache_parts[0]], dim=2)
 
             k_caches.append(k_cache)
@@ -128,15 +124,17 @@ class DecoderModel(torch.nn.Module):
         x = self.norm(x)
         logits = self.output(x[:, -1, :])
 
-        cos_parts = torch.split(cos, [next_seq_len, remaining_seq_len], dim=1)
+        cos_parts = torch.split(cos, [seq_len, remaining_seq_len], dim=1)
         cos = torch.cat([cos_parts[1], cos_parts[0]], dim=1)
 
-        sin_parts = torch.split(sin, [next_seq_len, remaining_seq_len], dim=1)
+        sin_parts = torch.split(sin, [seq_len, remaining_seq_len], dim=1)
         sin = torch.cat([sin_parts[1], sin_parts[0]], dim=1)
 
+        # Update the mask for the next iteration, which will look like [0, 0, 0, 1, 1]
+        next_total_seq_len = seq_len + 1
         attn_mask_top = attn_mask[:, :-1, :]
-        unpadded_attn_mask = -10000.0 * torch.ones([attn_mask.shape[0], 1, attn_mask.shape[2] - next_seq_len])
-        attn_mask = torch.nn.functional.pad(unpadded_attn_mask, (0, next_seq_len))
+        unpadded_attn_mask = torch.ones([attn_mask.shape[0], 1, next_total_seq_len], dtype=torch.int32)
+        attn_mask = torch.nn.functional.pad(unpadded_attn_mask, (attn_mask.shape[2] - next_total_seq_len, 0))
         attn_mask = torch.cat([attn_mask_top, attn_mask], dim=1)
 
         return_values = [logits, attn_mask, cos, sin]
@@ -238,23 +236,6 @@ class TransformerLayer(torch.nn.Module):
         return h + self.feed_forward(self.ffn_norm(h)), k_out, v_out
 
 
-class UpdateCache(torch.nn.Module):
-    def __init__(
-        self,
-    ) -> None:
-        super().__init__()
-
-    def forward(self, use_cache, k_cache, v_cache, key, value, pos, pos_end):
-        if use_cache:
-            k_cache[:, 0, -1, :, :] = key
-            v_cache[:, 0, -1, :, :] = value
-        else:
-            k_cache[:, 0, pos:pos_end, :, :] = key
-            v_cache[:, 0, pos:pos_end, :, :] = value
-
-        return k_cache, v_cache
-
-
 class ApplyMask(torch.nn.Module):
     def __init__(
         self,
@@ -262,7 +243,8 @@ class ApplyMask(torch.nn.Module):
         super().__init__()
 
     def forward(self, score, attn_mask, pos, pos_end):
-        score = score + attn_mask[:, pos:pos_end, :pos_end]
+        # The mask contains 1's for values that should stay intact, and 0's for values that should get added to -10000
+        score = score + (1.0 - attn_mask[:, pos:pos_end, :pos_end]) * -10000.0
         return score
 
 
@@ -319,7 +301,6 @@ class SelfAttention(torch.nn.Module):
         self.wk = torch.nn.Linear(hidden_size, hidden_size, bias=use_biases, device=device)
         self.wv = torch.nn.Linear(hidden_size, hidden_size, bias=use_biases, device=device)
         self.wo = torch.nn.Linear(hidden_size, hidden_size, bias=use_biases, device=device)
-        self.update_cache = UpdateCache()
         self.apply_mask = ApplyMask()
         self.rotate_tensor = RotateTensor()
 
@@ -367,20 +348,37 @@ class SelfAttention(torch.nn.Module):
         query = self.rotate_tensor(query, sliced_cos, sliced_sin, self.interleaved)
         key = self.rotate_tensor(key, sliced_cos, sliced_sin, self.interleaved)
 
+        query = torch.reshape(query, [batch_size, seq_len, self.n_heads * self.head_dim])
+        key = torch.reshape(key, [batch_size, seq_len, self.n_heads * self.head_dim])
+
+        query = torch.reshape(query, [batch_size, seq_len, self.n_heads, self.head_dim])
+        key = torch.reshape(key, [batch_size, seq_len, self.n_heads, self.head_dim])
+
+        key = key.permute([0, 2, 1, 3])
+        value = value.permute([0, 2, 1, 3])
+
         # Append new entries to the end of k, v cache
         pos_end = pos + seq_len
-        k_cache, v_cache = self.update_cache(use_cache, k_cache, v_cache, key, value, pos, pos_end)
 
         if use_cache:
-            key = torch.reshape(k_cache, [batch_size, pos_end, self.n_heads, self.head_dim])
-            value = torch.reshape(v_cache, [batch_size, pos_end, self.n_heads, self.head_dim])
+            k_cache = k_cache[:, :, 1:, :]
+            v_cache = v_cache[:, :, 1:, :]
+            k_cache = torch.cat((k_cache, key), dim=2)
+            v_cache = torch.cat((v_cache, value), dim=2)
         else:
-            key = k_cache[:, 0, :pos_end, :, :]
-            value = v_cache[:, 0, :pos_end, :, :]
+            k_cache[:, :, pos:pos_end:, :] = key
+            v_cache[:, :, pos:pos_end:, :] = value
+
+        if use_cache:
+            key = k_cache
+            value = v_cache
+        else:
+            key = k_cache[:, :, :pos_end, :]
+            value = v_cache[:, :, :pos_end, :]
 
         query = query.permute([0, 2, 1, 3]).reshape([batch_size * self.n_heads, seq_len, self.head_dim])
-        key = key.permute([0, 2, 3, 1]).reshape([batch_size * self.n_heads, self.head_dim, pos_end])
-        value = value.permute([0, 2, 1, 3]).reshape([batch_size * self.n_heads, pos_end, self.head_dim])
+        key = key.permute([0, 1, 3, 2]).reshape([batch_size * self.n_heads, self.head_dim, pos_end])
+        value = value.reshape([batch_size * self.n_heads, pos_end, self.head_dim])
 
         # Calculate attention scores
         score = torch.matmul(query, key) / self.scale
