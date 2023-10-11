@@ -4,7 +4,7 @@
             "accuracy-accuracy": 0.88,
             "latency-avg": {
                 "8272CL": 15.5,
-                "E5-2673": 30.0,
+                "E5-2673": 44.5,
                 "8171M": 20.89
             }
         },
@@ -33,13 +33,13 @@
             "latency-avg": {
                 "8272CL": 4.5,
                 "E5-2673": 11.0,
-                "8171M": 5.6,
+                "8171M": 5.9,
                 "8370C": 4.57
             }
         },
         "gpu": {
             "accuracy-accuracy": 0.94,
-            "latency-avg": 0.831
+            "latency-avg": 0.91
         }
     },
     "roberta_large": {
