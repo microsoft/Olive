@@ -32,26 +32,24 @@ namespace Cuda {
 
 template <typename T>
 void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
-    // first input is not used currently
-    // keeping it to infer the type of the weight
-    // might also help execution order so that the MatMulBnb4 node has a parent
-    // TODO(jambayk): clean this up so that we don't need to pass the first input
     Ort::KernelContext ctx(context);
     cudaStream_t stream = reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream());
 
     auto A = ctx.GetInput(0);
     auto B_quant = ctx.GetInput(1);
+    auto data_type = ctx.GetInput(3);
 
     const auto* A_data = A.GetTensorData<T>();
     const uint8_t* B_quant_data = B_quant.GetTensorData<uint8_t>();
+    const float* data_type_data = data_type.GetTensorData<float>();
 
     const float_t* absmax_data;
     float_t* absmax_value_empty;
     if (double_quant_) {
         auto absmax_int8 = ctx.GetInput(2);
-        auto offset = ctx.GetInput(3);
-        auto nested_absmax = ctx.GetInput(4);
-        auto nested_code = ctx.GetInput(5);
+        auto offset = ctx.GetInput(4);
+        auto nested_absmax = ctx.GetInput(5);
+        auto nested_code = ctx.GetInput(6);
 
         // TODO(jambayk): see if ort api has easier way to get
         int absmax_int8_numel = absmax_int8.GetTensorTypeAndShapeInfo().GetElementCount();
@@ -69,9 +67,10 @@ void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
         absmax_data = absmax_float.GetTensorData<float_t>();
     }
 
-    //  get shape of A
+    // get shape of A: M1 X ... X Mn X K.
+    // Ex. batch_size X seq_len X K
     const std::vector<int64_t> A_shape = A.GetTensorTypeAndShapeInfo().GetShape();
-    // accumulate shape of A
+    // stack all dimensions except the last one
     int64_t M = std::accumulate(A_shape.begin(), A_shape.end() - 1, 1, std::multiplies<int64_t>());
     // // ensure that the last dimension of A is equal to K
     // int64_t K = A_shape.back();
@@ -79,7 +78,7 @@ void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
 
     typedef typename ToCudaType<T>::MappedType CudaT;
 
-    // shape of output
+    // shape of output: M1 X ... X Mn X N
     int64_t out_shape[A_shape.size()];
     std::copy(A_shape.begin(), A_shape.end(), out_shape);
     out_shape[A_shape.size() - 1] = N_;
@@ -90,7 +89,7 @@ void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
         reinterpret_cast<const CudaT*>(A_data),
         B_quant_data,
         absmax_data,
-        nullptr,
+        data_type_data,
         M,
         N_,
         K_,
@@ -98,6 +97,9 @@ void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
         stream);
     if (is_4bit_done) {
         std::cout << "4bit done" << std::endl;
+    }
+    else {
+        std::cout << "4bit not done" << std::endl;
     }
 
     // void* output_data = output.GetTensorMutableData<T>();

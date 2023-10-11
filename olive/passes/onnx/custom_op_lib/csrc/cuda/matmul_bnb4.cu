@@ -152,18 +152,11 @@ bool TryMatMulBnb4(
   int lda = k;
   int ldb = (k+1)/2;
   int ldc = n;
-
   int num_blocks = (n + 3) / 4;
 
   constexpr int bits = ::cuda::std::is_same_v<T, half> ? 16 : 32;
-  kgemm_4bit_inference_naive<T, 128, bits><<<num_blocks, 128, 0, stream>>>(n, m, k, a_data, b_data_quant, absmax, datatype, output, lda, ldb, ldc, blocksize);
-
   // Note: m and n are swapped in the kernel
-  // if (::cuda::std::is_same_v<T, half>) {
-  //   kgemm_4bit_inference_naive<T, 128, 16><<<num_blocks, 128, 0, stream>>>(n, m, k, a_data, b_data_quant, absmax, datatype, output, lda, ldb, ldc, blocksize);
-  // } else {
-  //   kgemm_4bit_inference_naive<T, 128, 32><<<num_blocks, 128, 0, stream>>>(n, m, k, a_data, b_data_quant, absmax, datatype, output, lda, ldb, ldc, blocksize);
-  // }
+  kgemm_4bit_inference_naive<T, 128, bits><<<num_blocks, 128, 0, stream>>>(n, m, k, a_data, b_data_quant, absmax, datatype, output, lda, ldb, ldc, blocksize);
   CUDA_CHECK_RETURN(cudaPeekAtLastError());
 
   return true;

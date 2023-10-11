@@ -87,8 +87,15 @@ class OnnxBNBQuantization(Pass):
 
         # use a stack to keep track of sub-graphs
         graph_stack = [onnx_model.graph]
-        opset_import = onnx_model.opset_import
+        # prepare for quantization by adding the common quantization initializers
+        quantization_info = {
+            "config": quantization_config,
+            "modules": quantized_modules,
+        }
+        self.add_quant_initializers(graph_stack, quantization_info)
 
+        # add the olive opset
+        opset_import = onnx_model.opset_import
         # has_ms_domain = False
         # for opset in opset_import:
         #     if opset.domain == "com.microsoft":
@@ -97,15 +104,13 @@ class OnnxBNBQuantization(Pass):
         #     opset_import.extend([onnx.helper.make_opsetid("com.microsoft", 1)])
         opset_import.extend([onnx.helper.make_opsetid("olive", 1)])
 
-        self.process_subgraph(graph_stack, quantized_modules, quantization_config)
+        self.process_subgraph(graph_stack, quantization_info)
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(onnx_model, output_model_path, config)
 
     @classmethod
-    def process_subgraph(
-        cls, graph_stack: List[GraphProto], quantized_modules: List[str], quantization_config: Dict[str, Any]
-    ) -> GraphProto:
+    def process_subgraph(cls, graph_stack: List[GraphProto], quantization_info: Dict[str, Any]) -> GraphProto:
         from onnxruntime.quantization.quant_utils import attribute_to_kwarg
 
         new_nodes = []
@@ -123,13 +128,13 @@ class OnnxBNBQuantization(Pass):
                     if attr.type == onnx.AttributeProto.GRAPH:
                         # recursive call to take care of sub-graph
                         graph_stack.append(attr.g)
-                        kv = {attr.name: cls.process_subgraph(graph_stack, quantized_modules, quantization_config)}
-                    elif attr.type == onnx.AttributeProto.GRAPH:
+                        kv = {attr.name: cls.process_subgraph(graph_stack, quantization_info)}
+                    elif attr.type == onnx.AttributeProto.GRAPHS:
                         value = []
                         for subgraph in attr.graphs:
                             # recursive call to take care of sub-graph
                             graph_stack.append(subgraph)
-                            value.extend([cls.process_subgraph(graph_stack, quantized_modules, quantization_config)])
+                            value.extend([cls.process_subgraph(graph_stack, quantization_info)])
                         kv = {attr.name: value}
                     else:
                         kv = attribute_to_kwarg(attr)
@@ -138,7 +143,7 @@ class OnnxBNBQuantization(Pass):
                     node.op_type, node.input, node.output, name=node.name, **kwargs
                 )
 
-            new_nodes.append(cls.create_matmul_bnb4_node(node, graph_stack, quantized_modules, quantization_config))
+            new_nodes.append(cls.create_matmul_bnb4_node(node, graph_stack, quantization_info))
 
         graph.ClearField("node")
         graph.node.extend(new_nodes)
@@ -147,11 +152,7 @@ class OnnxBNBQuantization(Pass):
 
     @classmethod
     def create_matmul_bnb4_node(
-        cls,
-        node: NodeProto,
-        graph_stack: List[GraphProto],
-        quantized_modules: List[str],
-        quantization_config: Dict[str, Any],
+        cls, node: NodeProto, graph_stack: List[GraphProto], quantization_info: Dict[str, Any]
     ) -> NodeProto:
         """Create a MatMulBnb4 node from a MatMul node.
 
@@ -163,7 +164,7 @@ class OnnxBNBQuantization(Pass):
             return node
 
         is_quantized_module = False
-        for module in quantized_modules:
+        for module in quantization_info["modules"]:
             if node.name.endswith(f"{module}/MatMul"):
                 is_quantized_module = True
                 break
@@ -180,7 +181,7 @@ class OnnxBNBQuantization(Pass):
             return node  # can only process 2-D matrix
 
         # torch.uint8 -> initializer
-        weight_4bit, quant_state = cls.quantize_weight(B_array, quantization_config)
+        weight_4bit, quant_state = cls.quantize_weight(B_array, quantization_info["config"])
 
         B_quant = onnx.numpy_helper.from_array(weight_4bit.cpu().numpy())  # noqa: N806
         B_quant.name = B.name + "_w4bit"
@@ -192,14 +193,11 @@ class OnnxBNBQuantization(Pass):
 
         # absmax is tensor, torch.uint8 -> initializer (not sure if it is always an array of 1 element)
         # shape is torch.Size, 2 elements -> attributes, this is the transposed shape of the original weight
-        # dtype is torch.dtype -> attribute (currently, it is always torch.float16)
+        # dtype is torch.dtype, always torch.float16. ignore this and use the original dtype in kernel
         # blocksize is int -> attribute
         # quant_type is str -> attribute
-        # data_type is an array mapping from quantized value to original value
-        # but we don't need to use data_type since it's already hard-coded in the kernel
-        # compressed_stats is a another quantization stat for the double quantization
-        absmax, shape, dtype, blocksize, compressed_stats, quant_type, data_type = quant_state
-        del data_type
+        # data_type is an array mapping from quantized value to original value, torch.float32 -> initializer
+        absmax, _, _, blocksize, compressed_stats, quant_type, _ = quant_state
 
         B_absmax = onnx.numpy_helper.from_array(absmax.cpu().numpy())  # noqa: N806
         B_absmax.name = B.name + "_absmax"
@@ -207,16 +205,9 @@ class OnnxBNBQuantization(Pass):
         Bs_graph.initializer.extend([B_quant, B_absmax])
 
         kwargs = {}
-        # TODO(jambayk): Generalize this to support other dtypes, create a utility function
-        torch_dtype_to_onnx_dtype = {
-            torch.float32: TensorProto.FLOAT,
-            torch.float16: TensorProto.FLOAT16,
-            torch.bfloat16: TensorProto.BFLOAT16,
-        }
         rows, cols = B_array.shape
         kwargs["K"] = rows  # in_features
         kwargs["N"] = cols  # out_features
-        kwargs["dtype"] = torch_dtype_to_onnx_dtype[dtype]
         kwargs["blocksize"] = blocksize
         # only need to worry about nf4 and fp4 for now
         kwargs["quant_type"] = QuantType[quant_type.upper()].value
@@ -227,9 +218,9 @@ class OnnxBNBQuantization(Pass):
             offset, quant_state2 = compressed_stats
             # nested_absmax is a tensor, torch.float32 -> initializer
             # nested_code is a tensor, torch.float32 -> initializer
-            # nested_blacksize is an int -> attribute
+            # nested_blocksize is an int -> attribute
             # the rest are always False, torch.float32, None, None
-            nested_absmax, nested_code, nested_blocksize, _, _, _, _ = quant_state2
+            nested_absmax, _, nested_blocksize, _, _, _, _ = quant_state2
 
             B_offset = onnx.numpy_helper.from_array(offset.cpu().numpy())  # noqa: N806
             B_offset.name = B.name + "_offset"
@@ -237,19 +228,21 @@ class OnnxBNBQuantization(Pass):
             B_nested_absmax = onnx.numpy_helper.from_array(nested_absmax.cpu().numpy())  # noqa: N806
             B_nested_absmax.name = B.name + "_nested_absmax"
 
-            # TODO(jambayk): nested_code is same for all nodes, can we make it shared?
-            B_nested_code = onnx.numpy_helper.from_array(nested_code.cpu().numpy())  # noqa: N806
-            B_nested_code.name = B.name + "_nested_code"
-
-            Bs_graph.initializer.extend([B_offset, B_nested_absmax, B_nested_code])
+            Bs_graph.initializer.extend([B_offset, B_nested_absmax])
 
             # create nested inputs and attributes
-            nested_inputs = [B_offset.name, B_nested_absmax.name, B_nested_code.name]
+            nested_inputs = [B_offset.name, B_nested_absmax.name, quantization_info["initializers"]["bnb_nested_code"]]
             kwargs["nested_blocksize"] = nested_blocksize
 
         return onnx.helper.make_node(
             "MatMulBnb4",
-            inputs=[node.input[0], B_quant.name, B_absmax.name, *nested_inputs],
+            inputs=[
+                node.input[0],
+                B_quant.name,
+                B_absmax.name,
+                quantization_info["initializers"]["bnb_data_type"],
+                *nested_inputs,
+            ],
             outputs=[node.output[0]],
             name=node.name + "_Bnb4",
             domain="olive",
@@ -292,3 +285,31 @@ class OnnxBNBQuantization(Pass):
                 if tensor.name == name:
                     return tensor, graph
         return None, None
+
+    @classmethod
+    def add_quant_initializers(cls, graph_path: List[GraphProto], quantization_info: Dict[str, Any]):
+        """Add the common quantization initializers to the model and quantization_info."""
+        initializer_names = []
+        for gid in range(len(graph_path) - 1, -1, -1):
+            graph = graph_path[gid]
+            for tensor in graph.initializer:
+                initializer_names.append(tensor.name)
+        initializer_names = set(initializer_names)
+
+        # quanitize a fake tensor to get the quantization initializers
+        weight = np.random.rand(1, 1)
+        _, quant_state = cls.quantize_weight(weight, quantization_info["config"])
+
+        tensors_to_add = [("bnb_data_type", quant_state[-1])]
+        if quant_state[4]:
+            tensors_to_add.extend([("bnb_nested_code", quant_state[4][1][1])])
+
+        quantization_info["initializers"] = {}
+        for name, tensor in tensors_to_add:
+            onnx_tensor = onnx.numpy_helper.from_array(tensor.cpu().numpy())
+            new_name = name
+            while new_name in initializer_names:
+                new_name += "_"
+            onnx_tensor.name = new_name
+            graph_path[-1].initializer.extend([onnx_tensor])
+            quantization_info["initializers"][name] = new_name

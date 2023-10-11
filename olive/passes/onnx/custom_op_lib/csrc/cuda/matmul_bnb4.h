@@ -14,7 +14,6 @@ struct MatMulBnb4Kernel {
         Ort::ConstKernelInfo info{kernel_info};
         K_ = info.GetAttribute<int64_t>("K");
         N_ = info.GetAttribute<int64_t>("N");
-        dtype_ = info.GetAttribute<int64_t>("dtype");
         blocksize_ = info.GetAttribute<int64_t>("blocksize");
         quant_type_ = info.GetAttribute<int64_t>("quant_type");
         double_quant_ = info.GetAttribute<int64_t>("double_quantized");
@@ -26,7 +25,6 @@ struct MatMulBnb4Kernel {
     private:
         int64_t K_;
         int64_t N_;
-        int64_t dtype_;
         int64_t blocksize_;
         int64_t quant_type_;
         int64_t double_quant_;
@@ -43,10 +41,10 @@ struct MatMulBnb4 : Ort::CustomOpBase<MatMulBnb4<T>, MatMulBnb4Kernel<T>> {
 
     const char* GetExecutionProviderType() const { return "CUDAExecutionProvider"; };
 
-    size_t GetInputTypeCount() const { return 6; };
+    size_t GetInputTypeCount() const { return 7; };
     OrtCustomOpInputOutputCharacteristic GetInputCharacteristic(size_t index) const {
         // First 4 inputs are required, last 3 depends on whether it is double quantized
-        if (index >= 3)
+        if (index >= 4)
             return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_OPTIONAL;
 
          return OrtCustomOpInputOutputCharacteristic::INPUT_OUTPUT_REQUIRED;
