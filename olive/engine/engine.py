@@ -748,18 +748,19 @@ class Engine:
             for sub_type_name, goal in sub_type_goals.items():
                 # TODO(trajep): make the logic cleaner
                 resolved_goal_value = None
-                baseline_sub_type = baseline.get_value(metric_name, sub_type_name)
-                multiplier = multipliers[metric_name][sub_type_name]
-                if goal.type == "threshold":
-                    resolved_goal_value = goal.value
-                elif goal.type == "max-degradation":
-                    resolved_goal_value = baseline_sub_type - multiplier * goal.value
-                elif goal.type == "min-improvement":
-                    resolved_goal_value = baseline_sub_type + multiplier * goal.value
-                elif goal.type == "percent-max-degradation":
-                    resolved_goal_value = baseline_sub_type * (1 - multiplier * goal.value / 100)
-                elif goal.type == "percent-min-improvement":
-                    resolved_goal_value = baseline_sub_type * (1 + multiplier * goal.value / 100)
+                if goal is not None:
+                    baseline_sub_type = baseline.get_value(metric_name, sub_type_name)
+                    multiplier = multipliers[metric_name][sub_type_name]
+                    if goal.type == "threshold":
+                        resolved_goal_value = goal.value
+                    elif goal.type == "max-degradation":
+                        resolved_goal_value = baseline_sub_type - multiplier * goal.value
+                    elif goal.type == "min-improvement":
+                        resolved_goal_value = baseline_sub_type + multiplier * goal.value
+                    elif goal.type == "percent-max-degradation":
+                        resolved_goal_value = baseline_sub_type * (1 - multiplier * goal.value / 100)
+                    elif goal.type == "percent-min-improvement":
+                        resolved_goal_value = baseline_sub_type * (1 + multiplier * goal.value / 100)
 
                 resolved_goals[joint_metric_key(metric_name, sub_type_name)] = resolved_goal_value
         if len(resolved_goals) > 0:
