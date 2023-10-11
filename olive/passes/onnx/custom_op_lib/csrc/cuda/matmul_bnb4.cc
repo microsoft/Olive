@@ -9,7 +9,7 @@
 #include <numeric>
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
-
+#include <cublas_v2.h>
 
 #include "common.h"
 #include "matmul_bnb4.h"
@@ -96,95 +96,59 @@ void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
         blocksize_,
         stream);
     if (is_4bit_done) {
-        std::cout << "4bit done" << std::endl;
-    }
-    else {
-        std::cout << "4bit not done" << std::endl;
+        return;
     }
 
-    // void* output_data = output.GetTensorMutableData<T>();
+    // allocate B_dequant and dequantize B
+    // B_dequant is transposed: N X K
+    CudaT* B_dequant_data;
+    cudaMalloc(&B_dequant_data, sizeof(CudaT) * N_ * K_);
+    switch (quant_type_)
+    {
+    case 1:
+        dequantizeBlockwise<CudaT, FP4>(nullptr, B_quant_data, absmax_data, B_dequant_data, blocksize_, N_ * K_, stream);
+        break;
+    case 2:
+        dequantizeBlockwise<CudaT, NF4>(nullptr, B_quant_data, absmax_data, B_dequant_data, blocksize_, N_ * K_, stream);
+        break;
+    default:
+        std::cout << "Unsupported quant_type " << quant_type_ << std::endl;
+        break;
+    }
 
-    // bool is_4bit_done;
-    // if (std::is_same_v<T, Ort::Float16_t>) {
-    //     is_4bit_done = TryMatMulBnb4<half, 16>(
-    //         output.GetTensorMutableData<T>(),
-    //         A.GetTensorData<T>(),
-    //         B_quant.GetTensorData<uint8_t>(),
-    //         absmax_value,
-    //         nullptr,
-    //         M,
-    //         N_,
-    //         K_,
-    //         blocksize_,
-    //         stream);
-    // } else {
-    //     is_4bit_done = TryMatMulBnb4<T, 32>(
-    //         output.GetTensorMutableData<T>(),
-    //         A.GetTensorData<T>(),
-    //         B_quant.GetTensorData<uint8_t>(),
-    //         absmax_value,
-    //         nullptr,
-    //         M,
-    //         N_,
-    //         K_,
-    //         blocksize_,
-    //         stream);
-    // }
+    // compute matmul using cuBLAS
+    const CudaT alpha = 1.0f;
+    const CudaT zero = 0.0f;
 
-    // // get output and allocate memory
-    // // TODO(jambayk): currently, output type is same as T. It is forced in the quantizer pass
-    // // find ways to cast to T if this is not the case in the future
-    // int64_t B_dequant_shape[2] = {N_, K_};
-    // auto B_dequant = ctx.GetOutput(0, B_dequant_shape, 2);
-    // void* B_dequant_data = B_dequant.GetTensorMutableData<T>();
+    // not handling errors for now, will be replaced with contrib ops api
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+    cublasSetStream(handle, stream);
 
-    // // dequantize using cuda kernel
-    // const uint8_t* B_quant_data = B_quant.GetTensorData<uint8_t>();
-    // if (std::is_same_v<T, Ort::Float16_t>) {
-    //     half* out = static_cast<half*>(B_dequant_data);
-    //     switch (quant_type_)
-    //     {
-    //     case 1:
-    //         dequantizeBlockwise<half, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
-    //         break;
-    //     case 2:
-    //         dequantizeBlockwise<half, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
-    //         break;
-    //     default:
-    //         std::cout << "Unsupported quant_type for half" << quant_type_ << std::endl;
-    //         // this should never happen
-    //         break;
-    //     }
-    //     return;
-    // }
-    // else {
-    //     T* out = static_cast<T*>(B_dequant_data);
-    //     switch (quant_type_)
-    //     {
-    //     case 1:
-    //         dequantizeBlockwise<T, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
-    //         break;
-    //     case 2:
-    //         dequantizeBlockwise<T, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
-    //         break;
-    //     default:
-    //         // this should never happen
-    //         break;
-    //     }
-    // }
+    // will just try float
+    cublasSgemm(
+        handle,
+        CUBLAS_OP_T, CUBLAS_OP_N,
+        N_, M, K_,
+        &alpha,
+        B_dequant_data, K_,
+        reinterpret_cast<const CudaT*>(A_data), K_,
+        &zero,
+        reinterpret_cast<CudaT*>(output.GetTensorMutableData<T>()), N_);
 
     // free memory
     if (double_quant_) {
         cudaFree(absmax_value_empty);
     }
+    cudaFree(B_dequant_data);
 }
 
 void RegisterOps(Ort::CustomOpDomain& domain) {
     static const MatMulBnb4<float_t> c_MatMulBnb4_float;
-    static const MatMulBnb4<Ort::Float16_t> c_MatMulBnb4_float16;
+    // static const MatMulBnb4<Ort::Float16_t> c_MatMulBnb4_float16;
 
     domain.Add(&c_MatMulBnb4_float);
-    domain.Add(&c_MatMulBnb4_float16);
+    // domain.Add(&c_MatMulBnb4_float16);
 }
 
 }  // namespace Cuda

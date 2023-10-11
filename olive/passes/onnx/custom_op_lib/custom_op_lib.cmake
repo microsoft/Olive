@@ -11,7 +11,7 @@ set(custom_op_lib_link_dir)
 # always build cuda for now
 list(APPEND custom_op_lib_include ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 list(APPEND custom_op_lib_link_dir ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES})
-list(APPEND custom_op_lib_link cudart)
+list(APPEND custom_op_lib_link cudart cublas)
 
 # add custom op library
 add_library(custom_op_lib SHARED
