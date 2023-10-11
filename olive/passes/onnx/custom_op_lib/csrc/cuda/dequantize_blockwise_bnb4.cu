@@ -177,8 +177,8 @@ __global__ void kDequantizeBlockwise(const float *code, const unsigned char *A, 
 template<typename T, int DATA_TYPE>
 void dequantizeBlockwise(const float *code, const unsigned char *A, const float *absmax, T *out, int blocksize, const int n, cudaStream_t stream)
 {
-  int num_blocks = n/blocksize;
-  num_blocks = n % blocksize == 0 ? num_blocks : num_blocks + 1;
+  // int num_blocks = n/blocksize;
+  // num_blocks = n % blocksize == 0 ? num_blocks : num_blocks + 1;
   int tile_size = (DATA_TYPE > 0) ? 1024 : 512;
 
   if(DATA_TYPE > 0)

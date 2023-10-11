@@ -6,15 +6,27 @@
 #undef ORT_API_MANUAL_INIT
 
 #include <iostream>
+#include <numeric>
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
-#include <numeric>
+
 
 #include "common.h"
 #include "matmul_bnb4.h"
-// #include "matmul_bnb4.cuh"
+#include "matmul_bnb4.cuh"
 #include "dequantize_blockwise_bnb4.cuh"
 
+template <typename T>
+class ToCudaType {
+ public:
+  typedef T MappedType;
+};
+
+template <>
+class ToCudaType<Ort::Float16_t> {
+ public:
+  typedef half MappedType;
+};
 
 namespace Cuda {
 
@@ -27,9 +39,13 @@ void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
     Ort::KernelContext ctx(context);
     cudaStream_t stream = reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream());
 
+    auto A = ctx.GetInput(0);
     auto B_quant = ctx.GetInput(1);
 
-    const float_t* absmax_value;
+    const auto* A_data = A.GetTensorData<T>();
+    const uint8_t* B_quant_data = B_quant.GetTensorData<uint8_t>();
+
+    const float_t* absmax_data;
     float_t* absmax_value_empty;
     if (double_quant_) {
         auto absmax_int8 = ctx.GetInput(2);
@@ -47,53 +63,113 @@ void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
                                                   absmax_int8_numel, stream);
         // add offset to nested absmax
         addOffset(absmax_value_empty, offset.GetTensorData<float_t>(), absmax_int8_numel, stream);
-        absmax_value = absmax_value_empty;
+        absmax_data = absmax_value_empty;
     } else {
         auto absmax_float = ctx.GetInput(2);
-        absmax_value = absmax_float.GetTensorData<float_t>();
+        absmax_data = absmax_float.GetTensorData<float_t>();
     }
 
-    // get output and allocate memory
-    // TODO(jambayk): currently, output type is same as T. It is forced in the quantizer pass
-    // find ways to cast to T if this is not the case in the future
-    int64_t B_dequant_shape[2] = {N_, K_};
-    auto B_dequant = ctx.GetOutput(0, B_dequant_shape, 2);
-    void* B_dequant_data = B_dequant.GetTensorMutableData<T>();
+    //  get shape of A
+    const std::vector<int64_t> A_shape = A.GetTensorTypeAndShapeInfo().GetShape();
+    // accumulate shape of A
+    int64_t M = std::accumulate(A_shape.begin(), A_shape.end() - 1, 1, std::multiplies<int64_t>());
+    // // ensure that the last dimension of A is equal to K
+    // int64_t K = A_shape.back();
+    // assert(K == K_);
 
-    // dequantize using cuda kernel
-    const uint8_t* B_quant_data = B_quant.GetTensorData<uint8_t>();
-    if (std::is_same_v<T, Ort::Float16_t>) {
-        half* out = static_cast<half*>(B_dequant_data);
-        switch (quant_type_)
-        {
-        case 1:
-            dequantizeBlockwise<half, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
-            break;
-        case 2:
-            dequantizeBlockwise<half, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
-            break;
-        default:
-            std::cout << "Unsupported quant_type for half" << quant_type_ << std::endl;
-            // this should never happen
-            break;
-        }
-        return;
+    typedef typename ToCudaType<T>::MappedType CudaT;
+
+    // shape of output
+    int64_t out_shape[A_shape.size()];
+    std::copy(A_shape.begin(), A_shape.end(), out_shape);
+    out_shape[A_shape.size() - 1] = N_;
+    auto output = ctx.GetOutput(0, static_cast<const int64_t*>(out_shape), A_shape.size());
+
+    bool is_4bit_done = TryMatMulBnb4(
+        reinterpret_cast<CudaT*>(output.GetTensorMutableData<T>()),
+        reinterpret_cast<const CudaT*>(A_data),
+        B_quant_data,
+        absmax_data,
+        nullptr,
+        M,
+        N_,
+        K_,
+        blocksize_,
+        stream);
+    if (is_4bit_done) {
+        std::cout << "4bit done" << std::endl;
     }
-    else {
-        T* out = static_cast<T*>(B_dequant_data);
-        switch (quant_type_)
-        {
-        case 1:
-            dequantizeBlockwise<T, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
-            break;
-        case 2:
-            dequantizeBlockwise<T, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
-            break;
-        default:
-            // this should never happen
-            break;
-        }
-    }
+
+    // void* output_data = output.GetTensorMutableData<T>();
+
+    // bool is_4bit_done;
+    // if (std::is_same_v<T, Ort::Float16_t>) {
+    //     is_4bit_done = TryMatMulBnb4<half, 16>(
+    //         output.GetTensorMutableData<T>(),
+    //         A.GetTensorData<T>(),
+    //         B_quant.GetTensorData<uint8_t>(),
+    //         absmax_value,
+    //         nullptr,
+    //         M,
+    //         N_,
+    //         K_,
+    //         blocksize_,
+    //         stream);
+    // } else {
+    //     is_4bit_done = TryMatMulBnb4<T, 32>(
+    //         output.GetTensorMutableData<T>(),
+    //         A.GetTensorData<T>(),
+    //         B_quant.GetTensorData<uint8_t>(),
+    //         absmax_value,
+    //         nullptr,
+    //         M,
+    //         N_,
+    //         K_,
+    //         blocksize_,
+    //         stream);
+    // }
+
+    // // get output and allocate memory
+    // // TODO(jambayk): currently, output type is same as T. It is forced in the quantizer pass
+    // // find ways to cast to T if this is not the case in the future
+    // int64_t B_dequant_shape[2] = {N_, K_};
+    // auto B_dequant = ctx.GetOutput(0, B_dequant_shape, 2);
+    // void* B_dequant_data = B_dequant.GetTensorMutableData<T>();
+
+    // // dequantize using cuda kernel
+    // const uint8_t* B_quant_data = B_quant.GetTensorData<uint8_t>();
+    // if (std::is_same_v<T, Ort::Float16_t>) {
+    //     half* out = static_cast<half*>(B_dequant_data);
+    //     switch (quant_type_)
+    //     {
+    //     case 1:
+    //         dequantizeBlockwise<half, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
+    //         break;
+    //     case 2:
+    //         dequantizeBlockwise<half, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
+    //         break;
+    //     default:
+    //         std::cout << "Unsupported quant_type for half" << quant_type_ << std::endl;
+    //         // this should never happen
+    //         break;
+    //     }
+    //     return;
+    // }
+    // else {
+    //     T* out = static_cast<T*>(B_dequant_data);
+    //     switch (quant_type_)
+    //     {
+    //     case 1:
+    //         dequantizeBlockwise<T, FP4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
+    //         break;
+    //     case 2:
+    //         dequantizeBlockwise<T, NF4>(nullptr, B_quant_data, absmax_value, out, blocksize_, N_ * K_, stream);
+    //         break;
+    //     default:
+    //         // this should never happen
+    //         break;
+    //     }
+    // }
 
     // free memory
     if (double_quant_) {
