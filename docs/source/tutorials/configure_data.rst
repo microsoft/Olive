@@ -397,15 +397,15 @@ The above case shows to rewrite all the components in data config. But sometime,
             ...
 
         @Registry.register_pre_process()
-        def customized_huggingface_pre_process(_dataset):
+        def customized_huggingface_pre_process(dataset):
             ...
 
         @Registry.register_post_process()
-        def customized_post_process(_output):
+        def customized_post_process(output):
             ...
 
         @Registry.register_dataloader()
-        def customized_dataloader(_dataset):
+        def customized_dataloader(dataset):
             ...
 
     More examples:
@@ -419,8 +419,8 @@ The above case shows to rewrite all the components in data config. But sometime,
 .. note::
     The components will be called with the following arguments along with any additional keyword arguments provided in the config:
         - load_dataset: `data_dir` (required, but the type can be Optional[str])
-        - pre_process_data: `_dataset` (required and starts with `_`)
-        - post_process_data: `_output` (required and starts with `_`)
-        - dataloader: `_dataset` (required and starts with `_`)
+        - pre_process_data: `dataset` (required, must be the first argument)
+        - post_process_data: `output` (required, must be the first argument)
+        - dataloader: `dataset` (required, must be the first argument)
 
     the required arguments for pre_process_data/post_process_data/dataloader must start with `_` to avoid the conflict with the additional keyword arguments provided in the config.

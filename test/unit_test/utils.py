@@ -224,15 +224,15 @@ def get_data_config():
         ...
 
     @Registry.register_dataloader()
-    def _test_dataloader(_dataset, test_value):
+    def _test_dataloader(dataset, test_value):
         ...
 
     @Registry.register_pre_process()
-    def _pre_process(_dataset, test_value):
+    def _pre_process(dataset, test_value):
         ...
 
     @Registry.register_post_process()
-    def _post_process(_output, test_value):
+    def _post_process(output, test_value):
         ...
 
     return DataConfig(

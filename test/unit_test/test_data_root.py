@@ -33,8 +33,8 @@ def dummy_dataset_dataroot(data_dir):
 
 
 @Registry.register_post_process()
-def post_processing_func(_output):
-    return _output.argmax(axis=1)
+def post_processing_func(output):
+    return output.argmax(axis=1)
 
 
 def create_dataloader(datadir, batchsize, *args, **kwargs):
