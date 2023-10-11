@@ -2,17 +2,25 @@
 // Licensed under the MIT License.
 
 #include <float.h>
+#include <cuda_runtime.h>
 #include <cub/cub.cuh>
 #include <cuda_fp16.h>
 
 #include "common.h"
-#include "kernels.cuh"
+#include "dequantize_blockwise_bnb4.cuh"
 
 __global__ void kAddOffset(float *out, const float *offset, int n) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < n) {
     out[idx] += *offset;
   }
+}
+
+
+void addOffset(float *out, const float *offset, int n, cudaStream_t stream)
+{
+  kAddOffset<<<((n+1024-1)/1024), 1024, 0, stream>>>(out, offset, n);
+  CUDA_CHECK_RETURN(cudaPeekAtLastError());
 }
 
 
@@ -165,9 +173,26 @@ __global__ void kDequantizeBlockwise(const float *code, const unsigned char *A, 
   }
 }
 
-template __global__ void kDequantizeBlockwise<float, 512, 64, 8, General8bit>(const float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
-template __global__ void kDequantizeBlockwise<float, 512, 64, 8, FP4>(const float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
-template __global__ void kDequantizeBlockwise<float, 512, 64, 8, NF4>(const float *code, const unsigned char *A, const float *absmax, float *out, const int blocksize, const int n);
-template __global__ void kDequantizeBlockwise<half, 512, 64, 8, FP4>(const float *code, const unsigned char *A, const float *absmax, half *out, const int blocksize, const int n);
-template __global__ void kDequantizeBlockwise<half, 512, 64, 8, General8bit>(const float *code, const unsigned char *A, const float *absmax, half *out, const int blocksize, const int n);
-template __global__ void kDequantizeBlockwise<half, 512, 64, 8, NF4>(const float *code, const unsigned char *A, const float *absmax, half *out, const int blocksize, const int n);
+
+template<typename T, int DATA_TYPE>
+void dequantizeBlockwise(const float *code, const unsigned char *A, const float *absmax, T *out, int blocksize, const int n, cudaStream_t stream)
+{
+  int num_blocks = n/blocksize;
+  num_blocks = n % blocksize == 0 ? num_blocks : num_blocks + 1;
+  int tile_size = (DATA_TYPE > 0) ? 1024 : 512;
+
+  if(DATA_TYPE > 0)
+    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64, 0, stream>>>(code, A, absmax, out, blocksize/2, n);
+  else
+    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64, 0, stream>>>(code, A, absmax, out, blocksize, n);
+
+  CUDA_CHECK_RETURN(cudaPeekAtLastError());
+}
+
+template void dequantizeBlockwise<float, General8bit>(const float *code, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<float, FP4>(const float *code, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<float, NF4>(const float *code, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
+
+template void dequantizeBlockwise<half, General8bit>(const float *code, const unsigned char *A, const float *absmax, half *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<half, FP4>(const float *code, const unsigned char *A, const float *absmax, half *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<half, NF4>(const float *code, const unsigned char *A, const float *absmax, half *out, int blocksize, const int n, cudaStream_t stream);

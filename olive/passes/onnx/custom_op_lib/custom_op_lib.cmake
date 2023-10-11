@@ -21,8 +21,8 @@ add_library(custom_op_lib SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/matmul_bnb4.h
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/matmul_bnb4.cu
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/matmul_bnb4.cuh
-    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/kernels.cu
-    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/kernels.cuh
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/dequantize_blockwise_bnb4.cu
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/dequantize_blockwise_bnb4.cuh
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/common.h
 )
 

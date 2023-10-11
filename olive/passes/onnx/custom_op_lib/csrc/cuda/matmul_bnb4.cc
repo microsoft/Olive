@@ -12,7 +12,8 @@
 
 #include "common.h"
 #include "matmul_bnb4.h"
-#include "matmul_bnb4.cuh"
+// #include "matmul_bnb4.cuh"
+#include "dequantize_blockwise_bnb4.cuh"
 
 
 namespace Cuda {
