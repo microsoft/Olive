@@ -17,10 +17,10 @@ list(APPEND custom_op_lib_link cudart)
 add_library(custom_op_lib SHARED
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/custom_op_library.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/custom_op_library.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/cuda_ops.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/cuda_ops.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/cuda_ops.cu
-    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/cuda_ops.cuh
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/matmul_bnb4.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/matmul_bnb4.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/matmul_bnb4.cu
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/matmul_bnb4.cuh
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/kernels.cu
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/kernels.cuh
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/cuda/common.h

@@ -6,7 +6,7 @@
 
 #include "common.h"
 #include "kernels.cuh"
-#include "cuda_ops.cuh"
+#include "matmul_bnb4.cuh"
 
 #define CUDA_CHECK_RETURN(value) {                      \
   cudaError_t _m_cudaStat = value;                    \

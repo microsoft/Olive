@@ -6,7 +6,7 @@
 
 #include <mutex>
 
-#include "cuda/cuda_ops.h"
+#include "cuda/matmul_bnb4.h"
 
 static const char* c_OpDomain = "olive";
 

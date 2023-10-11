@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import onnx
 import torch
-from onnx.mapping import NP_TYPE_TO_TENSOR_TYPE
 from onnx.onnx_pb import GraphProto, NodeProto, TensorProto
 
 from olive.hardware import AcceleratorSpec
@@ -57,6 +56,11 @@ class OnnxBNBQuantization(Pass):
     def _run_for_config(
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
+        # TODO(jambayk): remove the shape inference when moving to contrib ops
+        # can write a shape inference function directly in contrib ops
+        # Note: this functiion is only available in ort 1.16.0+
+        from onnxruntime.quantization.quant_utils import save_and_reload_model_with_shape_infer
+
         quantization_config = config["quantization_config"]
         quantized_modules = config["quantized_modules"]
         if model.model_attributes:
@@ -78,6 +82,9 @@ class OnnxBNBQuantization(Pass):
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
         onnx_model = model.load_model()
+        # this is needed so that the output shape is already inferred
+        onnx_model = save_and_reload_model_with_shape_infer(onnx_model)
+
         # use a stack to keep track of sub-graphs
         graph_stack = [onnx_model.graph]
         opset_import = onnx_model.opset_import
@@ -131,7 +138,7 @@ class OnnxBNBQuantization(Pass):
                     node.op_type, node.input, node.output, name=node.name, **kwargs
                 )
 
-            new_nodes.extend(cls.create_bnb4_nodes(node, graph_stack, quantized_modules, quantization_config))
+            new_nodes.append(cls.create_matmul_bnb4_node(node, graph_stack, quantized_modules, quantization_config))
 
         graph.ClearField("node")
         graph.node.extend(new_nodes)
@@ -139,21 +146,21 @@ class OnnxBNBQuantization(Pass):
         return graph
 
     @classmethod
-    def create_bnb4_nodes(
+    def create_matmul_bnb4_node(
         cls,
         node: NodeProto,
         graph_stack: List[GraphProto],
         quantized_modules: List[str],
         quantization_config: Dict[str, Any],
     ) -> NodeProto:
-        """Create a BnbDequantize node and a Gemm/MatMul node for the given Gemm/MatMul node.
+        """Create a MatMulBnb4 node from a MatMul node.
 
-        If the node is Gemm/Matmul with const weight and part of quantized_modules, quantize the weight with 4bit.
-        Create a BnbDequantize node and a Gemm/MatMul node to replace the original Gemm/MatMul node.
+        If the node is Matmul with const 2D weight and part of quantized_modules, quantize the weight with 4bit.
+        Create a MatMulBnb4 node to replace the original MatMul node.
         """
         # only care about Matmul for now
         if node.op_type != "MatMul":
-            return [node]
+            return node
 
         is_quantized_module = False
         for module in quantized_modules:
@@ -161,16 +168,16 @@ class OnnxBNBQuantization(Pass):
                 is_quantized_module = True
                 break
         if not is_quantized_module:
-            return [node]
+            return node
 
         inputB = node.input[1]  # noqa: N806
         B, Bs_graph = cls.get_initializer(inputB, graph_stack)  # noqa: N806
         if B is None:
-            return [node]  # only care about constant weight
+            return node  # only care about constant weight
 
         B_array = onnx.numpy_helper.to_array(B)  # noqa: N806
         if len(B_array.shape) != 2:
-            return [node]  # can only process 2-D matrix
+            return node  # can only process 2-D matrix
 
         # torch.uint8 -> initializer
         weight_4bit, quant_state = cls.quantize_weight(B_array, quantization_config)
@@ -240,38 +247,14 @@ class OnnxBNBQuantization(Pass):
             nested_inputs = [B_offset.name, B_nested_absmax.name, B_nested_code.name]
             kwargs["nested_blocksize"] = nested_blocksize
 
-        dequantize_node_name = node.name + "_BnbDequantize"
-        dequantize_node_output = onnx.helper.make_tensor_value_info(
-            name=dequantize_node_name + "_output",
-            elem_type=NP_TYPE_TO_TENSOR_TYPE[B_array.dtype],
-            shape=shape,
-        )
-        Bs_graph.value_info.append(dequantize_node_output)
-        dequantize_node = onnx.helper.make_node(
-            "BnbDequantize",
+        return onnx.helper.make_node(
+            "MatMulBnb4",
             inputs=[node.input[0], B_quant.name, B_absmax.name, *nested_inputs],
-            outputs=[dequantize_node_output.name],
-            name=dequantize_node_name,
+            outputs=[node.output[0]],
+            name=node.name + "_Bnb4",
             domain="olive",
             **kwargs,
         )
-        # add output to graph, debug only
-        # Bs_graph.output.extend([dequantize_node_output])
-        transpose_node = onnx.helper.make_node(
-            "Transpose",
-            inputs=[dequantize_node_output.name],
-            outputs=[dequantize_node_output.name + "_transposed"],
-            name=dequantize_node_name + "_transpose",
-            perm=[1, 0],
-        )
-        matmul_node = onnx.helper.make_node(
-            "MatMul",
-            inputs=[node.input[0], dequantize_node_output.name + "_transposed"],
-            outputs=[node.output[0]],
-            name=node.name,
-            **{attr.name: attr for attr in node.attribute},
-        )
-        return [dequantize_node, transpose_node, matmul_node]
 
     @staticmethod
     @torch.no_grad()

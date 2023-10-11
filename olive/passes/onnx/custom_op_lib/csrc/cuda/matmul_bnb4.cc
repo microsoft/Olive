@@ -11,17 +11,17 @@
 #include <numeric>
 
 #include "common.h"
-#include "cuda_ops.h"
-#include "cuda_ops.cuh"
+#include "matmul_bnb4.h"
+#include "matmul_bnb4.cuh"
 
 
 namespace Cuda {
 
 template <typename T>
-void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
+void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
     // first input is not used currently
     // keeping it to infer the type of the weight
-    // might also help execution order so that the BnbDequantize node has a parent
+    // might also help execution order so that the MatMulBnb4 node has a parent
     // TODO(jambayk): clean this up so that we don't need to pass the first input
     Ort::KernelContext ctx(context);
     cudaStream_t stream = reinterpret_cast<cudaStream_t>(ctx.GetGPUComputeStream());
@@ -101,11 +101,11 @@ void BnbDequantizeKernel<T>::Compute(OrtKernelContext* context) {
 }
 
 void RegisterOps(Ort::CustomOpDomain& domain) {
-    static const BnbDequantize<float_t> c_BnbDequantize_float;
-    static const BnbDequantize<Ort::Float16_t> c_BnbDequantize_float16;
+    static const MatMulBnb4<float_t> c_MatMulBnb4_float;
+    static const MatMulBnb4<Ort::Float16_t> c_MatMulBnb4_float16;
 
-    domain.Add(&c_BnbDequantize_float);
-    domain.Add(&c_BnbDequantize_float16);
+    domain.Add(&c_MatMulBnb4_float);
+    domain.Add(&c_MatMulBnb4_float16);
 }
 
 }  // namespace Cuda
