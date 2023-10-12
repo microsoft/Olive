@@ -96,13 +96,13 @@ class OnnxBNBQuantization(Pass):
 
         # add the olive opset
         opset_import = onnx_model.opset_import
-        # has_ms_domain = False
-        # for opset in opset_import:
-        #     if opset.domain == "com.microsoft":
-        #         has_ms_domain = True
-        # if not has_ms_domain:
-        #     opset_import.extend([onnx.helper.make_opsetid("com.microsoft", 1)])
-        opset_import.extend([onnx.helper.make_opsetid("olive", 1)])
+        has_ms_domain = False
+        for opset in opset_import:
+            if opset.domain == "com.microsoft":
+                has_ms_domain = True
+        if not has_ms_domain:
+            opset_import.extend([onnx.helper.make_opsetid("com.microsoft", 1)])
+        # opset_import.extend([onnx.helper.make_opsetid("olive", 1)])
 
         self.process_subgraph(graph_stack, quantization_info)
 
@@ -211,7 +211,7 @@ class OnnxBNBQuantization(Pass):
         kwargs["blocksize"] = blocksize
         # only need to worry about nf4 and fp4 for now
         kwargs["quant_type"] = QuantType[quant_type.upper()].value
-        kwargs["double_quantized"] = compressed_stats is not None
+        kwargs["double_quant"] = compressed_stats is not None
 
         nested_inputs = []
         if compressed_stats:
@@ -249,7 +249,7 @@ class OnnxBNBQuantization(Pass):
             ],
             outputs=[node.output[0]],
             name=node.name + "_Bnb4",
-            domain="olive",
+            domain="com.microsoft",
             **kwargs,
         )
 
