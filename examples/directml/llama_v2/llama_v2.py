@@ -12,6 +12,7 @@ import warnings
 from pathlib import Path
 
 import config
+from chat_app.app import launch_chat_app
 from run_llama_v2_io_binding import run_llama_v2_io_binding
 
 from olive.model import ONNXModel
@@ -137,6 +138,12 @@ if __name__ == "__main__":
         "https://github.com/microsoft/Llama-2-Onnx",
     )
     parser.add_argument("--optimize", action="store_true", help="Runs the optimization step")
+    parser.add_argument("--interactive", action="store_true", help="Run with a GUI")
+    parser.add_argument(
+        "--expose_locally",
+        action="store_true",
+        help="Expose the web UI on the local network (does nothing if --interactive is not supplied)",
+    )
     parser.add_argument("--prompt", default="What is the lightest element?", type=str)
     parser.add_argument("--max_seq_len", default=2048, type=int, help="The size of the cache")
     parser.add_argument(
@@ -158,6 +165,9 @@ if __name__ == "__main__":
         optimize(optimized_model_dir)
 
     if not args.optimize:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            run_llama_v2_io_binding(args.prompt, args.max_seq_len, args.max_gen_len)
+        if args.interactive:
+            launch_chat_app(args.expose_locally)
+        else:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                run_llama_v2_io_binding(args.prompt, args.max_seq_len, args.max_gen_len)

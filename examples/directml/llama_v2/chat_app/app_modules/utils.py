@@ -2,21 +2,16 @@
 from __future__ import annotations
 
 import html
-import logging
 import re
 
 import gradio as gr
 import mdtex2html
-from app_modules.presets import ALREADY_CONVERTED_MARK
 from markdown import markdown
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import ClassNotFound, get_lexer_by_name, guess_lexer
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] [%(filename)s:%(lineno)d] %(message)s",
-)
+from examples.directml.llama_v2.chat_app.app_modules.presets import ALREADY_CONVERTED_MARK
 
 
 def markdown_to_html_with_syntax_highlight(md_str):

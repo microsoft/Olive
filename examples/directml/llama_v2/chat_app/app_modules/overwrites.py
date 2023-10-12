@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
-from app_modules.presets import gr
-from app_modules.utils import convert_asis, convert_mdtext, detect_converted_mark
+from examples.directml.llama_v2.chat_app.app_modules.presets import gr
+from examples.directml.llama_v2.chat_app.app_modules.utils import convert_asis, convert_mdtext, detect_converted_mark
 
 
 def postprocess(self, y: List[Tuple[str | None, str | None]]) -> List[Tuple[str | None, str | None]]:

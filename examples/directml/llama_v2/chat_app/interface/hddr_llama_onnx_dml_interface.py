@@ -1,14 +1,17 @@
 import gc
-import logging
 import os
 from typing import List
 
 import numpy as np
 import onnxruntime
 import torch
-from app_modules.utils import convert_to_markdown, is_stop_word_or_prefix, shared_state
 from sentencepiece import SentencePieceProcessor
 
+from examples.directml.llama_v2.chat_app.app_modules.utils import (
+    convert_to_markdown,
+    is_stop_word_or_prefix,
+    shared_state,
+)
 from examples.directml.llama_v2.chat_app.interface.base_interface import BaseLLMInterface
 
 
@@ -85,21 +88,18 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
             )
         ]
 
-        logging.info(f"Creating ONNX session for [{self.onnx_file}]")
         self.llm_session = onnxruntime.InferenceSession(
             self.onnx_file,
             sess_options=onnxruntime.SessionOptions(),
             providers=providers,
         )
 
-        logging.info(f"Creating ONNX session for [{self.update_embeddings_onnx_file}]")
         self.update_embeddings_session = onnxruntime.InferenceSession(
             self.update_embeddings_onnx_file,
             sess_options=onnxruntime.SessionOptions(),
             providers=providers,
         )
 
-        logging.info(f"Creating ONNX session for [{self.sampling_onnx_file}]")
         self.sampling_session = onnxruntime.InferenceSession(
             self.sampling_onnx_file,
             sess_options=onnxruntime.SessionOptions(),
@@ -114,8 +114,6 @@ class LlamaOnnxDmlInterface(BaseLLMInterface):
             self.data_type = np.float32
         else:
             raise Exception(f"Unknown data type {data_type_str}")
-
-        logging.info(f"Detected Data Type [{self.data_type}]")
 
         # Get the relevant shapes so we can create the inputs
         for inputs_meta in self.llm_session._inputs_meta:
@@ -465,7 +463,6 @@ short answers are usually best"
         max_length_tokens,
         max_context_length_tokens,
     ):
-        logging.info("Retry...")
         if len(history) == 0:
             yield chatbot, history, "Empty context"
             return
