@@ -503,3 +503,51 @@ class OnnxStaticQuantization(OnnxQuantization):
         # external data config
         config.update(get_external_data_config())
         return config
+
+
+class OnnxMatMul4Quantizer(Pass):
+    @staticmethod
+    def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
+        config = {
+            "block_size": PassConfigParam(
+                type_=int,
+                default_value=32,
+                description="Block size for quantization. Default value is 32.",
+            ),
+            "is_symmetric": PassConfigParam(
+                type_=bool,
+                default_value=True,
+                description="Symmetric quantization. Default value is True.",
+            ),
+            "nodes_to_exclude": PassConfigParam(
+                type_=list,
+                default_value=[],
+                description="List of node names to exclude from quantization.",
+            ),
+        }
+        config.update(get_external_data_config())
+        return config
+
+    def _run_for_config(
+        self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
+    ) -> ONNXModel:
+        from onnxruntime import __version__ as OrtVersion
+
+        if version.parse(OrtVersion) < version.parse("1.17.0"):
+            raise OlivePassError("OnnxLlamaMatMulWeight4Quantizer is only supported in onnxruntime >= 1.17.0")
+
+        from onnxruntime.quantization.matmul_4bits_quantizer import MatMul4BitsQuantizer
+
+        quant = MatMul4BitsQuantizer(
+            model.load_model(), config["block_size"], config["is_symmetric"], config["nodes_to_exclude"]
+        )
+        quant.process()
+
+        new_tmp_dir = tempfile.TemporaryDirectory(prefix="olive_tmp")
+        tmp_model_path = str(Path(new_tmp_dir.name) / Path(output_model_path).name)
+        quant.model.save_model_to_file(tmp_model_path, config["save_as_external_data"])
+
+        # load the model
+        onnx_model = onnx.load(tmp_model_path)
+        new_tmp_dir.cleanup()
+        return model_proto_to_olive_model(onnx_model, output_model_path, config)

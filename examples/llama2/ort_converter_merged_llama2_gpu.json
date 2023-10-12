@@ -1,0 +1,111 @@
+{
+    "input_model":{
+        "type": "PyTorchModel",
+        "config": {
+            "model_script": "user_script.py",
+            "io_config": "get_merged_decoder_with_past_io_config",
+            "dummy_inputs_func": "get_merged_decoder_with_past_kv_inputs",
+            "hf_config": {
+                "model_name" : "meta-llama/Llama-2-7b-hf",
+                "model_class" : "LlamaForCausalLM"
+            }
+        }
+    },
+    "evaluators": {
+        "merged_evaluator": {
+            "metrics":[
+                {
+                    "name": "onnx_merged_latency",
+                    "type": "latency",
+                    "sub_types": [
+                        {"name": "avg", "priority": 1}
+                    ],
+                    "user_config": {
+                        "user_script": "user_script.py",
+                        "dataloader_func": "dataloader_func_for_merged",
+                        "batch_size": 1,
+                        "io_bind": true
+                    }
+                }
+            ]
+        }
+    },
+    "passes": {
+        "conversion_merged": {
+            "type": "OnnxConversion",
+            "config": {
+                "target_opset": 13,
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true
+            }
+        },
+        "transformers_optimization_fp16": {
+            "type": "OrtTransformersOptimization",
+            "disable_search": true,
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "model_type": "gpt2",
+                "opt_level": 0,
+                "only_onnxruntime": false,
+                "keep_io_types": false,
+                "float16": true,
+                "use_gqa": true
+            }
+        },
+        "transformers_optimization_fp32": {
+            "type": "OrtTransformersOptimization",
+            "disable_search": true,
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "model_type": "gpt2",
+                "opt_level": 0,
+                "only_onnxruntime": false,
+                "keep_io_types": false,
+                "float16": false,
+                "use_gqa": false
+            }
+        },
+        "onnx_dynamic_quant_int8": {
+            "type": "OnnxDynamicQuantization",
+            "disable_search": true,
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "op_types_to_quantize": ["MatMul", "Gemm"],
+                "per_channel": false,
+                "reduce_range": false,
+                "MatMulConstBOnly": true
+            }
+        },
+        "blockwise_quant_int4": {
+            "type": "OnnxMatMul4Quantizer",
+            "disable_search": true,
+            "config": {
+                "save_as_external_data": true,
+                "all_tensors_to_one_file": true,
+                "block_size": 32,
+                "is_symmetric": true
+            }
+        }
+    },
+    "pass_flows": [
+        ["conversion_merged", "transformers_optimization_fp16"],
+        ["conversion_merged", "transformers_optimization_fp16", "blockwise_quant_int4"]
+    ],
+    "engine": {
+        "search_strategy": {
+            "execution_order": "pass-by-pass",
+            "search_algorithm": "tpe",
+            "search_algorithm_config": {
+                "num_samples": 3,
+                "seed": 0
+            }
+        },
+        "evaluator": "merged_evaluator",
+        "execution_providers": ["CUDAExecutionProvider"],
+        "cache_dir": "cache",
+        "output_dir" : "models/llama2-7b"
+    }
+}

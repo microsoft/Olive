@@ -9,6 +9,7 @@ from typing import Any, Dict, Union
 
 import onnx
 import torch
+from packaging import version
 
 from olive.common.config_utils import validate_config
 from olive.common.utils import tensor_data_to_device
@@ -98,13 +99,15 @@ class OnnxConversion(Pass):
 
         onnx_model = None
         if config["use_dynamo_exporter"]:
-            # TODO(xiaoyu): remove this import check once torch.onnx.dynamo_export is available in stable pytorch
-            try:
-                from torch.onnx import dynamo_export
-            except ImportError:
-                raise ImportError(
-                    "torch.onnx.dynamo_export is not available. Please upgrade your pytorch version to nightly build."
-                ) from None
+            # available since torch==2.1.0
+            torch_version = torch.__version__
+            if version.parse(torch_version) < version.parse("2.1.0"):
+                raise RuntimeError(
+                    f"torch.onnx.dynamo_export is not available for torch version {torch_version}. "
+                    "Please upgrade your torch version to 2.1.0 or above."
+                )
+            from torch.onnx import dynamo_export
+
             exported = dynamo_export(
                 pytorch_model,
                 *dummy_inputs,

@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class HFComponent(ConfigBase):
     name: str
     io_config: Union[IOConfig, str, Dict[str, Any]]
-    component_func: Union[str, Callable]
+    component_func: Union[str, Callable] = None
     dummy_inputs_func: Union[str, Callable]
 
 
