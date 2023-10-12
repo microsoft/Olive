@@ -7,12 +7,8 @@ import onnxruntime
 import torch
 from sentencepiece import SentencePieceProcessor
 
-from examples.directml.llama_v2.chat_app.app_modules.utils import (
-    convert_to_markdown,
-    is_stop_word_or_prefix,
-    shared_state,
-)
-from examples.directml.llama_v2.chat_app.interface.base_interface import BaseLLMInterface
+from ..app_modules.utils import convert_to_markdown, is_stop_word_or_prefix, shared_state
+from .base_interface import BaseLLMInterface
 
 
 def rotary_mat(

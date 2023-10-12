@@ -27,3 +27,4 @@ repos:
     rev: v0.3.1
     hooks:
       - id: absolufy-imports
+        exclude: examples/directml/llama_v2/chat_app/
