@@ -57,6 +57,7 @@ def test_lora(tmp_path):
     out = p.run(input_model, None, output_folder)
     assert Path(out.get_resource("adapter_path")).exists()
 
+
 # quantization requires gpu so we will patch the model loading args with no quantization
 @patch("olive.passes.pytorch.lora.HFModelLoadingArgs")
 @patch("olive.passes.pytorch.lora.QLoRA.find_all_linear_names", side_effect=patched_find_all_linear_names)
