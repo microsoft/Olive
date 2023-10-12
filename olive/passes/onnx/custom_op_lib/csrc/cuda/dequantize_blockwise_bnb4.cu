@@ -108,7 +108,7 @@ __device__ float dDequantizeNF4(unsigned char val)
 
 
 template<typename T, int TILE_SIZE, int THREADS, int NUM_PER_TH, int DATA_TYPE>
-__global__ void kDequantizeBlockwise(const float *code, const unsigned char *A, const float *absmax, T *out, const int blocksize, const int n)
+__global__ void kDequantizeBlockwise(const float *quant_map, const unsigned char *A, const float *absmax, T *out, const int blocksize, const int n)
 {
   const int n_load = (gridDim.x * TILE_SIZE);
   int valid_items_load = 0;
@@ -145,10 +145,10 @@ __global__ void kDequantizeBlockwise(const float *code, const unsigned char *A, 
     switch(DATA_TYPE)
     {
       case General8bit:
-        // load code through read-only cache via __ldg
+        // load quant_map through read-only cache via __ldg
         #pragma unroll NUM_PER_TH
         for(int j = 0; j < NUM_PER_TH; j++)
-          vals[j] = __ldg(&code[qvals[j]])*local_abs_max;
+          vals[j] = __ldg(&quant_map[qvals[j]])*local_abs_max;
         break;
       case FP4:
         #pragma unroll NUM_PER_TH
@@ -175,24 +175,24 @@ __global__ void kDequantizeBlockwise(const float *code, const unsigned char *A, 
 
 
 template<typename T, int DATA_TYPE>
-void dequantizeBlockwise(const float *code, const unsigned char *A, const float *absmax, T *out, int blocksize, const int n, cudaStream_t stream)
+void dequantizeBlockwise(const float *quant_map, const unsigned char *A, const float *absmax, T *out, int blocksize, const int n, cudaStream_t stream)
 {
   // int num_blocks = n/blocksize;
   // num_blocks = n % blocksize == 0 ? num_blocks : num_blocks + 1;
   int tile_size = (DATA_TYPE > 0) ? 1024 : 512;
 
   if(DATA_TYPE > 0)
-    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64, 0, stream>>>(code, A, absmax, out, blocksize/2, n);
+    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64, 0, stream>>>(quant_map, A, absmax, out, blocksize/2, n);
   else
-    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64, 0, stream>>>(code, A, absmax, out, blocksize, n);
+    kDequantizeBlockwise<T, 512, 64, 8, DATA_TYPE><<<(n+tile_size-1)/tile_size, 64, 0, stream>>>(quant_map, A, absmax, out, blocksize, n);
 
   CUDA_CHECK_RETURN(cudaPeekAtLastError());
 }
 
-template void dequantizeBlockwise<float, General8bit>(const float *code, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
-template void dequantizeBlockwise<float, FP4>(const float *code, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
-template void dequantizeBlockwise<float, NF4>(const float *code, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<float, General8bit>(const float *quant_map, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<float, FP4>(const float *quant_map, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<float, NF4>(const float *quant_map, const unsigned char *A, const float *absmax, float *out, int blocksize, const int n, cudaStream_t stream);
 
-template void dequantizeBlockwise<half, General8bit>(const float *code, const unsigned char *A, const float *absmax, half *out, int blocksize, const int n, cudaStream_t stream);
-template void dequantizeBlockwise<half, FP4>(const float *code, const unsigned char *A, const float *absmax, half *out, int blocksize, const int n, cudaStream_t stream);
-template void dequantizeBlockwise<half, NF4>(const float *code, const unsigned char *A, const float *absmax, half *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<half, General8bit>(const float *quant_map, const unsigned char *A, const float *absmax, half *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<half, FP4>(const float *quant_map, const unsigned char *A, const float *absmax, half *out, int blocksize, const int n, cudaStream_t stream);
+template void dequantizeBlockwise<half, NF4>(const float *quant_map, const unsigned char *A, const float *absmax, half *out, int blocksize, const int n, cudaStream_t stream);

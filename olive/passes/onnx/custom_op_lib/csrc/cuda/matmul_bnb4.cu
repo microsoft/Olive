@@ -9,9 +9,6 @@
 #include "common.h"
 #include "matmul_bnb4.cuh"
 
-// TODO(jambayk): looks like M and N are swapped in the kernel
-// check if a simple swap of M and N is sufficient
-// remove __restrict__ from A if it doesn't work
 #define num_values_4bit 32
 template <typename T, int THREADS, int BITS>
 __global__ void kgemm_4bit_inference_naive(int M, int N, int K, const T* __restrict__ A, const unsigned char *B,  const float *absmax, const float *datatype, T * out,  int lda, int ldb, int ldc, int blocksize)
@@ -49,7 +46,7 @@ __global__ void kgemm_4bit_inference_naive(int M, int N, int K, const T* __restr
     int absidx = ((2*offset_B)+inner_idx)/blocksize;
 	  local_absmax = __ldg(&(absmax[absidx]));
 
-    if(row_B < M)
+    if(row_B < N)
     {
       if((inner_idx_halved + num_values_8bit) < (K/2))
       {
@@ -127,7 +124,7 @@ __global__ void kgemm_4bit_inference_naive(int M, int N, int K, const T* __restr
 
   local_C = WarpReduce(temp_storage[warp_idx]).Sum(local_C);
 
-  if(row_B < M && warp_lane == 0)
+  if(row_B < N && warp_lane == 0)
     out[row_B] = T(local_C);
 
 }
@@ -139,7 +136,7 @@ bool TryMatMulBnb4(
     const T* a_data,
     const unsigned char* b_data_quant,
     const float* absmax,
-    const float* datatype,
+    const float* quant_map,
     int m,
     int n,
     int k,
@@ -155,8 +152,7 @@ bool TryMatMulBnb4(
   int num_blocks = (n + 3) / 4;
 
   constexpr int bits = ::cuda::std::is_same_v<T, half> ? 16 : 32;
-  // Note: m and n are swapped in the kernel
-  kgemm_4bit_inference_naive<T, 128, bits><<<num_blocks, 128, 0, stream>>>(n, m, k, a_data, b_data_quant, absmax, datatype, output, lda, ldb, ldc, blocksize);
+  kgemm_4bit_inference_naive<T, 128, bits><<<num_blocks, 128, 0, stream>>>(m, n, k, a_data, b_data_quant, absmax, quant_map, output, lda, ldb, ldc, blocksize);
   CUDA_CHECK_RETURN(cudaPeekAtLastError());
 
   return true;
@@ -167,7 +163,7 @@ template bool TryMatMulBnb4<float>(
     const float* a_data,
     const unsigned char* b_data_quant,
     const float* absmax,
-    const float* datatype,
+    const float* quant_map,
     int m,
     int n,
     int k,
@@ -179,7 +175,7 @@ template bool TryMatMulBnb4<half>(
     const half* a_data,
     const unsigned char* b_data_quant,
     const float* absmax,
-    const float* datatype,
+    const float* quant_map,
     int m,
     int n,
     int k,

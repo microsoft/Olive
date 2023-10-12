@@ -196,7 +196,7 @@ class OnnxBNBQuantization(Pass):
         # dtype is torch.dtype, always torch.float16. ignore this and use the original dtype in kernel
         # blocksize is int -> attribute
         # quant_type is str -> attribute
-        # data_type is an array mapping from quantized value to original value, torch.float32 -> initializer
+        # quant_map is an array mapping from quantized value to original value, torch.float32 -> initializer
         absmax, _, _, blocksize, compressed_stats, quant_type, _ = quant_state
 
         B_absmax = onnx.numpy_helper.from_array(absmax.cpu().numpy())  # noqa: N806
@@ -217,7 +217,7 @@ class OnnxBNBQuantization(Pass):
         if compressed_stats:
             offset, quant_state2 = compressed_stats
             # nested_absmax is a tensor, torch.float32 -> initializer
-            # nested_code is a tensor, torch.float32 -> initializer
+            # nested_quant_map is a tensor, torch.float32 -> initializer
             # nested_blocksize is an int -> attribute
             # the rest are always False, torch.float32, None, None
             nested_absmax, _, nested_blocksize, _, _, _, _ = quant_state2
@@ -231,7 +231,11 @@ class OnnxBNBQuantization(Pass):
             Bs_graph.initializer.extend([B_offset, B_nested_absmax])
 
             # create nested inputs and attributes
-            nested_inputs = [B_offset.name, B_nested_absmax.name, quantization_info["initializers"]["bnb_nested_code"]]
+            nested_inputs = [
+                B_offset.name,
+                B_nested_absmax.name,
+                quantization_info["initializers"]["bnb_nested_quant_map"],
+            ]
             kwargs["nested_blocksize"] = nested_blocksize
 
         return onnx.helper.make_node(
@@ -240,7 +244,7 @@ class OnnxBNBQuantization(Pass):
                 node.input[0],
                 B_quant.name,
                 B_absmax.name,
-                quantization_info["initializers"]["bnb_data_type"],
+                quantization_info["initializers"]["bnb_quant_map"],
                 *nested_inputs,
             ],
             outputs=[node.output[0]],
@@ -300,9 +304,9 @@ class OnnxBNBQuantization(Pass):
         weight = np.random.rand(1, 1)
         _, quant_state = cls.quantize_weight(weight, quantization_info["config"])
 
-        tensors_to_add = [("bnb_data_type", quant_state[-1])]
+        tensors_to_add = [("bnb_quant_map", quant_state[-1])]
         if quant_state[4]:
-            tensors_to_add.extend([("bnb_nested_code", quant_state[4][1][1])])
+            tensors_to_add.extend([("bnb_nested_quant_map", quant_state[4][1][1])])
 
         quantization_info["initializers"] = {}
         for name, tensor in tensors_to_add:

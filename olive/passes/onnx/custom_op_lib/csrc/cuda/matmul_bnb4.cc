@@ -37,11 +37,11 @@ void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
 
     auto A = ctx.GetInput(0);
     auto B_quant = ctx.GetInput(1);
-    auto data_type = ctx.GetInput(3);
+    auto quant_map = ctx.GetInput(3);
 
     const auto* A_data = A.GetTensorData<T>();
     const uint8_t* B_quant_data = B_quant.GetTensorData<uint8_t>();
-    const float* data_type_data = data_type.GetTensorData<float>();
+    const float* quant_map_data = quant_map.GetTensorData<float>();
 
     const float_t* absmax_data;
     float_t* absmax_value_empty;
@@ -49,14 +49,14 @@ void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
         auto absmax_int8 = ctx.GetInput(2);
         auto offset = ctx.GetInput(4);
         auto nested_absmax = ctx.GetInput(5);
-        auto nested_code = ctx.GetInput(6);
+        auto nested_quant_map = ctx.GetInput(6);
 
         // TODO(jambayk): see if ort api has easier way to get
         int absmax_int8_numel = absmax_int8.GetTensorTypeAndShapeInfo().GetElementCount();
         cudaMalloc(&absmax_value_empty, sizeof(float_t) * absmax_int8_numel);
 
         // dequantize nested absmax
-        dequantizeBlockwise<float_t, General8bit>(nested_code.GetTensorData<float_t>(), absmax_int8.GetTensorData<uint8_t>(),
+        dequantizeBlockwise<float_t, General8bit>(nested_quant_map.GetTensorData<float_t>(), absmax_int8.GetTensorData<uint8_t>(),
                                                   nested_absmax.GetTensorData<float_t>(), absmax_value_empty, nested_blocksize_,
                                                   absmax_int8_numel, stream);
         // add offset to nested absmax
@@ -89,7 +89,7 @@ void MatMulBnb4Kernel<T>::Compute(OrtKernelContext* context) {
         reinterpret_cast<const CudaT*>(A_data),
         B_quant_data,
         absmax_data,
-        data_type_data,
+        quant_map_data,
         M,
         N_,
         K_,

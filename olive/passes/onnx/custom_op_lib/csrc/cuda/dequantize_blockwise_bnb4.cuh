@@ -7,4 +7,4 @@
 void addOffset(float *out, const float *offset, int n, cudaStream_t stream);
 
 template<typename T, int DATA_TYPE>
-void dequantizeBlockwise(const float *code, const unsigned char *A, const float *absmax, T *out, int block_size, const int n, cudaStream_t stream);
+void dequantizeBlockwise(const float *quant_map, const unsigned char *A, const float *absmax, T *out, int block_size, const int n, cudaStream_t stream);
