@@ -123,7 +123,6 @@ class LoRABase(Pass):
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         return {
             "lora_r": PassConfigParam(type_=int, default_value=64, description="Lora attention dimension."),
-            "target_modules": PassConfigParam(type_=List[str], default_value=None, description="Target modules"),
             "lora_alpha": PassConfigParam(
                 type_=float, default_value=16, description="The alpha parameter for Lora scaling."
             ),
@@ -131,6 +130,12 @@ class LoRABase(Pass):
                 type_=float, default_value=0.0, description="The dropout probability for Lora layers."
             ),
             "bias": PassConfigParam(type_=str, default_value="none", description="Bias type for Lora"),
+            "modules_to_save": PassConfigParam(
+                type_=None,
+                default_value=None,
+                description="List of modules apart from LoRA layers to be set as trainable "
+                "and saved in the final checkpoint.",
+            ),
             "torch_dtype": PassConfigParam(
                 type_=str,
                 default_value="bfloat16",
@@ -388,6 +393,18 @@ class LoRABase(Pass):
             output_embeddings_data[-num_new_tokens:] = output_embeddings_avg
 
     @staticmethod
+    def get_torch_dtype(torch_dtype: str):
+        supported_dtypes = {
+            "bfloat16": torch.bfloat16,
+            "float16": torch.float16,
+            "float32": torch.float32,
+        }
+        assert (
+            torch_dtype in supported_dtypes
+        ), f"torch_dtype must be one of {list(supported_dtypes.keys())} but got {torch_dtype}"
+        return supported_dtypes[torch_dtype]
+
+    @staticmethod
     def input_model_check(model):
         if not model.hf_config:
             raise ValueError("LoRA/QLoRA pass only supports PyTorchModel with hf_config.")
@@ -428,12 +445,7 @@ class LoRA(LoRABase):
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
-            "modules_to_save": PassConfigParam(
-                type_=None,
-                default_value=None,
-                description="List of modules apart from LoRA layers to be set as trainable "
-                "and saved in the final checkpoint.",
-            ),
+            "target_modules": PassConfigParam(type_=List[str], default_value=None, description="Target modules"),
         }
         config.update(LoRABase._default_config(accelerator_spec))
         return config
@@ -453,7 +465,8 @@ class LoRA(LoRABase):
         task = new_model.hf_config.task
 
         new_model = self.input_model_check(new_model)
-        new_model.hf_config.model_loading_args = HFModelLoadingArgs(device_map="auto")
+        torch_dtype = self.get_torch_dtype(config.torch_dtype)
+        new_model.hf_config.model_loading_args = HFModelLoadingArgs(torch_dtype=torch_dtype, device_map="auto")
 
         pytorch_model = new_model.load_model()
         tokenizer = AutoTokenizer.from_pretrained(new_model.hf_config.model_name)
@@ -525,16 +538,7 @@ class QLoRA(LoRABase):
         model_name = new_model.hf_config.model_name
         task = new_model.hf_config.task
 
-        # torch_dtype
-        supported_dtypes = {
-            "bfloat16": torch.bfloat16,
-            "float16": torch.float16,
-            "float32": torch.float32,
-        }
-        assert (
-            config.torch_dtype in supported_dtypes
-        ), f"torch_dtype must be one of {list(supported_dtypes.keys())} but got {config['torch_dtype']}"
-        torch_dtype = supported_dtypes[config.torch_dtype]
+        torch_dtype = self.get_torch_dtype(config.torch_dtype)
 
         new_model = self.input_model_check(new_model)
         new_model.hf_config.model_loading_args = HFModelLoadingArgs(
