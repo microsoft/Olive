@@ -19,7 +19,7 @@ import torch
 import transformers
 from packaging import version
 from pydantic import Field, validator
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
 
 from olive.common.config_utils import ConfigBase, ConfigWithExtraArgs
 from olive.data.config import DataConfig
@@ -131,11 +131,14 @@ class LoRABase(Pass):
                 type_=float, default_value=0.0, description="The dropout probability for Lora layers."
             ),
             "bias": PassConfigParam(type_=str, default_value="none", description="Bias type for Lora"),
-            "modules_to_save": PassConfigParam(
-                type_=None,
-                default_value=None,
-                description="List of modules apart from LoRA layers to be set as trainable "
-                "and saved in the final checkpoint.",
+            "torch_dtype": PassConfigParam(
+                type_=str,
+                default_value="bfloat16",
+                description=(
+                    "Data type for model weights and adapter weights. For 4bit quantized model, "
+                    "it is also the computation data type for the quantized modules. "
+                    "Should be one of `bfloat16`, `float16` or `float32`."
+                ),
             ),
             "allow_tf32": PassConfigParam(
                 type_=bool,
@@ -241,8 +244,13 @@ class LoRABase(Pass):
         return train_dataset, eval_dataset
 
     def enable_lora(
-        self, model, tokenizer, task: str, config: ConfigBase, target_modules: Optional[List[str]]
-    ) -> PyTorchModel:
+        self,
+        model: PreTrainedModel,
+        tokenizer: PreTrainedTokenizer,
+        task: str,
+        config: ConfigBase,
+        target_modules: Optional[List[str]],
+    ) -> torch.nn.Module:
         """Run LoRA fine-tuning on a Hugging Face PyTorch model."""
         from peft import LoraConfig, get_peft_model
 
@@ -419,7 +427,16 @@ class LoRA(LoRABase):
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
-        return LoRABase._default_config(accelerator_spec)
+        config = {
+            "modules_to_save": PassConfigParam(
+                type_=None,
+                default_value=None,
+                description="List of modules apart from LoRA layers to be set as trainable "
+                "and saved in the final checkpoint.",
+            ),
+        }
+        config.update(LoRABase._default_config(accelerator_spec))
+        return config
 
     def _run_for_config(
         self, model: PyTorchModel, data_root: str, config: Dict[str, Any], output_model_path: str
@@ -454,14 +471,6 @@ class QLoRA(LoRABase):
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         config = {
             # quantization parameters
-            "compute_dtype": PassConfigParam(
-                type_=str,
-                default_value="bfloat16",
-                description=(
-                    "The computation data type used by the quantized model. It is also the data type used for the LoRA"
-                    " weights. Should be one of `bfloat16`, `float16` or `float32`."
-                ),
-            ),
             "double_quant": PassConfigParam(
                 type_=bool,
                 default_value=True,
@@ -516,34 +525,34 @@ class QLoRA(LoRABase):
         model_name = new_model.hf_config.model_name
         task = new_model.hf_config.task
 
-        # compute_dtype
+        # torch_dtype
         supported_dtypes = {
             "bfloat16": torch.bfloat16,
             "float16": torch.float16,
             "float32": torch.float32,
         }
         assert (
-            config.compute_dtype in supported_dtypes
-        ), f"compute_dtype must be one of {list(supported_dtypes.keys())} but got {config['compute_dtype']}"
-        compute_dtype = supported_dtypes[config.compute_dtype]
+            config.torch_dtype in supported_dtypes
+        ), f"torch_dtype must be one of {list(supported_dtypes.keys())} but got {config['torch_dtype']}"
+        torch_dtype = supported_dtypes[config.torch_dtype]
 
         new_model = self.input_model_check(new_model)
         new_model.hf_config.model_loading_args = HFModelLoadingArgs(
-            torch_dtype=compute_dtype,
+            torch_dtype=torch_dtype,
             # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
             # this uses all available GPUs, model parallel
             device_map="auto",
             quantization_method="bitsandbytes",
             quantization_config={
                 "load_in_4bit": True,
-                "bnb_4bit_compute_dtype": compute_dtype,
+                "bnb_4bit_compute_dtype": torch_dtype,
                 "bnb_4bit_use_double_quant": config.double_quant,
                 "bnb_4bit_quant_type": config.quant_type,
             },
         )
 
         pytorch_model = new_model.load_model()
-        pytorch_model.config.torch_dtype = compute_dtype
+        pytorch_model.config.torch_dtype = torch_dtype
 
         # tokenizer
         tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -560,10 +569,10 @@ class QLoRA(LoRABase):
         # TODO(jambayk): should we make this optional? fp16 is unstable?
         # https://github.com/artidoro/qlora/blob/main/qlora.py#L396 doesn't work for all models
         # mismatch between dtypes
-        # we will just undo the float32 casting from prepare_model_for_kbit_training and cast to compute_dtype
+        # we will just undo the float32 casting from prepare_model_for_kbit_training and cast to torch_dtype
         for param in pytorch_model.parameters():
             if param.dtype == torch.float32:
-                param.data = param.data.to(compute_dtype)
+                param.data = param.data.to(torch_dtype)
 
         # add lora modules
         # this doesn't pick up the embedding layer and projection layer since those are not quantized
@@ -571,11 +580,11 @@ class QLoRA(LoRABase):
         target_modules = self.find_all_linear_names(pytorch_model)
         pytorch_model = self.enable_lora(pytorch_model, tokenizer, task, config, target_modules)
 
-        # cast lora modules to compute_dtype
+        # cast lora modules to torch_dtype
         for module in pytorch_model.modules():
             if isinstance(module, LoraLayer):
                 # TODO(jambayk): why only cast for bfloat16? https://github.com/artidoro/qlora/blob/main/qlora.py#L397
-                module.to(compute_dtype)
+                module.to(torch_dtype)
 
         return new_model, pytorch_model, tokenizer
 
