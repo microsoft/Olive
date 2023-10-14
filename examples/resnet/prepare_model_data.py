@@ -19,7 +19,7 @@ from torchvision.models import ResNet50_Weights, resnet50
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--num_epochs", type=int, default=0)
+    parser.add_argument("--num_epochs", type=int, default=1)
     return parser.parse_args()
 
 
