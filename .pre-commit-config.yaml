@@ -13,22 +13,51 @@ repos:
     hooks:
       - id: black
         name: Format code
+        exclude: |
+          (?x)^(
+            examples/llama2/code/parallel_layers.py|
+            examples/llama2/code/patching_llama.py
+          )$
+
   - repo: https://github.com/PyCQA/flake8
     rev: 4.0.1
     hooks:
       - id: flake8
         name: Check PEP8
+        exclude: |
+          (?x)^(
+            examples/llama2/code/parallel_layers.py|
+            examples/llama2/code/patching_llama.py
+          )$
+
   - repo: https://github.com/pycqa/isort
     rev: 5.11.5
     hooks:
       - id: isort
         name: Format imports
+        exclude: |
+          (?x)^(
+            examples/llama2/code/parallel_layers.py|
+            examples/llama2/code/patching_llama.py
+          )$
+
   - repo: https://github.com/MarcoGorelli/absolufy-imports
     rev: v0.3.1
     hooks:
       - id: absolufy-imports
+        exclude: |
+          (?x)^(
+            examples/llama2/code/parallel_layers.py|
+            examples/llama2/code/patching_llama.py
+          )$
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
     rev: v0.0.291
     hooks:
       - id: ruff
+        exclude: |
+          (?x)^(
+            examples/llama2/code/parallel_layers.py|
+            examples/llama2/code/patching_llama.py
+          )$

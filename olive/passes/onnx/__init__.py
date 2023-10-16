@@ -14,27 +14,29 @@ from olive.passes.onnx.optimum_conversion import OptimumConversion
 from olive.passes.onnx.optimum_merging import OptimumMerging
 from olive.passes.onnx.perf_tuning import OrtPerfTuning
 from olive.passes.onnx.quantization import OnnxDynamicQuantization, OnnxQuantization, OnnxStaticQuantization
+from olive.passes.onnx.sharding import Sharding
 from olive.passes.onnx.transformer_optimization import OrtTransformersOptimization
 from olive.passes.onnx.vitis_ai_quantization import VitisAIQuantization
 
 __all__ = [
     "AppendPrePostProcessingOps",
-    "OnnxConversion",
     "DeviceSpecificOnnxConversion",
-    "OnnxDynamicQuantization",
-    "OnnxQuantization",
-    "OnnxStaticQuantization",
     "IncDynamicQuantization",
     "IncQuantization",
     "IncStaticQuantization",
-    "MoEExpertsDistributor",
-    "OrtPerfTuning",
-    "OrtTransformersOptimization",
-    "OnnxModelOptimizer",
-    "OnnxFloatToFloat16",
     "InsertBeamSearch",
-    "OrtMixedPrecision",
-    "VitisAIQuantization",
+    "MoEExpertsDistributor",
+    "OnnxConversion",
+    "OnnxDynamicQuantization",
+    "OnnxFloatToFloat16",
+    "OnnxModelOptimizer",
+    "OnnxQuantization",
+    "OnnxStaticQuantization",
     "OptimumConversion",
     "OptimumMerging",
+    "OrtMixedPrecision",
+    "OrtPerfTuning",
+    "OrtTransformersOptimization",
+    "Sharding",
+    "VitisAIQuantization",
 ]

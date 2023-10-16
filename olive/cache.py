@@ -215,32 +215,48 @@ def save_model(
     with model_jsons[0].open("r") as f:
         model_json = serialize_to_json(json.load(f))
 
-    if model_json["type"].lower() in ["compositeonnxmodel", "distributedonnxmodel"]:
+    if model_json["type"].lower() == "compositeonnxmodel":
         logger.warning(f"Saving models of type '{model_json['type']}' is not supported yet.")
         return None
 
     # create model object so that we can get the resource paths
     model_config: ModelConfig = ModelConfig.from_json(model_json)
     resource_paths = model_config.get_resource_paths()
-    for resource_name, resource_path in resource_paths.items():
-        if not resource_path or resource_path.is_string_name():
-            # Nothing to do if the path is empty or a string name
-            continue
-        # get cached resource path if not local or string name
-        if not resource_path.is_local_resource():
-            local_resource_path = download_resource(resource_path, cache_dir)
-        else:
-            local_resource_path = resource_path
-        # if there are multiple resource paths, we will save them to a subdirectory of output_dir/output_name
-        if len(resource_paths) > 1:
-            save_dir = (output_dir / output_name).with_suffix("")
-            save_name = resource_name.replace("_path", "")
-        else:
-            save_dir = output_dir
-            save_name = output_name
 
-        # save resource to output directory
-        model_json["config"][resource_name] = local_resource_path.save_to_dir(save_dir, save_name, overwrite)
+    # if there are multiple resource paths, we will save them to a subdirectory of output_dir/output_name
+    save_dir = (output_dir / output_name).with_suffix("") if len(resource_paths) > 1 else output_dir
+
+    for resource_name, resource_path in resource_paths.items():
+        print(f"name: {resource_name}, type(path): {type(resource_path)}")
+        if not resource_path:
+            # Nothing to do if the path is empty
+            pass
+        elif isinstance(resource_path, list):
+            resolved_resource_paths = []
+            for resource_path_item in resource_path:
+                if resource_path_item and not resource_path_item.is_string_name():
+                    # get cached resource path if not local or string name
+                    local_resource_path = (
+                        resource_path_item
+                        if resource_path_item.is_local_resource()
+                        else download_resource(resource_path_item, cache_dir)
+                    )
+                    save_name = Path(local_resource_path.get_path()).stem
+                    # save resource to output directory
+                    resolved_resource_paths.append(local_resource_path.save_to_dir(save_dir, save_name, overwrite))
+            model_json["config"][resource_name] = resolved_resource_paths
+        elif resource_path.is_string_name():
+            # Nothing to do if the path a string name
+            pass
+        else:
+            save_name = resource_name.replace("_path", "") if len(resource_paths) > 1 else output_name
+
+            # get cached resource path if not local or string name
+            local_resource_path = (
+                resource_path if resource_path.is_local_resource() else download_resource(resource_path, cache_dir)
+            )
+            # save resource to output directory
+            model_json["config"][resource_name] = local_resource_path.save_to_dir(save_dir, save_name, overwrite)
 
     # save model json
     with (output_dir / f"{output_name}.json").open("w") as f:

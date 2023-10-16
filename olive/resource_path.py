@@ -9,7 +9,7 @@ import tempfile
 from abc import abstractmethod
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, Optional, Type, Union
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Type, Union
 
 from pydantic import Field, validator
 
@@ -110,7 +110,7 @@ class ResourcePathConfig(ConfigBase):
 
 def create_resource_path(
     resource_path: Optional[Union[str, Path, Dict[str, Any], ResourcePathConfig, ResourcePath]]
-) -> Optional[ResourcePath]:
+) -> Optional[Union[ResourcePath, List[ResourcePath]]]:
     """Create a resource path from a string or a dict.
 
     If a string is provided, it is inferred to be a file, folder, or string name.
@@ -219,6 +219,14 @@ class LocalResourcePath(ResourcePath):
         # copy the resource to the new path
         if is_file:
             shutil.copy(self.config.path, new_path)
+
+            # Copy the data file, if exists
+            if self.config.path.suffix == ".onnx":
+                data_path = str(self.config.path) + ".data"
+                if Path(data_path).is_file():
+                    new_data_path = str(new_path) + ".data"
+                    _overwrite_helper(new_data_path, overwrite)
+                    shutil.copy(data_path, new_data_path)
         else:
             shutil.copytree(self.config.path, new_path)
 

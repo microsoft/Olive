@@ -80,10 +80,19 @@ class OliveModel(ABC):
         for resource_name, resource_path in resources.items():
             if resource_path is not None:
                 resolved_resource_path = create_resource_path(resource_path)
-                assert (
-                    resolved_resource_path.is_local_resource_or_string_name()
-                ), f"{resource_name} must be local path or string name."
-                self.resource_paths[resource_name] = resolved_resource_path.get_path()
+                if isinstance(resolved_resource_path, list):
+                    for resolved_item in resolved_resource_path:
+                        assert (
+                            resolved_item.is_local_resource_or_string_name()
+                        ), f"{resource_name} must be local path or string name."
+                    self.resource_paths[resource_name] = [
+                        resolved_item.get_path() for resolved_item in resolved_resource_path
+                    ]
+                else:
+                    assert (
+                        resolved_resource_path.is_local_resource_or_string_name()
+                    ), f"{resource_name} must be local path or string name."
+                    self.resource_paths[resource_name] = resolved_resource_path.get_path()
             else:
                 self.resource_paths[resource_name] = None
 
@@ -100,12 +109,21 @@ class OliveModel(ABC):
 
         if resource_path is not None:
             resolved_resource_path = create_resource_path(resource_path)
-            assert (
-                resolved_resource_path.is_local_resource_or_string_name()
-            ), f"{resource_name} must be local path or string name."
-            resource_path = resolved_resource_path.get_path()
-
-        self.resource_paths[resource_name] = resource_path
+            if isinstance(resolved_resource_path, list):
+                for resolved_item in resolved_resource_path:
+                    assert (
+                        resolved_item.is_local_resource_or_string_name()
+                    ), f"{resource_name} must be local path or string name."
+                self.resource_paths[resource_name] = [
+                    resolved_item.get_path() for resolved_item in resolved_resource_path
+                ]
+            else:
+                assert (
+                    resolved_resource_path.is_local_resource_or_string_name()
+                ), f"{resource_name} must be local path or string name."
+                self.resource_paths[resource_name] = resolved_resource_path.get_path()
+        else:
+            self.resource_paths[resource_name] = None
 
     def get_resource(self, resource_name: str) -> str:
         """Get local path of a resource.
@@ -115,7 +133,7 @@ class OliveModel(ABC):
         """
         assert resource_name in self.resource_paths, f"{resource_name} is not a valid resource name."
         resource = self.resource_paths[resource_name]
-        assert resource is None or isinstance(resource, str)
+        assert resource is None or isinstance(resource, (str, list))
         return resource
 
     @abstractmethod
@@ -744,10 +762,9 @@ class PyTorchModel(OliveModel):
 
 class OptimumModel(PyTorchModel):
     def __init__(self, model_components: List[str], **kwargs):
-        super().__init__(
-            model_file_format=ModelFileFormat.OPTIMUM,
-            **(kwargs or {}),
-        )
+        kwargs = kwargs or {}
+        kwargs["model_file_format"] = ModelFileFormat.OPTIMUM
+        super().__init__(**kwargs),
         self.model_components = model_components
 
     def to_json(self, check_object: bool = False):
@@ -893,7 +910,7 @@ class OpenVINOModel(OliveModel):
 
 
 class DistributedOnnxModel(ONNXModelBase):
-    resource_keys: ClassVar[list] = ["model_filepaths"]
+    resource_keys: ClassVar[list] = ["model_paths"]
 
     EXECUTION_PROVIDERS: ClassVar[dict] = {
         "cpu": ["CPUExecutionProvider"],
@@ -902,7 +919,7 @@ class DistributedOnnxModel(ONNXModelBase):
 
     def __init__(
         self,
-        model_filepaths: List[Union[Path, str]] = None,
+        model_paths: List[Union[Path, str]] = None,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
         model_attributes: Optional[Dict[str, Any]] = None,
@@ -913,17 +930,21 @@ class DistributedOnnxModel(ONNXModelBase):
             use_ort_extensions=use_ort_extensions,
             model_attributes=model_attributes,
         )
-        self.model_filepaths = model_filepaths or []
+        self.add_resources({"model_paths": model_paths})
+
+    @property
+    def model_paths(self):
+        return self.get_resource("model_paths")
 
     @property
     def ranks(self):
-        return len(self.model_filepaths)
+        return len(self.model_paths)
 
     def ranked_model_path(self, rank: int) -> Union[Path, str]:
-        return self.model_filepaths[rank]
+        return self.model_paths[rank]
 
     def load_model(self, rank: int) -> ONNXModel:
-        return ONNXModel(self.model_filepaths[rank], inference_settings=self.inference_settings)
+        return ONNXModel(self.ranked_model_path(rank), inference_settings=self.inference_settings)
 
     def prepare_session(
         self,
@@ -955,7 +976,7 @@ class DistributedOnnxModel(ONNXModelBase):
         config = {
             "type": self.__class__.__name__,
             "config": {
-                "model_filepaths": self.model_filepaths,
+                "model_paths": self.model_paths,
                 "inference_settings": self.inference_settings,
                 "use_ort_extensions": self.use_ort_extensions,
                 "model_attributes": self.model_attributes,
