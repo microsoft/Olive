@@ -747,10 +747,9 @@ class PyTorchModel(OliveModel):
 
 class OptimumModel(PyTorchModel):
     def __init__(self, model_components: List[str], **kwargs):
-        super().__init__(
-            model_file_format=ModelFileFormat.OPTIMUM,
-            **(kwargs or {}),
-        )
+        kwargs = kwargs or {}
+        kwargs["model_file_format"] = ModelFileFormat.OPTIMUM
+        super().__init__(**kwargs),
         self.model_components = model_components
 
     def to_json(self, check_object: bool = False):
@@ -896,8 +895,6 @@ class OpenVINOModel(OliveModel):
 
 
 class DistributedOnnxModel(ONNXModelBase):
-    resource_keys: ClassVar[list] = ["model_filepaths"]
-
     EXECUTION_PROVIDERS: ClassVar[dict] = {
         "cpu": ["CPUExecutionProvider"],
         "gpu": ["CUDAExecutionProvider", "CPUExecutionProvider"],
@@ -905,28 +902,30 @@ class DistributedOnnxModel(ONNXModelBase):
 
     def __init__(
         self,
-        model_filepaths: List[Union[Path, str]] = None,
+        model_path: List[Union[Path, str]],
+        model_name_pattern: str,
+        num_ranks: int,
         inference_settings: Optional[dict] = None,
         use_ort_extensions: bool = False,
         model_attributes: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
-            model_path=None,
+            model_path=model_path,
             inference_settings=inference_settings,
             use_ort_extensions=use_ort_extensions,
             model_attributes=model_attributes,
         )
-        self.model_filepaths = model_filepaths or []
+        self.model_name_pattern = model_name_pattern
+        self.num_ranks = num_ranks
 
-    @property
-    def ranks(self):
-        return len(self.model_filepaths)
+    def ranked_model_name(self, rank: int) -> str:
+        return self.model_name_pattern.format(rank)
 
     def ranked_model_path(self, rank: int) -> Union[Path, str]:
-        return self.model_filepaths[rank]
+        return Path(self.model_path) / self.ranked_model_name(rank)
 
     def load_model(self, rank: int = None) -> ONNXModel:
-        return ONNXModel(self.model_filepaths[rank], inference_settings=self.inference_settings)
+        return ONNXModel(self.ranked_model_path(rank), inference_settings=self.inference_settings)
 
     def prepare_session(
         self,
@@ -959,15 +958,13 @@ class DistributedOnnxModel(ONNXModelBase):
         return AcceleratorLookup.get_execution_providers(eps_per_device, available_providers)
 
     def to_json(self, check_object: bool = False):
-        config = {
-            "type": self.__class__.__name__,
-            "config": {
-                "model_filepaths": self.model_filepaths,
-                "inference_settings": self.inference_settings,
-                "use_ort_extensions": self.use_ort_extensions,
-                "model_attributes": self.model_attributes,
-            },
-        }
+        config = super().to_json(check_object)
+        config["config"].update(
+            {
+                "model_name_pattern": self.model_name_pattern,
+                "num_ranks": self.num_ranks,
+            }
+        )
         return serialize_to_json(config, check_object=check_object)
 
 
