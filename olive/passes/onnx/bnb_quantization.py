@@ -55,11 +55,6 @@ class OnnxBNBQuantization(Pass):
     def _run_for_config(
         self, model: ONNXModel, data_root: str, config: Dict[str, Any], output_model_path: str
     ) -> ONNXModel:
-        # TODO(jambayk): remove the shape inference when moving to contrib ops
-        # can write a shape inference function directly in contrib ops
-        # Note: this functiion is only available in ort 1.16.0+
-        from onnxruntime.quantization.quant_utils import save_and_reload_model_with_shape_infer
-
         quantization_config = config["quantization_config"]
         quantized_modules = config["quantized_modules"]
         if model.model_attributes:
@@ -84,9 +79,6 @@ class OnnxBNBQuantization(Pass):
         output_model_path = ONNXModel.resolve_path(output_model_path)
 
         onnx_model = model.load_model()
-        # this is needed so that the output shape is already inferred
-        onnx_model = save_and_reload_model_with_shape_infer(onnx_model)
-
         # use a stack to keep track of sub-graphs
         graph_stack = [onnx_model.graph]
         # prepare for quantization by adding the common quantization initializers
@@ -104,7 +96,6 @@ class OnnxBNBQuantization(Pass):
                 has_ms_domain = True
         if not has_ms_domain:
             opset_import.extend([onnx.helper.make_opsetid("com.microsoft", 1)])
-        # opset_import.extend([onnx.helper.make_opsetid("olive", 1)])
 
         self.process_subgraph(graph_stack, quantization_info)
 
@@ -193,7 +184,7 @@ class OnnxBNBQuantization(Pass):
                 Bs_graph.input.remove(graph_input)
                 break
 
-        # absmax is tensor, torch.uint8 -> initializer (not sure if it is always an array of 1 element)
+        # absmax is tensor, torch.float32 -> initializer
         # shape is torch.Size, 2 elements -> attributes, this is the transposed shape of the original weight
         # dtype is torch.dtype, always torch.float16. ignore this and use the original dtype in kernel
         # blocksize is int -> attribute
@@ -212,7 +203,7 @@ class OnnxBNBQuantization(Pass):
         kwargs["K"] = rows  # in_features
         kwargs["N"] = cols  # out_features
         kwargs["blocksize"] = blocksize
-        # only need to worry about nf4 and fp4 for now
+        # only need to worry about nf4 and fp4
         kwargs["quant_type"] = QuantType[quant_type.upper()].value
 
         return onnx.helper.make_node(
@@ -271,7 +262,7 @@ class OnnxBNBQuantization(Pass):
                 initializer_names.append(tensor.name)
         initializer_names = set(initializer_names)
 
-        # quanitize a fake tensor to get the quantization initializers
+        # quanitize a dummy tensor to get the quantization initializers
         weight = np.random.rand(1, 1)
         _, quant_state = cls.quantize_weight(weight, quantization_info["config"])
 
