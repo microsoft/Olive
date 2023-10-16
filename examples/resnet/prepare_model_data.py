@@ -60,7 +60,7 @@ def prepare_model(num_epochs=1, models_dir="models", data_dir="data"):
     random.seed(0)
     np.random.seed(0)
     torch.manual_seed(0)
-    # the follow needed only for GPU
+    # the following are needed only for GPU
     torch.cuda.manual_seed(0)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
