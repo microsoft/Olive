@@ -8,6 +8,7 @@ import tarfile
 import urllib.request
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torchvision
@@ -54,11 +55,15 @@ def update_lr(optimizer, lr):
         param_group["lr"] = lr
 
 
-def prepare_model(num_epochs=0, models_dir="models", data_dir="data"):
-    # seed everything to 0
+def prepare_model(num_epochs=1, models_dir="models", data_dir="data"):
+    # seed everything to 0 for reproducibility, https://pytorch.org/docs/stable/notes/randomness.html
     random.seed(0)
+    np.random.seed(0)
     torch.manual_seed(0)
+    # the follow needed only for GPU
     torch.cuda.manual_seed(0)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
