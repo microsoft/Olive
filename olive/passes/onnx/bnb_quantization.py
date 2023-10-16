@@ -21,9 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 class QuantType(Enum):
-    General8bit = 0
-    FP4 = 1
-    NF4 = 2
+    FP4 = 0
+    NF4 = 1
 
 
 class OnnxBNBQuantization(Pass):
@@ -73,9 +72,12 @@ class OnnxBNBQuantization(Pass):
             raise ValueError("quantized_modules is required.")
 
         if quantization_config.get("load_in_8bit"):
-            raise ValueError("load_in_8bit is not supported for now.")
+            raise ValueError("load_in_8bit is not supported. Only 4-bit quantization is supported.")
 
-        for key in ["bnb_4bit_use_double_quant", "bnb_4bit_quant_type"]:
+        if quantization_config.get("bnb_4bit_use_double_quant"):
+            logger.info("bnb_4bit_use_double_quant is set to True but double quantization is not supported. Ignoring.")
+
+        for key in ["bnb_4bit_quant_type"]:
             if key not in quantization_config:
                 raise ValueError(f"{key} is required in quantization_config.")
 
@@ -195,9 +197,10 @@ class OnnxBNBQuantization(Pass):
         # shape is torch.Size, 2 elements -> attributes, this is the transposed shape of the original weight
         # dtype is torch.dtype, always torch.float16. ignore this and use the original dtype in kernel
         # blocksize is int -> attribute
+        # compressed_stats, None since we don't use double quantization
         # quant_type is str -> attribute
         # quant_map is an array mapping from quantized value to original value, torch.float32 -> initializer
-        absmax, _, _, blocksize, compressed_stats, quant_type, _ = quant_state
+        absmax, _, _, blocksize, _, quant_type, _ = quant_state
 
         B_absmax = onnx.numpy_helper.from_array(absmax.cpu().numpy())  # noqa: N806
         B_absmax.name = B.name + "_absmax"
@@ -211,42 +214,10 @@ class OnnxBNBQuantization(Pass):
         kwargs["blocksize"] = blocksize
         # only need to worry about nf4 and fp4 for now
         kwargs["quant_type"] = QuantType[quant_type.upper()].value
-        kwargs["double_quant"] = compressed_stats is not None
-
-        nested_inputs = []
-        if compressed_stats:
-            offset, quant_state2 = compressed_stats
-            # nested_absmax is a tensor, torch.float32 -> initializer
-            # nested_quant_map is a tensor, torch.float32 -> initializer
-            # nested_blocksize is an int -> attribute
-            # the rest are always False, torch.float32, None, None
-            nested_absmax, _, nested_blocksize, _, _, _, _ = quant_state2
-
-            B_offset = onnx.numpy_helper.from_array(offset.cpu().numpy())  # noqa: N806
-            B_offset.name = B.name + "_offset"
-
-            B_nested_absmax = onnx.numpy_helper.from_array(nested_absmax.cpu().numpy())  # noqa: N806
-            B_nested_absmax.name = B.name + "_nested_absmax"
-
-            Bs_graph.initializer.extend([B_offset, B_nested_absmax])
-
-            # create nested inputs and attributes
-            nested_inputs = [
-                B_offset.name,
-                B_nested_absmax.name,
-                quantization_info["initializers"]["bnb_nested_quant_map"],
-            ]
-            kwargs["nested_blocksize"] = nested_blocksize
 
         return onnx.helper.make_node(
             "MatMulBnb4",
-            inputs=[
-                node.input[0],
-                B_quant.name,
-                B_absmax.name,
-                quantization_info["initializers"]["bnb_quant_map"],
-                *nested_inputs,
-            ],
+            inputs=[node.input[0], B_quant.name, B_absmax.name, quantization_info["initializers"]["bnb_quant_map"]],
             outputs=[node.output[0]],
             name=node.name + "_Bnb4",
             domain="com.microsoft",
@@ -274,7 +245,7 @@ class OnnxBNBQuantization(Pass):
             weight.shape[1],
             weight.shape[0],
             bias=False,
-            compress_statistics=quantization_config["bnb_4bit_use_double_quant"],
+            compress_statistics=False,
             quant_type=quantization_config["bnb_4bit_quant_type"],
         )
         bnb_linear.weight.data = weight
@@ -304,16 +275,11 @@ class OnnxBNBQuantization(Pass):
         weight = np.random.rand(1, 1)
         _, quant_state = cls.quantize_weight(weight, quantization_info["config"])
 
-        tensors_to_add = [("bnb_quant_map", quant_state[-1])]
-        if quant_state[4]:
-            tensors_to_add.extend([("bnb_nested_quant_map", quant_state[4][1][1])])
-
-        quantization_info["initializers"] = {}
-        for name, tensor in tensors_to_add:
-            onnx_tensor = onnx.numpy_helper.from_array(tensor.cpu().numpy())
-            new_name = name
-            while new_name in initializer_names:
-                new_name += "_"
-            onnx_tensor.name = new_name
-            graph_path[-1].initializer.extend([onnx_tensor])
-            quantization_info["initializers"][name] = new_name
+        name = "bnb_quant_map"
+        onnx_tensor = onnx.numpy_helper.from_array(quant_state[-1].cpu().numpy())
+        unique_name = name
+        while unique_name in initializer_names:
+            unique_name += "_"
+        onnx_tensor.name = unique_name
+        graph_path[-1].initializer.extend([onnx_tensor])
+        quantization_info["initializers"] = {name: unique_name}
