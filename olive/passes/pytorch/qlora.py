@@ -308,24 +308,32 @@ class QLoRA(Pass):
         compute_dtype = supported_dtypes[config.compute_dtype]
 
         # load model, reset model_loading_args and adapter_path
+        model_loading_args = {}
         if new_model.hf_config.model_loading_args:
-            logger.warning(
-                "Input model has model_loading_args. Ignoring. QLoRA will use its own model_loading_args based on the"
-                " pass config."
-            )
-        new_model.hf_config.model_loading_args = HFModelLoadingArgs(
-            torch_dtype=compute_dtype,
-            # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
-            # this uses all available GPUs, model parallel
-            device_map="auto",
-            quantization_method="bitsandbytes",
-            quantization_config={
-                "load_in_4bit": True,
-                "bnb_4bit_compute_dtype": compute_dtype,
-                "bnb_4bit_use_double_quant": config.double_quant,
-                "bnb_4bit_quant_type": config.quant_type,
-            },
+            to_overwrite = ["torch_dtype", "device_map", "quantization_method", "quantization_config"]
+            model_loading_args = new_model.hf_config.model_loading_args.dict()
+            for k in to_overwrite:
+                if model_loading_args.get(k) is not None:
+                    logger.warning(
+                        f"Input model has model_loading_args.{k}. Ignoring. QLoRA will overwrite it based on the pass"
+                        " config."
+                    )
+        model_loading_args.update(
+            {
+                "torch_dtype": compute_dtype,
+                # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
+                # this uses all available GPUs, model parallel
+                "device_map": "auto",
+                "quantization_method": "bitsandbytes",
+                "quantization_config": {
+                    "load_in_4bit": True,
+                    "bnb_4bit_compute_dtype": compute_dtype,
+                    "bnb_4bit_use_double_quant": config.double_quant,
+                    "bnb_4bit_quant_type": config.quant_type,
+                },
+            }
         )
+        new_model.hf_config.model_loading_args = HFModelLoadingArgs(**model_loading_args)
         if new_model.get_resource("adapter_path"):
             logger.warning(
                 "Input model has adapter_path. Ignoring. QLoRA will save the adapter weights to its own adapter_path."
