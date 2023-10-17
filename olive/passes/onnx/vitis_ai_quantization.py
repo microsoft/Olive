@@ -362,7 +362,12 @@ class VitisAIQuantization(Pass):
         from onnxruntime.quantization.preprocess import quant_pre_process
 
         try:
-            quant_pre_process(input_model_path=model.model_path, output_model_path=output_model_path, auto_merge=True)
+            quant_pre_process(
+                input_model_path=model.model_path,
+                output_model_path=str(output_model_path),
+                auto_merge=True,
+                save_as_external_data=True,
+            )
         except Exception as e:
             # TODO(xiaosheng): try with `skip_optimization = True`
             # quantization preprocessing will fail if the model is too large and `skip_optimization = False`
