@@ -152,7 +152,7 @@ class TestDataConfigValidation:
                     "params_config": {
                         "model_name": "dummy_model2",
                         "task": "dummy_task2",
-                        "dataset_name": "dummy_dataset2",
+                        "data_name": "dummy_dataset2",
                     },
                 }
             },
@@ -174,7 +174,7 @@ class TestDataConfigValidation:
         config_dict["data_configs"]["dummy_data_config2"]["params_config"] = {
             "model_name": model_name,
             "task": task,
-            "dataset_name": "dummy_dataset2",
+            "data_name": "dummy_dataset2",
         }
 
         run_config = RunConfig.parse_obj(config_dict)

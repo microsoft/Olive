@@ -416,7 +416,7 @@ def text_gen_pair_pre_process(dataset, tokenizer, all_kwargs):
             # skip short sequences if drop_short_sequences is True
             continue
         if args.pad_to_max_len:
-            if not tokenizer.pad_token_id:
+            if tokenizer.pad_token_id is None:
                 raise ValueError("Tokenizer does not have a pad token")
             # add padding to max_len
             input_ids = torch.nn.functional.pad(
