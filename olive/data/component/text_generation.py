@@ -76,6 +76,7 @@ class TextGenParams(ConfigBase):
     pad_to_max_len: bool = True  # pad sequences to max_len, ignored for JOIN corpus strategy
     drop_short_sequences: bool = False  # drop sequences shorter than max_len. Mutually exclusive with pad_to_max_len
     add_special_tokens: bool = True  # add bos and eos tokens to each sequence
+    use_attention_mask: bool = True  # add attention mask to each example
 
     @validator("drop_short_sequences", always=True)
     def _check_padding(cls, v, values):
@@ -142,6 +143,23 @@ class TextGenCorpusParams(TextGenParams):
             raise ValueError("max_samples must be specified when corpus_strategy is random")
         return v
 
+    @validator("corpus_strategy", always=True)
+    def _check_use_attention_mask(cls, v, values):
+        if "use_attention_mask" not in values:
+            raise ValueError("Invalid use_attention_mask")
+        if "pad_to_max_len" not in values:
+            raise ValueError("Invalid pad_to_max_len")
+        use_attention_mask = values["use_attention_mask"]
+        pad_to_max_len = values["pad_to_max_len"]
+        if "join" in v:
+            # both True and False are valid since attention_mask is all 1s
+            return v
+        if not use_attention_mask and pad_to_max_len:
+            raise ValueError(
+                "pad_to_max_len is True but use_attention_mask is False. Attention mask is required for padding!"
+            )
+        return v
+
     @validator("random_seed", always=True)
     def _check_random(cls, v, values):
         if "corpus_strategy" not in values:
@@ -180,6 +198,15 @@ class TextGenPairParams(TextGenParams):
             v = validate_text_source(v, values, field.name)
         return v
 
+    @validator("use_attention_mask", always=True)
+    def _check_use_attention_mask(cls, v, values):
+        if "pad_to_max_len" not in values:
+            raise ValueError("Invalid pad_to_max_len")
+        if not v and values["pad_to_max_len"]:
+            raise ValueError(
+                "pad_to_max_len is True but use_attention_mask is False. Attention mask is required for padding!"
+            )
+
 
 def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
     """Pre-process data for text generation task with 'corpus' dataset type.
@@ -207,9 +234,10 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
 
     tokenized_inputs = {
         "input_ids": [],
-        "attention_mask": [],
         "labels": [],
     }
+    if args.use_attention_mask:
+        tokenized_inputs["attention_mask"] = []
     if "join" in args.corpus_strategy:
         joiner_tokens = tokenizer.encode(args.joiner, add_special_tokens=False) if args.joiner else []
 
@@ -256,7 +284,13 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
                     end_loc = begin_loc + args.source_max_len
                     # get the input sequence
                     input_ids = torch.tensor(joined_input_ids[begin_loc:end_loc])
-                    append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context=context)
+                    append_text_gen_input_ids(
+                        tokenized_inputs,
+                        input_ids,
+                        tokenizer,
+                        context=context,
+                        use_attention_mask=args.use_attention_mask,
+                    )
                     num_samples += 1
                     if args.max_samples is not None and num_samples >= args.max_samples:
                         # we have reached max_samples
@@ -294,7 +328,9 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
                     if len(joined_input_ids) >= args.source_max_len:
                         # found a good example
                         input_ids = torch.tensor(joined_input_ids[: args.source_max_len])
-                        append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
+                        append_text_gen_input_ids(
+                            tokenized_inputs, input_ids, tokenizer, use_attention_mask=args.use_attention_mask
+                        )
                         break
                     resamples += 1
     else:
@@ -305,7 +341,9 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
                 batched_input_ids = batch_tokenize_text(text_list, tokenizer, args)
                 for native_input_ids in batched_input_ids:
                     input_ids = torch.tensor(native_input_ids)
-                    append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
+                    append_text_gen_input_ids(
+                        tokenized_inputs, input_ids, tokenizer, use_attention_mask=args.use_attention_mask
+                    )
             else:
                 example_idx = 0  # index of the first example in the current batch
                 num_samples = 0
@@ -321,7 +359,9 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
                     )
                     for native_input_ids in batched_input_ids:
                         input_ids = torch.tensor(native_input_ids)
-                        append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer)
+                        append_text_gen_input_ids(
+                            tokenized_inputs, input_ids, tokenizer, use_attention_mask=args.use_attention_mask
+                        )
                     # update counters
                     num_samples += len(batched_input_ids)
                     example_idx += examples_to_get
@@ -355,7 +395,9 @@ def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
                 if not encodings:
                     # could not find a good sample after resampling
                     continue
-                append_text_gen_input_ids(tokenized_inputs, encodings.input_ids[0], tokenizer)
+                append_text_gen_input_ids(
+                    tokenized_inputs, encodings.input_ids[0], tokenizer, use_attention_mask=args.use_attention_mask
+                )
 
     # convert to HFDataset
     hf_dataset = HFDataset.from_dict(tokenized_inputs)
@@ -403,9 +445,10 @@ def text_gen_pair_pre_process(dataset, tokenizer, all_kwargs):
     # build tokenized_inputs
     tokenized_inputs = {
         "input_ids": [],
-        "attention_mask": [],
         "labels": [],
     }
+    if args.use_attention_mask:
+        tokenized_inputs["attention_mask"] = []
     # max_len is the max length of the concatenated input and output
     # if pad_to_max_len is True, max_len is the max length of the concatenated input and output
     max_len = args.source_max_len + args.target_max_len
@@ -424,7 +467,9 @@ def text_gen_pair_pre_process(dataset, tokenizer, all_kwargs):
             )
         # if ignore_source_in_labels is True, the source tokens are treated as context and set to ignore_index in labels
         context = len(tokenized_source) if args.ignore_source_in_labels else None
-        append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context=context)
+        append_text_gen_input_ids(
+            tokenized_inputs, input_ids, tokenizer, context=context, use_attention_mask=args.use_attention_mask
+        )
 
     # convert to HFDataset
     hf_dataset = HFDataset.from_dict(tokenized_inputs)
@@ -486,15 +531,18 @@ def batch_tokenize_text(text_list, tokenizer, args):
     return batched_input_ids
 
 
-def append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context: int = None, ignore_index=IGNORE_INDEX):
+def append_text_gen_input_ids(
+    tokenized_inputs, input_ids, tokenizer, context: int = None, ignore_index=IGNORE_INDEX, use_attention_mask=True
+):
     """Convert input_ids to inputs dict and append to tokenized_inputs."""
     inputs = {"input_ids": input_ids}
 
     # create attention_mask
-    attention_mask = (
-        torch.ones_like(input_ids) if tokenizer.pad_token_id is None else input_ids.ne(tokenizer.pad_token_id)
-    )
-    inputs["attention_mask"] = attention_mask
+    if use_attention_mask:
+        attention_mask = (
+            torch.ones_like(input_ids) if tokenizer.pad_token_id is None else input_ids.ne(tokenizer.pad_token_id)
+        )
+        inputs["attention_mask"] = attention_mask
 
     # create labels
     # target is not shifted by 1 since causal lm models shifts internally when computing loss
@@ -503,7 +551,8 @@ def append_text_gen_input_ids(tokenized_inputs, input_ids, tokenizer, context: i
     if context is not None:
         labels[:context] = ignore_index
     # set padding to ignore_index
-    labels[attention_mask != 1] = ignore_index
+    if use_attention_mask:
+        labels[attention_mask != 1] = ignore_index
     inputs["labels"] = labels
 
     # add to list
