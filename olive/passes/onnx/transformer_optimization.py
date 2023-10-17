@@ -59,6 +59,11 @@ class OrtTransformersOptimization(Pass):
                 ),
             ),
             "use_gpu": PassConfigParam(type_=bool, default_value=is_gpu, description="Flag for GPU inference."),
+            "provider": PassConfigParam(
+                type_=str,
+                default_value=None,
+                description="Provider to use.",
+            ),
             "only_onnxruntime": PassConfigParam(
                 type_=bool,
                 default_value=False,
