@@ -12,7 +12,7 @@ import tempfile
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Tuple, Union
 
 import torch
 import transformers
@@ -121,6 +121,8 @@ class QLoRA(Pass):
 
     This pass only supports PyTorchModel with hf_config.
     """
+
+    model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map", "quantization_method", "quantization_config")
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -267,6 +269,12 @@ class QLoRA(Pass):
         new_model.model = None
         # remove the device map since we don't want "auto" device map
         new_model.hf_config.model_loading_args.device_map = None
+        # remove model_overwrites from model_attributes
+        if new_model.model_attributes:
+            for k in QLoRA.model_overwrites:
+                if k in new_model.model_attributes:
+                    del new_model.model_attributes[k]
+
         # set adapter_path
         new_model.set_resource("adapter_path", adapter_path)
 
@@ -310,9 +318,8 @@ class QLoRA(Pass):
         # load model, reset model_loading_args and adapter_path
         model_loading_args = {}
         if new_model.hf_config.model_loading_args:
-            to_overwrite = ["torch_dtype", "device_map", "quantization_method", "quantization_config"]
             model_loading_args = new_model.hf_config.model_loading_args.dict()
-            for k in to_overwrite:
+            for k in QLoRA.model_overwrites:
                 if model_loading_args.get(k) is not None:
                     logger.warning(
                         f"Input model has model_loading_args.{k}. Ignoring. QLoRA will overwrite it based on the pass"
