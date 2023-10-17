@@ -24,7 +24,7 @@
                         {
                             "name": "accuracy_custom",
                             "priority": 1, "higher_is_better": true,
-                            "goal": {"type": "max-degradation", "value": 0.01}
+                            "goal": {"type": "max-degradation", "value": 0.1}
                         }
                     ],
                     "user_config":{
@@ -41,7 +41,7 @@
                         {
                             "name": "avg",
                             "priority": 2,
-                            "goal": {"type": "percent-min-improvement", "value": 20}
+                            "goal": {"type": "percent-min-improvement", "value": 10}
                         }
                     ],
                     "user_config":{

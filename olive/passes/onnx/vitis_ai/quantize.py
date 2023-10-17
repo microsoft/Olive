@@ -207,7 +207,15 @@ def quantize_static(
         )
 
         calibrator.collect_data(calibration_data_reader)
-        tensors_range = calibrator.compute_range()
+        if is_ort_version_below_1_16():
+            tensors_range = calibrator.compute_range()
+        elif calibrate_method == PowerOfTwoMethod.MinMSE:
+            tensors_range = calibrator.compute_range()
+            from onnxruntime.quantization.calibrate import TensorsData
+
+            tensors_range = TensorsData(CalibrationMethod.MinMax, tensors_range)
+        else:
+            tensors_range = calibrator.compute_data()
         del calibrator
 
     if input_nodes or output_nodes:
