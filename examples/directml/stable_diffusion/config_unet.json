@@ -58,6 +58,7 @@
                 "model_type": "unet",
                 "float16": true,
                 "use_gpu": true,
+                "provider": "dml",
                 "keep_io_types": false,
                 "optimization_options": {
                     "enable_gelu": true,
