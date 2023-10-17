@@ -6,10 +6,7 @@ from pathlib import Path
 from test.unit_test.utils import get_onnx_model
 
 import numpy as np
-import pytest
-from onnxruntime import __version__ as OrtVersion
 from onnxruntime.quantization.calibrate import CalibrationDataReader
-from packaging import version
 
 from olive.passes.olive_pass import create_pass_from_dict
 from olive.passes.onnx.vitis_ai_quantization import VitisAIQuantization
@@ -36,10 +33,6 @@ def dummy_calibration_reader(data_dir=None, batch_size=1, *args, **kwargs):
     return RandomDataReader()
 
 
-@pytest.mark.skipif(
-    version.parse(OrtVersion) == version.parse("1.16.0") or version.parse(OrtVersion) == version.parse("1.16.1"),
-    reason="VitisAIQuantization is not supported in ORT 1.16.0 with TensorsData",
-)
 def test_vitis_ai_quantization_pass(tmp_path):
     # setup
     input_model = get_onnx_model()
