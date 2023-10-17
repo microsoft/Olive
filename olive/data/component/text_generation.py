@@ -206,6 +206,7 @@ class TextGenPairParams(TextGenParams):
             raise ValueError(
                 "pad_to_max_len is True but use_attention_mask is False. Attention mask is required for padding!"
             )
+        return v
 
 
 def text_gen_corpus_pre_process(dataset, tokenizer, all_kwargs):
