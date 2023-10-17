@@ -207,16 +207,15 @@ def quantize_static(
         )
 
         calibrator.collect_data(calibration_data_reader)
-        try:
+        if not is_ort_version_below_1_16():
             tensors_range = calibrator.compute_range()
-
-        except AttributeError:
+        else:
             tensors_range = calibrator.compute_data()
             tensors_range_value = {}
             for key in tensors_range.data.keys():
                 tensors_range_value[key] = tensors_range.data[key].range_value
             tensors_range = tensors_range_value
-        if not is_ort_version_below_1_16():
+
             from onnxruntime.quantization.calibrate import TensorsData
 
             new_calibrate_tensors_range = TensorsData(CalibrationMethod.MinMax, tensors_range)
