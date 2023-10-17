@@ -52,13 +52,7 @@
         },
         "transformers_optimization": {
             "type": "OrtTransformersOptimization",
-            "disable_search": true,
-            "config": {
-                "model_type": "bert",
-                "num_heads": 12,
-                "hidden_size": 768,
-                "float16": false
-            }
+            "disable_search": true
         },
         "quantization": {
             "type": "OnnxQuantization",
@@ -86,7 +80,7 @@
         "clean_cache": true,
         "evaluator": "common_evaluator",
         "execution_providers": ["CPUExecutionProvider"],
-        "cache_dir": "cache",
-        "output_dir" : "models/roberta_large"
+        "cache_dir": "run_cache/olive/cache",
+        "output_dir" : "run_cache/olive/roberta_large"
     }
 }
