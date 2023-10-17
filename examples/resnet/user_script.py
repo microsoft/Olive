@@ -31,10 +31,19 @@ class CIFAR10DataSet:
 
     def setup(self, stage: str):
         transform = transforms.Compose(
-            [transforms.Pad(4), transforms.RandomHorizontalFlip(), transforms.RandomCrop(32), transforms.ToTensor()]
+            [
+                transforms.Pad(4),
+                # use CenterCrop to keep consistent dataset
+                transforms.CenterCrop(32),
+                # Ban RandomHorizontalFlip and RandomCrop to keep consistent dataset
+                # for real case, we can use them to augment dataset
+                # transforms.RandomHorizontalFlip(),
+                # transforms.RandomCrop(32),
+                transforms.ToTensor(),
+            ]
         )
         self.train_dataset = CIFAR10(root=self.train_path, train=True, transform=transform, download=False)
-        self.val_dataset = CIFAR10(root=self.vld_path, train=True, transform=transform, download=False)
+        self.val_dataset = CIFAR10(root=self.vld_path, train=False, transform=transform, download=False)
 
 
 class PytorchResNetDataset(Dataset):
@@ -42,6 +51,7 @@ class PytorchResNetDataset(Dataset):
         self.dataset = dataset
 
     def __len__(self):
+        # return 100
         return len(self.dataset)
 
     def __getitem__(self, index):
@@ -71,8 +81,7 @@ def post_process(output):
 
 def create_dataloader(data_dir, batch_size, *args, **kwargs):
     cifar10_dataset = CIFAR10DataSet(data_dir)
-    _, val_set = torch.utils.data.random_split(cifar10_dataset.val_dataset, [49000, 1000])
-    return DataLoader(PytorchResNetDataset(val_set), batch_size=batch_size, drop_last=True)
+    return DataLoader(PytorchResNetDataset(cifar10_dataset.val_dataset), batch_size=batch_size, drop_last=True)
 
 
 # -------------------------------------------------------------------------
@@ -161,8 +170,7 @@ def create_qat_config():
 
 def create_train_dataloader(data_dir, batchsize, *args, **kwargs):
     cifar10_dataset = CIFAR10DataSet(data_dir)
-    train_dataset, _ = torch.utils.data.random_split(cifar10_dataset.train_dataset, [40000, 10000])
-    return DataLoader(PytorchResNetDataset(train_dataset), batch_size=batchsize, drop_last=True)
+    return DataLoader(PytorchResNetDataset(cifar10_dataset.train_dataset), batch_size=batchsize, drop_last=True)
 
 
 # -------------------------------------------------------------------------
