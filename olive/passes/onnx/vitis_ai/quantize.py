@@ -207,7 +207,7 @@ def quantize_static(
         )
 
         calibrator.collect_data(calibration_data_reader)
-        if not is_ort_version_below_1_16():
+        if is_ort_version_below_1_16():
             tensors_range = calibrator.compute_range()
         else:
             tensors_range = calibrator.compute_data()
