@@ -271,7 +271,7 @@ class QLoRA(Pass):
         new_model.model = None
         # remove the device map since we don't want "auto" device map
         new_model.hf_config.model_loading_args.device_map = None
-        # remove model_overwrites from model_attributes since new config will be created
+        # remove model_overwrites from model_attributes
         if new_model.model_attributes:
             for k in QLoRA.model_overwrites:
                 new_model.model_attributes.pop(k, None)
