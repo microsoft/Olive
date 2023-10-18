@@ -475,7 +475,7 @@ Convert the raw data config to the data container.</p>
 </div><div aria-labelledby="tab-4-4-1" class="sphinx-tabs-panel" hidden="true" id="panel-4-4-1" name="4-1" role="tabpanel" tabindex="0"><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">olive.data.registry</span> <span class="kn">import</span> <span class="n">Registry</span>
 
 <span class="nd">@Registry</span><span class="o">.</span><span class="n">register_dataset</span><span class="p">()</span>
-<span class="k">def</span> <span class="nf">customized_huggingface_dataset</span><span class="p">(</span><span class="n">output</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">customized_huggingface_dataset</span><span class="p">(</span><span class="n">_output</span><span class="p">):</span>
     <span class="o">...</span>
 
 <span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
@@ -547,13 +547,14 @@ Convert the raw data config to the data container.</p>
 <p class="admonition-title">Note</p>
 <dl class="simple">
 <dt>The components will be called with the following arguments along with any additional keyword arguments provided in the config:</dt><dd><ul class="simple">
-<li><p>load_dataset: <cite>data_dir</cite> (keyword, optional)</p></li>
-<li><p>pre_process_data: <cite>dataset</cite> (positional)</p></li>
-<li><p>post_process_data: <cite>output</cite> (positional)</p></li>
-<li><p>dataloader: <cite>dataset</cite> (positional)</p></li>
+<li><p>load_dataset: <cite>data_dir</cite> (required, but the type can be Optional[str])</p></li>
+<li><p>pre_process_data: <cite>dataset</cite> (required, must be the first argument)</p></li>
+<li><p>post_process_data: <cite>output</cite> (required, must be the first argument)</p></li>
+<li><p>dataloader: <cite>dataset</cite> (required, must be the first argument)</p></li>
 </ul>
 </dd>
 </dl>
+<p>the required arguments for pre_process_data/post_process_data/dataloader must start with <cite>_</cite> to avoid the conflict with the additional keyword arguments provided in the config.</p>
 </div>
 </section>
 </section>

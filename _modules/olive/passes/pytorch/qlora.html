@@ -140,7 +140,7 @@
 <span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">transformers</span>
@@ -249,6 +249,10 @@
 
 <span class="sd">    This pass only supports PyTorchModel with hf_config.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># these are the attributes of the model (in hf_config) that will be overwritten by the pass</span>
+    <span class="c1"># values from the input model will be ignored and new values will be set based on the pass config</span>
+    <span class="n">model_overwrites</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;torch_dtype&quot;</span><span class="p">,</span> <span class="s2">&quot;device_map&quot;</span><span class="p">,</span> <span class="s2">&quot;quantization_method&quot;</span><span class="p">,</span> <span class="s2">&quot;quantization_config&quot;</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_default_config</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
@@ -395,6 +399,11 @@
         <span class="n">new_model</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="c1"># remove the device map since we don&#39;t want &quot;auto&quot; device map</span>
         <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="o">.</span><span class="n">device_map</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># remove model_overwrites from model_attributes</span>
+        <span class="k">if</span> <span class="n">new_model</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">QLoRA</span><span class="o">.</span><span class="n">model_overwrites</span><span class="p">:</span>
+                <span class="n">new_model</span><span class="o">.</span><span class="n">model_attributes</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
         <span class="c1"># set adapter_path</span>
         <span class="n">new_model</span><span class="o">.</span><span class="n">set_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">,</span> <span class="n">adapter_path</span><span class="p">)</span>
 
@@ -436,24 +445,31 @@
         <span class="n">compute_dtype</span> <span class="o">=</span> <span class="n">supported_dtypes</span><span class="p">[</span><span class="n">config</span><span class="o">.</span><span class="n">compute_dtype</span><span class="p">]</span>
 
         <span class="c1"># load model, reset model_loading_args and adapter_path</span>
+        <span class="n">model_loading_args</span> <span class="o">=</span> <span class="p">{}</span>
         <span class="k">if</span> <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                <span class="s2">&quot;Input model has model_loading_args. Ignoring. QLoRA will use its own model_loading_args based on the&quot;</span>
-                <span class="s2">&quot; pass config.&quot;</span>
-            <span class="p">)</span>
-        <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span> <span class="o">=</span> <span class="n">HFModelLoadingArgs</span><span class="p">(</span>
-            <span class="n">torch_dtype</span><span class="o">=</span><span class="n">compute_dtype</span><span class="p">,</span>
-            <span class="c1"># TODO(jambayk): Worry about `use_multi_gpu` and distributed training later</span>
-            <span class="c1"># this uses all available GPUs, model parallel</span>
-            <span class="n">device_map</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">,</span>
-            <span class="n">quantization_method</span><span class="o">=</span><span class="s2">&quot;bitsandbytes&quot;</span><span class="p">,</span>
-            <span class="n">quantization_config</span><span class="o">=</span><span class="p">{</span>
-                <span class="s2">&quot;load_in_4bit&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-                <span class="s2">&quot;bnb_4bit_compute_dtype&quot;</span><span class="p">:</span> <span class="n">compute_dtype</span><span class="p">,</span>
-                <span class="s2">&quot;bnb_4bit_use_double_quant&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">double_quant</span><span class="p">,</span>
-                <span class="s2">&quot;bnb_4bit_quant_type&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">quant_type</span><span class="p">,</span>
-            <span class="p">},</span>
+            <span class="n">model_loading_args</span> <span class="o">=</span> <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">QLoRA</span><span class="o">.</span><span class="n">model_overwrites</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">model_loading_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Input model has model_loading_args.</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">. Ignoring. QLoRA will overwrite it based on the pass&quot;</span>
+                        <span class="s2">&quot; config.&quot;</span>
+                    <span class="p">)</span>
+        <span class="n">model_loading_args</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;torch_dtype&quot;</span><span class="p">:</span> <span class="n">compute_dtype</span><span class="p">,</span>
+                <span class="c1"># TODO(jambayk): Worry about `use_multi_gpu` and distributed training later</span>
+                <span class="c1"># this uses all available GPUs, model parallel</span>
+                <span class="s2">&quot;device_map&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;quantization_method&quot;</span><span class="p">:</span> <span class="s2">&quot;bitsandbytes&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;quantization_config&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;load_in_4bit&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                    <span class="s2">&quot;bnb_4bit_compute_dtype&quot;</span><span class="p">:</span> <span class="n">compute_dtype</span><span class="p">,</span>
+                    <span class="s2">&quot;bnb_4bit_use_double_quant&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">double_quant</span><span class="p">,</span>
+                    <span class="s2">&quot;bnb_4bit_quant_type&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">quant_type</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">}</span>
         <span class="p">)</span>
+        <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span> <span class="o">=</span> <span class="n">HFModelLoadingArgs</span><span class="p">(</span><span class="o">**</span><span class="n">model_loading_args</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">new_model</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">):</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                 <span class="s2">&quot;Input model has adapter_path. Ignoring. QLoRA will save the adapter weights to its own adapter_path.&quot;</span>
@@ -475,7 +491,7 @@
         <span class="c1"># TODO(jambayk): Do this in a better way since the embedding size might become unoptimal</span>
         <span class="c1"># (not a multiple of 64, etc) perhaps use eos_token as pad_token, but need to ensure the actual eos_token</span>
         <span class="c1"># at the end of the sequence is not masked (both in attention mask and loss calculation)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">pad_token_id</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">pad_token_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">cls</span><span class="o">.</span><span class="n">smart_tokenizer_and_embedding_resize</span><span class="p">(</span>
                 <span class="n">special_tokens_dict</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;pad_token&quot;</span><span class="p">:</span> <span class="n">DEFAULT_PAD_TOKEN</span><span class="p">},</span> <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">pytorch_model</span>
             <span class="p">)</span>
