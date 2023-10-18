@@ -207,17 +207,17 @@ def run_inference(
         sess_options.add_free_dimension_override_by_name("unet_hidden_batch", batch_size * 2)
         sess_options.add_free_dimension_override_by_name("unet_hidden_sequence", 77)
         sess_options.add_free_dimension_override_by_name("unet_text_embeds_batch", batch_size * 2)
-        sess_options.add_free_dimension_override_by_name("unet_text_embeds_size", image_size + 256)
+        sess_options.add_free_dimension_override_by_name("unet_text_embeds_size", 1280)
         sess_options.add_free_dimension_override_by_name("unet_time_ids_batch", batch_size * 2)
         sess_options.add_free_dimension_override_by_name("unet_time_ids_size", 6)
 
     if base_images is None:
         pipeline = ORTStableDiffusionXLPipeline.from_pretrained(
-            model_dir, provider="DmlExecutionProvider", sess_options=sess_options
+            model_dir, provider="DmlExecutionProvider", session_options=sess_options
         )
     else:
         pipeline = ORTStableDiffusionXLImg2ImgPipeline.from_pretrained(
-            model_dir, provider="DmlExecutionProvider", sess_options=sess_options
+            model_dir, provider="DmlExecutionProvider", session_options=sess_options
         )
 
     if interactive:
