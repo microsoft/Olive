@@ -21,12 +21,14 @@ from olive.model import OliveModel
 # -------------------------------------------------------------------------
 
 seed = 0
-
-np.random.seed(seed)
+# seed everything to 0 for reproducibility, https://pytorch.org/docs/stable/notes/randomness.html
 random.seed(seed)
+np.random.seed(seed)
 torch.manual_seed(seed)
-torch.random.manual_seed(seed)
+# the following are needed only for GPU
 torch.cuda.manual_seed(seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 
 class CIFAR10DataSet:
