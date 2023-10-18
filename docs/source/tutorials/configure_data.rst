@@ -363,7 +363,7 @@ The above case shows to rewrite all the components in data config. But sometime,
             from olive.data.registry import Registry
 
             @Registry.register_dataset()
-            def customized_huggingface_dataset(output):
+            def customized_huggingface_dataset(_output):
                 ...
 
             from olive.data.config import DataConfig
@@ -418,7 +418,9 @@ The above case shows to rewrite all the components in data config. But sometime,
 
 .. note::
     The components will be called with the following arguments along with any additional keyword arguments provided in the config:
-        - load_dataset: `data_dir` (keyword, optional)
-        - pre_process_data: `dataset` (positional)
-        - post_process_data: `output` (positional)
-        - dataloader: `dataset` (positional)
+        - load_dataset: `data_dir` (required, but the type can be Optional[str])
+        - pre_process_data: `dataset` (required, must be the first argument)
+        - post_process_data: `output` (required, must be the first argument)
+        - dataloader: `dataset` (required, must be the first argument)
+
+    the required arguments for pre_process_data/post_process_data/dataloader must start with `_` to avoid the conflict with the additional keyword arguments provided in the config.
