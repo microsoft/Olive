@@ -92,11 +92,17 @@ def create_dataloader(data_dir, batch_size, *args, **kwargs):
 class ResnetCalibrationDataReader(CalibrationDataReader):
     def __init__(self, data_dir: str, batch_size: int = 16):
         super().__init__()
-        self.iterator = iter(create_dataloader(data_dir, batch_size))
+        self.iterator = iter(create_train_dataloader(data_dir, batch_size))
+        self.sample_counter = 500
 
     def get_next(self) -> dict:
+        if self.sample_counter <= 0:
+            return None
+
         try:
-            return {"input": next(self.iterator)[0].numpy()}
+            item = {"input": next(self.iterator)[0].numpy()}
+            self.sample_counter -= 1
+            return item
         except Exception:
             return None
 
