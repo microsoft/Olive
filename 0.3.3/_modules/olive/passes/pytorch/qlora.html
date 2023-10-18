@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>olive.passes.pytorch.qlora &mdash; Olive  documentation</title>
+      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/autodoc_pydantic.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/tabs.css" type="text/css" />
+      <link rel="stylesheet" href="../../../../_static/css/width.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../../../../_static/tabs.js?v=3030b3cb"></script>
+        <script src="../../../../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.3.3
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples.html">Acceleration on CPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples.html#acceleration-on-gpu">Acceleration on GPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples.html#acceleration-on-npu">Acceleration on NPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../examples.html#acceleration-on-dpu">Acceleration on DPU</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../features/azureml_integration.html">Azure ML integration</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">olive.passes.pytorch.qlora</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for olive.passes.pytorch.qlora</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -------------------------------------------------------------------------</span>
+<span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
+<span class="c1"># Licensed under the MIT License.</span>
+<span class="c1"># --------------------------------------------------------------------------</span>
+<span class="c1"># Based on original implementation at</span>
+<span class="c1"># https://github.com/artidoro/qlora/blob/main/qlora.py</span>
+<span class="c1"># https://arxiv.org/abs/2305.14314</span>
+<span class="c1"># --------------------------------------------------------------------------</span>
+<span class="kn">import</span> <span class="nn">dataclasses</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">transformers</span>
+<span class="kn">from</span> <span class="nn">packaging</span> <span class="kn">import</span> <span class="n">version</span>
+<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">validator</span>
+
+<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">ConfigWithExtraArgs</span>
+<span class="kn">from</span> <span class="nn">olive.data.config</span> <span class="kn">import</span> <span class="n">DataConfig</span>
+<span class="kn">from</span> <span class="nn">olive.data.constants</span> <span class="kn">import</span> <span class="n">IGNORE_INDEX</span>
+<span class="kn">from</span> <span class="nn">olive.hardware.accelerator</span> <span class="kn">import</span> <span class="n">AcceleratorSpec</span>
+<span class="kn">from</span> <span class="nn">olive.model</span> <span class="kn">import</span> <span class="n">PyTorchModel</span>
+<span class="kn">from</span> <span class="nn">olive.model.hf_utils</span> <span class="kn">import</span> <span class="n">HFModelLoadingArgs</span><span class="p">,</span> <span class="n">get_peft_task_type_from_task</span>
+<span class="kn">from</span> <span class="nn">olive.passes</span> <span class="kn">import</span> <span class="n">Pass</span>
+<span class="kn">from</span> <span class="nn">olive.passes.olive_pass</span> <span class="kn">import</span> <span class="n">PassConfigParam</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">DEFAULT_PAD_TOKEN</span> <span class="o">=</span> <span class="s2">&quot;[PAD]&quot;</span>
+
+
+<span class="c1"># ruff: noqa: B010</span>
+<span class="c1"># creating a Config class since transformers.TrainingArguments is a dataclass</span>
+<span class="c1"># pydantic handles dataclasses differently and causes issues with validation</span>
+<span class="c1"># this also allows us to handle and validate extra_args better</span>
+<div class="viewcode-block" id="HFTrainingArguments"><a class="viewcode-back" href="../../../../api/passes.html#olive.passes.pytorch.qlora.HFTrainingArguments">[docs]</a><span class="k">class</span> <span class="nc">HFTrainingArguments</span><span class="p">(</span><span class="n">ConfigWithExtraArgs</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Training arguments for transformers.Trainer.</span>
+
+<span class="sd">    Has the same fields as transformers.TrainingArguments with recommended default values for QLoRA fine-tuning.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">42</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Random seed for initialization.&quot;</span><span class="p">)</span>
+    <span class="n">data_seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">42</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Random seed to be used with data samplers.&quot;</span><span class="p">)</span>
+    <span class="n">optim</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="s2">&quot;paged_adamw_32bit&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The optimizer to use.&quot;</span><span class="p">)</span>
+    <span class="n">per_device_train_batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The batch size per GPU for training.&quot;</span><span class="p">)</span>
+    <span class="n">per_device_eval_batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The batch size per GPU for evaluation.&quot;</span><span class="p">)</span>
+    <span class="n">gradient_accumulation_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="mi">16</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Number of updates steps to accumulate the gradients for, before performing a backward/update pass.&quot;</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">max_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">10000</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The total number of training steps to perform.&quot;</span><span class="p">)</span>
+    <span class="c1"># use lora dropout instead for regularization if needed</span>
+    <span class="n">weight_decay</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The L2 weight decay rate of AdamW&quot;</span><span class="p">)</span>
+    <span class="n">learning_rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mf">0.0002</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The initial learning rate for AdamW.&quot;</span><span class="p">)</span>
+    <span class="n">gradient_checkpointing</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Use gradient checkpointing. Recommended.&quot;</span><span class="p">)</span>
+    <span class="n">lr_scheduler_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="s2">&quot;constant&quot;</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Learning rate schedule. Constant a bit better than cosine, and has advantage for analysis.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">warmup_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Fraction of steps to do a warmup for.&quot;</span><span class="p">)</span>
+    <span class="n">logging_steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Number of update steps between two logs.&quot;</span><span class="p">)</span>
+    <span class="n">evaluation_strategy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="s2">&quot;no&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The evaluation strategy to use. Will be forced to &#39;no&#39; if there is no eval dataset.&quot;</span>
+    <span class="p">)</span>
+    <span class="n">eval_steps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">None</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Number of update steps between two evaluations if `evaluation_strategy=&#39;steps&#39;`. Will default to the same&quot;</span>
+            <span class="s2">&quot; value as `logging_steps` if not set&quot;</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">group_by_length</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">True</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Whether or not to group samples of roughly the same length together when batching.&quot;</span>
+    <span class="p">)</span>
+    <span class="n">report_to</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The list of integrations to report the results and logs to.&quot;</span>
+    <span class="p">)</span>
+    <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;The output dir for logs and checkpoints. If None, will use a temp dir.&quot;</span><span class="p">)</span>
+    <span class="n">extra_args</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="kc">None</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">&quot;Extra arguments to pass to the trainer. Values can be provided directly to this field as a dict or as&quot;</span>
+            <span class="s2">&quot; keyword arguments to the config. See transformers.TrainingArguments for more details on the available&quot;</span>
+            <span class="s2">&quot; arguments.&quot;</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;extra_args&quot;</span><span class="p">,</span> <span class="n">pre</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">always</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_extra_args</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="c1"># make sure extra args are fields of transformers.Trainer</span>
+        <span class="n">training_args_fields</span> <span class="o">=</span> <span class="p">{</span><span class="n">f</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">fields</span><span class="p">(</span><span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span><span class="p">)</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">init</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>  <span class="c1"># need a copy of the keys since we are mutating the dict</span>
+            <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="s2">&quot;output_dir&quot;</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Extra arg </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> is not allowed. Please use `training_output_dir` instead.&quot;</span><span class="p">)</span>
+                <span class="k">del</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+            <span class="k">elif</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">training_args_fields</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Extra arg </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> is not a field of transformers.TrainingArguments. Ignoring.&quot;</span><span class="p">)</span>
+                <span class="k">del</span> <span class="n">v</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">v</span>
+
+<div class="viewcode-block" id="HFTrainingArguments.create_training_args"><a class="viewcode-back" href="../../../../api/passes.html#olive.passes.pytorch.qlora.HFTrainingArguments.create_training_args">[docs]</a>    <span class="k">def</span> <span class="nf">create_training_args</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span><span class="p">:</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;output_dir&quot;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;output_dir must be provided.&quot;</span><span class="p">)</span>
+        <span class="n">extra_args</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;extra_args&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">transformers</span><span class="o">.</span><span class="n">TrainingArguments</span><span class="p">(</span><span class="o">**</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">extra_args</span><span class="p">)</span></div></div>
+
+
+<span class="k">class</span> <span class="nc">QLoRA</span><span class="p">(</span><span class="n">Pass</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run QLoRA fine-tuning on a Hugging Face PyTorch model.</span>
+
+<span class="sd">    See https://arxiv.org/abs/2305.14314 for more details on the method.</span>
+
+<span class="sd">    This pass only supports PyTorchModel with hf_config.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># these are the attributes of the model (in hf_config) that will be overwritten by the pass</span>
+    <span class="c1"># values from the input model will be ignored and new values will be set based on the pass config</span>
+    <span class="n">model_overwrites</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;torch_dtype&quot;</span><span class="p">,</span> <span class="s2">&quot;device_map&quot;</span><span class="p">,</span> <span class="s2">&quot;quantization_method&quot;</span><span class="p">,</span> <span class="s2">&quot;quantization_config&quot;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_default_config</span><span class="p">(</span><span class="n">accelerator_spec</span><span class="p">:</span> <span class="n">AcceleratorSpec</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">PassConfigParam</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="c1"># quantization parameters</span>
+            <span class="s2">&quot;compute_dtype&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+                <span class="n">default_value</span><span class="o">=</span><span class="s2">&quot;bfloat16&quot;</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;The computation data type used by the quantized model. It is also the data type used for the LoRA&quot;</span>
+                    <span class="s2">&quot; weights. Should be one of `bfloat16`, `float16` or `float32`.&quot;</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;double_quant&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">bool</span><span class="p">,</span>
+                <span class="n">default_value</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Whether tonested quantization where the quantization constants from the first quantization are&quot;</span>
+                    <span class="s2">&quot; quantized again&quot;</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;quant_type&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+                <span class="n">default_value</span><span class="o">=</span><span class="s2">&quot;nf4&quot;</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Quantization data type to use. Should be one of `fp4` or `nf4`.&quot;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="c1"># LoRA parameters</span>
+            <span class="s2">&quot;lora_r&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Lora r&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;lora_alpha&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Lora alpha&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;lora_dropout&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span><span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span> <span class="n">default_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Lora dropout&quot;</span><span class="p">),</span>
+            <span class="c1"># data parameters</span>
+            <span class="s2">&quot;train_data_config&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">DataConfig</span><span class="p">,</span> <span class="n">Dict</span><span class="p">],</span>
+                <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Data config for fine-tuning training. If `eval_data_config` is not provided and&quot;</span>
+                    <span class="s2">&quot; `eval_dataset_size` is not None, the data will be split into train and eval. Otherwise, the data&quot;</span>
+                    <span class="s2">&quot; will be used for training only.&quot;</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;eval_data_config&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">DataConfig</span><span class="p">,</span> <span class="n">Dict</span><span class="p">],</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Data config for fine-tuning evaluation. Optional if `eval_dataset_size` is provided or evaluation&quot;</span>
+                    <span class="s2">&quot; is not needed.&quot;</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
+            <span class="s2">&quot;eval_dataset_size&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+                <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Size of the validation dataset. Should be either positive and smaller than the number of train&quot;</span>
+                    <span class="s2">&quot; sample or a float in the (0, 1) range. If `eval_data_config` is provided, this parameter will be&quot;</span>
+                    <span class="s2">&quot; ignored.&quot;</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
+            <span class="c1"># training parameters</span>
+            <span class="s2">&quot;training_args&quot;</span><span class="p">:</span> <span class="n">PassConfigParam</span><span class="p">(</span>
+                <span class="n">type_</span><span class="o">=</span><span class="n">Union</span><span class="p">[</span><span class="n">HFTrainingArguments</span><span class="p">,</span> <span class="n">Dict</span><span class="p">],</span>
+                <span class="n">default_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">&quot;Training arguments. If None, will use default arguments. See HFTrainingArguments for more details.&quot;</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">_run_for_config</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModel</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PyTorchModel</span><span class="p">:</span>
+        <span class="n">transformers_version</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">__version__</span>
+        <span class="k">if</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">transformers_version</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">&quot;4.30.0&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;QLoRA pass only supports transformers &gt;= 4.30.0, but </span><span class="si">{</span><span class="n">transformers_version</span><span class="si">}</span><span class="s2"> is used.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+            <span class="n">allow_tf32</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">matmul</span><span class="o">.</span><span class="n">allow_tf32</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">matmul</span><span class="o">.</span><span class="n">allow_tf32</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="c1"># convert config to pass config class</span>
+        <span class="c1"># this will validate the config and convert to the correct types</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config_class</span><span class="p">(</span><span class="o">**</span><span class="n">config</span><span class="p">)</span>
+
+        <span class="c1"># use default training args if not provided</span>
+        <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span> <span class="ow">or</span> <span class="n">HFTrainingArguments</span><span class="p">()</span>
+
+        <span class="c1"># get model and tokenizer</span>
+        <span class="n">new_model</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_model_tokenizer</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+        <span class="c1"># get datasets</span>
+        <span class="n">train_dataset</span><span class="p">,</span> <span class="n">eval_dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_datasets</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">data_root</span><span class="p">)</span>
+
+        <span class="c1"># get training arguments</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">evaluation_strategy</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">eval_dataset</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;evaluation_strategy is None, but eval_dataset is not None. Please set evaluation_strategy if&quot;</span>
+                <span class="s2">&quot; evaluation is needed while training.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">evaluation_strategy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">eval_dataset</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;evaluation_strategy is not None, but eval_dataset is None. Setting evaluation_strategy to &#39;no&#39;.&quot;</span>
+            <span class="p">)</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">evaluation_strategy</span> <span class="o">=</span> <span class="s2">&quot;no&quot;</span>
+
+        <span class="c1"># We always create a temp dir even if output_dir is provided because we want the temp dir to be deleted</span>
+        <span class="c1"># after training or if there is an error</span>
+        <span class="c1"># With a context manager, the temp dir will be deleted automatically as soon as the context is exited or</span>
+        <span class="c1"># there is an error</span>
+        <span class="c1"># If we do `tmp_dir = tempfile.TemporaryDirectory(prefix=&quot;olive_tmp&quot;)` and there is an error before</span>
+        <span class="c1"># cleanup or run returns (tmp_dir goes out of scopt), the temp dir will not be deleted until the the exception</span>
+        <span class="c1"># is handled by the caller (after try except) or the program exits</span>
+        <span class="c1"># Plus the cleanup after error doesn&#39;t work as expected with notebooks</span>
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;olive_tmp&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">temp_dir</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;No training_output_dir provided. Using a temp dir.&quot;</span><span class="p">)</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="n">temp_dir</span>
+                <span class="c1"># set save_total_limit to 1 since the temp dir will be deleted after training</span>
+                <span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">extra_args</span><span class="p">[</span><span class="s2">&quot;save_total_limit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+
+            <span class="c1"># get trainer</span>
+            <span class="n">trainer</span> <span class="o">=</span> <span class="n">transformers</span><span class="o">.</span><span class="n">Trainer</span><span class="p">(</span>
+                <span class="n">model</span><span class="o">=</span><span class="n">pytorch_model</span><span class="p">,</span>
+                <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span>
+                <span class="n">args</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">create_training_args</span><span class="p">(),</span>
+                <span class="n">train_dataset</span><span class="o">=</span><span class="n">train_dataset</span><span class="p">,</span>
+                <span class="n">eval_dataset</span><span class="o">=</span><span class="n">eval_dataset</span><span class="p">,</span>
+                <span class="n">data_collator</span><span class="o">=</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collate_batch</span><span class="p">,</span> <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="c1"># TODO(jambayk): trainer callback for saving might be needed for DDP training</span>
+            <span class="c1"># worry about this later</span>
+
+            <span class="c1"># train</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running QLoRA fine-tuning&quot;</span><span class="p">)</span>
+            <span class="n">train_result</span> <span class="o">=</span> <span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;train_result: </span><span class="si">{</span><span class="n">train_result</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">backends</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">matmul</span><span class="o">.</span><span class="n">allow_tf32</span> <span class="o">=</span> <span class="n">allow_tf32</span>
+
+        <span class="c1"># save adapter weights</span>
+        <span class="n">adapter_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_model_path</span><span class="p">)</span> <span class="o">/</span> <span class="s2">&quot;adapter&quot;</span>
+        <span class="n">adapter_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">pytorch_model</span><span class="o">.</span><span class="n">save_pretrained</span><span class="p">(</span><span class="n">adapter_path</span><span class="p">)</span>
+
+        <span class="c1"># remove loaded model</span>
+        <span class="n">new_model</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># remove the device map since we don&#39;t want &quot;auto&quot; device map</span>
+        <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="o">.</span><span class="n">device_map</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># remove model_overwrites from model_attributes</span>
+        <span class="k">if</span> <span class="n">new_model</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">QLoRA</span><span class="o">.</span><span class="n">model_overwrites</span><span class="p">:</span>
+                <span class="n">new_model</span><span class="o">.</span><span class="n">model_attributes</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="c1"># set adapter_path</span>
+        <span class="n">new_model</span><span class="o">.</span><span class="n">set_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">,</span> <span class="n">adapter_path</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">new_model</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_model_tokenizer</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">PyTorchModel</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">PyTorchModel</span><span class="p">,</span> <span class="n">transformers</span><span class="o">.</span><span class="n">PreTrainedModel</span><span class="p">,</span> <span class="n">transformers</span><span class="o">.</span><span class="n">PreTrainedTokenizer</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the Olive model, PyTorch model and tokenizer for QLoRA fine-tuning.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">peft</span> <span class="kn">import</span> <span class="n">LoraConfig</span><span class="p">,</span> <span class="n">get_peft_model</span><span class="p">,</span> <span class="n">prepare_model_for_kbit_training</span>
+        <span class="kn">from</span> <span class="nn">peft.tuners.lora</span> <span class="kn">import</span> <span class="n">LoraLayer</span>
+        <span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">AutoTokenizer</span>
+
+        <span class="c1"># don&#39;t want the original loaded model</span>
+        <span class="c1"># also frees gpu memory if original model is on gpu</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># create copy of the input model, will modify this model</span>
+        <span class="n">new_model</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;QLoRA pass only supports PyTorchModel with hf_config.&quot;</span><span class="p">)</span>
+
+        <span class="n">model_name</span> <span class="o">=</span> <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span>
+        <span class="n">task</span> <span class="o">=</span> <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span>
+
+        <span class="c1"># get peft task type</span>
+        <span class="n">peft_task_type</span> <span class="o">=</span> <span class="n">get_peft_task_type_from_task</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">fail_on_not_found</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># compute_dtype</span>
+        <span class="n">supported_dtypes</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;bfloat16&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">bfloat16</span><span class="p">,</span>
+            <span class="s2">&quot;float16&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">float16</span><span class="p">,</span>
+            <span class="s2">&quot;float32&quot;</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">compute_dtype</span> <span class="ow">in</span> <span class="n">supported_dtypes</span>
+        <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;compute_dtype must be one of </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">supported_dtypes</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2"> but got </span><span class="si">{</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;compute_dtype&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">compute_dtype</span> <span class="o">=</span> <span class="n">supported_dtypes</span><span class="p">[</span><span class="n">config</span><span class="o">.</span><span class="n">compute_dtype</span><span class="p">]</span>
+
+        <span class="c1"># load model, reset model_loading_args and adapter_path</span>
+        <span class="n">model_loading_args</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="p">:</span>
+            <span class="n">model_loading_args</span> <span class="o">=</span> <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">QLoRA</span><span class="o">.</span><span class="n">model_overwrites</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">model_loading_args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Input model has model_loading_args.</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">. Ignoring. QLoRA will overwrite it based on the pass&quot;</span>
+                        <span class="s2">&quot; config.&quot;</span>
+                    <span class="p">)</span>
+        <span class="n">model_loading_args</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;torch_dtype&quot;</span><span class="p">:</span> <span class="n">compute_dtype</span><span class="p">,</span>
+                <span class="c1"># TODO(jambayk): Worry about `use_multi_gpu` and distributed training later</span>
+                <span class="c1"># this uses all available GPUs, model parallel</span>
+                <span class="s2">&quot;device_map&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;quantization_method&quot;</span><span class="p">:</span> <span class="s2">&quot;bitsandbytes&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;quantization_config&quot;</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">&quot;load_in_4bit&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                    <span class="s2">&quot;bnb_4bit_compute_dtype&quot;</span><span class="p">:</span> <span class="n">compute_dtype</span><span class="p">,</span>
+                    <span class="s2">&quot;bnb_4bit_use_double_quant&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">double_quant</span><span class="p">,</span>
+                    <span class="s2">&quot;bnb_4bit_quant_type&quot;</span><span class="p">:</span> <span class="n">config</span><span class="o">.</span><span class="n">quant_type</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="n">new_model</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_loading_args</span> <span class="o">=</span> <span class="n">HFModelLoadingArgs</span><span class="p">(</span><span class="o">**</span><span class="n">model_loading_args</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">new_model</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Input model has adapter_path. Ignoring. QLoRA will save the adapter weights to its own adapter_path.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">new_model</span><span class="o">.</span><span class="n">set_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="n">new_model</span><span class="o">.</span><span class="n">load_model</span><span class="p">()</span>
+        <span class="c1"># set model_parallel and is_parallelizable to True</span>
+        <span class="c1"># we are using &quot;auto&quot; device_map, so model_parallel is True or doing DDP</span>
+        <span class="c1"># don&#39;t want the trainer to do Data Parallel</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="s2">&quot;model_parallel&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="s2">&quot;is_parallelizable&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">pytorch_model</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">torch_dtype</span> <span class="o">=</span> <span class="n">compute_dtype</span>
+
+        <span class="c1"># tokenizer</span>
+        <span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span>
+
+        <span class="c1"># if there is no pad token, add to tokenizer and model</span>
+        <span class="c1"># TODO(jambayk): Do this in a better way since the embedding size might become unoptimal</span>
+        <span class="c1"># (not a multiple of 64, etc) perhaps use eos_token as pad_token, but need to ensure the actual eos_token</span>
+        <span class="c1"># at the end of the sequence is not masked (both in attention mask and loss calculation)</span>
+        <span class="k">if</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">pad_token_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">smart_tokenizer_and_embedding_resize</span><span class="p">(</span>
+                <span class="n">special_tokens_dict</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;pad_token&quot;</span><span class="p">:</span> <span class="n">DEFAULT_PAD_TOKEN</span><span class="p">},</span> <span class="n">tokenizer</span><span class="o">=</span><span class="n">tokenizer</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">pytorch_model</span>
+            <span class="p">)</span>
+        <span class="c1"># TODO(jambayk): need to see if we still need this line</span>
+        <span class="c1"># https://github.com/artidoro/qlora/blob/main/qlora.py#L362</span>
+
+        <span class="c1"># prepare model for kbit training</span>
+        <span class="c1"># Note: this also converts all float16 and bfloat16 parameters to float32</span>
+        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="n">prepare_model_for_kbit_training</span><span class="p">(</span>
+            <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">use_gradient_checkpointing</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">gradient_checkpointing</span>
+        <span class="p">)</span>
+
+        <span class="c1"># TODO(jambayk): should we make this optional? fp16 is unstable?</span>
+        <span class="c1"># https://github.com/artidoro/qlora/blob/main/qlora.py#L396 doesn&#39;t work for all models</span>
+        <span class="c1"># mismatch between dtypes</span>
+        <span class="c1"># we will just undo the float32 casting from prepare_model_for_kbit_training and cast to compute_dtype</span>
+        <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">pytorch_model</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">:</span>
+                <span class="n">param</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">compute_dtype</span><span class="p">)</span>
+
+        <span class="c1"># add lora modules</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Adding LoRA modules&quot;</span><span class="p">)</span>
+        <span class="c1"># this doesn&#39;t pick up the embedding layer and projection layer since those are not quantized</span>
+        <span class="c1"># this is good since we don&#39;t want to touch those, LoRA might not work with input output embedding layers</span>
+        <span class="n">modules</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">find_all_linear_names</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">)</span>
+        <span class="n">lora_config</span> <span class="o">=</span> <span class="n">LoraConfig</span><span class="p">(</span>
+            <span class="n">r</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">lora_r</span><span class="p">,</span>
+            <span class="n">lora_alpha</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">lora_alpha</span><span class="p">,</span>
+            <span class="n">lora_dropout</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">lora_dropout</span><span class="p">,</span>
+            <span class="n">target_modules</span><span class="o">=</span><span class="n">modules</span><span class="p">,</span>
+            <span class="n">bias</span><span class="o">=</span><span class="s2">&quot;none&quot;</span><span class="p">,</span>
+            <span class="n">task_type</span><span class="o">=</span><span class="n">peft_task_type</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">pytorch_model</span> <span class="o">=</span> <span class="n">get_peft_model</span><span class="p">(</span><span class="n">pytorch_model</span><span class="p">,</span> <span class="n">lora_config</span><span class="p">)</span>
+
+        <span class="c1"># cast lora modules to compute_dtype</span>
+        <span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="n">pytorch_model</span><span class="o">.</span><span class="n">modules</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">LoraLayer</span><span class="p">):</span>
+                <span class="c1"># TODO(jambayk): why only cast for bfloat16? https://github.com/artidoro/qlora/blob/main/qlora.py#L397</span>
+                <span class="n">module</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">compute_dtype</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">new_model</span><span class="p">,</span> <span class="n">pytorch_model</span><span class="p">,</span> <span class="n">tokenizer</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">smart_tokenizer_and_embedding_resize</span><span class="p">(</span>
+        <span class="n">special_tokens_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">tokenizer</span><span class="p">:</span> <span class="n">transformers</span><span class="o">.</span><span class="n">PreTrainedTokenizer</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">transformers</span><span class="o">.</span><span class="n">PreTrainedModel</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Resize the tokenizer and the model embedding layer to take into account new special tokens.&quot;&quot;&quot;</span>
+        <span class="c1"># resize tokenizer</span>
+        <span class="n">num_new_tokens</span> <span class="o">=</span> <span class="n">tokenizer</span><span class="o">.</span><span class="n">add_special_tokens</span><span class="p">(</span><span class="n">special_tokens_dict</span><span class="p">)</span>
+        <span class="c1"># resize model embedding layer</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">resize_token_embeddings</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">tokenizer</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">num_new_tokens</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Added </span><span class="si">{</span><span class="n">num_new_tokens</span><span class="si">}</span><span class="s2"> new tokens to tokenizer and resized model embedding layer.&quot;</span><span class="p">)</span>
+            <span class="n">input_embeddings_data</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_input_embeddings</span><span class="p">()</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span>
+            <span class="n">output_embeddings_data</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">get_output_embeddings</span><span class="p">()</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span>
+
+            <span class="c1"># average the embeddings of the pre-existing tokens</span>
+            <span class="n">input_embeddings_avg</span> <span class="o">=</span> <span class="n">input_embeddings_data</span><span class="p">[:</span><span class="o">-</span><span class="n">num_new_tokens</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">output_embeddings_avg</span> <span class="o">=</span> <span class="n">output_embeddings_data</span><span class="p">[:</span><span class="o">-</span><span class="n">num_new_tokens</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="c1"># set the new embeddings to the average</span>
+            <span class="n">input_embeddings_data</span><span class="p">[</span><span class="o">-</span><span class="n">num_new_tokens</span><span class="p">:]</span> <span class="o">=</span> <span class="n">input_embeddings_avg</span>
+            <span class="n">output_embeddings_data</span><span class="p">[</span><span class="o">-</span><span class="n">num_new_tokens</span><span class="p">:]</span> <span class="o">=</span> <span class="n">output_embeddings_avg</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">find_all_linear_names</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find all linear layers in a model.&quot;&quot;&quot;</span>
+        <span class="kn">import</span> <span class="nn">bitsandbytes</span> <span class="k">as</span> <span class="nn">bnb</span>
+
+        <span class="n">linear_cls</span> <span class="o">=</span> <span class="n">bnb</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Linear4bit</span>
+        <span class="n">lora_module_names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">module</span> <span class="ow">in</span> <span class="n">model</span><span class="o">.</span><span class="n">named_modules</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">linear_cls</span><span class="p">):</span>
+                <span class="n">lora_module_names</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">lora_module_names</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_datasets</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load training and evaluation datasets.&quot;&quot;&quot;</span>
+        <span class="n">train_data_config</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">train_data_config</span>
+        <span class="n">eval_data_config</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">eval_data_config</span>
+        <span class="n">eval_dataset_size</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">eval_dataset_size</span>
+
+        <span class="c1"># load training dataset</span>
+        <span class="n">train_data_container</span> <span class="o">=</span> <span class="n">train_data_config</span><span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
+        <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">train_data_container</span><span class="o">.</span><span class="n">pre_process</span><span class="p">(</span><span class="n">train_data_container</span><span class="o">.</span><span class="n">load_dataset</span><span class="p">(</span><span class="n">data_root</span><span class="p">))</span>
+        <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">train_dataset</span><span class="o">.</span><span class="n">to_hf_dataset</span><span class="p">(</span><span class="n">label_name</span><span class="o">=</span><span class="s2">&quot;labels&quot;</span><span class="p">)</span>
+
+        <span class="c1"># load evaluation dataset if needed</span>
+        <span class="k">if</span> <span class="n">eval_data_config</span><span class="p">:</span>
+            <span class="c1"># eval data config has been provided</span>
+            <span class="n">eval_data_container</span> <span class="o">=</span> <span class="n">eval_data_config</span><span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
+            <span class="n">eval_dataset</span> <span class="o">=</span> <span class="n">eval_data_container</span><span class="o">.</span><span class="n">pre_process</span><span class="p">(</span><span class="n">eval_data_container</span><span class="o">.</span><span class="n">load_dataset</span><span class="p">(</span><span class="n">data_root</span><span class="p">))</span>
+            <span class="n">eval_dataset</span> <span class="o">=</span> <span class="n">eval_dataset</span><span class="o">.</span><span class="n">to_hf_dataset</span><span class="p">(</span><span class="n">label_name</span><span class="o">=</span><span class="s2">&quot;labels&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">eval_dataset_size</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">eval_dataset_size</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># when eval_dataset_size is an integer, it is the number of samples</span>
+                <span class="n">eval_dataset_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">eval_dataset_size</span><span class="p">)</span>
+            <span class="c1"># eval data config has not been provided, but eval_dataset_size has been provided</span>
+            <span class="n">split_data</span> <span class="o">=</span> <span class="n">train_dataset</span><span class="o">.</span><span class="n">train_test_split</span><span class="p">(</span>
+                <span class="n">test_size</span><span class="o">=</span><span class="n">eval_dataset_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">training_args</span><span class="o">.</span><span class="n">data_seed</span>
+            <span class="p">)</span>
+            <span class="n">train_dataset</span> <span class="o">=</span> <span class="n">split_data</span><span class="p">[</span><span class="s2">&quot;train&quot;</span><span class="p">]</span>
+            <span class="n">eval_dataset</span> <span class="o">=</span> <span class="n">split_data</span><span class="p">[</span><span class="s2">&quot;test&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># eval data config has not been provided, and eval_dataset_size has not been provided</span>
+            <span class="n">eval_dataset</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">train_dataset</span><span class="p">,</span> <span class="n">eval_dataset</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">collate_batch</span><span class="p">(</span><span class="n">batch</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> <span class="n">tokenizer</span><span class="p">:</span> <span class="n">transformers</span><span class="o">.</span><span class="n">PreTrainedTokenizer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Collate a batch of samples into a padded batch of tensors.</span>
+
+<span class="sd">        Add padding to the input_ids, attention_mask and labels.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">torch.nn.utils.rnn</span> <span class="kn">import</span> <span class="n">pad_sequence</span>
+
+        <span class="n">input_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">sample</span><span class="p">[</span><span class="s2">&quot;input_ids&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">]</span>
+        <span class="n">attention_mask</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="s2">&quot;attention_mask&quot;</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">attention_mask</span> <span class="o">=</span> <span class="p">[</span><span class="n">sample</span><span class="p">[</span><span class="s2">&quot;attention_mask&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">]</span>
+        <span class="n">label_col</span> <span class="o">=</span> <span class="s2">&quot;labels&quot;</span> <span class="k">if</span> <span class="s2">&quot;labels&quot;</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">else</span> <span class="s2">&quot;label&quot;</span>
+        <span class="k">if</span> <span class="n">label_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Batch does not contain &#39;labels&#39; or &#39;label&#39; column.&quot;</span><span class="p">)</span>
+        <span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="n">sample</span><span class="p">[</span><span class="n">label_col</span><span class="p">]</span> <span class="k">for</span> <span class="n">sample</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">]</span>
+
+        <span class="c1"># apply padding and add to batch</span>
+        <span class="n">new_batch</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;input_ids&quot;</span><span class="p">:</span> <span class="n">pad_sequence</span><span class="p">(</span><span class="n">input_ids</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">padding_value</span><span class="o">=</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">pad_token_id</span><span class="p">),</span>
+            <span class="s2">&quot;labels&quot;</span><span class="p">:</span> <span class="n">pad_sequence</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">padding_value</span><span class="o">=</span><span class="n">IGNORE_INDEX</span><span class="p">),</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">attention_mask</span><span class="p">:</span>
+            <span class="n">new_batch</span><span class="p">[</span><span class="s2">&quot;attention_mask&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pad_sequence</span><span class="p">(</span><span class="n">attention_mask</span><span class="p">,</span> <span class="n">batch_first</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">padding_value</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">new_batch</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

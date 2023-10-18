@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>olive.model &mdash; Olive  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/autodoc_pydantic.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/tabs.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/width.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js?v=b3ba4146"></script>
+        <script src="../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../../_static/tabs.js?v=3030b3cb"></script>
+        <script src="../../_static/js/custom_version.js?v=3856a39b"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Olive
+          </a>
+              <div class="version">
+                0.3.3
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">OVERVIEW</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../overview/olive.html">Olive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../overview/quicktour.html">Quick Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../overview/options.html">Olive Options</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">GET STARTED</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../getstarted/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../getstarted/quickstart_examples.html">Quickstart Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXAMPLES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Acceleration on CPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html#acceleration-on-gpu">Acceleration on GPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html#acceleration-on-npu">Acceleration on NPU</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html#acceleration-on-dpu">Acceleration on DPU</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">FEATURES</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../features/model_transformations_and_optimizations.html">Model Transformations and Optimizations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features/huggingface_model_optimization.html">Huggingface Model Optimization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features/packaging_output_models.html">Packaging Olive artifacts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features/custom_scripts.html">Custom Scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../features/azureml_integration.html">Azure ML integration</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">EXTENDING OLIVE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../extending_olive/design.html">Design</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../extending_olive/how_to_add_optimization_pass.html">How to add new optimization Pass</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">TUTORIALS</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_systems.html">How To Configure System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_metrics.html">How To Configure Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_pass.html">How To Configure Pass</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_data.html">How To Configure Data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/configure_model_path.html">How To Set Model Path</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/advanced_users.html">Advanced User Tour</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/azure_arc.html">Self-hosted Kubernetes cluster</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/azureml_scripts.html">Azure ML scripts</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API REFERENCE</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/models.html">OliveModels</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/resource_path.html">ResourcePath</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/systems.html">OliveSystems</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/evaluator.html">OliveEvaluator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/metric.html">Metric</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/search-algorithms.html">SearchAlgorithms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/engine.html">Engine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/passes.html">Passes</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Olive</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">olive.model</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for olive.model</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -------------------------------------------------------------------------</span>
+<span class="c1"># Copyright (c) Microsoft Corporation. All rights reserved.</span>
+<span class="c1"># Licensed under the MIT License.</span>
+<span class="c1"># --------------------------------------------------------------------------</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">from</span> <span class="nn">abc</span> <span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span> <span class="nn">copy</span> <span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">ClassVar</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span> <span class="nn">onnx</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">yaml</span>
+<span class="kn">from</span> <span class="nn">onnx</span> <span class="kn">import</span> <span class="n">AttributeProto</span><span class="p">,</span> <span class="n">GraphProto</span>
+<span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">validator</span>
+
+<span class="kn">import</span> <span class="nn">olive.data.template</span> <span class="k">as</span> <span class="nn">data_config_template</span>
+<span class="kn">from</span> <span class="nn">olive.common.config_utils</span> <span class="kn">import</span> <span class="n">ConfigBase</span><span class="p">,</span> <span class="n">serialize_to_json</span><span class="p">,</span> <span class="n">validate_config</span>
+<span class="kn">from</span> <span class="nn">olive.common.ort_inference</span> <span class="kn">import</span> <span class="n">get_ort_inference_session</span>
+<span class="kn">from</span> <span class="nn">olive.common.user_module_loader</span> <span class="kn">import</span> <span class="n">UserModuleLoader</span>
+<span class="kn">from</span> <span class="nn">olive.constants</span> <span class="kn">import</span> <span class="n">Framework</span><span class="p">,</span> <span class="n">ModelFileFormat</span>
+<span class="kn">from</span> <span class="nn">olive.hardware</span> <span class="kn">import</span> <span class="n">AcceleratorLookup</span><span class="p">,</span> <span class="n">Device</span>
+<span class="kn">from</span> <span class="nn">olive.model.hf_utils</span> <span class="kn">import</span> <span class="n">HFConfig</span><span class="p">,</span> <span class="n">get_hf_model_dummy_input</span><span class="p">,</span> <span class="n">huggingface_model_loader</span>
+<span class="kn">from</span> <span class="nn">olive.model.model_config</span> <span class="kn">import</span> <span class="n">IOConfig</span>
+<span class="kn">from</span> <span class="nn">olive.resource_path</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span>
+    <span class="n">ResourcePath</span><span class="p">,</span>
+    <span class="n">ResourcePathConfig</span><span class="p">,</span>
+    <span class="n">ResourceType</span><span class="p">,</span>
+    <span class="n">create_resource_path</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">olive.snpe</span> <span class="kn">import</span> <span class="n">SNPEDevice</span><span class="p">,</span> <span class="n">SNPEInferenceSession</span><span class="p">,</span> <span class="n">SNPESessionOptions</span>
+<span class="kn">from</span> <span class="nn">olive.snpe.tools.dev</span> <span class="kn">import</span> <span class="n">get_dlc_metrics</span>
+
+<span class="n">REGISTRY</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">OliveModel</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstraction for logical &quot;Model&quot;, it contains model path and related metadata.</span>
+
+<span class="sd">    Each technique accepts Model as input, return Model as output.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">resource_keys</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;model_path&quot;</span><span class="p">]</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Register the model.&quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init_subclass__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">REGISTRY</span><span class="p">[</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span> <span class="o">=</span> <span class="bp">cls</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">framework</span><span class="p">:</span> <span class="n">Framework</span><span class="p">,</span>
+        <span class="n">model_file_format</span><span class="p">:</span> <span class="n">ModelFileFormat</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">framework</span> <span class="o">=</span> <span class="n">framework</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">=</span> <span class="n">model_file_format</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">composite_parent</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span> <span class="o">=</span> <span class="n">model_attributes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># store resource paths</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">resources</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">resources</span><span class="p">[</span><span class="s2">&quot;model_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_resources</span><span class="p">(</span><span class="n">resources</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return local model path.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;model_path&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">add_resources</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resources</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">]):</span>
+        <span class="k">for</span> <span class="n">resource_name</span><span class="p">,</span> <span class="n">resource_path</span> <span class="ow">in</span> <span class="n">resources</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">resource_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">resolved_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="p">(</span>
+                    <span class="n">resolved_resource_path</span><span class="o">.</span><span class="n">is_local_resource_or_string_name</span><span class="p">()</span>
+                <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource_name</span><span class="si">}</span><span class="s2"> must be local path or string name.&quot;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">resolved_resource_path</span><span class="o">.</span><span class="n">get_path</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">set_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">resource_path</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ResourcePath</span><span class="p">,</span> <span class="n">ResourcePathConfig</span><span class="p">]):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set resource path.</span>
+
+<span class="sd">        :param resource_name: name of the resource.</span>
+<span class="sd">        :param resource_path: resource path.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">resource_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource_name</span><span class="si">}</span><span class="s2"> is not a valid resource name.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Overriding </span><span class="si">{</span><span class="n">resource_name</span><span class="si">}</span><span class="s2"> from </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">resource_path</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">resource_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">resolved_resource_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">resource_path</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="n">resolved_resource_path</span><span class="o">.</span><span class="n">is_local_resource_or_string_name</span><span class="p">()</span>
+            <span class="p">),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource_name</span><span class="si">}</span><span class="s2"> must be local path or string name.&quot;</span>
+            <span class="n">resource_path</span> <span class="o">=</span> <span class="n">resolved_resource_path</span><span class="o">.</span><span class="n">get_path</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">resource_path</span>
+
+    <span class="k">def</span> <span class="nf">get_resource</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">resource_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get local path of a resource.</span>
+
+<span class="sd">        :param resource_name: name of the resource.</span>
+<span class="sd">        :return: local path.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">resource_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">resource_name</span><span class="si">}</span><span class="s2"> is not a valid resource name.&quot;</span>
+        <span class="n">resource</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="p">[</span><span class="n">resource_name</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">resource</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resource</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">resource</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Load model from disk, return in-memory model object.</span>
+
+<span class="sd">        Derived class should implement its specific logic if needed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare inference session for Olive model, return in-memory inference session.</span>
+
+<span class="sd">        Derived class should implement its specific logic if needed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">set_composite_parent</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cp</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">composite_parent</span> <span class="o">=</span> <span class="n">cp</span>
+
+    <span class="k">def</span> <span class="nf">get_composite_parent</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">composite_parent</span>
+
+    <span class="k">def</span> <span class="nf">get_io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span>
+
+    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="c1"># serialize resource paths</span>
+                <span class="n">resource_name</span><span class="p">:</span> <span class="n">resource_path</span> <span class="k">if</span> <span class="n">resource_path</span> <span class="k">else</span> <span class="kc">None</span>
+                <span class="k">for</span> <span class="n">resource_name</span><span class="p">,</span> <span class="n">resource_path</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">resource_paths</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;model_attributes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">})</span>
+        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ModelConfig"><a class="viewcode-back" href="../../api/models.html#olive.model.ModelConfig">[docs]</a><span class="k">class</span> <span class="nc">ModelConfig</span><span class="p">(</span><span class="n">ConfigBase</span><span class="p">):</span>
+    <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span>  <span class="c1"># noqa: A003</span>
+    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span>
+
+    <span class="nd">@validator</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">validate_type</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">REGISTRY</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown model type </span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">v</span>
+
+    <span class="k">def</span> <span class="nf">get_resource_keys</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="n">REGISTRY</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">resource_keys</span>
+
+    <span class="k">def</span> <span class="nf">get_resource_paths</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">resource_keys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource_keys</span><span class="p">()</span>
+        <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">resource_keys</span><span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">create_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">REGISTRY</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">lower</span><span class="p">()](</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">ONNXModelBase</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract class to manage ONNX models.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">use_ort_extensions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">ONNX</span><span class="p">,</span>
+            <span class="n">model_file_format</span><span class="o">=</span><span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">ONNX</span><span class="p">,</span>
+            <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
+            <span class="n">model_attributes</span><span class="o">=</span><span class="n">model_attributes</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span> <span class="o">=</span> <span class="n">inference_settings</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">use_ort_extensions</span> <span class="o">=</span> <span class="n">use_ort_extensions</span>
+
+    <span class="k">def</span> <span class="nf">_is_valid_ep</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ep</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># TODO(shaahji): should be remove if future accelerators is implemented</span>
+        <span class="c1"># It should be a bug for onnxruntime where the execution provider is not be fallback.</span>
+        <span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">sess_options</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">SessionOptions</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_ort_extensions</span><span class="p">:</span>
+                <span class="c1"># register custom ops for onnxruntime-extensions</span>
+                <span class="kn">from</span> <span class="nn">onnxruntime_extensions</span> <span class="kn">import</span> <span class="n">get_library_path</span>
+
+                <span class="n">sess_options</span><span class="o">.</span><span class="n">register_custom_ops_library</span><span class="p">(</span><span class="n">get_library_path</span><span class="p">())</span>
+
+            <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">sess_options</span><span class="p">,</span> <span class="n">providers</span><span class="o">=</span><span class="p">[</span><span class="n">ep</span><span class="p">])</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">Olive will ignore this </span><span class="si">{</span><span class="n">ep</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Please make sure the environment with </span><span class="si">{</span><span class="n">ep</span><span class="si">}</span><span class="s2"> has the required dependencies.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">get_default_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a list of supported default execution providers.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="ONNXModel"><a class="viewcode-back" href="../../api/models.html#olive.model.ONNXModel">[docs]</a><span class="k">class</span> <span class="nc">ONNXModel</span><span class="p">(</span><span class="n">ONNXModelBase</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">onnx_file_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">use_ort_extensions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
+            <span class="n">inference_settings</span><span class="o">=</span><span class="n">inference_settings</span><span class="p">,</span>
+            <span class="n">use_ort_extensions</span><span class="o">=</span><span class="n">use_ort_extensions</span><span class="p">,</span>
+            <span class="n">model_attributes</span><span class="o">=</span><span class="n">model_attributes</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">onnx_file_name</span> <span class="o">=</span> <span class="n">onnx_file_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">graph</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">all_graphs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">GraphProto</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># check for onnx file name since it will do validation</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_path</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_onnx_file_path</span><span class="p">(</span><span class="n">model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">onnx_file_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the path to the ONNX model file.</span>
+
+<span class="sd">        If model_path is a file, it is returned as is. If model_path is a</span>
+<span class="sd">        directory, the onnx_file_name is appended to it and the resulting path is returned. If onnx_file_name is not</span>
+<span class="sd">        specified, it is inferred if there is only one .onnx file in the directory, else an error is raised.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="n">Path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">(),</span> <span class="sa">f</span><span class="s2">&quot;Model path </span><span class="si">{</span><span class="n">model_path</span><span class="si">}</span><span class="s2"> does not exist&quot;</span>
+
+        <span class="c1"># if model_path is a file, return it as is</span>
+        <span class="k">if</span> <span class="n">Path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="k">return</span> <span class="n">model_path</span>
+
+        <span class="c1"># if model_path is a directory, append onnx_file_name to it</span>
+        <span class="k">if</span> <span class="n">onnx_file_name</span><span class="p">:</span>
+            <span class="n">onnx_file_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span> <span class="o">/</span> <span class="n">onnx_file_name</span>
+            <span class="k">assert</span> <span class="n">onnx_file_path</span><span class="o">.</span><span class="n">exists</span><span class="p">(),</span> <span class="sa">f</span><span class="s2">&quot;ONNX model file </span><span class="si">{</span><span class="n">onnx_file_path</span><span class="si">}</span><span class="s2"> does not exist&quot;</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">onnx_file_path</span><span class="p">)</span>
+
+        <span class="c1"># try to infer onnx_file_name</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+            <span class="s2">&quot;model_path is a directory but onnx_file_name is not specified. Trying to infer it. It is recommended to&quot;</span>
+            <span class="s2">&quot; specify onnx_file_name explicitly.&quot;</span>
+        <span class="p">)</span>
+        <span class="n">onnx_file_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.onnx&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">onnx_file_names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">onnx_file_names</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">onnx_file_names</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Multiple .onnx model files found in the model folder </span><span class="si">{</span><span class="n">model_path</span><span class="si">}</span><span class="s2">. Please specify one using the&quot;</span>
+                <span class="s2">&quot; onnx_file_name argument.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No .onnx file found in the model folder </span><span class="si">{</span><span class="n">model_path</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_path</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">model_path</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">model_path</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_onnx_file_path</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">onnx_file_name</span><span class="p">)</span> <span class="k">if</span> <span class="n">model_path</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">resolve_path</span><span class="p">(</span><span class="n">file_or_dir_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model_filename</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;model.onnx&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model full path.</span>
+
+<span class="sd">        The engine provides output paths to ONNX passes that do not contain .onnx extension</span>
+<span class="sd">        (these paths are generally locations in the cache). This function will convert such</span>
+<span class="sd">        paths to absolute file paths and also ensure the parent directories exist.</span>
+<span class="sd">        If the input path is already an ONNX file it is simply returned. Examples:</span>
+
+<span class="sd">        resolve_path(&quot;c:/foo/bar.onnx&quot;) -&gt; c:/foo/bar.onnx</span>
+
+<span class="sd">        resolve_path(&quot;c:/foo/bar&quot;) -&gt; c:/foo/bar/model.onnx</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">file_or_dir_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span> <span class="o">!=</span> <span class="s2">&quot;.onnx&quot;</span><span class="p">:</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="n">path</span> <span class="o">/</span> <span class="n">model_filename</span>
+            <span class="n">parent_dir</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">parent</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">parent_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="n">parent_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">onnx</span><span class="o">.</span><span class="n">ModelProto</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">onnx</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="c1"># user provided inference_settings &gt; model&#39;s inference_settings &gt; default settings</span>
+        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">inference_settings</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="c1"># deep copy to avoid modifying the original settings</span>
+        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">inference_settings</span><span class="p">)</span>
+
+        <span class="c1"># if user doesn&#39;t not provide ep list, use default value([ep]). Otherwise, use the user&#39;s ep list</span>
+        <span class="c1"># user provided ep list &gt; eps given by arguments &gt; default eps</span>
+        <span class="n">execution_providers</span> <span class="o">=</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">execution_providers</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">execution_providers</span><span class="p">:</span>
+            <span class="n">execution_providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_default_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">execution_providers</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">execution_providers</span> <span class="o">=</span> <span class="p">[</span><span class="n">execution_providers</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># the execution_providers is a list</span>
+            <span class="k">pass</span>
+        <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;execution_provider&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">execution_providers</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">rank</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">inference_settings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;provider_options&quot;</span><span class="p">):</span>
+            <span class="n">inference_settings</span><span class="p">[</span><span class="s2">&quot;provider_options&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">{</span><span class="s2">&quot;device_id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">rank</span><span class="p">)}</span> <span class="k">if</span> <span class="n">ep</span> <span class="o">==</span> <span class="s2">&quot;CUDAExecutionProvider&quot;</span> <span class="k">else</span> <span class="p">{}</span> <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">execution_providers</span>
+            <span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">get_ort_inference_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">inference_settings</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_ort_extensions</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">graph</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_all_graphs</span><span class="p">():</span>
+            <span class="k">yield from</span> <span class="n">graph</span><span class="o">.</span><span class="n">node</span>
+
+    <span class="k">def</span> <span class="nf">get_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">graph</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_model</span><span class="p">()</span><span class="o">.</span><span class="n">graph</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">graph</span>
+
+    <span class="k">def</span> <span class="nf">get_all_graphs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_graphs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_graphs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">all_graphs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">graph_queue</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">get_graph</span><span class="p">()]</span>
+        <span class="k">while</span> <span class="n">graph_queue</span><span class="p">:</span>
+            <span class="n">graph</span> <span class="o">=</span> <span class="n">graph_queue</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">all_graphs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">node</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">attribute</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">attr</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">AttributeProto</span><span class="o">.</span><span class="n">AttributeType</span><span class="o">.</span><span class="n">GRAPH</span><span class="p">:</span>
+                        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attr</span><span class="o">.</span><span class="n">g</span><span class="p">,</span> <span class="n">GraphProto</span><span class="p">)</span>
+                        <span class="n">graph_queue</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">attr</span><span class="o">.</span><span class="n">g</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">attr</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">AttributeProto</span><span class="o">.</span><span class="n">AttributeType</span><span class="o">.</span><span class="n">GRAPHS</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">attr</span><span class="o">.</span><span class="n">graphs</span><span class="p">:</span>
+                            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">g</span><span class="p">,</span> <span class="n">GraphProto</span><span class="p">)</span>
+                            <span class="n">graph_queue</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">all_graphs</span>
+
+    <span class="k">def</span> <span class="nf">output_name_to_node</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">output_name_to_node</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">output_name</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">output</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">output_name</span><span class="p">:</span>  <span class="c1"># could be empty when it is optional</span>
+                    <span class="n">output_name_to_node</span><span class="p">[</span><span class="n">output_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">node</span>
+        <span class="k">return</span> <span class="n">output_name_to_node</span>
+
+    <span class="k">def</span> <span class="nf">get_initializer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">graph</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_all_graphs</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">tensor</span> <span class="ow">in</span> <span class="n">graph</span><span class="o">.</span><span class="n">initializer</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">tensor</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">tensor</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;onnx_file_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">onnx_file_name</span><span class="p">,</span>
+                <span class="s2">&quot;inference_settings&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">,</span>
+                <span class="s2">&quot;use_ort_extensions&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_ort_extensions</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_default_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+        <span class="c1"># return firstly available ep as ort default ep</span>
+        <span class="n">available_providers</span> <span class="o">=</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers_for_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">available_providers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_valid_ep</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">ep</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">[</span><span class="n">ep</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">get_default_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_io_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get input/output names, shapes, types of the onnx model without creating an ort session.</span>
+
+<span class="sd">        This function loads the onnx model and parses the graph to get the io config.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">onnx.helper</span> <span class="kn">import</span> <span class="n">tensor_dtype_to_np_dtype</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">onnx.mapping</span> <span class="kn">import</span> <span class="n">TENSOR_TYPE_TO_NP_TYPE</span>
+
+            <span class="k">def</span> <span class="nf">tensor_dtype_to_np_dtype</span><span class="p">(</span><span class="n">tensor_type</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">TENSOR_TYPE_TO_NP_TYPE</span><span class="p">[</span><span class="n">tensor_type</span><span class="p">]</span>
+
+        <span class="c1"># external data is not needed for io config parsing</span>
+        <span class="c1"># the .onnx model already contains all of the graph information</span>
+        <span class="c1"># this method works whether the external data is in the same directory or not</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">onnx</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="n">load_external_data</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">io_config</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;input_names&quot;</span><span class="p">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;input_shapes&quot;</span><span class="p">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;input_types&quot;</span><span class="p">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;output_names&quot;</span><span class="p">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;output_shapes&quot;</span><span class="p">:</span> <span class="p">[],</span>
+            <span class="s2">&quot;output_types&quot;</span><span class="p">:</span> <span class="p">[],</span>
+        <span class="p">}</span>
+        <span class="k">for</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">ios</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">&quot;input&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">input</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;output&quot;</span><span class="p">,</span> <span class="n">model</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">output</span><span class="p">)]:</span>
+            <span class="k">for</span> <span class="n">io</span> <span class="ow">in</span> <span class="n">ios</span><span class="p">:</span>
+                <span class="c1"># get name, type, shape</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">name</span>
+                <span class="n">tensor_type</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">tensor_type</span>
+                <span class="k">if</span> <span class="n">tensor_type</span><span class="o">.</span><span class="n">elem_type</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="c1"># sequence type</span>
+                    <span class="c1"># TODO(jambayk): add support for different types</span>
+                    <span class="c1"># refer to https://github.com/lutzroeder/netron/blob/main/source/onnx.js#L1424</span>
+                    <span class="n">tensor_type</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">sequence_type</span><span class="o">.</span><span class="n">elem_type</span><span class="o">.</span><span class="n">tensor_type</span>
+                <span class="n">data_type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">tensor_dtype_to_np_dtype</span><span class="p">(</span><span class="n">tensor_type</span><span class="o">.</span><span class="n">elem_type</span><span class="p">))</span>
+                <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="n">dim</span><span class="o">.</span><span class="n">dim_param</span> <span class="k">if</span> <span class="n">dim</span><span class="o">.</span><span class="n">dim_param</span> <span class="k">else</span> <span class="n">dim</span><span class="o">.</span><span class="n">dim_value</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">tensor_type</span><span class="o">.</span><span class="n">shape</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span>
+
+                <span class="c1"># append to io_config</span>
+                <span class="n">io_config</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_names&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                <span class="n">io_config</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_types&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data_type</span><span class="p">)</span>
+                <span class="n">io_config</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_shapes&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+
+        <span class="c1"># save io_config</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="n">io_config</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span></div>
+
+
+<div class="viewcode-block" id="PyTorchModel"><a class="viewcode-back" href="../../api/models.html#olive.model.PyTorchModel">[docs]</a><span class="k">class</span> <span class="nc">PyTorchModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
+    <span class="n">resource_keys</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;model_path&quot;</span><span class="p">,</span> <span class="s2">&quot;script_dir&quot;</span><span class="p">,</span> <span class="s2">&quot;model_script&quot;</span><span class="p">,</span> <span class="s2">&quot;adapter_path&quot;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_file_format</span><span class="p">:</span> <span class="n">ModelFileFormat</span> <span class="o">=</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_ENTIRE_MODEL</span><span class="p">,</span>
+        <span class="n">model_loader</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_script</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">script_dir</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">io_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">IOConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dummy_inputs_func</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">hf_config</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">HFConfig</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">adapter_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_loader</span><span class="p">,</span> <span class="n">Callable</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">model_loader</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">model_script</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="n">model_path</span>
+            <span class="ow">or</span> <span class="n">hf_config</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;model_path is required since model_loader is not callable or model_script is not provided&quot;</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_loader</span> <span class="o">=</span> <span class="n">model_loader</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">PYTORCH</span><span class="p">,</span>
+            <span class="n">model_file_format</span><span class="o">=</span><span class="n">model_file_format</span><span class="p">,</span>
+            <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
+            <span class="n">model_attributes</span><span class="o">=</span><span class="n">model_attributes</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">resources</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">:</span> <span class="n">adapter_path</span><span class="p">,</span> <span class="s2">&quot;script_dir&quot;</span><span class="p">:</span> <span class="n">script_dir</span><span class="p">,</span> <span class="s2">&quot;model_script&quot;</span><span class="p">:</span> <span class="n">model_script</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_resources</span><span class="p">(</span><span class="n">resources</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">hf_config</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">hf_config</span><span class="p">,</span> <span class="n">HFConfig</span><span class="p">)</span>
+            <span class="n">hf_model_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_hf_model_config</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+            <span class="n">model_attr</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span> <span class="ow">or</span> <span class="p">{}</span>
+            <span class="n">hf_model_config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">model_attr</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span> <span class="o">=</span> <span class="n">hf_model_config</span>
+
+        <span class="c1"># ensure that script_dirs are local folder</span>
+        <span class="n">script_dir_resource</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">script_dir_resource</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">script_dir_resource</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFolder</span><span class="p">,</span> <span class="s2">&quot;script_dir must be a local directory.&quot;</span>
+
+        <span class="c1"># ensure that model_script is local file or string name</span>
+        <span class="n">model_script_resource</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">model_script_resource</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">model_script_resource</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">(</span>
+                <span class="n">ResourceType</span><span class="o">.</span><span class="n">LocalFile</span><span class="p">,</span>
+                <span class="n">ResourceType</span><span class="o">.</span><span class="n">StringName</span><span class="p">,</span>
+            <span class="p">),</span> <span class="s2">&quot;model_script must be a local file or a string name.&quot;</span>
+
+        <span class="c1"># io config for conversion to onnx</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">io_config</span><span class="p">,</span> <span class="n">IOConfig</span><span class="p">)</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span> <span class="k">if</span> <span class="n">io_config</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span> <span class="o">=</span> <span class="n">dummy_inputs_func</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">script_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;script_dir&quot;</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_script</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;model_script&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span>
+
+        <span class="c1"># Load special path or format model -&gt; load model from hf config -&gt; load normal path model</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_loader</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">user_module_loader</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">user_module_loader</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_loader</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_TORCH_SCRIPT</span><span class="p">:</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">jit</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_MLFLOW_MODEL</span><span class="p">:</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_mlflow_model</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">and</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_class</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">):</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">load_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_ENTIRE_MODEL</span><span class="p">:</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_STATE_DICT</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Please use customized model loader to load state dict of model.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported model file format: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># we only have peft adapters for now</span>
+        <span class="n">adapter_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_resource</span><span class="p">(</span><span class="s2">&quot;adapter_path&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">adapter_path</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">peft</span> <span class="kn">import</span> <span class="n">PeftModel</span>
+
+            <span class="n">model</span> <span class="o">=</span> <span class="n">PeftModel</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">adapter_path</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+
+        <span class="k">return</span> <span class="n">model</span>
+
+    <span class="k">def</span> <span class="nf">load_mlflow_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loading MLFlow model from </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;mlflow_tmp&quot;</span><span class="p">)</span>
+        <span class="n">tmp_dir_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;data/model&quot;</span><span class="p">),</span> <span class="n">tmp_dir_path</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;data/config&quot;</span><span class="p">),</span> <span class="n">tmp_dir_path</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;data/tokenizer&quot;</span><span class="p">),</span> <span class="n">tmp_dir_path</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;MLmodel&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>  <span class="c1"># noqa: PTH123</span>
+            <span class="n">mlflow_data</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
+            <span class="c1"># default flavor is &quot;hftransformersv2&quot; from azureml.evaluate.mlflow&gt;=0.0.8</span>
+            <span class="c1"># &quot;hftransformers&quot; from azureml.evaluate.mlflow&lt;0.0.8</span>
+            <span class="c1"># TODO(trajep): let user specify flavor name if needed</span>
+            <span class="c1"># to support other flavors in mlflow not only hftransformers</span>
+            <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">flavors</span> <span class="o">=</span> <span class="n">mlflow_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;flavors&quot;</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">flavors</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Invalid MLFlow model format. Please make sure the input model&quot;</span>
+                    <span class="s2">&quot; format is same with the result of mlflow.transformers.save_model,&quot;</span>
+                    <span class="s2">&quot; or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow&quot;</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="s2">&quot;hftransformersv2&quot;</span> <span class="ow">in</span> <span class="n">flavors</span><span class="p">:</span>
+                <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="n">flavors</span><span class="p">[</span><span class="s2">&quot;hftransformersv2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;hf_pretrained_class&quot;</span><span class="p">,</span> <span class="s2">&quot;AutoModel&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="s2">&quot;hftransformers&quot;</span> <span class="ow">in</span> <span class="n">flavors</span><span class="p">:</span>
+                <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="n">flavors</span><span class="p">[</span><span class="s2">&quot;hftransformers&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;hf_pretrained_class&quot;</span><span class="p">,</span> <span class="s2">&quot;AutoModel&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="n">model_loader</span> <span class="o">=</span> <span class="n">huggingface_model_loader</span><span class="p">(</span><span class="n">hf_pretrained_class</span><span class="p">)</span>
+        <span class="n">loaded_model</span> <span class="o">=</span> <span class="n">model_loader</span><span class="p">(</span><span class="n">tmp_dir_path</span><span class="p">)</span>
+        <span class="n">loaded_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+        <span class="n">tmp_dir</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">loaded_model</span>
+
+    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_model</span><span class="p">()</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">get_dummy_inputs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a dummy input for the model.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs</span>
+
+        <span class="c1"># Priority: dummy_inputs_func &gt; io_config.input_shapes &gt; hf_config.dataset &gt; onnx_config</span>
+        <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using dummy_inputs_func to get dummy inputs&quot;</span><span class="p">)</span>
+            <span class="n">user_module_loader</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
+            <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">user_module_loader</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_shapes&quot;</span><span class="p">]:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using io_config.input_shapes to get dummy inputs&quot;</span><span class="p">)</span>
+            <span class="n">dummy_inputs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="c1"># input_types is optional</span>
+                <span class="n">data_config_template</span><span class="o">.</span><span class="n">dummy_data_config_template</span><span class="p">(</span>
+                    <span class="n">input_shapes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">[</span><span class="s2">&quot;input_shapes&quot;</span><span class="p">],</span>
+                    <span class="n">input_types</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;input_types&quot;</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
+                <span class="o">.</span><span class="n">get_first_batch</span><span class="p">(</span><span class="n">data_root_path</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">dataset</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using hf_config.dataset to get dummy inputs&quot;</span><span class="p">)</span>
+                <span class="n">dummy_inputs</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">data_config_template</span><span class="o">.</span><span class="n">huggingface_data_config_template</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">,</span>
+                        <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">dataset</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="o">.</span><span class="n">to_data_container</span><span class="p">()</span>
+                    <span class="o">.</span><span class="n">get_first_batch</span><span class="p">(</span><span class="n">data_root_path</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">components</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Using hf onnx_config to get dummy inputs&quot;</span><span class="p">)</span>
+                <span class="n">dummy_inputs</span> <span class="o">=</span> <span class="n">get_hf_model_dummy_input</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">task</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">feature</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">dummy_inputs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Unable to get dummy inputs. Please provide dummy_inputs_func, io_config.input_shapes,&quot;</span>
+                <span class="s2">&quot; hf_config.dataset, or hf_config.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">dummy_inputs</span>
+
+    <span class="k">def</span> <span class="nf">get_hf_model_config</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;HF model_config is not available&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">load_model_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span> <span class="o">==</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">PYTORCH_MLFLOW_MODEL</span>
+            <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">load_model_config</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">components</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Names of the components of the model.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span> <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">components</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="n">component</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">components</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">get_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">component_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PyTorchModel&quot;</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a component of the model as a PyTorchModel.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">,</span> <span class="s2">&quot;hf_config.components must be provided to get component&quot;</span>
+        <span class="k">assert</span> <span class="n">component_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;component </span><span class="si">{</span><span class="n">component_name</span><span class="si">}</span><span class="s2"> not found in hf_config&quot;</span>
+
+        <span class="c1"># get the component from hf_config</span>
+        <span class="n">components_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">component</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">component</span> <span class="k">for</span> <span class="n">component</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">components</span><span class="p">}</span>
+        <span class="n">hf_component</span> <span class="o">=</span> <span class="n">components_dict</span><span class="p">[</span><span class="n">component_name</span><span class="p">]</span>
+
+        <span class="n">user_module_loader</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
+        <span class="n">model_component</span> <span class="o">=</span> <span class="n">user_module_loader</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span><span class="n">hf_component</span><span class="o">.</span><span class="n">component_func</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">)</span>
+
+        <span class="n">io_config</span> <span class="o">=</span> <span class="n">hf_component</span><span class="o">.</span><span class="n">io_config</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">io_config</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">user_module_loader</span> <span class="o">=</span> <span class="n">UserModuleLoader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">)</span>
+            <span class="n">io_config</span> <span class="o">=</span> <span class="n">user_module_loader</span><span class="o">.</span><span class="n">call_object</span><span class="p">(</span><span class="n">hf_component</span><span class="o">.</span><span class="n">io_config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="o">.</span><span class="n">model_name</span><span class="p">)</span>
+        <span class="n">io_config</span> <span class="o">=</span> <span class="n">validate_config</span><span class="p">(</span><span class="n">io_config</span><span class="p">,</span> <span class="n">IOConfig</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">model_loader</span><span class="p">(</span><span class="n">_</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">model_component</span>
+
+        <span class="n">component_hf_config</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="p">)</span><span class="o">.</span><span class="n">dict</span><span class="p">()</span>
+        <span class="n">component_hf_config</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;components&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">PyTorchModel</span><span class="p">(</span>
+            <span class="n">model_loader</span><span class="o">=</span><span class="n">model_loader</span><span class="p">,</span>
+            <span class="n">io_config</span><span class="o">=</span><span class="n">io_config</span><span class="p">,</span>
+            <span class="n">dummy_inputs_func</span><span class="o">=</span><span class="n">hf_component</span><span class="o">.</span><span class="n">dummy_inputs_func</span><span class="p">,</span>
+            <span class="n">model_script</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_script</span><span class="p">,</span>
+            <span class="n">script_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">script_dir</span><span class="p">,</span>
+            <span class="n">hf_config</span><span class="o">=</span><span class="n">HFConfig</span><span class="o">.</span><span class="n">parse_obj</span><span class="p">(</span><span class="n">component_hf_config</span><span class="p">),</span>
+            <span class="n">model_attributes</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;model_file_format&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_file_format</span><span class="p">,</span>
+                <span class="s2">&quot;model_loader&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_loader</span><span class="p">,</span>
+                <span class="s2">&quot;io_config&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">,</span>
+                <span class="s2">&quot;dummy_inputs_func&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">dummy_inputs_func</span><span class="p">,</span>
+                <span class="s2">&quot;hf_config&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="c1"># clean up redundant information in model_attributes</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;model_attributes&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="c1"># using a copy of self.model_attributes since config[&quot;config&quot;][&quot;model_attributes&quot;] is already</span>
+        <span class="c1"># serialized and might not match self.model_attributes</span>
+        <span class="n">model_attributes</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">model_attributes</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">hf_config</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_hf_model_config</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">model_attributes</span> <span class="ow">and</span> <span class="n">model_attributes</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">==</span> <span class="n">value</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="n">model_attributes</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_attributes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_attributes</span> <span class="ow">or</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">OptimumModel</span><span class="p">(</span><span class="n">PyTorchModel</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_components</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">model_file_format</span><span class="o">=</span><span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">OPTIMUM</span><span class="p">,</span>
+            <span class="o">**</span><span class="p">(</span><span class="n">kwargs</span> <span class="ow">or</span> <span class="p">{}),</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span> <span class="o">=</span> <span class="n">model_components</span>
+
+    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="s2">&quot;model_components&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span><span class="p">})</span>
+        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SNPEModel"><a class="viewcode-back" href="../../api/models.html#olive.model.SNPEModel">[docs]</a><span class="k">class</span> <span class="nc">SNPEModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">input_shapes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
+        <span class="n">output_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">output_shapes</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]],</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">SNPE</span><span class="p">,</span>
+            <span class="n">model_file_format</span><span class="o">=</span><span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">SNPE_DLC</span><span class="p">,</span>
+            <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
+            <span class="n">model_attributes</span><span class="o">=</span><span class="n">model_attributes</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;input_names&quot;</span><span class="p">:</span> <span class="n">input_names</span><span class="p">,</span>
+            <span class="s2">&quot;input_shapes&quot;</span><span class="p">:</span> <span class="n">input_shapes</span><span class="p">,</span>
+            <span class="s2">&quot;output_names&quot;</span><span class="p">:</span> <span class="n">output_names</span><span class="p">,</span>
+            <span class="s2">&quot;output_shapes&quot;</span><span class="p">:</span> <span class="n">output_shapes</span><span class="p">,</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SNPEInferenceSession</span><span class="p">:</span>
+        <span class="n">inference_settings</span> <span class="o">=</span> <span class="n">inference_settings</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">session_options</span> <span class="o">=</span> <span class="n">SNPESessionOptions</span><span class="p">(</span><span class="o">**</span><span class="n">inference_settings</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">NPU</span><span class="p">:</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">SNPEDevice</span><span class="o">.</span><span class="n">DSP</span>
+        <span class="n">session_options</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span>
+        <span class="k">return</span> <span class="n">SNPEInferenceSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">,</span> <span class="n">session_options</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">)</span>
+        <span class="n">config</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">io_config</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_dlc_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">get_dlc_metrics</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span></div>
+
+
+<span class="k">class</span> <span class="nc">TensorFlowModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model_file_format</span><span class="p">:</span> <span class="n">ModelFileFormat</span> <span class="o">=</span> <span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">TENSORFLOW_SAVED_MODEL</span><span class="p">,</span>
+        <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
+            <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">TENSORFLOW</span><span class="p">,</span>
+            <span class="n">model_file_format</span><span class="o">=</span><span class="n">model_file_format</span><span class="p">,</span>
+            <span class="n">model_attributes</span><span class="o">=</span><span class="n">model_attributes</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+
+<div class="viewcode-block" id="OpenVINOModel"><a class="viewcode-back" href="../../api/models.html#olive.model.OpenVINOModel">[docs]</a><span class="k">class</span> <span class="nc">OpenVINOModel</span><span class="p">(</span><span class="n">OliveModel</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_path</span><span class="p">:</span> <span class="n">OLIVE_RESOURCE_ANNOTATIONS</span><span class="p">,</span> <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">model_path</span><span class="o">=</span><span class="n">model_path</span><span class="p">,</span>
+            <span class="n">framework</span><span class="o">=</span><span class="n">Framework</span><span class="o">.</span><span class="n">OPENVINO</span><span class="p">,</span>
+            <span class="n">model_file_format</span><span class="o">=</span><span class="n">ModelFileFormat</span><span class="o">.</span><span class="n">OPENVINO_IR</span><span class="p">,</span>
+            <span class="n">model_attributes</span><span class="o">=</span><span class="n">model_attributes</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># check if the model files (xml, bin) are in the same directory</span>
+        <span class="n">model_path</span> <span class="o">=</span> <span class="n">create_resource_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">model_path</span><span class="o">.</span><span class="n">is_local_resource</span><span class="p">(),</span> <span class="s2">&quot;OpenVINO model_path must be local file or directory.&quot;</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_config</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">model_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the model configuration for OpenVINO model.&quot;&quot;&quot;</span>
+        <span class="n">model_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_path</span>
+        <span class="k">assert</span> <span class="n">Path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span><span class="o">.</span><span class="n">is_dir</span><span class="p">(),</span> <span class="sa">f</span><span class="s2">&quot;OpenVINO model path </span><span class="si">{</span><span class="n">model_path</span><span class="si">}</span><span class="s2"> is not a directory&quot;</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.xml&quot;</span><span class="p">)))</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.bin&quot;</span><span class="p">)))</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No OpenVINO model found in </span><span class="si">{</span><span class="n">model_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.xml&quot;</span><span class="p">)))</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.bin&quot;</span><span class="p">)))</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">FileExistsError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;More than 1 OpenVINO models are found in </span><span class="si">{</span><span class="n">model_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">model_file</span> <span class="ow">in</span> <span class="n">Path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.xml&quot;</span><span class="p">):</span>
+            <span class="n">ov_model</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">model_file</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">weights_file</span> <span class="ow">in</span> <span class="n">Path</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.bin&quot;</span><span class="p">):</span>
+            <span class="n">ov_weights</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">weights_file</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;model_name&quot;</span><span class="p">:</span> <span class="n">ov_model</span><span class="o">.</span><span class="n">stem</span><span class="p">,</span>
+            <span class="s2">&quot;model&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">ov_model</span><span class="o">.</span><span class="n">resolve</span><span class="p">()),</span>
+            <span class="s2">&quot;weights&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">ov_weights</span><span class="o">.</span><span class="n">resolve</span><span class="p">()),</span>
+        <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">openvino.tools.pot</span> <span class="kn">import</span> <span class="n">load_model</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Please install olive-ai[openvino] to use OpenVINO model&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">load_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_config</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span> <span class="nn">openvino.runtime</span> <span class="kn">import</span> <span class="n">Core</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="s2">&quot;Please install olive-ai[openvino] to use OpenVINO model&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+        <span class="n">ie</span> <span class="o">=</span> <span class="n">Core</span><span class="p">()</span>
+        <span class="n">model_pot</span> <span class="o">=</span> <span class="n">ie</span><span class="o">.</span><span class="n">read_model</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">model_config</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">device</span> <span class="o">==</span> <span class="n">Device</span><span class="o">.</span><span class="n">INTEL_MYRIAD</span><span class="p">:</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;MYRIAD&quot;</span>
+        <span class="k">return</span> <span class="n">ie</span><span class="o">.</span><span class="n">compile_model</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">model_pot</span><span class="p">,</span> <span class="n">device_name</span><span class="o">=</span><span class="n">device</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="DistributedOnnxModel"><a class="viewcode-back" href="../../api/models.html#olive.model.DistributedOnnxModel">[docs]</a><span class="k">class</span> <span class="nc">DistributedOnnxModel</span><span class="p">(</span><span class="n">ONNXModelBase</span><span class="p">):</span>
+    <span class="n">resource_keys</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;model_filepaths&quot;</span><span class="p">]</span>
+
+    <span class="n">EXECUTION_PROVIDERS</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;cpu&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;gpu&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">],</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_filepaths</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">use_ort_extensions</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">model_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">inference_settings</span><span class="o">=</span><span class="n">inference_settings</span><span class="p">,</span>
+            <span class="n">use_ort_extensions</span><span class="o">=</span><span class="n">use_ort_extensions</span><span class="p">,</span>
+            <span class="n">model_attributes</span><span class="o">=</span><span class="n">model_attributes</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_filepaths</span> <span class="o">=</span> <span class="n">model_filepaths</span> <span class="ow">or</span> <span class="p">[]</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ranks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_filepaths</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">ranked_model_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_filepaths</span><span class="p">[</span><span class="n">rank</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ONNXModel</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ONNXModel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_filepaths</span><span class="p">[</span><span class="n">rank</span><span class="p">],</span> <span class="n">inference_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">,</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;DistributedOnnxModel doesn&#39;t have a session of its own&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_default_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+        <span class="c1"># return firstly available ep as ort default ep</span>
+        <span class="n">available_providers</span> <span class="o">=</span> <span class="n">DistributedOnnxModel</span><span class="o">.</span><span class="n">get_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">available_providers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_valid_ep</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">ep</span><span class="p">):</span>
+                <span class="k">return</span> <span class="p">[</span><span class="n">ep</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;CUDAExecutionProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">get_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+        <span class="kn">import</span> <span class="nn">onnxruntime</span> <span class="k">as</span> <span class="nn">ort</span>
+
+        <span class="n">eps_per_device</span> <span class="o">=</span> <span class="n">DistributedOnnxModel</span><span class="o">.</span><span class="n">EXECUTION_PROVIDERS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">available_providers</span> <span class="o">=</span> <span class="n">ort</span><span class="o">.</span><span class="n">get_available_providers</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">AcceleratorLookup</span><span class="o">.</span><span class="n">get_execution_providers</span><span class="p">(</span><span class="n">eps_per_device</span><span class="p">,</span> <span class="n">available_providers</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;model_filepaths&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_filepaths</span><span class="p">,</span>
+                <span class="s2">&quot;inference_settings&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">,</span>
+                <span class="s2">&quot;use_ort_extensions&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_ort_extensions</span><span class="p">,</span>
+                <span class="s2">&quot;model_attributes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">check_object</span><span class="o">=</span><span class="n">check_object</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="CompositeOnnxModel"><a class="viewcode-back" href="../../api/models.html#olive.model.CompositeOnnxModel">[docs]</a><span class="k">class</span> <span class="nc">CompositeOnnxModel</span><span class="p">(</span><span class="n">ONNXModelBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;CompositeOnnxModel represents multiple component models.</span>
+
+<span class="sd">    Whisper is an example composite model that has encoder and decoder components.</span>
+<span class="sd">    CompositeOnnxModel is a collection of OnnxModels.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_components</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">ONNXModel</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]],</span>
+        <span class="n">model_component_names</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">model_attributes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">model_attributes</span><span class="o">=</span><span class="n">model_attributes</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">model_components</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span>
+                <span class="n">m</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;onnxmodel&quot;</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">model_components</span>
+            <span class="p">),</span> <span class="s2">&quot;All components must be ONNXModel&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span> <span class="o">=</span> <span class="p">[</span><span class="n">ONNXModel</span><span class="p">(</span><span class="o">**</span><span class="n">m</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;config&quot;</span><span class="p">,</span> <span class="p">{}))</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">model_components</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">ONNXModel</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">model_components</span><span class="p">),</span> <span class="s2">&quot;All components must be ONNXModel&quot;</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span> <span class="o">=</span> <span class="n">model_components</span>
+
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_components</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">model_component_names</span><span class="p">),</span> <span class="s2">&quot;Number of components and names must match&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_component_names</span> <span class="o">=</span> <span class="n">model_component_names</span>
+
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span><span class="p">:</span>
+            <span class="n">m</span><span class="o">.</span><span class="n">set_composite_parent</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
+        <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">get_default_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span>
+
+    <span class="k">def</span> <span class="nf">get_model_components</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span>
+
+    <span class="k">def</span> <span class="nf">get_model_component</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">get_model_component_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_component_names</span>
+
+    <span class="k">def</span> <span class="nf">get_model_component_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_component_names</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">to_json</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">check_object</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="n">json_dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;config&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;model_attributes&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_attributes</span><span class="p">,</span> <span class="s2">&quot;model_component_names&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_component_names</span><span class="p">},</span>
+        <span class="p">}</span>
+        <span class="n">json_dict</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_components&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_components</span><span class="p">:</span>
+            <span class="n">json_dict</span><span class="p">[</span><span class="s2">&quot;config&quot;</span><span class="p">][</span><span class="s2">&quot;model_components&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span><span class="n">check_object</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">serialize_to_json</span><span class="p">(</span><span class="n">json_dict</span><span class="p">,</span> <span class="n">check_object</span><span class="p">)</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, olivedevteam@microsoft.com.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
