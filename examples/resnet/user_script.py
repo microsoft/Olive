@@ -44,7 +44,6 @@ class CIFAR10DataSet:
         transform = transforms.Compose(
             [
                 transforms.Pad(4),
-                # use CenterCrop to keep consistent dataset
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomCrop(32),
                 transforms.ToTensor(),
