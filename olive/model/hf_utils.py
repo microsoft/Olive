@@ -226,7 +226,8 @@ class HFConfig(ConfigBase):
     def load_model_config(self, model_path: str = None):
         """Load model config from model_path or model_name."""
         model_name_or_path = model_path or self.model_name
-        return get_hf_model_config(model_name_or_path)
+        loading_args = self.model_loading_args.get_loading_args() if self.model_loading_args else {}
+        return get_hf_model_config(model_name_or_path, **loading_args)
 
 
 def load_huggingface_model_from_task(task: str, name: str, **kwargs):
@@ -275,9 +276,9 @@ def huggingface_model_loader(model_loader):
     return model_loader.from_pretrained
 
 
-def get_hf_model_config(model_name: str):
+def get_hf_model_config(model_name: str, **kwargs):
     """Get HF Config for the given model name."""
-    return AutoConfig.from_pretrained(model_name)
+    return AutoConfig.from_pretrained(model_name, **kwargs)
 
 
 def load_huggingface_model_from_model_class(model_class: str, name: str, **kwargs):

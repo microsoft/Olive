@@ -12,7 +12,7 @@ import tempfile
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Tuple, Union
 
 import torch
 import transformers
@@ -121,6 +121,10 @@ class QLoRA(Pass):
 
     This pass only supports PyTorchModel with hf_config.
     """
+
+    # these are the attributes of the model (in hf_config) that will be overwritten by the pass
+    # values from the input model will be ignored and new values will be set based on the pass config
+    model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map", "quantization_method", "quantization_config")
 
     @staticmethod
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
@@ -267,6 +271,11 @@ class QLoRA(Pass):
         new_model.model = None
         # remove the device map since we don't want "auto" device map
         new_model.hf_config.model_loading_args.device_map = None
+        # remove model_overwrites from model_attributes
+        if new_model.model_attributes:
+            for k in QLoRA.model_overwrites:
+                new_model.model_attributes.pop(k, None)
+
         # set adapter_path
         new_model.set_resource("adapter_path", adapter_path)
 
@@ -308,24 +317,31 @@ class QLoRA(Pass):
         compute_dtype = supported_dtypes[config.compute_dtype]
 
         # load model, reset model_loading_args and adapter_path
+        model_loading_args = {}
         if new_model.hf_config.model_loading_args:
-            logger.warning(
-                "Input model has model_loading_args. Ignoring. QLoRA will use its own model_loading_args based on the"
-                " pass config."
-            )
-        new_model.hf_config.model_loading_args = HFModelLoadingArgs(
-            torch_dtype=compute_dtype,
-            # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
-            # this uses all available GPUs, model parallel
-            device_map="auto",
-            quantization_method="bitsandbytes",
-            quantization_config={
-                "load_in_4bit": True,
-                "bnb_4bit_compute_dtype": compute_dtype,
-                "bnb_4bit_use_double_quant": config.double_quant,
-                "bnb_4bit_quant_type": config.quant_type,
-            },
+            model_loading_args = new_model.hf_config.model_loading_args.dict()
+            for k in QLoRA.model_overwrites:
+                if model_loading_args.get(k) is not None:
+                    logger.warning(
+                        f"Input model has model_loading_args.{k}. Ignoring. QLoRA will overwrite it based on the pass"
+                        " config."
+                    )
+        model_loading_args.update(
+            {
+                "torch_dtype": compute_dtype,
+                # TODO(jambayk): Worry about `use_multi_gpu` and distributed training later
+                # this uses all available GPUs, model parallel
+                "device_map": "auto",
+                "quantization_method": "bitsandbytes",
+                "quantization_config": {
+                    "load_in_4bit": True,
+                    "bnb_4bit_compute_dtype": compute_dtype,
+                    "bnb_4bit_use_double_quant": config.double_quant,
+                    "bnb_4bit_quant_type": config.quant_type,
+                },
+            }
         )
+        new_model.hf_config.model_loading_args = HFModelLoadingArgs(**model_loading_args)
         if new_model.get_resource("adapter_path"):
             logger.warning(
                 "Input model has adapter_path. Ignoring. QLoRA will save the adapter weights to its own adapter_path."
@@ -347,7 +363,7 @@ class QLoRA(Pass):
         # TODO(jambayk): Do this in a better way since the embedding size might become unoptimal
         # (not a multiple of 64, etc) perhaps use eos_token as pad_token, but need to ensure the actual eos_token
         # at the end of the sequence is not masked (both in attention mask and loss calculation)
-        if not tokenizer.pad_token_id:
+        if tokenizer.pad_token_id is None:
             cls.smart_tokenizer_and_embedding_resize(
                 special_tokens_dict={"pad_token": DEFAULT_PAD_TOKEN}, tokenizer=tokenizer, model=pytorch_model
             )
