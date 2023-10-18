@@ -2,9 +2,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
-import random
 
-import numpy as np
 import torch
 import torchmetrics
 from onnxruntime.quantization.calibrate import CalibrationDataReader
@@ -22,8 +20,7 @@ from olive.model import OliveModel
 
 seed = 0
 # seed everything to 0 for reproducibility, https://pytorch.org/docs/stable/notes/randomness.html
-random.seed(seed)
-np.random.seed(seed)
+# do not set random seed and np.random.seed for aml test, since it will cause aml job name conflict
 torch.manual_seed(seed)
 # the following are needed only for GPU
 torch.cuda.manual_seed(seed)
