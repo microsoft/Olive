@@ -89,3 +89,6 @@ autodoc_pydantic_settings_member_order = "bysource"  # is groupwise and alphabet
 # disable the anchor check since https://github.com/sphinx-doc/sphinx/issues/9016
 # we could enable it when the issue is fixed
 linkcheck_anchors = False
+linkcheck_ignore = [
+    r"https://developer.qualcomm.com/*",
+]
