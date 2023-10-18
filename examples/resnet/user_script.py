@@ -2,6 +2,9 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+import random
+
+import numpy as np
 import torch
 import torchmetrics
 from onnxruntime.quantization.calibrate import CalibrationDataReader
@@ -16,6 +19,14 @@ from olive.model import OliveModel
 # -------------------------------------------------------------------------
 # Common Dataset
 # -------------------------------------------------------------------------
+
+seed = 0
+
+np.random.seed(seed)
+random.seed(seed)
+torch.manual_seed(seed)
+torch.random.manual_seed(seed)
+torch.cuda.manual_seed(seed)
 
 
 class CIFAR10DataSet:
@@ -34,11 +45,8 @@ class CIFAR10DataSet:
             [
                 transforms.Pad(4),
                 # use CenterCrop to keep consistent dataset
-                transforms.CenterCrop(32),
-                # Ban RandomHorizontalFlip and RandomCrop to keep consistent dataset
-                # for real case, we can use them to augment dataset
-                # transforms.RandomHorizontalFlip(),
-                # transforms.RandomCrop(32),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomCrop(32),
                 transforms.ToTensor(),
             ]
         )
@@ -51,7 +59,6 @@ class PytorchResNetDataset(Dataset):
         self.dataset = dataset
 
     def __len__(self):
-        # return 100
         return len(self.dataset)
 
     def __getitem__(self, index):
