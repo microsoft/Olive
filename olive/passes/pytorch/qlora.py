@@ -122,6 +122,8 @@ class QLoRA(Pass):
     This pass only supports PyTorchModel with hf_config.
     """
 
+    # these are the attributes of the model (in hf_config) that will be overwritten by the pass
+    # values from the input model will be ignored and new values will be set based on the pass config
     model_overwrites: ClassVar[tuple] = ("torch_dtype", "device_map", "quantization_method", "quantization_config")
 
     @staticmethod
@@ -272,8 +274,7 @@ class QLoRA(Pass):
         # remove model_overwrites from model_attributes since new config will be created
         if new_model.model_attributes:
             for k in QLoRA.model_overwrites:
-                if k in new_model.model_attributes:
-                    del new_model.model_attributes[k]
+                new_model.model_attributes.pop(k, None)
 
         # set adapter_path
         new_model.set_resource("adapter_path", adapter_path)
