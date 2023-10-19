@@ -76,7 +76,7 @@ def main(raw_args=None):
         # original directory for model path is read only, so we need to copy the model to a temp directory
         input_model_path = input_model_config["config"].get("model_path")
         if input_model_path is not None:
-            tmp_dir = tempfile.TemporaryDirectory()
+            tmp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
             old_path = Path(input_model_path).resolve()
             new_path = Path(tmp_dir.name).resolve() / old_path.name
             if old_path.is_file():

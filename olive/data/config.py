@@ -148,7 +148,7 @@ class DataConfig(ConfigBase):
                 # 3. Use value from component.params if already defined
                 # 4. Use the default value from the function signature
                 if param not in v.params:
-                    if info.kind == info.VAR_POSITIONAL or info.kind == info.VAR_KEYWORD:
+                    if info.kind in (info.VAR_POSITIONAL, info.VAR_KEYWORD):
                         continue
                     elif info.default is info.empty:
                         logger.debug(f"Missing parameter {param} for component {k}")

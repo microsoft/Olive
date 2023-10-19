@@ -60,7 +60,7 @@ class AccuracyBase(AutoConfigClass):
                 continue
             annotation = info.annotation if info.annotation != info.empty else None
             default_value, required = (info.default, False) if info.default != info.empty else (None, True)
-            if info.kind == info.VAR_KEYWORD or info.kind == info.VAR_POSITIONAL:
+            if info.kind in (info.VAR_KEYWORD, info.VAR_POSITIONAL):
                 required = False
             metric_config[param] = ConfigParam(type_=annotation, required=required, default_value=default_value)
         return metric_config

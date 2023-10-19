@@ -25,7 +25,6 @@ def setup():
 @pytest.mark.parametrize("olive_json", ["bert_cuda_gpu.json"])
 @pytest.mark.parametrize("enable_cuda_graph", [True, False])
 def test_bert(search_algorithm, execution_order, system, olive_json, enable_cuda_graph):
-
     from olive.workflows import run as olive_run
 
     olive_config = patch_config(olive_json, search_algorithm, execution_order, system, is_gpu=True)

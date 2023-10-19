@@ -189,6 +189,8 @@ class Engine:
 
     def initialize(self):
         """Initialize engine state. This should be done before running the registered passes."""
+        # pylint: disable=attribute-defined-outside-init
+
         cache_dir = self._config.cache_dir
         if self._config.clean_cache:
             cache_utils.clean_cache(cache_dir)
@@ -210,7 +212,7 @@ class Engine:
         # so we check for both when determining the new model number
         model_files = list(self._model_cache_path.glob("*_*"))
         if len(model_files) > 0:
-            self._new_model_number = max([int(model_file.stem.split("_")[0]) for model_file in model_files]) + 1
+            self._new_model_number = max(int(model_file.stem.split("_")[0]) for model_file in model_files) + 1
 
         # clean pass run cache if requested
         # removes all run cache for pass type and all children elements
@@ -361,7 +363,7 @@ class Engine:
         if packaging_config and self.passes:
             # TODO(trajep): should we support package input model?
             # TODO(trajep): do you support packaging pytorch models?
-            logger.info(f"Package top ranked {sum([len(f.nodes) for f in outputs.values()])} models as artifacts")
+            logger.info(f"Package top ranked {sum(len(f.nodes) for f in outputs.values())} models as artifacts")
             generate_output_artifacts(
                 packaging_config,
                 self.footprints,
@@ -452,7 +454,7 @@ class Engine:
         # These passes will be added to the search space
         self.pass_flows_search_spaces = []
         for pass_flow in self.pass_flows:
-            self.pass_search_spaces = []
+            self.pass_search_spaces = []  # pylint: disable=attribute-defined-outside-init
             for pass_name in pass_flow:
                 p: Pass = self.passes[pass_name]["pass"]
                 self.pass_search_spaces.append((pass_name, p.search_space()))
@@ -750,7 +752,7 @@ class Engine:
         while True:
             new_model_number = self._new_model_number
             self._new_model_number += 1
-            if list(self._model_cache_path.glob(f"{new_model_number}_*")) == []:
+            if not list(self._model_cache_path.glob(f"{new_model_number}_*")):
                 break
         return new_model_number
 
@@ -895,7 +897,7 @@ class Engine:
 
         if not should_prune:
             # evaluate the model
-            evaluator_config = self.evaluator_for_pass(pass_id)
+            evaluator_config = self.evaluator_for_pass(pass_id)  # pylint: disable=undefined-loop-variable
             if self.no_search and evaluator_config is None:
                 # skip evaluation if no search and no evaluator
                 signal = None

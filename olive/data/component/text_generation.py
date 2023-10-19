@@ -81,7 +81,7 @@ class TextGenParams(ConfigBase):
     @validator("drop_short_sequences", always=True)
     def _check_padding(cls, v, values):
         if "pad_to_max_len" not in values:
-            ValueError("Invalid pad_to_max_len")
+            raise ValueError("Invalid pad_to_max_len")
         if v and values["pad_to_max_len"]:
             raise ValueError("pad_to_max_len and drop_short_sequences cannot both be True")
         return v
@@ -580,6 +580,7 @@ def format_pair_dataset(dataset, args):
     }
 
     if args.pair_format == TextGenPairFormat.ALPACA:
+        # pylint: disable=unnecessary-lambda
 
         def extract_alpaca_dataset(example):
             # extract new input from instruction and input

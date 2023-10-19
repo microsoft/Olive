@@ -59,7 +59,7 @@ def convertquantize(
     snpe_conversion = create_pass_from_dict(
         SNPEConversion, {**config["io_config"], **config["convert_options"]}, disable_search=True
     )
-    snpe_model = snpe_conversion.run(model, snpe_model_file)
+    snpe_model = snpe_conversion.run(model, None, snpe_model_file)
     assert Path(snpe_model.model_path).is_file()
     with (models_dir / f"{name}.dlc_io_config.json").open("w") as f:
         json.dump(snpe_model.io_config, f)
@@ -68,14 +68,16 @@ def convertquantize(
     # SNPE Quantized model
     logger.info("Quantizing SNPE model...")
     snpe_quantized_model_file = str(models_dir / f"{name}.quant.dlc")
-    dataloader_func = lambda data_dir: SNPEProcessedDataLoader(data_dir, input_list_file=input_list_file)  # noqa: E731
+
+    def dataloader_func(data_dir):
+        return SNPEProcessedDataLoader(data_dir, input_list_file=input_list_file)
 
     snpe_quantization = create_pass_from_dict(
         SNPEQuantization,
         {"data_dir": str(data_dir), "dataloader_func": dataloader_func, **config["quantize_options"]},
         disable_search=True,
     )
-    snpe_quantized_model = snpe_quantization.run(snpe_model, snpe_quantized_model_file)
+    snpe_quantized_model = snpe_quantization.run(snpe_model, None, snpe_quantized_model_file)
     assert Path(snpe_quantized_model.model_path).is_file()
     with (models_dir / f"{name}.quant.dlc_io_config.json").open("w") as f:
         json.dump(snpe_quantized_model.io_config, f)
@@ -94,5 +96,5 @@ def convertquantize(
         {"target_device": config["quantize_options"].get("target_device", SNPEDevice.CPU)},
         disable_search=True,
     )
-    snpe_quantized_onnx_model = snpe_to_onnx_conversion.run(snpe_quantized_model, snpe_quantized_onnx_model_file)
+    snpe_quantized_onnx_model = snpe_to_onnx_conversion.run(snpe_quantized_model, None, snpe_quantized_onnx_model_file)
     assert Path(snpe_quantized_onnx_model.model_path).is_file()

@@ -297,7 +297,7 @@ class AzureMLResource(ResourcePath):
     def get_path(self) -> str:
         raise NotImplementedError
 
-    def save_to_dir(
+    def _save_to_dir(
         self,
         dir_path: Union[Path, str],
         ml_client,
@@ -363,7 +363,7 @@ class AzureMLModel(AzureMLResource):
 
     def save_to_dir(self, dir_path: Union[Path, str], name: str = None, overwrite: bool = False) -> str:
         ml_client = self.config.azureml_client.create_client()
-        return super().save_to_dir(dir_path, ml_client, self.config.azureml_client, overwrite, name)
+        return self._save_to_dir(dir_path, ml_client, self.config.azureml_client, overwrite, name)
 
 
 class AzureMLRegistryModel(AzureMLResource):
@@ -392,7 +392,7 @@ class AzureMLRegistryModel(AzureMLResource):
         azureml_client_config = self.config.azureml_client or AzureMLClientConfig()
 
         ml_client = azureml_client_config.create_registry_client(self.config.registry_name)
-        return super().save_to_dir(dir_path, ml_client, azureml_client_config, overwrite, name)
+        return self._save_to_dir(dir_path, ml_client, azureml_client_config, overwrite, name)
 
 
 def _datastore_url_validator(v, values, **kwargs):

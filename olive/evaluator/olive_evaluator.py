@@ -40,6 +40,8 @@ from olive.snpe.data_loader import SNPECommonDataLoader, SNPEDataLoader
 
 logger = logging.getLogger(__name__)
 
+# pylint: disable=useless-parent-delegation
+
 
 class OliveModelOutput(NamedTuple):
     preds: Any
@@ -479,8 +481,6 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         device: Device,
         execution_providers: Union[str, List[str]],
     ) -> MetricResult:
-        from copy import deepcopy
-
         from mpi4py.futures import MPIPoolExecutor
 
         config = {
@@ -573,8 +573,6 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
         device,
         execution_providers: Union[str, List[str]],
     ) -> MetricResult:
-        from copy import deepcopy
-
         from mpi4py.futures import MPIPoolExecutor
 
         config = {
@@ -642,6 +640,7 @@ class OnnxEvaluator(OliveEvaluator, framework=Framework.ONNX):
 
     @staticmethod
     def disable_ort_fallback(session, execution_providers):
+        # pylint: disable=protected-access
         if execution_providers:
             assert isinstance(execution_providers, (str, list))
             execution_providers = [execution_providers] if isinstance(execution_providers, str) else execution_providers
@@ -728,6 +727,7 @@ class PyTorchEvaluator(OliveEvaluator, framework=Framework.PYTORCH):
         device: Device = Device.CPU,
         execution_providers: Union[str, List[str]] = None,
     ) -> MetricResult:
+        # pylint: disable=expression-not-assigned
         warmup_num, repeat_test_num, _ = get_latency_config_from_metric(metric)
         session = model.prepare_session(inference_settings=self.get_inference_settings(metric), device=device)
 

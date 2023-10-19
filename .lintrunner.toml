@@ -62,8 +62,36 @@ init_command = [
 is_formatter = true
 
 [[linter]]
+code = 'BLACK-ISORT'
+include_patterns = [
+  '**/*.py'
+]
+exclude_patterns = [
+]
+command = [
+  'python',
+  '-m',
+  'lintrunner_adapters',
+  'run',
+  'black_isort_linter',
+  '--',
+  '@{{PATHSFILE}}'
+]
+init_command = [
+  'python',
+  '-m',
+  'lintrunner_adapters',
+  'run',
+  'pip_init',
+  '--dry-run={{DRYRUN}}',
+  '--requirement=requirements-dev.txt'
+]
+is_formatter = true
+
+[[linter]]
 code = 'PYLINT'
 include_patterns = [
+  '**/*.py'
 ]
 exclude_patterns = [
 ]

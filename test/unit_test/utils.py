@@ -285,8 +285,8 @@ def get_dc_params_config():
     )
 
 
-def create_raw_data(dir, input_names, input_shapes, input_types=None, num_samples=1):  # noqa: A002
-    data_dir = Path(dir)
+def create_raw_data(raw_data_dir, input_names, input_shapes, input_types=None, num_samples=1):
+    data_dir = Path(raw_data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
 
     input_types = input_types or ["float32"] * len(input_names)
