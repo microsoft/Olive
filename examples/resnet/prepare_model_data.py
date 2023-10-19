@@ -56,12 +56,13 @@ def update_lr(optimizer, lr):
 
 
 def prepare_model(num_epochs=1, models_dir="models", data_dir="data"):
+    seed = 0
     # seed everything to 0 for reproducibility, https://pytorch.org/docs/stable/notes/randomness.html
-    random.seed(0)
-    np.random.seed(0)
-    torch.manual_seed(0)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
     # the following are needed only for GPU
-    torch.cuda.manual_seed(0)
+    torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
