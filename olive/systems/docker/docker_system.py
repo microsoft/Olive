@@ -25,7 +25,7 @@ from olive.systems.olive_system import OliveSystem
 
 logger = logging.getLogger(__name__)
 
-# pylint: disable=c-extension-no-membe
+# pylint: disable=c-extension-no-member
 
 
 class DockerSystem(OliveSystem):

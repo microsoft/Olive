@@ -2,13 +2,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 # --------------------------------------------------------------------------
+# pylint: disable=cyclic-import
+
 
 from pathlib import Path
 
 from olive.workflows.run.config import RunConfig
 from olive.workflows.run.run import dependency_setup
-
-# pylint: disable=cyclic-import
 
 
 def test_dependency_setup():
