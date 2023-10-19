@@ -86,7 +86,6 @@ class OnnxBNBQuantization(Pass):
             "config": quantization_config,
             "modules": quantized_modules,
         }
-        self.add_quant_initializers(graph_stack, quantization_info)
 
         # add the olive opset
         opset_import = onnx_model.opset_import
@@ -173,10 +172,13 @@ class OnnxBNBQuantization(Pass):
         if len(B_array.shape) != 2:
             return node  # can only process 2-D matrix
 
-        # torch.uint8 -> initializer
-        weight_4bit, quant_state = cls.quantize_weight(B_array, quantization_info["config"])
+        # weight_4bit, uint8 -> initializer
+        # absmax, same type as weight -> initializer
+        # block_size, int -> attribute
+        # quant_type, str -> enum -> attribute
+        weight_4bit, absmax, block_size, quant_type_enum = cls.quantize_weight(B_array, quantization_info["config"])
 
-        B_quant = onnx.numpy_helper.from_array(weight_4bit.cpu().numpy())  # noqa: N806
+        B_quant = onnx.numpy_helper.from_array(weight_4bit)  # noqa: N806
         B_quant.name = B.name + "_w4bit"
         Bs_graph.initializer.remove(B)
         for graph_input in Bs_graph.input:
@@ -184,16 +186,7 @@ class OnnxBNBQuantization(Pass):
                 Bs_graph.input.remove(graph_input)
                 break
 
-        # absmax is tensor, torch.float32 -> initializer
-        # shape is torch.Size, 2 elements -> attributes, this is the transposed shape of the original weight
-        # dtype is torch.dtype, always torch.float16. ignore this and use the original dtype in kernel
-        # blocksize is int -> attribute
-        # compressed_stats, None since we don't use double quantization
-        # quant_type is str -> attribute
-        # quant_map is an array mapping from quantized value to original value, torch.float32 -> initializer
-        absmax, _, _, blocksize, _, quant_type, _ = quant_state
-
-        B_absmax = onnx.numpy_helper.from_array(absmax.cpu().numpy())  # noqa: N806
+        B_absmax = onnx.numpy_helper.from_array(absmax)  # noqa: N806
         B_absmax.name = B.name + "_absmax"
 
         Bs_graph.initializer.extend([B_quant, B_absmax])
@@ -202,13 +195,12 @@ class OnnxBNBQuantization(Pass):
         rows, cols = B_array.shape
         kwargs["K"] = rows  # in_features
         kwargs["N"] = cols  # out_features
-        kwargs["blocksize"] = blocksize
-        # only need to worry about nf4 and fp4
-        kwargs["quant_type"] = QuantType[quant_type.upper()].value
+        kwargs["block_size"] = block_size
+        kwargs["quant_type"] = quant_type_enum
 
         return onnx.helper.make_node(
             "MatMulBnb4",
-            inputs=[node.input[0], B_quant.name, B_absmax.name, quantization_info["initializers"]["bnb_quant_map"]],
+            inputs=[node.input[0], B_quant.name, B_absmax.name],
             outputs=[node.output[0]],
             name=node.name + "_Bnb4",
             domain="com.microsoft",
@@ -219,29 +211,27 @@ class OnnxBNBQuantization(Pass):
     @torch.no_grad()
     def quantize_weight(weight: np.ndarray, quantization_config: Dict[str, Any]) -> Tuple[np.ndarray, Any]:
         """Quantize weight using bitsandbytes."""
-        # from bitsandbytes.functional import quantize_4bit
-        import bitsandbytes as bnb
+        from onnxruntime.capi._pybind_state import quantize_matmul_bnb4
 
-        # NOTE: bitsandbytes Linear4bit always uses float16 as backend dtype
-        # not sure if this is intentional since they have kernels for float32 and bfloat16
-        # https://github.com/TimDettmers/bitsandbytes/blob/0.41.0/bitsandbytes/nn/modules.py#L156
-        # we use float16 during quantization (through the Linear4bit module) but use the original dtype
-        # during dequantization
-        # otherwise, there are complications with the typing of the dequantization op
-        # TODO(jambayk): look into this again if model accuracy suffers for float models
-        # for some reason directly calling quantize_4bit doesn't give the same result as using the Linear4bit module
-        # .copy() to avoid numpy not writable warning when converting to torch
-        weight = torch.from_numpy(weight.copy()).t()
-        bnb_linear = bnb.nn.Linear4bit(
-            weight.shape[1],
-            weight.shape[0],
-            bias=False,
-            compress_statistics=False,
-            quant_type=quantization_config["bnb_4bit_quant_type"],
-        )
-        bnb_linear.weight.data = weight
-        bnb_linear.cuda()
-        return bnb_linear.weight.data.t(), bnb_linear.weight.quant_state
+        quant_type = quantization_config["bnb_4bit_quant_type"]
+        # only need to worry about nf4 and fp4
+        quant_type_enum = QuantType[quant_type.upper()].value
+
+        # need to copy since the transposed weight still has the original memory layout
+        # Linear4bit quantizes its weight data which is the transposed weight
+        weight_t = weight.transpose().copy()
+
+        K, N = weight.shape  # noqa: N806
+        numel = N * K
+        block_size = 64  # bnb.nn.Linear4bit always uses block_size=64
+        num_blocks = (numel + block_size - 1) // block_size
+        quantized_numel = (numel + 1) // 2
+
+        weight_4bit = np.zeros(quantized_numel, dtype=np.uint8)
+        absmax = np.zeros(num_blocks, dtype=weight.dtype)
+        quantize_matmul_bnb4(weight_4bit, weight_t, absmax, block_size, quant_type_enum, N, K)
+
+        return weight_4bit, absmax, block_size, quant_type_enum
 
     @staticmethod
     def get_initializer(name, graph_path: List[GraphProto]) -> Tuple[TensorProto, GraphProto]:
@@ -251,26 +241,3 @@ class OnnxBNBQuantization(Pass):
                 if tensor.name == name:
                     return tensor, graph
         return None, None
-
-    @classmethod
-    def add_quant_initializers(cls, graph_path: List[GraphProto], quantization_info: Dict[str, Any]):
-        """Add the common quantization initializers to the model and quantization_info."""
-        initializer_names = []
-        for gid in range(len(graph_path) - 1, -1, -1):
-            graph = graph_path[gid]
-            for tensor in graph.initializer:
-                initializer_names.append(tensor.name)
-        initializer_names = set(initializer_names)
-
-        # quanitize a dummy tensor to get the quantization initializers
-        weight = np.random.rand(1, 1)
-        _, quant_state = cls.quantize_weight(weight, quantization_info["config"])
-
-        name = "bnb_quant_map"
-        onnx_tensor = onnx.numpy_helper.from_array(quant_state[-1].cpu().numpy())
-        unique_name = name
-        while unique_name in initializer_names:
-            unique_name += "_"
-        onnx_tensor.name = unique_name
-        graph_path[-1].initializer.extend([onnx_tensor])
-        quantization_info["initializers"] = {name: unique_name}
