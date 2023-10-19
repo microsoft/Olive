@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Union
 from onnxruntime import __version__ as OrtVersion
 from packaging import version
 
+from olive.exception import OlivePassError
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
 from olive.model.hf_mappings import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_HEADS_NAMES
@@ -111,30 +112,6 @@ class OrtTransformersOptimization(Pass):
         if search_point.get("only_onnxruntime") and search_point.get("opt_level") <= 0:
             logger.info("Please specify a positive value for opt_level when only_onnxruntime is True")
             return False
-        if (
-            search_point.get("opt_level") == 0
-            and search_point.get("only_onnxruntime")
-            and search_point.get("num_heads") == 0
-            and search_point.get("hidden_size") == 0
-        ):
-            if version.parse(OrtVersion) <= version.parse("1.16.0"):
-                logger.info(
-                    "Ignore this search point because the issue https://github.com/microsoft/onnxruntime/issues/17254"
-                )
-            return False
-        if (
-            search_point.get("opt_level") != 0
-            and accelerator_spec.execution_provider == "DmlExecutionProvider"
-            and version.parse(OrtVersion) < version.parse("1.17.0")
-        ):
-            # TODO(jambayk): check for use_gpu if we still want to expose use_gpu flag to pass config
-            # this combination fails the check
-            # https://github.com/microsoft/onnxruntime/blob/v1.16.1/onnxruntime/python/tools/transformers/optimizer.py#L93
-            logger.info(
-                f"DmlExecutionProvider is no compatible with opt_level {search_point.get('opt_level')} for onnxruntime"
-                f" {OrtVersion}. Please use opt_level 0 or use onnxruntime 1.17.0 or higher."
-            )
-            return False
         return True
 
     @staticmethod
@@ -167,6 +144,32 @@ class OrtTransformersOptimization(Pass):
         )
         if version.parse(OrtVersion.__version__) >= version.parse("1.7.0"):
             run_config["provider"] = self.accelerator_spec.execution_provider.replace("ExecutionProvider", "").lower()
+
+        # raise pass error for version incompatibilities
+        # don't want to make this a search point validation check since the check happens in the engine but the
+        # pass can be run on a different machine and/or environment (host)
+        # not as efficient as a validation check but don't want to assume same ort version on host and engine
+        # better log for the user too, at error level
+        if (
+            run_config["opt_level"] == 0
+            and run_config["only_onnxruntime"]
+            and run_config["num_heads"] == 0
+            and run_config["hidden_size"] == 0
+            and version.parse(OrtVersion) <= version.parse("1.16.0")
+        ):
+            raise OlivePassError(
+                "Please specify num_heads and hidden_size when opt_level is 0 and only_onnxruntime is True for"
+                " onnxruntime <= 1.16.0. Or use onnxruntime > 1.16.0."
+            )
+        if (
+            run_config["use_gpu"]
+            and self.accelerator_spec.execution_provider == "DmlExecutionProvider"
+            and version.parse(OrtVersion) < version.parse("1.17.0")
+        ):
+            raise OlivePassError(
+                f"DmlExecutionProvider is no compatible with opt_level {run_config['opt_level']} for onnxruntime"
+                f" {OrtVersion}. Please use opt_level 0 or use onnxruntime >= 1.17.0."
+            )
 
         if model.model_attributes:
             model_config = model.model_attributes
