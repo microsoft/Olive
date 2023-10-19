@@ -57,7 +57,7 @@ init_command = [
   'run',
   'pip_init',
   '--dry-run={{DRYRUN}}',
-  '--requirement=requirements-lintrunner.txt'
+  '--requirement=requirements-dev.txt'
 ]
 is_formatter = true
 
@@ -84,7 +84,7 @@ init_command = [
   'run',
   'pip_init',
   '--dry-run={{DRYRUN}}',
-  '--requirement=requirements-lintrunner.txt'
+  '--requirement=requirements-dev.txt'
 ]
 
 [[linter]]
@@ -231,7 +231,7 @@ init_command = [
   'run',
   'pip_init',
   '--dry-run={{DRYRUN}}',
-  '--requirement=requirements-lintrunner.txt'
+  '--requirement=requirements-dev.txt'
 ]
 
 [[linter]]
