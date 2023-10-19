@@ -10,6 +10,8 @@ import pytest
 
 from olive.resource_path import ResourceType, create_resource_path
 
+# pylint: disable=attribute-defined-outside-init, consider-using-with
+
 
 class TestAMLResourcePath:
     @pytest.fixture(autouse=True)

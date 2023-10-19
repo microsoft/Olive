@@ -29,6 +29,7 @@ from olive.model import OliveModel
 datasets_logging.disable_progress_bar()
 datasets_logging.set_verbosity_error()
 
+# pylint: disable=attribute-defined-outside-init, protected-access
 # This file is only used by bert_inc_ptq_cpu, bert_qat_customized_train_loop_cpu
 
 # -------------------------------------------------------------------------
@@ -178,7 +179,7 @@ class IncBertDataset:
         return input_dict, label
 
 
-def inc_glue_calibration_reader(data_dir, batch_size=1, *args, **kwargs):
+def inc_glue_calibration_reader(data_dir, batch_size, *args, **kwargs):
     bert_dataset = BertDataset("Intel/bert-base-uncased-mrpc")
     bert_dataset = IncBertDataset(bert_dataset.get_eval_dataset())
     return DefaultDataLoader(dataset=bert_dataset, batch_size=batch_size)

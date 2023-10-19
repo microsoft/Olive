@@ -14,6 +14,8 @@ from torchvision import transforms
 
 from olive.common.utils import run_subprocess
 
+# pylint: disable=consider-using-with
+
 
 def get_directories():
     current_dir = Path(__file__).resolve().parent

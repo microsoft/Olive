@@ -17,6 +17,8 @@ from olive.common.auto_config import AutoConfigClass
 from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.passes import Pass
 
+# pylint: skip-file
+
 
 def import_class(class_name: str):
     module_name = ".".join(class_name.split(".")[:-1])

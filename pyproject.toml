@@ -43,6 +43,7 @@ disable = [
   "consider-using-f-string",
   "consider-using-from-import",
   "format",
+  "expression-not-assigned",
   "line-too-long",
   "import-error",
   "import-outside-toplevel",
@@ -58,6 +59,7 @@ disable = [
   "too-few-public-methods",
   "too-many-arguments",
   "too-many-branches",
+  "too-many-function-args",
   "too-many-instance-attributes",
   "too-many-locals",
   "too-many-nested-blocks",
@@ -67,7 +69,7 @@ disable = [
   "missing-docstring",
   "fixme",
   "unspecified-encoding",
-  "unused-argument",
+  "unused-argument"
 ]
 
 [tool.ruff]

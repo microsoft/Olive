@@ -14,6 +14,8 @@ from olive.hardware import DEFAULT_CPU_ACCELERATOR
 from olive.model import PyTorchModel
 from olive.systems.local import LocalSystem
 
+# pylint: disable=attribute-defined-outside-init
+
 
 class TestLocalSystem:
     @pytest.fixture(autouse=True)

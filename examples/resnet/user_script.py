@@ -92,7 +92,7 @@ class ResnetCalibrationDataReader(CalibrationDataReader):
             return None
 
 
-def resnet_calibration_reader(data_dir, batch_size=16, *args, **kwargs):
+def resnet_calibration_reader(data_dir, batch_size, *args, **kwargs):
     return ResnetCalibrationDataReader(data_dir, batch_size=batch_size)
 
 

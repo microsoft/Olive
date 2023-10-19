@@ -15,6 +15,8 @@ from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
 from olive.model import ModelConfig
 from olive.passes.onnx import OrtPerfTuning
 
+# pylint: disable=attribute-defined-outside-init, consider-using-with
+
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Skip test on Windows.")
 class TestOliveAzureMLSystem:

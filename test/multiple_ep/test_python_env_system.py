@@ -16,6 +16,8 @@ from olive.hardware.accelerator import DEFAULT_CPU_ACCELERATOR, AcceleratorSpec
 from olive.passes.onnx import OrtPerfTuning
 from olive.systems.python_environment import PythonEnvironmentSystem
 
+# pylint: disable=attribute-defined-outside-init, consider-using-with
+
 
 class TestOliveManagedPythonEnvironmentSystem:
     @pytest.fixture(autouse=True)

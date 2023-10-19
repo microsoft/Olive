@@ -193,6 +193,7 @@ class SparseGPTModule:
         self.H += batch_input.matmul(batch_input.t())
 
     def prune(self, mode, sparsity=None, n=None, m=None, blocksize=128, percdamp=0.01):
+        # pylint: disable=not-callable
         W = self.get_W()
         H = self.H
         del self.H

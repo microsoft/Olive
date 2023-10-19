@@ -463,6 +463,7 @@ def text_gen_pair_pre_process(dataset, tokenizer, all_kwargs):
             if tokenizer.pad_token_id is None:
                 raise ValueError("Tokenizer does not have a pad token")
             # add padding to max_len
+            # pylint: disable=not-callable
             input_ids = torch.nn.functional.pad(
                 input_ids, (0, max_len - input_ids.shape[0]), value=tokenizer.pad_token_id
             )

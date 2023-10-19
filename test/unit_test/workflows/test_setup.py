@@ -8,6 +8,8 @@ from pathlib import Path
 from olive.workflows.run.config import RunConfig
 from olive.workflows.run.run import dependency_setup
 
+# pylint: disable=cyclic-import
+
 
 def test_dependency_setup():
     user_script_config_file = Path(__file__).parent / "mock_data" / "user_script.json"

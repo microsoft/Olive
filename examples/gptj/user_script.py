@@ -14,6 +14,8 @@ from olive.constants import Framework
 
 ort.set_default_logger_severity(3)
 
+# pylint: disable=not-callable, useless-parent-delegation
+
 
 def tokenize_function(examples):
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-j-6B")
@@ -84,7 +86,7 @@ def create_pt_dataloader(data_dir, batch_size, *args, **kwargs):
     return Dataloader(batch_size=batch_size)
 
 
-def create_onnx_dataloader(data_dir, batch_size=1, *args, **kwargs):
+def create_onnx_dataloader(data_dir, batch_size, *args, **kwargs):
     return OnnxDataloader(batch_size=batch_size)
 
 

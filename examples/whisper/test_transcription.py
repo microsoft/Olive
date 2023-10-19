@@ -18,6 +18,7 @@ from olive.model import ONNXModel
 
 sys.path.append(str(Path(__file__).parent / "code"))
 
+# pylint: disable=wrong-import-position, wrong-import-order
 from whisper_dataset import WhisperDataset  # noqa: E402
 
 
@@ -80,7 +81,7 @@ def main(raw_args=None):
         args.audio_path = download_audio_test_data()
 
     # temporary directory for storing audio file
-    temp_dir = tempfile.TemporaryDirectory()
+    temp_dir = tempfile.TemporaryDirectory()  # pylint: disable=consider-using-with
     temp_dir_path = Path(temp_dir.name)
     temp_audio_path = temp_dir_path / Path(args.audio_path).name
     shutil.copy(args.audio_path, temp_audio_path)

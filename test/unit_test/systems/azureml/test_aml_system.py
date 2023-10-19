@@ -27,6 +27,8 @@ from olive.systems.azureml.aml_pass_runner import main as aml_pass_runner_main
 from olive.systems.azureml.aml_system import AzureMLSystem
 from olive.systems.common import AzureMLDockerConfig
 
+# pylint: disable=attribute-defined-outside-init, consider-using-with, protected-access
+
 
 class TestAzureMLSystem:
     @pytest.fixture(autouse=True)
