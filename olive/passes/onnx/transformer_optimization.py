@@ -7,6 +7,9 @@ import os
 from copy import deepcopy
 from typing import Any, Dict, List, Union
 
+from onnxruntime import __version__ as OrtVersion
+from packaging import version
+
 from olive.hardware.accelerator import AcceleratorSpec, Device
 from olive.model import ONNXModel
 from olive.model.hf_mappings import HIDDEN_SIZE_NAMES, MODEL_TYPE_MAPPING, NUM_HEADS_NAMES
@@ -29,8 +32,6 @@ class OrtTransformersOptimization(Pass):
     def _default_config(accelerator_spec: AcceleratorSpec) -> Dict[str, PassConfigParam]:
         from onnxruntime.transformers.fusion_options import FusionOptions
 
-        is_gpu = accelerator_spec.accelerator_type == Device.GPU
-
         config = {
             "model_type": PassConfigParam(
                 type_=str,
@@ -43,7 +44,6 @@ class OrtTransformersOptimization(Pass):
             ),
             "num_heads": PassConfigParam(type_=int, default_value=0, description="Number of attention heads."),
             "hidden_size": PassConfigParam(type_=int, default_value=0, description="Number of hidden nodes."),
-            # TODO(jambayk): Figure out what the expected type is
             "optimization_options": PassConfigParam(
                 type_=Union[Dict[str, Any], FusionOptions],
                 default_value=None,
@@ -58,7 +58,6 @@ class OrtTransformersOptimization(Pass):
                     "0 - disable all (default), 1 - basic, 2 - extended, 99 - all."
                 ),
             ),
-            "use_gpu": PassConfigParam(type_=bool, default_value=is_gpu, description="Flag for GPU inference."),
             "only_onnxruntime": PassConfigParam(
                 type_=bool,
                 default_value=False,
@@ -109,9 +108,6 @@ class OrtTransformersOptimization(Pass):
             if accelerator_spec.execution_provider == "CPUExecutionProvider":
                 logger.info("CPUExecutionProvider does not support float16 very well, please avoid to use float16.")
                 return False
-        if search_point.get("use_gpu") and accelerator_spec.execution_provider == "CPUExecutionProvider":
-            logger.info("CPUExecutionProvider does not support GPU inference, please avoid to use use_gpu.")
-            return False
         if search_point.get("only_onnxruntime") and search_point.get("opt_level") <= 0:
             logger.info("Please specify a positive value for opt_level when only_onnxruntime is True")
             return False
@@ -121,13 +117,23 @@ class OrtTransformersOptimization(Pass):
             and search_point.get("num_heads") == 0
             and search_point.get("hidden_size") == 0
         ):
-            from onnxruntime import __version__ as OrtVersion
-            from packaging import version
-
             if version.parse(OrtVersion) <= version.parse("1.16.0"):
                 logger.info(
                     "Ignore this search point because the issue https://github.com/microsoft/onnxruntime/issues/17254"
                 )
+            return False
+        if (
+            search_point.get("opt_level") != 0
+            and accelerator_spec.execution_provider == "DmlExecutionProvider"
+            and version.parse(OrtVersion) < version.parse("1.17.0")
+        ):
+            # TODO(jambayk): check for use_gpu if we still want to expose use_gpu flag to pass config
+            # this combination fails the check
+            # https://github.com/microsoft/onnxruntime/blob/v1.16.1/onnxruntime/python/tools/transformers/optimizer.py#L93
+            logger.info(
+                f"DmlExecutionProvider is no compatible with opt_level {search_point.get('opt_level')} for onnxruntime"
+                f" {OrtVersion}. Please use opt_level 0 or use onnxruntime 1.17.0 or higher."
+            )
             return False
         return True
 
@@ -154,6 +160,13 @@ class OrtTransformersOptimization(Pass):
         )
         for key in get_external_data_config():
             del run_config[key]
+
+        run_config["use_gpu"] = (
+            self.accelerator_spec.accelerator_type == Device.GPU
+            and self.accelerator_spec.execution_provider != "CPUExecutionProvider"
+        )
+        if version.parse(OrtVersion.__version__) >= version.parse("1.7.0"):
+            run_config["provider"] = self.accelerator_spec.execution_provider.replace("ExecutionProvider", "").lower()
 
         if model.model_attributes:
             model_config = model.model_attributes
@@ -202,3 +215,7 @@ class OrtTransformersOptimization(Pass):
 
         # save the model to the output path and return the model
         return model_proto_to_olive_model(optimizer.model, output_model_path, config)
+
+    @staticmethod
+    def is_accelerator_agnostic(accelerator_spec: AcceleratorSpec) -> bool:
+        return False
