@@ -21,7 +21,7 @@ def main():
         file_template_content = f.read()
         file_template_content = file_template_content.replace("{USER_SCRIPT}", user_script_path)
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".json", prefix="config_") as f:
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json", prefix="config_") as f:
         f.write(file_template_content)
 
     return olive_run(f.name)
