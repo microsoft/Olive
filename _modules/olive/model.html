@@ -449,8 +449,8 @@
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
@@ -699,49 +699,44 @@
 
     <span class="k">def</span> <span class="nf">load_mlflow_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loading MLFlow model from </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;mlflow_tmp&quot;</span><span class="p">)</span>
-        <span class="n">tmp_dir_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tmp_dir</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;mlflow_tmp&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">tmp_dir</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;data/model&quot;</span><span class="p">),</span> <span class="n">tmp_dir</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;data/config&quot;</span><span class="p">),</span> <span class="n">tmp_dir</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;data/tokenizer&quot;</span><span class="p">),</span> <span class="n">tmp_dir</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-        <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;data/model&quot;</span><span class="p">),</span> <span class="n">tmp_dir_path</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;data/config&quot;</span><span class="p">),</span> <span class="n">tmp_dir_path</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;data/tokenizer&quot;</span><span class="p">),</span> <span class="n">tmp_dir_path</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;MLmodel&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>  <span class="c1"># noqa: PTH123</span>
+                <span class="n">mlflow_data</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
+                <span class="c1"># default flavor is &quot;hftransformersv2&quot; from azureml.evaluate.mlflow&gt;=0.0.8</span>
+                <span class="c1"># &quot;hftransformers&quot; from azureml.evaluate.mlflow&lt;0.0.8</span>
+                <span class="c1"># TODO(trajep): let user specify flavor name if needed</span>
+                <span class="c1"># to support other flavors in mlflow not only hftransformers</span>
+                <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="n">flavors</span> <span class="o">=</span> <span class="n">mlflow_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;flavors&quot;</span><span class="p">,</span> <span class="p">{})</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">flavors</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;Invalid MLFlow model format. Please make sure the input model&quot;</span>
+                        <span class="s2">&quot; format is same with the result of mlflow.transformers.save_model,&quot;</span>
+                        <span class="s2">&quot; or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow&quot;</span>
+                    <span class="p">)</span>
 
-        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;MLmodel&quot;</span><span class="p">))</span> <span class="k">as</span> <span class="n">fp</span><span class="p">:</span>  <span class="c1"># noqa: PTH123</span>
-            <span class="n">mlflow_data</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">fp</span><span class="p">)</span>
-            <span class="c1"># default flavor is &quot;hftransformersv2&quot; from azureml.evaluate.mlflow&gt;=0.0.8</span>
-            <span class="c1"># &quot;hftransformers&quot; from azureml.evaluate.mlflow&lt;0.0.8</span>
-            <span class="c1"># TODO(trajep): let user specify flavor name if needed</span>
-            <span class="c1"># to support other flavors in mlflow not only hftransformers</span>
-            <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="kc">None</span>
-            <span class="n">flavors</span> <span class="o">=</span> <span class="n">mlflow_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;flavors&quot;</span><span class="p">,</span> <span class="p">{})</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">flavors</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;Invalid MLFlow model format. Please make sure the input model&quot;</span>
-                    <span class="s2">&quot; format is same with the result of mlflow.transformers.save_model,&quot;</span>
-                    <span class="s2">&quot; or aml_mlflow.hftransformers.save_model from azureml.evaluate.mlflow&quot;</span>
-                <span class="p">)</span>
+                <span class="k">if</span> <span class="s2">&quot;hftransformersv2&quot;</span> <span class="ow">in</span> <span class="n">flavors</span><span class="p">:</span>
+                    <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="n">flavors</span><span class="p">[</span><span class="s2">&quot;hftransformersv2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;hf_pretrained_class&quot;</span><span class="p">,</span> <span class="s2">&quot;AutoModel&quot;</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="s2">&quot;hftransformers&quot;</span> <span class="ow">in</span> <span class="n">flavors</span><span class="p">:</span>
+                    <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="n">flavors</span><span class="p">[</span><span class="s2">&quot;hftransformers&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;hf_pretrained_class&quot;</span><span class="p">,</span> <span class="s2">&quot;AutoModel&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers.&quot;</span>
+                    <span class="p">)</span>
 
-            <span class="k">if</span> <span class="s2">&quot;hftransformersv2&quot;</span> <span class="ow">in</span> <span class="n">flavors</span><span class="p">:</span>
-                <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="n">flavors</span><span class="p">[</span><span class="s2">&quot;hftransformersv2&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;hf_pretrained_class&quot;</span><span class="p">,</span> <span class="s2">&quot;AutoModel&quot;</span><span class="p">)</span>
-            <span class="k">elif</span> <span class="s2">&quot;hftransformers&quot;</span> <span class="ow">in</span> <span class="n">flavors</span><span class="p">:</span>
-                <span class="n">hf_pretrained_class</span> <span class="o">=</span> <span class="n">flavors</span><span class="p">[</span><span class="s2">&quot;hftransformers&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;hf_pretrained_class&quot;</span><span class="p">,</span> <span class="s2">&quot;AutoModel&quot;</span><span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;Unsupported MLFlow model flavor. Currently only support hftransformersv2/hftransformers.&quot;</span>
-                <span class="p">)</span>
-
-        <span class="n">model_loader</span> <span class="o">=</span> <span class="n">huggingface_model_loader</span><span class="p">(</span><span class="n">hf_pretrained_class</span><span class="p">)</span>
-        <span class="n">loaded_model</span> <span class="o">=</span> <span class="n">model_loader</span><span class="p">(</span><span class="n">tmp_dir_path</span><span class="p">)</span>
-        <span class="n">loaded_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
-
-        <span class="n">tmp_dir</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
-
-        <span class="k">return</span> <span class="n">loaded_model</span>
+            <span class="n">model_loader</span> <span class="o">=</span> <span class="n">huggingface_model_loader</span><span class="p">(</span><span class="n">hf_pretrained_class</span><span class="p">)</span>
+            <span class="n">loaded_model</span> <span class="o">=</span> <span class="n">model_loader</span><span class="p">(</span><span class="n">tmp_dir</span><span class="p">)</span>
+            <span class="n">loaded_model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">loaded_model</span>
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
@@ -912,8 +907,8 @@
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SNPEInferenceSession</span><span class="p">:</span>
@@ -952,8 +947,8 @@
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
@@ -1004,8 +999,8 @@
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
@@ -1050,19 +1045,23 @@
     <span class="k">def</span> <span class="nf">ranked_model_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_filepaths</span><span class="p">[</span><span class="n">rank</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ONNXModel</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ONNXModel</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">ONNXModel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_filepaths</span><span class="p">[</span><span class="n">rank</span><span class="p">],</span> <span class="n">inference_settings</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inference_settings</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">GPU</span><span class="p">,</span>  <span class="c1"># pylint: disable=signature-differs</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
     <span class="p">):</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;DistributedOnnxModel doesn&#39;t have a session of its own&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">get_default_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">get_default_execution_providers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a list of supported default execution providers.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="p">[</span><span class="s2">&quot;CPUExecutionProvider&quot;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">get_default_execution_providers_with_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filepath</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">):</span>
         <span class="c1"># return firstly available ep as ort default ep</span>
         <span class="n">available_providers</span> <span class="o">=</span> <span class="n">DistributedOnnxModel</span><span class="o">.</span><span class="n">get_execution_providers</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">ep</span> <span class="ow">in</span> <span class="n">available_providers</span><span class="p">:</span>
@@ -1127,8 +1126,8 @@
 
     <span class="k">def</span> <span class="nf">prepare_session</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
+        <span class="n">inference_settings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span> <span class="o">=</span> <span class="n">Device</span><span class="o">.</span><span class="n">CPU</span><span class="p">,</span>
         <span class="n">execution_providers</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">rank</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>

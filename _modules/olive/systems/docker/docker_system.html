@@ -153,6 +153,8 @@
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
+<span class="c1"># pylint: disable=c-extension-no-member</span>
+
 
 <div class="viewcode-block" id="DockerSystem"><a class="viewcode-back" href="../../../../api/systems.html#olive.systems.docker.DockerSystem">[docs]</a><span class="k">class</span> <span class="nc">DockerSystem</span><span class="p">(</span><span class="n">OliveSystem</span><span class="p">):</span>
     <span class="n">system_type</span> <span class="o">=</span> <span class="n">SystemType</span><span class="o">.</span><span class="n">Docker</span>
@@ -226,7 +228,7 @@
     <span class="k">def</span> <span class="nf">run_pass</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">the_pass</span><span class="p">:</span> <span class="n">Pass</span><span class="p">,</span>
-        <span class="n">model</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
+        <span class="n">model_config</span><span class="p">:</span> <span class="n">ModelConfig</span><span class="p">,</span>
         <span class="n">data_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">output_model_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">point</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -266,7 +268,7 @@
         <span class="n">volumes_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">eval_file_mount_str</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_dev</span><span class="p">:</span>
-            <span class="n">dev_mount_path</span><span class="p">,</span> <span class="n">dev_mount_str</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_dev_mount</span><span class="p">(</span><span class="n">tempdir</span><span class="p">,</span> <span class="n">container_root_path</span><span class="p">)</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">dev_mount_str</span> <span class="o">=</span> <span class="n">docker_utils</span><span class="o">.</span><span class="n">create_dev_mount</span><span class="p">(</span><span class="n">tempdir</span><span class="p">,</span> <span class="n">container_root_path</span><span class="p">)</span>
             <span class="n">volumes_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dev_mount_str</span><span class="p">)</span>
 
         <span class="n">model_config_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">model_config</span><span class="p">)</span>
