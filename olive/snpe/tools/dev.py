@@ -172,7 +172,7 @@ def to_dlc(model_file: str, model_framework: str, config: dict, output_file: str
 
     # check if conversion succeeded
     if "Conversion completed successfully" not in stderr:
-        raise Exception(stderr)  # pylint: disable=broad-exception-raised
+        raise RuntimeError(stderr)
 
 
 def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str):
@@ -200,7 +200,7 @@ def quantize_dlc(dlc_path: str, input_list: str, config: dict, output_file: str)
 
     # check if quantization succeeded
     if not ("Writing quantized model" in stderr or "Saved quantized dlc" in stderr):
-        raise Exception(stderr)  # pylint: disable=broad-exception-raised
+        raise RuntimeError(stderr)
 
 
 def dlc_to_onnx(

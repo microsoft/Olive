@@ -454,11 +454,11 @@ class Engine:
         # These passes will be added to the search space
         self.pass_flows_search_spaces = []
         for pass_flow in self.pass_flows:
-            self.pass_search_spaces = []  # pylint: disable=attribute-defined-outside-init
+            pass_search_spaces = []
             for pass_name in pass_flow:
                 p: Pass = self.passes[pass_name]["pass"]
-                self.pass_search_spaces.append((pass_name, p.search_space()))
-            self.pass_flows_search_spaces.append(self.pass_search_spaces)
+                pass_search_spaces.append((pass_name, p.search_space()))
+            self.pass_flows_search_spaces.append(pass_search_spaces)
 
     def run_no_search(
         self,
@@ -885,6 +885,7 @@ class Engine:
         should_prune = False
         # run all the passes in the step
         model_ids = []
+        pass_id = None
         for pass_id, pass_search_point in passes:
             model_config, model_id = self._run_pass(
                 pass_id, pass_search_point, model_config, model_id, data_root, accelerator_spec
@@ -897,7 +898,7 @@ class Engine:
 
         if not should_prune:
             # evaluate the model
-            evaluator_config = self.evaluator_for_pass(pass_id)  # pylint: disable=undefined-loop-variable
+            evaluator_config = self.evaluator_for_pass(pass_id)
             if self.no_search and evaluator_config is None:
                 # skip evaluation if no search and no evaluator
                 signal = None

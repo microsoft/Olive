@@ -80,8 +80,8 @@ class BaseDataset(TorchDataset):
             data_dict = {k: [] for k in first_input}
             data_dict[label_name] = []
             # loop over the dataset
-            for i in range(len(self)):  # pylint: disable=consider-using-enumerate
-                data, label = deepcopy(self[i])
+            for _, i in enumerate(self):
+                data, label = deepcopy(i)
                 for k, v in data.items():
                     data_dict[k].append(v)
                 data_dict[label_name].append(label)
